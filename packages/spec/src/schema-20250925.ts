@@ -347,6 +347,7 @@ export class Schema20250925 implements Schema<Spec20250925> {
         trigger_method: this.getValue(zambda.type, this.resources),
         schedule: this.getValue(zambda.schedule, this.resources),
         source: path.join(this.zambdasDirPath, this.getValue(zambda.zip, this.resources)),
+        execution_role_id: this.getValue(zambda.executionRoleId, this.resources),
       };
     }
     if (Object.keys(zambdaResources.resource.oystehr_zambda).length) {

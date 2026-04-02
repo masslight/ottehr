@@ -21,17 +21,8 @@ import {
   VisitsByTypeCount,
   VisitsOverviewReportZambdaOutput,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  fetchAllPages,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, fetchAllPages, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'visits-overview-report';
 const INITIAL_PAGE_SIZE = 1000;
@@ -43,8 +34,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { dateRange } = validatedParameters;
 
     // Get M2M token for FHIR access
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, validatedParameters.secrets);
 
     console.log('Searching for appointments in date range:', dateRange);
 

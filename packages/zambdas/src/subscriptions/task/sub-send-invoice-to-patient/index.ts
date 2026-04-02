@@ -24,7 +24,6 @@ import {
 } from 'utils';
 import { accountMatchesType } from '../../../ehr/shared/harvest';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
   getStripeClient,
@@ -35,8 +34,6 @@ import {
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mToken: string;
-
 const ZAMBDA_NAME = 'sub-send-invoice-to-patient';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -45,9 +42,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { secrets, encounterId, invoiceTaskInput, task } = validatedParams;
     const { amountCents, dueDate, memo, smsTextMessage } = invoiceTaskInput;
     console.log('Input task id: ', task.id);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     const stripe = getStripeClient(secrets);
 
     try {
@@ -124,7 +119,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
       console.log('Task status and output updated');
     } catch (error) {
-      const oystehr = createOystehrClient(m2mToken, secrets);
+      const oystehr = createOystehrClient(input.accessToken!, secrets);
       console.log('updating task status to failed and output');
       const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
       await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);

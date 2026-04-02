@@ -156,6 +156,7 @@ describe('executePageHarvest', () => {
     questionnaire: undefined,
     oystehr: mockOystehr,
     secrets: {} as any,
+    accessToken: 'test-access-token',
   });
 
   it('returns skip message for unmapped page linkIds', async () => {

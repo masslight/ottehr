@@ -19,7 +19,6 @@ import {
 } from 'utils';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 import {
-  getAuth0Token,
   getEmailClient,
   getUser,
   lambdaResponse,
@@ -31,7 +30,6 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 const ZAMBDA_NAME = 'telemed-create-invites';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -67,15 +65,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return lambdaResponse(401, { message: 'Unauthorized' });
     }
 
-    if (!oystehrToken) {
-      console.log('getting m2m token for service calls');
-      oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
     const oystehr = createOystehrClient(
-      oystehrToken,
+      input.accessToken!,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );

@@ -2,14 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, DocumentReference, Task } from 'fhir/r4b';
 import { getSecret, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets, SecretsKeys, STATEMENT_CODE } from 'utils';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  getPostGridLetter,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, getPostGridLetter, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'get-statement-status';
 const SEND_STATEMENT_BY_EMAIL_TASK_CODE = 'send-statement-by-email';
@@ -48,8 +41,6 @@ interface StatementStatusResponse {
   };
 }
 
-let oystehrToken: string;
-
 function validateRequestParameters(input: ZambdaInput): GetStatementStatusInput {
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
@@ -66,11 +57,8 @@ function validateRequestParameters(input: ZambdaInput): GetStatementStatusInput 
   };
 }
 
-async function createOystehr(secrets: Secrets): Promise<Oystehr> {
-  if (oystehrToken == null) {
-    oystehrToken = await getAuth0Token(secrets);
-  }
-  return createOystehrClient(oystehrToken, secrets);
+async function createOystehr(accessToken: string, secrets: Secrets): Promise<Oystehr> {
+  return createOystehrClient(accessToken, secrets);
 }
 
 function isStatementCommunication(resource: Communication): boolean {
@@ -117,7 +105,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     const validatedInput = validateRequestParameters(input);
     const { encounterId, secrets } = validatedInput;
-    const oystehr = await createOystehr(secrets);
+    const oystehr = await createOystehr(input.accessToken!, secrets);
 
     const encounterReference = `Encounter/${encounterId}`;
 

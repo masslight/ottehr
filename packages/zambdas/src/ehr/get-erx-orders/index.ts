@@ -10,7 +10,6 @@ import {
   SecretsKeys,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   makePrescribedMedicationDTO,
   topLevelCatch,
@@ -19,15 +18,12 @@ import {
   ZambdaInput,
 } from '../../shared';
 
-let m2mToken: string;
 const ZAMBDA_NAME = 'get-erx-orders';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, validatedParameters.secrets);
 
     const response = await getErxOrders(oystehr, validatedParameters);
     return {

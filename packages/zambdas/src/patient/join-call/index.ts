@@ -21,7 +21,6 @@ import {
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
 import {
-  getAuth0Token,
   getUser,
   getVideoEncounterForAppointment,
   lambdaResponse,
@@ -36,7 +35,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 const ZAMBDA_NAME = 'join-call';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const authorization = input.headers.Authorization;
@@ -89,15 +87,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return lambdaResponse(401, { message: 'Unauthorized' });
     }
 
-    if (!oystehrToken) {
-      console.log('getting m2m token for service calls');
-      oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
     const oystehr = createOystehrClient(
-      oystehrToken,
+      input.accessToken!,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );
@@ -138,7 +129,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (!(await isParticipantInvited(subject, videoEncounter.id, oystehr))) {
         return lambdaResponse(401, { message: 'Unauthorized' });
       }
-      userProfile = await getM2MUserProfile(oystehrToken, projectApiURL, telemedClientId);
+      userProfile = await getM2MUserProfile(input.accessToken!, projectApiURL, telemedClientId);
     } else {
       // user is defined here cause it's not invited participant
       user = user as User;
@@ -158,7 +149,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw new Error(`Video encounter was not found for the appointment ${appointment.id}`);
     }
 
-    const userToken = isInvitedParticipant ? oystehrToken : jwt;
+    const userToken = isInvitedParticipant ? input.accessToken! : jwt;
     const joinCallResponse = await joinTelemedMeeting(
       projectApiURL,
       userToken,

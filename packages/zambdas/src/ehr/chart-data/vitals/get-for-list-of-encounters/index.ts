@@ -33,22 +33,14 @@ import {
   VitalsVisionObservationDTO,
 } from 'utils';
 import * as z from 'zod';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../../shared';
 
-let m2mToken: string;
 const ZAMBDA_NAME = 'get-vitals-for-list-of-encounters';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Validating input: ${JSON.stringify(input.body)}`);
     const { encounterIds, secrets } = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     console.log(`Performing complex validation for encounterId: ${encounterIds}`);
     const effectInput = await complexValidation({ encounterIds, secrets }, oystehr);

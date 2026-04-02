@@ -57,7 +57,6 @@ import {
   createAuditEvent,
   createOystehrClient,
   generatePatientRelatedRequests,
-  getAuth0Token,
   getUser,
   isTestUser,
   topLevelCatch,
@@ -83,7 +82,6 @@ interface CreateAppointmentInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 export const index = wrapHandler('create-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -97,14 +95,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     const { secrets, unconfirmedDateOfBirth, language } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(input.secrets);
-    } else {
-      console.log('already have token');
-    }
-    const oystehr = createOystehrClient(oystehrToken, input.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, input.secrets);
 
     console.time('performing-complex-validation');
     const effectInput = await createAppointmentComplexValidation(validatedParameters, oystehr);

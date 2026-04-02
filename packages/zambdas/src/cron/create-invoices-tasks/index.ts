@@ -21,15 +21,12 @@ import {
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'create-invoices-tasks';
 const readyTaskStatus = mapDisplayToInvoiceTaskStatus('ready');
@@ -44,8 +41,7 @@ interface EncounterPackage {
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { secrets } = input;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     const candid = createCandidApiClient(secrets);
 
     const twoDaysAgo = DateTime.now().minus({ days: 2 });

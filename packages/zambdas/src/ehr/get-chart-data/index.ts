@@ -8,13 +8,7 @@ import {
   PUBLIC_EXTENSION_BASE_URL,
   SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  getPatientEncounter,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { getPatientEncounter, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { configLabRequestsForGetChartData } from '../lab/shared/labs';
 import {
@@ -29,17 +23,15 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 const ZAMBDA_NAME = 'get-chart-data';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
     const { encounterId, secrets, requestedFields } = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
-    const output = (await getChartData(oystehr, m2mToken, encounterId, requestedFields)).response;
+    const output = (await getChartData(oystehr, input.accessToken!, encounterId, requestedFields)).response;
 
     return {
       body: JSON.stringify(output),

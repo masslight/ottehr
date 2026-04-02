@@ -2,20 +2,17 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Coding, Encounter, PractitionerRole } from 'fhir/r4b';
 import { AssignPractitionerInput, AssignPractitionerResponse, getSecret, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
 import { assignPractitionerIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-let m2mToken: string;
 
 export const index = wrapHandler('assign-practitioner', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);

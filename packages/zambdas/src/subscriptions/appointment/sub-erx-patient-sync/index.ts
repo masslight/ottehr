@@ -1,11 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Observation, Patient } from 'fhir/r4b';
 import { FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG, getFirstName, getLastName, getPatchOperationForNewMetaTag } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
+import { wrapHandler, ZambdaInput } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'sub-erx-patient-sync';
 
@@ -17,9 +15,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { encounterId, patientId, secrets } = validateRequestParameters(input);
   console.groupEnd();
   console.debug('validateRequestParameters success');
-
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createOystehrClient(input.accessToken!, secrets);
   console.log('Created M2M token and oystehr client');
 
   // Fetch the encounter and patient in parallel

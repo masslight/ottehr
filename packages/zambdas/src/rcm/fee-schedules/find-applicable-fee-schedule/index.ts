@@ -1,14 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  RCM_TAG_SYSTEM,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, RCM_TAG_SYSTEM, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 /**
@@ -22,15 +15,12 @@ import { validateRequestParameters } from './validateRequestParameters';
  * Returns null if no fee schedule is found for the payer.
  */
 
-let m2mToken: string;
 export const index = wrapHandler(
   'find-applicable-fee-schedule',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
       const { payerOrganizationId, dateOfService, secrets } = validateRequestParameters(input);
-
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      const oystehr = createOystehrClient(m2mToken, secrets);
+      const oystehr = createOystehrClient(input.accessToken!, secrets);
 
       // Fetch all fee schedules (active and inactive) for historical lookups
       const allResults = await oystehr.fhir.search<ChargeItemDefinition>({

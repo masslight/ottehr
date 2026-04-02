@@ -11,7 +11,7 @@ import {
   userMe,
   VisitStatusWithoutUnknown,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler } from '../../shared';
+import { topLevelCatch, wrapHandler } from '../../shared';
 import { completeInProgressAiQuestionnaireResponseIfPossible } from '../../shared/ai-complete-questionnaire-response';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
@@ -24,17 +24,13 @@ export interface ChangeInPersonVisitStatusInputValidated extends ChangeInPersonV
   userToken: string;
 }
 
-let m2mToken: string;
-
 const ZAMBDA_NAME = 'change-in-person-visit-status';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
     const validatedData = await complexValidation(oystehr, validatedParameters);

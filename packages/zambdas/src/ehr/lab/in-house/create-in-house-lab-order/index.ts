@@ -25,7 +25,6 @@ import {
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
   parseCreatedResourcesBundle,
@@ -42,7 +41,6 @@ import {
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mToken: string;
 const ZAMBDA_NAME = 'create-in-house-lab-order';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`create-in-house-lab-order started, input: ${JSON.stringify(input)}`);
@@ -64,9 +62,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     secrets = validatedParameters.secrets;
 
     console.log('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
     const { encounterId, testItems, diagnosesAll, diagnosesNew, notes } = validatedParameters;

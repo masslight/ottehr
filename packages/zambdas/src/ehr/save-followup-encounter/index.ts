@@ -8,7 +8,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { createEncounterResource, updateEncounterResource } from './helpers';
 
@@ -44,16 +44,12 @@ export function validateRequestParameters(input: ZambdaInput): SaveFollowupEncou
   };
 }
 
-let m2mToken: string;
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     const { secrets, encounterDetails } = validateRequestParameters(input);
     console.log('updated encounter details', encounterDetails);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     let encounter: Encounter | undefined;
 
     if (encounterDetails.encounterId) {

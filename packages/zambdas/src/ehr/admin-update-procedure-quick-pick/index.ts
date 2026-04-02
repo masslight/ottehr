@@ -8,27 +8,17 @@ import {
   UpdateProcedureQuickPickInput,
   UpdateProcedureQuickPickResponse,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { activityDefinitionToQuickPick, quickPickToActivityDefinition } from '../admin-get-procedure-quick-picks';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'admin-update-procedure-quick-pick';
 
-let m2mToken: string;
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
     const response = await performEffect(oystehr, validatedParameters);

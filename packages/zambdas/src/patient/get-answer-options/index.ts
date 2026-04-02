@@ -12,10 +12,9 @@ import {
   MISSING_REQUEST_BODY,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 
 const ZAMBDA_NAME = 'get-answer-options';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -25,19 +24,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const getOptionsInput = validateInput(input);
     console.log('get options input:', getOptionsInput);
 
-    console.group('getAuth0Token');
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
+    console.group('');
     console.groupEnd();
-    console.debug('getAuth0Token success');
+    console.debug('success');
 
     console.group('createOystehrClient');
     const oystehr = createOystehrClient(
-      oystehrToken,
+      input.accessToken!,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );

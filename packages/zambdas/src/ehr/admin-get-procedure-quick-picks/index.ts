@@ -2,13 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
 import { GetProcedureQuickPicksResponse, getSecret, ProcedureQuickPickData, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'admin-get-procedure-quick-picks';
@@ -16,15 +10,11 @@ export const PROCEDURE_QUICK_PICK_TAG_SYSTEM = 'https://fhir.ottehr.com/CodeSyst
 export const PROCEDURE_QUICK_PICK_TAG_CODE = 'procedure-quick-pick';
 export const PROCEDURE_QUICK_PICK_CONFIG_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/quick-pick-config';
 
-let m2mToken: string;
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
     const response = await performEffect(oystehr);

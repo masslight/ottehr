@@ -18,7 +18,7 @@ import {
   SecretsKeys,
   standardizePhoneNumber,
 } from 'utils';
-import { getAuth0Token, getRoleMembers, lambdaResponse, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { getRoleMembers, lambdaResponse, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -32,7 +32,6 @@ export interface GetEmployeesInput {
   secrets: Secrets | null;
 }
 
-let oystehrToken: string;
 export const index = wrapHandler('get-employees', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -40,15 +39,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     const { secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const promises: [Promise<UserListItem[]>, Promise<RoleListItem[]>] = [getEmployees(oystehr), getRoles(oystehr)];
     const [allEmployees, existingRoles] = await Promise.all(promises);

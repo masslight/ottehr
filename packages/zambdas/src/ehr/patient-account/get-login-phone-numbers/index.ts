@@ -11,18 +11,9 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  validateJsonBody,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, topLevelCatch, validateJsonBody, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'get-login-phone-numbers';
-
-let m2mToken: string;
 
 interface Input extends GetPatientLoginPhoneNumbersInput {
   secrets: Secrets | null;
@@ -31,8 +22,7 @@ interface Input extends GetPatientLoginPhoneNumbersInput {
 export const index = wrapHandler(ZAMBDA_NAME, async (zambdaInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const input = validateRequestParameters(zambdaInput);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-    const oystehr = createOystehrClient(m2mToken, input.secrets);
+    const oystehr = createOystehrClient(zambdaInput.accessToken!, input.secrets);
     const phoneNumbers = await getLoginPhoneNumbers(input, oystehr);
     return {
       statusCode: 200,

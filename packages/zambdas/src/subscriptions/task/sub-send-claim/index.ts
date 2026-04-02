@@ -7,7 +7,6 @@ import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   createEncounterFromAppointment,
   createOystehrClient,
-  getAuth0Token,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -29,12 +28,11 @@ type TaskStatus =
   | 'completed'
   | 'entered-in-error';
 
-let oystehrToken: string;
-let oystehr: Oystehr;
 let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-send-claim';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  let oystehr: ReturnType<typeof createOystehrClient> | undefined;
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -46,15 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     taskId = task.id;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    oystehr = createOystehrClient(oystehrToken, secrets);
+    oystehr = createOystehrClient(input.accessToken!, secrets);
 
     console.log('getting appointment Id from the task');
     const appointmentId =

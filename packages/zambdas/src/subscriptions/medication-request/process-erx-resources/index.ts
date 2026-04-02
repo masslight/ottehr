@@ -8,7 +8,6 @@ import {
   SecretsKeys,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   fillMeta,
   makeMedicationResource,
@@ -46,7 +45,6 @@ export function validateRequestParameters(input: ZambdaInput): {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'process-erx-resources';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -55,9 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { medicationRequest, secrets } = validateRequestParameters(input);
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     console.log('Created zapToken and fhir client');
 
     console.log(`Medication request id: ${medicationRequest.id}`);

@@ -10,7 +10,6 @@ import {
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
   topLevelCatch,
@@ -20,15 +19,12 @@ import {
 } from '../../../shared';
 import { createTask } from '../../../shared/tasks';
 
-let m2mToken: string;
-
 const ZAMBDA_NAME = 'create-manual-task';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const params = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-    const oystehr = createOystehrClient(m2mToken, params.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, params.secrets);
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const oystehrCurrentUser = createOystehrClient(userToken, params.secrets);
     const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);

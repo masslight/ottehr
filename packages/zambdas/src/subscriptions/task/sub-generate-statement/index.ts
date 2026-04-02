@@ -19,10 +19,8 @@ import {
 } from 'utils';
 import {
   assertDefined,
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   createPresignedUrl,
-  getAuth0Token,
   getJSONStatementTemplate,
   getStatementDetails,
   topLevelCatch,
@@ -55,14 +53,10 @@ interface GenerateStatementInputValidated {
   secrets: Secrets;
 }
 
-let oystehrToken: string;
-let m2mToken: string;
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { task, encounterId, userTimezone, secrets } = validateInput(input);
-    const oystehr = await createOystehr(secrets);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = await createOystehr(input.accessToken!, secrets);
 
     const encounterReference = `Encounter/${encounterId}`;
     const encounter = await oystehr.fhir.get<Encounter>({
@@ -105,7 +99,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     let presignedUrl: string;
     try {
-      presignedUrl = await createPresignedUrl(m2mToken, baseFileUrl, 'upload');
+      presignedUrl = await createPresignedUrl(input.accessToken!, baseFileUrl, 'upload');
       await uploadObjectToZ3(pdfBytes, presignedUrl);
     } catch (error: unknown) {
       throw new Error('failed uploading pdf to z3', { cause: error });
@@ -280,11 +274,8 @@ async function supersedeCurrentStatementDocumentReferences(
   );
 }
 
-async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
-  if (oystehrToken == null) {
-    oystehrToken = await getAuth0Token(secrets);
-  }
-  return createOystehrClient(oystehrToken, secrets);
+async function createOystehr(token: string, secrets: Secrets | null): Promise<Oystehr> {
+  return createOystehrClient(token, secrets);
 }
 
 function buildPdfDocumentDefinition(template: string, context: Record<string, unknown>): Record<string, unknown> {

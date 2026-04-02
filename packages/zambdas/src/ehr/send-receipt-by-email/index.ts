@@ -3,7 +3,6 @@ import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getPresignedURL, getSecret, InPersonReceiptTemplateData, MIME_TYPES, SecretsKeys } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   EmailAttachment,
   getEmailClient,
@@ -15,8 +14,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'send-receipt-by-email';
 
-let m2mToken: string;
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
@@ -24,9 +21,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { recipientFullName, email, receiptDocRefId, secrets } = validateRequestParameters(input);
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     console.log('fetching document reference');
     const documentReference = await oystehr.fhir.get<DocumentReference>({
@@ -40,7 +35,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log(`content: ${JSON.stringify(content)}, url: ${z3Url}`);
 
     if (z3Url) {
-      const presignedUrl = await getPresignedURL(z3Url, m2mToken);
+      const presignedUrl = await getPresignedURL(z3Url, input.accessToken!);
       const file = await fetch(presignedUrl, {
         method: 'GET',
         headers: { 'Cache-Control': 'no-cache' },

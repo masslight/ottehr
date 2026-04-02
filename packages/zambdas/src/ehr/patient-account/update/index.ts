@@ -24,7 +24,6 @@ import {
 } from 'utils';
 import { ValidationError } from 'yup';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   getStripeClient,
   sendErrors,
@@ -43,8 +42,6 @@ import {
 
 const ZAMBDA_NAME = 'update-patient-account';
 
-let m2mToken: string;
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -52,8 +49,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.groupEnd();
     console.debug('validateRequestParameters success');
     const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     console.log('complexly validating request parameters');
     const effectInput = await complexValidation(validatedParameters);
     console.log('complex validation successful');

@@ -11,14 +11,7 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   StartInterviewInput,
 } from 'utils';
-import {
-  getAuth0Token,
-  topLevelCatch,
-  validateJsonBody,
-  validateString,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { topLevelCatch, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
 import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
@@ -74,8 +67,6 @@ function getInitialUserMessageWorkerComp(patientInfo: string): string {
   Begin taking the history by saying "I am an AI assistant who will ask you some questions to help your nurse or doctor prepare for your visit. Are you the patient or are you their parent or guardian?"`;
 }
 
-let oystehrToken: string;
-
 interface Input extends StartInterviewInput {
   secrets: Secrets | null;
 }
@@ -85,7 +76,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const { appointmentId, secrets } = validateInput(input);
-    const oystehr = await createOystehr(secrets);
+    const oystehr = await createOystehr(input.accessToken!, secrets);
 
     const resources = (
       await oystehr.fhir.search<Encounter | Appointment | Patient>({
@@ -174,12 +165,9 @@ function validateInput(input: ZambdaInput): Input {
   };
 }
 
-async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
-  if (oystehrToken == null) {
-    oystehrToken = await getAuth0Token(secrets);
-  }
+async function createOystehr(token: string, secrets: Secrets | null): Promise<Oystehr> {
   return createOystehrClient(
-    oystehrToken,
+    token,
     getSecret(SecretsKeys.FHIR_API, secrets),
     getSecret(SecretsKeys.PROJECT_API, secrets)
   );

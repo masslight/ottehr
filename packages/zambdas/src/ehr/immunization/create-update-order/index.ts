@@ -12,7 +12,6 @@ import {
   SecretsKeys,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   fillMeta,
   getMyPractitionerId,
@@ -23,15 +22,12 @@ import {
 } from '../../../shared';
 import { IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL, updateOrderDetails, validateOrderDetails } from '../common';
 
-let m2mToken: string;
-
 const ZAMBDA_NAME = 'create-update-immunization-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, validatedParameters.secrets);
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
     const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);

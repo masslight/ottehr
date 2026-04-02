@@ -10,7 +10,7 @@ import {
   SecretsKeys,
   TaskStatus,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { sendText } from '../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
@@ -20,8 +20,6 @@ export interface TaskSubscriptionInput {
   secrets: Secrets | null;
 }
 
-let oystehrToken: string;
-
 export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -30,15 +28,7 @@ export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput)
     console.log('task ID', task.id);
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     let taskStatusToUpdate: TaskStatus;
     let statusReasonToUpdate: string | undefined;
@@ -123,7 +113,7 @@ export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput)
       const message = `Welcome, and thanks for checking in! Our care team will see ${getPatientFirstName(
         fhirPatient
       )} soon. We appreciate your patience!`;
-      const { taskStatus, statusReason } = await sendText(message, fhirRelatedPerson, oystehrToken, secrets);
+      const { taskStatus, statusReason } = await sendText(message, fhirRelatedPerson, input.accessToken!, secrets);
       taskStatusToUpdate = taskStatus;
       statusReasonToUpdate = statusReason;
     } else {

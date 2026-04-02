@@ -9,18 +9,11 @@ import {
   getSecret,
   SecretsKeys,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 
-let oystehrToken: string;
 export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(input.secrets);
-    } else {
-      console.log('already have token');
-    }
-    const oystehr = createOystehrClient(oystehrToken, input.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, input.secrets);
 
     // Clean up E2E test resources (Playwright tests)
     await cleanAppointmentGraph({ system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, code: '' }, oystehr);

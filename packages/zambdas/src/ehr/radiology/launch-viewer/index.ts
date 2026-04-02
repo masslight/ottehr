@@ -8,13 +8,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -24,16 +18,13 @@ export interface ValidatedInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'radiology-launch-viewer';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = validateSecrets(unsafeInput.secrets);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(unsafeInput.accessToken!, secrets);
 
     const validatedInput = await validateInput(unsafeInput, oystehr);
 

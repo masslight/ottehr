@@ -19,18 +19,14 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let oystehrToken: string;
 const ZAMBDA_NAME = 'get-presigned-file-url';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    if (!oystehrToken) {
-      oystehrToken = await getAuth0Token(input.secrets);
-    }
-    const result = await makePresignedFileURL(input, createOystehrClient, getAppointmentResourceById, oystehrToken);
+    const result = await makePresignedFileURL(input, createOystehrClient, getAppointmentResourceById);
 
     return {
       statusCode: 200,
@@ -45,8 +41,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const makePresignedFileURL = async (
   input: ZambdaInput,
   createOystehrClient: (token: string, secrets: Secrets | null) => Oystehr,
-  getAppointmentResource: (appointmentID: string, oystehr: Oystehr) => Promise<Appointment | undefined>,
-  oystehrToken: string
+  getAppointmentResource: (appointmentID: string, oystehr: Oystehr) => Promise<Appointment | undefined>
 ): Promise<PresignUploadUrlResponse> => {
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
@@ -54,7 +49,7 @@ const makePresignedFileURL = async (
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createOystehrClient(input.accessToken!, secrets);
 
   console.log(`getting appointment with id ${appointmentID}`);
   const appointment = await getAppointmentResource(appointmentID, oystehr);
@@ -102,7 +97,7 @@ const makePresignedFileURL = async (
   const presignedURLRequest = await fetch(fileURL, {
     method: 'POST',
     headers: {
-      authorization: `Bearer ${oystehrToken}`,
+      authorization: `Bearer ${input.accessToken!}`,
     },
     body: JSON.stringify({ action: 'upload' }),
   });

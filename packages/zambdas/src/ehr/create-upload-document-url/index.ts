@@ -5,7 +5,7 @@ import { Operation } from 'fast-json-patch';
 import { CodeableConcept, DocumentReference, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { addOperation, getSecret, OTTEHR_MODULE, replaceOperation, Secrets, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { createPresignedUrl } from '../../shared/z3Utils';
@@ -33,7 +33,6 @@ export interface CreateUploadPatientDocumentOutput {
 }
 const ZAMBDA_NAME = 'create-upload-document';
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   logIt(`handler() start.`);
   try {
@@ -41,10 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { secrets, patientId, fileFolderId, fileName } = validatedInput;
     logIt(`validatedInput => `);
     logIt(JSON.stringify(validatedInput));
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    logIt(`Got m2mToken`);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     logIt('fetching list .......');
     const listAndPatientResource = await getListAndPatientResource(fileFolderId, oystehr);
@@ -76,7 +72,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const sanitizedFileName = sanitizeFileNameForZ3(fileName);
     const fileZ3Url = makeZ3Url({ secrets, patientID: patientId, bucketName: folderName, fileName: sanitizedFileName });
-    const presignedFileUploadUrl = await createPresignedUrl(m2mToken, fileZ3Url, 'upload');
+    const presignedFileUploadUrl = await createPresignedUrl(input.accessToken!, fileZ3Url, 'upload');
 
     logIt(`created fileZ3Url: [${fileZ3Url}] :: presignedFileUploadUrl: [${presignedFileUploadUrl}]`);
 

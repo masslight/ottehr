@@ -24,17 +24,9 @@ import {
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotServiceCategory,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'create-slot';
-
-let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -43,8 +35,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.groupEnd();
     console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
     const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     const effectInput = await complexValidation(validatedParameters, oystehr);
 
     const slot = await performEffect(effectInput, oystehr);

@@ -5,6 +5,7 @@ import { IncomingHttpHeaders } from 'http2';
 import _ from 'lodash';
 import { resolve } from 'path';
 import { ZambdaInput } from '../shared';
+import { getAuth0Token } from '../shared/getAuth0Token';
 
 export const expressLambda = async (
   handler: Handler<any, APIGatewayProxyResult>,
@@ -39,6 +40,7 @@ export const expressLambda = async (
 };
 
 const secrets: Record<string, string> = {};
+let cachedAccessToken: string | undefined;
 
 function populateSecrets({ pathToSecretsFile }: { pathToSecretsFile: string }): void {
   console.log('Populating secrets from', pathToSecretsFile);
@@ -80,12 +82,23 @@ console.log('Loading secrets from', pathToSecretsFile);
 populateSecrets({ pathToSecretsFile });
 const populateSecretsPromise = Promise.resolve();
 
+async function getAccessToken(): Promise<string> {
+  if (!cachedAccessToken) {
+    console.log('Fetching M2M access token for local zambda execution...');
+    cachedAccessToken = await getAuth0Token(secrets);
+    console.log('Access token fetched successfully');
+  }
+  return cachedAccessToken;
+}
+
 async function buildLambdaInput(req: Request): Promise<ZambdaInput> {
   console.log('build lambda body,', JSON.stringify(req.body));
   await populateSecretsPromise;
+  const accessToken = await getAccessToken();
   return {
     body: !_.isEmpty(req.body) ? req.body : null,
     headers: singleValueHeaders(req.headers),
     secrets,
+    accessToken,
   };
 }

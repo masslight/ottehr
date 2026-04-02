@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FHIR_EXTENSION, getPatientsForUser, getSecret, PatientInfo, Secrets, SecretsKeys } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -9,7 +9,6 @@ export interface GetPatientsInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 
 export const index = wrapHandler('get-patients', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -18,19 +17,11 @@ export const index = wrapHandler('get-patients', async (input: ZambdaInput): Pro
     const { secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
     // const appClient = createAppClient(input.headers.Authorization.replace('Bearer ', ''), secrets);
     // const user = await appClient.getMe();
     // console.log(user);
 
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     console.log('getting user');
     const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
     console.log('getting patients for user', user);

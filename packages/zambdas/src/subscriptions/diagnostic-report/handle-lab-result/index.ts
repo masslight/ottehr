@@ -16,7 +16,7 @@ import {
 } from 'utils';
 import { getContainedPatientFromDiagnosticReport } from '../../../ehr/lab/shared/helpers';
 import { diagnosticReportSpecificResultType, nonNonNormalTagsContained } from '../../../ehr/lab/shared/labs';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { addDocsToLabList, getLabListResource } from '../../../shared/pdf/lab-pdf-utils';
 import {
   createExternalLabResultPDF,
@@ -34,21 +34,12 @@ export interface ReviewLabResultSubscriptionInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input, undefined, 2)}`);
 
   try {
     const { diagnosticReport, secrets } = validateRequestParameters(input);
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
     const specificDrTypeFromTag = diagnosticReportSpecificResultType(diagnosticReport);
     const isUnsolicited = specificDrTypeFromTag === LAB_DR_TYPE_TAG.code.unsolicited;
     const isUnsolicitedAndMatched = isUnsolicited && !!diagnosticReport.subject?.reference?.startsWith('Patient/');
@@ -67,7 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw new Error('ServiceRequest id is not found');
     }
 
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     const { tasks, patient, labOrg, encounter, attachments } = await fetchRelatedResources(diagnosticReport, oystehr);
 
     const requests: BatchInputRequest<Task>[] = [];
@@ -233,7 +224,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
 
     if (serviceRequestId) {
-      await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, false, secrets, oystehrToken);
+      await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, false, secrets, input.accessToken!);
     } else if (specificDrTypeFromTag !== undefined) {
       // unsolicited result pdfs will be created after matching to a patient
       if (isUnsolicitedAndMatched || specificDrTypeFromTag === LabType.reflex) {
@@ -245,7 +236,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           diagnosticReport.id,
           false,
           secrets,
-          oystehrToken
+          input.accessToken!
         );
       } else {
         console.log(

@@ -1,25 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition, Coding } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  RCM_TAG_SYSTEM,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, RCM_TAG_SYSTEM, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mToken: string;
 export const index = wrapHandler(
   'designate-charge-master-entry',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
       const { chargeMasterId, designation, secrets } = validateRequestParameters(input);
-
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      const oystehr = createOystehrClient(m2mToken, secrets);
+      const oystehr = createOystehrClient(input.accessToken!, secrets);
 
       // Set the designation tag on the target charge master and clear useContext
       const target = await oystehr.fhir.get<ChargeItemDefinition>({

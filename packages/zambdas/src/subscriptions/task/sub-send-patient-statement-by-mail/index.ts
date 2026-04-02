@@ -5,7 +5,6 @@ import { Communication, Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { generateStatement, getSecret, RCM_TASK_SYSTEM, Secrets, SecretsKeys, TaskIndicator } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   getHTMLStatementTemplate,
   getStatementDetails,
@@ -20,8 +19,6 @@ import { validateRequestParameters } from '../validateRequestParameters';
 const ZAMBDA_NAME = 'sub-send-patient-statement-by-mail';
 const MAIL_STATEMENT_TASK_INPUT_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/patient-statement-mail-task-input';
 const validStatementTypes = new Set<StatementType>(['standard', 'past-due', 'final-notice']);
-
-let m2mToken: string;
 
 interface ParsedTaskInput {
   encounterId: string;
@@ -39,9 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const validatedInput = validateInput(input);
     const { encounterId, statementType, color, secrets } = validatedInput;
     task = validatedInput.task;
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    oystehr = createOystehrClient(m2mToken, secrets);
+    oystehr = createOystehrClient(input.accessToken!, secrets);
 
     await patchTaskStatus(oystehr, task.id!, 'in-progress');
 

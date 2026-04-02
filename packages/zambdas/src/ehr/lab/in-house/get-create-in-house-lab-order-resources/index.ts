@@ -13,19 +13,11 @@ import {
   SecretsKeys,
   TestItem,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  sendErrors,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { createOystehrClient, sendErrors, topLevelCatch, wrapHandler, ZambdaInput } from '../../../../shared';
 import { formatLabListDTOs } from '../../shared/helpers';
 import { fetchActiveInHouseLabActivityDefinitions } from '../../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mToken: string;
 const ZAMBDA_NAME = 'get-create-in-house-lab-order-resources';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -47,9 +39,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     secrets = validatedParameters.secrets;
 
     console.log('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const testItems: TestItem[] = [];
     let providerName: string | undefined;

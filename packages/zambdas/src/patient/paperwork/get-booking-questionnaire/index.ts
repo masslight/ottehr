@@ -20,28 +20,19 @@ import {
   ServiceCategoryCode,
   ServiceMode,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { getUser, userHasAccessToPatient } from '../../../shared/auth';
 
 const ZAMBDA_NAME = 'get-booking-questionnaire';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
     const validatedParams = validatedParameters;
     console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
     const { secrets } = validatedParams;
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const effectInput = await complexValidation(validatedParams, oystehr);
 

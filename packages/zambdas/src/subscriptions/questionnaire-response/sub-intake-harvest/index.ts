@@ -18,7 +18,6 @@ import {
 import { getStripeClient } from '../../../patient/payment-methods/helpers';
 import {
   createOystehrClient,
-  getAuth0Token,
   makeObservationResource,
   saveResourceRequest,
   topLevelCatch,
@@ -28,8 +27,6 @@ import {
 } from '../../../shared';
 import { createAdditionalQuestions } from '../../appointment/appointment-chart-data-prefilling/helpers';
 import { QRSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
-
-let oystehrToken: string;
 
 export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('Intake Harvest Hath Been Invoked');
@@ -41,15 +38,7 @@ export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput
     console.log('questionnaire response id', qr.id);
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     const response = await performEffect(validatedParameters, oystehr);
     return {
       statusCode: 200,

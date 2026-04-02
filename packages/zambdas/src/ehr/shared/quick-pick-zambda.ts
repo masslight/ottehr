@@ -8,13 +8,7 @@ import {
   QuickPickUpdateResponse,
   SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import {
   createQuickPick,
   QuickPickCategory,
@@ -22,8 +16,6 @@ import {
   searchQuickPicks,
   updateQuickPick,
 } from './quick-pick-helpers';
-
-let m2mToken: string;
 
 function makeHandler(
   zambdaName: string,
@@ -34,8 +26,7 @@ function makeHandler(
       if (!input.secrets) {
         throw new Error('No secrets provided in input');
       }
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-      const oystehr = createOystehrClient(m2mToken, input.secrets);
+      const oystehr = createOystehrClient(input.accessToken!, input.secrets);
       const response = await effect(oystehr, input);
       return {
         statusCode: 200,

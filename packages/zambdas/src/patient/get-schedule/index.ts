@@ -20,18 +20,10 @@ import {
   SlotListItem,
   Timezone,
 } from 'utils';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  getSchedules,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, getSchedules, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('this should get logged out if the zambda has been deployed');
   console.log(`Input: ${JSON.stringify(input)}`);
@@ -43,14 +35,13 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!oystehrToken) {
+    if (!input.accessToken!) {
       console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
     } else {
-      console.log('already have token', oystehrToken);
+      console.log('already have token', input.accessToken!);
     }
 
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     if (!oystehr) {
       throw new Error('error initializing fhir client');
     }
@@ -121,8 +112,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
         searchParams: [
           { name: 'near', value: `${latitude}|${longitude}|20.0|mi_us` },
           // { name: '_id:not-in', value: location.id },
-        ],
-      });
+        ] });
       console.log('nearbyLocationSearchResults', nearbyLocationSearchResults.length);
     }*/
 

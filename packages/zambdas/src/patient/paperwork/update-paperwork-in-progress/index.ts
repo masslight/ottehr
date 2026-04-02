@@ -3,26 +3,18 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Flag } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getSecret, isFollowupEncounter, SecretsKeys } from 'utils';
-import { createOystehrClient, getAuth0Token, getUser, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient, getUser, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { createOrUpdateFlags } from '../sharedHelpers';
 import { validateUpdatePaperworkParams } from './validateRequestParameters';
 
-// Lifting the token out of the handler function allows it to persist across warm lambda invocations.
-export let token: string;
 const ZAMBDA_NAME = 'update-paperwork-in-progress';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = input.secrets;
-    if (!token) {
-      console.log('getting token');
-      token = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
 
     const userToken = input.headers.Authorization?.replace('Bearer ', '');
     const user = userToken && (await getUser(userToken, input.secrets));
-    const oystehr = createOystehrClient(token, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     console.group('validateRequestParameters');
     // Step 1: Validate input

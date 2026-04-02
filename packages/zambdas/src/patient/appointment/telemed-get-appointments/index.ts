@@ -10,14 +10,13 @@ import {
   SecretsKeys,
   TelemedAppointmentInformationIntake,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getUser, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { getUser, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { filterTelemedVideoEncounters, getFhirResources } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'telemed-get-appointments';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -26,11 +25,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { patientId, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, secrets);
     const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
-    const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
+    const oystehr = createOystehrClient(input.accessToken!, fhirAPI, projectAPI);
     console.log('getting user');
 
     const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);

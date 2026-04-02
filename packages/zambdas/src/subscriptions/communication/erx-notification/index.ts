@@ -2,7 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ERX_TASK, getSecret, Secrets, SecretsKeys, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils';
-import { getAuth0Token, topLevelCatch, wrapHandler } from '../../../shared';
+import { topLevelCatch, wrapHandler } from '../../../shared';
 import { assertDefined, createOystehrClient, validateJsonBody } from '../../../shared/helpers';
 import { createTask } from '../../../shared/tasks';
 import { ZambdaInput } from '../../../shared/types';
@@ -14,21 +14,11 @@ interface Input {
   secrets: Secrets | null;
 }
 
-let oystehrToken: string;
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const { communication, secrets } = validateRequestParameters(input);
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const practitioner = assertDefined(
       (

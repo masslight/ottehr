@@ -24,7 +24,6 @@ import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { getPresignedURLs } from '../../../patient/appointment/get-visit-details/helpers';
 import {
   createOystehrClient,
-  getAuth0Token,
   getEmailClient,
   makeAddressUrl,
   topLevelCatch,
@@ -55,8 +54,6 @@ type TaskStatus =
   | 'completed'
   | 'entered-in-error';
 
-let oystehrToken: string;
-let oystehr: Oystehr;
 let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-visit-note-pdf-and-email';
@@ -71,15 +68,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   taskId = task.id;
   console.groupEnd();
   console.debug('validateRequestParameters success');
-
-  if (!oystehrToken) {
-    console.log('getting token');
-    oystehrToken = await getAuth0Token(secrets);
-  } else {
-    console.log('already have token');
-  }
-
-  oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createOystehrClient(input.accessToken!, secrets);
 
   console.log('getting appointment Id from the task');
   const appointmentId =
@@ -117,10 +106,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Check if this is a PDF-only task (for follow-ups) or regular PDF+email task
   const isPDFOnlyTask = isFollowupEncounter(encounter);
 
-  const chartDataPromise = getChartData(oystehr, oystehrToken, visitResources.encounter.id!);
+  const chartDataPromise = getChartData(oystehr, input.accessToken!, visitResources.encounter.id!);
   const additionalChartDataPromise = getChartData(
     oystehr,
-    oystehrToken,
+    input.accessToken!,
     visitResources.encounter.id!,
     isInPersonAppointment ? progressNoteChartDataRequestedFields : telemedProgressNoteChartDataRequestedFields
   );
@@ -165,7 +154,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           questionnaireResponse: visitResources.questionnaireResponse,
         },
         secrets,
-        oystehrToken
+        input.accessToken!
       );
       if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
       console.log(`Creating visit note pdf docRef`);
@@ -195,7 +184,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           locationName = getNameForOwner(location);
           address = getAddressStringForScheduleResource(location) ?? '';
         }
-        const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
+        const { presignedUrls } = await getPresignedURLs(oystehr, input.accessToken!, visitResources.encounter.id!);
         const visitNoteUrl = presignedUrls['visit-note']?.presignedUrl;
 
         if (isInPersonAppointment) {

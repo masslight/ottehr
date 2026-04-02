@@ -23,7 +23,6 @@ import {
   SecretsKeys,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   fillMeta,
   getMyPractitionerId,
@@ -33,8 +32,6 @@ import {
 } from '../../shared';
 import { getPrimaryInsurance } from '../lab/shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 export const index = wrapHandler('create-nursing-order', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`create-nursing-order started, input: ${JSON.stringify(input)}`);
@@ -54,9 +51,7 @@ export const index = wrapHandler('create-nursing-order', async (input: ZambdaInp
 
   try {
     const { userToken, secrets, encounterId, notes } = validatedParameters;
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
       (

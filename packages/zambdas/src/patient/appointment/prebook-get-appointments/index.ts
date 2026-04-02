@@ -15,7 +15,6 @@ import {
 import {
   checkPaperworkComplete,
   createOystehrClient,
-  getAuth0Token,
   getUser,
   topLevelCatch,
   wrapHandler,
@@ -30,7 +29,6 @@ export interface GetPatientsInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 
 export const index = wrapHandler('get-appointments', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -40,15 +38,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     console.groupEnd();
     console.debug('validateRequestParameters success');
     const now = DateTime.now().setZone('UTC');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     console.log('getting user');
     const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
 

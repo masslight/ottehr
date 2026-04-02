@@ -60,14 +60,7 @@ import {
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  getMyPractitionerId,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { createOystehrClient, getMyPractitionerId, topLevelCatch, wrapHandler, ZambdaInput } from '../../../../shared';
 import { createInHouseLabResultPDF } from '../../../../shared/pdf/labs-results-form-pdf';
 import { createOwnerReference } from '../../../../shared/tasks';
 import {
@@ -76,8 +69,6 @@ import {
   provenanceIsInHouseLabResultEntry,
 } from '../../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'handle-in-house-lab-results';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -88,10 +79,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('validateRequestParameters success');
 
     console.log('Getting token');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    console.log('token', m2mToken);
+    console.log('token', input.accessToken!);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
 
@@ -175,7 +165,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         observations,
         diagnosticReport,
         secrets,
-        m2mToken,
+        input.accessToken!,
         activityDefinition,
         relatedServiceRequests,
         specimen

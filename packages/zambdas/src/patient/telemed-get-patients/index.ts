@@ -9,7 +9,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -18,7 +18,6 @@ export interface GetPatientsInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 const ZAMBDA_NAME = 'telemed-get-patients';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -27,20 +26,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
     // const appClient = createAppClient(input.headers.Authorization.replace('Bearer ', ''), secrets);
     // const user = await appClient.getMe();
     // console.log(user);
 
     const oystehr = createOystehrClient(
-      oystehrToken,
+      input.accessToken!,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );

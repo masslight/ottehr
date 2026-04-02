@@ -16,10 +16,8 @@ import {
   SecretsKeys,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   createPresignedUrl,
-  getAuth0Token,
   topLevelCatch,
   uploadObjectToZ3,
   validateJsonBody,
@@ -33,16 +31,12 @@ import { generatePdf } from './draw';
 
 const ZAMBDA_NAME = 'paperwork-to-pdf';
 
-let oystehrToken: string;
-
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { questionnaireResponseId, secrets } = validateInput(input);
-    const oystehr = await createOystehr(secrets);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = await createOystehr(input.accessToken!, secrets);
 
     const paperworkResources = await getPaperworkResources(oystehr, questionnaireResponseId);
     if (!paperworkResources) throw new Error('Paperwork not submitted');
@@ -66,7 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     let presignedUrl;
     try {
-      presignedUrl = await createPresignedUrl(m2mToken, baseFileUrl, 'upload');
+      presignedUrl = await createPresignedUrl(input.accessToken!, baseFileUrl, 'upload');
       await uploadObjectToZ3(await pdfDocument.save(), presignedUrl);
     } catch (error: unknown) {
       throw new Error('failed uploading pdf to z3', { cause: error });
@@ -137,9 +131,6 @@ function validateInput(input: ZambdaInput): PaperworkToPDFInputValidated {
   };
 }
 
-async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
-  if (oystehrToken == null) {
-    oystehrToken = await getAuth0Token(secrets);
-  }
-  return createOystehrClient(oystehrToken, secrets);
+async function createOystehr(m2mToken: string, secrets: Secrets | null): Promise<Oystehr> {
+  return createOystehrClient(m2mToken, secrets);
 }

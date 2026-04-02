@@ -27,7 +27,7 @@ import {
   getSecret,
   SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { addCoverageAndRelatedResourcesToPackages, addInsuranceToResultPackages } from './helpers/fhir-utils';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -49,13 +49,11 @@ export interface ClaimPackage {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 const ZAMBDA_NAME = 'get-claims';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, validatedParameters.secrets);
     // const userToken = input.headers.Authorization.replace('Bearer ', '');
     console.log('Created zapToken and fhir client');
 
@@ -129,7 +127,7 @@ async function getPreFilteredClaimPackages(
     queue,
     status,
     dayInQueue,
-    // balance,
+    // balance
   } = validatedInput;
   console.time('track-all');
   console.log('Getting first set of resources');

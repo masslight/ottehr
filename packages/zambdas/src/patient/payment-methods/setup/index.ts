@@ -13,7 +13,6 @@ import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/ha
 import {
   createOystehrClient,
   ensureStripeCustomerId,
-  getAuth0Token,
   lambdaResponse,
   topLevelCatch,
   wrapHandler,
@@ -21,9 +20,6 @@ import {
 } from '../../../shared';
 import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-
-// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mClientToken: string;
 
 export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -34,13 +30,7 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!m2mClientToken) {
-      console.log('getting m2m token for service calls');
-      m2mClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-    const oystehrClient = createOystehrClient(m2mClientToken, secrets);
+    const oystehrClient = createOystehrClient(input.accessToken!, secrets);
     void (await validateUserHasAccessToPatientAccount(
       { beneficiaryPatientId, secrets, zambdaInput: input },
       oystehrClient

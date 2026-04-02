@@ -154,6 +154,7 @@ describe('sub-harvest-paperwork-page integration', () => {
     questionnaire: undefined,
     oystehr,
     secrets: envConfig,
+    accessToken: 'test-access-token',
   });
 
   // ── master-record strategy ──────────────────────────────────────────────

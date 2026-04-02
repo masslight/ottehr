@@ -13,17 +13,10 @@ import {
   VideoChatNotificationResponse,
 } from 'utils';
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  lambdaResponse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, lambdaResponse, wrapHandler, ZambdaInput } from '../../../shared';
 import { ValidatedInput, validateInput, validateSecrets } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'video-chat-waiting-room-notification';
 
@@ -32,9 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     const secrets = validateSecrets(unsafeInput.secrets);
 
     const validatedInput = await validateInput(unsafeInput);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(unsafeInput.accessToken!, secrets);
 
     const response = await performEffect(validatedInput, oystehr);
 

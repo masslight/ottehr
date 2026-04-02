@@ -17,14 +17,7 @@ import {
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  getMyPractitionerId,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { createOystehrClient, getMyPractitionerId, topLevelCatch, wrapHandler, ZambdaInput } from '../../../../shared';
 import { makeSoftDeleteStatusPatchRequest } from '../../shared/helpers';
 import {
   getLabOrderRelatedResources,
@@ -34,7 +27,6 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -43,9 +35,7 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     const { serviceRequestId, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
 

@@ -23,14 +23,7 @@ import {
   TaskIndicator,
   VisitType,
 } from 'utils';
-import {
-  checkPaperworkComplete,
-  createOystehrClient,
-  getAuth0Token,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkPaperworkComplete, createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -40,7 +33,6 @@ export interface CheckInInputValidated extends CheckInInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 
 export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -56,15 +48,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
     const { appointmentId: appointmentID, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     console.log('getting all fhir resources');
     console.time('resource search for check in');

@@ -21,14 +21,13 @@ import {
   SecretsKeys,
   VALUE_SETS,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler } from '../../../../shared';
+import { topLevelCatch, wrapHandler } from '../../../../shared';
 import { createOystehrClient } from '../../../../shared/helpers';
 import { ZambdaInput } from '../../../../shared/types';
 import { formatLabListDTOs } from '../../shared/helpers';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mToken: string;
 const ZAMBDA_NAME = 'get-create-lab-order-resources';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -46,9 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('search passed', testItemSearch);
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const { accounts, coverages, labOrgsGUIDs, orderingLocationDetails, appointmentIsWorkersComp, labLists } =
       await getResources(oystehr, patientId, encounterId, testItemSearch, labOrgIdsString);
@@ -60,13 +57,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     let labs: OrderableItemSearchResult[] = [];
     if (testItemSearch) {
-      labs = await getLabs(labOrgsGUIDs, { textSearch: testItemSearch }, m2mToken);
+      labs = await getLabs(labOrgsGUIDs, { textSearch: testItemSearch }, input.accessToken!);
     }
 
     if (selectedLabSet) {
       console.log('searching orderable items for the lab set', selectedLabSet.listName);
       const labRequests = selectedLabSet.labs.map((lab) => {
-        return getLabs([lab.labGuid], { itemCodes: [lab.itemCode] }, m2mToken);
+        return getLabs([lab.labGuid], { itemCodes: [lab.itemCode] }, input.accessToken!);
       });
       const allLabsResults = await Promise.all(labRequests);
       labs = allLabsResults.flat();

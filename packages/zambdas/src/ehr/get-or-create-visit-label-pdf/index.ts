@@ -12,18 +12,11 @@ import {
   MIME_TYPES,
   SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createVisitLabelPDF, VISIT_LABEL_DOC_REF_DOCTYPE, VisitLabelConfig } from '../../shared/pdf/visit-label-pdf';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'get-or-create-visit-label-pdf';
 
@@ -34,10 +27,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { encounterId, secrets } = validateRequestParameters(input);
 
     console.log('Getting token');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    console.log('token', m2mToken);
+    console.log('token', input.accessToken!);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const labelDocRefs = (
       await oystehr.fhir.search<DocumentReference>({
@@ -119,7 +111,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         labelConfig,
         encounterId,
         secrets,
-        m2mToken,
+        input.accessToken!,
         oystehr
       );
 
@@ -142,7 +134,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         body: JSON.stringify([
           {
             documentReference: labelDocRef,
-            presignedURL: await getPresignedURL(url, m2mToken),
+            presignedURL: await getPresignedURL(url, input.accessToken!),
           },
         ]),
         statusCode: 200,

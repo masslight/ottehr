@@ -14,14 +14,7 @@ import {
   TaskStatus,
   TelemedCancelationTemplateData,
 } from 'utils';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  getEmailClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, getEmailClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from '../validateRequestParameters';
 
 export interface TaskSubscriptionInput {
@@ -29,7 +22,6 @@ export interface TaskSubscriptionInput {
   secrets: Secrets | null;
 }
 
-let oystehrToken: string;
 const ZAMBDA_NAME = 'sub-cancellation-email';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -39,15 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('task ID', task.id);
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     let taskStatusToUpdate: TaskStatus;
     let statusReasonToUpdate: string | undefined;

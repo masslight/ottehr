@@ -38,7 +38,6 @@ import {
   UpdateLabOrderResourcesInput,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
   sendErrors,
@@ -69,8 +68,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-lab-order-resources';
 
-let m2mToken: string;
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`update-lab-order-resources started, input: ${JSON.stringify(input)}`);
 
@@ -92,9 +89,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     secrets = validatedParameters.secrets;
 
     console.log('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
 
@@ -109,6 +104,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           serviceRequestId,
           diagnosticReportId,
           secrets,
+          m2mToken: input.accessToken!,
         });
 
         return {
@@ -142,7 +138,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         const { serviceRequestId, data, specimenCollectionDates, userTimezone } = validatedParameters;
         const { presignedLabelURL } = await handleSaveCollectionData(
           oystehr,
-          m2mToken,
+          input.accessToken!,
           secrets,
           practitionerIdFromCurrentUser,
           {
@@ -234,6 +230,7 @@ const handleReviewedEvent = async ({
   serviceRequestId,
   diagnosticReportId,
   secrets,
+  m2mToken,
 }: {
   oystehr: Oystehr;
   practitionerIdFromCurrentUser: string;
@@ -241,6 +238,7 @@ const handleReviewedEvent = async ({
   serviceRequestId: string | undefined;
   diagnosticReportId: string;
   secrets: Secrets | null;
+  m2mToken: string;
 }): Promise<Bundle<FhirResource>> => {
   const resources = (
     await oystehr.fhir.search<

@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { createOystehrClient, getSecret, Secrets, SecretsKeys } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'utils';
 import {
   configSentry,
-  getAuth0Token,
+  createOystehrClient,
   topLevelCatch,
   validateJsonBody,
   wrapHandler,
@@ -15,8 +15,6 @@ import { createResourcesFromAiInterview } from '../../../shared/ai';
 export const INTERVIEW_COMPLETED = 'Interview completed.';
 
 const ZAMBDA_NAME = 'ai-interview-summary';
-
-let oystehrToken: string;
 
 interface Input {
   questionnaireResponse: QuestionnaireResponse;
@@ -30,7 +28,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     const { questionnaireResponse, secrets } = validateInput(input);
     const chatTranscript = createChatTranscript(questionnaireResponse);
-    const oystehr = await createOystehr(secrets);
+    const oystehr = await createOystehr(input.accessToken!, secrets);
     const encounterID = questionnaireResponse.encounter?.reference?.split('/')[1] ?? '';
     const createdResources = await createResourcesFromAiInterview(
       oystehr,
@@ -85,13 +83,6 @@ function validateInput(input: ZambdaInput): Input {
   };
 }
 
-async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
-  if (oystehrToken == null) {
-    oystehrToken = await getAuth0Token(secrets);
-  }
-  return createOystehrClient(
-    oystehrToken,
-    getSecret(SecretsKeys.FHIR_API, secrets),
-    getSecret(SecretsKeys.PROJECT_API, secrets)
-  );
+async function createOystehr(token: string, secrets: Secrets | null): Promise<Oystehr> {
+  return createOystehrClient(token, secrets);
 }

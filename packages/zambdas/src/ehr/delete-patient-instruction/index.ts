@@ -2,11 +2,9 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'delete-patient-instructions';
 
@@ -14,8 +12,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     const { instructionId, secrets, userToken } = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const isProviderInstruction = await checkIfBelongsToCurrentProvider(oystehrCurrentUser, instructionId);
     if (!isProviderInstruction)

@@ -9,14 +9,7 @@ import {
   SecretsKeys,
   TaskStatus,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  sendErrors,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, sendErrors, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { patchTaskStatus } from '../helpers';
 import { TaskSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
 
@@ -74,14 +67,10 @@ export const sendText = async (
   return { taskStatus, statusReason };
 };
 
-// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
-let oystehr: Oystehr;
-
 export function wrapTaskHandler(
   zambdaName: string,
   handler: (
-    input: { task: Task; secrets: Secrets },
+    input: { task: Task; secrets: Secrets; accessToken: string },
     oystehr: Oystehr
   ) => Promise<{ taskStatus: Task['status']; statusReason?: string }>,
   options: { retry: boolean } = { retry: false }
@@ -90,6 +79,7 @@ export function wrapTaskHandler(
     let params: TaskSubscriptionInput;
     let taskId: string;
     let ENVIRONMENT: string;
+    let oystehr: Oystehr;
     try {
       params = validateRequestParameters(input);
       const taskIdParam = params.task.id;
@@ -98,8 +88,7 @@ export function wrapTaskHandler(
       }
       taskId = taskIdParam;
       ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
-      oystehr = createOystehrClient(oystehrToken, input.secrets);
+      oystehr = createOystehrClient(input.accessToken!, input.secrets);
     } catch (error) {
       console.log('Error validating request parameters:', error);
       return topLevelCatch(zambdaName, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
@@ -123,7 +112,7 @@ export function wrapTaskHandler(
     }
 
     try {
-      const result = await handler(params, oystehr);
+      const result = await handler({ ...params, accessToken: input.accessToken! }, oystehr);
       await markTaskCompleted(taskId, oystehr, result.taskStatus, result.statusReason);
       return {
         statusCode: 200,

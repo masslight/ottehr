@@ -12,13 +12,12 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, lambdaResponse, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { lambdaResponse, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { getPayorRef, makeCoverageEligibilityRequest, parseEligibilityCheckResponsePromiseResult } from './helpers';
 import { prevalidationHandler } from './prevalidation-handler';
 import { complexInsuranceValidation, validateRequestParameters } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 
 export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let primary: InsuranceCheckStatusWithDate | undefined;
@@ -37,18 +36,10 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
     console.groupEnd();
     console.debug('validateRequestParameters success');
     console.log('validatedParameters', JSON.stringify(validatedParameters));
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
     console.group('createOystehrClient');
     const apiUrl = getSecret(SecretsKeys.PROJECT_API, secrets);
     const oystehr = createOystehrClient(
-      oystehrToken,
+      input.accessToken!,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );
@@ -60,7 +51,7 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
     if (complexInput.type === 'prevalidation') {
       console.log('prevalidation path...');
       const result = await prevalidationHandler(
-        { ...complexInput, apiUrl, accessToken: oystehrToken, secrets: secrets },
+        { ...complexInput, apiUrl, accessToken: input.accessToken!, secrets: secrets },
         oystehr
       );
       console.log('prevalidation primary', JSON.stringify(result.primary));
@@ -111,6 +102,7 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
       const eligibilityCheckResult = await performEligibilityCheckAndReturnStatus(
         coverageEligibilityRequest.id,
         projectApiURL,
+        input.accessToken!,
         tagProps
       );
 
@@ -133,6 +125,7 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
 const performEligibilityCheckAndReturnStatus = async (
   coverageEligibilityRequestId: string | undefined,
   projectApiURL: string,
+  accessToken: string,
   tagProps?: Omit<TagAppointmentWithEligibilityFailureReasonParameters, 'reason'>
 ): Promise<InsuranceCheckStatusWithDate> => {
   console.log('coverageEligibilityRequestId', coverageEligibilityRequestId);
@@ -141,7 +134,7 @@ const performEligibilityCheckAndReturnStatus = async (
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      Authorization: `Bearer ${oystehrToken}`,
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({
       eligibilityRequestId: coverageEligibilityRequestId,

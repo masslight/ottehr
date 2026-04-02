@@ -1,12 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, GetUnsolicitedResultsResourcesOutput, SecretsKeys, UnsolicitedResultsRequestType } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../../shared';
 import {
   handleGetPossibleRelatedRequestsToUnsolicitedResult,
   handleGetTasks,
@@ -17,7 +11,6 @@ import {
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mToken: string;
 const ZAMBDA_NAME = 'get-unsolicited-results-resources';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -29,9 +22,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     let response: GetUnsolicitedResultsResourcesOutput | null;
 
@@ -65,7 +56,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         response = await handleUnsolicitedResultDetailRequest(
           oystehr,
           validatedParameters.diagnosticReportId,
-          m2mToken
+          input.accessToken!
         );
         break;
       }

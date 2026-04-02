@@ -3,7 +3,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets, SecretsKeys } from 'utils';
 import {
   createOystehrClient,
-  getAuth0Token,
   getStatementDetails,
   StatementType,
   topLevelCatch,
@@ -20,7 +19,6 @@ interface GetStatementTypeInput {
 }
 
 const validStatementTypes = new Set<StatementType>(['standard', 'past-due', 'final-notice']);
-let oystehrToken: string;
 
 function validateRequestParameters(input: ZambdaInput): GetStatementTypeInput {
   if (!input.body) throw MISSING_REQUEST_BODY;
@@ -45,17 +43,14 @@ function validateRequestParameters(input: ZambdaInput): GetStatementTypeInput {
   };
 }
 
-async function createOystehr(secrets: Secrets): Promise<Oystehr> {
-  if (oystehrToken == null) {
-    oystehrToken = await getAuth0Token(secrets);
-  }
-  return createOystehrClient(oystehrToken, secrets);
+async function createOystehr(accessToken: string, secrets: Secrets): Promise<Oystehr> {
+  return createOystehrClient(accessToken, secrets);
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedInput = validateRequestParameters(input);
-    const oystehr = await createOystehr(validatedInput.secrets);
+    const oystehr = await createOystehr(input.accessToken!, validatedInput.secrets);
     const statementDetails = await getStatementDetails({
       encounterId: validatedInput.encounterId,
       statementType: validatedInput.statementType,

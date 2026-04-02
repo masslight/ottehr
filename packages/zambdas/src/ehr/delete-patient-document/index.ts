@@ -2,27 +2,17 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { DocumentReference, List } from 'fhir/r4b';
 import { getSecret, replaceOperation, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  deleteZ3Object,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, deleteZ3Object, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'delete-patient-document';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { secrets, documentRefId } = validateRequestParameters(input);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const docRef = (
       await oystehr.fhir.search<DocumentReference>({
@@ -44,7 +34,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log(`Found ${z3Urls.length} files to delete`);
 
-    await Promise.all(z3Urls.map((url) => deleteZ3Object(url, m2mToken)));
+    await Promise.all(z3Urls.map((url) => deleteZ3Object(url, input.accessToken!)));
 
     const listResources = (
       await oystehr.fhir.search<List>({

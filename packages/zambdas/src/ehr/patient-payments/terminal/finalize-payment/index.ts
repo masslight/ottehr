@@ -26,7 +26,6 @@ import {
 } from 'utils';
 import {
   createOystehrClient,
-  getAuth0Token,
   getStripeClient,
   getUser,
   lambdaResponse,
@@ -39,8 +38,6 @@ import {
 import { getAccountAndCoverageResourcesForPatient } from '../../../shared/harvest';
 
 const ZAMBDA_NAME = 'patient-payments-terminal-finalize-payment';
-
-let oystehrM2MClientToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -56,11 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const validatedParameters = validateRequestParameters(input);
 
-    if (!oystehrM2MClientToken) {
-      oystehrM2MClientToken = await getAuth0Token(input.secrets);
-    }
-
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
+    const oystehrClient = createOystehrClient(input.accessToken!, input.secrets);
     const stripeContext = await getStripePaymentContext(validatedParameters, oystehrClient);
 
     const stripeClient = getStripeClient(input.secrets);

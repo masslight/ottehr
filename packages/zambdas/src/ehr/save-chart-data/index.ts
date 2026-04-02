@@ -26,7 +26,6 @@ import {
   userMe,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createAccidentCondition,
   createDispositionServiceRequest,
   createOystehrClient,
@@ -73,7 +72,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 const ZAMBDA_NAME = 'save-chart-data';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -117,8 +115,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.time('time');
     console.timeLog('time', 'before creating fhir client and token resources');
     console.log('Getting token');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     console.timeLog('time', 'before fetching resources');
     // get encounter and resources
@@ -432,7 +429,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // 14 convert work-school note to pdf file, upload it to z3 bucket and create DocumentReference (FHIR) for it
     if (newSchoolWorkNote) {
       if (appointment?.id === undefined) throw new Error(`No appointment found for encounterId: ${encounterId}`);
-      const pdfInfo = await createSchoolWorkNotePDF(newSchoolWorkNote, patient, secrets, m2mToken);
+      const pdfInfo = await createSchoolWorkNotePDF(newSchoolWorkNote, patient, secrets, input.accessToken!);
       additionalResourcesForResponse.push(
         await makeSchoolWorkDR(
           oystehr,

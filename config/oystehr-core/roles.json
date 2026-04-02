@@ -658,6 +658,108 @@
           "effect": "Allow"
         }
       ]
+    },
+    "ZAMBDA_EXECUTION": {
+      "name": "Zambda Execution",
+      "description": "Service role assumed by zambda functions at runtime, replacing the previous ZAMBDAS_ADMIN M2M client credentials flow",
+      "accessPolicy": [
+        {
+          "resource": ["FHIR:*"],
+          "action": ["FHIR:*"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Telemed:*"],
+          "action": ["Telemed:*"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["App:User"],
+          "action": [
+            "App:CreateUser",
+            "App:GetUser",
+            "App:UpdateUser",
+            "App:ListAllUsers"
+          ],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Zambda:*"],
+          "action": ["Zambda:*"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Fax:Fax:*"],
+          "action": ["Fax:Send"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["IAM:M2MClient:*"],
+          "action": ["IAM:ListAllM2MClients", "IAM:GetM2MClient"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["IAM:Role"],
+          "action": [
+            "IAM:GetRole",
+            "IAM:ListAllRoles",
+            "IAM:CreateRole",
+            "IAM:UpdateRole"
+          ],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Lab:*"],
+          "action": ["Lab:*"],
+          "effect": "Allow"
+        },
+        {
+          "resource": [
+            "Z3:#{var/PROJECT_ID}-photo-id-cards/*",
+            "Z3:#{var/PROJECT_ID}-insurance-cards/*",
+            "Z3:#{var/PROJECT_ID}-school-work-note-templates/*",
+            "Z3:#{var/PROJECT_ID}-patient-photos/*",
+            "Z3:#{var/PROJECT_ID}-consent-forms/*",
+            "Z3:#{var/PROJECT_ID}-visit-notes/*",
+            "Z3:#{var/PROJECT_ID}-receipts/*",
+            "Z3:#{var/PROJECT_ID}-school-work-notes/*",
+            "Z3:#{var/PROJECT_ID}-privacy-policy/*",
+            "Z3:#{var/PROJECT_ID}-audio-recordings/*",
+            "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
+            "Z3:#{var/PROJECT_ID}-discharge-summaries/*",
+            "Z3:#{var/PROJECT_ID}-labs/*",
+            "Z3:#{var/PROJECT_ID}-statements/*",
+            "Z3:#{var/PROJECT_ID}-legacy-data/*"
+          ],
+          "action": ["Z3:PutObject", "Z3:GetObject", "Z3:DeleteObject", "Z3:ListObjects"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["Messaging:SendTransactionalSMS"],
+          "effect": "Allow",
+          "resource": ["*"]
+        },
+        {
+          "action": ["RCM:CheckInsuranceEligibility"],
+          "effect": "Allow",
+          "resource": ["RCM:InsuranceEligibility"]
+        },
+        {
+          "action": ["eRx:SearchPharmacy"],
+          "effect": "Allow",
+          "resource": ["eRx:Pharmacy"]
+        },
+        {
+          "action": ["eRx:SyncPatient", "eRx:GetMedicationHistory"],
+          "effect": "Allow",
+          "resource": ["eRx:Patient"]
+        },
+        {
+          "action": ["Terminology:SearchCodes"],
+          "effect": "Allow",
+          "resource": ["Terminology:Code:*"]
+        }
+      ]
     }
   }
 }

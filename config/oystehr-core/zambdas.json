@@ -6,770 +6,880 @@
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/version/index",
-      "zip": ".dist/zips/version.zip"
+      "zip": ".dist/zips/version.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-USER": {
       "name": "create-user",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-user/index",
-      "zip": ".dist/zips/create-user.zip"
+      "zip": ".dist/zips/create-user.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "USER-ACTIVATION": {
       "name": "user-activation",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/user-activation/index",
-      "zip": ".dist/zips/user-activation.zip"
+      "zip": ".dist/zips/user-activation.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-APPOINTMENTS": {
       "name": "get-appointments",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-appointments/index",
-      "zip": ".dist/zips/get-appointments.zip"
+      "zip": ".dist/zips/get-appointments.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "INCOMPLETE-ENCOUNTERS-REPORT": {
       "name": "incomplete-encounters-report",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/incomplete-encounters-report/index",
-      "zip": ".dist/zips/incomplete-encounters-report.zip"
+      "zip": ".dist/zips/incomplete-encounters-report.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "AI-ASSISTED-ENCOUNTERS-REPORT": {
       "name": "ai-assisted-encounters-report",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/ai-assisted-encounters-report/index",
-      "zip": ".dist/zips/ai-assisted-encounters-report.zip"
+      "zip": ".dist/zips/ai-assisted-encounters-report.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "DAILY-PAYMENTS-REPORT": {
       "name": "daily-payments-report",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/daily-payments-report/index",
-      "zip": ".dist/zips/daily-payments-report.zip"
+      "zip": ".dist/zips/daily-payments-report.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PRACTICE-KPIS-REPORT": {
       "name": "practice-kpis-report",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/practice-kpis-report/index",
-      "zip": ".dist/zips/practice-kpis-report.zip"
+      "zip": ".dist/zips/practice-kpis-report.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "VISITS-OVERVIEW-REPORT": {
       "name": "visits-overview-report",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/visits-overview-report/index",
-      "zip": ".dist/zips/visits-overview-report.zip"
+      "zip": ".dist/zips/visits-overview-report.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "RECENT-PATIENTS-REPORT": {
       "name": "recent-patients-report",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/recent-patients-report/index",
-      "zip": ".dist/zips/recent-patients-report.zip"
+      "zip": ".dist/zips/recent-patients-report.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-TELEMED-APPOINTMENTS": {
       "name": "get-telemed-appointments",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-telemed-appointments/index",
-      "zip": ".dist/zips/get-telemed-appointments.zip"
+      "zip": ".dist/zips/get-telemed-appointments.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CHANGE-TELEMED-APPOINTMENT-STATUS": {
       "name": "change-telemed-appointment-status",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/change-telemed-appointment-status/index",
-      "zip": ".dist/zips/change-telemed-appointment-status.zip"
+      "zip": ".dist/zips/change-telemed-appointment-status.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ASSIGN-PRACTITIONER": {
       "name": "assign-practitioner",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/assign-practitioner/index",
-      "zip": ".dist/zips/assign-practitioner.zip"
+      "zip": ".dist/zips/assign-practitioner.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UNASSIGN-PRACTITIONER": {
       "name": "unassign-practitioner",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/unassign-practitioner/index",
-      "zip": ".dist/zips/unassign-practitioner.zip"
+      "zip": ".dist/zips/unassign-practitioner.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CHANGE-IN-PERSON-VISIT-STATUS": {
       "name": "change-in-person-visit-status",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/change-in-person-visit-status/index",
-      "zip": ".dist/zips/change-in-person-visit-status.zip"
+      "zip": ".dist/zips/change-in-person-visit-status.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SIGN-APPOINTMENT": {
       "name": "sign-appointment",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/sign-appointment/index",
-      "zip": ".dist/zips/sign-appointment.zip"
+      "zip": ".dist/zips/sign-appointment.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UNLOCK-APPOINTMENT": {
       "name": "unlock-appointment",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/unlock-appointment/index",
-      "zip": ".dist/zips/unlock-appointment.zip"
+      "zip": ".dist/zips/unlock-appointment.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PENDING-SUPERVISOR-APPROVAL": {
       "name": "pending-supervisor-approval",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/pending-supervisor-approval/index",
-      "zip": ".dist/zips/pending-supervisor-approval.zip"
+      "zip": ".dist/zips/pending-supervisor-approval.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-CHART-DATA": {
       "name": "get-chart-data",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-chart-data/index",
-      "zip": ".dist/zips/get-chart-data.zip"
+      "zip": ".dist/zips/get-chart-data.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SAVE-CHART-DATA": {
       "name": "save-chart-data",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/save-chart-data/index",
-      "zip": ".dist/zips/save-chart-data.zip"
+      "zip": ".dist/zips/save-chart-data.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "DELETE-CHART-DATA": {
       "name": "delete-chart-data",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-chart-data/index",
-      "zip": ".dist/zips/delete-chart-data.zip"
+      "zip": ".dist/zips/delete-chart-data.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "BULK-UPDATE-INSURANCE-STATUS": {
       "name": "bulk-update-insurance-status",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/bulk-update-insurance-status/index",
-      "zip": ".dist/zips/bulk-update-insurance-status.zip"
+      "zip": ".dist/zips/bulk-update-insurance-status.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-GET-PROCEDURE-QUICK-PICKS": {
       "name": "admin-get-procedure-quick-picks",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-get-procedure-quick-picks/index",
-      "zip": ".dist/zips/admin-get-procedure-quick-picks.zip"
+      "zip": ".dist/zips/admin-get-procedure-quick-picks.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-CREATE-PROCEDURE-QUICK-PICK": {
       "name": "admin-create-procedure-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-create-procedure-quick-pick/index",
-      "zip": ".dist/zips/admin-create-procedure-quick-pick.zip"
+      "zip": ".dist/zips/admin-create-procedure-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-UPDATE-PROCEDURE-QUICK-PICK": {
       "name": "admin-update-procedure-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-update-procedure-quick-pick/index",
-      "zip": ".dist/zips/admin-update-procedure-quick-pick.zip"
+      "zip": ".dist/zips/admin-update-procedure-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-REMOVE-PROCEDURE-QUICK-PICK": {
       "name": "admin-remove-procedure-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-remove-procedure-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-procedure-quick-pick.zip"
+      "zip": ".dist/zips/admin-remove-procedure-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-GET-RADIOLOGY-QUICK-PICKS": {
       "name": "admin-get-radiology-quick-picks",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-get-radiology-quick-picks/index",
-      "zip": ".dist/zips/admin-get-radiology-quick-picks.zip"
+      "zip": ".dist/zips/admin-get-radiology-quick-picks.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-CREATE-RADIOLOGY-QUICK-PICK": {
       "name": "admin-create-radiology-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-create-radiology-quick-pick/index",
-      "zip": ".dist/zips/admin-create-radiology-quick-pick.zip"
+      "zip": ".dist/zips/admin-create-radiology-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-UPDATE-RADIOLOGY-QUICK-PICK": {
       "name": "admin-update-radiology-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-update-radiology-quick-pick/index",
-      "zip": ".dist/zips/admin-update-radiology-quick-pick.zip"
+      "zip": ".dist/zips/admin-update-radiology-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-REMOVE-RADIOLOGY-QUICK-PICK": {
       "name": "admin-remove-radiology-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-remove-radiology-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-radiology-quick-pick.zip"
+      "zip": ".dist/zips/admin-remove-radiology-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-GET-ALLERGY-QUICK-PICKS": {
       "name": "admin-get-allergy-quick-picks",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-get-allergy-quick-picks/index",
-      "zip": ".dist/zips/admin-get-allergy-quick-picks.zip"
+      "zip": ".dist/zips/admin-get-allergy-quick-picks.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-CREATE-ALLERGY-QUICK-PICK": {
       "name": "admin-create-allergy-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-create-allergy-quick-pick/index",
-      "zip": ".dist/zips/admin-create-allergy-quick-pick.zip"
+      "zip": ".dist/zips/admin-create-allergy-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-UPDATE-ALLERGY-QUICK-PICK": {
       "name": "admin-update-allergy-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-update-allergy-quick-pick/index",
-      "zip": ".dist/zips/admin-update-allergy-quick-pick.zip"
+      "zip": ".dist/zips/admin-update-allergy-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-REMOVE-ALLERGY-QUICK-PICK": {
       "name": "admin-remove-allergy-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-remove-allergy-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-allergy-quick-pick.zip"
+      "zip": ".dist/zips/admin-remove-allergy-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-GET-MEDICAL-CONDITION-QUICK-PICKS": {
       "name": "admin-get-medical-condition-quick-picks",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-get-medical-condition-quick-picks/index",
-      "zip": ".dist/zips/admin-get-medical-condition-quick-picks.zip"
+      "zip": ".dist/zips/admin-get-medical-condition-quick-picks.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-CREATE-MEDICAL-CONDITION-QUICK-PICK": {
       "name": "admin-create-medical-condition-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-create-medical-condition-quick-pick/index",
-      "zip": ".dist/zips/admin-create-medical-condition-quick-pick.zip"
+      "zip": ".dist/zips/admin-create-medical-condition-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-UPDATE-MEDICAL-CONDITION-QUICK-PICK": {
       "name": "admin-update-medical-condition-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-update-medical-condition-quick-pick/index",
-      "zip": ".dist/zips/admin-update-medical-condition-quick-pick.zip"
+      "zip": ".dist/zips/admin-update-medical-condition-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-REMOVE-MEDICAL-CONDITION-QUICK-PICK": {
       "name": "admin-remove-medical-condition-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-remove-medical-condition-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-medical-condition-quick-pick.zip"
+      "zip": ".dist/zips/admin-remove-medical-condition-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-GET-MEDICATION-HISTORY-QUICK-PICKS": {
       "name": "admin-get-medication-history-quick-picks",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-get-medication-history-quick-picks/index",
-      "zip": ".dist/zips/admin-get-medication-history-quick-picks.zip"
+      "zip": ".dist/zips/admin-get-medication-history-quick-picks.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-CREATE-MEDICATION-HISTORY-QUICK-PICK": {
       "name": "admin-create-medication-history-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-create-medication-history-quick-pick/index",
-      "zip": ".dist/zips/admin-create-medication-history-quick-pick.zip"
+      "zip": ".dist/zips/admin-create-medication-history-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-UPDATE-MEDICATION-HISTORY-QUICK-PICK": {
       "name": "admin-update-medication-history-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-update-medication-history-quick-pick/index",
-      "zip": ".dist/zips/admin-update-medication-history-quick-pick.zip"
+      "zip": ".dist/zips/admin-update-medication-history-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMIN-REMOVE-MEDICATION-HISTORY-QUICK-PICK": {
       "name": "admin-remove-medication-history-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-remove-medication-history-quick-pick/index",
-      "zip": ".dist/zips/admin-remove-medication-history-quick-pick.zip"
+      "zip": ".dist/zips/admin-remove-medication-history-quick-pick.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE-USER": {
       "name": "update-user",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/update-user/index",
-      "zip": ".dist/zips/update-user.zip"
+      "zip": ".dist/zips/update-user.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "INIT-TELEMED-SESSION": {
       "name": "init-telemed-session",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/init-telemed-session/index",
-      "zip": ".dist/zips/init-telemed-session.zip"
+      "zip": ".dist/zips/init-telemed-session.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-USER": {
       "name": "get-user",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-user/index",
-      "zip": ".dist/zips/get-user.zip"
+      "zip": ".dist/zips/get-user.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SAVE-PATIENT-INSTRUCTION": {
       "name": "save-patient-instruction",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/save-patient-instruction/index",
-      "zip": ".dist/zips/save-patient-instruction.zip"
+      "zip": ".dist/zips/save-patient-instruction.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-PATIENT-INSTRUCTIONS": {
       "name": "get-patient-instructions",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-instructions/index",
-      "zip": ".dist/zips/get-patient-instructions.zip"
+      "zip": ".dist/zips/get-patient-instructions.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "DELETE-PATIENT-INSTRUCTION": {
       "name": "delete-patient-instruction",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-patient-instruction/index",
-      "zip": ".dist/zips/delete-patient-instruction.zip"
+      "zip": ".dist/zips/delete-patient-instruction.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SAVE-FOLLOWUP-ENCOUNTER": {
       "name": "save-followup-encounter",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/save-followup-encounter/index",
-      "zip": ".dist/zips/save-followup-encounter.zip"
+      "zip": ".dist/zips/save-followup-encounter.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-CONVERSATION": {
       "name": "get-conversation",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-conversation/index",
-      "zip": ".dist/zips/get-conversation.zip"
+      "zip": ".dist/zips/get-conversation.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-EMPLOYEES": {
       "name": "get-employees",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-employees/index",
-      "zip": ".dist/zips/get-employees.zip"
+      "zip": ".dist/zips/get-employees.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-PAYMENT-LOCATIONS": {
       "name": "get-payment-locations",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/payments/get-payment-locations/index",
-      "zip": ".dist/zips/get-payment-locations.zip"
+      "zip": ".dist/zips/get-payment-locations.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-STRIPE-ACCOUNT-INFO": {
       "name": "get-stripe-account-info",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/payments/get-stripe-account-info/index",
-      "zip": ".dist/zips/get-stripe-account-info.zip"
+      "zip": ".dist/zips/get-stripe-account-info.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-TERMINAL-READERS": {
       "name": "get-terminal-readers",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/payments/get-terminal-readers/index",
-      "zip": ".dist/zips/get-terminal-readers.zip"
+      "zip": ".dist/zips/get-terminal-readers.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SAVE-TERMINAL-LOCATION": {
       "name": "save-terminal-location",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/payments/save-terminal-location/index",
-      "zip": ".dist/zips/save-terminal-location.zip"
+      "zip": ".dist/zips/save-terminal-location.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SYNC-USER": {
       "name": "sync-user",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/sync-user/index",
-      "zip": ".dist/zips/sync-user.zip"
+      "zip": ".dist/zips/sync-user.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ICD-10-SEARCH": {
       "name": "icd-10-search",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/icd-10-search/index",
-      "zip": ".dist/zips/icd-10-search.zip"
+      "zip": ".dist/zips/icd-10-search.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-PATIENT-PROFILE-PHOTO-URL": {
       "name": "get-patient-profile-photo-url",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-profile-photo-url/index",
-      "zip": ".dist/zips/get-patient-profile-photo-url.zip"
+      "zip": ".dist/zips/get-patient-profile-photo-url.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-CLAIMS": {
       "name": "get-claims",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-claims/index",
-      "zip": ".dist/zips/get-claims.zip"
+      "zip": ".dist/zips/get-claims.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-UPDATE-MEDICATION-ORDER": {
       "name": "create-update-medication-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-update-medication-order/index",
-      "zip": ".dist/zips/create-update-medication-order.zip"
+      "zip": ".dist/zips/create-update-medication-order.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-MEDICATION-ORDERS": {
       "name": "get-medication-orders",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-medication-orders/index",
-      "zip": ".dist/zips/get-medication-orders.zip"
+      "zip": ".dist/zips/get-medication-orders.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-UPLOAD-AUDIO-RECORDING-URL": {
       "name": "upload-audio-recording",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/upload-audio-recording/index",
-      "zip": ".dist/zips/upload-audio-recording.zip"
+      "zip": ".dist/zips/upload-audio-recording.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-RESOURCES-FROM-AUDIO-RECORDING": {
       "name": "create-resources-from-audio-recording",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-resources-from-audio-recording/index",
-      "zip": ".dist/zips/create-resources-from-audio-recording.zip"
+      "zip": ".dist/zips/create-resources-from-audio-recording.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-UPLOAD-DOCUMENT-URL": {
       "name": "create-upload-document-url",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-upload-document-url/index",
-      "zip": ".dist/zips/create-upload-document-url.zip"
+      "zip": ".dist/zips/create-upload-document-url.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-LAB-ORDER": {
       "name": "create-lab-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/create-lab-order/index",
-      "zip": ".dist/zips/create-lab-order.zip"
+      "zip": ".dist/zips/create-lab-order.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-CREATE-LAB-ORDER-RESOURCES": {
       "name": "get-create-lab-order-resources",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/get-create-lab-order-resources/index",
-      "zip": ".dist/zips/get-create-lab-order-resources.zip"
+      "zip": ".dist/zips/get-create-lab-order-resources.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-UNSOLICITED-RESULTS-RESOURCES": {
       "name": "get-unsolicited-results-resources",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/get-unsolicited-results-resources/index",
-      "zip": ".dist/zips/get-unsolicited-results-resources.zip"
+      "zip": ".dist/zips/get-unsolicited-results-resources.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "HANDLE-LAB-RESULT": {
       "name": "handle-lab-result",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/diagnostic-report/handle-lab-result/index",
-      "zip": ".dist/zips/handle-lab-result.zip"
+      "zip": ".dist/zips/handle-lab-result.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PAPERWORK-TO-PDF": {
       "name": "paperwork-to-pdf",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/paperwork-to-pdf/index",
-      "zip": ".dist/zips/paperwork-to-pdf.zip"
+      "zip": ".dist/zips/paperwork-to-pdf.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "VISIT-DETAILS-TO-PDF": {
       "name": "visit-details-to-pdf",
       "type": "http_auth",
       "runtime": "nodejs20.x",
       "src": "src/ehr/visit-details/visit-details-to-pdf/index",
-      "zip": ".dist/zips/visit-details-to-pdf.zip"
+      "zip": ".dist/zips/visit-details-to-pdf.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-PATIENT-ACCOUNT": {
       "name": "get-patient-account",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/get/index",
-      "zip": ".dist/zips/get-patient-account.zip"
+      "zip": ".dist/zips/get-patient-account.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE-PATIENT-ACCOUNT": {
       "name": "update-patient-account",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/update/index",
-      "zip": ".dist/zips/update-patient-account.zip"
+      "zip": ".dist/zips/update-patient-account.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "REMOVE-PATIENT-COVERAGE": {
       "name": "remove-patient-coverage",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/remove-coverage/index",
-      "zip": ".dist/zips/remove-patient-coverage.zip"
+      "zip": ".dist/zips/remove-patient-coverage.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CANCEL-APPOINTMENT": {
       "name": "cancel-appointment",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/prebook-cancel-appointment/index",
-      "zip": ".dist/zips/cancel-appointment.zip"
+      "zip": ".dist/zips/cancel-appointment.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CHECK-IN": {
       "name": "check-in",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/check-in/index",
-      "zip": ".dist/zips/check-in.zip"
+      "zip": ".dist/zips/check-in.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-SCHEDULE": {
       "name": "get-schedule",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/get-schedule/index",
-      "zip": ".dist/zips/get-schedule.zip"
+      "zip": ".dist/zips/get-schedule.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE-PAPERWORK-IN-PROGRESS": {
       "name": "update-paperwork-in-progress",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/update-paperwork-in-progress/index",
-      "zip": ".dist/zips/update-paperwork-in-progress.zip"
+      "zip": ".dist/zips/update-paperwork-in-progress.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PATCH-PAPERWORK": {
       "name": "patch-paperwork",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/patch-paperwork/index",
-      "zip": ".dist/zips/patch-paperwork.zip"
+      "zip": ".dist/zips/patch-paperwork.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUBMIT-PAPERWORK": {
       "name": "submit-paperwork",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/submit-paperwork/index",
-      "zip": ".dist/zips/submit-paperwork.zip"
+      "zip": ".dist/zips/submit-paperwork.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-APPOINTMENT": {
       "name": "create-appointment",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/create-appointment/index",
-      "zip": ".dist/zips/create-appointment.zip"
+      "zip": ".dist/zips/create-appointment.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "INTAKE-GET-APPOINTMENTS": {
       "name": "intake-get-appointments",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/prebook-get-appointments/index",
-      "zip": ".dist/zips/intake-get-appointments.zip"
+      "zip": ".dist/zips/intake-get-appointments.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-PATIENTS": {
       "name": "get-patients",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/get-patients/index",
-      "zip": ".dist/zips/get-patients.zip"
+      "zip": ".dist/zips/get-patients.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-PAPERWORK": {
       "name": "get-paperwork",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/get-paperwork/index",
-      "zip": ".dist/zips/get-paperwork.zip"
+      "zip": ".dist/zips/get-paperwork.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-IN-HOUSE-MEDICATION": {
       "name": "create-in-house-medication",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/configuration/in-house-medications/create-in-house-medication/index",
-      "zip": ".dist/zips/create-in-house-medication.zip"
+      "zip": ".dist/zips/create-in-house-medication.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE-IN-HOUSE-MEDICATION": {
       "name": "update-in-house-medication",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/configuration/in-house-medications/update-in-house-medication/index",
-      "zip": ".dist/zips/update-in-house-medication.zip"
+      "zip": ".dist/zips/update-in-house-medication.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-IN-HOUSE-MEDICATIONS": {
       "name": "get-in-house-medications",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/configuration/in-house-medications/get-in-house-medications/index",
-      "zip": ".dist/zips/get-in-house-medications.zip"
+      "zip": ".dist/zips/get-in-house-medications.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE-APPOINTMENT": {
       "name": "update-appointment",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/prebook-update-appointment/index",
-      "zip": ".dist/zips/update-appointment.zip"
+      "zip": ".dist/zips/update-appointment.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-PRESIGNED-FILE-URL": {
       "name": "get-presigned-file-url",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/get-presigned-file-url/index",
-      "zip": ".dist/zips/get-presigned-file-url.zip"
+      "zip": ".dist/zips/get-presigned-file-url.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-APPOINTMENT-DETAILS": {
       "name": "get-appointment-details",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/get-appointment-details/index",
-      "zip": ".dist/zips/get-appointment-details.zip"
+      "zip": ".dist/zips/get-appointment-details.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PAYMENT-METHODS-LIST": {
       "name": "payment-methods-list",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/payment-methods/list/index",
-      "zip": ".dist/zips/payment-methods-list.zip"
+      "zip": ".dist/zips/payment-methods-list.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PAYMENT-METHODS-DELETE": {
       "name": "payment-methods-delete",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/payment-methods/delete/index",
-      "zip": ".dist/zips/payment-methods-delete.zip"
+      "zip": ".dist/zips/payment-methods-delete.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PAYMENT-METHODS-SETUP": {
       "name": "payment-methods-setup",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/payment-methods/setup/index",
-      "zip": ".dist/zips/payment-methods-setup.zip"
+      "zip": ".dist/zips/payment-methods-setup.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PAYMENT-METHODS-SET-DEFAULT": {
       "name": "payment-methods-set-default",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/payment-methods/set-default/index",
-      "zip": ".dist/zips/payment-methods-set-default.zip"
+      "zip": ".dist/zips/payment-methods-set-default.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SEARCH-PLACES": {
       "name": "search-places",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/search-places/index",
-      "zip": ".dist/zips/search-places.zip"
+      "zip": ".dist/zips/search-places.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "VIDEO-CHAT-INVITES-CANCEL": {
       "name": "video-chat-invites-cancel",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/video-chat-invites/cancel-invite/index",
-      "zip": ".dist/zips/video-chat-invites-cancel.zip"
+      "zip": ".dist/zips/video-chat-invites-cancel.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "VIDEO-CHAT-INVITES-CREATE": {
       "name": "video-chat-invites-create",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/video-chat-invites/create-invite/index",
-      "zip": ".dist/zips/video-chat-invites-create.zip"
+      "zip": ".dist/zips/video-chat-invites-create.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "VIDEO-CHAT-INVITES-LIST": {
       "name": "video-chat-invites-list",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/video-chat-invites/list-invites/index",
-      "zip": ".dist/zips/video-chat-invites-list.zip"
+      "zip": ".dist/zips/video-chat-invites-list.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "VIDEO-CHAT-WAITING-ROOM-NOTIFICATION": {
       "name": "video-chat-waiting-room-notification",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/video-chat-invites/create-waiting-room-notification-task/index",
-      "zip": ".dist/zips/video-chat-waiting-room-notification.zip"
+      "zip": ".dist/zips/video-chat-waiting-room-notification.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-VISIT-DETAILS": {
       "name": "get-visit-details",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/get-visit-details/index",
-      "zip": ".dist/zips/get-visit-details.zip"
+      "zip": ".dist/zips/get-visit-details.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-ELIGIBILITY": {
       "name": "get-eligibility",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/get-eligibility/index",
-      "zip": ".dist/zips/get-eligibility.zip"
+      "zip": ".dist/zips/get-eligibility.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-ANSWER-OPTIONS": {
       "name": "get-answer-options",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/get-answer-options/index",
-      "zip": ".dist/zips/get-answer-options.zip"
+      "zip": ".dist/zips/get-answer-options.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-TELEMED-LOCATIONS": {
       "name": "get-telemed-locations",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/get-telemed-locations/index",
-      "zip": ".dist/zips/get-telemed-locations.zip"
+      "zip": ".dist/zips/get-telemed-locations.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-WAIT-STATUS": {
       "name": "get-wait-status",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/get-wait-status/index",
-      "zip": ".dist/zips/get-wait-status.zip"
+      "zip": ".dist/zips/get-wait-status.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "JOIN-CALL": {
       "name": "join-call",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/join-call/index",
-      "zip": ".dist/zips/join-call.zip"
+      "zip": ".dist/zips/join-call.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "TELEMED-CANCEL-APPOINTMENT": {
       "name": "telemed-cancel-appointment",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/telemed-cancel-appointment/index",
-      "zip": ".dist/zips/telemed-cancel-appointment.zip"
+      "zip": ".dist/zips/telemed-cancel-appointment.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "TELEMED-GET-APPOINTMENTS": {
       "name": "telemed-get-appointments",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/telemed-get-appointments/index",
-      "zip": ".dist/zips/telemed-get-appointments.zip"
+      "zip": ".dist/zips/telemed-get-appointments.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-PAST-VISITS": {
       "name": "get-past-visits",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/get-past-visits/index",
-      "zip": ".dist/zips/get-past-visits.zip"
+      "zip": ".dist/zips/get-past-visits.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "TELEMED-UPDATE-APPOINTMENT": {
       "name": "telemed-update-appointment",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/telemed-update-appointment/index",
-      "zip": ".dist/zips/telemed-update-appointment.zip"
+      "zip": ".dist/zips/telemed-update-appointment.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "TELEMED-GET-PATIENTS": {
       "name": "telemed-get-patients",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/telemed-get-patients/index",
-      "zip": ".dist/zips/telemed-get-patients.zip"
+      "zip": ".dist/zips/telemed-get-patients.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "LIST-BOOKABLES": {
       "name": "list-bookables",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/bookable/list-bookables/index",
-      "zip": ".dist/zips/list-bookables.zip"
+      "zip": ".dist/zips/list-bookables.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "NOTIFICATIONS-UPDATER": {
       "name": "notifications-updater",
@@ -779,7 +889,8 @@
       "zip": ".dist/zips/notifications-updater.zip",
       "schedule": {
         "expression": "cron(*/5 * * * ? *)"
-      }
+      },
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SEND-MESSAGE-CRON": {
       "name": "send-message-cron",
@@ -789,7 +900,8 @@
       "zip": ".dist/zips/send-message-cron.zip",
       "schedule": {
         "expression": "cron(0,15,30,45 * * * ? *)"
-      }
+      },
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "DAILY-RADIOLOGY-REPORT": {
       "name": "daily-radiology-report",
@@ -799,28 +911,32 @@
       "zip": ".dist/zips/daily-radiology-report.zip",
       "schedule": {
         "expression": "cron(0 9 * * ? *)"
-      }
+      },
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "COMMUNICATION-SUBSCRIPTION": {
       "name": "communication-subscription",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/communication/communication-subscription/index",
-      "zip": ".dist/zips/communication-subscription.zip"
+      "zip": ".dist/zips/communication-subscription.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PROCESS-ERX-RESOURCES": {
       "name": "process-erx-resources",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/medication-request/process-erx-resources/index",
-      "zip": ".dist/zips/process-erx-resources.zip"
+      "zip": ".dist/zips/process-erx-resources.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "APPOINTMENT-CHART-DATA-PREFILLING": {
       "name": "appointment-chart-data-prefilling",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/appointment/appointment-chart-data-prefilling/index",
-      "zip": ".dist/zips/appointment-chart-data-prefilling.zip"
+      "zip": ".dist/zips/appointment-chart-data-prefilling.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-ERX-PATIENT-SYNC": {
       "name": "sub-erx-patient-sync",
@@ -828,238 +944,272 @@
       "runtime": "nodejs22.x",
       "timeout": "300",
       "src": "src/subscriptions/appointment/sub-erx-patient-sync/index",
-      "zip": ".dist/zips/sub-erx-patient-sync.zip"
+      "zip": ".dist/zips/sub-erx-patient-sync.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-CANCELLATION-EMAIL": {
       "name": "sub-cancellation-email",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-cancellation-email/index",
-      "zip": ".dist/zips/sub-cancellation-email.zip"
+      "zip": ".dist/zips/sub-cancellation-email.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-CHECK-IN-TEXT": {
       "name": "sub-check-in-text",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-check-in-text/index",
-      "zip": ".dist/zips/sub-check-in-text.zip"
+      "zip": ".dist/zips/sub-check-in-text.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-READY-TEXT": {
       "name": "sub-ready-text",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-ready-text/index",
-      "zip": ".dist/zips/sub-ready-text.zip"
+      "zip": ".dist/zips/sub-ready-text.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-UPDATE-APPOINTMENTS": {
       "name": "sub-update-appointments",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-update-appointments/index",
-      "zip": ".dist/zips/sub-update-appointments.zip"
+      "zip": ".dist/zips/sub-update-appointments.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-CONFIRMATION-MESSAGES": {
       "name": "sub-confirmation-messages",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-confirmation-messages/index",
-      "zip": ".dist/zips/sub-confirmation-messages.zip"
+      "zip": ".dist/zips/sub-confirmation-messages.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-INTAKE-HARVEST": {
       "name": "sub-intake-harvest",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/questionnaire-response/sub-intake-harvest/index",
-      "zip": ".dist/zips/sub-intake-harvest.zip"
+      "zip": ".dist/zips/sub-intake-harvest.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-HARVEST-PAPERWORK-PAGE": {
       "name": "sub-harvest-paperwork-page",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-harvest-paperwork/index",
-      "zip": ".dist/zips/sub-harvest-paperwork-page.zip"
+      "zip": ".dist/zips/sub-harvest-paperwork-page.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-SEND-CLAIM": {
       "name": "sub-send-claim",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-send-claim/index",
-      "zip": ".dist/zips/sub-send-claim.zip"
+      "zip": ".dist/zips/sub-send-claim.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-VISIT-NOTE-PDF-AND-EMAIL": {
       "name": "sub-visit-note-pdf-and-email",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-visit-note-pdf-and-email/index",
-      "zip": ".dist/zips/sub-visit-note-pdf-and-email.zip"
+      "zip": ".dist/zips/sub-visit-note-pdf-and-email.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-PATIENT-PAYMENT-CANDID-SYNC-AND-RECEIPT": {
       "name": "sub-patient-payment-candid-sync-and-receipt",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-patient-payment-candid-sync-and-receipt/index",
-      "zip": ".dist/zips/sub-patient-payment-candid-sync-and-receipt.zip"
+      "zip": ".dist/zips/sub-patient-payment-candid-sync-and-receipt.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "AI-INTERVIEW-START": {
       "name": "ai-interview-start",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/ai-interview/start/index",
-      "zip": ".dist/zips/ai-interview-start.zip"
+      "zip": ".dist/zips/ai-interview-start.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "AI-INTERVIEW-HANDLE-ANSWER": {
       "name": "ai-interview-handle-answer",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/ai-interview/handle-answer/index",
-      "zip": ".dist/zips/ai-interview-handle-answer.zip"
+      "zip": ".dist/zips/ai-interview-handle-answer.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "AI-INTERVIEW-PERSIST-CONSENT": {
       "name": "ai-interview-persist-consent",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/ai-interview/persist-consent/index",
-      "zip": ".dist/zips/ai-interview-persist-consent.zip"
+      "zip": ".dist/zips/ai-interview-persist-consent.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "RADIOLOGY-CREATE-ORDER": {
       "name": "radiology-create-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/create-order/index",
-      "zip": ".dist/zips/radiology-create-order.zip"
+      "zip": ".dist/zips/radiology-create-order.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "RADIOLOGY-CANCEL-ORDER": {
       "name": "radiology-cancel-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/cancel-order/index",
-      "zip": ".dist/zips/radiology-cancel-order.zip"
+      "zip": ".dist/zips/radiology-cancel-order.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "RADIOLOGY-ORDER-LIST": {
       "name": "radiology-order-list",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/order-list/index",
-      "zip": ".dist/zips/radiology-order-list.zip"
+      "zip": ".dist/zips/radiology-order-list.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "RADIOLOGY-PACS-WEBHOOK": {
       "name": "radiology-pacs-webhook",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/pacs-webhook/index",
-      "zip": ".dist/zips/radiology-pacs-webhook.zip"
+      "zip": ".dist/zips/radiology-pacs-webhook.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "RADIOLOGY-LAUNCH-VIEWER": {
       "name": "radiology-launch-viewer",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/launch-viewer/index",
-      "zip": ".dist/zips/radiology-launch-viewer.zip"
+      "zip": ".dist/zips/radiology-launch-viewer.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "RADIOLOGY-SAVE-PRELIMINARY-REPORT": {
       "name": "radiology-save-preliminary-report",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/save-preliminary-report/index",
-      "zip": ".dist/zips/radiology-save-preliminary-report.zip"
+      "zip": ".dist/zips/radiology-save-preliminary-report.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "RADIOLOGY-SEND-FOR-FINAL-READ": {
       "name": "radiology-send-for-final-read",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/send-for-final-read/index",
-      "zip": ".dist/zips/radiology-send-for-final-read.zip"
+      "zip": ".dist/zips/radiology-send-for-final-read.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-LAB-ORDERS": {
       "name": "get-lab-orders",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/get-lab-orders/index",
-      "zip": ".dist/zips/get-lab-orders.zip"
+      "zip": ".dist/zips/get-lab-orders.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "DELETE-LAB-ORDER": {
       "name": "delete-lab-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/delete-lab-order/index",
-      "zip": ".dist/zips/delete-lab-order.zip"
+      "zip": ".dist/zips/delete-lab-order.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUBMIT-LAB-ORDER": {
       "name": "submit-lab-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/submit-lab-order/index",
-      "zip": ".dist/zips/submit-lab-order.zip"
+      "zip": ".dist/zips/submit-lab-order.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE-LAB-ORDER-RESOURCES": {
       "name": "update-lab-order-resources",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/update-lab-order-resources/index",
-      "zip": ".dist/zips/update-lab-order-resources.zip"
+      "zip": ".dist/zips/update-lab-order-resources.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-LABEL-PDF": {
       "name": "get-label-pdf",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/external/get-label-pdf/index",
-      "zip": ".dist/zips/get-label-pdf.zip"
+      "zip": ".dist/zips/get-label-pdf.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-OR-CREATE-VISIT-LABEL-PDF": {
       "name": "get-or-create-visit-label-pdf",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-or-create-visit-label-pdf/index",
-      "zip": ".dist/zips/get-or-create-visit-label-pdf.zip"
+      "zip": ".dist/zips/get-or-create-visit-label-pdf.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "EHR-GET-SCHEDULE": {
       "name": "ehr-get-schedule",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/get-schedule/index",
-      "zip": ".dist/zips/ehr-get-schedule.zip"
+      "zip": ".dist/zips/ehr-get-schedule.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE-SCHEDULE": {
       "name": "update-schedule",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/update-schedule/index",
-      "zip": ".dist/zips/update-schedule.zip"
+      "zip": ".dist/zips/update-schedule.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "LIST-SCHEDULE-OWNERS": {
       "name": "list-schedule-owners",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/list-schedule-owners/index",
-      "zip": ".dist/zips/list-schedule-owners.zip"
+      "zip": ".dist/zips/list-schedule-owners.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-SCHEDULE": {
       "name": "create-schedule",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/create-schedule/index",
-      "zip": ".dist/zips/create-schedule.zip"
+      "zip": ".dist/zips/create-schedule.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "AI-SUGGESTION-NOTES": {
       "name": "ai-suggestion-notes",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/ai-suggestion-notes/index",
-      "zip": ".dist/zips/ai-suggestion-notes.zip"
+      "zip": ".dist/zips/ai-suggestion-notes.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "RECOMMEND-BILLING-SUGGESTIONS": {
       "name": "recommend-billing-suggestions",
       "type": "http_auth",
       "runtime": "nodejs20.x",
       "src": "src/ehr/recommend-billing-suggestions/index",
-      "zip": ".dist/zips/recommend-billing-suggestions.zip"
+      "zip": ".dist/zips/recommend-billing-suggestions.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "RECOMMEND-BILLING-CODES": {
       "name": "recommend-billing-codes",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/recommend-billing-codes/index",
-      "zip": ".dist/zips/recommend-billing-codes.zip"
+      "zip": ".dist/zips/recommend-billing-codes.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "AI-INTERVIEW-SUMMARY": {
       "name": "ai-interview-summary",
@@ -1067,287 +1217,328 @@
       "runtime": "nodejs22.x",
       "timeout": "300",
       "src": "src/subscriptions/questionnaire-response/ai-interview-summary/index",
-      "zip": ".dist/zips/ai-interview-summary.zip"
+      "zip": ".dist/zips/ai-interview-summary.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SEND-FAX": {
       "name": "send-fax",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/send-fax/index",
-      "zip": ".dist/zips/send-fax.zip"
+      "zip": ".dist/zips/send-fax.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-SLOT": {
       "name": "create-slot",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/bookable/create-slot/index",
-      "zip": ".dist/zips/create-slot.zip"
+      "zip": ".dist/zips/create-slot.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-SLOT-DETAILS": {
       "name": "get-slot-details",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/bookable/get-slot-details/index",
-      "zip": ".dist/zips/get-slot-details.zip"
+      "zip": ".dist/zips/get-slot-details.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "WALKIN-CHECK-AVAILABILITY": {
       "name": "walkin-check-availability",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/patient/walkin/check-availability/index",
-      "zip": ".dist/zips/walkin-check-availability.zip"
+      "zip": ".dist/zips/walkin-check-availability.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-IN-HOUSE-ORDERS": {
       "name": "get-in-house-orders",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/get-in-house-orders/index",
-      "zip": ".dist/zips/get-in-house-orders.zip"
+      "zip": ".dist/zips/get-in-house-orders.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-IN-HOUSE-LAB-ORDER": {
       "name": "create-in-house-lab-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/create-in-house-lab-order/index",
-      "zip": ".dist/zips/create-in-house-lab-order.zip"
+      "zip": ".dist/zips/create-in-house-lab-order.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-CREATE-IN-HOUSE-LAB-ORDER-RESOURCES": {
       "name": "get-create-in-house-lab-order-resources",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/get-create-in-house-lab-order-resources/index",
-      "zip": ".dist/zips/get-create-in-house-lab-order-resources.zip"
+      "zip": ".dist/zips/get-create-in-house-lab-order-resources.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "COLLECT-IN-HOUSE-LAB-SPECIMEN": {
       "name": "collect-in-house-lab-specimen",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/collect-in-house-lab-specimen/index",
-      "zip": ".dist/zips/collect-in-house-lab-specimen.zip"
+      "zip": ".dist/zips/collect-in-house-lab-specimen.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "HANDLE-IN-HOUSE-LAB-RESULTS": {
       "name": "handle-in-house-lab-results",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/handle-in-house-lab-results/index",
-      "zip": ".dist/zips/handle-in-house-lab-results.zip"
+      "zip": ".dist/zips/handle-in-house-lab-results.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "DELETE-IN-HOUSE-LAB-ORDER": {
       "name": "delete-in-house-lab-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/delete-in-house-lab-order/index",
-      "zip": ".dist/zips/delete-in-house-lab-order.zip"
+      "zip": ".dist/zips/delete-in-house-lab-order.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-NURSING-ORDERS": {
       "name": "get-nursing-orders",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-nursing-orders/index",
-      "zip": ".dist/zips/get-nursing-orders.zip"
+      "zip": ".dist/zips/get-nursing-orders.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-NURSING-ORDER": {
       "name": "create-nursing-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-nursing-order/index",
-      "zip": ".dist/zips/create-nursing-order.zip"
+      "zip": ".dist/zips/create-nursing-order.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE-NURSING-ORDER": {
       "name": "update-nursing-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/update-nursing-order/index",
-      "zip": ".dist/zips/update-nursing-order.zip"
+      "zip": ".dist/zips/update-nursing-order.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PATIENT-PAYMENTS-LIST": {
       "name": "patient-payments-list",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/list/index",
-      "zip": ".dist/zips/patient-payments-list.zip"
+      "zip": ".dist/zips/patient-payments-list.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PATIENT-PAYMENTS-POST": {
       "name": "patient-payments-post",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/post/index",
-      "zip": ".dist/zips/patient-payments-post.zip"
+      "zip": ".dist/zips/patient-payments-post.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PATIENT-PAYMENTS-GET-CONFIG": {
       "name": "patient-payments-terminal-get-config",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/terminal/get-config/index",
-      "zip": ".dist/zips/patient-payments-terminal-get-config.zip"
+      "zip": ".dist/zips/patient-payments-terminal-get-config.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PATIENT-PAYMENTS-CHECK-PAYMENT-STATUS": {
       "name": "patient-payments-terminal-check-payment-status",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/terminal/check-payment-status/index",
-      "zip": ".dist/zips/patient-payments-terminal-check-payment-status.zip"
+      "zip": ".dist/zips/patient-payments-terminal-check-payment-status.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PATIENT-PAYMENTS-CANCEL-READER-ACTION": {
       "name": "patient-payments-terminal-cancel-reader-action",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/terminal/cancel-reader-action/index",
-      "zip": ".dist/zips/patient-payments-terminal-cancel-reader-action.zip"
+      "zip": ".dist/zips/patient-payments-terminal-cancel-reader-action.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PATIENT-PAYMENTS-INITIATE-PAYMENT": {
       "name": "patient-payments-terminal-initiate-payment",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/terminal/initiate-payment/index",
-      "zip": ".dist/zips/patient-payments-terminal-initiate-payment.zip"
+      "zip": ".dist/zips/patient-payments-terminal-initiate-payment.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "PATIENT-PAYMENTS-FINALIZE-PAYMENT": {
       "name": "patient-payments-terminal-finalize-payment",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/terminal/finalize-payment/index",
-      "zip": ".dist/zips/patient-payments-terminal-finalize-payment.zip"
+      "zip": ".dist/zips/patient-payments-terminal-finalize-payment.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "FAILING-ENDPOINT": {
       "name": "failing-endpoint",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/ehr/failing-endpoint/index",
-      "zip": ".dist/zips/failing-endpoint.zip"
+      "zip": ".dist/zips/failing-endpoint.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-DISCHARGE_SUMMARY": {
       "name": "create-discharge-summary",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-discharge-summary/index",
-      "zip": ".dist/zips/create-discharge-summary.zip"
+      "zip": ".dist/zips/create-discharge-summary.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-VITALS": {
       "name": "get-vitals",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/chart-data/vitals/get/index",
-      "zip": ".dist/zips/get-vitals.zip"
+      "zip": ".dist/zips/get-vitals.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-VITALS-FOR-LIST-OF-ENCOUNTERS": {
       "name": "get-vitals-for-list-of-encounters",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/chart-data/vitals/get-for-list-of-encounters/index",
-      "zip": ".dist/zips/get-vitals-for-list-of-encounters.zip"
+      "zip": ".dist/zips/get-vitals-for-list-of-encounters.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-UPDATE-IMMUNIZATION_ORDER": {
       "name": "create-update-immunization-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/immunization/create-update-order/index",
-      "zip": ".dist/zips/create-update-immunization-order.zip"
+      "zip": ".dist/zips/create-update-immunization-order.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-IMMUNIZATION_ORDERS": {
       "name": "get-immunization-orders",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/immunization/get-orders/index",
-      "zip": ".dist/zips/get-immunization-orders.zip"
+      "zip": ".dist/zips/get-immunization-orders.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADMINISTER-IMMUNIZATION_ORDER": {
       "name": "administer-immunization-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/immunization/administer-order/index",
-      "zip": ".dist/zips/administer-immunization-order.zip"
+      "zip": ".dist/zips/administer-immunization-order.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CANCEL-IMMUNIZATION_ORDER": {
       "name": "cancel-immunization-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/immunization/cancel-order/index",
-      "zip": ".dist/zips/cancel-immunization-order.zip"
+      "zip": ".dist/zips/cancel-immunization-order.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "APPLY-TEMPLATE": {
       "name": "apply-template",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/apply-template/index",
-      "zip": ".dist/zips/apply-template.zip"
+      "zip": ".dist/zips/apply-template.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "LIST-TEMPLATES": {
       "name": "list-templates",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/list-templates/index",
-      "zip": ".dist/zips/list-templates.zip"
+      "zip": ".dist/zips/list-templates.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "DELETE-PATIENT-DOCUMENT": {
       "name": "delete-patient-document",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-patient-document/index",
-      "zip": ".dist/zips/delete-patient-document.zip"
+      "zip": ".dist/zips/delete-patient-document.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SEND_RECEIPT_BY_EMAIL": {
       "name": "send-receipt-by-email",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/send-receipt-by-email/index",
-      "zip": ".dist/zips/send-receipt-by-email.zip"
+      "zip": ".dist/zips/send-receipt-by-email.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-VISIT-FILES": {
       "name": "get-visit-files",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/get-visit-files/index",
-      "zip": ".dist/zips/get-visit-files.zip"
+      "zip": ".dist/zips/get-visit-files.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE-VISIT-FILES": {
       "name": "update-visit-files",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/update-visit-files/index",
-      "zip": ".dist/zips/update-visit-files.zip"
+      "zip": ".dist/zips/update-visit-files.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "DELETE-VISIT-FILES": {
       "name": "delete-visit-files",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/delete-visit-files/index",
-      "zip": ".dist/zips/delete-visit-files.zip"
+      "zip": ".dist/zips/delete-visit-files.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "EHR-GET-VISIT-DETAILS": {
       "name": "ehr-get-visit-details",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/get-visit-details/index",
-      "zip": ".dist/zips/ehr-get-visit-details.zip"
+      "zip": ".dist/zips/ehr-get-visit-details.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "EHR-UPDATE-VISIT-DETAILS": {
       "name": "ehr-update-visit-details",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/update-visit-details/index",
-      "zip": ".dist/zips/ehr-update-visit-details.zip"
+      "zip": ".dist/zips/ehr-update-visit-details.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "EHR-SEARCH-LEGACY-RECORDS": {
       "name": "ehr-search-legacy-records",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/search-legacy-records/index",
-      "zip": ".dist/zips/ehr-search-legacy-records.zip"
+      "zip": ".dist/zips/ehr-search-legacy-records.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-MANUAL-TASK": {
       "name": "create-manual-task",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/tasks/create-manual-task/index",
-      "zip": ".dist/zips/create-manual-task.zip"
+      "zip": ".dist/zips/create-manual-task.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-SEND-INVOICE-TO-PATIENT": {
       "name": "sub-send-invoice-to-patient",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-send-invoice-to-patient/index",
-      "zip": ".dist/zips/sub-send-invoice-to-patient.zip"
+      "zip": ".dist/zips/sub-send-invoice-to-patient.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-INVOICES-TASKS": {
       "name": "create-invoices-tasks",
@@ -1357,77 +1548,88 @@
       "zip": ".dist/zips/create-invoices-tasks.zip",
       "schedule": {
         "expression": "cron(0 * * * ? *)"
-      }
+      },
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-PATIENT-VISIT-HISTORY": {
       "name": "get-patient-visit-history",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-visit-history/get/index",
-      "zip": ".dist/zips/get-patient-visit-history.zip"
+      "zip": ".dist/zips/get-patient-visit-history.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE_INVOICE_TASK": {
       "name": "update-invoice-task",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/update-invoice-task/index",
-      "zip": ".dist/zips/update-invoice-task.zip"
+      "zip": ".dist/zips/update-invoice-task.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-BOOKING-QUESTIONNAIRE": {
       "name": "get-booking-questionnaire",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/get-booking-questionnaire/index",
-      "zip": ".dist/zips/get-booking-questionnaire.zip"
+      "zip": ".dist/zips/get-booking-questionnaire.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB_GENERATE_STATEMENT": {
       "name": "generate-statement",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-generate-statement/index",
-      "zip": ".dist/zips/generate-statement.zip"
+      "zip": ".dist/zips/generate-statement.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET_ERX_ORDERS": {
       "name": "get-erx-orders",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-erx-orders/index",
-      "zip": ".dist/zips/get-erx-orders.zip"
+      "zip": ".dist/zips/get-erx-orders.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-INVOICES-TASKS": {
       "name": "get-invoices-tasks",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-invoices-tasks/index",
-      "zip": ".dist/zips/get-invoices-tasks.zip"
+      "zip": ".dist/zips/get-invoices-tasks.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-STATEMENT-TEMPLATE": {
       "name": "get-statement-template",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/statements/get-template/index",
-      "zip": ".dist/zips/get-statement-template.zip"
+      "zip": ".dist/zips/get-statement-template.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-STATEMENT-DETAILS": {
       "name": "get-statement-details",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/statements/get-details/index",
-      "zip": ".dist/zips/get-statement-details.zip"
+      "zip": ".dist/zips/get-statement-details.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-STATEMENT-STATUS": {
       "name": "get-statement-status",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/statements/get-status/index",
-      "zip": ".dist/zips/get-statement-status.zip"
+      "zip": ".dist/zips/get-statement-status.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-MAIL-STATEMENT-TASK": {
       "name": "create-mail-statement-task",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/statements/create-mail-statement-task/index",
-      "zip": ".dist/zips/create-mail-statement-task.zip"
+      "zip": ".dist/zips/create-mail-statement-task.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-SEND-PATIENT-STATEMENT-BY-MAIL": {
       "name": "sub-send-patient-statement-by-mail",
@@ -1439,231 +1641,264 @@
         "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/patient-statement-mail|send-patient-statement-by-mail&status=requested",
         "reason": "Send patient statement by mail",
         "event": "create"
-      }
+      },
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-GENERATE-STATEMENT-TASK": {
       "name": "create-generate-statement-task",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/statements/create-generate-statement-task/index",
-      "zip": ".dist/zips/create-generate-statement-task.zip"
+      "zip": ".dist/zips/create-generate-statement-task.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "SUB-REFRESH-INVOICE-TASK": {
       "name": "sub-refresh-invoice-task",
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-refresh-invoice-task/index",
-      "zip": ".dist/zips/sub-refresh-invoice-task.zip"
+      "zip": ".dist/zips/sub-refresh-invoice-task.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET_PATIENT_BALANCES": {
       "name": "get-patient-balances",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-balances/index",
-      "zip": ".dist/zips/get-patient-balances.zip"
+      "zip": ".dist/zips/get-patient-balances.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET_LOGIN_PHONE_NUMBERS": {
       "name": "get-login-phone-numbers",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/get-login-phone-numbers/index",
-      "zip": ".dist/zips/get-login-phone-numbers.zip"
+      "zip": ".dist/zips/get-login-phone-numbers.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE_LOGIN_PHONE_NUMBERS": {
       "name": "update-login-phone-numbers",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/update-login-phone-numbers/index",
-      "zip": ".dist/zips/update-login-phone-numbers.zip"
+      "zip": ".dist/zips/update-login-phone-numbers.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "MAKE_MEDICATION_HISTORY_PDF": {
       "name": "make-medication-history-pdf",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/print-chart-data/make-medication-history-pdf/index",
-      "zip": ".dist/zips/make-medication-history-pdf.zip"
+      "zip": ".dist/zips/make-medication-history-pdf.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET_VISIT_FAX_HISTORY": {
       "name": "get-visit-fax-history",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/get-visit-fax-history/index",
-      "zip": ".dist/zips/get-visit-fax-history.zip"
+      "zip": ".dist/zips/get-visit-fax-history.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/create-fee-schedule/index",
-      "zip": ".dist/zips/create-fee-schedule.zip"
+      "zip": ".dist/zips/create-fee-schedule.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE-FEE-SCHEDULE": {
       "name": "update-fee-schedule",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/update-fee-schedule/index",
-      "zip": ".dist/zips/update-fee-schedule.zip"
+      "zip": ".dist/zips/update-fee-schedule.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "DELETE-FEE-SCHEDULE": {
       "name": "delete-fee-schedule",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/delete-fee-schedule/index",
-      "zip": ".dist/zips/delete-fee-schedule.zip"
+      "zip": ".dist/zips/delete-fee-schedule.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "LIST-FEE-SCHEDULES": {
       "name": "list-fee-schedules",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/list-fee-schedules/index",
-      "zip": ".dist/zips/list-fee-schedules.zip"
+      "zip": ".dist/zips/list-fee-schedules.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-VERSION-HISTORY": {
       "name": "get-version-history",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/get-version-history/index",
-      "zip": ".dist/zips/get-version-history.zip"
+      "zip": ".dist/zips/get-version-history.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ASSOCIATE-PAYER": {
       "name": "associate-payer",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/associate-payer/index",
-      "zip": ".dist/zips/associate-payer.zip"
+      "zip": ".dist/zips/associate-payer.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "DISASSOCIATE-PAYER": {
       "name": "disassociate-payer",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/disassociate-payer/index",
-      "zip": ".dist/zips/disassociate-payer.zip"
+      "zip": ".dist/zips/disassociate-payer.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "ADD-PROCEDURE-CODE": {
       "name": "add-procedure-code",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/add-procedure-code/index",
-      "zip": ".dist/zips/add-procedure-code.zip"
+      "zip": ".dist/zips/add-procedure-code.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE-PROCEDURE-CODE": {
       "name": "update-procedure-code",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/update-procedure-code/index",
-      "zip": ".dist/zips/update-procedure-code.zip"
+      "zip": ".dist/zips/update-procedure-code.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "DELETE-PROCEDURE-CODE": {
       "name": "delete-procedure-code",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/delete-procedure-code/index",
-      "zip": ".dist/zips/delete-procedure-code.zip"
+      "zip": ".dist/zips/delete-procedure-code.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "BULK-ADD-PROCEDURE-CODES": {
       "name": "bulk-add-procedure-codes",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/bulk-add-procedure-codes/index",
-      "zip": ".dist/zips/bulk-add-procedure-codes.zip"
+      "zip": ".dist/zips/bulk-add-procedure-codes.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "FIND-APPLICABLE-FEE-SCHEDULE": {
       "name": "find-applicable-fee-schedule",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/fee-schedules/find-applicable-fee-schedule/index",
-      "zip": ".dist/zips/find-applicable-fee-schedule.zip"
+      "zip": ".dist/zips/find-applicable-fee-schedule.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CREATE-CHARGE-MASTER": {
       "name": "create-charge-master",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/create-charge-master/index",
-      "zip": ".dist/zips/create-charge-master.zip"
+      "zip": ".dist/zips/create-charge-master.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "UPDATE-CHARGE-MASTER": {
       "name": "update-charge-master",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/update-charge-master/index",
-      "zip": ".dist/zips/update-charge-master.zip"
+      "zip": ".dist/zips/update-charge-master.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "DELETE-CHARGE-MASTER": {
       "name": "delete-charge-master",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/delete-charge-master/index",
-      "zip": ".dist/zips/delete-charge-master.zip"
+      "zip": ".dist/zips/delete-charge-master.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "LIST-CHARGE-MASTERS": {
       "name": "list-charge-masters",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/list-charge-masters/index",
-      "zip": ".dist/zips/list-charge-masters.zip"
+      "zip": ".dist/zips/list-charge-masters.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "DESIGNATE-CHARGE-MASTER-ENTRY": {
       "name": "designate-charge-master-entry",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/designate-charge-master-entry/index",
-      "zip": ".dist/zips/designate-charge-master-entry.zip"
+      "zip": ".dist/zips/designate-charge-master-entry.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "GET-CHARGE-MASTER-ENTRY": {
       "name": "get-charge-master-entry",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/get-charge-master-entry/index",
-      "zip": ".dist/zips/get-charge-master-entry.zip"
+      "zip": ".dist/zips/get-charge-master-entry.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "FIND-APPLICABLE-CHARGE-MASTER": {
       "name": "find-applicable-charge-master",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/find-applicable-charge-master/index",
-      "zip": ".dist/zips/find-applicable-charge-master.zip"
+      "zip": ".dist/zips/find-applicable-charge-master.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CM-ASSOCIATE-PAYER": {
       "name": "cm-associate-payer",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-associate-payer/index",
-      "zip": ".dist/zips/cm-associate-payer.zip"
+      "zip": ".dist/zips/cm-associate-payer.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CM-DISASSOCIATE-PAYER": {
       "name": "cm-disassociate-payer",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-disassociate-payer/index",
-      "zip": ".dist/zips/cm-disassociate-payer.zip"
+      "zip": ".dist/zips/cm-disassociate-payer.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CM-ADD-PROCEDURE-CODE": {
       "name": "cm-add-procedure-code",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-add-procedure-code/index",
-      "zip": ".dist/zips/cm-add-procedure-code.zip"
+      "zip": ".dist/zips/cm-add-procedure-code.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CM-UPDATE-PROCEDURE-CODE": {
       "name": "cm-update-procedure-code",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-update-procedure-code/index",
-      "zip": ".dist/zips/cm-update-procedure-code.zip"
+      "zip": ".dist/zips/cm-update-procedure-code.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CM-DELETE-PROCEDURE-CODE": {
       "name": "cm-delete-procedure-code",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-delete-procedure-code/index",
-      "zip": ".dist/zips/cm-delete-procedure-code.zip"
+      "zip": ".dist/zips/cm-delete-procedure-code.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     },
     "CM-BULK-ADD-PROCEDURE-CODES": {
       "name": "cm-bulk-add-procedure-codes",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-bulk-add-procedure-codes/index",
-      "zip": ".dist/zips/cm-bulk-add-procedure-codes.zip"
+      "zip": ".dist/zips/cm-bulk-add-procedure-codes.zip",
+      "executionRoleId": "#{ref/roles/ZAMBDA_EXECUTION/id}"
     }
   },
   "fhirResources": {

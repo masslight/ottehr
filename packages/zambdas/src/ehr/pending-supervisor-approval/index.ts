@@ -14,17 +14,9 @@ import {
   TaskIndicator,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 export const index = wrapHandler(
   'pending-supervisor-approval',
@@ -46,8 +38,7 @@ export const index = wrapHandler(
 
     try {
       const { encounterId, practitionerId, secrets } = validatedParameters;
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      const oystehr = createOystehrClient(m2mToken, secrets);
+      const oystehr = createOystehrClient(input.accessToken!, secrets);
 
       const encounter = (
         await oystehr.fhir.search<Encounter>({

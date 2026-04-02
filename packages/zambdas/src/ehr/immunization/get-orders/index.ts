@@ -23,14 +23,7 @@ import {
   VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  validateJsonBody,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, topLevelCatch, validateJsonBody, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   CONTAINED_EMERGENCY_CONTACT_ID,
   getContainedMedication,
@@ -38,15 +31,12 @@ import {
   IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL,
 } from '../common';
 
-let m2mToken: string;
-
 const ZAMBDA_NAME = 'get-immunization-orders';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, validatedParameters.secrets);
     const response = await getImmunizationOrders(oystehr, validatedParameters);
     return {
       statusCode: 200,

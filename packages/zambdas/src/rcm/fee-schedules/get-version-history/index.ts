@@ -1,22 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mToken: string;
 export const index = wrapHandler('get-version-history', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { secrets, resourceId } = validateRequestParameters(input);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const bundle = await oystehr.fhir.history<ChargeItemDefinition>({
       resourceType: 'ChargeItemDefinition',

@@ -1,14 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  RCM_TAG_SYSTEM,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, RCM_TAG_SYSTEM, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 /**
@@ -33,15 +26,12 @@ function findMostRecentEffective(
     .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))[0];
 }
 
-let m2mToken: string;
 export const index = wrapHandler(
   'find-applicable-charge-master',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
       const { payerOrganizationId, dateOfService, secrets } = validateRequestParameters(input);
-
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      const oystehr = createOystehrClient(m2mToken, secrets);
+      const oystehr = createOystehrClient(input.accessToken!, secrets);
 
       // Fetch all active charge masters tagged as charge-master
       const allResults = await oystehr.fhir.search<ChargeItemDefinition>({

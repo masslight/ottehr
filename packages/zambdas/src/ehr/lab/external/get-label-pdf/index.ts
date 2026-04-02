@@ -1,17 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { getPresignedURL, getSecret, LabDocumentType, LabelPdf, MIME_TYPES, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 export const index = wrapHandler('get-label-pdf', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -20,10 +13,9 @@ export const index = wrapHandler('get-label-pdf', async (input: ZambdaInput): Pr
     const { contextRelatedReference, searchParams, secrets } = validateRequestParameters(input);
 
     console.log('Getting token');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    console.log('token', m2mToken);
+    console.log('token', input.accessToken!);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const labelDocRefs = (
       await oystehr.fhir.search<DocumentReference>({
@@ -50,7 +42,7 @@ export const index = wrapHandler('get-label-pdf', async (input: ZambdaInput): Pr
         if (!url) {
           throw new Error('No url found matching an application/pdf');
         }
-        const presignedURL = await getPresignedURL(url, m2mToken);
+        const presignedURL = await getPresignedURL(url, input.accessToken!);
 
         if (!presignedURL) {
           throw new Error(`Failed to get presigned URL for ${url}`);

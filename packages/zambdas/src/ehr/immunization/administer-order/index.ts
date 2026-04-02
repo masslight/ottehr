@@ -34,7 +34,6 @@ import {
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   fillMeta,
   getMyPractitionerId,
@@ -51,15 +50,12 @@ import {
   validateOrderDetails,
 } from '../common';
 
-let m2mToken: string;
-
 const ZAMBDA_NAME = 'administer-immunization-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, validatedParameters.secrets);
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
     const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);

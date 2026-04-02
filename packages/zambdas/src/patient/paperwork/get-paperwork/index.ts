@@ -39,7 +39,6 @@ import {
 } from 'utils';
 import {
   createOystehrClient,
-  getAuth0Token,
   getOtherOfficesForLocation,
   topLevelCatch,
   wrapHandler,
@@ -68,7 +67,6 @@ export type FullAccessPaperworkSupportingInfo = Omit<PaperworkSupportingInfo, 'p
 };
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -76,16 +74,8 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
     const { appointmentID, dateOfBirth, secrets, authorization } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
-    // const z3Client = createZ3Client(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
+    // const z3Client = createZ3Client(input.accessToken!, secrets);
     // const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
 
     let appointment: Appointment | undefined = undefined;

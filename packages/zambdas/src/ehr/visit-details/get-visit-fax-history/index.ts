@@ -14,18 +14,9 @@ import {
   SecretsKeys,
 } from 'utils';
 import { ZodError } from 'zod';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  formatZodError,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, formatZodError, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'get-visit-fax-history';
-
-let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -34,8 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.groupEnd();
     console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
     const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     console.group('performEffect');
     const resources = await performEffect(validatedParameters, oystehr);

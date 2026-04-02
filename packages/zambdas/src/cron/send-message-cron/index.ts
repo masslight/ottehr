@@ -23,7 +23,7 @@ import {
   SecretsKeys,
 } from 'utils';
 import { getNameForOwner } from '../../ehr/schedules/shared';
-import { createOystehrClient, getAuth0Token, sendErrors, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { createOystehrClient, sendErrors, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import {
   getEmailClient,
   getMessageRecipientForAppointment,
@@ -33,16 +33,11 @@ import {
   makePaperworkUrl,
 } from '../../shared/communication';
 
-let oystehrToken: string;
-
 export const index = wrapHandler('send-message-cron', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   const { secrets } = input;
-  if (!oystehrToken) {
-    oystehrToken = await getAuth0Token(secrets);
-  }
   try {
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     const nowUTC = DateTime.now().toUTC();
     const startTime = roundToNearestQuarterHour(nowUTC.plus({ hour: 1 })); // round times to an even quarter minute
     console.log(

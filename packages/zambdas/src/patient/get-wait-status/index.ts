@@ -14,20 +14,12 @@ import {
   TelemedAppointmentStatusEnum,
   WaitingRoomResponse,
 } from 'utils';
-import {
-  getAuth0Token,
-  getUser,
-  getVideoEncounterForAppointment,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { getUser, getVideoEncounterForAppointment, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { estimatedTimeStatesGroups } from '../../shared/appointment/constants';
 import { convertStatesAbbreviationsToLocationIds, getAllAppointmentsByLocations } from './utils/fhir';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 
 const ZAMBDA_NAME = 'get-wait-status';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -76,16 +68,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     }
 
-    if (!oystehrToken) {
-      console.log('getting m2m token for service calls');
-      oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-      // TODO: wonder if we need to check if it's expired at some point?
-    }
-
     const oystehr = createOystehrClient(
-      oystehrToken,
+      input.accessToken!,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );

@@ -18,16 +18,8 @@ import {
   SecretsKeys,
   VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'ai-assisted-encounters-report';
 
@@ -41,8 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.debug('validateRequestParameters success');
 
     // Get M2M token for FHIR access
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     console.log('Searching for appointments in date range:', dateRange);
     if (locationIds && locationIds.length > 0) {

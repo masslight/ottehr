@@ -2,20 +2,12 @@ import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createFetchClientWithOystehrAuth, FetchClientWithOysterAuth, getSecret, Secrets, SecretsKeys } from 'utils';
 import { UserActivationZambdaInput, UserActivationZambdaOutput } from 'utils/lib/types/api/user-activation.types';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface UserActivationZambdaInputValidated extends UserActivationZambdaInput {
   secrets: Secrets;
 }
-
-let oystehrToken: string;
 
 export const index = wrapHandler('user-activation', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -24,11 +16,9 @@ export const index = wrapHandler('user-activation', async (input: ZambdaInput): 
     const { userId, mode, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
     const PROJECT_API = getSecret('PROJECT_API', secrets);
-    const oystehr = createOystehrClient(oystehrToken, secrets);
-    const fetchClient = createFetchClientWithOystehrAuth({ authToken: oystehrToken });
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
+    const fetchClient = createFetchClientWithOystehrAuth({ authToken: input.accessToken! });
     let user = await oystehr.user.get({ id: userId });
     console.log(`user before ${mode}ing: `, JSON.stringify(user));
 

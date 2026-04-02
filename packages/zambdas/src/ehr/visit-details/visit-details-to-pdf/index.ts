@@ -10,14 +10,7 @@ import {
   SecretsKeys,
   VisitDetailsResponse,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  getStripeClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, getStripeClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { makeVisitDetailsPdfDocumentReference } from '../../../shared/pdf/make-visit-details-document-reference';
 import { createVisitDetailsPdf } from '../../../shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -28,20 +21,16 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'visit-details-to-pdf';
 
-let m2mToken: string;
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
 
   try {
     const validatedParameters = validateRequestParameters(input);
     const { appointmentId, timezone, secrets } = validatedParameters;
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     console.log('Created Oystehr client');
 
-    const response = await performEffect(oystehr, appointmentId, secrets, timezone);
+    const response = await performEffect(oystehr, input.accessToken!, appointmentId, secrets, timezone);
     return {
       statusCode: 200,
       body: JSON.stringify(response),
@@ -54,6 +43,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export const performEffect = async (
   oystehr: Oystehr,
+  m2mToken: string,
   appointmentId: string,
   secrets: Secrets | null,
   timezone?: string

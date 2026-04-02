@@ -13,22 +13,19 @@ import {
   SecretsKeys,
   SyncUserResponse,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'sync-user';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { secrets } = validateRequestParameters(input);
     console.log('Parameters: ' + JSON.stringify(input));
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const m2mOystehrClient = createOystehrClient(m2mToken, secrets);
+    const m2mOystehrClient = createOystehrClient(input.accessToken!, secrets);
 
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const userOystehrClient = createOystehrClient(userToken, secrets);

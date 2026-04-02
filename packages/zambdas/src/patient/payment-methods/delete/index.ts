@@ -1,18 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys, STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR } from 'utils';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  lambdaResponse,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, lambdaResponse, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
 import { complexValidation, validateRequestParameters } from './validateRequestParameters';
 
-// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2MClientToken: string;
 export const index = wrapHandler('del-payment-method', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
@@ -30,14 +21,7 @@ export const index = wrapHandler('del-payment-method', async (input: ZambdaInput
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!m2MClientToken) {
-      console.log('getting m2m token for service calls');
-      m2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehrClient = createOystehrClient(m2MClientToken, secrets);
+    const oystehrClient = createOystehrClient(input.accessToken!, secrets);
 
     void (await validateUserHasAccessToPatientAccount(
       { beneficiaryPatientId, secrets, zambdaInput: input },

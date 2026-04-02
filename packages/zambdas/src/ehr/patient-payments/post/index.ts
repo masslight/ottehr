@@ -27,7 +27,6 @@ import {
 } from 'utils';
 import {
   createOystehrClient,
-  getAuth0Token,
   getStripeClient,
   getUser,
   lambdaResponse,
@@ -41,8 +40,6 @@ import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'post-patient-payment';
 
-// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrM2MClientToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const authorization = input.headers.Authorization;
@@ -77,14 +74,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!oystehrM2MClientToken) {
-      console.log('getting m2m token for service calls');
-      oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
+    const oystehrClient = createOystehrClient(input.accessToken!, secrets);
 
     const effectInput: ComplexValidationOutput = await complexValidation(
       {

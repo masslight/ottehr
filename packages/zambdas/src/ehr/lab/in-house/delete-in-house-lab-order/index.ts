@@ -20,18 +20,9 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  getMyPractitionerId,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { createOystehrClient, getMyPractitionerId, topLevelCatch, wrapHandler, ZambdaInput } from '../../../../shared';
 import { makeSoftDeleteStatusPatchRequest } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 const canDeleteInHouseLabOrder = (serviceRequest: ServiceRequest): boolean => {
   // these SR statuses cover the currently supported states of an order, so a user will be able to delete an order "at any point"
@@ -173,9 +164,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { serviceRequestId, userToken } = validatedParameters;
 
     console.log('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const currentUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);

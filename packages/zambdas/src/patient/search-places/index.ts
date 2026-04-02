@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, PlacesResult, SearchPlacesInput, SearchPlacesOutput, SecretsKeys } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import {
   addressComponentsFromPlacesDetailRes,
   extractPharmacyIdFromSearchRes,
@@ -13,7 +13,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 const ZAMBDA_NAME = 'search-places';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -24,14 +23,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const googleApiKey = getSecret(SecretsKeys.GOOGLE_PLACES_API_KEY, secrets);
 
-    if (!oystehrToken) {
-      console.log('getting m2m token for service calls');
-      oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const output = await performEffect({ searchTerm, locationBias, placesId, googleApiKey, oystehr });
 

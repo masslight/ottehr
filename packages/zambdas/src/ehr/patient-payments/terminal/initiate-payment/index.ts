@@ -18,7 +18,6 @@ import {
 } from 'utils';
 import {
   createOystehrClient,
-  getAuth0Token,
   getStripeClient,
   lambdaResponse,
   topLevelCatch,
@@ -31,17 +30,11 @@ const ZAMBDA_NAME = 'patient-payments-terminal-initiate-payment';
 
 const SIMULATION_TERMINAL_LOCATION_VALUES = new Set(['sim', 'simulated', 'simulation']);
 
-let oystehrM2MClientToken: string;
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    if (!oystehrM2MClientToken) {
-      oystehrM2MClientToken = await getAuth0Token(input.secrets);
-    }
-
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
+    const oystehrClient = createOystehrClient(input.accessToken!, input.secrets);
     const { stripeCustomerId, stripeAccount } = await getStripePaymentContext(validatedParameters, oystehrClient);
 
     const stripeClient = getStripeClient(input.secrets);

@@ -27,13 +27,7 @@ import {
   Task as OttehrTask,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -45,7 +39,6 @@ export interface ValidatedInput {
 export const DEFAULT_RADIOLOGY_ITEMS_PER_PAGE = 10;
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'radiology-order-list';
 
@@ -54,9 +47,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     console.log('input body, ', JSON.stringify(unsafeInput.body));
 
     const secrets = validateSecrets(unsafeInput.secrets);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(unsafeInput.accessToken!, secrets);
 
     const validatedInput = await validateInput(unsafeInput);
 

@@ -1,12 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { EMPTY_PAGINATION, getSecret, ReflexLabDTO, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../../shared';
 import {
   checkForDiagnosticReportDrivenResults,
   getLabResources,
@@ -15,8 +9,6 @@ import {
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mToken: string;
-
 export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -24,9 +16,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
     const { secrets, searchBy } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     console.log('searchBy:', JSON.stringify(searchBy));
 
@@ -41,7 +31,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
         environment: secrets.ENVIRONMENT,
       });
       if (!drResources) throw Error(`could not find resources for ${JSON.stringify(searchBy)}`);
-      const drDrivenResults = await mapResourcesToDrLabDTO(drResources, m2mToken);
+      const drDrivenResults = await mapResourcesToDrLabDTO(drResources, input.accessToken!);
       console.log('search param is diagnosticReportId, returning drDrivenResults only');
       return {
         statusCode: 200,
@@ -71,7 +61,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
       patientLabItems,
       appointmentScheduleMap,
       communications,
-    } = await getLabResources(oystehr, validatedParameters, m2mToken, {
+    } = await getLabResources(oystehr, validatedParameters, input.accessToken!, {
       searchBy: validatedParameters.searchBy,
     });
 
@@ -107,7 +97,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
     );
 
     if (diagnosticReportDrivenResultResources) {
-      drDrivenResults = await mapResourcesToDrLabDTO(diagnosticReportDrivenResultResources, m2mToken);
+      drDrivenResults = await mapResourcesToDrLabDTO(diagnosticReportDrivenResultResources, input.accessToken!);
     }
 
     return {

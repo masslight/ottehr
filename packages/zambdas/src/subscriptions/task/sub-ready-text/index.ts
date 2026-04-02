@@ -9,12 +9,10 @@ import {
   SecretsKeys,
   TaskStatus,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { sendText } from '../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
-
-let oystehrToken: string;
 
 export const index = wrapHandler('sub-ready-text', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -24,15 +22,7 @@ export const index = wrapHandler('sub-ready-text', async (input: ZambdaInput): P
     console.log('task ID', task.id);
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     let taskStatusToUpdate: TaskStatus;
     let statusReasonToUpdate: string | undefined;
@@ -115,7 +105,7 @@ export const index = wrapHandler('sub-ready-text', async (input: ZambdaInput): P
 
     if (fhirRelatedPerson) {
       const message = `Please set up access to your patient portal so you can view test results and discharge information: ${PROJECT_WEBSITE}/patient-portal`;
-      const { taskStatus, statusReason } = await sendText(message, fhirRelatedPerson, oystehrToken, secrets);
+      const { taskStatus, statusReason } = await sendText(message, fhirRelatedPerson, input.accessToken!, secrets);
       taskStatusToUpdate = taskStatus;
       statusReasonToUpdate = statusReason;
     } else {

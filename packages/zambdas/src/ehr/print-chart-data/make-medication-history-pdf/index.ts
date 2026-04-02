@@ -17,7 +17,7 @@ import {
   standardizePhoneNumber,
   uploadPDF,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getPatientLastFirstName, topLevelCatch, wrapHandler } from '../../../shared';
+import { getPatientLastFirstName, topLevelCatch, wrapHandler } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import { PdfRenderConfig, renderPdf, StyleFactory } from '../../../shared/pdf/pdf-common';
 import { PdfInfo, rgbNormalized } from '../../../shared/pdf/pdf-utils';
@@ -32,7 +32,6 @@ import { makeZ3Url } from '../../../shared/presigned-file-urls';
 import { ZambdaInput } from '../../../shared/types';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mToken: string;
 const ZAMBDA_NAME = 'make-medication-history-pdf';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -42,9 +41,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { patient, medicationHistory, appointment, encounter, location, timezone, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const formattedData: MedicationHistoryInput = formatData({
       patient,
@@ -54,9 +51,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       timezone,
     });
 
-    const output = await makeMedicationHistoryPDF(oystehr, m2mToken, secrets, formattedData, encounter);
+    const output = await makeMedicationHistoryPDF(oystehr, input.accessToken!, secrets, formattedData, encounter);
     console.log('makeMedicationHistoryPdf output is:', JSON.stringify(output));
-    const presignedURL = await getPresignedURL(output.uploadURL, m2mToken);
+    const presignedURL = await getPresignedURL(output.uploadURL, input.accessToken!);
     return {
       body: JSON.stringify({
         presignedURL,

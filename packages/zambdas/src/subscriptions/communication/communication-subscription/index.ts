@@ -4,7 +4,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Group, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { COMMUNICATION_ISSUE_REPORT_CODE, getFullestAvailableName, getSecret, Secrets, SecretsKeys } from 'utils';
-import { getAuth0Token, getEmailClient, sendSlackNotification, topLevelCatch, wrapHandler } from '../../../shared';
+import { getEmailClient, sendSlackNotification, topLevelCatch, wrapHandler } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import { ZambdaInput } from '../../../shared/types';
 import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
@@ -16,8 +16,6 @@ export interface CommunicationSubscriptionInput {
   communication: Communication;
   secrets: Secrets | null;
 }
-
-let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
@@ -36,15 +34,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         body: `communication has already been marked ${communication.status}`,
       };
     }
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     const communicationCodes = communication.category;
@@ -122,7 +112,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         const headers = {
           accept: 'application/json',
           'content-type': 'application/json',
-          Authorization: `Bearer ${oystehrToken}`,
+          Authorization: `Bearer ${input.accessToken!}`,
         };
         const getUserByProfileResponse = await fetch(
           `${PROJECT_API}/user/v2/list?profile=Practitioner/${practitionerID}`,

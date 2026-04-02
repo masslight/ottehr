@@ -17,7 +17,6 @@ import {
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
   topLevelCatch,
@@ -26,16 +25,13 @@ import {
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mToken: string;
 const ZAMBDA_NAME = 'sub-refresh-invoice-task';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParams = validateRequestParameters(input);
     const { task, secrets, invoiceTaskInput, taskId } = validatedParams;
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     const candid = createCandidApiClient(secrets);
 
     const inventoryRecord = await getCandidInventoryRecordForTask(oystehr, candid, taskId);

@@ -37,7 +37,6 @@ import {
 } from 'utils';
 import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   getEmployees,
   getRoleMembers,
@@ -54,7 +53,6 @@ export function validateRequestParameters(input: ZambdaInput): { secrets: Secret
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 export const index = wrapHandler('notification-Updater', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const sendSMSPractitionerCommunications: {
@@ -99,9 +97,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     const { secrets } = validateRequestParameters(input);
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     console.log('Created zapToken and fhir client');
 
     const [

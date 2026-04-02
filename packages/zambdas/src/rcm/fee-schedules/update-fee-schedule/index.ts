@@ -1,23 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { CASE_RATE_CODE, getSecret, RCM_TAG_SYSTEM, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mToken: string;
 export const index = wrapHandler('update-fee-schedule', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { id, name, effectiveDate, description, status, designation, caseRateAmount, caseRateComment, secrets } =
       validateRequestParameters(input);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const existing = await oystehr.fhir.get<ChargeItemDefinition>({
       resourceType: 'ChargeItemDefinition',

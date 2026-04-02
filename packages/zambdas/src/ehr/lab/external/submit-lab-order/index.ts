@@ -12,13 +12,7 @@ import {
   SecretsKeys,
   SubmitLabOrderOutput,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../../shared';
 import {
   getBundledOrderResources,
   makeOrderFormsAndDocRefs,
@@ -30,7 +24,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 const ZAMBDA_NAME = 'submit-lab-order';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -40,10 +33,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('manualOrder', serviceRequestIDs, manualOrder);
 
     console.log('Getting token');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    console.log('token', m2mToken);
+    console.log('token', input.accessToken!);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const currentUser = await createOystehrClient(userToken, secrets).user.me();
@@ -53,7 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('getting resources needed for submit lab');
     const bundledOrdersByOrderNumber = await getBundledOrderResources(
       oystehr,
-      m2mToken,
+      input.accessToken!,
       serviceRequestIDs,
       manualOrder
     );
@@ -77,7 +69,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           const res = await fetch(OYSTEHR_SUBMIT_LAB_API, {
             method: 'POST',
             headers: {
-              Authorization: `Bearer ${m2mToken}`,
+              Authorization: `Bearer ${input.accessToken!}`,
             },
             body: JSON.stringify(params),
           });
@@ -174,7 +166,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const hasSuccesses = Object.keys(successfulBundledOrders).length > 0;
     // if any abn was generated its presigned url will also be included
     const orderPdfUrls = hasSuccesses
-      ? await makeOrderFormsAndDocRefs(successfulBundledOrders, now, secrets, m2mToken, oystehr)
+      ? await makeOrderFormsAndDocRefs(successfulBundledOrders, now, secrets, input.accessToken!, oystehr)
       : [];
 
     const hasFailures = Object.keys(failedBundledOrders).length > 0;

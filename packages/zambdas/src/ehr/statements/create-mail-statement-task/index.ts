@@ -11,14 +11,7 @@ import {
   SecretsKeys,
   TaskIndicator,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  StatementType,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, StatementType, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'create-mail-statement-task';
 const validStatementTypes = new Set<StatementType>(['standard', 'past-due', 'final-notice']);
@@ -30,8 +23,6 @@ interface CreateMailStatementTaskInput {
   color: boolean;
   secrets: Secrets;
 }
-
-let m2mToken: string;
 
 function validateRequestParameters(input: ZambdaInput): CreateMailStatementTaskInput {
   if (!input.body) throw MISSING_REQUEST_BODY;
@@ -101,9 +92,7 @@ function createTaskInput(statementType: StatementType, color: boolean): TaskInpu
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedInput = validateRequestParameters(input);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedInput.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, validatedInput.secrets);
 
     const encounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',

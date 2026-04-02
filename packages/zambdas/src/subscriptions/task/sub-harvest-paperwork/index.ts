@@ -23,7 +23,7 @@ export const index = wrapTaskHandler('sub-harvest-paperwork-page', async (input,
 
   const questionnaire = await fetchQuestionnaire(qr, oystehr);
 
-  const { secrets } = input;
+  const { secrets, accessToken } = input;
   const ctx: HarvestContext = {
     qr,
     pageLinkId,
@@ -36,6 +36,7 @@ export const index = wrapTaskHandler('sub-harvest-paperwork-page', async (input,
     questionnaire,
     oystehr,
     secrets,
+    accessToken,
   };
 
   const result = await executePageHarvest(ctx);

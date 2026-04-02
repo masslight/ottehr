@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getRelatedPersonForPatient, getSecret, Secrets, SecretsKeys } from 'utils';
-import { getAuth0Token } from '../../shared';
 import { getPatientFromAppointment } from '../../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../../shared/helpers';
 import { CreateTelemedVideoRoomResponse } from '../../shared/types/telemed/video-room.types';
@@ -29,7 +28,7 @@ const execCreateVideoRoomRequest = async (
   secrets: Secrets | null,
   encounter: Encounter
 ): Promise<CreateTelemedVideoRoomResponse['encounter']> => {
-  const token = await getAuth0Token(secrets);
+  const token = await secrets;
   const response = await fetch(`${getSecret(SecretsKeys.PROJECT_API, secrets)}/telemed/v2/meeting`, {
     body: JSON.stringify({ encounter: encounter }),
     headers: {

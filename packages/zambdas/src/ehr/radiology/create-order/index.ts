@@ -31,7 +31,6 @@ import {
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   fillMeta,
   makeCPTCodeDTO,
@@ -75,7 +74,6 @@ const ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL =
   'http://advapacs.com/fhir/servicerequest-orderdetail-parameter-code';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'create-radiology-order';
 
@@ -84,9 +82,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     console.log('Input body and headers', unsafeInput.body, unsafeInput.headers);
 
     const secrets = validateSecrets(unsafeInput.secrets);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(unsafeInput.accessToken!, secrets);
 
     const validatedInput = await validateInput(unsafeInput, secrets, oystehr);
 

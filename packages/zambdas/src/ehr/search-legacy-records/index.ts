@@ -1,12 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, MISSING_REQUIRED_PARAMETERS, Secrets, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 
 const ZAMBDA_NAME = 'ehr-search-legacy-records';
 const LEGACY_DATA_BUCKET_SUFFIX = 'legacy-data';
@@ -16,8 +10,6 @@ const PAGE_SIZE_MAX = 50;
 const MAX_FILES_PER_RECORD_DEFAULT = 50;
 const MAX_FILES_PER_RECORD_MAX = 200;
 const PRESIGNED_URL_CONCURRENCY = 10;
-
-let m2mToken: string;
 
 export interface SearchLegacyRecordsInput {
   lastName: string;
@@ -57,9 +49,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     const { secrets, lastName, firstName, dateOfBirth, page, pageSize, maxFilesPerRecord } =
       validateRequestParameters(input);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
     const bucketName = `${projectId}-${LEGACY_DATA_BUCKET_SUFFIX}`;

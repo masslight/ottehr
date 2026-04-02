@@ -15,17 +15,9 @@ import {
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
   TASK_INPUT_SYSTEM,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  getMyPractitionerId,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { createOystehrClient, getMyPractitionerId, topLevelCatch, wrapHandler, ZambdaInput } from '../../../../shared';
 import { createOwnerReference, createTask, getTaskLocation } from '../../../../shared/tasks';
 import { validateRequestParameters } from './validateRequestParameters';
-let m2mToken: string;
 const ZAMBDA_NAME = 'collect-in-house-lab-specimen';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`collect-in-house-lab-specimen started, input: ${JSON.stringify(input)}`);
@@ -47,9 +39,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     secrets = validatedParameters.secrets;
 
     console.log('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
     const { encounterId, serviceRequestId, data } = validatedParameters;

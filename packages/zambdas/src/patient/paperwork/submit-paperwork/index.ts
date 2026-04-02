@@ -4,24 +4,15 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getSecret, isTelemedAppointment, SecretsKeys } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { SubmitPaperworkEffectInput, validateSubmitInputs } from '../validateRequestParameters';
-
-// Lifting the token out of the handler function allows it to persist across warm lambda invocations.
-export let token: string;
 
 export const index = wrapHandler('submit-paperwork', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = input.secrets;
-    if (!token) {
-      console.log('getting token');
-      token = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
 
-    const oystehr = createOystehrClient(token, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const effectInput = await validateSubmitInputs(input, oystehr);
 

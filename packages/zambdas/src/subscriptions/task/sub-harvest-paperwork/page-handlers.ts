@@ -37,8 +37,6 @@ import {
   mergeEncounterAccounts,
   updatePatientAccountFromQuestionnaire,
 } from '../../../ehr/shared/harvest';
-import { getAuth0Token } from '../../../shared';
-
 type WithId<T> = T & { id: string };
 
 export interface HarvestContext {
@@ -53,6 +51,7 @@ export interface HarvestContext {
   questionnaire: Questionnaire | undefined;
   oystehr: Oystehr;
   secrets: Secrets;
+  accessToken: string;
 }
 
 type HarvestStrategyHandler = (ctx: HarvestContext) => Promise<string>;
@@ -260,7 +259,7 @@ const consentStrategy: HarvestStrategyHandler = async (ctx) => {
     })
   ).unbundle() as List[];
 
-  const oystehrAccessToken = await getAuth0Token(secrets);
+  const oystehrAccessToken = ctx.accessToken;
 
   await createConsentResources({
     questionnaireResponse: pageQr,

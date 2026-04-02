@@ -18,7 +18,6 @@ import {
 import { getPresignedURLs } from '../../patient/appointment/get-visit-details/helpers';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-  checkOrCreateM2MClientToken,
   createEncounterFromAppointment,
   createOystehrClient,
   getEmailClient,
@@ -40,20 +39,17 @@ import { composeAndCreateReceiptPdf, getPaymentDataRequest, postChargeIssueReque
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 const ZAMBDA_NAME = 'change-telemed-appointment-status';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, validatedParameters.secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
-    const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
+    const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters, input.accessToken!);
     return {
       statusCode: 200,
       body: JSON.stringify(response),
@@ -68,7 +64,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 export const performEffect = async (
   oystehr: Oystehr,
   oystehrCurrentUser: Oystehr,
-  params: ChangeTelemedAppointmentStatusInput
+  params: ChangeTelemedAppointmentStatusInput,
+  m2mToken: string
 ): Promise<ChangeTelemedAppointmentStatusResponse> => {
   const { appointmentId, newStatus, secrets } = params;
 

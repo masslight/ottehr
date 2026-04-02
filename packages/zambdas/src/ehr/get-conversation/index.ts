@@ -15,7 +15,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 
 export interface GetConversationInputValidated extends GetConversationInput {
@@ -41,7 +41,6 @@ interface ConversationItem {
   isFromPatient: boolean;
 }
 
-let oystehrToken: string;
 const CHUNK_SIZE = 100;
 const MAX_MESSAGE_COUNT = '1000';
 
@@ -51,14 +50,7 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
     const validatedParameters = validateRequestParameters(input);
     const { patientId, timezone, secrets } = validatedParameters;
     console.groupEnd();
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const relatedResults = (
       await oystehr.fhir.search<RelatedPerson>({

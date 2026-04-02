@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { GetOrUploadPatientProfilePhotoInputValidated, getSecret, Secrets, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createPresignedUrl } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -11,7 +11,6 @@ const logIt = (msg: string): void => {
 const PATIENT_PHOTO_ID_PREFIX = 'patient-photo';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 const ZAMBDA_NAME = 'get-patient-profile-photo-url';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let validatedParameters: GetOrUploadPatientProfilePhotoInputValidated;
@@ -29,10 +28,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   try {
     const { secrets, action } = validatedParameters;
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    logIt(`Got m2mToken`);
-    const token = m2mToken;
+    const token = input.accessToken!;
 
     let z3PhotoUrl: string | undefined;
 

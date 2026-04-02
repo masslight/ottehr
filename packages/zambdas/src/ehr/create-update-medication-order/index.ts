@@ -38,13 +38,7 @@ import {
   SecretsKeys,
   UpdateMedicationOrderInput,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import {
   createMedicationAdministrationResource,
   createMedicationRequest,
@@ -61,7 +55,6 @@ import {
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mToken: string;
 const ZAMBDA_NAME = 'create-update-medication-order';
 const statusesToCreateAdditionalCptCodes: MedicationOrderStatusesType[] = ['administered', 'administered-partly'];
 
@@ -69,10 +62,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     const validatedParameters = validateRequestParameters(input);
     console.log('Validated parameters: ', JSON.stringify(validatedParameters));
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
     const userToken = input.headers.Authorization.replace('Bearer ', '') as string;
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, validatedParameters.secrets);
     const practitionerId = await practitionerIdFromZambdaInput(userToken, validatedParameters.secrets);
     console.log('Created zapToken, fhir and clients.');
 

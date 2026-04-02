@@ -2,7 +2,6 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Patient, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt } from 'jose';
 import { getPatientsForUser, getSecret, Secrets, SecretsKeys, TEST_USER_ID, userMe } from 'utils';
-import { getAuth0Token } from './getAuth0Token';
 
 export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
   let user: User;
@@ -45,16 +44,6 @@ export async function getPersonForPatient(patientID: string, oystehr: Oystehr): 
 }
 
 export type AuthType = 'regular';
-
-export async function checkOrCreateM2MClientToken(token: string, secrets: Secrets | null): Promise<string> {
-  if (!token) {
-    console.log('getting token');
-    return await getAuth0Token(secrets);
-  } else {
-    console.log('already have token');
-    return token;
-  }
-}
 
 export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean => {
   const decoded = decodeJwt(token);

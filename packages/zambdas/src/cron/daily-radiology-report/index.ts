@@ -7,15 +7,13 @@ import {
   ORDER_TYPE_CODE_SYSTEM,
   SecretsKeys,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 
 interface RadiologyStudyReportItem {
   serviceRequestId: string;
   patientName?: string;
   appointmentId: string;
 }
-
-let oystehrToken: string;
 
 const ZAMBDA_NAME = 'daily-radiology-report';
 
@@ -29,11 +27,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   try {
     // Get M2M token for FHIR access
-    if (!oystehrToken) {
-      oystehrToken = await getAuth0Token(secrets);
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const oneMonthAgo = DateTime.now().toUTC().minus({ days: 30 }).startOf('day');
     const now = DateTime.now().toUTC();

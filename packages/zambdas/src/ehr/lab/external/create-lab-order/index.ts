@@ -47,7 +47,7 @@ import {
   SPECIMEN_CODING_CONFIG,
   WORKERS_COMP_SERVICE_REQUEST_CATEGORY,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../../../shared';
+import { getMyPractitionerId, topLevelCatch, wrapHandler } from '../../../../shared';
 import { createOystehrClient } from '../../../../shared/helpers';
 import { ZambdaInput } from '../../../../shared/types';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
@@ -63,8 +63,6 @@ import {
   ResourcesForRequestFormatting,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 export const index = wrapHandler('create-lab-order', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -82,9 +80,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);

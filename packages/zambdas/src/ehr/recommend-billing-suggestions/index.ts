@@ -6,19 +6,12 @@ import {
   PROVIDER_CONFIG,
   SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { loadAndParseIcd10Data } from '../../shared/icd-10-search';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 export const index = wrapHandler(
   'recommend-billing-suggestions',
@@ -40,8 +33,6 @@ export const index = wrapHandler(
       } = validatedParameters;
       console.groupEnd();
       console.debug('validateRequestParameters success');
-
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
       let prompt = `Suggest appropriate CPT and ICD codes supported by clinical data provided for an urgent care visit in a simple list without commentary but with a code and a short reason why it was suggested for the supplied clinical data. Exactly 5 ICD and 5 CPT codes. If we don't know whether the patient is new or returning, suggest an E&M code for both a new and an established patient. Be sure to include a modifier to the E&M code if needed and HCPCS Q-codes as appropriate. Do not include E&M code in the list of CPT codes. Suggest the highest complexity E&M code reasonably likely to be approved given the clinical information.
       
@@ -154,7 +145,7 @@ export const index = wrapHandler(
 
       // Validate CPT codes and get the descriptions for the codes
       if (suggestions?.cptCodes) {
-        const oystehr = createOystehrClient(m2mToken, secrets);
+        const oystehr = createOystehrClient(input.accessToken!, secrets);
         await Promise.all(
           suggestions.cptCodes.map(async (code) => {
             const terminologyResponse = await oystehr?.terminology.searchCpt({

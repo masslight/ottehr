@@ -1,24 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Extension, Location } from 'fhir/r4b';
 import { getSecret, SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'save-terminal-location';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { locationId, terminalLocationId, secrets } = validateRequestParameters(input);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const location = await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId });
 

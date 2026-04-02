@@ -12,11 +12,10 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'save-preliminary-report';
 
@@ -25,9 +24,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     const secrets = validateSecrets(unsafeInput.secrets);
 
     const validatedInput = await validateInput(unsafeInput);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(unsafeInput.accessToken!, secrets);
 
     const output = await performEffect(validatedInput, secrets, oystehr);
 

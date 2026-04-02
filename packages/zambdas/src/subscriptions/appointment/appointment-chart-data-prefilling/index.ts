@@ -15,13 +15,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  saveResourceRequest,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { saveResourceRequest, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   createDispositionServiceRequest,
   makeClinicalImpressionResource,
@@ -39,8 +33,6 @@ export interface AppointmentSubscriptionInput {
   appointment: Appointment;
   secrets: Secrets | null;
 }
-
-let oystehrToken: string;
 
 const ZAMBDA_NAME = 'appointment-chart-data-prefilling';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -63,9 +55,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.debug('validateRequestParameters success');
 
     if (!appointment.id) throw new Error("Appointment FHIR resource doesn't exist.");
-
-    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
     console.log('Created zapToken and fhir client');
 
     const resourceBundle = (

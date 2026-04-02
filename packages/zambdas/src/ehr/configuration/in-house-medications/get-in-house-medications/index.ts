@@ -2,25 +2,16 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Medication } from 'fhir/r4b';
 import { getSecret, INVENTORY_MEDICATION_TYPE_CODE, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 export const index = wrapHandler(
   'admin-get-in-house-medications',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
       const { secrets } = validateRequestParameters(input);
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-      const oystehr = createOystehrClient(m2mToken, secrets);
+      const oystehr = createOystehrClient(input.accessToken!, secrets);
       console.log('Created Oystehr client');
 
       const response = await performEffect(oystehr);

@@ -29,7 +29,6 @@ import {
   AuditableZambdaEndpoints,
   createAuditEvent,
   createOystehrClient,
-  getAuth0Token,
   getParticipantFromAppointment,
   topLevelCatch,
   updateAppointmentTime,
@@ -43,7 +42,6 @@ export interface UpdateAppointmentInput extends UpdateAppointmentParameters {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 export const index = wrapHandler('update-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -52,15 +50,7 @@ export const index = wrapHandler('update-appointment', async (input: ZambdaInput
     const { appointmentID, slot: inputSlot, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const slot = normalizeSlotToUTC(inputSlot);
 

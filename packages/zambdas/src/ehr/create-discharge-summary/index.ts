@@ -8,13 +8,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
 import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-discharge-summary-document-reference';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -22,8 +16,6 @@ import { getChartData } from '../get-chart-data';
 import { getMedicationOrders } from '../get-medication-orders';
 import { getRadiologyOrders } from '../radiology/order-list';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 export const index = wrapHandler(
   'create-discharge-summary',
@@ -45,12 +37,10 @@ export const index = wrapHandler(
 
     try {
       const { appointmentId, timezone, secrets } = validatedParameters;
-
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      const oystehr = createOystehrClient(m2mToken, secrets);
+      const oystehr = createOystehrClient(input.accessToken!, secrets);
       console.log('Created Oystehr client');
 
-      const response = await performEffect(oystehr, appointmentId, secrets, timezone);
+      const response = await performEffect(oystehr, input.accessToken!, appointmentId, secrets, timezone);
       return {
         statusCode: 200,
         body: JSON.stringify(response),
@@ -64,6 +54,7 @@ export const index = wrapHandler(
 
 export const performEffect = async (
   oystehr: Oystehr,
+  m2mToken: string,
   appointmentId: string,
   secrets: Secrets | null,
   timezone?: string

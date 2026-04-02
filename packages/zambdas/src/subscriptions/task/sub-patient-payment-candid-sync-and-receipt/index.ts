@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, PaymentNotice } from 'fhir/r4b';
@@ -7,7 +6,6 @@ import { getSecret, getStripeAccountForAppointmentOrEncounter, SecretsKeys } fro
 import {
   createOystehrClient,
   createPatientPaymentReceiptPdf,
-  getAuth0Token,
   getStripeClient,
   performCandidPreEncounterSync,
   STRIPE_PAYMENT_ID_SYSTEM,
@@ -18,8 +16,6 @@ import {
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 
-let oystehrToken: string;
-let oystehr: Oystehr;
 let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-patient-payment-candid-sync-and-receipt';
@@ -35,15 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   taskId = task.id;
   console.groupEnd();
   console.debug('validateRequestParameters success');
-
-  if (!oystehrToken) {
-    console.log('getting token');
-    oystehrToken = await getAuth0Token(secrets);
-  } else {
-    console.log('already have token');
-  }
-
-  oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createOystehrClient(input.accessToken!, secrets);
 
   try {
     console.log('getting payment notice Id from the task');
@@ -162,7 +150,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         encounterId,
         patientId,
         secrets,
-        oystehrToken,
+        oystehrToken: input.accessToken!,
         stripeAccountId,
         lastOperationPaymentIntent: paymentIntent,
       });

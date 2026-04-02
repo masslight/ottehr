@@ -12,7 +12,6 @@ import {
 } from 'utils';
 import {
   createOystehrClient,
-  getAuth0Token,
   getStripeClient,
   lambdaResponse,
   topLevelCatch,
@@ -22,17 +21,11 @@ import {
 
 const ZAMBDA_NAME = 'patient-payments-terminal-cancel-reader-action';
 
-let oystehrM2MClientToken: string;
-
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    if (!oystehrM2MClientToken) {
-      oystehrM2MClientToken = await getAuth0Token(input.secrets);
-    }
-
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
+    const oystehrClient = createOystehrClient(input.accessToken!, input.secrets);
     const stripeAccount = await getStripeAccountForAppointmentOrEncounter(
       { encounterId: validatedParameters.encounterId },
       oystehrClient

@@ -15,7 +15,6 @@ import {
   UpdateAppointmentResponse,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createUpdateUserRelatedResources,
   creatingPatientUpdateRequest,
   getUser,
@@ -29,14 +28,11 @@ import { validateUpdateAppointmentParams } from './validateRequestParameters';
 const ZAMBDA_NAME = 'telemed-update-appointment';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const validatedParameters = validateUpdateAppointmentParams(input);
-
-    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
 
     const response = await performEffect({ input, params: validatedParameters });
 
@@ -58,7 +54,7 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
   const { secrets } = input;
   const fhirAPI = getSecret(SecretsKeys.FHIR_API, secrets);
   const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
-  const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
+  const oystehr = createOystehrClient(input.accessToken!, fhirAPI, projectAPI);
   console.log('getting user');
 
   const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);

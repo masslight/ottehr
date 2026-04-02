@@ -10,16 +10,8 @@ import {
   SecretsKeys,
   USER_TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'update-invoice-task';
 
@@ -27,9 +19,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     const validatedParams = validateRequestParameters(input);
     const { secrets, taskId, status, invoiceTaskInput, userTimezone } = validatedParams;
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const task = await oystehr.fhir.get<Task>({
       resourceType: 'Task',

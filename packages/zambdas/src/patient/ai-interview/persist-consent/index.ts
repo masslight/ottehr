@@ -10,18 +10,9 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import {
-  getAuth0Token,
-  topLevelCatch,
-  validateJsonBody,
-  validateString,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { topLevelCatch, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'persist-consent';
-
-let oystehrToken: string;
 
 interface Input extends PersistConsentInput {
   secrets: Secrets | null;
@@ -31,7 +22,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const { appointmentId, secrets } = validateInput(input);
-    const oystehr = await createOystehr(secrets);
+    const oystehr = await createOystehr(input.accessToken!, secrets);
     const consent = await oystehr.fhir.create<Consent>({
       resourceType: 'Consent',
       status: 'active',
@@ -86,12 +77,9 @@ function validateInput(input: ZambdaInput): Input {
   };
 }
 
-async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
-  if (oystehrToken == null) {
-    oystehrToken = await getAuth0Token(secrets);
-  }
+async function createOystehr(token: string, secrets: Secrets | null): Promise<Oystehr> {
   return createOystehrClient(
-    oystehrToken,
+    token,
     getSecret(SecretsKeys.FHIR_API, secrets),
     getSecret(SecretsKeys.PROJECT_API, secrets)
   );

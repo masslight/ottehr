@@ -34,7 +34,6 @@ import {
   checkIsEHRUser,
   createAuditEvent,
   createOystehrClient,
-  getAuth0Token,
   getEncounterDetails,
   getUser,
   sendErrors,
@@ -60,7 +59,6 @@ interface CancellationDetails {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let oystehrToken: string;
 
 export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -84,15 +82,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
 
     // Get email props
     console.group('gettingEmailProps');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const appointment: Appointment | undefined = await getAppointmentResourceById(appointmentID, oystehr);
     if (!appointment) {

@@ -6,7 +6,6 @@ import { Appointment, Encounter } from 'fhir/r4b';
 import { chunkThings, createCandidApiClient, GetPatientBalancesZambdaOutput, getSecret, SecretsKeys } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   lambdaResponse,
   topLevelCatch,
@@ -26,7 +25,6 @@ type EncounterIdMap = Map<
 >;
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 const CANDID_BATCH_SIZE = 3;
 
@@ -37,9 +35,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     const secrets = validateSecrets(unsafeInput.secrets);
 
     const validatedInput = await validateInput(unsafeInput);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(unsafeInput.accessToken!, secrets);
 
     console.group('creating candid api client');
     const candidApiClient = createCandidApiClient(secrets);

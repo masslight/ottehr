@@ -32,13 +32,7 @@ import {
   ProcedureDTO,
   SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  parseCreatedResourcesBundle,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { parseCreatedResourcesBundle, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
@@ -52,7 +46,6 @@ import { deleteResourceRequest, getEncounterAndRelatedResources } from './helper
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 type ChartData =
   | AllergyIntolerance
@@ -99,9 +92,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       accident,
     } = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     // 0. get encounter
     console.log(`Getting encounter ${encounterId}`);
@@ -335,7 +326,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
           | DocumentReference
           | undefined;
         const fileUrl = documentReference?.content?.[0]?.attachment.url;
-        if (fileUrl) await deleteZ3Object(fileUrl, m2mToken);
+        if (fileUrl) await deleteZ3Object(fileUrl, input.accessToken!);
       }
     }
 

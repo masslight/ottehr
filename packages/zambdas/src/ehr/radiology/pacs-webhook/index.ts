@@ -29,13 +29,7 @@ import {
   SecretsKeys,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { createTask } from '../../../shared/tasks';
 import { validateInput, validateSecrets } from './validation';
 
@@ -57,7 +51,6 @@ interface HandleDrAdditionalResources {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mToken: string;
 
 const ZAMBDA_NAME = 'radiology-pacs-webhook';
 
@@ -66,9 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     console.log('Received input body: ', JSON.stringify(unsafeInput.body, null, 2));
 
     const secrets = validateSecrets(unsafeInput.secrets);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(unsafeInput.accessToken!, secrets);
 
     const validatedInput = await validateInput(unsafeInput);
 

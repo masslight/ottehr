@@ -40,17 +40,10 @@ import {
   TIMEZONES,
   ZERO_BALANCE_BUSINESS_STATUS_CODE,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { accountMatchesType } from '../shared/harvest';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mToken: string;
 const ZAMBDA_NAME = GET_INVOICES_TASKS_ZAMBDA_KEY;
 
 type PatientRelationshipToInsured = 'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
@@ -71,9 +64,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const validatedParams = validateRequestParameters(input);
     const { secrets } = validatedParams;
     const start = performance.now();
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     const fhirSearchStart = performance.now();
     const fhirResources = await getFhirResourcesGrouped(oystehr, validatedParams);

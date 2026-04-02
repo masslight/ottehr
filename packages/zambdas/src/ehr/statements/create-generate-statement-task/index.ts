@@ -10,21 +10,13 @@ import {
   SecretsKeys,
   TaskIndicator,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'create-generate-statement-task';
 
 interface CreateGenerateStatementTaskInput {
   encounterId: string;
 }
-
-let m2mToken: string;
 
 function validateRequestParameters(input: ZambdaInput): CreateGenerateStatementTaskInput {
   if (!input.body) throw MISSING_REQUEST_BODY;
@@ -44,9 +36,7 @@ function validateRequestParameters(input: ZambdaInput): CreateGenerateStatementT
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedInput = validateRequestParameters(input);
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-    const oystehr = createOystehrClient(m2mToken, input.secrets);
+    const oystehr = createOystehrClient(input.accessToken!, input.secrets);
 
     const encounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',

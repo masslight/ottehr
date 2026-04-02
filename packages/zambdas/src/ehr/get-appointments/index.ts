@@ -49,7 +49,6 @@ import {
   ZAP_SMS_MEDIUM_CODE,
 } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
   createOystehrClient,
   getRelatedPersonsFromResourceList,
   sortAppointments,
@@ -75,8 +74,6 @@ export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZamb
   secrets: Secrets | null;
 }
 
-let m2mToken: string;
-
 export const index = wrapHandler('get-appointments', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -94,9 +91,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(input.accessToken!, secrets);
 
     console.time('get_active_encounters + get_appointment_data');
 
