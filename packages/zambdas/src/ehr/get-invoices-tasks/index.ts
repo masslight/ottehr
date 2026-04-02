@@ -25,7 +25,6 @@ import {
   getPatientReferenceFromAccount,
   getPhoneNumberForIndividual,
   getResponsiblePartyFromAccount,
-  getSecret,
   INVOICE_TASK_BUSINESS_STATUS_SYSTEM,
   INVOICEABLE_PATIENTS_PAGE_SIZE,
   InvoiceablePatientReport,
@@ -36,14 +35,12 @@ import {
   PATIENT_BILLING_ACCOUNT_TYPE,
   RCM_TASK_SYSTEM,
   RcmTaskCode,
-  SecretsKeys,
   TIMEZONES,
   ZERO_BALANCE_BUSINESS_STATUS_CODE,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -67,33 +64,27 @@ interface TaskGroup {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParams = validateRequestParameters(input);
-    const { secrets } = validatedParams;
-    const start = performance.now();
+  const validatedParams = validateRequestParameters(input);
+  const { secrets } = validatedParams;
+  const start = performance.now();
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const fhirSearchStart = performance.now();
-    const fhirResources = await getFhirResourcesGrouped(oystehr, validatedParams);
-    const fhirSearchEnd = performance.now();
-    const taskGroups = fhirResources.taskGroups;
+  const fhirSearchStart = performance.now();
+  const fhirResources = await getFhirResourcesGrouped(oystehr, validatedParams);
+  const fhirSearchEnd = performance.now();
+  const taskGroups = fhirResources.taskGroups;
 
-    const response = performEffect(taskGroups, fhirResources.bundleTotal);
-    const end = performance.now();
-    console.log('Whole zambda execution time:', Math.round((end - start) / 1000), 'seconds.');
-    console.log('FHIR search execution time: ', Math.round((fhirSearchEnd - fhirSearchStart) / 1000), 'seconds.');
-    // console.log('Candid search execution time: ', Math.round((candidSearchEnd - fhirSearchEnd) / 1000), 'seconds.');
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    console.log('Error occurred:', error);
-    return await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  const response = performEffect(taskGroups, fhirResources.bundleTotal);
+  const end = performance.now();
+  console.log('Whole zambda execution time:', Math.round((end - start) / 1000), 'seconds.');
+  console.log('FHIR search execution time: ', Math.round((fhirSearchEnd - fhirSearchStart) / 1000), 'seconds.');
+  // console.log('Candid search execution time: ', Math.round((candidSearchEnd - fhirSearchEnd) / 1000), 'seconds.');
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 function performEffect(taskGroups: TaskGroup[], total: number): GetInvoicesTasksResponse {

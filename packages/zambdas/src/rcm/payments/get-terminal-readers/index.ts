@@ -1,6 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, SecretsKeys } from 'utils';
-import { topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { wrapHandler, ZambdaInput } from '../../../shared';
 import { getStripeClient } from '../../../shared/stripeIntegration';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -21,53 +20,32 @@ export interface GetTerminalReadersResponse {
 
 const ZAMBDA_NAME = 'get-terminal-readers';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const { stripeAccountId, terminalLocationId, secrets } = validateRequestParameters(input);
+  const { stripeAccountId, terminalLocationId, secrets } = validateRequestParameters(input);
 
-    const stripeClient = getStripeClient(secrets);
+  const stripeClient = getStripeClient(secrets);
 
-    const readersResponse = await stripeClient.terminal.readers.list(
-      { location: terminalLocationId, limit: 100 },
-      { stripeAccount: stripeAccountId }
-    );
+  const readersResponse = await stripeClient.terminal.readers.list(
+    { location: terminalLocationId, limit: 100 },
+    { stripeAccount: stripeAccountId }
+  );
 
-    const readers: TerminalReaderInfo[] = readersResponse.data.map((reader) => ({
-      id: reader.id,
-      label: reader.label ?? null,
-      deviceType: reader.device_type,
-      status: reader.status ?? null,
-      serialNumber: reader.serial_number ?? null,
-      ipAddress: ((reader as unknown as Record<string, unknown>).ip_address as string | null) ?? null,
-      deviceSwVersion: reader.device_sw_version ?? null,
-    }));
+  const readers: TerminalReaderInfo[] = readersResponse.data.map((reader) => ({
+    id: reader.id,
+    label: reader.label ?? null,
+    deviceType: reader.device_type,
+    status: reader.status ?? null,
+    serialNumber: reader.serial_number ?? null,
+    ipAddress: ((reader as unknown as Record<string, unknown>).ip_address as string | null) ?? null,
+    deviceSwVersion: reader.device_sw_version ?? null,
+  }));
 
-    const response: GetTerminalReadersResponse = {
-      readers,
-      error: null,
-    };
+  const response: GetTerminalReadersResponse = {
+    readers,
+    error: null,
+  };
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-
-    if (
-      error instanceof Error &&
-      'type' in error &&
-      (error as Record<string, unknown>).type === 'StripeInvalidRequestError'
-    ) {
-      const response: GetTerminalReadersResponse = {
-        readers: [],
-        error: error.message,
-      };
-      return {
-        statusCode: 200,
-        body: JSON.stringify(response),
-      };
-    }
-
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });

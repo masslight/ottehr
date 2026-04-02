@@ -3,15 +3,12 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   CreateDischargeSummaryInputValidated,
   CreateDischargeSummaryResponse,
-  getSecret,
   progressNoteChartDataRequestedFields,
   Secrets,
-  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -43,22 +40,17 @@ export const index = wrapHandler(
       };
     }
 
-    try {
-      const { appointmentId, timezone, secrets } = validatedParameters;
+    const { appointmentId, timezone, secrets } = validatedParameters;
 
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      const oystehr = createOystehrClient(m2mToken, secrets);
-      console.log('Created Oystehr client');
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
+    console.log('Created Oystehr client');
 
-      const response = await performEffect(oystehr, appointmentId, secrets, timezone);
-      return {
-        statusCode: 200,
-        body: JSON.stringify(response),
-      };
-    } catch (error: any) {
-      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      return topLevelCatch('create-discharge-summary', error, ENVIRONMENT);
-    }
+    const response = await performEffect(oystehr, appointmentId, secrets, timezone);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
   }
 );
 

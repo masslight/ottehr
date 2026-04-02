@@ -25,17 +25,14 @@ import {
   ExamObservationDTO,
   FHIR_RESOURCE_IS_GONE,
   getPatchBinary,
-  getSecret,
   MedicalConditionDTO,
   MedicationDTO,
   ObservationDTO,
   ProcedureDTO,
-  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   parseCreatedResourcesBundle,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -67,290 +64,281 @@ type ChartData =
   | Task;
 
 export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log(`Input: ${JSON.stringify(input)}`);
-    console.log('Validating input');
-    const {
-      encounterId,
-      chiefComplaint,
-      historyOfPresentIllness,
-      mechanismOfInjury,
-      ros,
-      conditions,
-      medications,
-      allergies,
-      surgicalHistoryNote,
-      surgicalHistory,
-      observations,
-      episodeOfCare,
-      secrets,
-      examObservations,
-      medicalDecision,
-      cptCodes,
-      emCode,
-      instructions,
-      disposition,
-      diagnosis,
-      schoolWorkNotes,
-      addendumNote,
-      notes,
-      vitalsObservations,
-      procedures,
-      accident,
-    } = validateRequestParameters(input);
+  console.log(`Input: ${JSON.stringify(input)}`);
+  console.log('Validating input');
+  const {
+    encounterId,
+    chiefComplaint,
+    historyOfPresentIllness,
+    mechanismOfInjury,
+    ros,
+    conditions,
+    medications,
+    allergies,
+    surgicalHistoryNote,
+    surgicalHistory,
+    observations,
+    episodeOfCare,
+    secrets,
+    examObservations,
+    medicalDecision,
+    cptCodes,
+    emCode,
+    instructions,
+    disposition,
+    diagnosis,
+    schoolWorkNotes,
+    addendumNote,
+    notes,
+    vitalsObservations,
+    procedures,
+    accident,
+  } = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    // 0. get encounter
-    console.log(`Getting encounter ${encounterId}`);
-    const allResources = await getEncounterAndRelatedResources(oystehr, encounterId);
-    const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
-    if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
-    console.log(`Got encounter with id ${encounter.id}`);
+  // 0. get encounter
+  console.log(`Getting encounter ${encounterId}`);
+  const allResources = await getEncounterAndRelatedResources(oystehr, encounterId);
+  const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
+  if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
+  console.log(`Got encounter with id ${encounter.id}`);
 
-    // 1. get patient from encounter
-    const patient = allResources.filter((resource) => resource.resourceType === 'Patient')[0] as Patient;
-    if (patient === undefined) throw new Error(`Encounter  ${encounter.id} must be associated with a patient... `);
-    console.log(`Got patient with id ${patient.id}`);
+  // 1. get patient from encounter
+  const patient = allResources.filter((resource) => resource.resourceType === 'Patient')[0] as Patient;
+  if (patient === undefined) throw new Error(`Encounter  ${encounter.id} must be associated with a patient... `);
+  console.log(`Got patient with id ${patient.id}`);
 
-    const deleteOrUpdateRequests: (
-      | BatchInputDeleteRequest
-      | BatchInputPutRequest<ChartData>
-      | BatchInputRequest<ChartData>
-    )[] = [];
-    const updateEncounterOperations: Operation[] = [];
+  const deleteOrUpdateRequests: (
+    | BatchInputDeleteRequest
+    | BatchInputPutRequest<ChartData>
+    | BatchInputRequest<ChartData>
+  )[] = [];
+  const updateEncounterOperations: Operation[] = [];
 
-    // 2. delete  Medical Condition associated with chief complaint
-    if (chiefComplaint) {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', chiefComplaint.resourceId!));
-    }
-    if (historyOfPresentIllness) {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', historyOfPresentIllness.resourceId!));
-    }
-    if (mechanismOfInjury) {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', mechanismOfInjury.resourceId!));
-    }
-    if (ros) {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', ros.resourceId!));
-    }
+  // 2. delete  Medical Condition associated with chief complaint
+  if (chiefComplaint) {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Condition', chiefComplaint.resourceId!));
+  }
+  if (historyOfPresentIllness) {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Condition', historyOfPresentIllness.resourceId!));
+  }
+  if (mechanismOfInjury) {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Condition', mechanismOfInjury.resourceId!));
+  }
+  if (ros) {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Condition', ros.resourceId!));
+  }
 
-    // 3. delete Medical Conditions
-    conditions?.forEach((element: MedicalConditionDTO) => {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', element.resourceId!));
-    });
+  // 3. delete Medical Conditions
+  conditions?.forEach((element: MedicalConditionDTO) => {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Condition', element.resourceId!));
+  });
 
-    // 5. delete Allergies
-    allergies?.forEach((element: AllergyDTO) => {
-      deleteOrUpdateRequests.push(deleteResourceRequest('AllergyIntolerance', element.resourceId!));
-    });
+  // 5. delete Allergies
+  allergies?.forEach((element: AllergyDTO) => {
+    deleteOrUpdateRequests.push(deleteResourceRequest('AllergyIntolerance', element.resourceId!));
+  });
 
-    if (surgicalHistoryNote) {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Procedure', surgicalHistoryNote.resourceId!));
-    }
+  if (surgicalHistoryNote) {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Procedure', surgicalHistoryNote.resourceId!));
+  }
 
-    // 6. delete Procedures
-    surgicalHistory?.forEach((element: CPTCodeDTO) => {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Procedure', element.resourceId!));
-    });
+  // 6. delete Procedures
+  surgicalHistory?.forEach((element: CPTCodeDTO) => {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Procedure', element.resourceId!));
+  });
 
-    // 7. delete Observations
-    observations?.forEach((element: ObservationDTO) => {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
-    });
+  // 7. delete Observations
+  observations?.forEach((element: ObservationDTO) => {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
+  });
 
-    // 8. delete ExamObservations
-    examObservations?.forEach((element: ExamObservationDTO) => {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
-    });
+  // 8. delete ExamObservations
+  examObservations?.forEach((element: ExamObservationDTO) => {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
+  });
 
-    // 9. delete ClinicalImpression
-    if (medicalDecision) {
-      deleteOrUpdateRequests.push(deleteResourceRequest('ClinicalImpression', medicalDecision.resourceId!));
-    }
+  // 9. delete ClinicalImpression
+  if (medicalDecision) {
+    deleteOrUpdateRequests.push(deleteResourceRequest('ClinicalImpression', medicalDecision.resourceId!));
+  }
 
-    // 10. delete cpt-codes Procedures
-    cptCodes?.forEach((cptCode: CPTCodeDTO) => {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Procedure', cptCode.resourceId!));
-    });
+  // 10. delete cpt-codes Procedures
+  cptCodes?.forEach((cptCode: CPTCodeDTO) => {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Procedure', cptCode.resourceId!));
+  });
 
-    if (emCode) {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Procedure', emCode.resourceId!));
-    }
+  if (emCode) {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Procedure', emCode.resourceId!));
+  }
 
-    // 11. delete Communications
-    instructions?.forEach((element: CommunicationDTO) => {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Communication', element.resourceId!));
-    });
+  // 11. delete Communications
+  instructions?.forEach((element: CommunicationDTO) => {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Communication', element.resourceId!));
+  });
 
-    // 12. delete disposition ServiceRequests and encounter properties
-    if (disposition) {
-      updateEncounterOperations.push(updateEncounterDischargeDisposition(encounter, undefined));
-      // deletes all ServiceRequest attached to encounter
-      allResources.forEach((resource) => {
-        if (
-          resource.resourceType === 'ServiceRequest' &&
-          (chartDataResourceHasMetaTagByCode(resource, 'disposition-follow-up') ||
-            chartDataResourceHasMetaTagByCode(resource, 'sub-follow-up'))
-        ) {
-          deleteOrUpdateRequests.push(deleteResourceRequest('ServiceRequest', resource.id!));
-        }
-      });
-    }
-
-    // 13. delete diagnosis Conditions and Encounter properties
-    diagnosis?.forEach((element) => {
-      updateEncounterOperations.push(...deleteEncounterDiagnosis(encounter, element.resourceId!));
-      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', element.resourceId!));
-    });
-
-    if (addendumNote) {
-      updateEncounterOperations.push(...deleteEncounterAddendumNote(encounter));
-    }
-
-    // 14. delete school-work excuse note DocumentReference resource
-    schoolWorkNotes?.forEach((element) => {
-      const documentReference = allResources.find((resource) => resource.id === element.id);
-      if (documentReference) {
-        deleteOrUpdateRequests.push(deleteResourceRequest('DocumentReference', documentReference.id!));
+  // 12. delete disposition ServiceRequests and encounter properties
+  if (disposition) {
+    updateEncounterOperations.push(updateEncounterDischargeDisposition(encounter, undefined));
+    // deletes all ServiceRequest attached to encounter
+    allResources.forEach((resource) => {
+      if (
+        resource.resourceType === 'ServiceRequest' &&
+        (chartDataResourceHasMetaTagByCode(resource, 'disposition-follow-up') ||
+          chartDataResourceHasMetaTagByCode(resource, 'sub-follow-up'))
+      ) {
+        deleteOrUpdateRequests.push(deleteResourceRequest('ServiceRequest', resource.id!));
       }
     });
+  }
 
-    // 15. delete notes
-    notes?.forEach((element) => {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Communication', element.resourceId!));
-    });
+  // 13. delete diagnosis Conditions and Encounter properties
+  diagnosis?.forEach((element) => {
+    updateEncounterOperations.push(...deleteEncounterDiagnosis(encounter, element.resourceId!));
+    deleteOrUpdateRequests.push(deleteResourceRequest('Condition', element.resourceId!));
+  });
 
-    // 16. delete vitalsObservations
-    vitalsObservations?.forEach((element) => {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
-    });
+  if (addendumNote) {
+    updateEncounterOperations.push(...deleteEncounterAddendumNote(encounter));
+  }
 
-    // 18. mark procedures as entered-in-error (cancel)
-    procedures?.forEach((procedure: ProcedureDTO) => {
-      // Find the ServiceRequest for this procedure
-      const procedureServiceRequest = allResources.find(
-        (resource) => resource.resourceType === 'ServiceRequest' && resource.id === procedure.resourceId
-      ) as ServiceRequest | undefined;
-
-      if (procedureServiceRequest) {
-        const currentStatus = procedureServiceRequest.status;
-        console.log(`Cancelling procedure ${procedure.resourceId}, saving previous status '${currentStatus}'`);
-
-        // Use helper to create cancellation tag operations and status update
-        const patchOperations = [
-          ...createCancellationTagOperations(currentStatus, procedureServiceRequest.meta),
-          { op: 'replace' as const, path: '/status', value: 'entered-in-error' },
-        ];
-
-        // Mark as entered-in-error instead of deleting
-        deleteOrUpdateRequests.push(
-          getPatchBinary({
-            resourceId: procedure.resourceId!,
-            resourceType: 'ServiceRequest',
-            patchOperations,
-          })
-        );
-      }
-    });
-
-    episodeOfCare?.forEach((element) => {
-      deleteOrUpdateRequests.push(deleteResourceRequest('EpisodeOfCare', element.resourceId!));
-    });
-
-    if (accident) {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', accident.resourceId!));
+  // 14. delete school-work excuse note DocumentReference resource
+  schoolWorkNotes?.forEach((element) => {
+    const documentReference = allResources.find((resource) => resource.id === element.id);
+    if (documentReference) {
+      deleteOrUpdateRequests.push(deleteResourceRequest('DocumentReference', documentReference.id!));
     }
+  });
 
-    if (updateEncounterOperations.length > 0) {
+  // 15. delete notes
+  notes?.forEach((element) => {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Communication', element.resourceId!));
+  });
+
+  // 16. delete vitalsObservations
+  vitalsObservations?.forEach((element) => {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
+  });
+
+  // 18. mark procedures as entered-in-error (cancel)
+  procedures?.forEach((procedure: ProcedureDTO) => {
+    // Find the ServiceRequest for this procedure
+    const procedureServiceRequest = allResources.find(
+      (resource) => resource.resourceType === 'ServiceRequest' && resource.id === procedure.resourceId
+    ) as ServiceRequest | undefined;
+
+    if (procedureServiceRequest) {
+      const currentStatus = procedureServiceRequest.status;
+      console.log(`Cancelling procedure ${procedure.resourceId}, saving previous status '${currentStatus}'`);
+
+      // Use helper to create cancellation tag operations and status update
+      const patchOperations = [
+        ...createCancellationTagOperations(currentStatus, procedureServiceRequest.meta),
+        { op: 'replace' as const, path: '/status', value: 'entered-in-error' },
+      ];
+
+      // Mark as entered-in-error instead of deleting
       deleteOrUpdateRequests.push(
         getPatchBinary({
-          resourceId: encounterId,
-          resourceType: 'Encounter',
-          patchOperations: updateEncounterOperations,
+          resourceId: procedure.resourceId!,
+          resourceType: 'ServiceRequest',
+          patchOperations,
         })
       );
     }
+  });
 
-    const specialRulesDeletions = new Promise((resolve, reject) => {
-      // if no resources for special deletion rules were provided - resolve immediately
-      if (!medications?.length) {
-        resolve(true);
-        return;
-      }
+  episodeOfCare?.forEach((element) => {
+    deleteOrUpdateRequests.push(deleteResourceRequest('EpisodeOfCare', element.resourceId!));
+  });
 
-      const getRequests: BatchInputGetRequest[] = [];
-      const specialDeleteOrUpdateRequests: BatchInputRequest<FhirResource>[] = [];
-      const request = createFindResourceRequestByPatientField(patient.id, 'MedicationStatement', 'subject');
-      request.url += '&_id=';
-
-      // 4. delete Current Medications
-      medications?.forEach((element: MedicationDTO, i) => {
-        request.url += `${element.resourceId}${i === medications.length - 1 ? '' : ','}`;
-      });
-      getRequests.push(request);
-      oystehr.fhir
-        .transaction({
-          requests: getRequests,
-        })
-        .then((results) => {
-          const resources = parseCreatedResourcesBundle(parseCreatedResourcesBundle(results as Bundle)[0] as Bundle);
-          resources.forEach((res) => {
-            if (res.resourceType === 'MedicationStatement') {
-              // for medications from current encounter - remove entirely
-              if ((<MedicationStatement>res).context?.reference === `Encounter/${encounter.id}`) {
-                specialDeleteOrUpdateRequests.push(deleteResourceRequest('MedicationStatement', res.id!));
-              } else {
-                // otherwise only remove from current medications - mark as not active
-                specialDeleteOrUpdateRequests.push(
-                  getPatchBinary({
-                    resourceId: res.id!,
-                    resourceType: 'MedicationStatement',
-                    patchOperations: [{ op: 'replace', path: '/status', value: 'completed' }],
-                  })
-                );
-              }
-            }
-          });
-
-          oystehr.fhir.transaction({ requests: specialDeleteOrUpdateRequests }).then(resolve).catch(reject);
-        })
-        .catch(reject);
-    });
-
-    console.log('Starting a transaction update of chart data...');
-    await Promise.all([
-      oystehr.fhir.transaction({
-        requests: deleteOrUpdateRequests,
-      }),
-      specialRulesDeletions,
-    ]);
-    console.log('Updated chart data as a transaction');
-
-    // perform deleting z3 pdf objects after deleting all fhir resources
-    if (schoolWorkNotes) {
-      for (const schoolWorkNote of schoolWorkNotes) {
-        const documentReference = allResources.find((resource) => resource.id === schoolWorkNote.id) as
-          | DocumentReference
-          | undefined;
-        const fileUrl = documentReference?.content?.[0]?.attachment.url;
-        if (fileUrl) await deleteZ3Object(fileUrl, m2mToken);
-      }
-    }
-
-    return {
-      body: JSON.stringify({
-        patientId: patient.id,
-      }),
-      statusCode: 200,
-    };
-  } catch (error: any) {
-    console.log(error);
-    let errorToUse = error;
-    if (error.name === 'OystehrFHIRError' && error.code === 410) {
-      errorToUse = FHIR_RESOURCE_IS_GONE();
-    }
-    return topLevelCatch('delete-chart-data', errorToUse, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+  if (accident) {
+    deleteOrUpdateRequests.push(deleteResourceRequest('Condition', accident.resourceId!));
   }
+
+  if (updateEncounterOperations.length > 0) {
+    deleteOrUpdateRequests.push(
+      getPatchBinary({
+        resourceId: encounterId,
+        resourceType: 'Encounter',
+        patchOperations: updateEncounterOperations,
+      })
+    );
+  }
+
+  const specialRulesDeletions = new Promise((resolve, reject) => {
+    // if no resources for special deletion rules were provided - resolve immediately
+    if (!medications?.length) {
+      resolve(true);
+      return;
+    }
+
+    const getRequests: BatchInputGetRequest[] = [];
+    const specialDeleteOrUpdateRequests: BatchInputRequest<FhirResource>[] = [];
+    const request = createFindResourceRequestByPatientField(patient.id, 'MedicationStatement', 'subject');
+    request.url += '&_id=';
+
+    // 4. delete Current Medications
+    medications?.forEach((element: MedicationDTO, i) => {
+      request.url += `${element.resourceId}${i === medications.length - 1 ? '' : ','}`;
+    });
+    getRequests.push(request);
+    oystehr.fhir
+      .transaction({
+        requests: getRequests,
+      })
+      .then((results) => {
+        const resources = parseCreatedResourcesBundle(parseCreatedResourcesBundle(results as Bundle)[0] as Bundle);
+        resources.forEach((res) => {
+          if (res.resourceType === 'MedicationStatement') {
+            // for medications from current encounter - remove entirely
+            if ((<MedicationStatement>res).context?.reference === `Encounter/${encounter.id}`) {
+              specialDeleteOrUpdateRequests.push(deleteResourceRequest('MedicationStatement', res.id!));
+            } else {
+              // otherwise only remove from current medications - mark as not active
+              specialDeleteOrUpdateRequests.push(
+                getPatchBinary({
+                  resourceId: res.id!,
+                  resourceType: 'MedicationStatement',
+                  patchOperations: [{ op: 'replace', path: '/status', value: 'completed' }],
+                })
+              );
+            }
+          }
+        });
+
+        oystehr.fhir.transaction({ requests: specialDeleteOrUpdateRequests }).then(resolve).catch(reject);
+      })
+      .catch(reject);
+  });
+
+  console.log('Starting a transaction update of chart data...');
+  await Promise.all([
+    oystehr.fhir.transaction({
+      requests: deleteOrUpdateRequests,
+    }),
+    specialRulesDeletions,
+  ]);
+  console.log('Updated chart data as a transaction');
+
+  // perform deleting z3 pdf objects after deleting all fhir resources
+  if (schoolWorkNotes) {
+    for (const schoolWorkNote of schoolWorkNotes) {
+      const documentReference = allResources.find((resource) => resource.id === schoolWorkNote.id) as
+        | DocumentReference
+        | undefined;
+      const fileUrl = documentReference?.content?.[0]?.attachment.url;
+      if (fileUrl) await deleteZ3Object(fileUrl, m2mToken);
+    }
+  }
+
+  return {
+    body: JSON.stringify({
+      patientId: patient.id,
+    }),
+    statusCode: 200,
+  };
 });

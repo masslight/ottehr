@@ -1,14 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { fixAndParseJsonObjectFromString, getSecret, SecretsKeys } from 'utils';
-import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { fixAndParseJsonObjectFromString } from 'utils';
+import { wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbot } from '../../shared/ai';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export const index = wrapHandler(
   'recommend-billing-codes',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    try {
-      console.group('validateRequestParameters');
+    console.group('validateRequestParameters');
       const validatedParameters = validateRequestParameters(input);
       const {
         procedureType,
@@ -73,13 +72,5 @@ export const index = wrapHandler(
         statusCode: 200,
         body: JSON.stringify(aiResponseObject),
       };
-    } catch (error: any) {
-      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      await topLevelCatch('recommend-billing-codes', error, ENVIRONMENT);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ message: `Error recommending billing codes: ${error}` }),
-      };
-    }
   }
 );

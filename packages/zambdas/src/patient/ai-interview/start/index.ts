@@ -13,7 +13,6 @@ import {
 } from 'utils';
 import {
   getAuth0Token,
-  topLevelCatch,
   validateJsonBody,
   validateString,
   wrapHandler,
@@ -83,87 +82,83 @@ interface Input extends StartInterviewInput {
 const ZAMBDA_NAME = 'ai-interview-start';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    const { appointmentId, secrets } = validateInput(input);
-    const oystehr = await createOystehr(secrets);
+  const { appointmentId, secrets } = validateInput(input);
+  const oystehr = await createOystehr(secrets);
 
-    const resources = (
-      await oystehr.fhir.search<Encounter | Appointment | Patient>({
-        resourceType: 'Encounter',
-        params: [
-          {
-            name: 'appointment',
-            value: 'Appointment/' + appointmentId,
-          },
-          {
-            name: '_include',
-            value: 'Encounter:appointment',
-          },
-          {
-            name: '_include:iterate',
-            value: 'Appointment:patient',
-          },
-        ],
-      })
-    ).unbundle();
-    const encounter = resources.find((resource) => resource.resourceType === 'Encounter');
-    const encounterId = encounter?.id;
-    if (encounter == null || encounterId == null) {
-      throw new Error(`Encounter for appointment ID ${appointmentId} not found`);
-    }
-
-    const appointment = resources.find((resource) => resource.resourceType === 'Appointment');
-    if (appointment == null) {
-      throw new Error(`Appointment for appointment ID ${appointmentId} not found`);
-    }
-
-    const patient = resources.find((resource) => resource.resourceType === 'Patient');
-    let questionnaireResponse: QuestionnaireResponse;
-    const existingQuestionnaireResponse = await findAIInterviewQuestionnaireResponse(encounterId, oystehr);
-    const patientInfoDetails = [];
-    if (patient) {
-      if (patient.name && patient.name.length > 0) {
-        patientInfoDetails.push(`The patient name is: ${patient.name[0].given?.[0]} ${patient.name[0].family}`);
-      }
-      if (patient.birthDate) {
-        const birthDate = DateTime.fromISO(patient.birthDate);
-        const now = DateTime.now();
-        const patientAge = Math.floor(now.diff(birthDate, 'years').years);
-        patientInfoDetails.push(`Age: ${patientAge} year old`);
-      }
-      if (patient.gender) {
-        patientInfoDetails.push(`Sex: ${patient.gender}`);
-      }
-      if (appointment.description) {
-        patientInfoDetails.push(`Reason for visit: ${appointment.description}`);
-      }
-    }
-    let prompt = getInitialUserMessageUrgentCare(patientInfoDetails.join(', ') + '.');
-
-    if (
-      appointment.serviceCategory?.find(
-        (serviceCategory) =>
-          serviceCategory.coding?.find(
-            (coding) => coding.system === SERVICE_CATEGORY_SYSTEM && coding.code === 'workers-comp'
-          )
-      )
-    ) {
-      console.log('Using workers compensation prompt');
-      prompt = getInitialUserMessageWorkerComp(patientInfoDetails.join(', ') + '.');
-    }
-
-    if (existingQuestionnaireResponse != null) {
-      questionnaireResponse = existingQuestionnaireResponse;
-    } else {
-      questionnaireResponse = await createQuestionnaireResponse(encounterId, prompt, oystehr, secrets);
-    }
-    return {
-      statusCode: 200,
-      body: JSON.stringify(questionnaireResponse),
-    };
-  } catch (error: any) {
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+  const resources = (
+    await oystehr.fhir.search<Encounter | Appointment | Patient>({
+      resourceType: 'Encounter',
+      params: [
+        {
+          name: 'appointment',
+          value: 'Appointment/' + appointmentId,
+        },
+        {
+          name: '_include',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:patient',
+        },
+      ],
+    })
+  ).unbundle();
+  const encounter = resources.find((resource) => resource.resourceType === 'Encounter');
+  const encounterId = encounter?.id;
+  if (encounter == null || encounterId == null) {
+    throw new Error(`Encounter for appointment ID ${appointmentId} not found`);
   }
+
+  const appointment = resources.find((resource) => resource.resourceType === 'Appointment');
+  if (appointment == null) {
+    throw new Error(`Appointment for appointment ID ${appointmentId} not found`);
+  }
+
+  const patient = resources.find((resource) => resource.resourceType === 'Patient');
+  let questionnaireResponse: QuestionnaireResponse;
+  const existingQuestionnaireResponse = await findAIInterviewQuestionnaireResponse(encounterId, oystehr);
+  const patientInfoDetails = [];
+  if (patient) {
+    if (patient.name && patient.name.length > 0) {
+      patientInfoDetails.push(`The patient name is: ${patient.name[0].given?.[0]} ${patient.name[0].family}`);
+    }
+    if (patient.birthDate) {
+      const birthDate = DateTime.fromISO(patient.birthDate);
+      const now = DateTime.now();
+      const patientAge = Math.floor(now.diff(birthDate, 'years').years);
+      patientInfoDetails.push(`Age: ${patientAge} year old`);
+    }
+    if (patient.gender) {
+      patientInfoDetails.push(`Sex: ${patient.gender}`);
+    }
+    if (appointment.description) {
+      patientInfoDetails.push(`Reason for visit: ${appointment.description}`);
+    }
+  }
+  let prompt = getInitialUserMessageUrgentCare(patientInfoDetails.join(', ') + '.');
+
+  if (
+    appointment.serviceCategory?.find(
+      (serviceCategory) =>
+        serviceCategory.coding?.find(
+          (coding) => coding.system === SERVICE_CATEGORY_SYSTEM && coding.code === 'workers-comp'
+        )
+    )
+  ) {
+    console.log('Using workers compensation prompt');
+    prompt = getInitialUserMessageWorkerComp(patientInfoDetails.join(', ') + '.');
+  }
+
+  if (existingQuestionnaireResponse != null) {
+    questionnaireResponse = existingQuestionnaireResponse;
+  } else {
+    questionnaireResponse = await createQuestionnaireResponse(encounterId, prompt, oystehr, secrets);
+  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(questionnaireResponse),
+  };
 });
 
 function validateInput(input: ZambdaInput): Input {

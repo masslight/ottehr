@@ -24,7 +24,6 @@ import {
   getUser,
   lambdaResponse,
   sendSms,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -34,138 +33,133 @@ import { validateRequestParameters } from './validateRequestParameters';
 let oystehrToken: string;
 const ZAMBDA_NAME = 'telemed-create-invites';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const authorization = input.headers.Authorization;
+  if (!authorization) {
+    console.log('User is not authenticated yet');
+    return lambdaResponse(401, { message: 'Unauthorized' });
+  }
+
+  console.group('validateRequestParameters');
+  let validatedParameters: VideoChatCreateInviteInput;
   try {
-    const authorization = input.headers.Authorization;
-    if (!authorization) {
-      console.log('User is not authenticated yet');
-      return lambdaResponse(401, { message: 'Unauthorized' });
-    }
-
-    console.group('validateRequestParameters');
-    let validatedParameters: VideoChatCreateInviteInput;
-    try {
-      validatedParameters = validateRequestParameters(input);
-    } catch (error: any) {
-      console.log(error);
-      return lambdaResponse(400, { message: error.message });
-    }
-
-    const { appointmentId, firstName, lastName, phoneNumber, emailAddress, secrets } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-
-    const websiteUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-    const telemedClientSecret = getSecret(SecretsKeys.AUTH0_SECRET, secrets);
-
-    let user: User;
-    try {
-      console.log('getting user');
-      user = await getUser(authorization.replace('Bearer ', ''), secrets);
-      console.log(`user: ${user.name}`);
-    } catch (error) {
-      console.log('getUser error:', error);
-      return lambdaResponse(401, { message: 'Unauthorized' });
-    }
-
-    if (!oystehrToken) {
-      console.log('getting m2m token for service calls');
-      oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehr = createOystehrClient(
-      oystehrToken,
-      getSecret(SecretsKeys.FHIR_API, secrets),
-      getSecret(SecretsKeys.PROJECT_API, secrets)
-    );
-
-    const { encounter, appointment, relatedPersons, patient, location } = await getAppointmentResources(
-      oystehr,
-      appointmentId
-    );
-
-    const emailAddresses: string[] = JSONPath({
-      path: '$..telecom[?(@.system == "email")].value',
-      json: relatedPersons,
-    });
-    console.log('Email addresses invited so far:', emailAddresses);
-    if (emailAddresses.includes(emailAddress)) {
-      console.log(`Email address '${emailAddress}' is already invited.`);
-      return lambdaResponse(400, { message: `Email address '${emailAddress}' is already invited.` });
-    }
-
-    const patientRef = appointment.participant.find((p) => p.actor?.reference?.match(/^Patient/) !== null)?.actor
-      ?.reference;
-    console.log('Patient reference from appointment:', patientRef);
-    if (!patientRef) {
-      throw new Error('Could not find the patient reference in appointment resource.');
-    }
-
-    const relatedPerson = await createRelatedPerson(
-      firstName,
-      lastName,
-      phoneNumber,
-      emailAddress,
-      patientRef,
-      oystehr
-    );
-    console.log('Created RelatedPerson.id:', relatedPerson.id);
-
-    const relatedPersonRef = `RelatedPerson/${relatedPerson.id}`;
-    await addParticipantToEncounterIfNeeded(encounter, relatedPersonRef, oystehr);
-
-    const secret = new TextEncoder().encode(telemedClientSecret);
-    const alg = 'HS256';
-
-    const jwt = await new SignJWT()
-      .setProtectedHeader({ alg })
-      .setIssuedAt()
-      .setIssuer(PROJECT_WEBSITE)
-      .setSubject(emailAddress || phoneNumber)
-      .setAudience(`${websiteUrl}/waiting-room/appointment/${appointmentId}`)
-      .setExpirationTime('24h')
-      .sign(secret);
-
-    const inviteUrl = `${websiteUrl}/invited-waiting-room?appointment_id=${appointmentId}&token=${jwt}`;
-
-    const chosenName = patient?.name?.find((name) => name.use === 'nickname')?.given?.[0];
-    const patientChosenName = chosenName || patient?.name?.[0].given?.[0] || 'Patient';
-
-    const locationName = location ? getNameForOwner(location) ?? '' : '';
-    if (emailAddress) {
-      const emailClient = getEmailClient(secrets);
-      await emailClient.sendVideoChatInvitationEmail(emailAddress, {
-        'join-visit-url': inviteUrl,
-        'patient-name': patientChosenName,
-        location: locationName,
-      });
-    }
-
-    if (relatedPerson) {
-      let rawPhone = relatedPerson.telecom?.find((telecom) => telecom.system === 'sms')?.value;
-      if (rawPhone) {
-        rawPhone = rawPhone.replace(/[()\s-]/g, '');
-        const phone = formatPhoneNumber(rawPhone);
-        const message = replaceTemplateVariablesArrows(TEXTING_CONFIG.telemed.inviteSms, {
-          patientName: patientChosenName,
-          inviteUrl: inviteUrl,
-        });
-        console.log(`Sms data: recipient: ${relatedPersonRef}; verifiedPhoneNumber: ${phone};`);
-
-        const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-        await sendSms(message, relatedPersonRef, oystehr, ENVIRONMENT);
-      }
-    }
-
-    const result: VideoChatCreateInviteResponse = {
-      inviteUrl: inviteUrl,
-    };
-    return lambdaResponse(200, result);
+    validatedParameters = validateRequestParameters(input);
   } catch (error: any) {
     console.log(error);
-    return topLevelCatch('create-invite', error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+    return lambdaResponse(400, { message: error.message });
   }
+
+  const { appointmentId, firstName, lastName, phoneNumber, emailAddress, secrets } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  const websiteUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  const telemedClientSecret = getSecret(SecretsKeys.AUTH0_SECRET, secrets);
+
+  let user: User;
+  try {
+    console.log('getting user');
+    user = await getUser(authorization.replace('Bearer ', ''), secrets);
+    console.log(`user: ${user.name}`);
+  } catch (error) {
+    console.log('getUser error:', error);
+    return lambdaResponse(401, { message: 'Unauthorized' });
+  }
+
+  if (!oystehrToken) {
+    console.log('getting m2m token for service calls');
+    oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
+  } else {
+    console.log('already have a token, no need to update');
+  }
+
+  const oystehr = createOystehrClient(
+    oystehrToken,
+    getSecret(SecretsKeys.FHIR_API, secrets),
+    getSecret(SecretsKeys.PROJECT_API, secrets)
+  );
+
+  const { encounter, appointment, relatedPersons, patient, location } = await getAppointmentResources(
+    oystehr,
+    appointmentId
+  );
+
+  const emailAddresses: string[] = JSONPath({
+    path: '$..telecom[?(@.system == "email")].value',
+    json: relatedPersons,
+  });
+  console.log('Email addresses invited so far:', emailAddresses);
+  if (emailAddresses.includes(emailAddress)) {
+    console.log(`Email address '${emailAddress}' is already invited.`);
+    return lambdaResponse(400, { message: `Email address '${emailAddress}' is already invited.` });
+  }
+
+  const patientRef = appointment.participant.find((p) => p.actor?.reference?.match(/^Patient/) !== null)?.actor
+    ?.reference;
+  console.log('Patient reference from appointment:', patientRef);
+  if (!patientRef) {
+    throw new Error('Could not find the patient reference in appointment resource.');
+  }
+
+  const relatedPerson = await createRelatedPerson(
+    firstName,
+    lastName,
+    phoneNumber,
+    emailAddress,
+    patientRef,
+    oystehr
+  );
+  console.log('Created RelatedPerson.id:', relatedPerson.id);
+
+  const relatedPersonRef = `RelatedPerson/${relatedPerson.id}`;
+  await addParticipantToEncounterIfNeeded(encounter, relatedPersonRef, oystehr);
+
+  const secret = new TextEncoder().encode(telemedClientSecret);
+  const alg = 'HS256';
+
+  const jwt = await new SignJWT()
+    .setProtectedHeader({ alg })
+    .setIssuedAt()
+    .setIssuer(PROJECT_WEBSITE)
+    .setSubject(emailAddress || phoneNumber)
+    .setAudience(`${websiteUrl}/waiting-room/appointment/${appointmentId}`)
+    .setExpirationTime('24h')
+    .sign(secret);
+
+  const inviteUrl = `${websiteUrl}/invited-waiting-room?appointment_id=${appointmentId}&token=${jwt}`;
+
+  const chosenName = patient?.name?.find((name) => name.use === 'nickname')?.given?.[0];
+  const patientChosenName = chosenName || patient?.name?.[0].given?.[0] || 'Patient';
+
+  const locationName = location ? getNameForOwner(location) ?? '' : '';
+  if (emailAddress) {
+    const emailClient = getEmailClient(secrets);
+    await emailClient.sendVideoChatInvitationEmail(emailAddress, {
+      'join-visit-url': inviteUrl,
+      'patient-name': patientChosenName,
+      location: locationName,
+    });
+  }
+
+  if (relatedPerson) {
+    let rawPhone = relatedPerson.telecom?.find((telecom) => telecom.system === 'sms')?.value;
+    if (rawPhone) {
+      rawPhone = rawPhone.replace(/[()\s-]/g, '');
+      const phone = formatPhoneNumber(rawPhone);
+      const message = replaceTemplateVariablesArrows(TEXTING_CONFIG.telemed.inviteSms, {
+        patientName: patientChosenName,
+        inviteUrl: inviteUrl,
+      });
+      console.log(`Sms data: recipient: ${relatedPersonRef}; verifiedPhoneNumber: ${phone};`);
+
+      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+      await sendSms(message, relatedPersonRef, oystehr, ENVIRONMENT);
+    }
+  }
+
+  const result: VideoChatCreateInviteResponse = {
+    inviteUrl: inviteUrl,
+  };
+  return lambdaResponse(200, result);
 });
 
 async function createRelatedPerson(

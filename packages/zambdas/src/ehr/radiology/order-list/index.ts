@@ -9,14 +9,12 @@ import {
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
   GetRadiologyOrderListZambdaOutput,
-  getSecret,
   isPositiveNumberOrZero,
   ORDER_TYPE_CODE_SYSTEM,
   Pagination,
   RADIOLOGY_TASK,
   RadiologyOrderHistoryRow,
   RadiologyOrderStatus,
-  SecretsKeys,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
@@ -30,7 +28,6 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -50,26 +47,21 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'radiology-order-list';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log('input body, ', JSON.stringify(unsafeInput.body));
+  console.log('input body, ', JSON.stringify(unsafeInput.body));
 
-    const secrets = validateSecrets(unsafeInput.secrets);
+  const secrets = validateSecrets(unsafeInput.secrets);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const validatedInput = await validateInput(unsafeInput);
+  const validatedInput = await validateInput(unsafeInput);
 
-    const response = await performEffect(validatedInput, oystehr);
+  const response = await performEffect(validatedInput, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 const performEffect = async (

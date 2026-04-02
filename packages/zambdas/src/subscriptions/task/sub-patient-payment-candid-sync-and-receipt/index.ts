@@ -3,7 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { getSecret, getStripeAccountForAppointmentOrEncounter, SecretsKeys } from 'utils';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils';
 import {
   createOystehrClient,
   createPatientPaymentReceiptPdf,
@@ -11,7 +11,6 @@ import {
   getStripeClient,
   performCandidPreEncounterSync,
   STRIPE_PAYMENT_ID_SYSTEM,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -202,7 +201,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(response),
     };
   } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     try {
       if (oystehr && taskId)
         await patchTaskStatus(
@@ -212,6 +210,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     } catch (patchError) {
       console.error('Error patching task status in top level catch:', patchError);
     }
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+    throw error;
   }
 });

@@ -21,7 +21,6 @@ import {
   getMedicationName,
   getMedicationTypeCode,
   getPatchBinary,
-  getSecret,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
   INVENTORY_MEDICATION_TYPE_CODE,
   mapFhirToOrderStatus,
@@ -35,13 +34,11 @@ import {
   SaveChartDataRequest,
   searchMedicationLocation,
   searchRouteByCode,
-  SecretsKeys,
   UpdateMedicationOrderInput,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -66,26 +63,20 @@ const ZAMBDA_NAME = 'create-update-medication-order';
 const statusesToCreateAdditionalCptCodes: MedicationOrderStatusesType[] = ['administered', 'administered-partly'];
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
-    console.log('Validated parameters: ', JSON.stringify(validatedParameters));
+  const validatedParameters = validateRequestParameters(input);
+  console.log('Validated parameters: ', JSON.stringify(validatedParameters));
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const userToken = input.headers.Authorization.replace('Bearer ', '') as string;
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const practitionerId = await practitionerIdFromZambdaInput(userToken, validatedParameters.secrets);
-    console.log('Created zapToken, fhir and clients.');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const userToken = input.headers.Authorization.replace('Bearer ', '') as string;
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const practitionerId = await practitionerIdFromZambdaInput(userToken, validatedParameters.secrets);
+  console.log('Created zapToken, fhir and clients.');
 
-    const response = await performEffect(oystehr, validatedParameters, practitionerId, userToken);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', error);
-    console.log('Stringified error: ', JSON.stringify(error));
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  const response = await performEffect(oystehr, validatedParameters, practitionerId, userToken);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 async function performEffect(

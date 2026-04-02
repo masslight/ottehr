@@ -2,14 +2,11 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   BillingSuggestionOutput,
   fixAndParseJsonObjectFromString,
-  getSecret,
   PROVIDER_CONFIG,
-  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -23,8 +20,7 @@ let m2mToken: string;
 export const index = wrapHandler(
   'recommend-billing-suggestions',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    try {
-      console.group('validateRequestParameters');
+    console.group('validateRequestParameters');
       const validatedParameters = validateRequestParameters(input);
       const {
         newPatient,
@@ -220,13 +216,5 @@ export const index = wrapHandler(
         statusCode: 200,
         body: JSON.stringify(suggestions),
       };
-    } catch (error: any) {
-      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      await topLevelCatch('recommend-billing-suggestions', error, ENVIRONMENT);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ message: `Error recommending billing suggestions: ${error}` }),
-      };
-    }
   }
 );

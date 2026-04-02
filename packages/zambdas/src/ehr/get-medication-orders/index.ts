@@ -23,17 +23,14 @@ import {
   getPractitionerIdThatOrderedMedication,
   getProviderIdAndDateMedicationWasAdministered,
   getReasonAndOtherReasonForNotAdministeredOrder,
-  getSecret,
   isDeletedMedicationOrder,
   mapFhirToOrderStatus,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   OrderPackage,
-  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -43,24 +40,17 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'get-medication-orders';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    console.log('Created zapToken, fhir and clients.');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  console.log('Created zapToken, fhir and clients.');
 
-    const response = await getMedicationOrders(oystehr, validatedParameters);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', error);
-    console.log('Stringified error: ', JSON.stringify(error));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  const response = await getMedicationOrders(oystehr, validatedParameters);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export async function getMedicationOrders(

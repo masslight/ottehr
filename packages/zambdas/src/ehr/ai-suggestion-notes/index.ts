@@ -1,12 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { fixAndParseJsonObjectFromString, getSecret, PROMPTS_CONFIG, SecretsKeys } from 'utils';
-import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { fixAndParseJsonObjectFromString, PROMPTS_CONFIG } from 'utils';
+import { wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
+  console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     const { type, hpi, details, secrets } = validatedParameters;
     console.groupEnd();
@@ -55,16 +54,8 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
       }
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(suggestions),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('ai-suggestion-notes', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: `Error getting ai suggestions: ${error}` }),
-    };
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(suggestions),
+  };
 });

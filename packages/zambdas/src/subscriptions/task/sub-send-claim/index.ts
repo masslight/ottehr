@@ -2,13 +2,11 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
-import { getSecret, SecretsKeys } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   createEncounterFromAppointment,
   createOystehrClient,
   getAuth0Token,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -129,13 +127,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(response),
     };
   } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     try {
       if (oystehr && taskId) await patchTaskStatus(oystehr, taskId, 'failed', JSON.stringify(error));
     } catch (patchError) {
       console.error('Error patching task status in top level catch:', patchError);
     }
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+    throw error;
   }
 });
 

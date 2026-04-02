@@ -10,17 +10,14 @@ import {
   createInvoiceTaskInput,
   findClaimsBy,
   getLatestTaskOutput,
-  getSecret,
   getStartTimeFromEncounterStatusHistory,
   mapDisplayToInvoiceTaskStatus,
-  SecretsKeys,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -30,8 +27,7 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'sub-refresh-invoice-task';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParams = validateRequestParameters(input);
+  const validatedParams = validateRequestParameters(input);
     const { task, secrets, invoiceTaskInput, taskId } = validatedParams;
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -122,11 +118,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       statusCode: 200,
       body: JSON.stringify({ message: 'Task was not updated because no inventory record was found for the task.' }),
     };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    console.log('Error occurred:', error);
-    return await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
 });
 
 async function getCandidInventoryRecordForTask(

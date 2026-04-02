@@ -9,12 +9,10 @@ import { ClinicalImpression, Communication, Condition, Encounter, List, Observat
 import {
   ApplyTemplateZambdaInput,
   chunkThings,
-  getSecret,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
-  SecretsKeys,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -27,23 +25,18 @@ interface ComplexValidationOutput {
 let m2mToken: string;
 
 export const index = wrapHandler('apply-template', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedInput = validateRequestParameters(input);
+  const validatedInput = validateRequestParameters(input);
 
-    const { secrets } = validatedInput;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  const { secrets } = validatedInput;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const { templateList, encounter } = await complexValidation(validatedInput, oystehr);
-    await performEffect(validatedInput, templateList, encounter, oystehr);
-    return {
-      statusCode: 200,
-      body: JSON.stringify({}),
-    };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('apply-template', error, ENVIRONMENT);
-  }
+  const { templateList, encounter } = await complexValidation(validatedInput, oystehr);
+  await performEffect(validatedInput, templateList, encounter, oystehr);
+  return {
+    statusCode: 200,
+    body: JSON.stringify({}),
+  };
 });
 
 const complexValidation = async (

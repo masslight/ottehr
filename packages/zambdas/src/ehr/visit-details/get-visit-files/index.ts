@@ -8,7 +8,6 @@ import {
   getPatchBinary,
   getPaymentVariantFromEncounter,
   getPresignedURL,
-  getSecret,
   INSURANCE_CARD_CODE,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
@@ -21,13 +20,11 @@ import {
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
   Secrets,
-  SecretsKeys,
   VisitDocuments,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -37,27 +34,21 @@ const ZAMBDA_NAME = 'get-visit-files';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets, userToken } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const effectInput = await complexValidation(validatedParameters, oystehr);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets, userToken } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  const effectInput = await complexValidation(validatedParameters, oystehr);
 
-    const files = await getFileResources(effectInput, oystehr, userToken);
+  const files = await getFileResources(effectInput, oystehr, userToken);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(files),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(files),
+  };
 });
 
 interface GetFilesInput {

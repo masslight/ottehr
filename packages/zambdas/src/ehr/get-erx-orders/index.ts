@@ -6,14 +6,11 @@ import {
   GetErxOrdersInput,
   GetErxOrdersInputSchema,
   GetErxOrdersResponse,
-  getSecret,
-  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   makePrescribedMedicationDTO,
-  topLevelCatch,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -23,23 +20,16 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'get-erx-orders';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
 
-    const response = await getErxOrders(oystehr, validatedParameters);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', error);
-    console.log('Stringified error: ', JSON.stringify(error));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  const response = await getErxOrders(oystehr, validatedParameters);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export async function getErxOrders(

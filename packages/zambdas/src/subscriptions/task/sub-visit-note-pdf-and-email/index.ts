@@ -27,7 +27,6 @@ import {
   getAuth0Token,
   getEmailClient,
   makeAddressUrl,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -270,13 +269,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(response),
     };
   } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     try {
       if (oystehr && taskId) await patchTaskStatus(oystehr, taskId, 'failed', JSON.stringify(error));
     } catch (patchError) {
       console.error('Error patching task status in top level catch:', patchError);
     }
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+    throw error;
   }
 });
 

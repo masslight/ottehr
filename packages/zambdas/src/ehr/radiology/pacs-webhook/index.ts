@@ -32,7 +32,6 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -62,28 +61,23 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'radiology-pacs-webhook';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log('Received input body: ', JSON.stringify(unsafeInput.body, null, 2));
+  console.log('Received input body: ', JSON.stringify(unsafeInput.body, null, 2));
 
-    const secrets = validateSecrets(unsafeInput.secrets);
+  const secrets = validateSecrets(unsafeInput.secrets);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const validatedInput = await validateInput(unsafeInput);
+  const validatedInput = await validateInput(unsafeInput);
 
-    await accessCheck(unsafeInput.headers, secrets);
+  await accessCheck(unsafeInput.headers, secrets);
 
-    await performEffect(validatedInput, oystehr, secrets);
+  await performEffect(validatedInput, oystehr, secrets);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({}),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify({}),
+  };
 });
 
 const accessCheck = async (headers: any, secrets: Secrets): Promise<void> => {

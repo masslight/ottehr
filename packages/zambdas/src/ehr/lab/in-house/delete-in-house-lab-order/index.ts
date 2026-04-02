@@ -14,17 +14,14 @@ import { DateTime } from 'luxon';
 import {
   DeleteInHouseLabOrderParameters,
   DeleteInHouseLabOrderZambdaOutput,
-  getSecret,
   IN_HOUSE_LAB_ERROR,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   Secrets,
-  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -168,93 +165,87 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   }
 
-  try {
-    secrets = validatedParameters.secrets;
-    const { serviceRequestId, userToken } = validatedParameters;
+  secrets = validatedParameters.secrets;
+  const { serviceRequestId, userToken } = validatedParameters;
 
-    console.log('validateRequestParameters success');
+  console.log('validateRequestParameters success');
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-    const currentUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
-    console.log(`User initiating delete action is Practitioner/${currentUserPractitionerId}`);
+  const oystehrCurrentUser = createOystehrClient(userToken, secrets);
+  const currentUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+  console.log(`User initiating delete action is Practitioner/${currentUserPractitionerId}`);
 
-    const resources = await getInHouseLabOrderRelatedResources(oystehr, serviceRequestId);
+  const resources = await getInHouseLabOrderRelatedResources(oystehr, serviceRequestId);
 
-    if (!resources.serviceRequest) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({
-          message: `In-house lab order with ServiceRequest ID ${serviceRequestId} not found`,
-        }),
-      };
-    }
-
-    const requests: (
-      | BatchInputPostRequest<Provenance>
-      | BatchInputPatchRequest<ServiceRequest | DiagnosticReport | DocumentReference | Task | Specimen>
-    )[] = [];
-
-    const updatedResourceReferences: Reference[] = [];
-    Object.values(resources).forEach((resource) => {
-      if (resource && resource.id) {
-        requests.push(makeSoftDeleteStatusPatchRequest(resource.resourceType, resource.id));
-        updatedResourceReferences.push({
-          reference: `${resource.resourceType}/${resource.id}`,
-        });
-      }
-    });
-
-    // add provenance to track who did the delete and what changed
-    const provenancePost: BatchInputPostRequest<Provenance> = {
-      method: 'POST',
-      url: '/Provenance',
-      resource: {
-        resourceType: 'Provenance',
-        target: updatedResourceReferences,
-        recorded: DateTime.now().toISO(),
-        agent: [{ who: { reference: `Practitioner/${currentUserPractitionerId}` } }],
-        activity: {
-          coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.deleteOrder],
-        },
-      },
+  if (!resources.serviceRequest) {
+    return {
+      statusCode: 404,
+      body: JSON.stringify({
+        message: `In-house lab order with ServiceRequest ID ${serviceRequestId} not found`,
+      }),
     };
-    requests.push(provenancePost);
+  }
+
+  const requests: (
+    | BatchInputPostRequest<Provenance>
+    | BatchInputPatchRequest<ServiceRequest | DiagnosticReport | DocumentReference | Task | Specimen>
+  )[] = [];
+
+  const updatedResourceReferences: Reference[] = [];
+  Object.values(resources).forEach((resource) => {
+    if (resource && resource.id) {
+      requests.push(makeSoftDeleteStatusPatchRequest(resource.resourceType, resource.id));
+      updatedResourceReferences.push({
+        reference: `${resource.resourceType}/${resource.id}`,
+      });
+    }
+  });
+
+  // add provenance to track who did the delete and what changed
+  const provenancePost: BatchInputPostRequest<Provenance> = {
+    method: 'POST',
+    url: '/Provenance',
+    resource: {
+      resourceType: 'Provenance',
+      target: updatedResourceReferences,
+      recorded: DateTime.now().toISO(),
+      agent: [{ who: { reference: `Practitioner/${currentUserPractitionerId}` } }],
+      activity: {
+        coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.deleteOrder],
+      },
+    },
+  };
+  requests.push(provenancePost);
+
+  if (requests.length > 0) {
+    console.log(
+      `Deleting in-house lab order for ServiceRequest ID: ${serviceRequestId}; requests: ${JSON.stringify(
+        requests,
+        null,
+        2
+      )}`
+    );
 
     if (requests.length > 0) {
       console.log(
-        `Deleting in-house lab order for ServiceRequest ID: ${serviceRequestId}; requests: ${JSON.stringify(
+        `Deleting external lab order for service request id: ${serviceRequestId}; request: ${JSON.stringify(
           requests,
           null,
           2
         )}`
       );
 
-      if (requests.length > 0) {
-        console.log(
-          `Deleting external lab order for service request id: ${serviceRequestId}; request: ${JSON.stringify(
-            requests,
-            null,
-            2
-          )}`
-        );
-
-        const transactionResponse = await oystehr.fhir.transaction<FhirResource>({ requests });
-        console.log(`Successfully soft deleted in house lab order. Response: ${JSON.stringify(transactionResponse)}`);
-      }
+      const transactionResponse = await oystehr.fhir.transaction<FhirResource>({ requests });
+      console.log(`Successfully soft deleted in house lab order. Response: ${JSON.stringify(transactionResponse)}`);
     }
-
-    const response: DeleteInHouseLabOrderZambdaOutput = {};
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.error('Error deleting in-house lab order:', error);
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('delete-in-house-lab-order', error, ENVIRONMENT);
   }
+
+  const response: DeleteInHouseLabOrderZambdaOutput = {};
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
