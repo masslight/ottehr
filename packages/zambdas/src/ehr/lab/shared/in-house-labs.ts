@@ -840,7 +840,7 @@ function getParticipant(
   return participant.length ? participant : undefined;
 }
 
-type SemVer = {
+export type SemVer = {
   major: number;
   minor: number;
   patch: number;

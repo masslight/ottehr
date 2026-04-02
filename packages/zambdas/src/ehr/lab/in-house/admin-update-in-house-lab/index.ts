@@ -28,6 +28,7 @@ import {
   makeAdminInHouseLabConfigOutput,
   makeAdminProvenanceResourceRequest,
   parseSemVer,
+  SemVer,
   semverToString,
 } from '../../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -97,10 +98,12 @@ const handleEditAdminInHouseLab = async (
   });
 
   const oldAdTagsMinusLatest =
-    oldActivityDefinition.meta?.tag?.filter(
-      (tag) =>
-        tag.system !== IN_HOUSE_LAB_LATEST_TAG_DEFINITION.system && tag.code !== IN_HOUSE_LAB_LATEST_TAG_DEFINITION.code
-    ) ?? [];
+    oldActivityDefinition.meta?.tag?.filter((tag) => {
+      if (tag.system === IN_HOUSE_LAB_LATEST_TAG_DEFINITION.system)
+        return tag.code !== IN_HOUSE_LAB_LATEST_TAG_DEFINITION.code;
+      return true;
+    }) ?? [];
+  console.log('These are the oldAdTagsMinusLatest', JSON.stringify(oldAdTagsMinusLatest));
 
   const oldAdPatchRequest: BatchInputPatchRequest<ActivityDefinition> = {
     method: 'PATCH',
@@ -136,9 +139,20 @@ const handleEditAdminInHouseLab = async (
   // make a new AD from the new data config. add the latest tag, and update the canonical url --
   // this is to keep the url consistent in case the user edits the test name. Add the updated version
   const newAdFullUrl = `urn:uuid:${randomUUID()}`;
-  const newAdWithEdits = convertAdminInHouseLabItemDefinitionToActivityDefinition(newData);
-  newAdWithEdits.version = incrementedVersion;
-  newAdWithEdits.url = canonicalUrl;
+  const newAd = convertAdminInHouseLabItemDefinitionToActivityDefinition(newData);
+
+  const existingTags = newAd.meta?.tag ?? [];
+  console.log('These are the existing tags for the newAd', JSON.stringify(existingTags));
+
+  const newAdWithEdits: ActivityDefinition = {
+    ...newAd,
+    version: incrementedVersion,
+    url: canonicalUrl,
+    meta: {
+      ...newAd.meta,
+      tag: [...existingTags, IN_HOUSE_LAB_LATEST_TAG_DEFINITION],
+    },
+  };
 
   const createNewAdRequest: BatchInputPostRequest<ActivityDefinition> = {
     method: 'POST',
@@ -184,6 +198,17 @@ const handleStatusUpdateAdminInHouseLab = async (
     id: activityDefinitionId,
   });
 
+  // there is an edge case due to previously TF-managed ActivityDefinitions:
+  // they did not previously have latest tags assigned to them even when they are in fact the latest,
+  // so we will take this opportunity to assign the tag if it is in fact the latest version --
+  // otherwise they are filtered out in list view once retired
+  const shouldAddLatestTag = await isLatestVersionMissingLatestTag(oystehr, activityDefinition);
+  if (shouldAddLatestTag)
+    console.log(
+      `ActivityDefinition/${activityDefinition.id} is the latest version but missing its tag. Adding the tag`
+    );
+  const activityDefinitionHasTags = !!activityDefinition.meta?.tag?.length;
+
   const toggleStatusRequest: BatchInputPatchRequest<ActivityDefinition> = {
     method: 'PATCH',
     url: `ActivityDefinition/${activityDefinitionId}`,
@@ -193,6 +218,17 @@ const handleStatusUpdateAdminInHouseLab = async (
         op: 'replace',
         value: activityDefinition.status === 'active' ? 'retired' : 'active',
       },
+      ...(shouldAddLatestTag
+        ? [
+            {
+              path: activityDefinitionHasTags ? '/meta/tag/-' : '/meta/tag',
+              op: 'add',
+              value: activityDefinitionHasTags
+                ? IN_HOUSE_LAB_LATEST_TAG_DEFINITION
+                : [IN_HOUSE_LAB_LATEST_TAG_DEFINITION],
+            } as Operation,
+          ]
+        : []),
     ],
     ifMatch: makeOptimisticLockIfMatchHeader(activityDefinition),
   };
@@ -210,5 +246,74 @@ const handleStatusUpdateAdminInHouseLab = async (
   );
   if (!newWrittenAd) throw new Error('New ActivityDefinition not in the transaction result');
 
-  return newWrittenAd as ActivityDefinition;
+  return newWrittenAd;
+};
+
+const isLatestVersionMissingLatestTag = async (
+  oystehr: Oystehr,
+  activityDefinition: ActivityDefinition
+): Promise<boolean> => {
+  const hasLatestTag =
+    activityDefinition.meta?.tag?.some(
+      (tag) =>
+        tag.system === IN_HOUSE_LAB_LATEST_TAG_DEFINITION.system && tag.code === IN_HOUSE_LAB_LATEST_TAG_DEFINITION.code
+    ) || false;
+
+  if (hasLatestTag) return false;
+
+  const canonicalUrl = activityDefinition.url;
+  const version = activityDefinition.version;
+  if (!canonicalUrl || !version)
+    throw new Error(`ActivityDefinition/${activityDefinition.id} is missing its canonical url or version`);
+
+  // find all the other activityDefinitions with the same canonical url, and then remove our current one from the list
+  // unfortunately we can't have fhir sort by version because at some point we switched from incremental versions to semver
+  // and fhir does a simple string comparison sort
+  const adsByUrl = (
+    await oystehr.fhir.search<ActivityDefinition>({
+      resourceType: 'ActivityDefinition',
+      params: [
+        {
+          name: 'url',
+          value: canonicalUrl,
+        },
+      ],
+    })
+  )
+    .unbundle()
+    .filter((ad) => ad.id !== activityDefinition.id);
+
+  if (!adsByUrl.length) return true;
+
+  const allVersions = adsByUrl.map((ad) => ad.version).filter((elm) => elm !== undefined);
+  const higherVersionExists = allVersions.some((v) => isGreaterSemVer(v, version));
+  return !higherVersionExists;
+};
+
+/**
+ * Tells you if x is a greater semver than y
+ * */
+const isGreaterSemVer = (x: string, y: string): boolean => {
+  let semVerX: SemVer, semVerY: SemVer;
+  try {
+    semVerX = parseSemVer(x);
+  } catch (error: any) {
+    // not a real semVer, so can't be greater
+    console.log('x semver was not a real semver', error);
+    return false;
+  }
+
+  try {
+    semVerY = parseSemVer(y);
+  } catch (error) {
+    // if y isn't a semver, x is greater by default
+    console.log('y semver was not a real semver', error);
+    return true;
+  }
+  const { major: majorX, minor: minorX, patch: patchX } = semVerX;
+  const { major: majorY, minor: minorY, patch: patchY } = semVerY;
+
+  if (majorX !== majorY) return majorX > majorY;
+  if (minorX !== minorY) return minorX > minorY;
+  return patchX > patchY;
 };
