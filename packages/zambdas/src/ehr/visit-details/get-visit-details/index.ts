@@ -45,28 +45,23 @@ const ZAMBDA_NAME = 'get-visit-details';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const effectInput = await complexValidation(validatedParameters, oystehr);
-    console.debug('complexValidation success', JSON.stringify(effectInput));
+  const effectInput = await complexValidation(validatedParameters, oystehr);
+  console.debug('complexValidation success', JSON.stringify(effectInput));
 
-    const resources = performEffect(effectInput);
+  const resources = performEffect(effectInput);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(resources),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    throw error;
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(resources),
+  };
 });
 
 const performEffect = (input: EffectInput): EHRVisitDetails => {

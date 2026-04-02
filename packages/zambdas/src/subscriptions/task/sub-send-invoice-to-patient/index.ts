@@ -39,105 +39,100 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'sub-send-invoice-to-patient';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const validatedParams = validateRequestParameters(input);
+  const { secrets, encounterId, invoiceTaskInput, task } = validatedParams;
+  const { amountCents, dueDate, memo, smsTextMessage } = invoiceTaskInput;
+  console.log('Input task id: ', task.id);
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  const stripe = getStripeClient(secrets);
+
   try {
-    const validatedParams = validateRequestParameters(input);
-    const { secrets, encounterId, invoiceTaskInput, task } = validatedParams;
-    const { amountCents, dueDate, memo, smsTextMessage } = invoiceTaskInput;
-    console.log('Input task id: ', task.id);
+    console.log('Fetching fhir resources');
+    const fhirResources = await getFhirResources(oystehr, encounterId);
+    const { patient, encounter, account, appointment, location, stripeAccountId } = fhirResources;
+    console.log('Fhir resources fetched');
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    console.log('Getting stripe and candid ids');
+    const stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
+    if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
+    const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
+    if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
+    console.log('Stripe and candid ids retrieved');
+
+    const locationName = location?.name;
+    const visitDateObj = DateTime.fromISO(appointment.start ?? '');
+    const visitDate = visitDateObj.isValid ? visitDateObj.toFormat('MM/dd/yyyy') : undefined;
+    const patientPortalUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
+    if (!visitDate) throw new Error('visit date is missing required field');
+
+    console.log('Creating invoice and invoice item');
+    const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
+    if (!patientId) throw new Error("Encounter doesn't have patient reference");
+    const filledMemo = memo
+      ? fillMessagePlaceholders(memo, {
+          patientFullName: getFullName(fhirResources.patient),
+          location: locationName,
+          visitDate,
+          dueDate,
+          amount: `${amountCents / 100}`,
+          patientPortalUrl,
+        })
+      : undefined;
+    const invoiceResponse = await createInvoice(stripe, stripeCustomerId, stripeAccountId, {
+      oystehrEncounterId: encounterId,
+      oystehrPatientId: patientId,
+      dueDate,
+      filledMemo,
+    });
+    await createInvoiceItem(stripe, stripeCustomerId, stripeAccountId, invoiceResponse, amountCents, filledMemo);
+    console.log('Invoice and invoice item created');
+
+    console.log('Finalizing invoice');
+    const finalized = await stripe.invoices.finalizeInvoice(invoiceResponse.id, { stripeAccount: stripeAccountId });
+    if (!finalized || finalized.status !== 'open')
+      throw new Error(`Failed to finalize invoice, response status: ${finalized.status}`);
+    console.log('Invoice finalized: ', finalized.status);
+
+    console.log(`Sending invoice to recipient email recorded in stripe: ${finalized.customer_email}`);
+    const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id, {
+      stripeAccount: stripeAccountId,
+    });
+    console.log('Invoice sent: ', sendInvoiceResponse.status);
+
+    console.log('Filling in invoice sms messages placeholders');
+    const invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
+    const smsMessage = fillMessagePlaceholders(smsTextMessage, {
+      patientFullName: getFullName(fhirResources.patient),
+      location: locationName,
+      visitDate,
+      dueDate,
+      amount: `${amountCents / 100}`,
+      invoiceLink: invoiceUrl,
+      patientPortalUrl,
+    });
+
+    console.log('Sending sms to patient');
+    await sendInvoiceSmsToPatient(oystehr, smsMessage, patient, secrets);
+    console.log('Sms sent to patient');
+
+    console.log('Setting task status to completed');
+    const taskCopy = addInvoiceIdToTaskOutput(task, invoiceResponse.id);
+    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
+    console.log('Task status and output updated');
+  } catch (error) {
     const oystehr = createOystehrClient(m2mToken, secrets);
-    const stripe = getStripeClient(secrets);
-
-    try {
-      console.log('Fetching fhir resources');
-      const fhirResources = await getFhirResources(oystehr, encounterId);
-      const { patient, encounter, account, appointment, location, stripeAccountId } = fhirResources;
-      console.log('Fhir resources fetched');
-
-      console.log('Getting stripe and candid ids');
-      const stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
-      if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
-      const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
-      if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
-      console.log('Stripe and candid ids retrieved');
-
-      const locationName = location?.name;
-      const visitDateObj = DateTime.fromISO(appointment.start ?? '');
-      const visitDate = visitDateObj.isValid ? visitDateObj.toFormat('MM/dd/yyyy') : undefined;
-      const patientPortalUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
-      if (!visitDate) throw new Error('visit date is missing required field');
-
-      console.log('Creating invoice and invoice item');
-      const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
-      if (!patientId) throw new Error("Encounter doesn't have patient reference");
-      const filledMemo = memo
-        ? fillMessagePlaceholders(memo, {
-            patientFullName: getFullName(fhirResources.patient),
-            location: locationName,
-            visitDate,
-            dueDate,
-            amount: `${amountCents / 100}`,
-            patientPortalUrl,
-          })
-        : undefined;
-      const invoiceResponse = await createInvoice(stripe, stripeCustomerId, stripeAccountId, {
-        oystehrEncounterId: encounterId,
-        oystehrPatientId: patientId,
-        dueDate,
-        filledMemo,
-      });
-      await createInvoiceItem(stripe, stripeCustomerId, stripeAccountId, invoiceResponse, amountCents, filledMemo);
-      console.log('Invoice and invoice item created');
-
-      console.log('Finalizing invoice');
-      const finalized = await stripe.invoices.finalizeInvoice(invoiceResponse.id, { stripeAccount: stripeAccountId });
-      if (!finalized || finalized.status !== 'open')
-        throw new Error(`Failed to finalize invoice, response status: ${finalized.status}`);
-      console.log('Invoice finalized: ', finalized.status);
-
-      console.log(`Sending invoice to recipient email recorded in stripe: ${finalized.customer_email}`);
-      const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id, {
-        stripeAccount: stripeAccountId,
-      });
-      console.log('Invoice sent: ', sendInvoiceResponse.status);
-
-      console.log('Filling in invoice sms messages placeholders');
-      const invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
-      const smsMessage = fillMessagePlaceholders(smsTextMessage, {
-        patientFullName: getFullName(fhirResources.patient),
-        location: locationName,
-        visitDate,
-        dueDate,
-        amount: `${amountCents / 100}`,
-        invoiceLink: invoiceUrl,
-        patientPortalUrl,
-      });
-
-      console.log('Sending sms to patient');
-      await sendInvoiceSmsToPatient(oystehr, smsMessage, patient, secrets);
-      console.log('Sms sent to patient');
-
-      console.log('Setting task status to completed');
-      const taskCopy = addInvoiceIdToTaskOutput(task, invoiceResponse.id);
-      await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
-      console.log('Task status and output updated');
-    } catch (error) {
-      const oystehr = createOystehrClient(m2mToken, secrets);
-      console.log('updating task status to failed and output');
-      const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
-      await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
-      throw error;
-    }
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Invoice created and sent successfully' }),
-    };
-  } catch (error: unknown) {
-    console.log('Error occurred:', error);
+    console.log('updating task status to failed and output');
+    const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
+    await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('error'), taskCopy.output);
     throw error;
   }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ message: 'Invoice created and sent successfully' }),
+  };
 });
 
 async function createInvoiceItem(

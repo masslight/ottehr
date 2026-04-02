@@ -17,33 +17,28 @@ interface Input {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    configSentry('sub-ai-interview-summary', input.secrets);
-    console.log('AI interview summary invoked');
-    console.log(`Input: ${JSON.stringify(input)}`);
-    const { questionnaireResponse, secrets } = validateInput(input);
-    const chatTranscript = createChatTranscript(questionnaireResponse);
-    const oystehr = await createOystehr(secrets);
-    const encounterID = questionnaireResponse.encounter?.reference?.split('/')[1] ?? '';
-    const createdResources = await createResourcesFromAiInterview(
-      oystehr,
-      encounterID,
-      chatTranscript,
-      null,
-      undefined,
-      null,
-      null,
-      secrets
-    );
+  configSentry('sub-ai-interview-summary', input.secrets);
+  console.log('AI interview summary invoked');
+  console.log(`Input: ${JSON.stringify(input)}`);
+  const { questionnaireResponse, secrets } = validateInput(input);
+  const chatTranscript = createChatTranscript(questionnaireResponse);
+  const oystehr = await createOystehr(secrets);
+  const encounterID = questionnaireResponse.encounter?.reference?.split('/')[1] ?? '';
+  const createdResources = await createResourcesFromAiInterview(
+    oystehr,
+    encounterID,
+    chatTranscript,
+    null,
+    undefined,
+    null,
+    null,
+    secrets
+  );
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(`Successfully created ` + createdResources),
-    };
-  } catch (error: any) {
-    console.log('error', error, error.issue);
-    throw error;
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(`Successfully created ` + createdResources),
+  };
 });
 
 function createChatTranscript(questionnaireResponse: QuestionnaireResponse): string {

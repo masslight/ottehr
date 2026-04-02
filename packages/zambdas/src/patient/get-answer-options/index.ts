@@ -19,41 +19,36 @@ let oystehrToken: string;
 
 const ZAMBDA_NAME = 'get-answer-options';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const { secrets } = input;
+  const { secrets } = input;
 
-    const getOptionsInput = validateInput(input);
-    console.log('get options input:', getOptionsInput);
+  const getOptionsInput = validateInput(input);
+  console.log('get options input:', getOptionsInput);
 
-    console.group('getAuth0Token');
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-    console.groupEnd();
-    console.debug('getAuth0Token success');
-
-    console.group('createOystehrClient');
-    const oystehr = createOystehrClient(
-      oystehrToken,
-      getSecret(SecretsKeys.FHIR_API, secrets),
-      getSecret(SecretsKeys.PROJECT_API, secrets)
-    );
-    console.groupEnd();
-    console.debug('createOystehrClient success');
-
-    const answerOptions: QuestionnaireItemAnswerOption[] = await performEffect(getOptionsInput, oystehr);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(answerOptions),
-    };
-  } catch (error: any) {
-    console.log(error, error.issue);
-    throw error;
+  console.group('getAuth0Token');
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
   }
+  console.groupEnd();
+  console.debug('getAuth0Token success');
+
+  console.group('createOystehrClient');
+  const oystehr = createOystehrClient(
+    oystehrToken,
+    getSecret(SecretsKeys.FHIR_API, secrets),
+    getSecret(SecretsKeys.PROJECT_API, secrets)
+  );
+  console.groupEnd();
+  console.debug('createOystehrClient success');
+
+  const answerOptions: QuestionnaireItemAnswerOption[] = await performEffect(getOptionsInput, oystehr);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(answerOptions),
+  };
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<QuestionnaireItemAnswerOption[]> => {

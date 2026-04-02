@@ -28,65 +28,60 @@ let oystehrM2MClientToken: string;
 const SIMULATION_TERMINAL_LOCATION_VALUES = new Set(['sim', 'simulated', 'simulation']);
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    if (!oystehrM2MClientToken) {
-      oystehrM2MClientToken = await getAuth0Token(input.secrets);
-    }
-
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
-    const terminalLocationId = await getStripeTerminalLocationIdForAppointmentOrEncounter(
-      {
-        encounterId: validatedParameters.encounterId,
-      },
-      oystehrClient
-    );
-
-    const normalizedTerminalLocationId = terminalLocationId?.trim();
-    const isLocationSimulationHint = normalizedTerminalLocationId
-      ? SIMULATION_TERMINAL_LOCATION_VALUES.has(normalizedTerminalLocationId.toLowerCase())
-      : false;
-
-    const isConfigured = Boolean(normalizedTerminalLocationId);
-
-    let readers: TerminalReaderDTO[] = [];
-
-    if (isConfigured) {
-      const stripeClient = getStripeClient(input.secrets);
-      const stripeAccount = await getStripeAccountForEncounter(validatedParameters.encounterId, oystehrClient);
-
-      if (isLocationSimulationHint) {
-        // Location value is a simulation hint — list all readers and filter to simulated ones
-        const readersResponse = await stripeClient.terminal.readers.list(
-          { limit: 100, status: 'online' },
-          { stripeAccount }
-        );
-        readers = readersResponse.data.filter((r) => isSimulatedDeviceType(r.device_type)).map(mapStripeReaderToDTO);
-      } else if (normalizedTerminalLocationId) {
-        const readersResponse = await stripeClient.terminal.readers.list(
-          { location: normalizedTerminalLocationId, limit: 100, status: 'online' },
-          { stripeAccount }
-        );
-        readers = readersResponse.data.map(mapStripeReaderToDTO);
-      }
-    }
-
-    // Detect simulation mode from the actual readers rather than only the location hint
-    const hasSimulatedReaders = readers.some((r) => r.simulated);
-
-    const response: GetPatientPaymentTerminalConfigResponse = {
-      terminalConfigured: isConfigured,
-      terminalLocationId: isLocationSimulationHint ? undefined : normalizedTerminalLocationId,
-      terminalSimulatorMode: hasSimulatedReaders,
-      readers,
-    };
-
-    return lambdaResponse(200, response);
-  } catch (error: any) {
-    console.error(error);
-    throw error;
+  if (!oystehrM2MClientToken) {
+    oystehrM2MClientToken = await getAuth0Token(input.secrets);
   }
+
+  const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
+  const terminalLocationId = await getStripeTerminalLocationIdForAppointmentOrEncounter(
+    {
+      encounterId: validatedParameters.encounterId,
+    },
+    oystehrClient
+  );
+
+  const normalizedTerminalLocationId = terminalLocationId?.trim();
+  const isLocationSimulationHint = normalizedTerminalLocationId
+    ? SIMULATION_TERMINAL_LOCATION_VALUES.has(normalizedTerminalLocationId.toLowerCase())
+    : false;
+
+  const isConfigured = Boolean(normalizedTerminalLocationId);
+
+  let readers: TerminalReaderDTO[] = [];
+
+  if (isConfigured) {
+    const stripeClient = getStripeClient(input.secrets);
+    const stripeAccount = await getStripeAccountForEncounter(validatedParameters.encounterId, oystehrClient);
+
+    if (isLocationSimulationHint) {
+      // Location value is a simulation hint — list all readers and filter to simulated ones
+      const readersResponse = await stripeClient.terminal.readers.list(
+        { limit: 100, status: 'online' },
+        { stripeAccount }
+      );
+      readers = readersResponse.data.filter((r) => isSimulatedDeviceType(r.device_type)).map(mapStripeReaderToDTO);
+    } else if (normalizedTerminalLocationId) {
+      const readersResponse = await stripeClient.terminal.readers.list(
+        { location: normalizedTerminalLocationId, limit: 100, status: 'online' },
+        { stripeAccount }
+      );
+      readers = readersResponse.data.map(mapStripeReaderToDTO);
+    }
+  }
+
+  // Detect simulation mode from the actual readers rather than only the location hint
+  const hasSimulatedReaders = readers.some((r) => r.simulated);
+
+  const response: GetPatientPaymentTerminalConfigResponse = {
+    terminalConfigured: isConfigured,
+    terminalLocationId: isLocationSimulationHint ? undefined : normalizedTerminalLocationId,
+    terminalSimulatorMode: hasSimulatedReaders,
+    readers,
+  };
+
+  return lambdaResponse(200, response);
 });
 
 const validateRequestParameters = (input: ZambdaInput): GetPatientPaymentTerminalConfigInput => {

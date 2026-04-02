@@ -8,69 +8,63 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 export const index = wrapHandler('get-label-pdf', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log(`Input: ${JSON.stringify(input)}`);
-    console.log('Validating input');
-    const { contextRelatedReference, searchParams, secrets } = validateRequestParameters(input);
+  console.log(`Input: ${JSON.stringify(input)}`);
+  console.log('Validating input');
+  const { contextRelatedReference, searchParams, secrets } = validateRequestParameters(input);
 
-    console.log('Getting token');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    console.log('token', m2mToken);
+  console.log('Getting token');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  console.log('token', m2mToken);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const labelDocRefs = (
-      await oystehr.fhir.search<DocumentReference>({
-        resourceType: 'DocumentReference',
-        params: [{ name: 'related', value: contextRelatedReference.reference! }, ...searchParams],
-      })
-    ).unbundle();
+  const labelDocRefs = (
+    await oystehr.fhir.search<DocumentReference>({
+      resourceType: 'DocumentReference',
+      params: [{ name: 'related', value: contextRelatedReference.reference! }, ...searchParams],
+    })
+  ).unbundle();
 
-    if (!labelDocRefs.length) {
-      throw Error(
-        `Found no DocumentReferences matching contextRelatedREference ${JSON.stringify(
-          contextRelatedReference
-        )} and params ${JSON.stringify(searchParams)}`
-      );
-    }
-
-    const labelPdfs: LabelPdf[] = [];
-
-    await Promise.allSettled<LabelPdf>(
-      labelDocRefs.map(async (labelDocRef) => {
-        const url = labelDocRef.content.find((content) => content.attachment.contentType === MIME_TYPES.PDF)?.attachment
-          .url;
-
-        if (!url) {
-          throw new Error('No url found matching an application/pdf');
-        }
-        const presignedURL = await getPresignedURL(url, m2mToken);
-
-        if (!presignedURL) {
-          throw new Error(`Failed to get presigned URL for ${url}`);
-        }
-
-        return {
-          type: LabDocumentType.label,
-          documentReference: labelDocRef,
-          presignedURL,
-        };
-      })
-    ).then((results) => {
-      results.forEach((result) => {
-        if (result.status === 'fulfilled') {
-          labelPdfs.push(result.value);
-        }
-      });
-    });
-
-    return {
-      body: JSON.stringify(labelPdfs),
-      statusCode: 200,
-    };
-  } catch (error: any) {
-    console.log(error);
-    console.log('get label pdf error:', JSON.stringify(error));
-    throw error;
+  if (!labelDocRefs.length) {
+    throw Error(
+      `Found no DocumentReferences matching contextRelatedREference ${JSON.stringify(
+        contextRelatedReference
+      )} and params ${JSON.stringify(searchParams)}`
+    );
   }
+
+  const labelPdfs: LabelPdf[] = [];
+
+  await Promise.allSettled<LabelPdf>(
+    labelDocRefs.map(async (labelDocRef) => {
+      const url = labelDocRef.content.find((content) => content.attachment.contentType === MIME_TYPES.PDF)?.attachment
+        .url;
+
+      if (!url) {
+        throw new Error('No url found matching an application/pdf');
+      }
+      const presignedURL = await getPresignedURL(url, m2mToken);
+
+      if (!presignedURL) {
+        throw new Error(`Failed to get presigned URL for ${url}`);
+      }
+
+      return {
+        type: LabDocumentType.label,
+        documentReference: labelDocRef,
+        presignedURL,
+      };
+    })
+  ).then((results) => {
+    results.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        labelPdfs.push(result.value);
+      }
+    });
+  });
+
+  return {
+    body: JSON.stringify(labelPdfs),
+    statusCode: 200,
+  };
 });

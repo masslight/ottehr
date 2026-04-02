@@ -78,120 +78,115 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'handle-in-house-lab-results';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`handle-in-house-lab-results started, input: ${JSON.stringify(input)}`);
+  console.log('Validating input');
+  const { serviceRequestId, data: resultsEntryData, secrets, userToken } = validateRequestParameters(input);
+  console.log('validateRequestParameters success');
+
+  console.log('Getting token');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  console.log('token', m2mToken);
+
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehrCurrentUser = createOystehrClient(userToken, secrets);
+  const curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+
+  const {
+    serviceRequest,
+    encounter,
+    patient,
+    inputResultTask,
+    specimen,
+    activityDefinition,
+    currentUserPractitioner,
+    attendingPractitioner,
+    schedule,
+    location,
+    relatedServiceRequests,
+    existingDiagnosticReport,
+    resultEntryMode,
+  } = await getInHouseLabResultResources(serviceRequestId, curUserPractitionerId, oystehr);
+
+  const currentUserPractitionerName = getFullestAvailableName(currentUserPractitioner);
+  const attendingPractitionerName = getFullestAvailableName(attendingPractitioner);
+
+  const requests = makeResultEntryRequests(
+    serviceRequest,
+    inputResultTask,
+    specimen,
+    activityDefinition,
+    resultsEntryData,
+    { id: curUserPractitionerId, name: currentUserPractitionerName },
+    { id: attendingPractitioner.id || '', name: attendingPractitionerName },
+    relatedServiceRequests,
+    existingDiagnosticReport,
+    resultEntryMode
+  );
+
+  console.log(`These are the fhir requests getting made: ${JSON.stringify(requests)}`);
+  const res = await oystehr.fhir.transaction({ requests });
+
+  let diagnosticReport: DiagnosticReport | undefined;
+  let resultEntryProvenance: Provenance | undefined;
+  const observations: Observation[] = [];
+  res.entry?.forEach((entry) => {
+    if (entry.resource?.resourceType === 'DiagnosticReport') {
+      diagnosticReport = entry.resource as DiagnosticReport;
+    }
+    if (entry.resource?.resourceType === 'Provenance') {
+      const provenance = entry.resource;
+      if (provenanceIsInHouseLabResultEntry(provenance)) {
+        resultEntryProvenance = provenance;
+      }
+    }
+    if (entry.resource?.resourceType === 'Observation') {
+      observations.push(entry.resource as Observation);
+    }
+  });
+  if (!diagnosticReport)
+    throw new Error(
+      `There was an issue creating and/or parsing the diagnostic report for this service request: ${serviceRequest.id}`
+    );
+  if (!resultEntryProvenance)
+    throw new Error(
+      `There was an issue updating and/or parsing the provenance for this action, related to result entry for ServiceRequest/${serviceRequest.id}`
+    );
+  if (!observations.length) {
+    throw new Error(
+      `There was an issue creating and/or parsing the observations task for this service request: ${serviceRequest.id}`
+    );
+  }
+
   try {
-    console.log(`handle-in-house-lab-results started, input: ${JSON.stringify(input)}`);
-    console.log('Validating input');
-    const { serviceRequestId, data: resultsEntryData, secrets, userToken } = validateRequestParameters(input);
-    console.log('validateRequestParameters success');
-
-    console.log('Getting token');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    console.log('token', m2mToken);
-
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-    const curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
-
-    const {
+    await createInHouseLabResultPDF(
+      oystehr,
       serviceRequest,
       encounter,
       patient,
-      inputResultTask,
-      specimen,
-      activityDefinition,
-      currentUserPractitioner,
-      attendingPractitioner,
-      schedule,
       location,
-      relatedServiceRequests,
-      existingDiagnosticReport,
-      resultEntryMode,
-    } = await getInHouseLabResultResources(serviceRequestId, curUserPractitionerId, oystehr);
-
-    const currentUserPractitionerName = getFullestAvailableName(currentUserPractitioner);
-    const attendingPractitionerName = getFullestAvailableName(attendingPractitioner);
-
-    const requests = makeResultEntryRequests(
-      serviceRequest,
-      inputResultTask,
-      specimen,
+      schedule,
+      attendingPractitioner,
+      attendingPractitionerName,
+      resultEntryProvenance,
+      observations,
+      diagnosticReport,
+      secrets,
+      m2mToken,
       activityDefinition,
-      resultsEntryData,
-      { id: curUserPractitionerId, name: currentUserPractitionerName },
-      { id: attendingPractitioner.id || '', name: attendingPractitionerName },
       relatedServiceRequests,
-      existingDiagnosticReport,
-      resultEntryMode
+      specimen
     );
-
-    console.log(`These are the fhir requests getting made: ${JSON.stringify(requests)}`);
-    const res = await oystehr.fhir.transaction({ requests });
-
-    let diagnosticReport: DiagnosticReport | undefined;
-    let resultEntryProvenance: Provenance | undefined;
-    const observations: Observation[] = [];
-    res.entry?.forEach((entry) => {
-      if (entry.resource?.resourceType === 'DiagnosticReport') {
-        diagnosticReport = entry.resource as DiagnosticReport;
-      }
-      if (entry.resource?.resourceType === 'Provenance') {
-        const provenance = entry.resource;
-        if (provenanceIsInHouseLabResultEntry(provenance)) {
-          resultEntryProvenance = provenance;
-        }
-      }
-      if (entry.resource?.resourceType === 'Observation') {
-        observations.push(entry.resource as Observation);
-      }
-    });
-    if (!diagnosticReport)
-      throw new Error(
-        `There was an issue creating and/or parsing the diagnostic report for this service request: ${serviceRequest.id}`
-      );
-    if (!resultEntryProvenance)
-      throw new Error(
-        `There was an issue updating and/or parsing the provenance for this action, related to result entry for ServiceRequest/${serviceRequest.id}`
-      );
-    if (!observations.length) {
-      throw new Error(
-        `There was an issue creating and/or parsing the observations task for this service request: ${serviceRequest.id}`
-      );
-    }
-
-    try {
-      await createInHouseLabResultPDF(
-        oystehr,
-        serviceRequest,
-        encounter,
-        patient,
-        location,
-        schedule,
-        attendingPractitioner,
-        attendingPractitionerName,
-        resultEntryProvenance,
-        observations,
-        diagnosticReport,
-        secrets,
-        m2mToken,
-        activityDefinition,
-        relatedServiceRequests,
-        specimen
-      );
-    } catch (e) {
-      console.log('there was an error creating the result pdf for this service request', serviceRequest.id);
-      console.log('error:', e, JSON.stringify(e));
-    }
-
-    const response: HandleInHouseLabResultsZambdaOutput = {};
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.error('Error handling in-house lab results:', error);
-    throw error;
+  } catch (e) {
+    console.log('there was an error creating the result pdf for this service request', serviceRequest.id);
+    console.log('error:', e, JSON.stringify(e));
   }
+
+  const response: HandleInHouseLabResultsZambdaOutput = {};
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 const getInHouseLabResultResources = async (

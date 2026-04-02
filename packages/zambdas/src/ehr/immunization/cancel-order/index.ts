@@ -15,19 +15,14 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'cancel-immunization-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    await cancelImmunizationOrder(oystehr, validatedParameters);
-    return {
-      statusCode: 200,
-      body: '',
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    throw error;
-  }
+  const validatedParameters = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  await cancelImmunizationOrder(oystehr, validatedParameters);
+  return {
+    statusCode: 200,
+    body: '',
+  };
 });
 
 async function cancelImmunizationOrder(oystehr: Oystehr, input: CancelImmunizationOrderRequest): Promise<void> {

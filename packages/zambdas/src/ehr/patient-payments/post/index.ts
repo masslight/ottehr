@@ -43,64 +43,59 @@ const ZAMBDA_NAME = 'post-patient-payment';
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const authorization = input.headers.Authorization;
-    const secrets = input.secrets;
-    if (!authorization) {
-      console.log('authorization header not found');
-      throw NOT_AUTHORIZED;
-    }
-    const user = await getUser(authorization.replace('Bearer ', ''), secrets);
-
-    const userProfile = user.profile;
-
-    if (!userProfile) {
-      throw NOT_AUTHORIZED;
-    }
-
-    console.group('patient-payment-post validateRequestParameters');
-    let validatedParameters: ReturnType<typeof validateRequestParameters>;
-    try {
-      validatedParameters = validateRequestParameters(input);
-      console.log(JSON.stringify(validatedParameters, null, 4));
-    } catch (error: any) {
-      console.log(error);
-      return lambdaResponse(400, { message: error.message });
-    }
-
-    const requiredSecrets = validateEnvironmentParameters(
-      input,
-      validatedParameters.paymentDetails.paymentMethod === 'card'
-    );
-    const { patientId, encounterId } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-
-    if (!oystehrM2MClientToken) {
-      console.log('getting m2m token for service calls');
-      oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
-
-    const effectInput: ComplexValidationOutput = await complexValidation(
-      {
-        ...validatedParameters,
-        ...requiredSecrets,
-        userProfile,
-      },
-      oystehrClient
-    );
-
-    const { notice } = await performEffect(effectInput, oystehrClient, requiredSecrets);
-
-    return lambdaResponse(200, { notice, patientId, encounterId });
-  } catch (error: any) {
-    console.error(error);
-    throw error;
+  const authorization = input.headers.Authorization;
+  const secrets = input.secrets;
+  if (!authorization) {
+    console.log('authorization header not found');
+    throw NOT_AUTHORIZED;
   }
+  const user = await getUser(authorization.replace('Bearer ', ''), secrets);
+
+  const userProfile = user.profile;
+
+  if (!userProfile) {
+    throw NOT_AUTHORIZED;
+  }
+
+  console.group('patient-payment-post validateRequestParameters');
+  let validatedParameters: ReturnType<typeof validateRequestParameters>;
+  try {
+    validatedParameters = validateRequestParameters(input);
+    console.log(JSON.stringify(validatedParameters, null, 4));
+  } catch (error: any) {
+    console.log(error);
+    return lambdaResponse(400, { message: error.message });
+  }
+
+  const requiredSecrets = validateEnvironmentParameters(
+    input,
+    validatedParameters.paymentDetails.paymentMethod === 'card'
+  );
+  const { patientId, encounterId } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  if (!oystehrM2MClientToken) {
+    console.log('getting m2m token for service calls');
+    oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
+  } else {
+    console.log('already have a token, no need to update');
+  }
+
+  const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
+
+  const effectInput: ComplexValidationOutput = await complexValidation(
+    {
+      ...validatedParameters,
+      ...requiredSecrets,
+      userProfile,
+    },
+    oystehrClient
+  );
+
+  const { notice } = await performEffect(effectInput, oystehrClient, requiredSecrets);
+
+  return lambdaResponse(200, { notice, patientId, encounterId });
 });
 
 const performEffect = async (

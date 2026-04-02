@@ -31,34 +31,29 @@ import { getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 
 let oystehrToken: string;
 export const index = wrapHandler('check-availability', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
-    const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
-    const basicInput = validateRequestParameters(input);
+  const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
+  const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
+  const basicInput = validateRequestParameters(input);
 
-    console.log('basicInput', JSON.stringify(basicInput));
+  console.log('basicInput', JSON.stringify(basicInput));
 
-    if (!oystehrToken) {
-      console.log('getting m2m token for service calls');
-      oystehrToken = await getAuth0Token(input.secrets);
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
-
-    const effectInput = await complexValidation(basicInput, oystehr);
-
-    const response = performEffect(effectInput);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.error('walkin-check-availability error', error);
-    throw error;
+  if (!oystehrToken) {
+    console.log('getting m2m token for service calls');
+    oystehrToken = await getAuth0Token(input.secrets);
+  } else {
+    console.log('already have a token, no need to update');
   }
+
+  const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
+
+  const effectInput = await complexValidation(basicInput, oystehr);
+
+  const response = performEffect(effectInput);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 const performEffect = (input: EffectInput): WalkinAvailabilityCheckResult => {

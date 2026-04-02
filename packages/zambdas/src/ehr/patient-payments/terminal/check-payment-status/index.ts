@@ -24,46 +24,41 @@ const ZAMBDA_NAME = 'patient-payments-terminal-check-payment-status';
 let oystehrM2MClientToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    if (!oystehrM2MClientToken) {
-      oystehrM2MClientToken = await getAuth0Token(input.secrets);
-    }
-
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
-    const stripeAccount = await getStripeAccountForAppointmentOrEncounter(
-      { encounterId: validatedParameters.encounterId },
-      oystehrClient
-    );
-
-    const stripeClient = getStripeClient(input.secrets);
-
-    // Retrieve the reader to check the action status
-    const readerResponse = await stripeClient.terminal.readers.retrieve(validatedParameters.readerId, {
-      stripeAccount,
-    });
-
-    if ((readerResponse as Stripe.Terminal.DeletedReader).deleted) {
-      throw new Error('Terminal reader has been deleted.');
-    }
-
-    const reader = readerResponse as Stripe.Terminal.Reader;
-
-    const actionStatus: TerminalPaymentActionStatus =
-      (reader.action?.status as TerminalPaymentActionStatus) ?? 'in_progress';
-
-    const response: CheckPatientPaymentTerminalStatusResponse = {
-      actionStatus,
-      failureCode: reader.action?.failure_code ?? null,
-      failureMessage: reader.action?.failure_message ?? null,
-    };
-
-    return lambdaResponse(200, response);
-  } catch (error: any) {
-    console.error(error);
-    throw error;
+  if (!oystehrM2MClientToken) {
+    oystehrM2MClientToken = await getAuth0Token(input.secrets);
   }
+
+  const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
+  const stripeAccount = await getStripeAccountForAppointmentOrEncounter(
+    { encounterId: validatedParameters.encounterId },
+    oystehrClient
+  );
+
+  const stripeClient = getStripeClient(input.secrets);
+
+  // Retrieve the reader to check the action status
+  const readerResponse = await stripeClient.terminal.readers.retrieve(validatedParameters.readerId, {
+    stripeAccount,
+  });
+
+  if ((readerResponse as Stripe.Terminal.DeletedReader).deleted) {
+    throw new Error('Terminal reader has been deleted.');
+  }
+
+  const reader = readerResponse as Stripe.Terminal.Reader;
+
+  const actionStatus: TerminalPaymentActionStatus =
+    (reader.action?.status as TerminalPaymentActionStatus) ?? 'in_progress';
+
+  const response: CheckPatientPaymentTerminalStatusResponse = {
+    actionStatus,
+    failureCode: reader.action?.failure_code ?? null,
+    failureMessage: reader.action?.failure_message ?? null,
+  };
+
+  return lambdaResponse(200, response);
 });
 
 const validateRequestParameters = (input: ZambdaInput): CheckPatientPaymentTerminalStatusInput => {

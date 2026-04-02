@@ -46,45 +46,40 @@ let oystehrM2MClientToken: string;
 const ZAMBDA_NAME = 'get-patient-visit-history';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.group('validateRequestParameters');
+  let validatedParameters: ReturnType<typeof validateRequestParameters>;
   try {
-    console.group('validateRequestParameters');
-    let validatedParameters: ReturnType<typeof validateRequestParameters>;
-    try {
-      validatedParameters = validateRequestParameters(input);
-      console.log(JSON.stringify(validatedParameters, null, 4));
-    } catch (error: any) {
-      console.log(error);
-      return lambdaResponse(400, { message: error.message });
-    }
-
-    const secrets = input.secrets;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-
-    if (!oystehrM2MClientToken) {
-      console.log('getting m2m token for service calls');
-      oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
-
-    const effectInput = await complexValidation(
-      {
-        ...validatedParameters,
-        secrets: input.secrets,
-      },
-      oystehrClient
-    );
-
-    const response = await performEffect(effectInput, oystehrClient);
-
-    return lambdaResponse(200, response);
+    validatedParameters = validateRequestParameters(input);
+    console.log(JSON.stringify(validatedParameters, null, 4));
   } catch (error: any) {
-    console.error(error);
-    throw error;
+    console.log(error);
+    return lambdaResponse(400, { message: error.message });
   }
+
+  const secrets = input.secrets;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  if (!oystehrM2MClientToken) {
+    console.log('getting m2m token for service calls');
+    oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
+  } else {
+    console.log('already have a token, no need to update');
+  }
+
+  const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
+
+  const effectInput = await complexValidation(
+    {
+      ...validatedParameters,
+      secrets: input.secrets,
+    },
+    oystehrClient
+  );
+
+  const response = await performEffect(effectInput, oystehrClient);
+
+  return lambdaResponse(200, response);
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<PatientVisitListResponse> => {

@@ -53,26 +53,21 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'administer-immunization-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const userToken = input.headers.Authorization.replace('Bearer ', '');
-    const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
-    const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
-    const userPractitioner = await oystehr.fhir.get<Practitioner>({
-      resourceType: 'Practitioner',
-      id: userPractitionerId,
-    });
-    const response = await administerImmunizationOrder(oystehr, validatedParameters, userPractitioner);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    throw error;
-  }
+  const validatedParameters = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const userToken = input.headers.Authorization.replace('Bearer ', '');
+  const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
+  const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+  const userPractitioner = await oystehr.fhir.get<Practitioner>({
+    resourceType: 'Practitioner',
+    id: userPractitionerId,
+  });
+  const response = await administerImmunizationOrder(oystehr, validatedParameters, userPractitioner);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 async function administerImmunizationOrder(

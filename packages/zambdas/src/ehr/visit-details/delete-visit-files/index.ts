@@ -9,41 +9,36 @@ const ZAMBDA_NAME = 'delete-visit-files';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateSecrets');
-    const secrets = validateSecrets(input.secrets);
-    console.groupEnd();
-    console.debug('validateSecrets success');
+  console.group('validateSecrets');
+  const secrets = validateSecrets(input.secrets);
+  console.groupEnd();
+  console.debug('validateSecrets success');
 
-    console.group('validateRequestParameters');
-    const validatedParameters = await validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  console.group('validateRequestParameters');
+  const validatedParameters = await validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
 
-    console.group('createOystehrClient');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    console.groupEnd();
-    console.debug('createOystehrClient success');
+  console.group('createOystehrClient');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  console.groupEnd();
+  console.debug('createOystehrClient success');
 
-    console.group('complexValidation');
-    const validatedInput = await complexValidation(validatedParameters, secrets, oystehr);
-    console.groupEnd();
-    console.debug('complexValidation success', JSON.stringify(validatedInput));
+  console.group('complexValidation');
+  const validatedInput = await complexValidation(validatedParameters, secrets, oystehr);
+  console.groupEnd();
+  console.debug('complexValidation success', JSON.stringify(validatedInput));
 
-    console.group('performEffect');
-    const success = await performEffect(validatedInput, oystehr);
-    console.groupEnd();
-    console.debug('performEffect success');
+  console.group('performEffect');
+  const success = await performEffect(validatedInput, oystehr);
+  console.groupEnd();
+  console.debug('performEffect success');
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(success),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    throw error;
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(success),
+  };
 });
 
 const performEffect = async (input: ValidatedInput, oystehr: Oystehr): Promise<void> => {

@@ -32,26 +32,21 @@ const CANDID_BATCH_SIZE = 3;
 const ZAMBDA_NAME = 'get-patient-balances';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const secrets = validateSecrets(unsafeInput.secrets);
+  const secrets = validateSecrets(unsafeInput.secrets);
 
-    const validatedInput = await validateInput(unsafeInput);
+  const validatedInput = await validateInput(unsafeInput);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    console.group('creating candid api client');
-    const candidApiClient = createCandidApiClient(secrets);
-    console.groupEnd();
-    console.debug('creating candid api client success');
+  console.group('creating candid api client');
+  const candidApiClient = createCandidApiClient(secrets);
+  console.groupEnd();
+  console.debug('creating candid api client success');
 
-    const response = await performEffect(validatedInput, oystehr, candidApiClient);
+  const response = await performEffect(validatedInput, oystehr, candidApiClient);
 
-    return lambdaResponse(200, response);
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    throw error;
-  }
+  return lambdaResponse(200, response);
 });
 
 export async function performEffect(

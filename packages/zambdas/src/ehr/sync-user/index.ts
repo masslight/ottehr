@@ -23,26 +23,21 @@ const ZAMBDA_NAME = 'sync-user';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const { secrets } = validateRequestParameters(input);
-    console.log('Parameters: ' + JSON.stringify(input));
+  const { secrets } = validateRequestParameters(input);
+  console.log('Parameters: ' + JSON.stringify(input));
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const m2mOystehrClient = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const m2mOystehrClient = createOystehrClient(m2mToken, secrets);
 
-    const userToken = input.headers.Authorization.replace('Bearer ', '');
-    const userOystehrClient = createOystehrClient(userToken, secrets);
+  const userToken = input.headers.Authorization.replace('Bearer ', '');
+  const userOystehrClient = createOystehrClient(userToken, secrets);
 
-    const response = await performEffect(m2mOystehrClient, userOystehrClient, secrets);
+  const response = await performEffect(m2mOystehrClient, userOystehrClient, secrets);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log(JSON.stringify(error));
-    throw error;
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 async function performEffect(

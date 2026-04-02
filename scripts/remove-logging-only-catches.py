@@ -42,6 +42,7 @@ def find_block_close(lines, open_idx):
     """
     Find the closing '}' line for the block opened at open_idx.
     Starts scanning from open_idx+1 with depth=1 (inside the opening brace on open_idx).
+    Returns index of line where depth first reaches 0.
     """
     depth = 1
     for i in range(open_idx + 1, len(lines)):
@@ -49,6 +50,45 @@ def find_block_close(lines, open_idx):
         if depth == 0:
             return i
     return None
+
+
+def find_catch_for_try(lines, try_idx, handler_close_idx, body_indent):
+    """
+    Find the `} catch (` line that belongs to the try block at try_idx.
+
+    The `} catch (` line is at body_indent level and contains both `}` and `{`
+    which cancel out in depth counting. So we use a different approach:
+    track brace depth but treat `} catch (` lines specially — they close the
+    try block AND open the catch block simultaneously.
+
+    Returns (catch_start, body_end) where:
+      - catch_start is the line index of `} catch (...) {`
+      - body_end is catch_start (exclusive end of try body)
+    Or (None, None) if not found.
+    """
+    catch_prefix_stripped = '} catch ('
+    indent_str = ' ' * body_indent
+    catch_line_pattern = re.compile(r'^\s*\}\s*catch\s*\(')
+
+    # Scan forward, tracking nesting depth but watching for `} catch (` at body_indent level
+    nesting = 0  # relative nesting inside the try body
+    for i in range(try_idx + 1, handler_close_idx):
+        line = lines[i]
+        stripped = line.lstrip()
+        actual_indent = len(line) - len(stripped)
+
+        # Check if this could be a `} catch (` at body_indent level
+        if actual_indent == body_indent and catch_line_pattern.match(line):
+            # This is the catch line closing the try
+            return i, i
+
+        # Track nesting by counting braces, but only for lines that are not the catch/finally
+        # We count net braces to know when we're back at body_indent level
+        opens = line.count('{')
+        closes = line.count('}')
+        nesting += opens - closes
+
+    return None, None
 
 
 def is_logging_only_catch(lines, catch_start, catch_end):
@@ -76,7 +116,6 @@ def is_logging_only_catch(lines, catch_start, catch_end):
     # All other non-blank lines must be console.log/error/warn calls or their continuations
     # We track paren depth to handle multi-line calls
     paren_depth = 0
-    in_console_call = False
 
     for _, line in non_blank[:-1]:  # skip the final throw line
         stripped = line.strip()
@@ -86,21 +125,19 @@ def is_logging_only_catch(lines, catch_start, catch_end):
             paren_depth += stripped.count('(') - stripped.count(')')
             if paren_depth < 0:
                 return False  # malformed
-            if paren_depth == 0:
-                in_console_call = False
             continue
 
         # Check if this is a console.log/error/warn call start
         if re.match(r'^console\.(log|error|warn)\(', stripped):
             # Count parens to see if it closes on same line
             paren_depth = stripped.count('(') - stripped.count(')')
-            if paren_depth == 0:
-                in_console_call = False  # single-line call, done
-            else:
-                in_console_call = True  # multi-line call
             continue
 
         # Anything else is not allowed
+        return False
+
+    # If we ended mid-call, something is wrong
+    if paren_depth != 0:
         return False
 
     return True
@@ -120,7 +157,6 @@ def remove_logging_only_catch(lines, relpath):
         return None
 
     try_prefix = ' ' * body_indent + 'try {'
-    catch_prefix = ' ' * body_indent + '} catch ('
 
     # Find the OUTERMOST try block at body_indent level
     # (the first one after open_idx at exactly body_indent spaces)
@@ -133,39 +169,10 @@ def remove_logging_only_catch(lines, relpath):
     if try_idx is None:
         return None  # no outer try block found
 
-    # Find the try block's closing brace (the `}` before `catch`)
-    try_close_idx = find_block_close(lines, try_idx)
-    if try_close_idx is None:
-        return None
-
-    # Verify this `}` is followed by `} catch (` on the next non-blank line
-    # Actually the try_close_idx line itself should be `  } catch (` for combined forms
-    # More likely: try_close_idx is `  }` and try_close_idx+1 is `  } catch (`
-    # But actually `find_block_close` returns the closing `}` of `try {`
-    # The catch line starts with `} catch (` at body_indent-0 — i.e. `  } catch (`
-    # which is `body_indent - 2 + '} catch ('`
-    # Wait: the try { is at body_indent spaces. The closing } of try is at body_indent spaces.
-    # e.g. body_indent=2:
-    #   try {           <- try_idx line, "  try {"
-    #     ...
-    #   } catch (...) { <- catch line, "  } catch (...) {"
-    #   }               <- catch close
-
-    # find_block_close counts braces from try_idx+1, depth starts at 1
-    # when the `} catch (` line is hit: it has 1 `}` and 1 `{` so net=0, depth becomes 0 → returns that line
-    # So try_close_idx is the `} catch (` line itself!
-
-    catch_line = lines[try_close_idx]
-    if not catch_line.lstrip().startswith('} catch ('):
-        # Maybe there's a } on its own line then catch on next
-        # Some formatters put them separately
-        nxt = try_close_idx + 1
-        if nxt < len(lines) and lines[nxt].startswith(catch_prefix):
-            catch_start = nxt
-        else:
-            return None  # no catch follows try
-    else:
-        catch_start = try_close_idx
+    # Find the catch block for this try
+    catch_start, body_end = find_catch_for_try(lines, try_idx, handler_close_idx, body_indent)
+    if catch_start is None:
+        return None  # no catch (or unusual pattern)
 
     # Find catch block close
     catch_end = find_block_close(lines, catch_start)
@@ -183,24 +190,19 @@ def remove_logging_only_catch(lines, relpath):
 
     # Perform the transformation:
     # 1. Remove the `try {` line (try_idx)
-    # 2. Dedent the try body by 2 spaces (try_idx+1 .. catch_start-1, or try_idx+1 .. try_close_idx-1)
-    #    But if catch_start == try_close_idx, the body is try_idx+1 .. try_close_idx-1
-    # 3. Remove the entire catch block (catch_start .. catch_end)
+    # 2. Dedent the try body by 2 spaces (lines[try_idx+1 .. body_end-1])
+    # 3. Remove the entire catch block (catch_start .. catch_end inclusive)
+    # Note: body_end is the exclusive end of the try body.
+    # If catch_start == body_end: body is lines[try_idx+1 .. catch_start-1]
+    # If catch_start == body_end + 1: body is lines[try_idx+1 .. body_end-1], then skip the `}` at body_end
 
-    # Determine body range
     body_start = try_idx + 1
-    if catch_start == try_close_idx:
-        # `} catch (` is on the try_close line, so body is try_idx+1 .. try_close_idx-1
-        body_end = try_close_idx  # exclusive (we include up to but not including try_close_idx)
-    else:
-        # try closes at try_close_idx with just `}`, then catch_start is next
-        body_end = try_close_idx  # we exclude both the `}` line and the catch_start
 
     new_lines = []
     # Lines before the try { line
     new_lines.extend(lines[:try_idx])
 
-    # Dedented body lines
+    # Dedented try body lines (up to but not including body_end)
     for line in lines[body_start:body_end]:
         if line.startswith('  '):
             new_lines.append(line[2:])

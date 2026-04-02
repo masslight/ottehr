@@ -20,23 +20,18 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-chart-data';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log(`Input: ${JSON.stringify(input)}`);
-    console.log('Validating input');
-    const { encounterId, secrets, requestedFields } = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  console.log(`Input: ${JSON.stringify(input)}`);
+  console.log('Validating input');
+  const { encounterId, secrets, requestedFields } = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const output = (await getChartData(oystehr, m2mToken, encounterId, requestedFields)).response;
+  const output = (await getChartData(oystehr, m2mToken, encounterId, requestedFields)).response;
 
-    return {
-      body: JSON.stringify(output),
-      statusCode: 200,
-    };
-  } catch (error) {
-    console.log(error);
-    throw error;
-  }
+  return {
+    body: JSON.stringify(output),
+    statusCode: 200,
+  };
 });
 
 export async function getChartData(

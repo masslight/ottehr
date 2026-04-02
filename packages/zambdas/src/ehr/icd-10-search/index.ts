@@ -37,28 +37,23 @@ function validateRequestParameters(input: ZambdaInput): Icd10SearchRequestParams
 const ZAMBDA_NAME = 'icd-10-search';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { search } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const { search } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
-    console.group('searchIcd10Codes');
-    const codes = await searchIcd10Codes(search);
-    console.groupEnd();
-    console.debug('searchIcd10Codes success');
+  console.group('searchIcd10Codes');
+  const codes = await searchIcd10Codes(search);
+  console.groupEnd();
+  console.debug('searchIcd10Codes success');
 
-    const response: Icd10SearchResponse = {
-      codes,
-    };
+  const response: Icd10SearchResponse = {
+    codes,
+  };
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    throw error;
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
