@@ -208,7 +208,6 @@ export const getFormInputField = (
                 required={formInput.required}
                 options={formInput.radioOptions}
                 borderColor={formInput.borderColor}
-                borderSelected={formInput.borderSelected}
                 backgroundSelected={formInput.backgroundSelected}
                 getSelected={methods.watch}
                 // radioStyling={{
@@ -314,7 +313,7 @@ export const getFormInputField = (
             return (
               <Button
                 variant="outlined"
-                color={formInput.buttonProps?.color}
+                color={formInput.buttonProps?.color ?? 'secondary'}
                 type={formInput.buttonProps?.onClick ? 'button' : 'submit'}
                 onClick={formInput.buttonProps?.onClick}
                 startIcon={formInput.buttonProps?.startIcon}

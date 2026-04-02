@@ -30,6 +30,7 @@ packages/ui-components/dist/*
 .idea
 
 **/vite.config.ts.timestamp-*.mjs
+**/*.tsbuildinfo
 **/ottehr-secrets/
 config/sendgrid/*
 

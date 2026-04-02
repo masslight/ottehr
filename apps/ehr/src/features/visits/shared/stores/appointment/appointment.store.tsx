@@ -122,7 +122,10 @@ type ReactQueryState = {
 
 type ChartDataResponse = Omit<
   GetChartDataResponse,
-  Exclude<RequestedFields, 'medications' | 'inhouseMedications' | 'observations' | 'procedures'>
+  Exclude<
+    RequestedFields,
+    'medications' | 'inhouseMedications' | 'observations' | 'procedures' | 'patientHasPreviousVisits'
+  >
 >;
 
 export type ChartDataState = {
@@ -770,7 +773,7 @@ export const useChartData = ({
       queryKey: [CHART_DATA_QUERY_KEY, encounter?.id],
       exact: false,
     });
-  }, [queryClient, encounter.id]);
+  }, [queryClient, encounter?.id]);
 
   return {
     refetch: chartDataRefetch,

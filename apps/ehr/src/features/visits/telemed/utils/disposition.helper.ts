@@ -6,13 +6,14 @@ import {
   DispositionType,
   followUpInOptions,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
 } from 'utils';
 
 export const dispositionFieldsPerType: { [key in DispositionType]: string[] } = {
   pcp: ['followUpIn', 'followUpType'],
   ip: ['bookVisit'],
   'ip-lab': ['labService', 'bookVisit', 'followUpType'],
-  ed: [NOTHING_TO_EAT_OR_DRINK_FIELD],
+  ed: [NOTHING_TO_EAT_OR_DRINK_FIELD, REFUSAL_OF_EMS_TRANSPORT_FIELD],
   'ip-oth': [],
   'pcp-no-type': ['followUpIn'],
   another: ['reason'],
@@ -35,9 +36,13 @@ export const DEFAULT_DISPOSITION_VALUES: DispositionFormValues = {
   'lurie-ct': false,
   otherNote: '',
   [NOTHING_TO_EAT_OR_DRINK_FIELD]: false,
+  [REFUSAL_OF_EMS_TRANSPORT_FIELD]: false,
 };
 
-export type DispositionFormValues = Pick<DispositionDTO, 'type' | 'note' | typeof NOTHING_TO_EAT_OR_DRINK_FIELD> & {
+export type DispositionFormValues = Pick<
+  DispositionDTO,
+  'type' | 'note' | typeof NOTHING_TO_EAT_OR_DRINK_FIELD | typeof REFUSAL_OF_EMS_TRANSPORT_FIELD
+> & {
   [key in DispositionFollowUpType]: boolean;
 } & {
   otherNote: string;
@@ -95,6 +100,10 @@ export const mapFormToDisposition = (values: DispositionFormValues): Disposition
     disposition[NOTHING_TO_EAT_OR_DRINK_FIELD] = values[NOTHING_TO_EAT_OR_DRINK_FIELD];
   }
 
+  if (fields.includes(REFUSAL_OF_EMS_TRANSPORT_FIELD)) {
+    disposition[REFUSAL_OF_EMS_TRANSPORT_FIELD] = values[REFUSAL_OF_EMS_TRANSPORT_FIELD];
+  }
+
   return disposition;
 };
 
@@ -134,6 +143,10 @@ export const mapDispositionToForm = (disposition: DispositionDTO): DispositionFo
 
   if (fields.includes(NOTHING_TO_EAT_OR_DRINK_FIELD)) {
     values[NOTHING_TO_EAT_OR_DRINK_FIELD] = disposition[NOTHING_TO_EAT_OR_DRINK_FIELD];
+  }
+
+  if (fields.includes(REFUSAL_OF_EMS_TRANSPORT_FIELD)) {
+    values[REFUSAL_OF_EMS_TRANSPORT_FIELD] = disposition[REFUSAL_OF_EMS_TRANSPORT_FIELD];
   }
 
   return values;

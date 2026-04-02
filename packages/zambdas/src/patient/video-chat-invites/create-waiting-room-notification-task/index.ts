@@ -1,10 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Patient, Task } from 'fhir/r4b';
+import { Appointment, Encounter, Patient, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  BRANDING_CONFIG,
   getFullestAvailableName,
+  getPatchOperationForNewMetaTag,
   OttehrTaskSystem,
+  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_TYPE,
   VideoChatNotificationResponse,
@@ -79,9 +82,27 @@ export async function performEffect(
   const providerReference = encounter.participant?.find(
     (participant) => participant.individual?.reference?.startsWith('Practitioner/')
   )?.individual?.reference;
+  let provider: Practitioner | undefined;
+  if (providerReference !== undefined) {
+    try {
+      provider = await oystehr.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: providerReference.split('/')[1],
+      });
+    } catch (error: any) {
+      const status = error?.statusCode ?? error?.status;
+      if (status === 404 || status === 403) {
+        console.warn(
+          `Practitioner not found or access forbidden for reference ${providerReference}; continuing without provider.`
+        );
+      } else {
+        throw error;
+      }
+    }
+  }
 
   console.group('createNewTask');
-  const newTask = createNewTask({ appointment, encounter, patient, providerReference });
+  const newTask = createNewTask({ appointment, encounter, patient, provider });
   console.groupEnd();
   console.debug('createNewTask success');
 
@@ -94,13 +115,7 @@ export async function performEffect(
   await oystehr.fhir.patch({
     resourceType: 'Appointment',
     id: appointment.id,
-    operations: [
-      {
-        op: 'add',
-        path: appointment.meta != null ? '/meta/-' : '/meta',
-        value: appointment.meta != null ? notificationSentTag : [notificationSentTag],
-      },
-    ],
+    operations: [getPatchOperationForNewMetaTag(appointment, notificationSentTag)],
   });
 
   return { taskCreated: true };
@@ -148,8 +163,8 @@ const createNewTask = ({
   appointment,
   encounter,
   patient,
-  providerReference,
-}: ReturnedResources & { providerReference?: string }): Task => {
+  provider,
+}: ReturnedResources & { provider?: Practitioner }): Task => {
   const patientName = getFullestAvailableName(patient);
   const locationReference = appointment.participant?.find(
     (participant) => participant.actor?.reference?.startsWith('Location/')
@@ -180,6 +195,16 @@ const createNewTask = ({
           ],
         },
         valueString: patientName,
+      },
+      {
+        type: {
+          coding: [
+            {
+              system: ottehrCodeSystemUrl('task-input'),
+              code: 'reference',
+            },
+          ],
+        },
         valueReference: { reference: `Patient/${patient.id}` },
       },
     ],
@@ -192,7 +217,20 @@ const createNewTask = ({
       type: 'Appointment',
       reference: `Appointment/${appointment.id}`,
     },
-    ...(providerReference && { owner: { reference: providerReference } }),
+    // if a provider has been assigned before the patient joins the waiting room
+    // add owner so notification is sent asap
+    ...(provider && {
+      owner: {
+        reference: `Practitioner/${provider.id}`,
+        display: getFullestAvailableName(provider) ?? `${BRANDING_CONFIG.projectName} Team`,
+        extension: [
+          {
+            url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+            valueDateTime: DateTime.now().toISO(),
+          },
+        ],
+      },
+    }),
   };
   return newTask;
 };

@@ -24,6 +24,7 @@ import {
   PatientPaymentDTO,
   ProviderDetails,
   QuantityComponent,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
   SupportedObsImgAttachmentTypes,
   VitalsVisitNoteData,
 } from 'utils';
@@ -551,6 +552,7 @@ export interface PlanData extends PdfData {
     header: string;
     text: string;
     [NOTHING_TO_EAT_OR_DRINK_FIELD]?: boolean;
+    [REFUSAL_OF_EMS_TRANSPORT_FIELD]?: boolean;
     labService: string;
     virusTest: string;
     followUpIn?: number;

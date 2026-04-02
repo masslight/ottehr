@@ -308,6 +308,9 @@ export const setupIntegrationTest = async (
     accessToken: testUserM2MToken,
     fhirApiUrl: FHIR_API,
     projectApiUrl: EXECUTE_ZAMBDA_URL,
+    services: {
+      zambdaApiUrl: EXECUTE_ZAMBDA_URL,
+    },
     projectId: PROJECT_ID,
   });
 

@@ -19,7 +19,8 @@ import { Controller, useForm } from 'react-hook-form';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
-import { AllergyDTO, MEDICAL_HISTORY_CONFIG } from 'utils';
+import { useMergedAllergyQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { AllergyDTO } from 'utils';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
@@ -37,7 +38,7 @@ import { QuickPicksButton } from '../QuickPicksButton';
 export const KnownAllergiesProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const featureFlags = useAppFlags();
+  const appFlags = useAppFlags();
   const allergies = sortByRecencyAndStatus(chartData?.allergies ?? []);
   const length = allergies.length;
 
@@ -59,7 +60,7 @@ export const KnownAllergiesProviderColumn: FC = () => {
         </Box>
       )}
 
-      {allergies.length === 0 && isReadOnly && !isChartDataLoading && !featureFlags.isInPerson && (
+      {allergies.length === 0 && isReadOnly && !isChartDataLoading && !appFlags.isInPerson && (
         <Typography color="secondary.light">Missing. Patient input must be reconciled by provider</Typography>
       )}
 
@@ -88,7 +89,7 @@ const setUpdatedAllergy = (
 const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> = ({ value, index, length }) => {
   const [note, setNote] = useState(value.note || '');
   const areNotesEqual = note.trim() === (value.note || '');
-  const featureFlags = useAppFlags();
+  const appFlags = useAppFlags();
   const { chartDataSetState } = useChartData({ refetchOnMount: false });
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
@@ -186,18 +187,18 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
           sx={{
-            color: (theme) => (!value.current && featureFlags.isInPerson ? theme.palette.text.secondary : undefined),
+            color: (theme) => (!value.current && appFlags.isInPerson ? theme.palette.text.secondary : undefined),
           }}
         >
           {value.name}
-          {featureFlags.isInPerson &&
+          {appFlags.isInPerson &&
             isReadOnly &&
             ` | ${value.current ? 'Current' : 'Inactive now'}${value.note ? ' | Note: ' + value.note : ''}`}
         </Typography>
 
         {!isReadOnly && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {featureFlags.isInPerson && (
+            {appFlags.isInPerson && (
               <FormControlLabel
                 control={<Switch checked={value.current} onChange={(e) => updateCurrent(e.target.checked)} />}
                 label={value.current ? 'Current' : 'Inactive now'}
@@ -221,7 +222,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
         )}
       </Box>
 
-      {!value.current && !isReadOnly && featureFlags.isInPerson && (
+      {!value.current && !isReadOnly && appFlags.isInPerson && (
         <TextField
           value={note}
           onChange={(e) => {
@@ -248,6 +249,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
 };
 
 const AddAllergyField: FC = () => {
+  const { quickPicks: allergyQuickPicks } = useMergedAllergyQuickPicks();
   const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
   const { onSubmit, isLoading } = useChartDataArrayValue('allergies');
 
@@ -317,12 +319,10 @@ const AddAllergyField: FC = () => {
     }
   };
 
-  const handleQuickPickSelect = async (
-    quickPick: (typeof MEDICAL_HISTORY_CONFIG.allergies.quickPicks)[number]
-  ): Promise<void> => {
+  const handleQuickPickSelect = async (quickPick: (typeof allergyQuickPicks)[number]): Promise<void> => {
     const quickPickAsAllergy = {
       name: quickPick.name,
-      id: 'id' in quickPick ? quickPick.id : undefined,
+      id: quickPick.allergyId,
     } as ExtractObjectType<ErxSearchAllergensResponse>;
     await handleSelectOption(quickPickAsAllergy);
   };
@@ -354,7 +354,7 @@ const AddAllergyField: FC = () => {
         }}
       >
         <QuickPicksButton
-          quickPicks={MEDICAL_HISTORY_CONFIG.allergies.quickPicks}
+          quickPicks={allergyQuickPicks}
           getLabel={(quickPick) => quickPick.name}
           onSelect={handleQuickPickSelect}
           disabled={isChartDataLoading || isLoading}

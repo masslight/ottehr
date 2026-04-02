@@ -18,7 +18,8 @@ import { Controller, useForm } from 'react-hook-form';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
-import { IcdSearchResponse, MEDICAL_HISTORY_CONFIG, MedicalConditionDTO } from 'utils';
+import { useMergedMedicalConditionQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { IcdSearchResponse, MedicalConditionDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useICD10SearchNew } from '../../../stores/appointment/appointment.queries';
@@ -37,7 +38,7 @@ type IcdSearchResponseOptionalCode = Pick<IcdSearchResponse['codes'][number], 'd
 export const MedicalConditionsProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const featureFlags = useAppFlags();
+  const appFlags = useAppFlags();
   const conditions = sortByRecencyAndStatus(chartData?.conditions ?? []);
   const length = conditions.length;
 
@@ -64,7 +65,7 @@ export const MedicalConditionsProviderColumn: FC = () => {
         </Box>
       )}
 
-      {conditions.length === 0 && isReadOnly && !isChartDataLoading && !featureFlags.isInPerson && (
+      {conditions.length === 0 && isReadOnly && !isChartDataLoading && !appFlags.isInPerson && (
         <Typography color="secondary.light">Missing. Patient input must be reconciled by provider</Typography>
       )}
 
@@ -96,7 +97,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 }) => {
   const [note, setNote] = useState(value.note || '');
   const areNotesEqual = note.trim() === (value.note || '');
-  const featureFlags = useAppFlags();
+  const appFlags = useAppFlags();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
@@ -194,18 +195,18 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
           sx={{
-            color: (theme) => (!value.current && featureFlags.isInPerson ? theme.palette.text.secondary : undefined),
+            color: (theme) => (!value.current && appFlags.isInPerson ? theme.palette.text.secondary : undefined),
           }}
         >
           {value.code} {value.display}
-          {featureFlags.isInPerson &&
+          {appFlags.isInPerson &&
             isReadOnly &&
             ` | ${value.current ? 'Current' : 'Inactive now'}${value.note ? ' | Note: ' + value.note : ''}`}
         </Typography>
 
         {!isReadOnly && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {featureFlags.isInPerson && (
+            {appFlags.isInPerson && (
               <FormControlLabel
                 control={<Switch checked={value.current} onChange={(e) => updateCurrent(e.target.checked)} />}
                 label={value.current ? 'Current' : 'Inactive now'}
@@ -229,7 +230,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
         )}
       </Box>
 
-      {!value.current && !isReadOnly && featureFlags.isInPerson && (
+      {!value.current && !isReadOnly && appFlags.isInPerson && (
         <TextField
           value={note}
           onChange={(e) => {
@@ -256,6 +257,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 };
 
 const AddMedicalConditionField: FC = () => {
+  const { quickPicks: conditionQuickPicks } = useMergedMedicalConditionQuickPicks();
   const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
   const { onSubmit, isLoading } = useChartDataArrayValue('conditions');
 
@@ -301,11 +303,9 @@ const AddMedicalConditionField: FC = () => {
     }
   };
 
-  const handleQuickPickSelect = async (
-    quickPick: (typeof MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks)[number]
-  ): Promise<void> => {
+  const handleQuickPickSelect = async (quickPick: (typeof conditionQuickPicks)[number]): Promise<void> => {
     const quickPickAsIcdCode: IcdSearchResponseOptionalCode = {
-      code: 'code' in quickPick ? quickPick.code : undefined,
+      code: quickPick.code,
       display: quickPick.display,
     };
     await handleSelectOption(quickPickAsIcdCode);
@@ -328,9 +328,9 @@ const AddMedicalConditionField: FC = () => {
       }}
     >
       <QuickPicksButton
-        quickPicks={MEDICAL_HISTORY_CONFIG.medicalConditions.quickPicks}
+        quickPicks={conditionQuickPicks}
         getLabel={(quickPick) => {
-          const code = 'code' in quickPick ? `${quickPick.code} ` : '';
+          const code = quickPick.code ? `${quickPick.code} ` : '';
           return `${code}${quickPick.display}`;
         }}
         onSelect={handleQuickPickSelect}

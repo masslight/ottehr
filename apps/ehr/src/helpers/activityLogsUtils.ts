@@ -8,6 +8,7 @@ import {
   formatDateForDisplay,
   getCriticalUpdateTagOp,
   getFullName,
+  GetVisitFaxHistoryOutput,
   STATUS_UPDATE_TAG_SYSTEM,
 } from 'utils';
 import { HOP_QUEUE_URI } from '../constants';
@@ -22,6 +23,7 @@ export enum ActivityName {
   movedToNext = 'Moved to next in queue',
   paperworkStarted = 'Paperwork started',
   statusChange = 'Status Update',
+  faxSent = 'Fax Sent',
 }
 export interface ActivityLogData {
   activityDateTimeISO: string | undefined;
@@ -29,6 +31,7 @@ export interface ActivityLogData {
   activityName: ActivityName;
   activityNameSupplement?: string;
   activityBy: string;
+  activityLink?: string;
   moreDetails?: {
     valueBefore: string;
     valueAfter: string;
@@ -91,13 +94,23 @@ export const getAppointmentAndPatientHistory = async (
   return { patientHistory, appointmentHistory };
 };
 
-export const formatActivityLogs = (
-  appointment: Appointment,
-  appointmentHistory: Appointment[],
-  patientHistory: Patient[],
-  paperworkStartedFlag: Flag | undefined,
-  timezone: string
-): ActivityLogData[] => {
+interface GetActivityLogsInput {
+  appointment: Appointment;
+  appointmentHistory: Appointment[];
+  patientHistory: Patient[];
+  paperworkStartedFlag: Flag | undefined;
+  faxesSent: GetVisitFaxHistoryOutput['faxesSent'] | undefined;
+  timezone: string;
+}
+
+export const formatActivityLogs = ({
+  appointment,
+  appointmentHistory,
+  patientHistory,
+  paperworkStartedFlag,
+  faxesSent,
+  timezone,
+}: GetActivityLogsInput): ActivityLogData[] => {
   const logs: ActivityLogData[] = [];
 
   // check each patient history object against the previous for diffs
@@ -190,6 +203,16 @@ export const formatActivityLogs = (
       }
     });
   }
+
+  faxesSent?.forEach((fax) => {
+    logs.push({
+      activityName: ActivityName.faxSent,
+      activityDateTimeISO: fax.created,
+      activityDateTime: formatActivityDateTime(fax.created || '', timezone),
+      activityBy: fax.sender.display || 'n/a',
+      activityLink: `/admin/employee/${fax.sender.id}`,
+    });
+  });
 
   if (paperworkStartedFlag) {
     const paperworkStartedActivityLog = formatPaperworkStartedLog(paperworkStartedFlag, timezone);
@@ -308,4 +331,4 @@ export const formatNotesHistory = (timezone: string, appointmentHistory: Appoint
   return notes;
 };
 
-export { getCriticalUpdateTagOp, CRITICAL_CHANGE_SYSTEM };
+export { CRITICAL_CHANGE_SYSTEM, getCriticalUpdateTagOp };

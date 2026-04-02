@@ -10,7 +10,13 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DeleteLabOrderZambdaOutput, getSecret, PROVENANCE_ACTIVITY_CODING_ENTITY, SecretsKeys } from 'utils';
+import {
+  DeleteLabOrderZambdaOutput,
+  EXTERNAL_LAB_ERROR,
+  getSecret,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+  SecretsKeys,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -51,6 +57,10 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
         statusCode: 404,
         body: JSON.stringify({ message: `Lab order with ID ${serviceRequestId} not found` }),
       };
+    }
+
+    if (serviceRequest.status === 'revoked') {
+      throw EXTERNAL_LAB_ERROR(`It appears this lab is already deleted, please refresh the page.`);
     }
 
     const requests: (
