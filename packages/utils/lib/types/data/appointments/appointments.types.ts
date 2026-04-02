@@ -130,7 +130,7 @@ export interface InPersonAppointmentInformation
   needsDOBConfirmation?: boolean;
   waitingMinutes?: number;
   serviceCategory?: string;
-  location?: string;
+  location?: Location;
 }
 
 export interface TelemedAppointmentInformation extends Omit<AppointmentInformation, 'status' | 'statusHistory'> {
