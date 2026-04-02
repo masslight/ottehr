@@ -88,11 +88,10 @@ export async function performEffect(
     const candidId = encounter.identifier?.find(
       (identifier) => identifier.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM && identifier.value != null
     )?.value;
-    if (!appointmentId || !encounterDate) {
-      throw new Error(`Encounter is missing appointmentId or encounterDate: ${encounter.id}`);
-    }
-    if (!candidId) {
-      console.warn(`Encounter ${encounter.id} is missing Candid ID, skipping...`);
+    if (!appointmentId || !encounterDate || !candidId) {
+      console.warn(
+        `Encounter ${encounter.id} is missing required data, skipping it. appointmentId: ${appointmentId}, encounterDate: ${encounterDate}, candidId: ${candidId}`
+      );
       return;
     }
     encounterDataMap.set(encounter.id!, {
@@ -171,6 +170,11 @@ async function getFhirEncountersAndAppointmentsForPatient(
       {
         name: '_include',
         value: 'Encounter:appointment',
+      },
+      // exclude follow-up encounters that are missing appointment references
+      {
+        name: 'appointment:missing',
+        value: 'false',
       },
     ],
   });
