@@ -39,20 +39,25 @@ import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaIn
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-vitals';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Validating input: ${JSON.stringify(input.body)}`);
-  const { encounterId, mode, secrets } = validateRequestParameters(input);
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  try {
+    console.log(`Validating input: ${JSON.stringify(input.body)}`);
+    const { encounterId, mode, secrets } = validateRequestParameters(input);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
-  console.log(`Performing complex validation for encounterId: ${encounterId}, mode: ${mode}`);
-  const effectInput = await complexValidation({ encounterId, mode, secrets }, oystehr);
-  console.log(`Effect input: ${JSON.stringify(effectInput)}`);
-  const results = await performEffect(effectInput, oystehr);
+    console.log(`Performing complex validation for encounterId: ${encounterId}, mode: ${mode}`);
+    const effectInput = await complexValidation({ encounterId, mode, secrets }, oystehr);
+    console.log(`Effect input: ${JSON.stringify(effectInput)}`);
+    const results = await performEffect(effectInput, oystehr);
 
-  return {
-    body: JSON.stringify(results),
-    statusCode: 200,
-  };
+    return {
+      body: JSON.stringify(results),
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.log(error);
+    throw error;
+  }
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetVitalsResponseData> => {

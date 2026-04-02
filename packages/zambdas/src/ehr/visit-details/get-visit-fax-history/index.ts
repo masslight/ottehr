@@ -25,23 +25,28 @@ const ZAMBDA_NAME = 'get-visit-fax-history';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.group('validateRequestParameters');
-  const validatedParameters = validateRequestParameters(input);
-  console.groupEnd();
-  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-  const { secrets } = validatedParameters;
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  try {
+    console.group('validateRequestParameters');
+    const validatedParameters = validateRequestParameters(input);
+    console.groupEnd();
+    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+    const { secrets } = validatedParameters;
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
-  console.group('performEffect');
-  const resources = await performEffect(validatedParameters, oystehr);
-  console.groupEnd();
-  console.debug('performEffect success', JSON.stringify(resources));
+    console.group('performEffect');
+    const resources = await performEffect(validatedParameters, oystehr);
+    console.groupEnd();
+    console.debug('performEffect success', JSON.stringify(resources));
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify(resources),
-  };
+    return {
+      statusCode: 200,
+      body: JSON.stringify(resources),
+    };
+  } catch (error: any) {
+    console.log('Error: ', JSON.stringify(error.message));
+    throw error;
+  }
 });
 
 const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): Promise<GetVisitFaxHistoryOutput> => {

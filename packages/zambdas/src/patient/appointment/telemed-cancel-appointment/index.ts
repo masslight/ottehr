@@ -45,15 +45,20 @@ export interface CancelTelemedAppointmentInputValidated extends CancelTelemedApp
 let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Telemed Cancelation Input: ${JSON.stringify(input)}`);
+  try {
+    console.log(`Telemed Cancelation Input: ${JSON.stringify(input)}`);
 
-  const validatedParameters = validateRequestParameters(input);
+    const validatedParameters = validateRequestParameters(input);
 
-  oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, validatedParameters.secrets);
+    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, validatedParameters.secrets);
 
-  const response = await performEffect({ input, params: validatedParameters });
+    const response = await performEffect({ input, params: validatedParameters });
 
-  return response;
+    return response;
+  } catch (error: any) {
+    console.log(`Error: ${error} Error stringified: `, JSON.stringify(error, null, 4));
+    throw error;
+  }
 });
 
 interface PerformEffectInput {

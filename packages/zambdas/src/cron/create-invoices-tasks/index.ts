@@ -39,26 +39,31 @@ interface EncounterPackage {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { secrets } = input;
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
-  const candid = createCandidApiClient(secrets);
+  try {
+    const { secrets } = input;
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
+    const candid = createCandidApiClient(secrets);
 
-  const twoDaysAgo = DateTime.now().minus({ days: 2 });
-  const candidClaims = await getAllCandidClaims(candid, twoDaysAgo);
-  console.log('getting candid claims for the past two days');
+    const twoDaysAgo = DateTime.now().minus({ days: 2 });
+    const candidClaims = await getAllCandidClaims(candid, twoDaysAgo);
+    console.log('getting candid claims for the past two days');
 
-  console.log('getting pending and to create packages');
-  const packagesToCreate = await getEncountersWithoutTaskFhir(oystehr, candid, candidClaims);
+    console.log('getting pending and to create packages');
+    const packagesToCreate = await getEncountersWithoutTaskFhir(oystehr, candid, candidClaims);
 
-  console.log('encounters without a task: ', packagesToCreate.length);
+    console.log('encounters without a task: ', packagesToCreate.length);
 
-  await Promise.all(packagesToCreate.map((pkg) => createTaskForEncounter(oystehr, pkg)));
+    await Promise.all(packagesToCreate.map((pkg) => createTaskForEncounter(oystehr, pkg)));
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: 'Successfully created tasks for encounters' }),
-  };
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Successfully created tasks for encounters' }),
+    };
+  } catch (error: unknown) {
+    console.log('Error occurred:', error);
+    throw error;
+  }
 });
 
 async function getInvoiceTaskInput(

@@ -29,14 +29,19 @@ interface Input extends UpdatePatientLoginPhoneNumbersInput {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (zambdaInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const input = validateRequestParameters(zambdaInput);
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-  const oystehr = createOystehrClient(m2mToken, input.secrets);
-  await updateLoginPhoneNumbers(input, oystehr);
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ result: 'success' }),
-  };
+  try {
+    const input = validateRequestParameters(zambdaInput);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
+    const oystehr = createOystehrClient(m2mToken, input.secrets);
+    await updateLoginPhoneNumbers(input, oystehr);
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ result: 'success' }),
+    };
+  } catch (error: any) {
+    console.log('Error: ', JSON.stringify(error.message));
+    throw error;
+  }
 });
 
 const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<void> => {

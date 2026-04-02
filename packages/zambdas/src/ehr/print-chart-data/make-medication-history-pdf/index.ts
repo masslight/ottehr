@@ -34,33 +34,38 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'make-medication-history-pdf';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.group('validateRequestParameters');
-  const validatedParameters = validateRequestParameters(input);
-  const { patient, medicationHistory, appointment, encounter, location, timezone, secrets } = validatedParameters;
-  console.groupEnd();
-  console.debug('validateRequestParameters success');
+  try {
+    console.group('validateRequestParameters');
+    const validatedParameters = validateRequestParameters(input);
+    const { patient, medicationHistory, appointment, encounter, location, timezone, secrets } = validatedParameters;
+    console.groupEnd();
+    console.debug('validateRequestParameters success');
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
-  const formattedData: MedicationHistoryInput = formatData({
-    patient,
-    medicationHistory,
-    appointment,
-    location,
-    timezone,
-  });
+    const formattedData: MedicationHistoryInput = formatData({
+      patient,
+      medicationHistory,
+      appointment,
+      location,
+      timezone,
+    });
 
-  const output = await makeMedicationHistoryPDF(oystehr, m2mToken, secrets, formattedData, encounter);
-  console.log('makeMedicationHistoryPdf output is:', JSON.stringify(output));
-  const presignedURL = await getPresignedURL(output.uploadURL, m2mToken);
-  return {
-    body: JSON.stringify({
-      presignedURL,
-      title: output.title,
-    }),
-    statusCode: 200,
-  };
+    const output = await makeMedicationHistoryPDF(oystehr, m2mToken, secrets, formattedData, encounter);
+    console.log('makeMedicationHistoryPdf output is:', JSON.stringify(output));
+    const presignedURL = await getPresignedURL(output.uploadURL, m2mToken);
+    return {
+      body: JSON.stringify({
+        presignedURL,
+        title: output.title,
+      }),
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
 });
 
 const formatData = ({

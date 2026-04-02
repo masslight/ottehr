@@ -59,27 +59,32 @@ interface TaskGroup {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParams = validateRequestParameters(input);
-  const { secrets } = validatedParams;
-  const start = performance.now();
+  try {
+    const validatedParams = validateRequestParameters(input);
+    const { secrets } = validatedParams;
+    const start = performance.now();
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
-  const fhirSearchStart = performance.now();
-  const fhirResources = await getFhirResourcesGrouped(oystehr, validatedParams);
-  const fhirSearchEnd = performance.now();
-  const taskGroups = fhirResources.taskGroups;
+    const fhirSearchStart = performance.now();
+    const fhirResources = await getFhirResourcesGrouped(oystehr, validatedParams);
+    const fhirSearchEnd = performance.now();
+    const taskGroups = fhirResources.taskGroups;
 
-  const response = performEffect(taskGroups, fhirResources.bundleTotal);
-  const end = performance.now();
-  console.log('Whole zambda execution time:', Math.round((end - start) / 1000), 'seconds.');
-  console.log('FHIR search execution time: ', Math.round((fhirSearchEnd - fhirSearchStart) / 1000), 'seconds.');
-  // console.log('Candid search execution time: ', Math.round((candidSearchEnd - fhirSearchEnd) / 1000), 'seconds.');
-  return {
-    statusCode: 200,
-    body: JSON.stringify(response),
-  };
+    const response = performEffect(taskGroups, fhirResources.bundleTotal);
+    const end = performance.now();
+    console.log('Whole zambda execution time:', Math.round((end - start) / 1000), 'seconds.');
+    console.log('FHIR search execution time: ', Math.round((fhirSearchEnd - fhirSearchStart) / 1000), 'seconds.');
+    // console.log('Candid search execution time: ', Math.round((candidSearchEnd - fhirSearchEnd) / 1000), 'seconds.');
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
+  } catch (error: unknown) {
+    console.log('Error occurred:', error);
+    throw error;
+  }
 });
 
 function performEffect(taskGroups: TaskGroup[], total: number): GetInvoicesTasksResponse {

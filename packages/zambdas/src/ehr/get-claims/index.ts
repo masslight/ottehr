@@ -50,17 +50,22 @@ export interface ClaimPackage {
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-claims';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParameters = validateRequestParameters(input);
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-  // const userToken = input.headers.Authorization.replace('Bearer ', '');
-  console.log('Created zapToken and fhir client');
+  try {
+    const validatedParameters = validateRequestParameters(input);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    // const userToken = input.headers.Authorization.replace('Bearer ', '');
+    console.log('Created zapToken and fhir client');
 
-  const response = await performEffect(oystehr, validatedParameters);
-  return {
-    statusCode: 200,
-    body: JSON.stringify(response),
-  };
+    const response = await performEffect(oystehr, validatedParameters);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
+  } catch (error: any) {
+    console.error(error, JSON.stringify(error));
+    throw error;
+  }
 });
 
 async function performEffect(oystehr: Oystehr, validatedInput: ClaimsQueueGetRequest): Promise<ClaimsQueueGetResponse> {

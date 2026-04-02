@@ -23,22 +23,27 @@ const ZAMBDA_NAME = 'remove-coverage';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.group('validateRequestParameters');
-  const validatedParameters = validateRequestParameters(input);
-  console.groupEnd();
-  console.debug('validateRequestParameters success');
-  const { secrets } = validatedParameters;
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  try {
+    console.group('validateRequestParameters');
+    const validatedParameters = validateRequestParameters(input);
+    console.groupEnd();
+    console.debug('validateRequestParameters success');
+    const { secrets } = validatedParameters;
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
-  const effectInput = await complexValidation(validatedParameters, oystehr);
+    const effectInput = await complexValidation(validatedParameters, oystehr);
 
-  await performEffect(effectInput, oystehr);
-  const response: RemoveCoverageResponse = { message: 'Successfully removed coverage' };
-  return {
-    statusCode: 200,
-    body: JSON.stringify(response),
-  };
+    await performEffect(effectInput, oystehr);
+    const response: RemoveCoverageResponse = { message: 'Successfully removed coverage' };
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
+  } catch (error: any) {
+    console.log('Error: ', JSON.stringify(error.message));
+    throw error;
+  }
 });
 
 interface EffectInput {

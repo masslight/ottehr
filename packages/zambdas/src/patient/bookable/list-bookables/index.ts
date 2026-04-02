@@ -22,35 +22,40 @@ const ZAMBDA_NAME = 'list-bookables';
 
 let oystehrToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
-  const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
-  const { serviceMode: serviceType } = validateRequestParameters(input);
+  try {
+    const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
+    const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
+    const { serviceMode: serviceType } = validateRequestParameters(input);
 
-  if (!oystehrToken) {
-    console.log('getting m2m token for service calls');
-    oystehrToken = await getAuth0Token(input.secrets);
-  } else {
-    console.log('already have a token, no need to update');
+    if (!oystehrToken) {
+      console.log('getting m2m token for service calls');
+      oystehrToken = await getAuth0Token(input.secrets);
+    } else {
+      console.log('already have a token, no need to update');
+    }
+
+    const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
+
+    let response: BookableItemListResponse;
+    if (serviceType === 'virtual') {
+      response = { items: await getTelemedLocations(oystehr), categorized: false };
+    } else {
+      const items = (
+        await Promise.all([getPhysicalLocations(oystehr), getGroups(oystehr, ServiceMode['in-person'])])
+      ).flatMap((i) => i);
+      response = { items, categorized: false };
+    }
+
+    response.items = response.items.sort((i1, i2) => i1.label.localeCompare(i2.label));
+    console.log('response items', response.items);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
+  } catch (error: any) {
+    console.error('Failed to get bookables', error);
+    throw error;
   }
-
-  const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
-
-  let response: BookableItemListResponse;
-  if (serviceType === 'virtual') {
-    response = { items: await getTelemedLocations(oystehr), categorized: false };
-  } else {
-    const items = (
-      await Promise.all([getPhysicalLocations(oystehr), getGroups(oystehr, ServiceMode['in-person'])])
-    ).flatMap((i) => i);
-    response = { items, categorized: false };
-  }
-
-  response.items = response.items.sort((i1, i2) => i1.label.localeCompare(i2.label));
-  console.log('response items', response.items);
-  return {
-    statusCode: 200,
-    body: JSON.stringify(response),
-  };
 });
 
 async function getTelemedLocations(oystehr: Oystehr): Promise<BookableItem[]> {

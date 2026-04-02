@@ -71,152 +71,157 @@ const ZAMBDA_NAME = 'update-lab-order-resources';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`update-lab-order-resources started, input: ${JSON.stringify(input)}`);
-
-  let secrets = input.secrets;
-  let validatedParameters: UpdateLabOrderResourcesInput & { secrets: Secrets | null; userToken: string };
-
   try {
-    validatedParameters = validateRequestParameters(input);
-  } catch (error: any) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        message: `Invalid request parameters. ${error.message || error}`,
-      }),
-    };
-  }
+    console.log(`update-lab-order-resources started, input: ${JSON.stringify(input)}`);
 
-  secrets = validatedParameters.secrets;
+    let secrets = input.secrets;
+    let validatedParameters: UpdateLabOrderResourcesInput & { secrets: Secrets | null; userToken: string };
 
-  console.log('validateRequestParameters success');
-
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
-  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-  const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
-
-  switch (validatedParameters.event) {
-    case 'reviewed': {
-      const { taskId, serviceRequestId, diagnosticReportId } = validatedParameters;
-
-      const updateTransactionRequest = await handleReviewedEvent({
-        oystehr,
-        practitionerIdFromCurrentUser,
-        taskId,
-        serviceRequestId,
-        diagnosticReportId,
-        secrets,
-      });
-
+    try {
+      validatedParameters = validateRequestParameters(input);
+    } catch (error: any) {
       return {
-        statusCode: 200,
+        statusCode: 400,
         body: JSON.stringify({
-          message: `Successfully updated Task/${taskId}. Status set to 'completed' and Practitioner set.`,
-          transaction: updateTransactionRequest,
+          message: `Invalid request parameters. ${error.message || error}`,
         }),
       };
     }
-    case 'specimenDateChanged': {
-      const { serviceRequestId, specimenId, date } = validatedParameters;
 
-      const updateTransactionRequest = await handleSpecimenDateChangedEvent({
-        oystehr,
-        serviceRequestId,
-        specimenId,
-        date,
-        practitionerIdFromCurrentUser,
-      });
+    secrets = validatedParameters.secrets;
 
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          message: `Successfully updated Specimen/${specimenId}. Date set to '${date}'.`,
-          transaction: updateTransactionRequest,
-        }),
-      };
-    }
-    case 'saveOrderCollectionData': {
-      const { serviceRequestId, data, specimenCollectionDates, userTimezone } = validatedParameters;
-      const { presignedLabelURL } = await handleSaveCollectionData(
-        oystehr,
-        m2mToken,
-        secrets,
-        practitionerIdFromCurrentUser,
-        {
+    console.log('validateRequestParameters success');
+
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
+    const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
+
+    switch (validatedParameters.event) {
+      case 'reviewed': {
+        const { taskId, serviceRequestId, diagnosticReportId } = validatedParameters;
+
+        const updateTransactionRequest = await handleReviewedEvent({
+          oystehr,
+          practitionerIdFromCurrentUser,
+          taskId,
           serviceRequestId,
-          data,
-          specimenCollectionDates,
-          userTimezone,
-        }
-      );
+          diagnosticReportId,
+          secrets,
+        });
 
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          message: `Successfully updated saved order collection data`,
-          presignedLabelURL,
-        }),
-      };
-    }
-    case LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask: {
-      console.log('handling cancel task to match unsolicited result');
-      const { taskId } = validatedParameters;
-      await handleRejectedUnsolicitedResult({ oystehr, taskId });
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          message: `Successfully cancelled match unsolicited result task with id ${taskId}`,
-        }),
-      };
-    }
-    case LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult: {
-      const { taskId, diagnosticReportId, srToMatchId, patientToMatchId } = validatedParameters;
-      console.log('handling match unsolicited result');
-      await handleMatchUnsolicitedRequest({
-        oystehr,
-        taskId,
-        diagnosticReportId,
-        srToMatchId,
-        patientToMatchId,
-        practitionerIdFromCurrentUser,
-      });
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          message: `Successfully matched unsolicited result`,
-        }),
-      };
-    }
-    case LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn: {
-      const { serviceRequestId } = validatedParameters;
-      console.log('handling rejected abn');
-      await handleRejectedAbn({ oystehr, serviceRequestId, practitionerIdFromCurrentUser });
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          message: `Successfully revoked sr for lab with rejected abn`,
-        }),
-      };
-    }
-    case LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote:
-    case LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote: {
-      const { requisitionNumber, note, event } = validatedParameters;
-      const actionWord = event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote ? 'created' : 'updated';
-      if (event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote) {
-        console.log('handling add order level note');
-        await handleAddOrderLevelNote({ oystehr, requisitionNumber, note });
-      } else if (event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote) {
-        console.log('handling update order level note');
-        await handleUpdateOrderLevelNote({ oystehr, requisitionNumber, note });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully updated Task/${taskId}. Status set to 'completed' and Practitioner set.`,
+            transaction: updateTransactionRequest,
+          }),
+        };
       }
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          message: `Successfully ${actionWord} order level note communication`,
-        }),
-      };
+      case 'specimenDateChanged': {
+        const { serviceRequestId, specimenId, date } = validatedParameters;
+
+        const updateTransactionRequest = await handleSpecimenDateChangedEvent({
+          oystehr,
+          serviceRequestId,
+          specimenId,
+          date,
+          practitionerIdFromCurrentUser,
+        });
+
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully updated Specimen/${specimenId}. Date set to '${date}'.`,
+            transaction: updateTransactionRequest,
+          }),
+        };
+      }
+      case 'saveOrderCollectionData': {
+        const { serviceRequestId, data, specimenCollectionDates, userTimezone } = validatedParameters;
+        const { presignedLabelURL } = await handleSaveCollectionData(
+          oystehr,
+          m2mToken,
+          secrets,
+          practitionerIdFromCurrentUser,
+          {
+            serviceRequestId,
+            data,
+            specimenCollectionDates,
+            userTimezone,
+          }
+        );
+
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully updated saved order collection data`,
+            presignedLabelURL,
+          }),
+        };
+      }
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask: {
+        console.log('handling cancel task to match unsolicited result');
+        const { taskId } = validatedParameters;
+        await handleRejectedUnsolicitedResult({ oystehr, taskId });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully cancelled match unsolicited result task with id ${taskId}`,
+          }),
+        };
+      }
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult: {
+        const { taskId, diagnosticReportId, srToMatchId, patientToMatchId } = validatedParameters;
+        console.log('handling match unsolicited result');
+        await handleMatchUnsolicitedRequest({
+          oystehr,
+          taskId,
+          diagnosticReportId,
+          srToMatchId,
+          patientToMatchId,
+          practitionerIdFromCurrentUser,
+        });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully matched unsolicited result`,
+          }),
+        };
+      }
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn: {
+        const { serviceRequestId } = validatedParameters;
+        console.log('handling rejected abn');
+        await handleRejectedAbn({ oystehr, serviceRequestId, practitionerIdFromCurrentUser });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully revoked sr for lab with rejected abn`,
+          }),
+        };
+      }
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote:
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote: {
+        const { requisitionNumber, note, event } = validatedParameters;
+        const actionWord = event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote ? 'created' : 'updated';
+        if (event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote) {
+          console.log('handling add order level note');
+          await handleAddOrderLevelNote({ oystehr, requisitionNumber, note });
+        } else if (event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote) {
+          console.log('handling update order level note');
+          await handleUpdateOrderLevelNote({ oystehr, requisitionNumber, note });
+        }
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully ${actionWord} order level note communication`,
+          }),
+        };
+      }
     }
+  } catch (error: any) {
+    console.error('Error updating external lab order resource:', error);
+    throw error;
   }
 });
 

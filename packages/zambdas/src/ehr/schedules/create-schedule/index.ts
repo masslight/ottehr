@@ -20,21 +20,26 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-schedule';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.group('validateRequestParameters');
-  const validatedParameters = validateRequestParameters(input);
-  console.groupEnd();
-  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-  const { secrets } = validatedParameters;
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
-  const effectInput = await complexValidation(validatedParameters, oystehr);
+  try {
+    console.group('validateRequestParameters');
+    const validatedParameters = validateRequestParameters(input);
+    console.groupEnd();
+    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+    const { secrets } = validatedParameters;
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
+    const effectInput = await complexValidation(validatedParameters, oystehr);
 
-  const updatedSchedule = await performEffect(effectInput, oystehr);
+    const updatedSchedule = await performEffect(effectInput, oystehr);
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify(updatedSchedule),
-  };
+    return {
+      statusCode: 200,
+      body: JSON.stringify(updatedSchedule),
+    };
+  } catch (error: any) {
+    console.log('Error: ', JSON.stringify(error.message));
+    throw error;
+  }
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Schedule> => {

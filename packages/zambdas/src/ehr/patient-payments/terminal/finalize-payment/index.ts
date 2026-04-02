@@ -42,76 +42,81 @@ const ZAMBDA_NAME = 'patient-payments-terminal-finalize-payment';
 let oystehrM2MClientToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const authorization = input.headers.Authorization;
-  if (!authorization) {
-    throw NOT_AUTHORIZED;
-  }
+  try {
+    const authorization = input.headers.Authorization;
+    if (!authorization) {
+      throw NOT_AUTHORIZED;
+    }
 
-  const user = await getUser(authorization.replace('Bearer ', ''), input.secrets);
-  if (!user.profile) {
-    throw NOT_AUTHORIZED;
-  }
+    const user = await getUser(authorization.replace('Bearer ', ''), input.secrets);
+    if (!user.profile) {
+      throw NOT_AUTHORIZED;
+    }
 
-  const validatedParameters = validateRequestParameters(input);
+    const validatedParameters = validateRequestParameters(input);
 
-  if (!oystehrM2MClientToken) {
-    oystehrM2MClientToken = await getAuth0Token(input.secrets);
-  }
+    if (!oystehrM2MClientToken) {
+      oystehrM2MClientToken = await getAuth0Token(input.secrets);
+    }
 
-  const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
-  const stripeContext = await getStripePaymentContext(validatedParameters, oystehrClient);
+    const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
+    const stripeContext = await getStripePaymentContext(validatedParameters, oystehrClient);
 
-  const stripeClient = getStripeClient(input.secrets);
-  const paymentIntent = await retrieveTerminalPaymentIntent(
-    stripeClient,
-    validatedParameters.paymentIntentId,
-    stripeContext.stripeAccount
-  );
-
-  if (paymentIntent.status !== 'succeeded') {
-    throw GENERIC_STRIPE_PAYMENT_ERROR;
-  }
-
-  const paymentMethodIdCandidate = getPaymentMethodIdForDefault(paymentIntent);
-  const paymentMethodId = paymentMethodIdCandidate
-    ? await ensureUniqueCustomerPaymentMethodByFingerprint(
-        stripeClient,
-        stripeContext.stripeCustomerId,
-        paymentMethodIdCandidate,
-        stripeContext.stripeAccount
-      )
-    : undefined;
-
-  if (paymentMethodId) {
-    await setDefaultPaymentMethodForCustomer(
+    const stripeClient = getStripeClient(input.secrets);
+    const paymentIntent = await retrieveTerminalPaymentIntent(
       stripeClient,
-      stripeContext.stripeCustomerId,
-      paymentMethodId,
+      validatedParameters.paymentIntentId,
       stripeContext.stripeAccount
     );
-  }
 
-  const amountInCents = paymentIntent.amount_received || paymentIntent.amount;
-  const paymentNotice = await createPaymentNoticeAndTask(
-    {
+    if (paymentIntent.status !== 'succeeded') {
+      throw GENERIC_STRIPE_PAYMENT_ERROR;
+    }
+
+    const paymentMethodIdCandidate = getPaymentMethodIdForDefault(paymentIntent);
+    const paymentMethodId = paymentMethodIdCandidate
+      ? await ensureUniqueCustomerPaymentMethodByFingerprint(
+          stripeClient,
+          stripeContext.stripeCustomerId,
+          paymentMethodIdCandidate,
+          stripeContext.stripeAccount
+        )
+      : undefined;
+
+    if (paymentMethodId) {
+      await setDefaultPaymentMethodForCustomer(
+        stripeClient,
+        stripeContext.stripeCustomerId,
+        paymentMethodId,
+        stripeContext.stripeAccount
+      );
+    }
+
+    const amountInCents = paymentIntent.amount_received || paymentIntent.amount;
+    const paymentNotice = await createPaymentNoticeAndTask(
+      {
+        encounterId: validatedParameters.encounterId,
+        amountInCents,
+        stripePaymentIntentId: paymentIntent.id,
+        submitterRef: { reference: user.profile },
+      },
+      oystehrClient,
+      input
+    );
+
+    const response: FinalizePatientPaymentTerminalResponse = {
+      patientId: validatedParameters.patientId,
       encounterId: validatedParameters.encounterId,
-      amountInCents,
-      stripePaymentIntentId: paymentIntent.id,
-      submitterRef: { reference: user.profile },
-    },
-    oystehrClient,
-    input
-  );
+      paymentIntentId: paymentIntent.id,
+      paymentNoticeId: paymentNotice.id,
+      defaultPaymentMethodId: paymentMethodId,
+    };
 
-  const response: FinalizePatientPaymentTerminalResponse = {
-    patientId: validatedParameters.patientId,
-    encounterId: validatedParameters.encounterId,
-    paymentIntentId: paymentIntent.id,
-    paymentNoticeId: paymentNotice.id,
-    defaultPaymentMethodId: paymentMethodId,
-  };
-
-  return lambdaResponse(200, response);
+    return lambdaResponse(200, response);
+  } catch (error: any) {
+    console.error(error);
+    throw error;
+  }
 });
 
 const validateRequestParameters = (input: ZambdaInput): FinalizePatientPaymentTerminalInput => {

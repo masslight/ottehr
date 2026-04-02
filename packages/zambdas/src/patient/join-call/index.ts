@@ -37,129 +37,139 @@ const ZAMBDA_NAME = 'join-call';
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const authorization = input.headers.Authorization;
-  if (!authorization) {
-    console.log('User is not authenticated yet');
-    return lambdaResponse(401, { message: 'Unauthorized' });
-  }
-
-  console.group('validateRequestParameters');
-  let validatedParameters: JoinCallInput;
   try {
-    validatedParameters = validateRequestParameters(input);
-    console.log(JSON.stringify(validatedParameters, null, 4));
-  } catch (error: any) {
-    console.log(error);
-    return lambdaResponse(400, { message: error.message });
-  }
-
-  const { appointmentId, secrets } = validatedParameters;
-  console.groupEnd();
-  console.debug('validateRequestParameters success');
-
-  const projectApiURL = getSecret(SecretsKeys.PROJECT_API, secrets);
-  const websiteUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  const telemedClientId = getSecret(SecretsKeys.AUTH0_CLIENT, secrets);
-  const telemedClientSecret = getSecret(SecretsKeys.AUTH0_SECRET, secrets);
-
-  const jwt = authorization.replace('Bearer ', '');
-  const claims = decodeJwt(jwt);
-  console.log('JWT claims:', claims);
-  let isInvitedParticipant = false;
-  let user: User | undefined;
-  try {
-    if (claims.iss === PROJECT_WEBSITE) {
-      isInvitedParticipant = true;
-      const secret = new TextEncoder().encode(telemedClientSecret);
-      await jwtVerify(jwt, secret, {
-        audience: `${websiteUrl}/waiting-room/appointment/${appointmentId}`,
-      });
-      if (!claims.sub) {
-        throw new Error('clams.sub is expected!');
-      }
-    } else {
-      console.log('getting user');
-      user = await getUser(jwt, secrets);
-      console.log(`user: ${user?.name}`);
-    }
-  } catch (error) {
-    console.log('User verification error:', error);
-    return lambdaResponse(401, { message: 'Unauthorized' });
-  }
-
-  if (!oystehrToken) {
-    console.log('getting m2m token for service calls');
-    oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
-  } else {
-    console.log('already have a token, no need to update');
-  }
-
-  const oystehr = createOystehrClient(
-    oystehrToken,
-    getSecret(SecretsKeys.FHIR_API, secrets),
-    getSecret(SecretsKeys.PROJECT_API, secrets)
-  );
-
-  let appointment: Appointment | undefined = undefined;
-
-  console.log(`getting appointment resource for id ${appointmentId}`);
-  appointment = await getAppointmentResourceById(appointmentId, oystehr);
-  if (!appointment) {
-    console.log('Appointment is not found');
-    return lambdaResponse(404, { message: 'Appointment is not found' });
-  }
-
-  const patientRef = appointment.participant.find((p) => p.actor?.reference?.match(/^Patient/) !== null)?.actor
-    ?.reference;
-  const patientId = patientRef?.replace(/^Patient\//, '');
-  console.log('Patient ID from appointment:', patientId);
-  if (!patientId) {
-    throw new Error('Could not find the patient reference in appointment resource.'); // 500
-  }
-
-  let videoEncounter: Encounter | undefined = undefined;
-  videoEncounter = await getVideoEncounterForAppointment(appointment.id || 'Unknown', oystehr);
-  console.log('Encounter status:', videoEncounter?.status);
-
-  if (
-    !videoEncounter?.id ||
-    videoEncounter.status !== 'in-progress' ||
-    !getVirtualServiceResourceExtension(videoEncounter, TELEMED_VIDEO_ROOM_CODE)
-  ) {
-    return lambdaResponse(400, CANNOT_JOIN_CALL_NOT_STARTED_ERROR);
-  }
-
-  let userProfile: string;
-  let relatedPersonRef: string | undefined;
-  if (isInvitedParticipant) {
-    const subject = claims.sub || '';
-    if (!(await isParticipantInvited(subject, videoEncounter.id, oystehr))) {
+    const authorization = input.headers.Authorization;
+    if (!authorization) {
+      console.log('User is not authenticated yet');
       return lambdaResponse(401, { message: 'Unauthorized' });
     }
-    userProfile = await getM2MUserProfile(oystehrToken, projectApiURL, telemedClientId);
-  } else {
-    // user is defined here cause it's not invited participant
-    user = user as User;
-    userProfile = user.profile;
-    if (!(await userHasAccessToPatient(user, patientId, oystehr))) {
-      return lambdaResponse(403, NO_READ_ACCESS_TO_PATIENT_ERROR);
+
+    console.group('validateRequestParameters');
+    let validatedParameters: JoinCallInput;
+    try {
+      validatedParameters = validateRequestParameters(input);
+      console.log(JSON.stringify(validatedParameters, null, 4));
+    } catch (error: any) {
+      console.log(error);
+      return lambdaResponse(400, { message: error.message });
     }
-    const relatedPerson = await getRelatedPersonForPatient(patientId, oystehr);
-    relatedPersonRef = `RelatedPerson/${relatedPerson?.id}`;
+
+    const { appointmentId, secrets } = validatedParameters;
+    console.groupEnd();
+    console.debug('validateRequestParameters success');
+
+    const projectApiURL = getSecret(SecretsKeys.PROJECT_API, secrets);
+    const websiteUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+    const telemedClientId = getSecret(SecretsKeys.AUTH0_CLIENT, secrets);
+    const telemedClientSecret = getSecret(SecretsKeys.AUTH0_SECRET, secrets);
+
+    const jwt = authorization.replace('Bearer ', '');
+    const claims = decodeJwt(jwt);
+    console.log('JWT claims:', claims);
+    let isInvitedParticipant = false;
+    let user: User | undefined;
+    try {
+      if (claims.iss === PROJECT_WEBSITE) {
+        isInvitedParticipant = true;
+        const secret = new TextEncoder().encode(telemedClientSecret);
+        await jwtVerify(jwt, secret, {
+          audience: `${websiteUrl}/waiting-room/appointment/${appointmentId}`,
+        });
+        if (!claims.sub) {
+          throw new Error('clams.sub is expected!');
+        }
+      } else {
+        console.log('getting user');
+        user = await getUser(jwt, secrets);
+        console.log(`user: ${user?.name}`);
+      }
+    } catch (error) {
+      console.log('User verification error:', error);
+      return lambdaResponse(401, { message: 'Unauthorized' });
+    }
+
+    if (!oystehrToken) {
+      console.log('getting m2m token for service calls');
+      oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
+    } else {
+      console.log('already have a token, no need to update');
+    }
+
+    const oystehr = createOystehrClient(
+      oystehrToken,
+      getSecret(SecretsKeys.FHIR_API, secrets),
+      getSecret(SecretsKeys.PROJECT_API, secrets)
+    );
+
+    let appointment: Appointment | undefined = undefined;
+
+    console.log(`getting appointment resource for id ${appointmentId}`);
+    appointment = await getAppointmentResourceById(appointmentId, oystehr);
+    if (!appointment) {
+      console.log('Appointment is not found');
+      return lambdaResponse(404, { message: 'Appointment is not found' });
+    }
+
+    const patientRef = appointment.participant.find((p) => p.actor?.reference?.match(/^Patient/) !== null)?.actor
+      ?.reference;
+    const patientId = patientRef?.replace(/^Patient\//, '');
+    console.log('Patient ID from appointment:', patientId);
+    if (!patientId) {
+      throw new Error('Could not find the patient reference in appointment resource.'); // 500
+    }
+
+    let videoEncounter: Encounter | undefined = undefined;
+    videoEncounter = await getVideoEncounterForAppointment(appointment.id || 'Unknown', oystehr);
+    console.log('Encounter status:', videoEncounter?.status);
+
+    if (
+      !videoEncounter?.id ||
+      videoEncounter.status !== 'in-progress' ||
+      !getVirtualServiceResourceExtension(videoEncounter, TELEMED_VIDEO_ROOM_CODE)
+    ) {
+      return lambdaResponse(400, CANNOT_JOIN_CALL_NOT_STARTED_ERROR);
+    }
+
+    let userProfile: string;
+    let relatedPersonRef: string | undefined;
+    if (isInvitedParticipant) {
+      const subject = claims.sub || '';
+      if (!(await isParticipantInvited(subject, videoEncounter.id, oystehr))) {
+        return lambdaResponse(401, { message: 'Unauthorized' });
+      }
+      userProfile = await getM2MUserProfile(oystehrToken, projectApiURL, telemedClientId);
+    } else {
+      // user is defined here cause it's not invited participant
+      user = user as User;
+      userProfile = user.profile;
+      if (!(await userHasAccessToPatient(user, patientId, oystehr))) {
+        return lambdaResponse(403, NO_READ_ACCESS_TO_PATIENT_ERROR);
+      }
+      const relatedPerson = await getRelatedPersonForPatient(patientId, oystehr);
+      relatedPersonRef = `RelatedPerson/${relatedPerson?.id}`;
+    }
+
+    console.log('User profile:', userProfile);
+    console.log('RelatedPerson:', relatedPersonRef);
+
+    videoEncounter = await addUserToVideoEncounterIfNeeded(videoEncounter, userProfile, relatedPersonRef, oystehr);
+    if (!videoEncounter.id) {
+      throw new Error(`Video encounter was not found for the appointment ${appointment.id}`);
+    }
+
+    const userToken = isInvitedParticipant ? oystehrToken : jwt;
+    const joinCallResponse = await joinTelemedMeeting(
+      projectApiURL,
+      userToken,
+      videoEncounter.id,
+      isInvitedParticipant
+    );
+
+    return lambdaResponse(200, joinCallResponse);
+  } catch (error: any) {
+    console.log(error);
+    throw error;
   }
-
-  console.log('User profile:', userProfile);
-  console.log('RelatedPerson:', relatedPersonRef);
-
-  videoEncounter = await addUserToVideoEncounterIfNeeded(videoEncounter, userProfile, relatedPersonRef, oystehr);
-  if (!videoEncounter.id) {
-    throw new Error(`Video encounter was not found for the appointment ${appointment.id}`);
-  }
-
-  const userToken = isInvitedParticipant ? oystehrToken : jwt;
-  const joinCallResponse = await joinTelemedMeeting(projectApiURL, userToken, videoEncounter.id, isInvitedParticipant);
-
-  return lambdaResponse(200, joinCallResponse);
 });
 
 async function addUserToVideoEncounterIfNeeded(

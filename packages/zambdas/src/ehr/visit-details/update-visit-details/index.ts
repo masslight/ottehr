@@ -34,22 +34,27 @@ const ZAMBDA_NAME = 'update-visit-details';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.group('validateRequestParameters');
-  const validatedParameters = validateRequestParameters(input);
-  console.groupEnd();
-  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-  const { secrets } = validatedParameters;
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
-  const effectInput = await complexValidation(validatedParameters, oystehr);
-  console.log('effectInput', JSON.stringify(effectInput, null, 2));
+  try {
+    console.group('validateRequestParameters');
+    const validatedParameters = validateRequestParameters(input);
+    console.groupEnd();
+    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+    const { secrets } = validatedParameters;
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
+    const effectInput = await complexValidation(validatedParameters, oystehr);
+    console.log('effectInput', JSON.stringify(effectInput, null, 2));
 
-  await performEffect(effectInput, oystehr);
+    await performEffect(effectInput, oystehr);
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({}),
-  };
+    return {
+      statusCode: 200,
+      body: JSON.stringify({}),
+    };
+  } catch (error: any) {
+    console.log('Error: ', JSON.stringify(error.message));
+    throw error;
+  }
 });
 
 interface EffectInput extends Input {

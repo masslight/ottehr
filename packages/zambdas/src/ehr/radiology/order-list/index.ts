@@ -42,21 +42,26 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'radiology-order-list';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log('input body, ', JSON.stringify(unsafeInput.body));
+  try {
+    console.log('input body, ', JSON.stringify(unsafeInput.body));
 
-  const secrets = validateSecrets(unsafeInput.secrets);
+    const secrets = validateSecrets(unsafeInput.secrets);
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
-  const validatedInput = await validateInput(unsafeInput);
+    const validatedInput = await validateInput(unsafeInput);
 
-  const response = await performEffect(validatedInput, oystehr);
+    const response = await performEffect(validatedInput, oystehr);
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify(response),
-  };
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
+  } catch (error: any) {
+    console.log('Error: ', JSON.stringify(error.message));
+    throw error;
+  }
 });
 
 const performEffect = async (

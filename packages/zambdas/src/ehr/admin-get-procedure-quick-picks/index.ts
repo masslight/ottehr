@@ -13,18 +13,24 @@ export const PROCEDURE_QUICK_PICK_CONFIG_EXTENSION_URL = 'https://fhir.ottehr.co
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParameters = validateRequestParameters(input);
+  try {
+    const validatedParameters = validateRequestParameters(input);
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-  console.log('Created Oystehr client');
+    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    console.log('Created Oystehr client');
 
-  const response = await performEffect(oystehr);
-  return {
-    statusCode: 200,
-    body: JSON.stringify(response),
-  };
+    const response = await performEffect(oystehr);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
+  } catch (error: any) {
+    console.error('Stringified error: ' + JSON.stringify(error));
+    console.error('Error: ' + error);
+    throw error;
+  }
 });
 
 export function activityDefinitionToQuickPick(ad: ActivityDefinition): ProcedureQuickPickData {

@@ -25,21 +25,26 @@ const ZAMBDA_NAME = 'update-visit-files';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.group('validateRequestParameters');
-  const validatedParameters = validateRequestParameters(input);
-  console.groupEnd();
-  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-  const { secrets } = validatedParameters;
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
-  const effectInput = await complexValidation(validatedParameters, oystehr);
+  try {
+    console.group('validateRequestParameters');
+    const validatedParameters = validateRequestParameters(input);
+    console.groupEnd();
+    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+    const { secrets } = validatedParameters;
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
+    const effectInput = await complexValidation(validatedParameters, oystehr);
 
-  const files = await performEffect(effectInput, oystehr);
+    const files = await performEffect(effectInput, oystehr);
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify(files),
-  };
+    return {
+      statusCode: 200,
+      body: JSON.stringify(files),
+    };
+  } catch (error: any) {
+    console.log('Error: ', JSON.stringify(error.message));
+    throw error;
+  }
 });
 
 const INSURANCE_CARD_TYPE_CODING = {

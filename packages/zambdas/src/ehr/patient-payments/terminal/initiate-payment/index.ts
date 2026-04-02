@@ -31,91 +31,96 @@ const SIMULATION_TERMINAL_LOCATION_VALUES = new Set(['sim', 'simulated', 'simula
 let oystehrM2MClientToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParameters = validateRequestParameters(input);
+  try {
+    const validatedParameters = validateRequestParameters(input);
 
-  if (!oystehrM2MClientToken) {
-    oystehrM2MClientToken = await getAuth0Token(input.secrets);
-  }
-
-  const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
-  const { stripeCustomerId, stripeAccount } = await getStripePaymentContext(validatedParameters, oystehrClient);
-
-  const stripeClient = getStripeClient(input.secrets);
-
-  // Validate that the reader belongs to the encounter's configured terminal location
-  const terminalLocationId = await getStripeTerminalLocationIdForAppointmentOrEncounter(
-    { encounterId: validatedParameters.encounterId },
-    oystehrClient
-  );
-  const isSimHintLocation =
-    terminalLocationId && SIMULATION_TERMINAL_LOCATION_VALUES.has(terminalLocationId.toLowerCase().trim());
-
-  const readerForValidation = await stripeClient.terminal.readers.retrieve(validatedParameters.readerId, {
-    stripeAccount,
-  });
-  if ((readerForValidation as Stripe.Terminal.DeletedReader).deleted) {
-    throw INVALID_INPUT_ERROR('Terminal reader has been deleted.');
-  }
-  const readerToValidate = readerForValidation as Stripe.Terminal.Reader;
-
-  if (isSimHintLocation) {
-    if (!readerToValidate.device_type.startsWith('simulated_')) {
-      throw INVALID_INPUT_ERROR('Reader does not match the configured terminal location.');
+    if (!oystehrM2MClientToken) {
+      oystehrM2MClientToken = await getAuth0Token(input.secrets);
     }
-  } else if (terminalLocationId && readerToValidate.location !== terminalLocationId) {
-    throw INVALID_INPUT_ERROR('Reader does not belong to the terminal location configured for this encounter.');
-  }
 
-  // Step 1: Create the PaymentIntent server-side
-  const paymentIntent = await stripeClient.paymentIntents.create(
-    {
-      amount: validatedParameters.amountInCents,
-      currency: 'usd',
-      customer: stripeCustomerId,
-      payment_method_types: ['card_present'],
-      capture_method: 'automatic',
-      setup_future_usage: 'off_session',
-      description:
-        validatedParameters.description ?? `Terminal payment for encounter ${validatedParameters.encounterId}`,
-      metadata: {
-        oystehr_patient_id: validatedParameters.patientId,
-        oystehr_encounter_id: validatedParameters.encounterId,
-      },
-    },
-    {
-      stripeAccount,
-    }
-  );
+    const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
+    const { stripeCustomerId, stripeAccount } = await getStripePaymentContext(validatedParameters, oystehrClient);
 
-  // Step 2: Hand off to the reader via server-driven process_payment_intent
-  const reader = await stripeClient.terminal.readers.processPaymentIntent(
-    validatedParameters.readerId,
-    {
-      payment_intent: paymentIntent.id,
-    },
-    {
-      stripeAccount,
-    }
-  );
+    const stripeClient = getStripeClient(input.secrets);
 
-  // Step 3: For simulated readers, explicitly present a payment method
-  // (simulated readers in server-driven mode don't auto-respond like in the JS SDK)
-  if (validatedParameters.simulatedReader) {
-    await stripeClient.testHelpers.terminal.readers.presentPaymentMethod(
-      validatedParameters.readerId,
-      stripeAccount ? { stripeAccount } : undefined
+    // Validate that the reader belongs to the encounter's configured terminal location
+    const terminalLocationId = await getStripeTerminalLocationIdForAppointmentOrEncounter(
+      { encounterId: validatedParameters.encounterId },
+      oystehrClient
     );
+    const isSimHintLocation =
+      terminalLocationId && SIMULATION_TERMINAL_LOCATION_VALUES.has(terminalLocationId.toLowerCase().trim());
+
+    const readerForValidation = await stripeClient.terminal.readers.retrieve(validatedParameters.readerId, {
+      stripeAccount,
+    });
+    if ((readerForValidation as Stripe.Terminal.DeletedReader).deleted) {
+      throw INVALID_INPUT_ERROR('Terminal reader has been deleted.');
+    }
+    const readerToValidate = readerForValidation as Stripe.Terminal.Reader;
+
+    if (isSimHintLocation) {
+      if (!readerToValidate.device_type.startsWith('simulated_')) {
+        throw INVALID_INPUT_ERROR('Reader does not match the configured terminal location.');
+      }
+    } else if (terminalLocationId && readerToValidate.location !== terminalLocationId) {
+      throw INVALID_INPUT_ERROR('Reader does not belong to the terminal location configured for this encounter.');
+    }
+
+    // Step 1: Create the PaymentIntent server-side
+    const paymentIntent = await stripeClient.paymentIntents.create(
+      {
+        amount: validatedParameters.amountInCents,
+        currency: 'usd',
+        customer: stripeCustomerId,
+        payment_method_types: ['card_present'],
+        capture_method: 'automatic',
+        setup_future_usage: 'off_session',
+        description:
+          validatedParameters.description ?? `Terminal payment for encounter ${validatedParameters.encounterId}`,
+        metadata: {
+          oystehr_patient_id: validatedParameters.patientId,
+          oystehr_encounter_id: validatedParameters.encounterId,
+        },
+      },
+      {
+        stripeAccount,
+      }
+    );
+
+    // Step 2: Hand off to the reader via server-driven process_payment_intent
+    const reader = await stripeClient.terminal.readers.processPaymentIntent(
+      validatedParameters.readerId,
+      {
+        payment_intent: paymentIntent.id,
+      },
+      {
+        stripeAccount,
+      }
+    );
+
+    // Step 3: For simulated readers, explicitly present a payment method
+    // (simulated readers in server-driven mode don't auto-respond like in the JS SDK)
+    if (validatedParameters.simulatedReader) {
+      await stripeClient.testHelpers.terminal.readers.presentPaymentMethod(
+        validatedParameters.readerId,
+        stripeAccount ? { stripeAccount } : undefined
+      );
+    }
+
+    const readerActionStatus = reader.action?.status ?? 'in_progress';
+
+    const response: InitiatePatientPaymentTerminalResponse = {
+      paymentIntentId: paymentIntent.id,
+      readerId: reader.id,
+      readerActionStatus,
+    };
+
+    return lambdaResponse(200, response);
+  } catch (error: any) {
+    console.error(error);
+    throw error;
   }
-
-  const readerActionStatus = reader.action?.status ?? 'in_progress';
-
-  const response: InitiatePatientPaymentTerminalResponse = {
-    paymentIntentId: paymentIntent.id,
-    readerId: reader.id,
-    readerActionStatus,
-  };
-
-  return lambdaResponse(200, response);
 });
 
 const validateRequestParameters = (input: ZambdaInput): InitiatePatientPaymentTerminalInput => {

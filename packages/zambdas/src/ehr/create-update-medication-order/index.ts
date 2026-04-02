@@ -58,20 +58,26 @@ const ZAMBDA_NAME = 'create-update-medication-order';
 const statusesToCreateAdditionalCptCodes: MedicationOrderStatusesType[] = ['administered', 'administered-partly'];
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const validatedParameters = validateRequestParameters(input);
-  console.log('Validated parameters: ', JSON.stringify(validatedParameters));
+  try {
+    const validatedParameters = validateRequestParameters(input);
+    console.log('Validated parameters: ', JSON.stringify(validatedParameters));
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-  const userToken = input.headers.Authorization.replace('Bearer ', '') as string;
-  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-  const practitionerId = await practitionerIdFromZambdaInput(userToken, validatedParameters.secrets);
-  console.log('Created zapToken, fhir and clients.');
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+    const userToken = input.headers.Authorization.replace('Bearer ', '') as string;
+    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const practitionerId = await practitionerIdFromZambdaInput(userToken, validatedParameters.secrets);
+    console.log('Created zapToken, fhir and clients.');
 
-  const response = await performEffect(oystehr, validatedParameters, practitionerId, userToken);
-  return {
-    statusCode: 200,
-    body: JSON.stringify(response),
-  };
+    const response = await performEffect(oystehr, validatedParameters, practitionerId, userToken);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
+  } catch (error: any) {
+    console.log('Error: ', error);
+    console.log('Stringified error: ', JSON.stringify(error));
+    throw error;
+  }
 });
 
 async function performEffect(
