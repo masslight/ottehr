@@ -363,7 +363,8 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
             let title = task.description ?? `task ID ${task.id}`;
             // workaround to have waiting room notifications sent without "new task" prefix
-            if (!title.endsWith('is ready to begin their virtual visit.')) {
+            const isWaitingRoomNotification = title.endsWith('is ready to begin their virtual visit.');
+            if (!isWaitingRoomNotification) {
               title = 'A new task has been assigned to you: ' + title;
             }
 
@@ -383,7 +384,9 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                   },
                 ],
                 sent: DateTime.utc().toISO()!,
-                status: status,
+                // if the practitioner is assigned to a waiting room visit, they will always become "busy", the status
+                // will always be "preparation", and thus they will never receive the notification
+                status: isWaitingRoomNotification ? 'in-progress' : status,
                 basedOn: [{ reference: `Task/${task.id}` }],
                 recipient: [{ reference: `Practitioner/${practitioner.id}` }],
                 payload: [{ contentString: title }],
