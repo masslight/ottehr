@@ -105,8 +105,10 @@ const getAdminInHouseLabItemList = async (oystehr: Oystehr): Promise<InHouseLabs
   });
 
   adminLabListItems.sort((a, b): number => {
-    if (a.name < b.name) return -1;
-    else if (a.name > b.name) return 1;
+    const lowerAName = a.name.toLowerCase();
+    const lowerBName = b.name.toLowerCase();
+    if (lowerAName < lowerBName) return -1;
+    else if (lowerAName > lowerBName) return 1;
     else return 0;
   });
 
