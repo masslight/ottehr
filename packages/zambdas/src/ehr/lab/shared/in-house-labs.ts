@@ -35,7 +35,7 @@ import {
   IN_HOUSE_DEVICE_PARTICIPANT_CODING,
   IN_HOUSE_LAB_ACTIVITY_DEFINITION_DEVICE_PARTICIPANT_TYPE,
   IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
-  IN_HOUSE_LAB_OD_DISPLAY_SYSTEM,
+  IN_HOUSE_LAB_OBSERVATION_DEF_DISPLAY_SYSTEM,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
   IN_HOUSE_LAB_TASK,
@@ -1211,7 +1211,7 @@ function parseCodeableConceptComponent(
   };
 
   // the display info is on the obsDef, not the valueSet itself
-  const displayExt = obsDef.extension?.find((ext) => ext.url === IN_HOUSE_LAB_OD_DISPLAY_SYSTEM);
+  const displayExt = obsDef.extension?.find((ext) => ext.url === IN_HOUSE_LAB_OBSERVATION_DEF_DISPLAY_SYSTEM);
   const nullOptionExt = obsDef.extension?.find((ext) => ext.url === IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM);
 
   if (!displayExt || !displayExt.valueString) throw new Error(`Error parsing component display for ${obsDef.id}`);

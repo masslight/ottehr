@@ -51,7 +51,6 @@ export default function AdminInHouseLabform(props: AdminInHouseLabFormProps): Re
             ...theme.typography.h4,
             color: theme.palette.primary.dark,
             mb: 2,
-            fontWeight: '600 !important',
             display: 'block',
           }}
         >
@@ -172,7 +171,6 @@ function SubSection(props: SubSectionProps): ReactElement {
             ...theme.typography.h5,
             color: theme.palette.primary.dark,
             mb: 2,
-            fontWeight: '600 !important',
             display: 'block',
           }}
         >

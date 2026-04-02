@@ -2,7 +2,7 @@ import { ProcedureModifier } from 'candidhealth/api';
 import { z } from 'zod';
 import { REFLEX_TEST_CONDITION_LANGUAGES } from './in-house.constants';
 
-const nonEmptyString = (message: string): z.ZodString => z.string().min(1, message);
+const nonEmptyString = (message?: string): z.ZodString => z.string().trim().nonempty(message);
 
 const reflexLanguages = Object.values(REFLEX_TEST_CONDITION_LANGUAGES) as [string, ...string[]];
 
@@ -26,7 +26,7 @@ const BaseComponentSchema = z.object({
     .union([
       ReflexLogicSchema,
       z.object({
-        parentTestUrl: z.string().min(1),
+        parentTestUrl: nonEmptyString(),
       }),
     ])
     .optional(),

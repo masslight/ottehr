@@ -21,15 +21,13 @@ import { Link } from 'react-router-dom';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useAdminListInHouseLabs } from 'src/features/visits/telemed/components/admin/admin.queries';
-import useEvolveUser from 'src/hooks/useEvolveUser';
 import { InHouseLabsAdminListItem } from 'utils';
 
 const DEFAULT_ROWS_PER_PAGE = 10;
 
 export default function InHouseLabAdminPage(): ReactElement {
   const theme = useTheme();
-  const currentUser = useEvolveUser();
-  const { data, isPending, isError } = useAdminListInHouseLabs(currentUser?.id ?? '');
+  const { data, isPending, isError } = useAdminListInHouseLabs();
   const [labFilter, setLabFilter] = useState('');
   const [pageNumber, setPageNumber] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_ROWS_PER_PAGE);

@@ -330,10 +330,6 @@ export interface InHouseLabsAdminListItem {
   activityDefinitionId: string;
 }
 
-export interface AdminListInHouseLabsInput {
-  userId: string;
-}
-
 export interface AdminListInHouseLabsOutput {
   labs: InHouseLabsAdminListItem[];
 }
@@ -347,7 +343,6 @@ export interface AdminAddInHouseLabOutput {
   activityDefinitionId: string;
 }
 export interface AdminGetInHouseLabConfigInput {
-  userId: string;
   activityDefinitionId: string;
 }
 

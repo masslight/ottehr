@@ -31,7 +31,6 @@ export default function AdminInHouseLabDetails(): ReactElement {
     isError: isFetchDataError,
     status,
   } = useAdminGetInHouseLabConfig({
-    userId: currentUserId,
     activityDefinitionId: activityDefinitionId as string,
   });
 
@@ -183,7 +182,6 @@ function ToggleStatusSection(props: ToggleStatusSectionProps): ReactElement {
               ...theme.typography.h4,
               color: theme.palette.primary.dark,
               mb: 2,
-              fontWeight: '600 !important',
               display: 'block',
             }}
           >

@@ -3,21 +3,16 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { ActivityDefinition, Provenance } from 'fhir/r4b';
 import {
-  ADMIN_IN_HOUSE_LAB_MISSING_ROLE_ERROR,
   ADMIN_IN_HOUSE_LAB_TEST_EXISTS_ERROR,
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
-  APIErrorCode,
   getSecret,
   IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
-  isApiError,
-  RoleType,
   Secrets,
   SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  checkUserHasProvidedRoles,
   createOystehrClient,
   parseCreatedResourcesBundle,
   topLevelCatch,
@@ -36,21 +31,10 @@ const ZAMBDA_NAME = 'admin-add-in-house-lab';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`admin-add-in-house-lab started, input: ${JSON.stringify(input)}`);
-
-  let validatedParameters: AdminAddInHouseLabInput & { secrets: Secrets | null; userToken: string };
-
   try {
-    validatedParameters = validateRequestParameters(input);
-  } catch (error: any) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        message: `Invalid request parameters. ${error.message || error}`,
-      }),
-    };
-  }
+    const validatedParameters: AdminAddInHouseLabInput & { secrets: Secrets | null; userToken: string } =
+      validateRequestParameters(input);
 
-  try {
     const { secrets, userId, data } = validatedParameters;
 
     console.log('validateRequestParameters success');
@@ -59,13 +43,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const userHasCorrectRoles = await checkUserHasProvidedRoles(oystehr, userId, [RoleType.Administrator]);
-    if (!userHasCorrectRoles) {
-      throw ADMIN_IN_HOUSE_LAB_MISSING_ROLE_ERROR();
-    }
-
     // determine if the canonical url exists already, error if so
-    const { url: canonicalUrl } = getInHouseLabTestUrlAndVersion(data, {});
+    const { url: canonicalUrl, version } = getInHouseLabTestUrlAndVersion(data, {});
     const testWithUrlExists = await checkForExistingCanonicalUrl(oystehr, canonicalUrl);
     if (testWithUrlExists) {
       throw ADMIN_IN_HOUSE_LAB_TEST_EXISTS_ERROR(data.name);
@@ -78,7 +57,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const finalActivityDefinitionFullurl = `urn:uuid:${randomUUID()}`;
     const finalActivityDefConfig: ActivityDefinition = {
       ...draftActivityDefConfig,
-      version: '1.0.0',
+      version: version,
       meta: {
         ...(draftActivityDefConfig.meta || {}),
         tag: [...(draftActivityDefConfig.meta?.tag || []), IN_HOUSE_LAB_LATEST_TAG_DEFINITION],
@@ -116,15 +95,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     console.error('Error in admin-add-in-house-lab', error);
-
-    if (isApiError(error) && error.code === APIErrorCode.NOT_AUTHORIZED) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({
-          message: error.message,
-        }),
-      };
-    }
 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch('admin-add-in-house-lab', error, ENVIRONMENT);

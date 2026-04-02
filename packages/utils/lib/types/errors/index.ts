@@ -435,13 +435,6 @@ export const checkForStripeCustomerDeletedError = (stripeError: any): APIError |
   return stripeError;
 };
 
-export const ADMIN_IN_HOUSE_LAB_MISSING_ROLE_ERROR = (): APIError => {
-  return {
-    code: APIErrorCode.IN_HOUSE_LAB_GENERAL,
-    message: 'Must be an Admin to perform this In-House Lab task.',
-  };
-};
-
 export const ADMIN_IN_HOUSE_LAB_TEST_EXISTS_ERROR = (testName?: string): APIError => {
   return {
     code: APIErrorCode.ADMIN_IN_HOUSE_TEST_EXISTS,

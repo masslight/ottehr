@@ -4,22 +4,18 @@ import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import { ActivityDefinition, Provenance } from 'fhir/r4b';
 import {
-  ADMIN_IN_HOUSE_LAB_MISSING_ROLE_ERROR,
   AdminEditInHouseLab,
   AdminInHouseLabConfigOutput,
   AdminUpdateInHouseLabInput,
   AdminUpdateInHouseLabStatus,
-  APIErrorCode,
   getSecret,
   IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
-  isApiError,
-  RoleType,
+  makeOptimisticLockIfMatchHeader,
   Secrets,
   SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  checkUserHasProvidedRoles,
   createOystehrClient,
   parseCreatedResourcesBundle,
   topLevelCatch,
@@ -42,31 +38,16 @@ const ZAMBDA_NAME = 'admin-update-in-house-lab';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`admin-update-in-house-lab started, input: ${JSON.stringify(input)}`);
 
-  let validatedParameters: AdminUpdateInHouseLabInput & { secrets: Secrets | null; userToken: string };
-
   try {
-    validatedParameters = validateRequestParameters(input);
-  } catch (error: any) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        message: `Invalid request parameters. ${error.message || error}`,
-      }),
-    };
-  }
+    const validatedParameters: AdminUpdateInHouseLabInput & { secrets: Secrets | null; userToken: string } =
+      validateRequestParameters(input);
 
-  try {
     const { secrets, userId, data: dataAndUpdateType } = validatedParameters;
 
     console.log('validateRequestParameters success');
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
-
-    const userHasCorrectRoles = await checkUserHasProvidedRoles(oystehr, userId, [RoleType.Administrator]);
-    if (!userHasCorrectRoles) {
-      throw ADMIN_IN_HOUSE_LAB_MISSING_ROLE_ERROR();
-    }
 
     let mutatedActivityDefinition: ActivityDefinition;
     if (dataAndUpdateType.updateType === 'edit') {
@@ -91,15 +72,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     console.error('Error in admin-update-in-house-lab', error);
-
-    if (isApiError(error) && error.code === APIErrorCode.NOT_AUTHORIZED) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({
-          message: error.message,
-        }),
-      };
-    }
 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch('admin-update-in-house-lab', error, ENVIRONMENT);
@@ -154,6 +126,7 @@ const handleEditAdminInHouseLab = async (
             } as Operation,
           ]),
     ],
+    ifMatch: makeOptimisticLockIfMatchHeader(oldActivityDefinition),
   };
   requests.push(oldAdPatchRequest);
 
@@ -221,6 +194,7 @@ const handleStatusUpdateAdminInHouseLab = async (
         value: activityDefinition.status === 'active' ? 'retired' : 'active',
       },
     ],
+    ifMatch: makeOptimisticLockIfMatchHeader(activityDefinition),
   };
   requests.push(toggleStatusRequest);
 

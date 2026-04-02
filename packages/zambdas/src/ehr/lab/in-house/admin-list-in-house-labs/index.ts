@@ -2,22 +2,16 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
 import {
-  ADMIN_IN_HOUSE_LAB_MISSING_ROLE_ERROR,
-  AdminListInHouseLabsInput,
   AdminListInHouseLabsOutput,
-  APIErrorCode,
   getSecret,
   IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
   IN_HOUSE_TAG_DEFINITION,
   InHouseLabsAdminListItem,
-  isApiError,
-  RoleType,
   Secrets,
   SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  checkUserHasProvidedRoles,
   createOystehrClient,
   topLevelCatch,
   wrapHandler,
@@ -30,31 +24,15 @@ const ZAMBDA_NAME = 'admin-list-in-house-labs';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`admin-list-in-house-labs started, input: ${JSON.stringify(input)}`);
-  let validatedParameters: AdminListInHouseLabsInput & { secrets: Secrets | null; userToken: string };
-
   try {
-    validatedParameters = validateRequestParameters(input);
-  } catch (error: any) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        message: `Invalid request parameters. ${error.message || error}`,
-      }),
-    };
-  }
+    const validatedParameters: { secrets: Secrets | null; userToken: string } = validateRequestParameters(input);
 
-  try {
-    const { secrets, userId } = validatedParameters;
+    const { secrets } = validatedParameters;
 
     console.log('validateRequestParameters success');
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
-
-    const userHasCorrectRoles = await checkUserHasProvidedRoles(oystehr, userId, [RoleType.Administrator]);
-    if (!userHasCorrectRoles) {
-      throw ADMIN_IN_HOUSE_LAB_MISSING_ROLE_ERROR();
-    }
 
     const response: AdminListInHouseLabsOutput = { labs: await getAdminInHouseLabItemList(oystehr) };
 
@@ -64,15 +42,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     console.error('Error in admin-list-in-house-labs', error);
-
-    if (isApiError(error) && error.code === APIErrorCode.NOT_AUTHORIZED) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({
-          message: error.message,
-        }),
-      };
-    }
 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch('admin-list-in-house-labs', error, ENVIRONMENT);

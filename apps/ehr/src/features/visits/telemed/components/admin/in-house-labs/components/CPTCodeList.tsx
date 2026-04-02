@@ -84,7 +84,7 @@ function CPTCodeFormItem(props: CPTCodeFormItemProps): ReactElement {
   // the use effects are to make sure the cpt code renders pre-populated correctly when there's a value, and for the section header
   useEffect(() => {
     setDebouncedSearchTerm(cptCode.code);
-  }, [cptCode]);
+  }, [cptCode.code]);
 
   useEffect(() => {
     if (!cptCode.code) return; // no value to display
@@ -130,8 +130,6 @@ function CPTCodeFormItem(props: CPTCodeFormItemProps): ReactElement {
                             : 'Start typing to load results'
                         }
                         autoComplete
-                        // includeInputInList
-                        // disableClearable
                         loading={isSearching}
                         value={findFormValueInOptions(field.value)} // current form state
                         onChange={(_, selectedOption) => {

@@ -25,6 +25,7 @@ import {
   ORG_TYPE_CODE_SYSTEM,
   ORG_TYPE_PAYER_CODE,
 } from 'utils';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { InsuranceData } from './EditInsurance';
 
 export const useVirtualLocationsQuery = (): UseQueryResult<Location[], Error> => {
@@ -252,15 +253,15 @@ export const useBulkInsuranceStatusMutation = (): UseMutationResult<void, Error,
   });
 };
 
-export const useAdminListInHouseLabs = (userId: string): UseQueryResult<AdminListInHouseLabsOutput, Error> => {
+export const useAdminListInHouseLabs = (): UseQueryResult<AdminListInHouseLabsOutput, Error> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
-    queryKey: ['admin-in-house-labs-list', userId],
+    queryKey: ['admin-in-house-labs-list'],
     queryFn: async () => {
-      return adminListInHouseLabs(oystehrZambda!, { userId });
+      return adminListInHouseLabs(oystehrZambda!);
     },
-    enabled: !!oystehrZambda && !!userId,
+    enabled: !!oystehrZambda,
     staleTime: 30_000, // 30 sec staletime
   });
 };
@@ -282,19 +283,20 @@ export const useAdminAddInHouseLab = (): UseMutationResult<
       }
       return adminAddInHouseLab(oystehrZambda!, input);
     },
-    onSuccess: async (_data, variables) => {
+    onSuccess: async (_data, _variables) => {
       // invalidate so the list page re-loads correctly
       await queryClient.invalidateQueries({
-        queryKey: ['admin-in-house-labs-list', variables.userId],
+        queryKey: ['admin-in-house-labs-list'],
       });
     },
     onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! In-house lab could not be created.';
       if (isApiError(error)) {
-        const message = (error as APIError).message;
-        enqueueSnackbar(message, { variant: 'error' });
-      } else {
-        enqueueSnackbar('Something went wrong! In-house lab could not be created.', { variant: 'error' });
+        message = (error as APIError).message;
       }
+      enqueueSnackbar(message, { variant: 'error' });
     },
   });
 };
@@ -303,14 +305,14 @@ export const useAdminGetInHouseLabConfig = (
   input: AdminGetInHouseLabConfigInput
 ): UseQueryResult<AdminInHouseLabConfigOutput, Error> => {
   const { oystehrZambda } = useApiClients();
-  const { userId, activityDefinitionId } = input;
+  const { activityDefinitionId } = input;
 
   return useQuery({
-    queryKey: ['admin-get-in-house-lab-config', userId, activityDefinitionId],
+    queryKey: ['admin-get-in-house-lab-config', activityDefinitionId],
     queryFn: async () => {
       return adminGetInHouseLabConfig(oystehrZambda!, input);
     },
-    enabled: !!oystehrZambda && !!userId,
+    enabled: !!oystehrZambda,
     staleTime: 30_000, // 30 sec staletime
     refetchOnMount: 'always', // refetch every mount
     refetchOnWindowFocus: true, // refetch when you tab back
@@ -333,24 +335,25 @@ export const useAdminUpdateInHouseLab = (
       }
       return adminUpdateInHouseLab(oystehrZambda!, input);
     },
-    onSuccess: async (data, variables) => {
+    onSuccess: async (data, _variables) => {
       // invalidate so the list page and get-page re-loads correctly
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ['admin-in-house-labs-list', variables.userId],
+          queryKey: ['admin-in-house-labs-list'],
         }),
         queryClient.invalidateQueries({
-          queryKey: ['admin-get-in-house-lab-config', variables.userId, data.activityDefinitionId],
+          queryKey: ['admin-get-in-house-lab-config', data.activityDefinitionId],
         }),
       ]);
     },
     onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! In-house lab update could not be made.';
       if (isApiError(error)) {
-        const message = (error as APIError).message;
-        enqueueSnackbar(message, { variant: 'error' });
-      } else {
-        enqueueSnackbar('Something went wrong! In-house lab update could not be made.', { variant: 'error' });
+        message = (error as APIError).message;
       }
+      enqueueSnackbar(message, { variant: 'error' });
     },
   });
 };

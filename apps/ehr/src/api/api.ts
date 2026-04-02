@@ -1714,22 +1714,6 @@ export const adminListInHouseLabs = async (oystehr: Oystehr): Promise<AdminListI
   }
 };
 
-export const getVisitFaxHistory = async (
-  oystehr: Oystehr,
-  parameters: GetVisitFaxHistoryInput
-): Promise<GetVisitFaxHistoryOutput> => {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: 'get-visit-fax-history',
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw apiErrorToThrow(error);
-  }
-};
-
 export const adminAddInHouseLab = async (
   oystehr: Oystehr,
   parameters: AdminAddInHouseLabInput
@@ -1778,6 +1762,22 @@ export const adminUpdateInHouseLab = async (
     }
     const response = await oystehr.zambda.execute({
       id: ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getVisitFaxHistory = async (
+  oystehr: Oystehr,
+  parameters: GetVisitFaxHistoryInput
+): Promise<GetVisitFaxHistoryOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-visit-fax-history',
       ...parameters,
     });
     return chooseJson(response);

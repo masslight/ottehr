@@ -1,4 +1,4 @@
-import Oystehr, { Role, RoleListItem, User } from '@oystehr/sdk';
+import Oystehr, { Role, RoleListItem } from '@oystehr/sdk';
 import { AccessPolicy, RoleType } from 'utils';
 import {
   ADMINISTRATOR_RULES,
@@ -103,15 +103,4 @@ export const filterIdsOnlyToTheseRoles = (roles: UpdateUserRolesReturnType, allo
       return undefined;
     })
     .filter((roleId) => roleId !== undefined);
-};
-
-export const checkUserHasProvidedRoles = async (
-  oystehr: Oystehr,
-  userId: string,
-  roles: RoleType[]
-): Promise<boolean> => {
-  const user: User = await oystehr.user.get({ id: userId });
-  const userRoles = user.roles?.map((userRole) => userRole.name) ?? [];
-
-  return roles.every((role) => userRoles.includes(role));
 };

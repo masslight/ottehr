@@ -1,4 +1,10 @@
-import { AdminInHouseLabItemDefinitionSchema, AdminUpdateInHouseLabInput, Secrets } from 'utils';
+import {
+  AdminInHouseLabItemDefinitionSchema,
+  AdminUpdateInHouseLabInput,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  Secrets,
+} from 'utils';
 import { z } from 'zod';
 import { ZambdaInput } from '../../../../shared';
 
@@ -28,7 +34,7 @@ export function validateRequestParameters(
   input: ZambdaInput
 ): AdminUpdateInHouseLabInput & { secrets: Secrets | null; userToken: string } {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
@@ -38,7 +44,7 @@ export function validateRequestParameters(
   try {
     params = JSON.parse(input.body);
   } catch {
-    throw new Error('Unable to parse request body. Invalid JSON.');
+    throw INVALID_INPUT_ERROR('Unable to parse request body. Invalid JSON.');
   }
 
   const validatedParsed = validationSchema.safeParse(params);
@@ -48,11 +54,11 @@ export function validateRequestParameters(
       JSON.stringify(validatedParsed.error.errors),
       JSON.stringify(params)
     );
-    throw new Error(`Validation failed: ${JSON.stringify(validatedParsed.error.errors)}`);
+    throw INVALID_INPUT_ERROR(`Validation failed: ${JSON.stringify(validatedParsed.error.errors)}`);
   }
 
   if (!params.userId) {
-    throw new Error('No user id provided');
+    throw INVALID_INPUT_ERROR('No user id provided');
   }
 
   return {
