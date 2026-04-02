@@ -557,6 +557,7 @@ export interface PlanData extends PdfData {
     virusTest: string;
     followUpIn?: number;
     reason?: string;
+    specialty?: string;
   };
   subSpecialtyFollowup?: string[];
   workSchoolExcuse?: string[];
@@ -851,6 +852,7 @@ export interface DispositionData extends PdfData {
   instruction: string;
   reason?: string;
   followUpIn?: string;
+  specialty?: string;
 }
 
 export interface PhysicianData extends PdfData {
