@@ -78,29 +78,6 @@ export const SchoolWorkExcuseCard: FC<SchoolWorkExcuseCardProps> = ({ locationNa
     );
   };
 
-  const onPublish = (id: string): void => {
-    const schoolWorkNotes = chartData?.schoolWorkNotes || [];
-    const note = schoolWorkNotes.find((note) => note.id === id)!;
-
-    saveChartData(
-      {
-        schoolWorkNotes: [{ id: note.id, published: true }],
-      },
-      {
-        onSuccess: () => {
-          setPartialChartData({
-            schoolWorkNotes: schoolWorkNotes.map((note) => (note.id === id ? { ...note, published: true } : note)),
-          });
-        },
-        onError: () => {
-          enqueueSnackbar('An error has occurred while publishing excuse. Please try again.', {
-            variant: 'error',
-          });
-        },
-      }
-    );
-  };
-
   const schoolWorkNoteChoice = getStringAnswer(questionnaireResponse, `${SCHOOL_WORK_NOTE}-choice`);
 
   let title = '';
@@ -166,7 +143,6 @@ export const SchoolWorkExcuseCard: FC<SchoolWorkExcuseCardProps> = ({ locationNa
               type="school"
               excuse={schoolExcuse}
               onDelete={onDelete}
-              onPublish={onPublish}
               isLoading={isLoading || isReadOnly}
               generateTemplateOpen={setGenerateSchoolTemplateOpen}
               generateFreeOpen={setGenerateSchoolFreeOpen}
@@ -179,7 +155,6 @@ export const SchoolWorkExcuseCard: FC<SchoolWorkExcuseCardProps> = ({ locationNa
               type="work"
               excuse={workExcuse}
               onDelete={onDelete}
-              onPublish={onPublish}
               isLoading={isLoading}
               generateTemplateOpen={setGenerateWorkTemplateOpen}
               generateFreeOpen={setGenerateWorkFreeOpen}

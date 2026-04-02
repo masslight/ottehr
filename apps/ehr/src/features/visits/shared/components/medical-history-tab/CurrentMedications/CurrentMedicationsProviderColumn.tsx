@@ -17,12 +17,13 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { FC, useCallback, useMemo, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useMergedMedicationHistoryQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { MedicationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
+import { useAiSuggestionPrefillStore } from '../../../stores/aiSuggestionPrefill.store';
 import { ExtractObjectType, useGetMedicationsSearch } from '../../../stores/appointment/appointment.queries';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
@@ -68,6 +69,20 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { control, reset, handleSubmit, setValue } = methods;
+
+  const { medicationPrefill, clearMedicationPrefill } = useAiSuggestionPrefillStore();
+  useEffect(() => {
+    if (medicationPrefill) {
+      setValue('medication', medicationPrefill.medication);
+      if (medicationPrefill.dose) {
+        setValue('dose', medicationPrefill.dose);
+      }
+      if (medicationPrefill.date) {
+        setValue('date', medicationPrefill.date);
+      }
+      clearMedicationPrefill();
+    }
+  }, [medicationPrefill, setValue, clearMedicationPrefill]);
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
