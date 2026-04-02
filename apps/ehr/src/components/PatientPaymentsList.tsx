@@ -254,7 +254,7 @@ export default function PatientPaymentList({
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
   const {
     data: hasCreditCardOnFileFromList = false,
-    isFetched: cardOnFileKnown,
+    isSuccess: cardOnFileKnown,
     refetch: refetchCardOnFile,
   } = useQuery({
     queryKey: ['card-on-file', patient?.id, appointment?.id],
@@ -469,8 +469,10 @@ export default function PatientPaymentList({
 
   const handlePaymentDialogClose = useCallback(() => {
     setPaymentDialogOpen(false);
-    void refetchCardOnFile();
-  }, [refetchCardOnFile]);
+    if (oystehrZambda && patient?.id) {
+      void refetchCardOnFile();
+    }
+  }, [oystehrZambda, patient, refetchCardOnFile]);
 
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
