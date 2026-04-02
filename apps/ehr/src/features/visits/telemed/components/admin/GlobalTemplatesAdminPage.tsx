@@ -25,7 +25,6 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ExamCardComponent, ExamItemConfig } from 'config-types';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -33,36 +32,7 @@ import { deleteTemplate, getTemplateDetail, listTemplates, renameTemplate } from
 import { GLOBAL_TEMPLATES_URL } from 'src/App';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { examConfig, ExamType, ListTemplatesZambdaOutput, TemplateInfo } from 'utils';
-
-function collectKnownExamFields(config: ExamItemConfig): Set<string> {
-  const fields = new Set<string>();
-  const extract = (components: Record<string, ExamCardComponent>): void => {
-    Object.entries(components).forEach(([key, component]) => {
-      if (component.type === 'checkbox' || component.type === 'modal-exam') {
-        fields.add(key);
-      } else if (component.type === 'text') {
-        fields.add(key);
-      } else if (component.type === 'dropdown') {
-        fields.add(key);
-        Object.keys(component.components).forEach((k) => fields.add(k));
-      } else if (component.type === 'column') {
-        extract(component.components);
-      } else if (component.type === 'multi-select') {
-        fields.add(key);
-        Object.keys(component.options).forEach((k) => fields.add(k));
-      } else if (component.type === 'form') {
-        Object.keys(component.components).forEach((k) => fields.add(k));
-      }
-    });
-  };
-  Object.values(config).forEach((section) => {
-    extract(section.components.normal);
-    extract(section.components.abnormal);
-    Object.keys(section.components.comment).forEach((k) => fields.add(k));
-  });
-  return fields;
-}
+import { collectKnownExamFields, examConfig, ExamType, ListTemplatesZambdaOutput, TemplateInfo } from 'utils';
 
 export default function GlobalTemplatesAdminPage(): ReactElement {
   const { oystehrZambda } = useApiClients();

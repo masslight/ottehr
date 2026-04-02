@@ -6,13 +6,13 @@ import {
   ExamType,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
   GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
   SecretsKeys,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { findHolderList } from '../shared/template-helpers';
 import { AdminCreateTemplateInput, validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -208,16 +208,7 @@ const performEffect = async (
   console.log('Created template:', createdList.id, createdList.title);
 
   // Add the new template to the global templates holder list so it's discoverable
-  const holderLists = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [{ name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` }],
-    })
-  ).unbundle();
-
-  const holderList = holderLists.find(
-    (l) => l.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
-  );
+  const holderList = await findHolderList(oystehr);
 
   if (holderList) {
     const updatedEntries = [...(holderList.entry ?? []), { item: { reference: `List/${createdList.id}` } }];

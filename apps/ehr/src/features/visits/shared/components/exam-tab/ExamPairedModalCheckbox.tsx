@@ -22,6 +22,7 @@ import type { ExamCardModalExamComponent } from 'config-types';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import { ExamObservationComponentDTO } from 'utils';
+import { buildAbnormalMap, buildAllOptions, buildDescriptionMap } from './exam-modal-helpers';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
 type ExamPairedModalCheckboxProps = {
@@ -33,28 +34,6 @@ type ExamPairedModalCheckboxProps = {
   rightConfig: ExamCardModalExamComponent;
   abnormal?: boolean;
 };
-
-interface FlatOption {
-  key: string;
-  label: string;
-  groupLabel: string;
-  description?: string;
-  abnormal?: boolean;
-}
-
-function buildAllOptions(config: ExamCardModalExamComponent): FlatOption[] {
-  return Object.values(config.sections).flatMap((section) =>
-    Object.values(section.groups).flatMap((group) =>
-      Object.entries(group.options).map(([key, opt]) => ({
-        key,
-        label: opt.label,
-        groupLabel: group.label,
-        description: opt.description,
-        abnormal: opt.abnormal,
-      }))
-    )
-  );
-}
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function useSideState(name: string) {
@@ -93,35 +72,10 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
   const leftOptions = useMemo(() => buildAllOptions(leftConfig), [leftConfig]);
   const rightOptions = useMemo(() => buildAllOptions(rightConfig), [rightConfig]);
 
-  const leftAbnormalMap = useMemo(() => {
-    const map: Record<string, boolean> = {};
-    leftOptions.forEach((o) => {
-      map[o.key] = o.abnormal ?? true;
-    });
-    return map;
-  }, [leftOptions]);
-  const rightAbnormalMap = useMemo(() => {
-    const map: Record<string, boolean> = {};
-    rightOptions.forEach((o) => {
-      map[o.key] = o.abnormal ?? true;
-    });
-    return map;
-  }, [rightOptions]);
-
-  const leftDescMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    leftOptions.forEach((o) => {
-      if (o.description) map[o.key] = o.description;
-    });
-    return map;
-  }, [leftOptions]);
-  const rightDescMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    rightOptions.forEach((o) => {
-      if (o.description) map[o.key] = o.description;
-    });
-    return map;
-  }, [rightOptions]);
+  const leftAbnormalMap = useMemo(() => buildAbnormalMap(leftOptions), [leftOptions]);
+  const rightAbnormalMap = useMemo(() => buildAbnormalMap(rightOptions), [rightOptions]);
+  const leftDescMap = useMemo(() => buildDescriptionMap(leftOptions), [leftOptions]);
+  const rightDescMap = useMemo(() => buildDescriptionMap(rightOptions), [rightOptions]);
 
   // Draft state for batched save
   const [draftLeft, setDraftLeft] = useState<ExamObservationComponentDTO[] | null>(null);

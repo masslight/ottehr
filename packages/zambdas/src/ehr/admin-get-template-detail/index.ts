@@ -6,56 +6,16 @@ import {
   examConfig,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
   SecretsKeys,
+  TemplateAccidentInfo,
+  TemplateCodeInfo,
+  TemplateDetailOutput,
+  TemplateExamFinding,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { verifyIsTemplate } from '../shared/template-helpers';
 import { AdminGetTemplateDetailInput, validateRequestParameters } from './validateRequestParameters';
-
-interface ExamFinding {
-  fieldName: string;
-  label: string;
-  isAbnormal: boolean;
-  note: string;
-}
-
-interface DiagnosisInfo {
-  code: string;
-  display: string;
-}
-
-interface CodeInfo {
-  code: string;
-  display: string;
-}
-
-interface AccidentInfo {
-  autoAccident: boolean;
-  employment: boolean;
-  otherAccident: boolean;
-  date?: string;
-  state?: string;
-}
-
-interface TemplateDetailOutput {
-  templateName: string;
-  templateId: string;
-  examVersion: string;
-  isCurrentVersion: boolean;
-  sections: {
-    hpiNote: string | null;
-    moiNote: string | null;
-    rosNote: string | null;
-    examFindings: ExamFinding[];
-    mdm: string | null;
-    diagnoses: DiagnosisInfo[];
-    patientInstructions: string | null;
-    cptCodes: CodeInfo[];
-    emCode: CodeInfo | null;
-    accident: AccidentInfo | null;
-  };
-}
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -155,13 +115,7 @@ const performEffect = async (
     id: templateId,
   });
 
-  // Verify this is a template List (has exam type coding)
-  const isTemplate = templateList.code?.coding?.some(
-    (c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM || c.system === GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM
-  );
-  if (!isTemplate) {
-    throw new Error(`List ${templateId} is not a global template`);
-  }
+  verifyIsTemplate(templateList, templateId);
 
   if (!templateList.contained || templateList.contained.length === 0) {
     throw new Error(`Template ${templateId} has no contained resources`);
@@ -208,7 +162,7 @@ const performEffect = async (
   const abnormalFieldCodes = buildAbnormalFieldCodes(examTypeConfig.components);
   const fieldLabels = buildFieldLabels(examTypeConfig.components);
 
-  const examFindings: ExamFinding[] = examObservations.map((obs) => {
+  const examFindings: TemplateExamFinding[] = examObservations.map((obs) => {
     const fieldCode =
       getTagCode(obs, 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field') ?? 'unknown';
     const isAbnormal = abnormalFieldCodes.has(fieldCode);
@@ -232,7 +186,7 @@ const performEffect = async (
       (r as Condition).code?.coding?.some((c) => c.system === 'http://hl7.org/fhir/sid/icd-10')
   ) as Condition[];
 
-  const diagnoses: DiagnosisInfo[] = diagnosisConditions.map((cond) => {
+  const diagnoses: TemplateCodeInfo[] = diagnosisConditions.map((cond) => {
     const icdCoding = cond.code?.coding?.find((c) => c.system === 'http://hl7.org/fhir/sid/icd-10');
     return {
       code: icdCoding?.code ?? '',
@@ -253,7 +207,7 @@ const performEffect = async (
     (r) => r.resourceType === 'Procedure' && hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code')
   ) as Procedure[];
 
-  const cptCodes: CodeInfo[] = cptProcedures.map((proc) => {
+  const cptCodes: TemplateCodeInfo[] = cptProcedures.map((proc) => {
     const coding = proc.code?.coding?.[0];
     return {
       code: coding?.code ?? '',
@@ -266,7 +220,7 @@ const performEffect = async (
     (r) => r.resourceType === 'Procedure' && hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/em-code')
   ) as Procedure | undefined;
 
-  const emCode: CodeInfo | null = emProcedure
+  const emCode: TemplateCodeInfo | null = emProcedure
     ? {
         code: emProcedure.code?.coding?.[0]?.code ?? '',
         display: emProcedure.code?.coding?.[0]?.display ?? '',
@@ -278,7 +232,7 @@ const performEffect = async (
     (r) => r.resourceType === 'Condition' && hasTag(r, 'https://fhir.zapehr.com/r4/StructureDefinitions/accident')
   ) as Condition | undefined;
 
-  const accident: AccidentInfo | null = accidentCondition
+  const accident: TemplateAccidentInfo | null = accidentCondition
     ? {
         autoAccident:
           accidentCondition.code?.coding?.some((c) => c.system === ACCIDENT_TYPE_SYSTEM && c.code === 'AA') ?? false,

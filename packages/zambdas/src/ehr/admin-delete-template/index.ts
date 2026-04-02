@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
-import { getSecret, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM, SecretsKeys } from 'utils';
+import { getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { findHolderList, verifyIsTemplate } from '../shared/template-helpers';
 import { AdminDeleteTemplateInput, validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -43,27 +44,10 @@ const performEffect = async (
     id: templateId,
   });
 
-  // Verify this is a template List (has exam type coding)
-  const isTemplate = templateList.code?.coding?.some(
-    (c) =>
-      c.system === 'https://fhir.ottehr.com/CodeSystem/global-template-in-person' ||
-      c.system === 'https://fhir.ottehr.com/CodeSystem/global-template-telemed'
-  );
-  if (!isTemplate) {
-    throw new Error(`List ${templateId} is not a global template`);
-  }
+  verifyIsTemplate(templateList, templateId);
 
   // Remove the template reference from the holder list
-  const holderLists = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [{ name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` }],
-    })
-  ).unbundle();
-
-  const holderList = holderLists.find(
-    (l) => l.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
-  );
+  const holderList = await findHolderList(oystehr);
 
   if (holderList) {
     const updatedEntries = (holderList.entry ?? []).filter((entry) => entry.item.reference !== `List/${templateId}`);

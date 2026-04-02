@@ -22,6 +22,7 @@ import type { ExamCardModalExamComponent } from 'config-types';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import { ExamObservationComponentDTO } from 'utils';
+import { buildAbnormalMap, buildAllOptions, buildDescriptionMap } from './exam-modal-helpers';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
 type ExamModalCheckboxProps = {
@@ -29,28 +30,6 @@ type ExamModalCheckboxProps = {
   config: ExamCardModalExamComponent;
   abnormal?: boolean;
 };
-
-interface FlatOption {
-  key: string;
-  label: string;
-  groupLabel: string;
-  description?: string;
-  abnormal?: boolean;
-}
-
-function buildAllOptions(config: ExamCardModalExamComponent): FlatOption[] {
-  return Object.values(config.sections).flatMap((section) =>
-    Object.values(section.groups).flatMap((group) =>
-      Object.entries(group.options).map(([key, opt]) => ({
-        key,
-        label: opt.label,
-        groupLabel: group.label,
-        description: opt.description,
-        abnormal: opt.abnormal,
-      }))
-    )
-  );
-}
 
 export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, abnormal }) => {
   const [open, setOpen] = useState(false);
@@ -65,21 +44,8 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
   const allOptions = useMemo(() => buildAllOptions(config), [config]);
 
   // Build lookups from config
-  const descriptionMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    allOptions.forEach((opt) => {
-      if (opt.description) map[opt.key] = opt.description;
-    });
-    return map;
-  }, [allOptions]);
-
-  const abnormalMap = useMemo(() => {
-    const map: Record<string, boolean> = {};
-    allOptions.forEach((opt) => {
-      map[opt.key] = opt.abnormal ?? true; // default to abnormal since parent is in abnormal section
-    });
-    return map;
-  }, [allOptions]);
+  const descriptionMap = useMemo(() => buildDescriptionMap(allOptions), [allOptions]);
+  const abnormalMap = useMemo(() => buildAbnormalMap(allOptions), [allOptions]);
 
   // Use draft when modal is open, otherwise use saved data
   const componentMap = useMemo(() => {

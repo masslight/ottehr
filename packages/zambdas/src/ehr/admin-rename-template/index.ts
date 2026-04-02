@@ -4,6 +4,7 @@ import { List } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { verifyIsTemplate } from '../shared/template-helpers';
 import { AdminRenameTemplateInput, validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -43,15 +44,7 @@ const performEffect = async (
     id: templateId,
   });
 
-  // Verify this is a template List (has exam type coding)
-  const isTemplate = templateList.code?.coding?.some(
-    (c) =>
-      c.system === 'https://fhir.ottehr.com/CodeSystem/global-template-in-person' ||
-      c.system === 'https://fhir.ottehr.com/CodeSystem/global-template-telemed'
-  );
-  if (!isTemplate) {
-    throw new Error(`List ${templateId} is not a global template`);
-  }
+  verifyIsTemplate(templateList, templateId);
 
   templateList.title = newName;
 
