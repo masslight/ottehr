@@ -153,7 +153,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           if (!status) return;
 
           // getting communications that were postponed after practitioner will become not busy
-          if (practitioner?.id && communications && !busyPractitionerIds.has(practitioner.id)) {
+          if (communications) {
             const postponedCommunications = communications.filter(
               (comm) =>
                 comm.status === 'preparation' &&
