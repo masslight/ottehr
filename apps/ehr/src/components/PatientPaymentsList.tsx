@@ -20,7 +20,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Markdown as TiptapMarkdown } from '@tiptap/markdown';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -177,6 +177,64 @@ function buildEmPreviewRates(feeSchedule: ChargeItemDefinition | null | undefine
   return rates;
 }
 
+const getBooleanFlag = (candidate: unknown): boolean | undefined => {
+  if (typeof candidate === 'boolean') {
+    return candidate;
+  }
+  return undefined;
+};
+
+const deriveCardOnFileStatus = (output: unknown): boolean => {
+  if (!output || typeof output !== 'object') {
+    return false;
+  }
+
+  const response = output as Record<string, unknown>;
+  if (!Array.isArray(response.cards)) {
+    return false;
+  }
+
+  const allCards = response.cards as unknown[];
+  if (allCards.length === 0) {
+    return false;
+  }
+
+  let hasAnyDefaultFlag = false;
+  let hasDefaultOrPrimary = false;
+
+  allCards.forEach((card) => {
+    if (!card || typeof card !== 'object') {
+      return;
+    }
+
+    const cardObj = card as Record<string, unknown>;
+    const possibleFlags = [
+      cardObj.default,
+      cardObj.isDefault,
+      cardObj.is_default,
+      cardObj.primary,
+      cardObj.isPrimary,
+      cardObj.is_primary,
+    ];
+
+    possibleFlags.forEach((flag) => {
+      const boolFlag = getBooleanFlag(flag);
+      if (boolFlag !== undefined) {
+        hasAnyDefaultFlag = true;
+        if (boolFlag) {
+          hasDefaultOrPrimary = true;
+        }
+      }
+    });
+  });
+
+  if (hasAnyDefaultFlag) {
+    return hasDefaultOrPrimary;
+  }
+
+  return true;
+};
+
 export default function PatientPaymentList({
   loading,
   patient,
@@ -194,9 +252,22 @@ export default function PatientPaymentList({
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
-  const [hasCreditCardOnFileFromList, setHasCreditCardOnFileFromList] = useState<boolean>(false);
-  const [cardOnFileKnown, setCardOnFileKnown] = useState<boolean>(false);
-  const [cardOnFileRefreshCounter, setCardOnFileRefreshCounter] = useState(0);
+  const {
+    data: hasCreditCardOnFileFromList = false,
+    isFetched: cardOnFileKnown,
+    refetch: refetchCardOnFile,
+  } = useQuery({
+    queryKey: ['card-on-file', patient?.id, appointment?.id],
+    queryFn: async () => {
+      const result = await oystehrZambda!.zambda.execute({
+        id: 'payment-methods-list',
+        beneficiaryPatientId: patient!.id!,
+        appointmentId: appointment?.id,
+      });
+      return deriveCardOnFileStatus(result.output);
+    },
+    enabled: !!oystehrZambda && !!patient?.id,
+  });
 
   const {
     data: encounter,
@@ -396,110 +467,10 @@ export default function PatientPaymentList({
   const cardOnFileChipLabel = hasCreditCardOnFileFromList === true ? 'ON FILE' : 'NO CARD';
   const cardOnFileTooltipText = hasCreditCardOnFileFromList === true ? 'Credit card on file' : 'No card on file';
 
-  const refreshCardOnFileIndicator = useCallback(() => {
-    setCardOnFileRefreshCounter((prev) => prev + 1);
-  }, []);
-
   const handlePaymentDialogClose = useCallback(() => {
     setPaymentDialogOpen(false);
-    refreshCardOnFileIndicator();
-  }, [refreshCardOnFileIndicator]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const getBooleanFlag = (candidate: unknown): boolean | undefined => {
-      if (typeof candidate === 'boolean') {
-        return candidate;
-      }
-      return undefined;
-    };
-
-    const deriveCardOnFileStatus = (output: unknown): boolean => {
-      if (!output || typeof output !== 'object') {
-        return false;
-      }
-
-      const response = output as Record<string, unknown>;
-      if (!Array.isArray(response.cards)) {
-        return false;
-      }
-
-      const allCards = response.cards as unknown[];
-      if (allCards.length === 0) {
-        return false;
-      }
-
-      let hasAnyDefaultFlag = false;
-      let hasDefaultOrPrimary = false;
-
-      allCards.forEach((card) => {
-        if (!card || typeof card !== 'object') {
-          return;
-        }
-
-        const cardObj = card as Record<string, unknown>;
-        const possibleFlags = [
-          cardObj.default,
-          cardObj.isDefault,
-          cardObj.is_default,
-          cardObj.primary,
-          cardObj.isPrimary,
-          cardObj.is_primary,
-        ];
-
-        possibleFlags.forEach((flag) => {
-          const boolFlag = getBooleanFlag(flag);
-          if (boolFlag !== undefined) {
-            hasAnyDefaultFlag = true;
-            if (boolFlag) {
-              hasDefaultOrPrimary = true;
-            }
-          }
-        });
-      });
-
-      if (hasAnyDefaultFlag) {
-        return hasDefaultOrPrimary;
-      }
-
-      return true;
-    };
-
-    const fetchCardStatus = async (): Promise<void> => {
-      if (!oystehrZambda || !patient?.id) {
-        setCardOnFileKnown(false);
-        setHasCreditCardOnFileFromList(false);
-        return;
-      }
-
-      try {
-        const result = await oystehrZambda.zambda.execute({
-          id: 'payment-methods-list',
-          beneficiaryPatientId: patient.id,
-          appointmentId: appointment?.id,
-        });
-
-        const derivedStatus = deriveCardOnFileStatus(result.output);
-        if (!cancelled) {
-          setHasCreditCardOnFileFromList(derivedStatus);
-          setCardOnFileKnown(true);
-        }
-      } catch (error) {
-        console.error('Failed to determine card-on-file status from payment-methods-list', error);
-        if (!cancelled) {
-          setCardOnFileKnown(false);
-          setHasCreditCardOnFileFromList(false);
-        }
-      }
-    };
-
-    void fetchCardStatus();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [oystehrZambda, patient?.id, appointment?.id, cardOnFileRefreshCounter]);
+    void refetchCardOnFile();
+  }, [refetchCardOnFile]);
 
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
@@ -588,7 +559,7 @@ export default function PatientPaymentList({
 
       // Close as soon as the payment is visible; receipt creation can continue in background.
       setPaymentDialogOpen(false);
-      refreshCardOnFileIndicator();
+      void refetchCardOnFile();
 
       const waitForReceipt = async (): Promise<void> => {
         let receipt: DocumentReference | null = null;
