@@ -1,10 +1,10 @@
-import { CandidApiClient } from 'candidhealth';
+import { CandidApi, CandidApiClient } from 'candidhealth';
 import { NonInsurancePayerId } from 'candidhealth/api/resources/nonInsurancePayers/resources/v1';
 import { Address } from 'fhir/r4b';
 import { createCandidApiClient, getOptionalSecret, Secrets, SecretsKeys } from 'utils';
 import { CANDID_EMPLOYER_DESCRIPTION } from './helpers';
 
-const mapFhirAddressToCandidAddress = (addresses?: Address[]): Record<string, string> | undefined => {
+const mapFhirAddressToCandidAddress = (addresses?: Address[]): CandidApi.StreetAddressShortZip | undefined => {
   const primary = addresses?.[0];
   if (!primary) return undefined;
 
@@ -23,7 +23,7 @@ const mapFhirAddressToCandidAddress = (addresses?: Address[]): Record<string, st
     address1,
     ...(address2 ? { address2 } : {}),
     city,
-    state,
+    state: state as CandidApi.State,
     zipCode,
     ...(zipPlusFourCode ? { zipPlusFourCode } : {}),
   };
@@ -36,16 +36,13 @@ const mapFhirAddressToCandidAddress = (addresses?: Address[]): Record<string, st
  */
 export function createCandidClientIfConfigured(secrets: Secrets | null): CandidApiClient | null {
   const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
-  if (!candidClientId?.length) {
-    console.log('[candid-sync] CANDID_CLIENT_ID is not set — skipping Candid sync');
-    return null;
-  }
-
   const candidClientSecret = getOptionalSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets);
   const candidEnv = getOptionalSecret(SecretsKeys.CANDID_ENV, secrets);
 
-  if (!candidClientSecret?.length || !candidEnv?.length) {
-    console.log('[candid-sync] CANDID_CLIENT_SECRET or CANDID_ENV is not set — skipping Candid sync');
+  if (!candidClientId?.length || !candidClientSecret?.length || !candidEnv?.length) {
+    console.log(
+      '[candid-sync] One or more Candid secrets (CLIENT_ID, CLIENT_SECRET, ENV) not set — skipping Candid sync'
+    );
     return null;
   }
 
@@ -71,7 +68,7 @@ export async function createCandidEmployerPayer(
       name,
       category,
       description: CANDID_EMPLOYER_DESCRIPTION,
-      ...(candidAddress ? { address: candidAddress as any } : {}),
+      ...(candidAddress ? { address: candidAddress } : {}),
     });
 
     if (response?.ok && response.body) {
@@ -112,9 +109,9 @@ export async function updateCandidEmployerPayer(
       category: { type: 'set', value: category },
       description: { type: 'set', value: CANDID_EMPLOYER_DESCRIPTION },
       ...(candidAddress
-        ? { address: { type: 'set', value: candidAddress as any } }
+        ? { address: { type: 'set' as const, value: candidAddress } }
         : !hasAnyAddressData
-        ? { address: { type: 'remove' } }
+        ? { address: { type: 'remove' as const } }
         : {}),
     });
     console.log(`[candid-sync] Updated non-insurance payer ${candidPayerId}`);

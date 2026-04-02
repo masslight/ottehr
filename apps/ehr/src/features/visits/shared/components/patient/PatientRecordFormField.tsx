@@ -315,6 +315,18 @@ interface DynamicReferenceFieldProps {
   id?: string;
 }
 
+/**
+ * If the currently selected value is not in the active options list,
+ * include it with an "(inactive)" suffix so it remains visible.
+ */
+function ensureSelectedOptionVisible(options: Reference[], selected: Reference | null | undefined): Reference[] {
+  if (!selected?.reference) return options;
+  const isInList = options.some((opt) => opt.reference === selected.reference);
+  if (isInList) return options;
+  const inactiveLabel = selected.display ? `${selected.display} (inactive)` : selected.reference;
+  return [...options, { ...selected, display: inactiveLabel }];
+}
+
 const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStrategy, id }) => {
   const { oystehrZambda } = useApiClients();
   const { control, setValue } = useFormContext();
@@ -366,16 +378,7 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
       name={item.key}
       control={control}
       render={({ field: { value }, fieldState: { error } }) => {
-        // If the currently selected value is not in the active options list,
-        // include it with an "(inactive)" suffix so it remains visible.
-        const options = (() => {
-          const base = answerOptions ?? [];
-          if (!value?.reference) return base;
-          const isInList = base.some((opt) => opt.reference === value.reference);
-          if (isInList) return base;
-          const inactiveLabel = value.display ? `${value.display} (inactive)` : value.reference;
-          return [...base, { ...value, display: inactiveLabel } as Reference];
-        })();
+        const options = ensureSelectedOptionVisible(answerOptions ?? [], value);
 
         const selectedOption = value?.reference
           ? options.find((option) => option.reference === value.reference)

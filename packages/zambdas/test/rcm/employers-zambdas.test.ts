@@ -71,7 +71,7 @@ function makeEmployer(overrides?: Partial<Organization>): Organization {
     type: employerType,
     address: [{ line: ['100 Main'], city: 'Gotham', state: 'NY', postalCode: '10001' }],
     ...overrides,
-  } as Organization;
+  };
 }
 
 describe('RCM employer zambdas', () => {

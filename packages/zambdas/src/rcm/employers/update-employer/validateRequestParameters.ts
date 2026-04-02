@@ -36,10 +36,6 @@ export function validateRequestParameters(input: ZambdaInput): UpdateEmployerPar
     throw INVALID_INPUT_ERROR('"category" must be a non-empty string when provided');
   }
 
-  if (identifier && !identifier.value) {
-    throw INVALID_INPUT_ERROR('"identifier.value" is required when identifier is provided');
-  }
-
   if (active !== undefined && typeof active !== 'boolean') {
     throw INVALID_INPUT_ERROR('"active" must be a boolean when provided');
   }
