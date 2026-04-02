@@ -1,20 +1,22 @@
-import { Save } from '@mui/icons-material';
+import { FileDownloadOutlined, Save } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
 import {
   Box,
   CircularProgress,
   FormControlLabel,
+  IconButton,
   MenuItem,
   Paper,
   Select,
   Switch,
   TextField,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
-import { getVisitFeedbackConfig, saveVisitFeedbackConfig } from 'src/api/api';
+import { dryRunVisitFeedback, getVisitFeedbackConfig, saveVisitFeedbackConfig } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 
 const MAX_SMS_LENGTH = 160;
@@ -35,6 +37,7 @@ export const VisitFeedbackSettings: React.FC = () => {
   const { oystehrZambda } = useApiClients();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [runningDryRun, setRunningDryRun] = useState(false);
 
   const [enabled, setEnabled] = useState(false);
   const [messageTemplate, setMessageTemplate] = useState('');
@@ -92,6 +95,50 @@ export const VisitFeedbackSettings: React.FC = () => {
     }
   };
 
+  const handleDryRun = async (): Promise<void> => {
+    if (!oystehrZambda) return;
+    setRunningDryRun(true);
+    try {
+      const result = await dryRunVisitFeedback(oystehrZambda, delayHours);
+      if (!result.csv || result.rows.length === 0) {
+        enqueueSnackbar(result.message || 'No patients would receive SMS in the current window', {
+          variant: 'info',
+        });
+        return;
+      }
+      // Build CSV client-side to include encounter URLs
+      const baseUrl = window.location.origin;
+      const csvHeader =
+        'First Name,Last Name,Preferred Name,Patient ID,Phone Number,Encounter ID,Appointment ID,Discharge Time,Message,Visit URL';
+      const csvRows = result.rows.map(
+        (r) =>
+          `"${r.firstName}","${r.lastName}","${r.preferredName}","${r.patientId}","${r.phoneNumber}","${
+            r.encounterId
+          }","${r.appointmentId}","${r.dischargeTime}","${r.message.replace(/"/g, '""')}","${baseUrl}/in-person/${
+            r.appointmentId
+          }"`
+      );
+      const csv = [csvHeader, ...csvRows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `visit-feedback-dry-run-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      enqueueSnackbar(`${result.rows.length} patient${result.rows.length !== 1 ? 's' : ''} would receive SMS`, {
+        variant: 'success',
+      });
+    } catch (error) {
+      console.error('Dry run failed:', error);
+      enqueueSnackbar('Dry run failed. Please try again.', { variant: 'error' });
+    } finally {
+      setRunningDryRun(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -103,9 +150,20 @@ export const VisitFeedbackSettings: React.FC = () => {
   return (
     <Box sx={{ mt: 2, maxWidth: 700 }}>
       <Paper sx={{ p: 3 }}>
-        <Typography variant="h4" color="primary.dark" sx={{ mb: 1 }}>
-          Visit Feedback
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          <Typography variant="h4" color="primary.dark">
+            Visit Feedback
+          </Typography>
+          <Tooltip title="Download SMS Recipients For Preview" arrow>
+            <IconButton size="small" onClick={handleDryRun} disabled={runningDryRun}>
+              {runningDryRun ? (
+                <CircularProgress size={18} />
+              ) : (
+                <FileDownloadOutlined fontSize="small" color="action" />
+              )}
+            </IconButton>
+          </Tooltip>
+        </Box>
         <Typography color="text.secondary" sx={{ mb: 3 }}>
           Automatically text patients after their visit to solicit feedback.
         </Typography>

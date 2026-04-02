@@ -1509,7 +1509,17 @@
       "type": "cron",
       "runtime": "nodejs22.x",
       "src": "src/cron/send-visit-feedback/index",
-      "zip": ".dist/zips/send-visit-feedback.zip"
+      "zip": ".dist/zips/send-visit-feedback.zip",
+      "schedule": {
+        "expression": "cron(0 * * * ? *)"
+      }
+    },
+    "DRY_RUN_VISIT_FEEDBACK": {
+      "name": "dry-run-visit-feedback",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/dry-run-visit-feedback/index",
+      "zip": ".dist/zips/dry-run-visit-feedback.zip"
     },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",

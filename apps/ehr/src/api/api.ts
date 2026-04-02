@@ -2062,3 +2062,26 @@ export const getVisitFeedbackConfig = async (oystehr: Oystehr): Promise<VisitFee
 export const saveVisitFeedbackConfig = async (oystehr: Oystehr, config: VisitFeedbackConfig): Promise<void> => {
   await oystehr.zambda.execute({ id: 'save-visit-feedback-config', ...config });
 };
+
+export interface DryRunVisitFeedbackResult {
+  csv: string;
+  rows: Array<{
+    firstName: string;
+    lastName: string;
+    preferredName: string;
+    patientId: string;
+    phoneNumber: string;
+    encounterId: string;
+    appointmentId: string;
+    dischargeTime: string;
+    message: string;
+  }>;
+  message: string;
+  windowStart?: string;
+  windowEnd?: string;
+}
+
+export const dryRunVisitFeedback = async (oystehr: Oystehr, delayHours: number): Promise<DryRunVisitFeedbackResult> => {
+  const response = await oystehr.zambda.execute({ id: 'dry-run-visit-feedback', delayHours });
+  return chooseJson(response);
+};
