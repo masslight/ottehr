@@ -210,11 +210,11 @@ export default function PatientPaymentList({
       const result = await oystehrZambda!.zambda.execute({
         id: 'payment-methods-list',
         beneficiaryPatientId: patient!.id!,
-        appointmentId: appointment?.id,
+        appointmentId: appointment!.id!,
       });
       return deriveCardOnFileStatus(result.output);
     },
-    enabled: !!oystehrZambda && !!patient?.id,
+    enabled: !!oystehrZambda && !!patient?.id && !!appointment?.id,
   });
 
   const {
@@ -417,10 +417,10 @@ export default function PatientPaymentList({
 
   const handlePaymentDialogClose = useCallback(() => {
     setPaymentDialogOpen(false);
-    if (oystehrZambda && patient?.id) {
+    if (oystehrZambda && patient?.id && appointment?.id) {
       void refetchCardOnFile();
     }
-  }, [oystehrZambda, patient?.id, refetchCardOnFile]);
+  }, [oystehrZambda, patient?.id, appointment?.id, refetchCardOnFile]);
 
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
@@ -509,7 +509,9 @@ export default function PatientPaymentList({
 
       // Close as soon as the payment is visible; receipt creation can continue in background.
       setPaymentDialogOpen(false);
-      void refetchCardOnFile();
+      if (appointment?.id) {
+        void refetchCardOnFile();
+      }
 
       const waitForReceipt = async (): Promise<void> => {
         let receipt: DocumentReference | null = null;
