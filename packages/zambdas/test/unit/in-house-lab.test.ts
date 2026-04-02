@@ -39,7 +39,7 @@ const ACTIVITY_DEF_TO_ADMIN_ITEM_CONFIG: ActivityDefToAdminItemConfig = {
     activityDef: activityDefinitions['alcohol-confirmation'].resource as ActivityDefinition,
     adminTestItem: adminTestItemConfigs['alcohol-confirmation'],
   },
-  // tests commas in teh item's name, and also all result values being non-abnormal
+  // tests commas in the item's name, and also all result values being non-abnormal
   'hcg-comma': {
     activityDef: activityDefinitions['hcg-comma'].resource as ActivityDefinition,
     adminTestItem: adminTestItemConfigs['hcg-comma'],

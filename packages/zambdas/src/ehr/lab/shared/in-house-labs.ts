@@ -964,7 +964,7 @@ export function convertAdminInHouseLabItemDefinitionToActivityDefinition(
     extension: makeActivityExtension(testConfig),
   };
 
-  console.log('ActivityDefinition: ', JSON.stringify(activityDefUrl, undefined, 2));
+  console.log('ActivityDefinition: ', JSON.stringify(activityDef, undefined, 2));
 
   return activityDef;
 }
