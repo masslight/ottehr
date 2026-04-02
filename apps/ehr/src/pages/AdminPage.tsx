@@ -5,6 +5,7 @@ import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedB
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import Insurances from '../features/visits/telemed/components/admin/Insurance';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
+import SettingsPage from '../features/visits/telemed/components/admin/SettingsPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
 import MedicationsConfigurationPage from './configuration/MedicationsConfiguration';
@@ -20,6 +21,7 @@ enum PageTab {
   medications = 'medications',
   billing = 'billing',
   'quick-picks' = 'quick-picks',
+  settings = 'settings',
 }
 
 export function AdminPage(): JSX.Element {
@@ -83,6 +85,12 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['quick-picks']}`)}
                 />
+                <Tab
+                  label="Settings"
+                  value={PageTab.settings}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab.settings}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -118,6 +126,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab.settings} sx={{ padding: 0 }}>
+            <SettingsPage />
           </TabPanel>
         </TabContext>
       </Box>

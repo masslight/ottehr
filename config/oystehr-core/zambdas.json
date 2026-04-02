@@ -1490,6 +1490,27 @@
       "src": "src/ehr/visit-details/get-visit-fax-history/index",
       "zip": ".dist/zips/get-visit-fax-history.zip"
     },
+    "GET_VISIT_FEEDBACK_CONFIG": {
+      "name": "get-visit-feedback-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-visit-feedback-config/index",
+      "zip": ".dist/zips/get-visit-feedback-config.zip"
+    },
+    "SAVE_VISIT_FEEDBACK_CONFIG": {
+      "name": "save-visit-feedback-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-visit-feedback-config/index",
+      "zip": ".dist/zips/save-visit-feedback-config.zip"
+    },
+    "SEND_VISIT_FEEDBACK": {
+      "name": "send-visit-feedback",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/cron/send-visit-feedback/index",
+      "zip": ".dist/zips/send-visit-feedback.zip"
+    },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
       "type": "http_auth",

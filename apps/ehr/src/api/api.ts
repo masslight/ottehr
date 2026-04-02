@@ -2040,3 +2040,25 @@ export const removeMedicationHistoryQuickPick = async (
     throw error;
   }
 };
+
+// Visit Feedback Config
+
+export interface VisitFeedbackConfig {
+  enabled: boolean;
+  messageTemplate: string;
+  delayHours: number;
+}
+
+export const getVisitFeedbackConfig = async (oystehr: Oystehr): Promise<VisitFeedbackConfig> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'get-visit-feedback-config' });
+    return chooseJson(response);
+  } catch {
+    // Return defaults if config doesn't exist yet
+    return { enabled: false, messageTemplate: '', delayHours: 24 };
+  }
+};
+
+export const saveVisitFeedbackConfig = async (oystehr: Oystehr, config: VisitFeedbackConfig): Promise<void> => {
+  await oystehr.zambda.execute({ id: 'save-visit-feedback-config', ...config });
+};
