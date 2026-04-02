@@ -461,8 +461,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         createCommunicationRequests.push(request);
         if (
           status === 'completed' ||
-          (status === 'in-progress' &&
-            notificationSettings.method === ProviderNotificationMethod['phone and computer'])
+          (status === 'in-progress' && notificationSettings.method === ProviderNotificationMethod['phone and computer'])
         ) {
           // not to send multiple notifications of the same "Unsigned charts" type by sms one by one - check if theres any and update
           const existingUnsignedNotificationPending = sendSMSPractitionerCommunications[

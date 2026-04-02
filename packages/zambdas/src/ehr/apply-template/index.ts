@@ -6,11 +6,7 @@ import Oystehr, {
 } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClinicalImpression, Communication, Condition, Encounter, List, Observation } from 'fhir/r4b';
-import {
-  ApplyTemplateZambdaInput,
-  chunkThings,
-  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
-} from 'utils';
+import { ApplyTemplateZambdaInput, chunkThings, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';

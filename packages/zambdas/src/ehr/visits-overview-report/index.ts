@@ -34,8 +34,7 @@ const ZAMBDA_NAME = 'visits-overview-report';
 const INITIAL_PAGE_SIZE = 1000;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  let validatedParameters;
-  validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
   const { dateRange } = validatedParameters;
 
   // Get M2M token for FHIR access

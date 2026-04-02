@@ -275,9 +275,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
     // todo should this url be formatted according the type of appointment being cancelled?
     const url = `${WEBSITE_URL}/home`;
 
-    const message = `Your visit for ${getPatientFirstName(
-      patient
-    )} has been canceled. Tap ${url} to book a new visit.`;
+    const message = `Your visit for ${getPatientFirstName(patient)} has been canceled. Tap ${url} to book a new visit.`;
     // cSpell:disable-next Spanish
     const messageSpanish = `Su consulta para ${getPatientFirstName(
       patient

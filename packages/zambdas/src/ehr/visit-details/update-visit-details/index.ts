@@ -26,12 +26,7 @@ import {
   userMe,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { accountMatchesType } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'update-visit-details';

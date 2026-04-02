@@ -1,12 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Extension, Location } from 'fhir/r4b';
 import { SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

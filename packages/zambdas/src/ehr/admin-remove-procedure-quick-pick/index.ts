@@ -1,17 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
-import {
-  RemoveProcedureQuickPickInput,
-  RemoveProcedureQuickPickResponse,
-  Secrets,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { RemoveProcedureQuickPickInput, RemoveProcedureQuickPickResponse, Secrets } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'admin-remove-procedure-quick-pick';

@@ -11,13 +11,7 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   StartInterviewInput,
 } from 'utils';
-import {
-  getAuth0Token,
-  validateJsonBody,
-  validateString,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { getAuth0Token, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
 import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';

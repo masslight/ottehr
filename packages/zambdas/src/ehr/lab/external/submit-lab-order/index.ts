@@ -10,12 +10,7 @@ import {
   OYSTEHR_SUBMIT_LAB_API,
   SubmitLabOrderOutput,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 import {
   getBundledOrderResources,
   makeOrderFormsAndDocRefs,
@@ -47,12 +42,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const now = DateTime.now();
 
   console.log('getting resources needed for submit lab');
-  const bundledOrdersByOrderNumber = await getBundledOrderResources(
-    oystehr,
-    m2mToken,
-    serviceRequestIDs,
-    manualOrder
-  );
+  const bundledOrdersByOrderNumber = await getBundledOrderResources(oystehr, m2mToken, serviceRequestIDs, manualOrder);
   console.log('successfully retrieved resources');
 
   // submit to oystehr labs when NOT manual order

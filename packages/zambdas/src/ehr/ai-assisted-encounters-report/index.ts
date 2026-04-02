@@ -16,12 +16,7 @@ import {
   Secrets,
   VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -29,9 +24,9 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'ai-assisted-encounters-report';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  let validatedParameters: AiAssistedEncountersReportZambdaInput & { secrets: Secrets };
   console.group('validateRequestParameters');
-  validatedParameters = validateRequestParameters(input);
+  const validatedParameters: AiAssistedEncountersReportZambdaInput & { secrets: Secrets } =
+    validateRequestParameters(input);
   const { dateRange, locationIds, secrets } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');

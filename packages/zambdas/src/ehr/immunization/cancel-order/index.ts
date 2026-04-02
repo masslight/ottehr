@@ -1,12 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { MedicationAdministration } from 'fhir/r4b';
-import {
-  CancelImmunizationOrderRequest,
-  mapFhirToOrderStatus,
-  mapOrderStatusToFhir,
-  replaceOperation,
-} from 'utils';
+import { CancelImmunizationOrderRequest, mapFhirToOrderStatus, mapOrderStatusToFhir, replaceOperation } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,

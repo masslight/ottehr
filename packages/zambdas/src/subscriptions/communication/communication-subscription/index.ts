@@ -58,9 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       method: 'GET',
       url: `/Group?_id=${groupID}`,
     };
-    const locationID = communication.about
-      ?.find((ref) => ref.type === 'Location')
-      ?.reference?.replace('Location/', '');
+    const locationID = communication.about?.find((ref) => ref.type === 'Location')?.reference?.replace('Location/', '');
     const locationGetRequest: BatchInputGetRequest = {
       method: 'GET',
       url: `/Location?_id=${locationID}`,

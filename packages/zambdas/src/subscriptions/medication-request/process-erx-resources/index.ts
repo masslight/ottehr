@@ -1,10 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, MedicationRequest, MedicationStatement } from 'fhir/r4b';
-import {
-  ERX_MEDICATION_META_TAG_CODE,
-  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
-  Secrets,
-} from 'utils';
+import { ERX_MEDICATION_META_TAG_CODE, MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM, Secrets } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,

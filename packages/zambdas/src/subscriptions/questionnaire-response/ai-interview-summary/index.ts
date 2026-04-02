@@ -2,13 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { createOystehrClient, getSecret, Secrets, SecretsKeys } from 'utils';
-import {
-  configSentry,
-  getAuth0Token,
-  validateJsonBody,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { configSentry, getAuth0Token, validateJsonBody, wrapHandler, ZambdaInput } from '../../../shared';
 import { createResourcesFromAiInterview } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';

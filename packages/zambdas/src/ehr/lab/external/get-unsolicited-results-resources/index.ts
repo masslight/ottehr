@@ -1,11 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { GetUnsolicitedResultsResourcesOutput, UnsolicitedResultsRequestType } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 import {
   handleGetPossibleRelatedRequestsToUnsolicitedResult,
   handleGetTasks,
@@ -60,11 +55,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     case UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_DETAIL: {
       console.log('handling unsolicited-results-detail request');
-      response = await handleUnsolicitedResultDetailRequest(
-        oystehr,
-        validatedParameters.diagnosticReportId,
-        m2mToken
-      );
+      response = await handleUnsolicitedResultDetailRequest(oystehr, validatedParameters.diagnosticReportId, m2mToken);
       break;
     }
     case UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_PATIENT_LIST: {

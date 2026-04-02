@@ -10,13 +10,11 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import {
-  APIError,
   CreateInHouseLabOrderParameters,
   getAttendingPractitionerId,
   getFullestAvailableName,
   IN_HOUSE_LAB_ERROR,
   IN_HOUSE_TEST_CODE_SYSTEM,
-  isApiError,
   REFLEX_ARTIFACT_DISPLAY,
   Secrets,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
@@ -265,9 +263,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
       if (possibleInitialSRs.length === 0) {
         // this really shouldn't happen, something is misconfigured
-        throw IN_HOUSE_LAB_ERROR(
-          `No initial tests could be found for ${activityDefinition.name} for this encounter.`
-        );
+        throw IN_HOUSE_LAB_ERROR(`No initial tests could be found for ${activityDefinition.name} for this encounter.`);
       }
       initialServiceRequest = possibleInitialSRs[0];
     } else if (parentTestCanonicalUrl && serviceRequests) {

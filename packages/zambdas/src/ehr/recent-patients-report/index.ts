@@ -10,12 +10,7 @@ import {
   RecentPatientRecord,
   RecentPatientsReportZambdaOutput,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -23,8 +18,7 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'recent-patients-report';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  let validatedParameters;
-  validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
   const { dateRange, locationId } = validatedParameters;
 
   // Get M2M token for FHIR access

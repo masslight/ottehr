@@ -50,41 +50,39 @@ export const index = wrapHandler('send-message-cron', async (input: ZambdaInput)
       .toISO()} and the related patients and location resources`
   );
   const allResources = (
-    await oystehr.fhir.search<Appointment | Encounter | Location | Patient | QuestionnaireResponse | Slot | Schedule>(
-      {
-        resourceType: 'Appointment',
-        params: [
-          { name: 'status', value: 'booked' },
-          { name: 'date', value: `ge${startTime.toISO()}` },
-          { name: 'date', value: `lt${startTime.plus({ minute: 45 }).toISO()}` },
-          { name: '_sort', value: 'date' },
-          {
-            name: '_include',
-            value: 'Appointment:location',
-          },
-          {
-            name: '_include',
-            value: 'Appointment:patient',
-          },
-          {
-            name: '_include',
-            value: 'Appointment:slot',
-          },
-          {
-            name: '_revinclude',
-            value: 'Encounter:appointment',
-          },
-          {
-            name: '_revinclude:iterate',
-            value: 'QuestionnaireResponse:encounter',
-          },
-          {
-            name: '_include:iterate',
-            value: 'Slot:schedule',
-          },
-        ],
-      }
-    )
+    await oystehr.fhir.search<Appointment | Encounter | Location | Patient | QuestionnaireResponse | Slot | Schedule>({
+      resourceType: 'Appointment',
+      params: [
+        { name: 'status', value: 'booked' },
+        { name: 'date', value: `ge${startTime.toISO()}` },
+        { name: 'date', value: `lt${startTime.plus({ minute: 45 }).toISO()}` },
+        { name: '_sort', value: 'date' },
+        {
+          name: '_include',
+          value: 'Appointment:location',
+        },
+        {
+          name: '_include',
+          value: 'Appointment:patient',
+        },
+        {
+          name: '_include',
+          value: 'Appointment:slot',
+        },
+        {
+          name: '_revinclude',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'QuestionnaireResponse:encounter',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Slot:schedule',
+        },
+      ],
+    })
   )
     .unbundle()
     .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);

@@ -10,13 +10,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import {
-  getAuth0Token,
-  validateJsonBody,
-  validateString,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { getAuth0Token, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'persist-consent';
 

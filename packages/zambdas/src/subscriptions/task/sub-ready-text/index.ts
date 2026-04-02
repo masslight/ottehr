@@ -1,12 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  DATETIME_FULL_NO_YEAR,
-  getPatientContactEmail,
-  PROJECT_WEBSITE,
-  TaskStatus,
-} from 'utils';
+import { DATETIME_FULL_NO_YEAR, getPatientContactEmail, PROJECT_WEBSITE, TaskStatus } from 'utils';
 import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { sendText } from '../helpers';

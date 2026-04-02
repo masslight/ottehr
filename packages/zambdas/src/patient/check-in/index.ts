@@ -21,13 +21,7 @@ import {
   TaskIndicator,
   VisitType,
 } from 'utils';
-import {
-  checkPaperworkComplete,
-  createOystehrClient,
-  getAuth0Token,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkPaperworkComplete, createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import { validateRequestParameters } from './validateRequestParameters';

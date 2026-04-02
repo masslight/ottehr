@@ -1,12 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  CreateManualTaskRequest,
-  getFullName,
-  MANUAL_TASK,
-  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
-} from 'utils';
+import { CreateManualTaskRequest, getFullName, MANUAL_TASK, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,

@@ -14,13 +14,7 @@ import {
   TaskStatus,
   TelemedCancelationTemplateData,
 } from 'utils';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  getEmailClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, getAuth0Token, getEmailClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from '../validateRequestParameters';
 
 export interface TaskSubscriptionInput {

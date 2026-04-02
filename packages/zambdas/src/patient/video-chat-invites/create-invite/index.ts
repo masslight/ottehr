@@ -100,14 +100,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error('Could not find the patient reference in appointment resource.');
   }
 
-  const relatedPerson = await createRelatedPerson(
-    firstName,
-    lastName,
-    phoneNumber,
-    emailAddress,
-    patientRef,
-    oystehr
-  );
+  const relatedPerson = await createRelatedPerson(firstName, lastName, phoneNumber, emailAddress, patientRef, oystehr);
   console.log('Created RelatedPerson.id:', relatedPerson.id);
 
   const relatedPersonRef = `RelatedPerson/${relatedPerson.id}`;

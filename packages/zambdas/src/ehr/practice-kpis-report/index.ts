@@ -259,8 +259,7 @@ function calculateAverageAndMedian(values: number[]): { average: number | null; 
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  let validatedParameters;
-  validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
   const { dateRange } = validatedParameters;
 
   // Get M2M token for FHIR access
@@ -547,8 +546,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
 
         // Calculate provider to discharged average and median
-        const { average: providerToDischargedAverage, median: providerToDischargedMedian } =
-          calculateAverageAndMedian(metricsData.providerToDischargedDurations);
+        const { average: providerToDischargedAverage, median: providerToDischargedMedian } = calculateAverageAndMedian(
+          metricsData.providerToDischargedDurations
+        );
 
         // Calculate on-time percentage for pre-booked appointments
         let onTimePercent: number | null = null;

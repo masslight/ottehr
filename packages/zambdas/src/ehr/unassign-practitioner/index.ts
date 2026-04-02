@@ -1,11 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, PractitionerRole } from 'fhir/r4b';
-import {
-  Secrets,
-  UnassignPractitionerZambdaInput,
-  UnassignPractitionerZambdaOutput,
-} from 'utils';
+import { Secrets, UnassignPractitionerZambdaInput, UnassignPractitionerZambdaOutput } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';

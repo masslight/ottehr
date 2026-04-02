@@ -16,8 +16,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createOystehrClient(m2mToken, secrets);
   const oystehrCurrentUser = createOystehrClient(userToken, secrets);
   const isProviderInstruction = await checkIfBelongsToCurrentProvider(oystehrCurrentUser, instructionId);
-  if (!isProviderInstruction)
-    throw new Error('Instruction deletion failed. Instruction does not belongs to provider');
+  if (!isProviderInstruction) throw new Error('Instruction deletion failed. Instruction does not belongs to provider');
   await deleteCommunication(oystehr, instructionId);
 
   return {

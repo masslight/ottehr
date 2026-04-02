@@ -14,13 +14,7 @@ import {
   TelemedAppointmentStatusEnum,
   WaitingRoomResponse,
 } from 'utils';
-import {
-  getAuth0Token,
-  getUser,
-  getVideoEncounterForAppointment,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { getAuth0Token, getUser, getVideoEncounterForAppointment, wrapHandler, ZambdaInput } from '../../shared';
 import { estimatedTimeStatesGroups } from '../../shared/appointment/constants';
 import { convertStatesAbbreviationsToLocationIds, getAllAppointmentsByLocations } from './utils/fhir';
 import { validateRequestParameters } from './validateRequestParameters';

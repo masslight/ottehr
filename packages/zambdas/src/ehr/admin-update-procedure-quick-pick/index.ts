@@ -1,17 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
-import {
-  Secrets,
-  UpdateProcedureQuickPickInput,
-  UpdateProcedureQuickPickResponse,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { Secrets, UpdateProcedureQuickPickInput, UpdateProcedureQuickPickResponse } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { activityDefinitionToQuickPick, quickPickToActivityDefinition } from '../admin-get-procedure-quick-picks';
 import { validateRequestParameters } from './validateRequestParameters';
 

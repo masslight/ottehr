@@ -128,10 +128,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     console.log('dateLowerFormatted', dateLowerFormatted);
     const dateUpperFormatted = DateTime.fromISO(dateRange.lessThan).setZone('UTC').toISO();
     console.log('dateUpperFormatted', dateUpperFormatted);
-    params.push(
-      { name: 'date', value: `ge${dateLowerFormatted}` },
-      { name: 'date', value: `le${dateUpperFormatted}` }
-    );
+    params.push({ name: 'date', value: `ge${dateLowerFormatted}` }, { name: 'date', value: `le${dateUpperFormatted}` });
   } else {
     params.push({
       name: 'date',

@@ -13,12 +13,7 @@ import {
   MDM_FIELD_DEFAULT_TEXT,
   Secrets,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  saveResourceRequest,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, saveResourceRequest, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   createDispositionServiceRequest,
   makeClinicalImpressionResource,

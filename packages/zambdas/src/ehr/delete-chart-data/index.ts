@@ -23,19 +23,13 @@ import {
   CPTCodeDTO,
   createCancellationTagOperations,
   ExamObservationDTO,
-  FHIR_RESOURCE_IS_GONE,
   getPatchBinary,
   MedicalConditionDTO,
   MedicationDTO,
   ObservationDTO,
   ProcedureDTO,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  parseCreatedResourcesBundle,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, wrapHandler, ZambdaInput } from '../../shared';
 import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,

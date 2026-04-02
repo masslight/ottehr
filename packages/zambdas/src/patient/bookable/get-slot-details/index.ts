@@ -20,12 +20,7 @@ import {
   ServiceMode,
 } from 'utils';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'get-slot-details';
 

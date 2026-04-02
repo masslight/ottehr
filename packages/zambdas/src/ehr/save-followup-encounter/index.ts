@@ -1,11 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter } from 'fhir/r4b';
-import {
-  FOLLOWUP_TYPES,
-  SaveFollowupEncounterZambdaInput,
-  SaveFollowupEncounterZambdaOutput,
-  Secrets,
-} from 'utils';
+import { FOLLOWUP_TYPES, SaveFollowupEncounterZambdaInput, SaveFollowupEncounterZambdaOutput, Secrets } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { createEncounterResource, updateEncounterResource } from './helpers';

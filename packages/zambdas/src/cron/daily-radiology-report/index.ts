@@ -1,10 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Encounter, Patient, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
-  ORDER_TYPE_CODE_SYSTEM,
-} from 'utils';
+import { DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL, ORDER_TYPE_CODE_SYSTEM } from 'utils';
 import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 
 interface RadiologyStudyReportItem {
@@ -73,9 +70,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const batchResources = searchResponse.unbundle();
 
     // Aggregate results from this batch
-    const batchServiceRequests = batchResources.filter(
-      (r) => r.resourceType === 'ServiceRequest'
-    ) as ServiceRequest[];
+    const batchServiceRequests = batchResources.filter((r) => r.resourceType === 'ServiceRequest') as ServiceRequest[];
     const batchDiagnosticReports = batchResources.filter(
       (r) => r.resourceType === 'DiagnosticReport'
     ) as DiagnosticReport[];

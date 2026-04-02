@@ -10,11 +10,7 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  DeleteLabOrderZambdaOutput,
-  EXTERNAL_LAB_ERROR,
-  PROVENANCE_ACTIVITY_CODING_ENTITY,
-} from 'utils';
+import { DeleteLabOrderZambdaOutput, EXTERNAL_LAB_ERROR, PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,

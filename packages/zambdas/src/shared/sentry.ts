@@ -41,6 +41,7 @@ export function wrapHandler(
     try {
       return await handler(input);
     } catch (error) {
+      console.error(`Error in handler for ${zambdaName}:`, error);
       return topLevelCatch(zambdaName, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
     }
   });

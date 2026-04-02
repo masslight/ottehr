@@ -38,13 +38,7 @@ import {
   VisitStatusLabel,
 } from 'utils';
 import { z } from 'zod';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  lambdaResponse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;

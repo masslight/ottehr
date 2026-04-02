@@ -12,12 +12,7 @@ import {
   OTTEHR_MODULE,
   Secrets,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -25,9 +20,9 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'incomplete-encounters-report';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  let validatedParameters: IncompleteEncountersReportZambdaInput & { secrets: Secrets };
   console.group('validateRequestParameters');
-  validatedParameters = validateRequestParameters(input);
+  const validatedParameters: IncompleteEncountersReportZambdaInput & { secrets: Secrets } =
+    validateRequestParameters(input);
   const { dateRange, encounterStatus = 'incomplete', secrets } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');

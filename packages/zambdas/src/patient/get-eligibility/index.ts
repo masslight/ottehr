@@ -67,8 +67,7 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
     primary = result.primary;
     secondary = result.secondary;
   } else {
-    const { appointmentId, appointment, patientId, billingProvider, coverageResources, coverageToCheck } =
-      complexInput;
+    const { appointmentId, appointment, patientId, billingProvider, coverageResources, coverageToCheck } = complexInput;
     const { coverages, insuranceOrgs } = coverageResources;
 
     // coverages is an object with keys "primary" and "secondary", which are the same values coverageToCheck can take on

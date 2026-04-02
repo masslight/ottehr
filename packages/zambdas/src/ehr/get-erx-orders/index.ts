@@ -1,12 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { MedicationRequest } from 'fhir/r4b';
-import {
-  ERX_MEDICATION_META_TAG_CODE,
-  GetErxOrdersInput,
-  GetErxOrdersInputSchema,
-  GetErxOrdersResponse,
-} from 'utils';
+import { ERX_MEDICATION_META_TAG_CODE, GetErxOrdersInput, GetErxOrdersInputSchema, GetErxOrdersResponse } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,

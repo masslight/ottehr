@@ -20,13 +20,7 @@ import {
   SlotListItem,
   Timezone,
 } from 'utils';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  getSchedules,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { createOystehrClient, getAuth0Token, getSchedules, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

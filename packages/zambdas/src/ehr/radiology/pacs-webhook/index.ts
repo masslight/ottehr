@@ -29,12 +29,7 @@ import {
   SecretsKeys,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { createTask } from '../../../shared/tasks';
 import { validateInput, validateSecrets } from './validation';
 
