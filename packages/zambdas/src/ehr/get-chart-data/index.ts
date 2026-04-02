@@ -298,7 +298,7 @@ export async function getChartData(
           .search<FhirResource>({
             resourceType: 'Appointment',
             params: [
-              { name: 'patient._id', value: `Patient/${patient.id}` },
+              { name: 'patient._id', value: patient.id! },
               { name: '_summary', value: 'count' },
             ],
           })
