@@ -146,6 +146,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -244,6 +248,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         },
@@ -404,6 +412,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -554,6 +566,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -709,6 +725,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -1746,6 +1766,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         },
@@ -1900,6 +1924,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -2055,6 +2083,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -2205,6 +2237,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -2355,6 +2391,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -2505,6 +2545,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -2655,6 +2699,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -2810,6 +2858,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -2960,6 +3012,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         },
@@ -3120,6 +3176,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -3275,6 +3335,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -3397,6 +3461,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -3522,6 +3590,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
@@ -3641,6 +3713,10 @@
             {
               "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
               "code": "in-house-lab-test-definition"
+            },
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "latest"
             }
           ]
         }
