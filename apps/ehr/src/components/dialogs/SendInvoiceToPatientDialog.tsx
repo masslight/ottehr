@@ -461,7 +461,9 @@ export default function SendInvoiceToPatientDialog({
       location: location ?? '',
       'visit-date': formatDate(visitDate),
       'due-date': formatDate(dueDate),
-      amount: amount ? `$${Number(amount).toFixed(2)}` : '',
+      amount: amount
+        ? `$${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : '',
       'invoice-link': 'https://example.com/invoice-link',
       'patient-portal-link': 'https://example.com/patient-portal',
     };

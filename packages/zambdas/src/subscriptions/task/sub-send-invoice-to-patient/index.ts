@@ -78,7 +78,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           location: locationName,
           visitDate,
           dueDate: dueDateFormatted,
-          amount: `${amountCents / 100}`,
+          amount: `$${(amountCents / 100).toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`,
           patientPortalUrl,
         })
       : undefined;
@@ -110,7 +113,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       location: locationName,
       visitDate,
       dueDate: dueDateFormatted,
-      amount: `${amountCents / 100}`,
+      amount: `$${(amountCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       invoiceLink: invoiceUrl,
       patientPortalUrl,
     });
