@@ -339,10 +339,14 @@ export default function ImmunizationReport(): React.ReactElement {
         },
       },
       {
-        field: 'cptCode',
-        headerName: 'CPT Code',
-        width: 100,
+        field: 'cptCodes',
+        headerName: 'CPT Codes',
+        width: 140,
         sortable: true,
+        valueGetter: (params: GridRenderCellParams) => {
+          const codes = params.row.cptCodes as { code: string; display: string }[];
+          return codes?.map((c) => c.code).join(', ') || '';
+        },
       },
       {
         field: 'cvxCode',

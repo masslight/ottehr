@@ -27,7 +27,7 @@ export interface ImmunizationReportItem {
   // Administration details
   orderStatus: string;
   dateAdministered: string;
-  cptCode: string;
+  cptCodes: { code: string; display: string }[];
   cvxCode: string;
   mvxCode: string;
   ndcCode: string;

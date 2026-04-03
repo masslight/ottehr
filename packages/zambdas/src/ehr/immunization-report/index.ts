@@ -384,7 +384,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           instructions: ma.dosage?.text || '',
           orderStatus: mapFhirToOrderStatus(ma) || '',
           dateAdministered: ma.effectiveDateTime || '',
-          cptCode: findCoding(administrationCodesExtensions, CODE_SYSTEM_CPT)?.code || '',
+          cptCodes: administrationCodesExtensions
+            .filter((ext) => ext.valueCodeableConcept?.coding?.[0]?.system === CODE_SYSTEM_CPT)
+            .map((ext) => ({
+              code: ext.valueCodeableConcept?.coding?.[0]?.code ?? '',
+              display: ext.valueCodeableConcept?.coding?.[0]?.display ?? '',
+            }))
+            .filter((c) => c.code !== ''),
           cvxCode: findCoding(administrationCodesExtensions, CVX_CODE_SYSTEM_URL)?.code || '',
           mvxCode: findCoding(administrationCodesExtensions, MVX_CODE_SYSTEM_URL)?.code || '',
           ndcCode: findCoding(administrationCodesExtensions, CODE_SYSTEM_NDC)?.code || '',
