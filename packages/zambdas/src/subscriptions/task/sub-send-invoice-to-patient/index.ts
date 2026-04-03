@@ -364,7 +364,7 @@ interface MessagePlaceholders {
 }
 
 function fillMessagePlaceholders(message: string, placeholders: MessagePlaceholders): string {
-  const { patientFullName, location, visitDate, dueDate, patientPortalUrl, invoiceLink } = placeholders;
+  const { patientFullName, location, visitDate, dueDate, amount, patientPortalUrl, invoiceLink } = placeholders;
   const clinic = BRANDING_CONFIG.projectName;
   const params: InvoiceMessagesPlaceholders = {
     'patient-full-name': patientFullName,
@@ -373,6 +373,7 @@ function fillMessagePlaceholders(message: string, placeholders: MessagePlacehold
     'patient-portal-link': patientPortalUrl,
     clinic,
     'due-date': dueDate,
+    amount,
     'invoice-link': invoiceLink,
   };
   return replaceTemplateVariablesHandlebars(message, params);
