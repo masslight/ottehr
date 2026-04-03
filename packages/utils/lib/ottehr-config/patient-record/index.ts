@@ -5,6 +5,11 @@ import {
   type QuestionnaireBase,
 } from 'config-types';
 import { Questionnaire } from 'fhir/r4b';
+import {
+  CONFIG_INJECTION_KEYS,
+  createProxyConfigObject,
+  mergeAndFreezeConfigObjects,
+} from '../../config-helpers/helpers';
 import { createQuestionnaireFromConfig } from '../shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
 
@@ -1012,7 +1017,19 @@ const PATIENT_RECORD_DEFAULTS: PatientRecordConfig = {
   FormFields,
 };
 
-export const PATIENT_RECORD_CONFIG: PatientRecordConfig = Object.freeze(PATIENT_RECORD_DEFAULTS);
+const PATIENT_RECORD_FROZEN = Object.freeze(PATIENT_RECORD_DEFAULTS);
+
+function getPatientRecordConfig(testOverrides?: Partial<PatientRecordConfig>): PatientRecordConfig {
+  if (!testOverrides) {
+    return PATIENT_RECORD_FROZEN;
+  }
+  return mergeAndFreezeConfigObjects(PATIENT_RECORD_FROZEN, testOverrides) as PatientRecordConfig;
+}
+
+export const PATIENT_RECORD_CONFIG = createProxyConfigObject<PatientRecordConfig>(
+  getPatientRecordConfig,
+  CONFIG_INJECTION_KEYS.PATIENT_RECORD
+);
 
 export const PATIENT_RECORD_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(PATIENT_RECORD_CONFIG)));

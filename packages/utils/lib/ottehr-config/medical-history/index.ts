@@ -1,4 +1,9 @@
 import type { MedicalHistoryConfig } from 'config-types';
+import {
+  CONFIG_INJECTION_KEYS,
+  createProxyConfigObject,
+  mergeAndFreezeConfigObjects,
+} from '../../config-helpers/helpers';
 
 const MEDICAL_HISTORY_DATA: MedicalHistoryConfig = {
   medicalConditions: {
@@ -101,4 +106,16 @@ const MEDICAL_HISTORY_DATA: MedicalHistoryConfig = {
   },
 };
 
-export const MEDICAL_HISTORY_CONFIG = Object.freeze(MEDICAL_HISTORY_DATA);
+const MEDICAL_HISTORY_DEFAULTS = Object.freeze(MEDICAL_HISTORY_DATA);
+
+function getMedicalHistoryConfig(testOverrides?: Partial<MedicalHistoryConfig>): MedicalHistoryConfig {
+  if (!testOverrides) {
+    return MEDICAL_HISTORY_DEFAULTS;
+  }
+  return mergeAndFreezeConfigObjects(MEDICAL_HISTORY_DEFAULTS, testOverrides) as MedicalHistoryConfig;
+}
+
+export const MEDICAL_HISTORY_CONFIG = createProxyConfigObject<MedicalHistoryConfig>(
+  getMedicalHistoryConfig,
+  CONFIG_INJECTION_KEYS.MEDICAL_HISTORY
+);

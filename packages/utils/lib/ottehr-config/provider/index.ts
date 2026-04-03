@@ -1,4 +1,9 @@
 import type { ProviderConfig } from 'config-types';
+import {
+  CONFIG_INJECTION_KEYS,
+  createProxyConfigObject,
+  mergeAndFreezeConfigObjects,
+} from '../../config-helpers/helpers';
 
 const PROVIDER_DATA: ProviderConfig = {
   assessment: {
@@ -18,4 +23,16 @@ const PROVIDER_DATA: ProviderConfig = {
   },
 };
 
-export const PROVIDER_CONFIG = Object.freeze(PROVIDER_DATA);
+const PROVIDER_DEFAULTS = Object.freeze(PROVIDER_DATA);
+
+function getProviderConfig(testOverrides?: Partial<ProviderConfig>): ProviderConfig {
+  if (!testOverrides) {
+    return PROVIDER_DEFAULTS;
+  }
+  return mergeAndFreezeConfigObjects(PROVIDER_DEFAULTS, testOverrides) as ProviderConfig;
+}
+
+export const PROVIDER_CONFIG = createProxyConfigObject<ProviderConfig>(
+  getProviderConfig,
+  CONFIG_INJECTION_KEYS.PROVIDER
+);

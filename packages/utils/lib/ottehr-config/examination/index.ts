@@ -1,4 +1,9 @@
 import { createSimpleHash, validateExamConfig } from '../../config-helpers/examination';
+import {
+  CONFIG_INJECTION_KEYS,
+  createProxyConfigObject,
+  mergeAndFreezeConfigObjects,
+} from '../../config-helpers/helpers';
 import { InPersonExamConfig } from './in-person.config';
 import { TelemedExamConfig } from './telemed.config';
 
@@ -24,7 +29,9 @@ export enum ExamType {
 
 const DefaultExamConfig = Object.freeze(validateExamConfig(ExamConfig));
 
-export const ExamDef = (config?: unknown): ReturnType<typeof validateExamConfig> => {
+export type ExamConfigType = ReturnType<typeof validateExamConfig>;
+
+export const ExamDef = (config?: unknown): ExamConfigType => {
   if (config) {
     return Object.freeze(validateExamConfig(config));
   }
@@ -32,4 +39,11 @@ export const ExamDef = (config?: unknown): ReturnType<typeof validateExamConfig>
   return DefaultExamConfig;
 };
 
-export const examConfig = ExamDef();
+function getExamConfig(testOverrides?: Partial<ExamConfigType>): ExamConfigType {
+  if (!testOverrides) {
+    return DefaultExamConfig;
+  }
+  return mergeAndFreezeConfigObjects(DefaultExamConfig, testOverrides) as ExamConfigType;
+}
+
+export const examConfig = createProxyConfigObject<ExamConfigType>(getExamConfig, CONFIG_INJECTION_KEYS.EXAMINATION);

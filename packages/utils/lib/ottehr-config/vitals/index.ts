@@ -1,4 +1,9 @@
 import * as z from 'zod';
+import {
+  CONFIG_INJECTION_KEYS,
+  createProxyConfigObject,
+  mergeAndFreezeConfigObjects,
+} from '../../config-helpers/helpers';
 import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../../types/api';
 
 export const VitalsConfigData = {
@@ -701,4 +706,11 @@ export type AlertThreshold = z.infer<typeof AlertThresholdSchema>;
 
 export type AlertRule = ReturnType<typeof ConstraintSchema.parse>;
 
-export const vitalsConfig = VitalsDef();
+function getVitalsConfig(testOverrides?: Partial<VitalsSchema>): VitalsSchema {
+  if (!testOverrides) {
+    return DefaultVitalsConfig;
+  }
+  return mergeAndFreezeConfigObjects(DefaultVitalsConfig, testOverrides) as VitalsSchema;
+}
+
+export const vitalsConfig = createProxyConfigObject<VitalsSchema>(getVitalsConfig, CONFIG_INJECTION_KEYS.VITALS);

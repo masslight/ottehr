@@ -1,6 +1,11 @@
 // cSpell:ignore AUTOPOL, Champus, LIAB, MCPOL, medib, PUBLICPOL, WCBPOL
 import { NetworkType } from 'candidhealth/api';
 import { type InsurancePlanType as BaseInsurancePlanType, type ValueSetsConfig } from 'config-types';
+import {
+  CONFIG_INJECTION_KEYS,
+  createProxyConfigObject,
+  mergeAndFreezeConfigObjects,
+} from '../../config-helpers/helpers';
 import { deepFreezeObject } from '../../utils/objects';
 
 // Extend InsurancePlanType to use the specific Candid NetworkType
@@ -657,4 +662,16 @@ const formValueSets: ValueSetsConfig = {
   insuranceTypeOptions: insuranceTypeOptionsData,
 };
 
-export const VALUE_SETS = deepFreezeObject(formValueSets);
+const VALUE_SETS_DEFAULTS = deepFreezeObject(formValueSets);
+
+function getValueSetsConfig(testOverrides?: Partial<ValueSetsConfig>): ValueSetsConfig {
+  if (!testOverrides) {
+    return VALUE_SETS_DEFAULTS;
+  }
+  return mergeAndFreezeConfigObjects(VALUE_SETS_DEFAULTS, testOverrides) as ValueSetsConfig;
+}
+
+export const VALUE_SETS = createProxyConfigObject<ValueSetsConfig>(
+  getValueSetsConfig,
+  CONFIG_INJECTION_KEYS.VALUE_SETS
+);

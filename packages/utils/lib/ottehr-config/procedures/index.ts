@@ -1,4 +1,9 @@
 import type { PrepopulationEntry, ProceduresConfig } from 'config-types';
+import {
+  CONFIG_INJECTION_KEYS,
+  createProxyConfigObject,
+  mergeAndFreezeConfigObjects,
+} from '../../config-helpers/helpers';
 
 const PROCEDURES_DATA: ProceduresConfig = {
   prepopulation: {} as Record<string, PrepopulationEntry>,
@@ -106,4 +111,16 @@ const PROCEDURES_DATA: ProceduresConfig = {
   ],
 };
 
-export const PROCEDURES_CONFIG = Object.freeze(PROCEDURES_DATA);
+const PROCEDURES_DEFAULTS = Object.freeze(PROCEDURES_DATA);
+
+function getProceduresConfig(testOverrides?: Partial<ProceduresConfig>): ProceduresConfig {
+  if (!testOverrides) {
+    return PROCEDURES_DEFAULTS;
+  }
+  return mergeAndFreezeConfigObjects(PROCEDURES_DEFAULTS, testOverrides) as ProceduresConfig;
+}
+
+export const PROCEDURES_CONFIG = createProxyConfigObject<ProceduresConfig>(
+  getProceduresConfig,
+  CONFIG_INJECTION_KEYS.PROCEDURES
+);
