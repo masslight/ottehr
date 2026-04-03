@@ -143,6 +143,28 @@ export interface InvoicingConfigPair {
   questionnaireResponse: QuestionnaireResponse;
 }
 
+export interface ParsedInvoicingConfig {
+  dueDaysFromGeneration: number;
+  autoChargeOnDueDate: boolean;
+  defaultSmsTemplate: string;
+  defaultInvoiceMemo: string;
+}
+
+export function parseInvoicingConfig(qr: QuestionnaireResponse): ParsedInvoicingConfig {
+  const group = qr.item?.find((i) => i.linkId === 'invoicing');
+  const items = group?.item ?? [];
+  const findAnswer = (
+    linkId: string
+  ): { valueInteger?: number; valueBoolean?: boolean; valueString?: string } | undefined =>
+    items.find((i) => i.linkId === linkId)?.answer?.[0];
+  return {
+    dueDaysFromGeneration: findAnswer('invoicing.dueDaysFromGeneration')?.valueInteger ?? 7,
+    autoChargeOnDueDate: findAnswer('invoicing.autoChargeOnDueDate')?.valueBoolean ?? false,
+    defaultSmsTemplate: findAnswer('invoicing.defaultSmsTemplate')?.valueString ?? DEFAULT_SMS_TEMPLATE,
+    defaultInvoiceMemo: findAnswer('invoicing.defaultInvoiceMemo')?.valueString ?? DEFAULT_MEMO_TEMPLATE,
+  };
+}
+
 /**
  * Finds the existing invoicing config Questionnaire + QuestionnaireResponse pair.
  * If either doesn't exist, creates them with defaults.

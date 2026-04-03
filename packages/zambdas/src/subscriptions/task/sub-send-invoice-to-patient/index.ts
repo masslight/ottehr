@@ -17,7 +17,7 @@ import {
   PATIENT_BILLING_ACCOUNT_TYPE,
   RcmTaskCodings,
   removePrefix,
-  replaceTemplateVariablesArrows,
+  replaceTemplateVariablesHandlebars,
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
   Secrets,
   SecretsKeys,
@@ -62,8 +62,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Stripe and candid ids retrieved');
 
     const locationName = location?.name;
+    const DATE_FORMAT = 'EEEE, MMMM d, yyyy';
     const visitDateObj = DateTime.fromISO(appointment.start ?? '');
-    const visitDate = visitDateObj.isValid ? visitDateObj.toFormat('MM/dd/yyyy') : undefined;
+    const visitDate = visitDateObj.isValid ? visitDateObj.toFormat(DATE_FORMAT) : undefined;
+    const dueDateFormatted = DateTime.fromISO(dueDate).toFormat(DATE_FORMAT);
     const patientPortalUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
     if (!visitDate) throw new Error('visit date is missing required field');
 
@@ -75,7 +77,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           patientFullName: getFullName(fhirResources.patient),
           location: locationName,
           visitDate,
-          dueDate,
+          dueDate: dueDateFormatted,
           amount: `${amountCents / 100}`,
           patientPortalUrl,
         })
@@ -107,7 +109,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       patientFullName: getFullName(fhirResources.patient),
       location: locationName,
       visitDate,
-      dueDate,
+      dueDate: dueDateFormatted,
       amount: `${amountCents / 100}`,
       invoiceLink: invoiceUrl,
       patientPortalUrl,
@@ -368,10 +370,10 @@ function fillMessagePlaceholders(message: string, placeholders: MessagePlacehold
     'patient-full-name': patientFullName,
     location,
     'visit-date': visitDate,
-    'url-to-patient-portal': patientPortalUrl,
+    'patient-portal-link': patientPortalUrl,
     clinic,
     'due-date': dueDate,
     'invoice-link': invoiceLink,
   };
-  return replaceTemplateVariablesArrows(message, params);
+  return replaceTemplateVariablesHandlebars(message, params);
 }

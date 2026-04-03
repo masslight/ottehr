@@ -1691,3 +1691,15 @@ export function replaceTemplateVariablesArrows(template: string, variables: Temp
     return template;
   }
 }
+
+// {{key}} syntax
+export function replaceTemplateVariablesHandlebars(template: string, variables: TemplateVariables): string {
+  try {
+    if (!template) return '';
+    return template.replace(/\{\{([\w-]+)\}\}/g, (match, key) => {
+      return variables[key]?.toString() || match;
+    });
+  } catch {
+    return template;
+  }
+}
