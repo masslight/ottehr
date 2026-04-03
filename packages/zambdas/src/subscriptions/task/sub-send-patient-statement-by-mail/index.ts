@@ -11,7 +11,6 @@ import {
   getStatementDetails,
   sendPostGridLetter,
   StatementType,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -204,9 +203,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         console.error('Failed to patch task to failed status:', patchError);
       }
     }
-
-    const environment = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, environment);
+    throw error;
   }
 });
 
