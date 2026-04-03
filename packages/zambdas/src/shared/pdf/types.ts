@@ -851,6 +851,10 @@ export interface DispositionData extends PdfData {
   instruction: string;
   reason?: string;
   followUpIn?: string;
+  [NOTHING_TO_EAT_OR_DRINK_FIELD]?: boolean;
+  [REFUSAL_OF_EMS_TRANSPORT_FIELD]?: boolean;
+  labService?: string;
+  virusTest?: string;
 }
 
 export interface PhysicianData extends PdfData {
