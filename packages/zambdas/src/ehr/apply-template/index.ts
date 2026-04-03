@@ -5,6 +5,7 @@ import Oystehr, {
   FhirResource,
 } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
 import { ClinicalImpression, Communication, Condition, Encounter, List, Observation, Procedure } from 'fhir/r4b';
 import {
   ApplyTemplateZambdaInput,
@@ -247,7 +248,9 @@ const makeCreateRequests = (
     (resource) => resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('ros'))
   );
 
-  const templateEncounterDiagnoses = templateList.contained?.find((r) => r.resourceType === 'Encounter')?.diagnosis;
+  const templateEncounter = templateList.contained?.find((r) => r.resourceType === 'Encounter');
+  const templateEncounterDiagnoses = templateEncounter?.diagnosis;
+  const templateEncounterExtensions = templateEncounter?.extension ?? [];
   let templateHpiCondition: Condition | undefined;
   let templateRosCondition: Condition | undefined;
 
@@ -317,20 +320,36 @@ const makeCreateRequests = (
     });
   }
 
+  const encounterPatchOperations: Operation[] = [];
+
   // Patch the encounter.diagnoses with our new diagnosis references.
   if (encounterDiagnoses.length > 0) {
-    const encounterDiagnosisPatch: BatchInputJSONPatchRequest = {
+    encounterPatchOperations.push({
+      op: encounter.diagnosis ? 'replace' : 'add',
+      path: '/diagnosis',
+      value: encounterDiagnoses,
+    });
+  }
+
+  if (templateEncounterExtensions.length > 0) {
+    const newExtensions = (encounter.extension ?? []).filter(
+      (extension) =>
+        templateEncounterExtensions.find((templateExtension) => templateExtension.url === extension.url) == null
+    );
+    newExtensions.push(...templateEncounterExtensions);
+    encounterPatchOperations.push({
+      op: encounter.extension ? 'replace' : 'add',
+      path: '/extension',
+      value: newExtensions,
+    });
+  }
+
+  if (encounterPatchOperations.length > 0) {
+    createResourcesRequests.push({
       method: 'PATCH',
       url: `Encounter/${encounter.id}`,
-      operations: [
-        {
-          op: encounter.diagnosis ? 'replace' : 'add',
-          path: '/diagnosis',
-          value: encounterDiagnoses,
-        },
-      ],
-    };
-    createResourcesRequests.push(encounterDiagnosisPatch);
+      operations: encounterPatchOperations,
+    });
   }
 
   // Patch HPI Condition note if it already exists
