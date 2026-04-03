@@ -1,9 +1,9 @@
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
-import { TestItemComponent } from 'utils';
+import { DataEntryComponent } from 'utils';
 import { ResultEntryTableRow } from './ResultsEntryTableRow';
 
 interface ResultEntryTableProps {
-  testItemComponents: TestItemComponent[];
+  testItemComponents: DataEntryComponent[];
   disabled?: boolean; // equates to the final view
 }
 

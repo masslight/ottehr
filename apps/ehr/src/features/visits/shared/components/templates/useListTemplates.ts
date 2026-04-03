@@ -7,6 +7,7 @@ import { ExamType, ListTemplatesZambdaOutput } from 'utils';
 export interface TemplateOption {
   value: string;
   label: string;
+  id: string;
 }
 
 export interface UseListTemplatesResult {
@@ -31,10 +32,13 @@ export const useListTemplates = (examType: ExamType): UseListTemplatesResult => 
   });
 
   const templates: TemplateOption[] = queryResult.data
-    ? queryResult.data.templates.map((template) => ({
-        value: template,
-        label: template,
-      }))
+    ? queryResult.data.templates
+        .filter((template) => !!template.title)
+        .map((template) => ({
+          value: template.title,
+          label: template.title,
+          id: template.id,
+        }))
     : [];
 
   return {

@@ -27,11 +27,11 @@ import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import {
   checkActivityDefinitionForReflexLogic,
-  convertActivityDefinitionToTestItem,
+  convertActivityDefinitionToDataEntryTestItem,
   CPTCodeDTO,
+  DataEntryTestItem,
   makeCptCodeDisplay,
   REPEAT_TEST_CPT_CODE_MODIFIER,
-  TestItem,
   unbundleBatchPostOutput,
 } from 'utils';
 import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
@@ -228,9 +228,9 @@ test.describe('In-house labs page', async () => {
   };
 
   const TEST_TYPE_TO_CPT: Record<string, string> = {};
-  const radioEntryTestItems: TestItem[] = [];
-  const repeatableRadioEntryTestItems: TestItem[] = [];
-  const selectAndNumericTestItems: TestItem[] = [];
+  const radioEntryTestItems: DataEntryTestItem[] = [];
+  const repeatableRadioEntryTestItems: DataEntryTestItem[] = [];
+  const selectAndNumericTestItems: DataEntryTestItem[] = [];
   let mockResourceIds: string[] = [];
   let reflexTest: MockReflexTestConfig;
 
@@ -240,14 +240,14 @@ test.describe('In-house labs page', async () => {
     // standard + repeatable tests
     inHouseLabsMockData.activityDefinitions.forEach((ad) => {
       const fhirActivityDefinition = ad as ActivityDefinition;
-      const testItem = convertActivityDefinitionToTestItem(fhirActivityDefinition);
+      const testItem = convertActivityDefinitionToDataEntryTestItem(fhirActivityDefinition);
 
-      if (testItem.components.radioComponents.length > 0 && testItem.components.groupedComponents.length === 0) {
+      if (testItem.components.type === 'radio') {
         radioEntryTestItems.push(testItem);
         if (testItem.repeatable) {
           repeatableRadioEntryTestItems.push(testItem);
         }
-      } else if (testItem.components.radioComponents.length === 0 && testItem.components.groupedComponents.length > 0) {
+      } else if (testItem.components.type === 'grouped') {
         selectAndNumericTestItems.push(testItem);
       }
 
@@ -271,13 +271,17 @@ test.describe('In-house labs page', async () => {
     // reflex test
     const { parentTest, childTest } = inHouseLabsMockData.reflexTest;
 
-    const parentTestItem = convertActivityDefinitionToTestItem(parentTest.activityDefinition as ActivityDefinition);
+    const parentTestItem = convertActivityDefinitionToDataEntryTestItem(
+      parentTest.activityDefinition as ActivityDefinition
+    );
     const parentReflexLogic = checkActivityDefinitionForReflexLogic(
       parentTest.activityDefinition as ActivityDefinition
     );
     const parentAlert = parentReflexLogic?.reflexAlertExt.valueString || 'alert is missing in mock data!?';
 
-    const childTestItem = convertActivityDefinitionToTestItem(childTest.activityDefinition as ActivityDefinition);
+    const childTestItem = convertActivityDefinitionToDataEntryTestItem(
+      childTest.activityDefinition as ActivityDefinition
+    );
 
     reflexTest = {
       parent: { test: parentTestItem, alert: parentAlert, results: parentTest.results },
@@ -587,7 +591,8 @@ test.describe('In-house labs page', async () => {
         await test.step('IHL-5.1.3 Enter results', async () => {
           const performTestPage = await PerformTestPage.isOpen(page);
 
-          const groupedComponents = reflexTest.parent.test.components.groupedComponents;
+          const groupedComponents =
+            reflexTest.child.test.components.type === 'grouped' ? reflexTest.child.test.components.components : [];
           const containsGroupedComponents = groupedComponents.length > 0;
           if (!containsGroupedComponents) {
             throw new Error(
@@ -643,7 +648,8 @@ test.describe('In-house labs page', async () => {
         await test.step('IHL-5.2.3 Enter results', async () => {
           const performTestPage = await PerformTestPage.isOpen(page);
 
-          const groupedComponents = reflexTest.child.test.components.groupedComponents;
+          const groupedComponents =
+            reflexTest.child.test.components.type === 'grouped' ? reflexTest.child.test.components.components : [];
           const containsGroupedComponents = groupedComponents.length > 0;
           if (!containsGroupedComponents) {
             throw new Error(

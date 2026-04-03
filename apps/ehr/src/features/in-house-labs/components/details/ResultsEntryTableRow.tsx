@@ -1,12 +1,12 @@
 import { SxProps, TableCell, TableRow, Theme, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { OBSERVATION_CODES, quantityRangeFormat, TestItemComponent } from 'utils';
+import { DataEntryComponent, OBSERVATION_CODES, quantityRangeFormat } from 'utils';
 import { ResultEntryFreeText } from './ResultEntryFreeText';
 import { ResultEntrySelect } from './ResultEntrySelect';
 import { ResultEntryNumericInput } from './ResultsEntryNumericInput';
 
 interface ResultEntryTableRowProps {
-  component: TestItemComponent;
+  component: DataEntryComponent;
   isLastRow: boolean;
   disabled?: boolean; // equates to the final view
 }

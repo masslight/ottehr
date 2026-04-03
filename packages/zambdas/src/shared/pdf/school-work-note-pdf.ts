@@ -101,12 +101,15 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   const logoBuffer = await getPdfLogo();
   if (logoBuffer) {
     const img = await pdfDoc.embedPng(new Uint8Array(logoBuffer));
+    const logoScale = Math.min(styles.image.width / img.width, styles.image.height / img.height);
+    const drawWidth = img.width * logoScale;
+    const drawHeight = img.height * logoScale;
     currYPos -= styles.margin.y;
     page.drawImage(img, {
       x: styles.margin.x,
-      y: currYPos,
-      width: styles.image.width,
-      height: styles.image.height,
+      y: currYPos + (styles.image.height - drawHeight) / 2,
+      width: drawWidth,
+      height: drawHeight,
     });
     currYPos -= styles.image.height + styles.spacing.image; // space after image
   }

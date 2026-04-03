@@ -49,24 +49,33 @@ let chatbot: ChatAnthropic;
 // let chatbotVertexAI: ChatVertexAI;
 
 function getPrompt(patientInfoDetails: string, fields: string): string {
-  return `I'll give you a transcript of a chat between a healthcare provider and a patient. 
-Patient details: ${patientInfoDetails} 
-Please generate ${fields} based on the trancsript.
-Please present a response in JSON format. Don't add markdown. Use property names in camel case.
-Use a single string property in JSON for each section.
-Here is an example response:
+  return `I'll give you a transcript of a chat between a healthcare provider and a patient.
+Patient details: ${patientInfoDetails}
+Please generate ${fields} based on the transcript.
+Return JSON. No markdown. Use camelCase keys.
+
+FORMAT RULES:
+- "historyOfPresentIllness" and "mechanismOfInjury" must be well-written clinical prose paragraphs (free text). Write in third person ("The patient presents with...").
+- All other sections must be JSON arrays of individual items (one item per array element).
+- For medications: each item should include the medication name, dose if mentioned, and last taken date/time if mentioned (e.g. "Lisinopril 10mg, last taken 03/15/2025 14:00").
+- For allergies: include the reaction if mentioned (e.g. "Penicillin - rash").
+- For conditions, surgical history, and hospitalizations: use short clinical phrases (e.g. "hypertension", "appendectomy 2019").
+- Do NOT include items the patient denies or negates.
+- Omit sections with no relevant information entirely.
+
+Example response:
 {
-  "historyOfPresentIllness": "example",
-  "pastMedicalHistory": "example",
-  "pastSurgicalHistory": "example",
-  "medicationsHistory": "example",
-  "allergies": "example",
-  "socialHistory": "example",
-  "familyHistory": "example",
-  "hospitalizationsHistory": "example",
-  "labs": "example",
-  "erx": "example",
-  "procedures": "example"
+  "historyOfPresentIllness": "The patient presents with chest pain for 2 days, worsening with exertion. No associated shortness of breath or diaphoresis.",
+  "pastMedicalHistory": ["hypertension", "type 2 diabetes"],
+  "pastSurgicalHistory": ["appendectomy 2019"],
+  "medicationsHistory": ["Lisinopril 10mg, last taken 03/28/2025 08:00", "Metformin 500mg", "Aspirin 81mg"],
+  "allergies": ["Penicillin - rash", "Sulfa drugs"],
+  "socialHistory": ["non-smoker", "occasional alcohol"],
+  "familyHistory": ["father - coronary artery disease", "mother - breast cancer"],
+  "hospitalizationsHistory": ["pneumonia January 2023"],
+  "labs": ["CBC", "BMP"],
+  "erx": ["Amoxicillin 500mg"],
+  "procedures": ["wound closure"]
 }
 The transcript: `;
 }
@@ -114,7 +123,7 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
 
     try {
       const response = await fetch(
-        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-2.5-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
+        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-3.1-flash-lite-preview:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
           body: JSON.stringify({
@@ -357,6 +366,8 @@ function createObservations(
 ): BatchInputPostRequest<Observation>[] {
   return Object.entries(AI_RESPONSE_KEY_TO_FIELD).flatMap(([key, field]) => {
     if (aiResponse[key] != null) {
+      const rawValue = aiResponse[key];
+      const value = Array.isArray(rawValue) ? JSON.stringify(rawValue) : rawValue;
       return [
         saveResourceRequest(
           makeObservationResource(
@@ -366,7 +377,7 @@ function createObservations(
             documentReferenceCreateUrl,
             {
               field: field,
-              value: aiResponse[key],
+              value,
             },
             AI_OBSERVATION_META_SYSTEM
           )

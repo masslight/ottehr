@@ -37,6 +37,7 @@ export type NonNormalResultContained = NonNormalResult[] | undefined;
 export interface ExternalLabOrderResultConfig extends LabOrderPDFDetail {
   nonNormalResultContained: NonNormalResultContained;
   orderNumber?: string;
+  resultValues?: string[];
 }
 
 export interface ExternalLabOrderResult extends ExternalLabOrderResultConfig {
@@ -54,6 +55,7 @@ export interface InHouseLabResult extends LabOrderPDFDetail {
   // if more than one result (like Urinalysis) no result value will be displayed
   // todo not implemented, displaying this is a post mvp feature
   simpleResultValue?: string;
+  resultValues?: string[];
 }
 export interface EncounterInHouseLabResult {
   resultsPending: string[] | undefined; // names of all the tests pending
