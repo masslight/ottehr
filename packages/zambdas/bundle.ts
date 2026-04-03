@@ -1,10 +1,13 @@
 import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
 import archiver from 'archiver';
+import dotenv from 'dotenv';
 import * as esbuild from 'esbuild';
 import { type Options } from 'execa';
 import fs from 'fs';
 import path from 'path';
 import zambdasSpec from '../../config/oystehr-core/zambdas.json';
+
+dotenv.config({ path: path.join(process.cwd(), '.env.sentry-build-plugin') });
 
 interface ZambdaSpec {
   name: string;
@@ -220,12 +223,6 @@ const main = async (): Promise<void> => {
   const isSentryEnabled =
     !['local', 'e2e', 'e2e2', 'e2e3'].includes(process.env.ENV || '') &&
     Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
-
-  console.log('env, ', process.env.ENV);
-  console.log('sentry token ', process.env.SENTRY_AUTH_TOKEN);
-  console.log('sentry org ', process.env.SENTRY_ORG);
-  console.log('sentry project ', process.env.SENTRY_PROJECT);
-  console.log('Sentry enabled:', isSentryEnabled);
 
   const icd10Zambdas = zambdas.filter((zambda) => zambdasWithIcd10Search.includes(zambda.name));
   const regularZambdas = zambdas.filter((zambda) => !zambdasWithIcd10Search.includes(zambda.name));
