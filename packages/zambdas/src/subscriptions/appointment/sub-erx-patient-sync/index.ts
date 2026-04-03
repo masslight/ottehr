@@ -1,6 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Observation, Patient } from 'fhir/r4b';
-import { FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG, getFirstName, getLastName, getPatchOperationForNewMetaTag } from 'utils';
+import {
+  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG,
+  getFirstName,
+  getLastName,
+  getPatchOperationForNewMetaTag,
+} from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -52,6 +58,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!patient) {
     throw new Error(`Patient ${patientId} not found`);
   }
+
+  // In the case of E2E tests, the patient commonly gets deleted while the patient sync endpoint is processing, which causes the patient sync endpoint to blow up
+  // I also don't think we'll ever make an E2E test that needs this warmup of patient sync + med history to work. So we'll skip.
+  const isE2eTestPatient = patient.meta?.tag?.some(
+    (tag) => tag.system && E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM === tag.system
+  );
+  if (isE2eTestPatient) {
+    console.log(`Patient ${patientId} is an e2e test resource, skipping eRx patient sync + med history fetch`);
+    return { statusCode: 200, body: `Patient ${patientId} is an e2e test resource, skipping` };
+  }
+
   const firstName = getFirstName(patient);
   const lastName = getLastName(patient);
   const birthDate = patient.birthDate;
