@@ -263,6 +263,10 @@ export class ResourceHandler {
         throw new Error('LOCATION_ID is not set');
       }
 
+      if (this.#flow === 'telemed' && !process.env.STATE_ONE) {
+        throw new Error('STATE_ONE is not set');
+      }
+
       if (!process.env.PROJECT_ID) {
         throw new Error('PROJECT_ID is not set');
       }
