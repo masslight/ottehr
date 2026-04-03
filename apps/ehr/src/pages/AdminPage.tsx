@@ -1,8 +1,8 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
-import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import Insurances from '../features/visits/telemed/components/admin/Insurance';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
@@ -18,15 +18,25 @@ enum PageTab {
   providers = 'providers',
   insurance = 'insurances',
   medications = 'medications',
-  billing = 'billing',
   'quick-picks' = 'quick-picks',
 }
 
 export function AdminPage(): JSX.Element {
-  const { adminTab, billingTab } = useParams();
+  const { adminTab } = useParams();
+  const [pageTab, setPageTab] = useState<PageTab>(PageTab.schedules);
   const navigate = useNavigate();
 
-  const pageTab = billingTab ? PageTab.billing : (adminTab as PageTab) || PageTab.schedules;
+  const page = adminTab as PageTab;
+
+  useEffect(() => {
+    if (page) {
+      setPageTab(page);
+    }
+  }, [page]);
+
+  const handleTabChange = (_: any, newValue: PageTab): any => {
+    setPageTab(newValue);
+  };
 
   return (
     <PageContainer>
@@ -34,7 +44,7 @@ export function AdminPage(): JSX.Element {
         <TabContext value={pageTab}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
             <Box sx={{ flex: 1, borderBottom: 1, borderColor: 'divider' }}>
-              <TabList onChange={() => {}} aria-label={`${pageTab} page`}>
+              <TabList onChange={handleTabChange} aria-label={`${page} page`}>
                 <Tab
                   label="Schedules"
                   value={PageTab.schedules}
@@ -72,12 +82,6 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab.medications}`)}
                 />
                 <Tab
-                  label="Billing Configuration"
-                  value={PageTab.billing}
-                  sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab.billing}`)}
-                />
-                <Tab
                   label="Quick Picks"
                   value={PageTab['quick-picks']}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
@@ -112,9 +116,6 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab.medications} sx={{ padding: 0 }}>
             <MedicationsConfigurationPage />
-          </TabPanel>
-          <TabPanel value={PageTab.billing} sx={{ padding: 0 }}>
-            <BillingConfiguration billingTab={billingTab} />
           </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />

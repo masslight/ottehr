@@ -10,8 +10,8 @@ import { expectEditOrderPage, expectOrderMedicationPage } from '../../page/Order
 const PROCESS_ID = `createAndOrderMedication.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 
-const DIAGNOSIS = 'Fever';
-const MEDICATION_SEARCH_TERM = 'Amoxicillin';
+const DIAGNOSIS = 'Example diagnosis';
+const MEDICATION_SEARCH_TERM = 'Example medication';
 const DOSE = '1';
 const UNITS = 'mg';
 const ROUTE = 'Sublingual route';

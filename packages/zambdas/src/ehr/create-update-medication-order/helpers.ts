@@ -1,6 +1,7 @@
 import Oystehr, { TerminologySearchCptResponse, TerminologySearchHcpcsResponse } from '@oystehr/sdk';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
 import {
+  CODE_SYSTEM_NDC,
   CPTCodeOption,
   getAllCptCodesFromInHouseMedication,
   getAllHcpcsCodesFromInHouseMedication,
@@ -25,7 +26,7 @@ export function getPerformerId(medicationAdministration: MedicationAdministratio
 
 export function createMedicationCopy(
   inventoryMedication: Medication,
-  orderData: { lotNumber?: string; expDate?: string; manufacturer?: string },
+  orderData: { lotNumber?: string; ndc?: string; expDate?: string; manufacturer?: string },
   newStatus?: string
 ): Medication {
   const resourceCopy = { ...inventoryMedication };
@@ -42,6 +43,14 @@ export function createMedicationCopy(
     };
   }
   if (orderData.manufacturer) resourceCopy.manufacturer = { display: orderData.manufacturer };
+  // Store user-entered NDC on the medication code
+  if (orderData.ndc) {
+    if (!resourceCopy.code) resourceCopy.code = {};
+    if (!resourceCopy.code.coding) resourceCopy.code.coding = [];
+    // Remove any existing NDC coding, then add the new one
+    resourceCopy.code.coding = resourceCopy.code.coding.filter((c) => c.system !== CODE_SYSTEM_NDC);
+    resourceCopy.code.coding.push({ system: CODE_SYSTEM_NDC, code: orderData.ndc });
+  }
   return resourceCopy;
 }
 

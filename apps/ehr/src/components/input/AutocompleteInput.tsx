@@ -11,6 +11,7 @@ export type AutocompleteInputProps<Value> = {
   disabled?: boolean;
   validate?: (value: string | undefined) => boolean | string;
   selectOnly?: boolean;
+  freeSolo?: boolean;
   onInputTextChanged?: (text: string) => void;
   noOptionsText?: string;
   getOptionKey?: (option: Value) => string;
@@ -28,6 +29,7 @@ export function AutocompleteInput<Value>({
   disabled,
   validate,
   selectOnly,
+  freeSolo,
   onInputTextChanged,
   noOptionsText,
   getOptionKey,
@@ -45,30 +47,42 @@ export function AutocompleteInput<Value>({
       control={control}
       rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false, validate: validate }}
       render={({ field, fieldState: { error } }) => {
-        const optionsToUse = options ?? [];
+        let optionsToUse = options ?? [];
         if (
           field.value &&
           !options?.find((option) =>
             isOptionEqualToValue ? isOptionEqualToValue(option, field.value) : option === field.value
           )
         ) {
-          optionsToUse?.push(field.value);
+          optionsToUse = [...optionsToUse, field.value];
         }
         return (
           <Box sx={{ width: '100%' }}>
-            <Autocomplete
+            <Autocomplete<Value, false, false, boolean>
               value={field.value ?? null}
               options={optionsToUse}
-              getOptionKey={getOptionKey}
+              getOptionKey={getOptionKey as ((option: string | Value) => string | number) | undefined}
               noOptionsText={noOptionsText}
-              getOptionLabel={getOptionLabel}
-              isOptionEqualToValue={isOptionEqualToValue}
-              onChange={(_e, option: any) => field.onChange(option ?? null)}
+              getOptionLabel={getOptionLabel as ((option: string | Value) => string) | undefined}
+              isOptionEqualToValue={
+                isOptionEqualToValue as ((option: string | Value, value: string | Value) => boolean) | undefined
+              }
+              freeSolo={freeSolo}
+              onChange={(_e, option) => field.onChange(option ?? null)}
+              {...(freeSolo
+                ? {
+                    onInputChange: (_e: React.SyntheticEvent, newValue: string, reason: string) => {
+                      if (reason === 'input') {
+                        field.onChange(newValue || null);
+                      }
+                    },
+                  }
+                : {})}
               renderInput={(params) => (
                 <TextField
                   {...params}
                   label={label + (required ? '*' : '')}
-                  placeholder={`Select ${label}`}
+                  placeholder={label}
                   inputProps={{ ...params.inputProps, readOnly: selectOnly }}
                   error={error != null}
                   size="small"

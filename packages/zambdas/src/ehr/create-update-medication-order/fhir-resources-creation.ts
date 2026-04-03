@@ -185,6 +185,25 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
       ],
     };
   if (orderData.associatedDx) resource.reasonReference = [{ reference: `Condition/${orderData.associatedDx}` }];
+
+  // Store user-selected CPT/HCPCS codes on the MedicationAdministration
+  if (orderData.cptCodes && orderData.cptCodes.length > 0) {
+    if (!resource.extension) resource.extension = [];
+    // Remove any existing CPT code extensions before adding updated ones
+    resource.extension = resource.extension.filter(
+      (ext) => ext.url !== 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
+    );
+    resource.extension.push({
+      url: 'https://fhir.ottehr.com/Extension/medication-cpt-codes',
+      valueString: JSON.stringify(orderData.cptCodes),
+    });
+  } else if (resource.extension) {
+    resource.extension = resource.extension.filter(
+      (ext) => ext.url !== 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
+    );
+    if (resource.extension.length === 0) delete resource.extension;
+  }
+
   return resource;
 }
 
