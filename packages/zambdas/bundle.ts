@@ -1,10 +1,13 @@
 import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
 import archiver from 'archiver';
+import dotenv from 'dotenv';
 import * as esbuild from 'esbuild';
 import { type Options } from 'execa';
 import fs from 'fs';
 import path from 'path';
 import zambdasSpec from '../../config/oystehr-core/zambdas.json';
+
+dotenv.config({ path: path.join(process.cwd(), '.env.sentry-build-plugin') });
 
 interface ZambdaSpec {
   name: string;
