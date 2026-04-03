@@ -22,6 +22,7 @@ import {
   getSecret,
   getTelemedVisitStatus,
   OTTEHR_MODULE,
+  OttehrTaskSystem,
   PROVIDER_NOTIFICATION_TAG_SYSTEM,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   ProviderNotificationMethod,
@@ -34,6 +35,7 @@ import {
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
   USER_TIMEZONE_EXTENSION_URL,
+  VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
 } from 'utils';
 import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
 import {
@@ -153,7 +155,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           if (!status) return;
 
           // getting communications that were postponed after practitioner will become not busy
-          if (practitioner?.id && communications && !busyPractitionerIds.has(practitioner.id)) {
+          if (communications) {
             const postponedCommunications = communications.filter(
               (comm) =>
                 comm.status === 'preparation' &&
@@ -359,12 +361,20 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
 
           if (notificationSettings?.taskNotificationsEnabled) {
-            const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
+            let title = 'A new task has been assigned to you: ' + (task.description ?? `task ID ${task.id}`);
+            let status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
 
-            let title = task.description ?? `task ID ${task.id}`;
-            // workaround to have waiting room notifications sent without "new task" prefix
-            if (!title.endsWith('is ready to begin their virtual visit.')) {
-              title = 'A new task has been assigned to you: ' + title;
+            switch (task.code?.coding?.find((coding) => coding.system === OttehrTaskSystem)?.code) {
+              case VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE: {
+                title = task.description ?? `task ID ${task.id}`;
+                // waiting room practitioners will always become "busy" (status "preparation"),
+                // so we force "in-progress" to ensure they receive the notification
+                status = 'in-progress';
+                break;
+              }
+              default: {
+                break;
+              }
             }
 
             const request: BatchInputPostRequest<Communication> = {
