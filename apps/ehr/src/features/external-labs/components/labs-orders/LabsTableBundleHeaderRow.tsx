@@ -44,6 +44,8 @@ export const LabsTableBundleHeaderRow = ({
   const [noteState, setNoteState] = useState<'add' | 'view' | 'edit'>(existingNote ? 'view' : 'add');
   const [noteError, setNoteError] = useState<string | undefined>(undefined);
 
+  const disableSubmit = pendingLabsLen > 0 || submitLoading;
+
   const handleAddOrEditOrderNote = async (): Promise<void> => {
     if (!oystehr) throw Error('no oystehr configured');
     if (!requisitionNumber) throw Error('no requisitionNumber');
@@ -115,7 +117,7 @@ export const LabsTableBundleHeaderRow = ({
                   color="primary"
                   size={'medium'}
                   onClick={() => submitOrders(false)}
-                  disabled={pendingLabsLen > 0}
+                  disabled={disableSubmit}
                 >
                   Submit & Print Order(s)
                 </LoadingButton>
