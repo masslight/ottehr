@@ -332,8 +332,9 @@ const makeCreateRequests = (
   }
 
   if (templateEncounterExtensions.length > 0) {
-    const newExtensions = (encounter.extension ?? []).filter((extension) =>
-      templateEncounterExtensions.find((templateExtension) => templateExtension.url === extension.url)
+    const newExtensions = (encounter.extension ?? []).filter(
+      (extension) =>
+        templateEncounterExtensions.find((templateExtension) => templateExtension.url === extension.url) == null
     );
     newExtensions.push(...templateEncounterExtensions);
     encounterPatchOperations.push({
