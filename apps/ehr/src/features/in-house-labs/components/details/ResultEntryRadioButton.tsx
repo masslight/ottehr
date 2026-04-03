@@ -3,10 +3,10 @@ import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import { Box, Checkbox, FormControlLabel, Grid, Radio, RadioGroup, SxProps, Theme, Typography } from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { CodeableConceptComponent } from 'utils';
+import { CodeableConceptDataEntryComponent } from 'utils';
 
 interface ResultEntryRadioButtonProps {
-  testItemComponent: CodeableConceptComponent;
+  testItemComponent: CodeableConceptDataEntryComponent;
   disabled?: boolean; // equates to the final view
 }
 

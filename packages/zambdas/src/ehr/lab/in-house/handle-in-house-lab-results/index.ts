@@ -68,8 +68,8 @@ import {
 import { createInHouseLabResultPDF } from '../../../../shared/pdf/labs-results-form-pdf';
 import { createOwnerReference } from '../../../../shared/tasks';
 import {
+  getInHouseLabTestUrlAndVersionForADFromServiceRequest,
   getRelatedServiceRequests,
-  getUrlAndVersionForADFromServiceRequest,
   provenanceIsInHouseLabResultEntry,
 } from '../../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -365,7 +365,7 @@ const getInHouseLabResultResources = async (
   const schedule = schedules[0];
   const location = locations.length ? locations[0] : undefined;
 
-  const { url: adUrl, version } = getUrlAndVersionForADFromServiceRequest(serviceRequest);
+  const { url: adUrl, version } = getInHouseLabTestUrlAndVersionForADFromServiceRequest(serviceRequest);
 
   const [currentUserPractitioner, attendingPractitioner, activityDefinitionSearch] = await Promise.all([
     oystehr.fhir.get<Practitioner>({

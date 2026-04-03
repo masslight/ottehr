@@ -1,6 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { configNumericResultEntryTestId } from 'src/features/in-house-labs/utils/test-ids';
-import { TestItemComponent } from 'utils';
+import { DataEntryComponent } from 'utils';
 import { dataTestIds } from '../../../../../src/constants/data-test-ids';
 import { RadioSelectionResult, SelectableOption } from './types';
 
@@ -82,7 +82,7 @@ export class PerformTestPage {
     return testDetails;
   }
 
-  async enterNumericResult(component: TestItemComponent, result: string): Promise<void> {
+  async enterNumericResult(component: DataEntryComponent, result: string): Promise<void> {
     const testId = configNumericResultEntryTestId(component.componentName);
     const input = this.#page.getByTestId(testId).locator('input');
     await input.fill(result);

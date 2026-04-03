@@ -281,7 +281,7 @@ export async function getChartData(
           .search<FhirResource>({
             resourceType: 'Appointment',
             params: [
-              { name: 'patient._id', value: `Patient/${patient.id}` },
+              { name: 'patient._id', value: patient.id! },
               { name: '_summary', value: 'count' },
             ],
           })
@@ -303,7 +303,8 @@ export async function getChartData(
     patient.id!,
     encounterId,
     requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataRequestedFields)[]) : undefined,
-    patient
+    patient,
+    oystehr
   );
   console.timeLog('check', 'after converting to response');
   if (chartDataResult.chartData.aiChat) {
