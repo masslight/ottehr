@@ -5,7 +5,6 @@ import { FhirResource, HealthcareService, Location, Practitioner, Schedule } fro
 import fs from 'fs';
 import {
   allLicensesForPractitioner,
-  BOOKING_CONFIG,
   FULL_DAY_SCHEDULE,
   makeQualificationForPractitioner,
   SCHEDULE_EXTENSION_URL,
@@ -43,23 +42,7 @@ const environment = getEnvironment();
 const mode = getMode();
 console.log(`Using environment: ${environment}`);
 
-// Whether this project supports virtual (telemed) visits, based on booking config.
-// Used throughout this file to skip virtual-location requirements for in-person-only projects.
-const isVirtualEnabled = (BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes as string[]).includes('virtual');
-
-/**
- * Throws if any key in `config` has an empty string value, except for keys listed in `optionalKeys`.
- * Use `optionalKeys` for fields that are legitimately absent in certain project configurations
- * (e.g. STATE_ONE is not required when virtual mode is disabled).
- */
-function assertRequiredConfig(config: Record<string, unknown>, label: string, optionalKeys: string[] = []): void {
-  const emptyKeys = Object.entries(config)
-    .filter(([key, value]) => !optionalKeys.includes(key) && value === '')
-    .map(([key]) => key);
-  if (emptyKeys.length > 0) {
-    throw new Error(`${label} config contains empty values for keys: ${emptyKeys.join(', ')}`);
-  }
-}
+const isVirtualEnabled = virtualDefaultLocations.length > 0;
 
 interface EhrConfig {
   TEXT_USERNAME?: string;
@@ -152,47 +135,52 @@ async function getLocationsForTesting(ehrZambdaEnv: Record<string, string>): Pro
     oystehr
   );
 
-  const defaultGroupRelatedResourcesResponse = await oystehr.fhir.search<
-    HealthcareService | Location | Practitioner | Schedule
-  >({
-    resourceType: 'HealthcareService',
-    params: [
-      {
-        name: 'name',
-        value: defaultGroup,
-      },
-      {
-        name: '_include',
-        value: 'HealthcareService:location',
-      },
-      {
-        name: '_revinclude',
-        value: 'PractitionerRole:service',
-      },
-      {
-        name: '_include:iterate',
-        value: 'PractitionerRole:practitioner',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Schedule:actor:Location',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Schedule:actor:Practitioner',
-      },
-    ],
-  });
+  let defaultGroupLocationsAndPractitioners: Array<Location | Practitioner> = [];
+  let defaultGroupSchedules: Schedule[] = [];
 
-  const defaultGroupRelatedResources = defaultGroupRelatedResourcesResponse.unbundle();
+  if (defaultGroup) {
+    const defaultGroupRelatedResourcesResponse = await oystehr.fhir.search<
+      HealthcareService | Location | Practitioner | Schedule
+    >({
+      resourceType: 'HealthcareService',
+      params: [
+        {
+          name: 'name',
+          value: defaultGroup,
+        },
+        {
+          name: '_include',
+          value: 'HealthcareService:location',
+        },
+        {
+          name: '_revinclude',
+          value: 'PractitionerRole:service',
+        },
+        {
+          name: '_include:iterate',
+          value: 'PractitionerRole:practitioner',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Schedule:actor:Location',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Schedule:actor:Practitioner',
+        },
+      ],
+    });
 
-  const defaultGroupLocationsAndPractitioners = defaultGroupRelatedResources.filter(
-    (res): res is Location | Practitioner => res.resourceType === 'Location' || res.resourceType === 'Practitioner'
-  );
+    const defaultGroupRelatedResources = defaultGroupRelatedResourcesResponse.unbundle();
 
-  const defaultGroupSchedules = defaultGroupRelatedResources.filter(
-    (res): res is Schedule => res.resourceType === 'Schedule'
-  );
+    defaultGroupLocationsAndPractitioners = defaultGroupRelatedResources.filter(
+      (res): res is Location | Practitioner => res.resourceType === 'Location' || res.resourceType === 'Practitioner'
+    );
+
+    defaultGroupSchedules = defaultGroupRelatedResources.filter(
+      (res): res is Schedule => res.resourceType === 'Schedule'
+    );
+  }
   const locations = locationsAndSchedules.filter((res): res is Location => res.resourceType === 'Location');
   const schedules = locationsAndSchedules.filter((res): res is Schedule => res.resourceType === 'Schedule');
 
@@ -202,11 +190,8 @@ async function getLocationsForTesting(ehrZambdaEnv: Record<string, string>): Pro
     throw Error('No locations found in FHIR API');
   }
 
-  if (virtualLocations.length === 0) {
-    if (isVirtualEnabled) {
-      throw Error('No virtual locations found in FHIR API');
-    }
-    console.warn('No virtual locations found in FHIR API — skipping (virtual mode not configured for this project)');
+  if (virtualLocations.length === 0 && isVirtualEnabled) {
+    throw Error('No virtual locations found in FHIR API');
   }
 
   const locationResource = locations.find((location) => location.name === firstDefaultLocation.name);
@@ -216,7 +201,7 @@ async function getLocationsForTesting(ehrZambdaEnv: Record<string, string>): Pro
   const locationSlug = locationResource?.identifier?.[0]?.value;
 
   const virtualLocation = isVirtualEnabled
-    ? virtualLocations.find((location) => location.address?.state === firstDefaultVirtualLocation.state)
+    ? virtualLocations.find((location) => location.address?.state === firstDefaultVirtualLocation?.state)
     : undefined;
   const virtualLocationState = virtualLocation ? (virtualLocation.address?.state || '').toLowerCase() : undefined;
 
@@ -243,8 +228,10 @@ async function getLocationsForTesting(ehrZambdaEnv: Record<string, string>): Pro
   console.log(`Found location by name '${locationResource.name}' with ID: ${locationId}`);
   console.log(`Location name: ${locationName}, slug: ${locationSlug}`);
 
-  if (virtualLocation) {
-    console.log(`Found virtual location by state: ${firstDefaultVirtualLocation.state} with ID: ${virtualLocation.id}`);
+  if (isVirtualEnabled && virtualLocation) {
+    console.log(
+      `Found virtual location by state: ${firstDefaultVirtualLocation?.state} with ID: ${virtualLocation.id}`
+    );
     console.log(`Location name: ${virtualLocation.name}, state: ${virtualLocation.address?.state}`);
   }
 
@@ -441,7 +428,7 @@ export async function createTestEnvFiles(): Promise<void> {
       GET_ANSWER_OPTIONS_ZAMBDA_ID: 'get-answer-options',
       PROJECT_ID: ehrUiEnv.VITE_APP_PROJECT_ID,
       SLUG_ONE: locationSlug,
-      ...(isVirtualEnabled && { STATE_ONE: virtualLocationState }),
+      ...(isVirtualEnabled && virtualLocationState && { STATE_ONE: virtualLocationState }),
       EHR_APPLICATION_ID: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_ID,
       ...(environment === 'local' && { APP_IS_LOCAL: 'true' }),
     };
@@ -451,7 +438,7 @@ export async function createTestEnvFiles(): Promise<void> {
       TEXT_USERNAME: textUsername,
       TEXT_PASSWORD: textPassword,
       SLUG_ONE: locationSlug,
-      ...(isVirtualEnabled && { STATE_ONE: virtualLocationState }),
+      ...(isVirtualEnabled && virtualLocationState && { STATE_ONE: virtualLocationState }),
       AUTH0_CLIENT: zambdaEnv.AUTH0_CLIENT,
       AUTH0_SECRET: zambdaEnv.AUTH0_SECRET,
       AUTH0_CLIENT_TESTS: existingIntakeConfig.AUTH0_CLIENT_TESTS,
@@ -465,8 +452,13 @@ export async function createTestEnvFiles(): Promise<void> {
       PROJECT_API: intakeUiEnv.VITE_APP_PROJECT_API_URL,
     };
 
-    assertRequiredConfig(intakeConfig, 'Intake');
-    assertRequiredConfig(ehrConfig, 'EHR');
+    if (Object.values(intakeConfig).some((value) => value === '')) {
+      throw new Error('Intake config contains empty values');
+    }
+
+    if (Object.values(ehrConfig).some((value) => value === '')) {
+      throw new Error('EHR config contains empty values');
+    }
 
     fs.writeFileSync(`apps/ehr/env/tests.${environment}.json`, JSON.stringify(ehrConfig, null, 2));
     fs.writeFileSync(`apps/intake/env/tests.${environment}.json`, JSON.stringify(intakeConfig, null, 2));
