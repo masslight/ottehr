@@ -252,7 +252,7 @@ const FormFields: Record<string, FormFieldSection> = {
         type: 'string',
       },
     },
-    hiddenFields: ['return-patient-check'],
+    hiddenFields: [],
     requiredFields: ['patient-birth-sex', 'patient-email'],
   },
 };

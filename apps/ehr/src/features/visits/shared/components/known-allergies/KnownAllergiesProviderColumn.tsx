@@ -38,7 +38,7 @@ import { QuickPicksButton } from '../QuickPicksButton';
 export const KnownAllergiesProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const featureFlags = useAppFlags();
+  const appFlags = useAppFlags();
   const allergies = sortByRecencyAndStatus(chartData?.allergies ?? []);
   const length = allergies.length;
 
@@ -60,7 +60,7 @@ export const KnownAllergiesProviderColumn: FC = () => {
         </Box>
       )}
 
-      {allergies.length === 0 && isReadOnly && !isChartDataLoading && !featureFlags.isInPerson && (
+      {allergies.length === 0 && isReadOnly && !isChartDataLoading && !appFlags.isInPerson && (
         <Typography color="secondary.light">Missing. Patient input must be reconciled by provider</Typography>
       )}
 
@@ -89,7 +89,7 @@ const setUpdatedAllergy = (
 const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> = ({ value, index, length }) => {
   const [note, setNote] = useState(value.note || '');
   const areNotesEqual = note.trim() === (value.note || '');
-  const featureFlags = useAppFlags();
+  const appFlags = useAppFlags();
   const { chartDataSetState } = useChartData({ refetchOnMount: false });
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
@@ -187,18 +187,18 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
           sx={{
-            color: (theme) => (!value.current && featureFlags.isInPerson ? theme.palette.text.secondary : undefined),
+            color: (theme) => (!value.current && appFlags.isInPerson ? theme.palette.text.secondary : undefined),
           }}
         >
           {value.name}
-          {featureFlags.isInPerson &&
+          {appFlags.isInPerson &&
             isReadOnly &&
             ` | ${value.current ? 'Current' : 'Inactive now'}${value.note ? ' | Note: ' + value.note : ''}`}
         </Typography>
 
         {!isReadOnly && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {featureFlags.isInPerson && (
+            {appFlags.isInPerson && (
               <FormControlLabel
                 control={<Switch checked={value.current} onChange={(e) => updateCurrent(e.target.checked)} />}
                 label={value.current ? 'Current' : 'Inactive now'}
@@ -222,7 +222,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
         )}
       </Box>
 
-      {!value.current && !isReadOnly && featureFlags.isInPerson && (
+      {!value.current && !isReadOnly && appFlags.isInPerson && (
         <TextField
           value={note}
           onChange={(e) => {

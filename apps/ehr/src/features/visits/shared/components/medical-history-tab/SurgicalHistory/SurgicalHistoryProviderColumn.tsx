@@ -11,7 +11,7 @@ import { ProceduresNoteField, ProceduresNoteFieldSkeleton } from './ProceduresNo
 export const SurgicalHistoryProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
   const procedures = chartData?.surgicalHistory || [];
-  const featureFlags = useAppFlags();
+  const appFlags = useAppFlags();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   return (
@@ -28,7 +28,7 @@ export const SurgicalHistoryProviderColumn: FC = () => {
             )}
             divider
           />
-          {!featureFlags.isInPerson && <ProceduresNoteField />}
+          {!appFlags.isInPerson && <ProceduresNoteField />}
         </>
       ) : (
         <Box
@@ -40,7 +40,7 @@ export const SurgicalHistoryProviderColumn: FC = () => {
           }}
         >
           <ProceduresForm />
-          {isChartDataLoading ? <ProceduresNoteFieldSkeleton /> : !featureFlags.isInPerson && <ProceduresNoteField />}
+          {isChartDataLoading ? <ProceduresNoteFieldSkeleton /> : !appFlags.isInPerson && <ProceduresNoteField />}
         </Box>
       )}
     </Box>

@@ -4,15 +4,13 @@ import { List } from 'fhir/r4b';
 import {
   examConfig,
   ExamType,
-  getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
   GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
-  SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -20,23 +18,18 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 export const index = wrapHandler('list-templates', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedInput = validateRequestParameters(input);
+  const validatedInput = validateRequestParameters(input);
 
-    const { secrets } = validatedInput;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  const { secrets } = validatedInput;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const templates = await performEffect(validatedInput, oystehr);
+  const templates = await performEffect(validatedInput, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(templates),
-    };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('apply-template', error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(templates),
+  };
 });
 
 const performEffect = async (
