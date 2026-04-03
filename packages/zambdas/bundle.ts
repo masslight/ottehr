@@ -221,6 +221,12 @@ const main = async (): Promise<void> => {
     !['local', 'e2e', 'e2e2', 'e2e3'].includes(process.env.ENV || '') &&
     Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
 
+  console.log('env, ', process.env.ENV);
+  console.log('sentry token ', process.env.SENTRY_AUTH_TOKEN);
+  console.log('sentry org ', process.env.SENTRY_ORG);
+  console.log('sentry project ', process.env.SENTRY_PROJECT);
+  console.log('Sentry enabled:', isSentryEnabled);
+
   const icd10Zambdas = zambdas.filter((zambda) => zambdasWithIcd10Search.includes(zambda.name));
   const regularZambdas = zambdas.filter((zambda) => !zambdasWithIcd10Search.includes(zambda.name));
 
