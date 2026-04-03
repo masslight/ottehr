@@ -55,7 +55,7 @@ export const createDispositionSection = <TData extends { disposition?: Dispositi
   DispositionData
 > => {
   return createConfiguredSection(null, () => ({
-    title: 'Disposition',
+    title: (data) => (data.label ? `Disposition - ${data.label}` : 'Disposition'),
     dataSelector: (data) => data.disposition,
     shouldRender: hasDisposition,
     render: (client, data, styles) => {
