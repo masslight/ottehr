@@ -19,11 +19,12 @@ import {
 import React, { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BILLING_URL, PAYMENT_LOCATIONS_URL } from 'src/App';
+import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import { PaymentLocation } from 'src/rcm/state/payments/payments.api';
 import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
 import FeeSchedule from './ChargeItemList';
 
-type BillingSubTab = 'fee-schedules' | 'charge-masters' | 'payment-locations';
+type BillingSubTab = 'fee-schedules' | 'charge-masters' | 'payment-locations' | 'invoicing';
 
 function PaymentLocationsList(): ReactElement {
   const navigate = useNavigate();
@@ -151,6 +152,7 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
             <Tab label="Fee Schedules" value="fee-schedules" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Charge Masters" value="charge-masters" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Payment Locations" value="payment-locations" sx={{ textTransform: 'none', fontWeight: 500 }} />
+            <Tab label="Invoicing" value="invoicing" sx={{ textTransform: 'none', fontWeight: 500 }} />
           </TabList>
         </Box>
         <TabPanel value="fee-schedules" sx={{ padding: 0 }}>
@@ -161,6 +163,9 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
         </TabPanel>
         <TabPanel value="payment-locations" sx={{ padding: 0 }}>
           <PaymentLocationsList />
+        </TabPanel>
+        <TabPanel value="invoicing" sx={{ padding: 0 }}>
+          <Invoicing />
         </TabPanel>
       </TabContext>
     </Box>
