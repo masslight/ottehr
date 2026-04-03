@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { GetOrUploadPatientProfilePhotoInputValidated, getSecret, Secrets, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createPresignedUrl } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -27,43 +27,38 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   }
 
-  try {
-    const { secrets, action } = validatedParameters;
+  const { secrets, action } = validatedParameters;
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    logIt(`Got m2mToken`);
-    const token = m2mToken;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  logIt(`Got m2mToken`);
+  const token = m2mToken;
 
-    let z3PhotoUrl: string | undefined;
+  let z3PhotoUrl: string | undefined;
 
-    if (action === 'upload') {
-      const { patientId } = validatedParameters;
-      const bucketName = `${PATIENT_PHOTO_ID_PREFIX}s`;
-      z3PhotoUrl = makeZ3Url({ secrets, bucketName, patientId });
-      logIt(`Created image's z3Url=[${z3PhotoUrl}]`);
-    } else {
-      z3PhotoUrl = validatedParameters.z3PhotoUrl;
-    }
-
-    logIt(`Pre-signing this URL ...`);
-    const presignedDownloadUrl = await createPresignedUrl(token, z3PhotoUrl, action);
-    logIt(`Signed download URL value=[${presignedDownloadUrl}]`);
-    const resolvedPresignedUrl = presignedDownloadUrl;
-    const resolvedZ3ImageFileUrl = z3PhotoUrl;
-
-    const response = {
-      z3ImageUrl: resolvedZ3ImageFileUrl,
-      presignedImageUrl: resolvedPresignedUrl,
-    };
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('update-patient-profile-photo', error, ENVIRONMENT);
+  if (action === 'upload') {
+    const { patientId } = validatedParameters;
+    const bucketName = `${PATIENT_PHOTO_ID_PREFIX}s`;
+    z3PhotoUrl = makeZ3Url({ secrets, bucketName, patientId });
+    logIt(`Created image's z3Url=[${z3PhotoUrl}]`);
+  } else {
+    z3PhotoUrl = validatedParameters.z3PhotoUrl;
   }
+
+  logIt(`Pre-signing this URL ...`);
+  const presignedDownloadUrl = await createPresignedUrl(token, z3PhotoUrl, action);
+  logIt(`Signed download URL value=[${presignedDownloadUrl}]`);
+  const resolvedPresignedUrl = presignedDownloadUrl;
+  const resolvedZ3ImageFileUrl = z3PhotoUrl;
+
+  const response = {
+    z3ImageUrl: resolvedZ3ImageFileUrl,
+    presignedImageUrl: resolvedPresignedUrl,
+  };
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 const makeZ3Url = (input: { secrets: Secrets | null; bucketName: string; patientId: string }): string => {

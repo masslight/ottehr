@@ -2,8 +2,8 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Flag } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getSecret, isFollowupEncounter, SecretsKeys } from 'utils';
-import { createOystehrClient, getAuth0Token, getUser, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { isFollowupEncounter } from 'utils';
+import { createOystehrClient, getAuth0Token, getUser, wrapHandler, ZambdaInput } from '../../../shared';
 import { createOrUpdateFlags } from '../sharedHelpers';
 import { validateUpdatePaperworkParams } from './validateRequestParameters';
 
@@ -11,37 +11,32 @@ import { validateUpdatePaperworkParams } from './validateRequestParameters';
 export let token: string;
 const ZAMBDA_NAME = 'update-paperwork-in-progress';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const secrets = input.secrets;
-    if (!token) {
-      console.log('getting token');
-      token = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const userToken = input.headers.Authorization?.replace('Bearer ', '');
-    const user = userToken && (await getUser(userToken, input.secrets));
-    const oystehr = createOystehrClient(token, secrets);
-
-    console.group('validateRequestParameters');
-    // Step 1: Validate input
-    const { appointmentID, inProgress } = validateUpdatePaperworkParams(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-
-    console.time('updating paperwork-in-progress flag');
-    await flagPaperworkInProgress(appointmentID, inProgress, oystehr, user);
-    console.timeEnd('updating paperwork-in-progress flag');
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Successfully updated appointment paperwork' }),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('update-paperwork', error, ENVIRONMENT);
+  const secrets = input.secrets;
+  if (!token) {
+    console.log('getting token');
+    token = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
   }
+
+  const userToken = input.headers.Authorization?.replace('Bearer ', '');
+  const user = userToken && (await getUser(userToken, input.secrets));
+  const oystehr = createOystehrClient(token, secrets);
+
+  console.group('validateRequestParameters');
+  // Step 1: Validate input
+  const { appointmentID, inProgress } = validateUpdatePaperworkParams(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  console.time('updating paperwork-in-progress flag');
+  await flagPaperworkInProgress(appointmentID, inProgress, oystehr, user);
+  console.timeEnd('updating paperwork-in-progress flag');
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ message: 'Successfully updated appointment paperwork' }),
+  };
 });
 
 async function flagPaperworkInProgress(

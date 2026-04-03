@@ -10,10 +10,8 @@ import {
   BUCKET_NAMES,
   createFilesDocumentReferences,
   getExtension,
-  getSecret,
   OTTEHR_MODULE,
   Secrets,
-  SecretsKeys,
   STATEMENT_CODE,
   USER_TIMEZONE_EXTENSION_URL,
 } from 'utils';
@@ -25,7 +23,6 @@ import {
   getAuth0Token,
   getJSONStatementTemplate,
   getStatementDetails,
-  topLevelCatch,
   uploadObjectToZ3,
   validateJsonBody,
   validateString,
@@ -59,142 +56,137 @@ let oystehrToken: string;
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const { task, encounterId, userTimezone, secrets } = validateInput(input);
+  const oystehr = await createOystehr(secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+
+  const encounterReference = `Encounter/${encounterId}`;
+  const encounter = await oystehr.fhir.get<Encounter>({
+    resourceType: 'Encounter',
+    id: encounterId,
+  });
+
+  const templatePayload = getJSONStatementTemplate('statement-template');
+  const statementDetails = await getStatementDetails({
+    encounterId,
+    statementType: 'standard',
+    userTimezone,
+    secrets,
+    oystehr,
+  });
+
+  const pdfTemplateContext = {
+    ...statementDetails,
+    biller: {
+      ...statementDetails.biller,
+      logoBase64: templatePayload.logoBase64,
+    },
+  };
+  const documentDefinition = buildPdfDocumentDefinition(templatePayload.template, pdfTemplateContext);
+  const pdfBytes = await generatePdfFromDocumentDefinition(documentDefinition);
+
+  const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
+  const fileName = `Statement-${encounterId}-${timestamp}.pdf`;
+  const patientId = encounter.subject?.reference?.split('/')[1];
+  if (!patientId) {
+    throw new Error(`Patient id not found in "${encounterReference}"`);
+  }
+
+  const baseFileUrl = makeZ3Url({
+    secrets,
+    fileName,
+    bucketName: BUCKET_NAMES.STATEMENTS,
+    patientID: patientId,
+  });
+
+  let presignedUrl: string;
   try {
-    const { task, encounterId, userTimezone, secrets } = validateInput(input);
-    const oystehr = await createOystehr(secrets);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    presignedUrl = await createPresignedUrl(m2mToken, baseFileUrl, 'upload');
+    await uploadObjectToZ3(pdfBytes, presignedUrl);
+  } catch (error: unknown) {
+    throw new Error('failed uploading pdf to z3', { cause: error });
+  }
 
-    const encounterReference = `Encounter/${encounterId}`;
-    const encounter = await oystehr.fhir.get<Encounter>({
-      resourceType: 'Encounter',
-      id: encounterId,
-    });
-
-    const templatePayload = getJSONStatementTemplate('statement-template');
-    const statementDetails = await getStatementDetails({
-      encounterId,
-      statementType: 'standard',
-      userTimezone,
-      secrets,
-      oystehr,
-    });
-
-    const pdfTemplateContext = {
-      ...statementDetails,
-      biller: {
-        ...statementDetails.biller,
-        logoBase64: templatePayload.logoBase64,
-      },
-    };
-    const documentDefinition = buildPdfDocumentDefinition(templatePayload.template, pdfTemplateContext);
-    const pdfBytes = await generatePdfFromDocumentDefinition(documentDefinition);
-
-    const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
-    const fileName = `Statement-${encounterId}-${timestamp}.pdf`;
-    const patientId = encounter.subject?.reference?.split('/')[1];
-    if (!patientId) {
-      throw new Error(`Patient id not found in "${encounterReference}"`);
-    }
-
-    const baseFileUrl = makeZ3Url({
-      secrets,
-      fileName,
-      bucketName: BUCKET_NAMES.STATEMENTS,
-      patientID: patientId,
-    });
-
-    let presignedUrl: string;
-    try {
-      presignedUrl = await createPresignedUrl(m2mToken, baseFileUrl, 'upload');
-      await uploadObjectToZ3(pdfBytes, presignedUrl);
-    } catch (error: unknown) {
-      throw new Error('failed uploading pdf to z3', { cause: error });
-    }
-
-    const patientReference = `Patient/${patientId}`;
-    const listResources = (
-      await oystehr.fhir.search<List>({
-        resourceType: 'List',
-        params: [
-          {
-            name: 'patient',
-            value: patientReference,
-          },
-        ],
-      })
-    ).unbundle();
-
-    await supersedeCurrentStatementDocumentReferences(oystehr, encounterReference, patientReference);
-
-    const { docRefs } = await createFilesDocumentReferences({
-      files: [
+  const patientReference = `Patient/${patientId}`;
+  const listResources = (
+    await oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [
         {
-          url: baseFileUrl,
-          title: `${STATEMENT}-${statementDetails.visit.date}-${statementDetails.visit.time}`,
-        },
-      ],
-      type: {
-        coding: [
-          {
-            system: 'http://loinc.org',
-            code: STATEMENT_CODE,
-            display: STATEMENT,
-          },
-        ],
-        text: STATEMENT,
-      },
-      dateCreated: DateTime.now().toUTC().toISO(),
-      searchParams: [
-        {
-          name: 'encounter',
-          value: encounterReference,
-        },
-        {
-          name: 'subject',
+          name: 'patient',
           value: patientReference,
         },
+      ],
+    })
+  ).unbundle();
+
+  await supersedeCurrentStatementDocumentReferences(oystehr, encounterReference, patientReference);
+
+  const { docRefs } = await createFilesDocumentReferences({
+    files: [
+      {
+        url: baseFileUrl,
+        title: `${STATEMENT}-${statementDetails.visit.date}-${statementDetails.visit.time}`,
+      },
+    ],
+    type: {
+      coding: [
         {
-          name: 'type',
-          value: STATEMENT_CODE,
+          system: 'http://loinc.org',
+          code: STATEMENT_CODE,
+          display: STATEMENT,
         },
       ],
-      references: {
-        subject: {
-          reference: patientReference,
-        },
-        context: {
-          encounter: [
-            {
-              reference: encounterReference,
-            },
-          ],
-        },
+      text: STATEMENT,
+    },
+    dateCreated: DateTime.now().toUTC().toISO(),
+    searchParams: [
+      {
+        name: 'encounter',
+        value: encounterReference,
       },
-      oystehr,
-      generateUUID: randomUUID,
-      listResources,
-      meta: {
-        tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
+      {
+        name: 'subject',
+        value: patientReference,
       },
-    });
+      {
+        name: 'type',
+        value: STATEMENT_CODE,
+      },
+    ],
+    references: {
+      subject: {
+        reference: patientReference,
+      },
+      context: {
+        encounter: [
+          {
+            reference: encounterReference,
+          },
+        ],
+      },
+    },
+    oystehr,
+    generateUUID: randomUUID,
+    listResources,
+    meta: {
+      tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
+    },
+  });
 
-    // Skip the patch when the task is already completed. Patching completed → completed
-    // is a no-op in value but still fires an update event, which would re-trigger
-    // SUB_GENERATE_STATEMENT_SUBSCRIPTION_ON_INVOICE and cause an infinite loop.
-    if (task.status !== 'completed') {
-      await patchTaskStatus(oystehr, task.id!, 'completed');
-    }
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        documentReference: `DocumentReference/${docRefs[0].id}`,
-      }),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+  // Skip the patch when the task is already completed. Patching completed → completed
+  // is a no-op in value but still fires an update event, which would re-trigger
+  // SUB_GENERATE_STATEMENT_SUBSCRIPTION_ON_INVOICE and cause an infinite loop.
+  if (task.status !== 'completed') {
+    await patchTaskStatus(oystehr, task.id!, 'completed');
   }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      documentReference: `DocumentReference/${docRefs[0].id}`,
+    }),
+  };
 });
 
 function validateInput(input: ZambdaInput): GenerateStatementInputValidated {
