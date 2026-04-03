@@ -361,17 +361,21 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
 
           if (notificationSettings?.taskNotificationsEnabled) {
-            let title = task.description ?? `task ID ${task.id}`;
-            const isWaitingRoomNotification = task.code?.coding?.some(
-              (coding) =>
-                coding.system === OttehrTaskSystem && coding.code === VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE
-            );
-            if (!isWaitingRoomNotification) {
-              title = 'A new task has been assigned to you: ' + title;
+            let title = 'A new task has been assigned to you: ' + (task.description ?? `task ID ${task.id}`);
+            let status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
+
+            switch (task.code?.coding?.find((coding) => coding.system === OttehrTaskSystem)?.code) {
+              case VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE: {
+                title = task.description ?? `task ID ${task.id}`;
+                // waiting room practitioners will always become "busy" (status "preparation"),
+                // so we force "in-progress" to ensure they receive the notification
+                status = 'in-progress';
+                break;
+              }
+              default: {
+                break;
+              }
             }
-            const status = isWaitingRoomNotification
-              ? 'in-progress'
-              : getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
 
             const request: BatchInputPostRequest<Communication> = {
               method: 'POST',
@@ -389,8 +393,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                   },
                 ],
                 sent: DateTime.utc().toISO()!,
-                // if the practitioner is assigned to a waiting room visit, they will always become "busy", the status
-                // will always be "preparation", and thus they will never receive the notification
                 status: status,
                 basedOn: [{ reference: `Task/${task.id}` }],
                 recipient: [{ reference: `Practitioner/${practitioner.id}` }],
