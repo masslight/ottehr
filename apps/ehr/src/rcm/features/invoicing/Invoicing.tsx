@@ -576,13 +576,14 @@ export default function Invoicing(): ReactElement {
               control={control}
               render={({ field }) => (
                 <FormControlLabel
-                  control={<Switch checked={field.value} onChange={field.onChange} />}
+                  control={<Switch checked={field.value} onChange={field.onChange} disabled />}
                   label="Auto-Charge on Due Date"
                 />
               )}
             />
             <FormHelperText>
-              When enabled, the patient&apos;s card on file is automatically charged on the invoice due date
+              When enabled, the patient&apos;s card on file is automatically charged on the invoice due date (coming
+              soon)
             </FormHelperText>
           </Box>
         </Stack>
