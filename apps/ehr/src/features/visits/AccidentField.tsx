@@ -5,13 +5,9 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { SelectInput } from 'src/components/input/SelectInput';
-import { AllStates, getAppointmentServiceCategoryAbbreviation } from 'utils';
+import { AllStates } from 'utils';
 import { useChartFields } from './shared/hooks/useChartFields';
-import {
-  useAppointmentData,
-  useDeleteChartData,
-  useSaveChartData,
-} from './shared/stores/appointment/appointment.store';
+import { useDeleteChartData, useSaveChartData } from './shared/stores/appointment/appointment.store';
 
 interface Props {
   readOnly: boolean;
@@ -26,9 +22,6 @@ interface FormData {
 }
 
 export const AccidentField: FC<Props> = ({ readOnly }) => {
-  const { appointment } = useAppointmentData();
-  const isWorkersComp = getAppointmentServiceCategoryAbbreviation(appointment) === 'WC';
-
   const {
     data: chartDataFields,
     refetch,
@@ -54,12 +47,16 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
   useEffect(() => {
     methods.reset({
       autoAccident: chartDataFields?.accident?.type?.includes('AA') ?? false,
-      employmentAccident: chartDataFields?.accident?.type?.includes('EM') ?? (isWorkersComp ? true : false),
+      employmentAccident: chartDataFields?.accident?.type?.includes('EM') ?? false,
       otherAccident: chartDataFields?.accident?.type?.includes('OA') ?? false,
       date: chartDataFields?.accident?.date,
       state: chartDataFields?.accident?.state,
     });
-  }, [chartDataFields, methods, isWorkersComp]);
+    const hasType = (chartDataFields?.accident?.type?.length ?? 0) > 0;
+    if (hasType && !chartDataFields?.accident?.date) {
+      methods.setError('date', { message: 'Date is required' });
+    }
+  }, [chartDataFields, methods]);
 
   useEffect(() => {
     const callback = methods.subscribe({
@@ -83,6 +80,11 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
           });
           return;
         }
+
+        if (types.length === 0) {
+          return;
+        }
+
         if (!values.date) {
           methods.setError('date', {
             message: 'Date is required',
