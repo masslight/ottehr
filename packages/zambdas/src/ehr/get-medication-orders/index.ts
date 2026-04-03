@@ -20,6 +20,7 @@ import {
   getMedicationName,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
+  getNdcCodeFromMedication,
   getPractitionerIdThatOrderedMedication,
   getProviderIdAndDateMedicationWasAdministered,
   getReasonAndOtherReasonForNotAdministeredOrder,
@@ -111,6 +112,7 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
 
     // scanning part
     lotNumber: medication?.batch?.lotNumber,
+    ndc: medication ? getNdcCodeFromMedication(medication) : undefined,
     expDate: medication?.batch?.expirationDate,
 
     // administrating
@@ -119,6 +121,21 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     administeredProvider: providerAdministeredOrderName,
 
     interactions: getMedicationInteractions(medicationRequest),
+
+    // CPT/HCPCS codes stored on the MedicationAdministration
+    cptCodes: (() => {
+      const ext = medicationAdministration.extension?.find(
+        (e) => e.url === 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
+      );
+      if (ext?.valueString) {
+        try {
+          return JSON.parse(ext.valueString) as { code: string; display: string }[];
+        } catch {
+          return undefined;
+        }
+      }
+      return undefined;
+    })(),
 
     /**
      * @deprecated Use effectiveDateTime instead. This field is kept for backward compatibility.

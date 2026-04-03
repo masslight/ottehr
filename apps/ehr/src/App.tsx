@@ -25,6 +25,10 @@ import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAp
 import EditChargeItem from './features/visits/telemed/components/admin/EditChargeItem';
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
+import ImmunizationQuickPickDetailPage from './features/visits/telemed/components/admin/ImmunizationQuickPickDetailPage';
+import InHouseMedicationQuickPickDetailPage from './features/visits/telemed/components/admin/InHouseMedicationQuickPickDetailPage';
+import ProcedureQuickPickDetailPage from './features/visits/telemed/components/admin/ProcedureQuickPickDetailPage';
+import RadiologyQuickPickDetailPage from './features/visits/telemed/components/admin/RadiologyQuickPickDetailPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
@@ -50,6 +54,7 @@ import {
   CompleteEncounters,
   DailyPayments,
   DataExports,
+  ImmunizationReport,
   IncompleteEncounters,
   InvoiceablePatients,
   PracticeKpis,
@@ -207,6 +212,7 @@ function App(): ReactElement {
                   <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                   <Route path="/reports/recent-patients" element={<RecentPatients />} />
                   <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
+                  <Route path="/reports/immunization-report" element={<ImmunizationReport />} />
                 </>
               )}
               {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) && (
@@ -228,6 +234,16 @@ function App(): ReactElement {
                   <Route path="/admin" element={<AdminPage />} />
                   <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
+                  <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
+                  <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
+                  <Route
+                    path="/admin/quick-picks/immunization/:quickPickId"
+                    element={<ImmunizationQuickPickDetailPage />}
+                  />
+                  <Route
+                    path="/admin/quick-picks/in-house-medication/:quickPickId"
+                    element={<InHouseMedicationQuickPickDetailPage />}
+                  />
                   <Route path="/admin/employees/add" element={<AddEmployeePage />} />
                   <Route path="/admin/employee/:id" element={<EditEmployeePage />} />
                   <Route path="/admin/schedule/:schedule-type/add" element={<AddSchedulePage />} />

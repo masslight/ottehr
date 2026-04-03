@@ -22,17 +22,20 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getRadiologyQuickPicks, removeRadiologyQuickPick, updateRadiologyQuickPick } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { RadiologyQuickPickData } from 'utils';
 
 const RadiologyQuickPicksPage: React.FC = () => {
+  const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
   const [quickPicks, setQuickPicks] = useState<RadiologyQuickPickData[]>([]);
   const [loading, setLoading] = useState(true);
   const [renameTarget, setRenameTarget] = useState<RadiologyQuickPickData | null>(null);
   const [renameName, setRenameName] = useState('');
   const [renaming, setRenaming] = useState(false);
+
   const fetchQuickPicks = useCallback(async () => {
     if (!oystehrZambda) return;
     setLoading(true);
@@ -95,8 +98,8 @@ const RadiologyQuickPicksPage: React.FC = () => {
         Radiology Quick Picks
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Quick picks can be created from the Radiology Order page by filling in the order fields and selecting "Add or
-        Update Quick Pick".
+        Quick picks can be created from the Radiology Order page by filling in the order fields and selecting &ldquo;Add
+        or Update Quick Pick&rdquo;.
       </Typography>
 
       {quickPicks.length === 0 ? (
@@ -115,12 +118,17 @@ const RadiologyQuickPicksPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {quickPicks.map((qp, index) => (
-                <TableRow key={qp.id ?? `default-${index}`}>
+              {quickPicks.map((qp) => (
+                <TableRow
+                  key={qp.id}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => qp.id && navigate(`/admin/quick-picks/radiology/${qp.id}`)}
+                >
                   <TableCell>{qp.name}</TableCell>
                   <TableCell>{qp.studyName ?? ''}</TableCell>
                   <TableCell>{qp.cptCode ? `${qp.cptCode} — ${qp.cptDisplay ?? ''}` : ''}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <Tooltip title="Rename">
                       <IconButton
                         size="small"

@@ -7,12 +7,10 @@ import { createInHouseMedication } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import {
   ExtractObjectType,
-  useGetCPTHCPCSSearch,
   useGetMedicationsSearch,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
-import { CPTCodeDTO } from 'utils';
 
 export default function AddMedicationPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -20,26 +18,15 @@ export default function AddMedicationPage(): ReactElement {
   const [selectedMedication, setSelectedMedication] = useState<ExtractObjectType<ErxSearchMedicationsResponse> | null>(
     null
   );
-  const [cptCodes, setCptCodes] = useState<CPTCodeDTO[]>([]);
-  const [hcpcsCodes, setHcpcsCodes] = useState<CPTCodeDTO[]>([]);
+  const [cptCodes, setCptCodes] = useState<string[]>([]);
+  const [cptInputValue, setCptInputValue] = useState('');
+  const [hcpcsCodes, setHcpcsCodes] = useState<string[]>([]);
+  const [hcpcsInputValue, setHcpcsInputValue] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [debouncedCptSearch, setDebouncedCptSearch] = useState('');
-  const [debouncedHcpcsSearch, setDebouncedHcpcsSearch] = useState('');
   const navigate = useNavigate();
 
   const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
   const medSearchOptions = data || [];
-
-  const { isFetching: isCptSearching, data: cptData } = useGetCPTHCPCSSearch({
-    search: debouncedCptSearch,
-    type: 'cpt',
-  });
-  const { isFetching: isHcpcsSearching, data: hcpcsData } = useGetCPTHCPCSSearch({
-    search: debouncedHcpcsSearch,
-    type: 'hcpcs',
-  });
-  const cptOptions = (cptData as { codes?: CPTCodeDTO[] })?.codes ?? [];
-  const hcpcsOptions = (hcpcsData as { codes?: CPTCodeDTO[] })?.codes ?? [];
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedHandleInputChange = useCallback(
@@ -48,18 +35,6 @@ export default function AddMedicationPage(): ReactElement {
         setDebouncedSearchTerm(value);
       }
     }, 800),
-    []
-  );
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedHandleCptInputChange = useCallback(
-    debounce((value: string) => setDebouncedCptSearch(value), 800),
-    []
-  );
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedHandleHcpcsInputChange = useCallback(
-    debounce((value: string) => setDebouncedHcpcsSearch(value), 800),
     []
   );
 
@@ -73,8 +48,8 @@ export default function AddMedicationPage(): ReactElement {
     const name = `${selectedMedication.name}${selectedMedication.strength ? ` (${selectedMedication.strength})` : ''}`;
     const ndc = selectedMedication.ndc ?? undefined;
     const medispanID = selectedMedication.routedDoseFormDrugId.toString();
-    const finalCptCodes = cptCodes.map(({ code, display }) => ({ code, display }));
-    const finalHcpcsCodes = hcpcsCodes.map(({ code, display }) => ({ code, display }));
+    const finalCptCodes = [...cptCodes, ...(cptInputValue.trim() ? [cptInputValue.trim()] : [])];
+    const finalHcpcsCodes = [...hcpcsCodes, ...(hcpcsInputValue.trim() ? [hcpcsInputValue.trim()] : [])];
 
     try {
       const medicationTemp = await createInHouseMedication(oystehrZambda, {
@@ -137,16 +112,12 @@ export default function AddMedicationPage(): ReactElement {
             <Grid item xs={6}>
               <Autocomplete
                 multiple
-                options={cptOptions}
+                freeSolo
+                options={[]}
                 value={cptCodes}
-                loading={isCptSearching}
-                getOptionLabel={(option) => (option.display ? `${option.code} ${option.display}` : option.code)}
-                isOptionEqualToValue={(option, value) => option.code === value.code}
+                inputValue={cptInputValue}
                 onChange={(_e, value) => setCptCodes(value)}
-                onInputChange={(_e, value) => debouncedHandleCptInputChange(value)}
-                noOptionsText={
-                  debouncedCptSearch ? 'Nothing found for this search criteria' : 'Start typing to load results'
-                }
+                onInputChange={(_e, value) => setCptInputValue(value)}
                 renderInput={(params) => <TextField {...params} label="CPT" />}
               />
             </Grid>
@@ -154,16 +125,12 @@ export default function AddMedicationPage(): ReactElement {
             <Grid item xs={6}>
               <Autocomplete
                 multiple
-                options={hcpcsOptions}
+                freeSolo
+                options={[]}
                 value={hcpcsCodes}
-                loading={isHcpcsSearching}
-                getOptionLabel={(option) => (option.display ? `${option.code} ${option.display}` : option.code)}
-                isOptionEqualToValue={(option, value) => option.code === value.code}
+                inputValue={hcpcsInputValue}
                 onChange={(_e, value) => setHcpcsCodes(value)}
-                onInputChange={(_e, value) => debouncedHandleHcpcsInputChange(value)}
-                noOptionsText={
-                  debouncedHcpcsSearch ? 'Nothing found for this search criteria' : 'Start typing to load results'
-                }
+                onInputChange={(_e, value) => setHcpcsInputValue(value)}
                 renderInput={(params) => <TextField {...params} label="HCPCS" />}
               />
             </Grid>

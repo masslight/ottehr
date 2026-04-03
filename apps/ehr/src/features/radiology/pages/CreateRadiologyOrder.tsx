@@ -131,12 +131,13 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const onQuickPickSelect = (quickPick: RadiologyQuickPickData): void => {
     if (quickPick.cptCode && quickPick.cptDisplay) {
       setOrderCpt({ code: quickPick.cptCode, display: quickPick.cptDisplay });
+    } else {
+      setOrderCpt(undefined);
     }
-    if (quickPick.studyName != null) setStudyName(quickPick.studyName);
-    if (quickPick.laterality) setLaterality(quickPick.laterality as LateralityValue);
-    if (quickPick.clinicalHistory != null) setClinicalHistory(quickPick.clinicalHistory);
-    if (quickPick.stat != null) setStat(quickPick.stat);
-    if (quickPick.consentObtained != null) setConsentObtained(quickPick.consentObtained);
+    setStudyName(quickPick.studyName ?? '');
+    setLaterality((quickPick.laterality as LateralityValue) ?? '');
+    setClinicalHistory(quickPick.clinicalHistory ?? '');
+    // stat and consentObtained not applied — encounter-specific
   };
 
   const openQuickPickDialog = async (): Promise<void> => {
@@ -165,8 +166,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     studyName,
     laterality: laterality || undefined,
     clinicalHistory,
-    stat,
-    consentObtained,
+    // stat and consentObtained excluded — encounter-specific
   });
 
   const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {

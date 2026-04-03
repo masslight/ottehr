@@ -43,7 +43,7 @@ export const TextInput: React.FC<Props> = ({
           <TextField
             value={field.value}
             label={label + (required ? '*' : '')}
-            placeholder={`Select ${label}`}
+            placeholder={label}
             type={type ?? 'text'}
             error={error != null}
             onChange={(data) => field.onChange(data)}
