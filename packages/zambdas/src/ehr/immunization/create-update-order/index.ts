@@ -6,17 +6,14 @@ import {
   createReference,
   CreateUpdateImmunizationOrderRequest,
   CreateUpdateImmunizationOrderResponse,
-  getSecret,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
-  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   fillMeta,
   getMyPractitionerId,
-  topLevelCatch,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -28,27 +25,22 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-update-immunization-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const userToken = input.headers.Authorization.replace('Bearer ', '');
-    const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
-    const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
-    let response;
-    if (validatedParameters.orderId) {
-      response = await updateImmunizationOrder(oystehr, validatedParameters);
-    } else {
-      response = await createImmunizationOrder(oystehr, validatedParameters, userPractitionerId);
-    }
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+  const validatedParameters = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const userToken = input.headers.Authorization.replace('Bearer ', '');
+  const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
+  const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+  let response;
+  if (validatedParameters.orderId) {
+    response = await updateImmunizationOrder(oystehr, validatedParameters);
+  } else {
+    response = await createImmunizationOrder(oystehr, validatedParameters, userPractitionerId);
   }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 async function createImmunizationOrder(

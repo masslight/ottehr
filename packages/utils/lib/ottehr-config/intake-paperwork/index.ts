@@ -1,19 +1,18 @@
 import {
   type PaperworkConfig,
   PaperworkConfigSchema,
+  PaperworkFormFields,
   type QuestionnaireBase,
   type QuestionnaireConfigType,
   type ResolvedConsentFormConfig,
   type ValueSetsConfig,
 } from 'config-types';
 import { Questionnaire } from 'fhir/r4b';
-import { camelCase } from 'lodash-es';
-import z from 'zod';
-import { INTAKE_PAPERWORK_CONFIG as OVERRIDES } from '../../../ottehr-config-overrides/intake-paperwork';
+import { mergeAndFreezeConfigObjects } from '../../config-helpers/helpers';
+import { buildConsentFormCheckboxItems } from '../../config-helpers/intake-paperwork';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
-import { mergeAndFreezeConfigObjects } from '../helpers';
 import {
   createQuestionnaireFromConfig,
   HAS_ATTORNEY_OPTION,
@@ -24,46 +23,23 @@ import {
 } from '../shared-questionnaire';
 import { VALUE_SETS } from '../value-sets';
 
-/**
- * Build consent form checkbox items dynamically from consent forms config.
- * This is called at config creation time so it picks up any test overrides.
- */
-function buildConsentFormCheckboxItems(consentForms: ResolvedConsentFormConfig[]): Record<string, any> {
-  return Object.fromEntries(
-    consentForms.map((form) => [
-      camelCase(form.id),
-      {
-        key: form.id,
-        label: `I have reviewed and accept [${form.formTitle}](${form.publicUrl})`,
-        type: 'boolean',
-        triggers: [
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'completed',
-          },
-          {
-            targetQuestionLinkId: '$status',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'amended',
-          },
-        ],
-        enableBehavior: 'all',
-        permissibleValue: true,
-        disabledDisplay: 'disabled',
-      },
-    ])
-  );
-}
+const hiddenFormSections: string[] = [];
+
+const questionnaireBaseDefaults = {
+  resourceType: 'Questionnaire',
+  url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson',
+  version: '1.1.7',
+  name: 'in-person_pre-visit_paperwork',
+  title: 'in-person pre-visit paperwork',
+  status: 'active',
+} as const satisfies QuestionnaireBase;
 
 /**
  * Build FormFields dynamically with the given value sets.
  * This allows test overrides to be picked up at config creation time.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function buildFormFields(valueSets: ValueSetsConfig) {
+
+function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
   return {
     contactInformation: {
       linkId: 'contact-information-page',
@@ -230,6 +206,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: 'My pronouns are not listed',
             },
           ],
+          disabledDisplay: 'hidden',
         },
         additionalText: {
           key: 'patient-details-additional-text',
@@ -270,6 +247,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: 'Other',
             },
           ],
+          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -374,6 +352,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerBoolean: true,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         manualEntry: {
           key: 'pharmacy-page-manual-entry',
@@ -395,6 +374,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               substituteText: 'Use search',
             },
           ],
+          disabledDisplay: 'hidden',
         },
         name: {
           key: 'pharmacy-name',
@@ -414,6 +394,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerBoolean: true,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         address: {
           key: 'pharmacy-address',
@@ -433,6 +414,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerBoolean: true,
             },
           ],
+          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -479,6 +461,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
             },
           ],
           enableBehavior: 'all',
+          disabledDisplay: 'hidden',
         },
         workersCompAlert: {
           key: 'workers-comp-alert-text',
@@ -500,6 +483,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
             },
           ],
           enableBehavior: 'all',
+          disabledDisplay: 'hidden',
         },
         insuranceDetailsText: {
           key: 'insurance-details-text',
@@ -513,6 +497,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         insuranceDetailsCaption: {
           key: 'insurance-details-caption',
@@ -526,6 +511,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         insuranceCarrier: {
           key: 'insurance-carrier',
@@ -551,6 +537,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         insuranceMemberId: {
           key: 'insurance-member-id',
@@ -570,6 +557,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         policyHolderFirstName: {
           key: 'policy-holder-first-name',
@@ -609,6 +597,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         policyHolderLastName: {
           key: 'policy-holder-last-name',
@@ -879,10 +868,11 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         insuranceCardBack: {
           key: 'insurance-card-back',
-          label: 'Back side of the insurance card',
+          label: 'Back side of the insurance card (optional)',
           type: 'attachment',
           attachmentText: 'Take a picture of the **back side** of your card and upload it here',
           dataType: 'Image',
@@ -901,6 +891,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: INSURANCE_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         displaySecondaryInsurance: {
           key: 'display-secondary-insurance',
@@ -928,6 +919,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               substituteText: 'Remove Secondary Insurance',
             },
           ],
+          disabledDisplay: 'hidden',
         },
         secondaryInsurance: {
           key: 'secondary-insurance',
@@ -1092,7 +1084,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
             },
             insuranceCardBack: {
               key: 'insurance-card-back-2',
-              label: 'Back side of the insurance card',
+              label: 'Back side of the insurance card (optional)',
               type: 'attachment',
               attachmentText: 'Take a picture of the **back side** of your card and upload it here',
               dataType: 'Image',
@@ -1120,6 +1112,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
             },
           ],
           enableBehavior: 'all',
+          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -1171,6 +1164,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: OCC_MED_SELF_PAY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -1331,6 +1325,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: 'Self',
             },
           ],
+          disabledDisplay: 'hidden',
         },
         streetAddress: {
           key: 'responsible-party-address',
@@ -1760,6 +1755,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         firstName: {
           key: 'attorney-mva-first-name',
@@ -1773,6 +1769,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         lastName: {
           key: 'attorney-mva-last-name',
@@ -1786,6 +1783,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         email: {
           key: 'attorney-mva-email',
@@ -1800,6 +1798,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         mobile: {
           key: 'attorney-mva-mobile',
@@ -1814,6 +1813,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
         fax: {
           key: 'attorney-mva-fax',
@@ -1828,6 +1828,7 @@ function buildFormFields(valueSets: ValueSetsConfig) {
               answerString: HAS_ATTORNEY_OPTION,
             },
           ],
+          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],
@@ -1978,28 +1979,14 @@ function buildFormFields(valueSets: ValueSetsConfig) {
   };
 }
 
-const hiddenFormSections: string[] = [];
-
-const questionnaireBaseDefaults = {
-  resourceType: 'Questionnaire',
-  url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson',
-  version: '1.1.6',
-  name: 'in-person_pre-visit_paperwork',
-  title: 'in-person pre-visit paperwork',
-  status: 'active',
-} as const satisfies QuestionnaireBase;
 // note: the order of the fields on this object are what determines the order they appear in the form
 /**
- * Get intake paperwork configuration with optional test overrides
+ * Get intake paperwork configuration
  *
- * @param overrides - Optional overrides (the overrides can be overridden to facilitate testing)
  * @param consentFormsConfig - Optional pre-resolved consent forms (for use in Node.js test context where proxy doesn't work)
- * @returns Parsed and merged configuration
+ * @returns Parsed configuration
  */
-export function getIntakePaperworkConfig(
-  overrides: any = OVERRIDES,
-  consentFormsConfig?: ResolvedConsentFormConfig[]
-): PaperworkConfig {
+export function getIntakePaperworkConfig(consentFormsConfig?: ResolvedConsentFormConfig[]): PaperworkConfig {
   // Use pre-merged value sets (baked in at deploy time)
   // Use provided consent forms if available (for Node.js test context), otherwise read from config
   const valueSets = VALUE_SETS;
@@ -2009,7 +1996,7 @@ export function getIntakePaperworkConfig(
   const FormFields = buildFormFields(valueSets);
 
   // Build defaults with the dynamic FormFields
-  const INTAKE_PAPERWORK_DEFAULTS = {
+  const INTAKE_PAPERWORK_DEFAULTS: PaperworkConfig = {
     questionnaireBase: questionnaireBaseDefaults,
     hiddenFormSections,
     FormFields,
@@ -2029,9 +2016,8 @@ export function getIntakePaperworkConfig(
     },
   };
 
-  // Merge: defaults -> consent forms -> user overrides
-  const withConsentForms = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, consentFormsOverride);
-  const mergedConfig = mergeAndFreezeConfigObjects(withConsentForms, overrides);
+  // Merge: defaults -> consent forms
+  const mergedConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, consentFormsOverride);
 
   return PaperworkConfigSchema.parse(mergedConfig);
 }
@@ -2041,27 +2027,3 @@ export const INTAKE_PAPERWORK_CONFIG = getIntakePaperworkConfig();
 
 export const IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(INTAKE_PAPERWORK_CONFIG as QuestionnaireConfigType)));
-
-export const checkFieldHidden = (fieldKey: string): boolean => {
-  const config = INTAKE_PAPERWORK_CONFIG;
-  return Object.values(config.FormFields)
-    .flatMap((section: any) => section.hiddenFields || [])
-    .includes(fieldKey);
-};
-
-const GetPageSubtitleSchema = z.function().args(z.string(), z.string()).returns(z.string());
-
-let parsedGetPageSubtitle: z.infer<typeof GetPageSubtitleSchema> | undefined;
-
-if ((OVERRIDES as any).getIntakeFormPageSubtitle != undefined) {
-  parsedGetPageSubtitle = GetPageSubtitleSchema.parse((OVERRIDES as any).getIntakeFormPageSubtitle);
-}
-
-export const getIntakeFormPageSubtitle =
-  parsedGetPageSubtitle ??
-  ((pageLinkId: string, patientName: string): string => {
-    if (pageLinkId === 'photo-id-page') {
-      return `Adult Guardian for ${patientName}`;
-    }
-    return patientName;
-  });

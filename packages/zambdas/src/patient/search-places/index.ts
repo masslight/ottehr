@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, PlacesResult, SearchPlacesInput, SearchPlacesOutput, SecretsKeys } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import {
   addressComponentsFromPlacesDetailRes,
   extractPharmacyIdFromSearchRes,
@@ -16,42 +16,39 @@ const ZAMBDA_NAME = 'search-places';
 let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedInput = validateRequestParameters(input);
-    const { searchTerm, placesId, secrets } = validatedInput;
+  const validatedInput = validateRequestParameters(input);
+  const { searchTerm, locationBias, placesId, secrets } = validatedInput;
 
-    const googleApiKey = getSecret(SecretsKeys.GOOGLE_PLACES_API_KEY, secrets);
+  console.log('locationBias: ', JSON.stringify(locationBias));
 
-    if (!oystehrToken) {
-      console.log('getting m2m token for service calls');
-      oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
+  const googleApiKey = getSecret(SecretsKeys.GOOGLE_PLACES_API_KEY, secrets);
 
-    const oystehr = createOystehrClient(oystehrToken, secrets);
-
-    const output = await performEffect({ searchTerm, placesId, googleApiKey, oystehr });
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(output),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+  if (!oystehrToken) {
+    console.log('getting m2m token for service calls');
+    oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
+  } else {
+    console.log('already have a token, no need to update');
   }
+
+  const oystehr = createOystehrClient(oystehrToken, secrets);
+
+  const output = await performEffect({ searchTerm, locationBias, placesId, googleApiKey, oystehr });
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(output),
+  };
 });
 
 const performEffect = async (
   input: SearchPlacesInput & { googleApiKey: string; oystehr: Oystehr }
 ): Promise<SearchPlacesOutput> => {
-  const { searchTerm, placesId, googleApiKey, oystehr } = input;
+  const { searchTerm, locationBias, placesId, googleApiKey, oystehr } = input;
 
   const result: SearchPlacesOutput = { pharmacyPlaces: [] };
 
   if (searchTerm) {
-    result.pharmacyPlaces = await searchPharmaciesWithPlaces(searchTerm, googleApiKey);
+    result.pharmacyPlaces = await searchPharmaciesWithPlaces(searchTerm, locationBias, googleApiKey);
   } else if (placesId) {
     result.pharmacyPlaces = await getPharmacyDetail(placesId, googleApiKey, oystehr);
   }
@@ -65,8 +62,19 @@ const performEffect = async (
  * @param googleApiKey
  * @returns an array of PlacesResults (placeId, name & address)
  */
-const searchPharmaciesWithPlaces = async (searchTerm: string, googleApiKey: string): Promise<PlacesResult[]> => {
+const searchPharmaciesWithPlaces = async (
+  searchTerm: string,
+  locationBias: { latitude: number; longitude: number } | undefined,
+  googleApiKey: string
+): Promise<PlacesResult[]> => {
   console.log('calling google places api with searchTerm', searchTerm);
+
+  const isNumeric = (str: string): boolean => /^\d+$/.test(str);
+
+  const adjustedSearchTerm: string = (() => {
+    if (isNumeric(searchTerm)) return `${searchTerm} Pharmacy`;
+    return searchTerm;
+  })();
 
   // https://developers.google.com/maps/documentation/places/web-service/place-types#table-a
   // https://developers.google.com/maps/documentation/places/web-service/place-types#table-b
@@ -75,17 +83,28 @@ const searchPharmaciesWithPlaces = async (searchTerm: string, googleApiKey: stri
   // because with the current logic we won't be able to match against the erx pharmacy search
   const includedPrimaryTypes = ['drugstore', 'pharmacy', 'hospital', 'doctor', 'health']; // there can be 5 max
 
+  const body: any = {
+    input: adjustedSearchTerm,
+    includedPrimaryTypes,
+    languageCode: 'en',
+  };
+
+  if (locationBias) {
+    body.locationBias = {
+      circle: {
+        center: locationBias,
+        radius: 500.0,
+      },
+    };
+  }
+
   const response = await fetch(`${PLACES_API_BASE_URL}:autocomplete`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': googleApiKey,
     },
-    body: JSON.stringify({
-      input: searchTerm,
-      includedPrimaryTypes,
-      languageCode: 'en',
-    }),
+    body: JSON.stringify(body),
   });
 
   const data = await response.json();

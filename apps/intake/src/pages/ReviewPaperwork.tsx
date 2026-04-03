@@ -410,7 +410,7 @@ const ReviewPaperwork = (): JSX.Element => {
                   {reviewItem.path && (
                     <Tooltip title={t('reviewAndSubmit.edit')} placement="right">
                       <Link to={reviewItem.path}>
-                        <IconButton aria-label="edit" color="primary" data-testid={reviewItem.valueTestId}>
+                        <IconButton aria-label="edit" color="secondary" data-testid={reviewItem.valueTestId}>
                           <EditOutlined />
                         </IconButton>
                       </Link>

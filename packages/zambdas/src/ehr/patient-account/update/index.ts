@@ -28,11 +28,10 @@ import {
   createOystehrClient,
   getStripeClient,
   sendErrors,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { mergeEncounterAccounts } from '../../../subscriptions/questionnaire-response/sub-intake-harvest';
+import { mergeEncounterAccounts } from '../../shared/harvest';
 import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
@@ -46,28 +45,22 @@ const ZAMBDA_NAME = 'update-patient-account';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    console.log('complexly validating request parameters');
-    const effectInput = await complexValidation(validatedParameters);
-    console.log('complex validation successful');
-    await performEffect(effectInput, oystehr);
-    const response: UpdatePatientAccountResponse = { result: 'success' };
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('update-patient-account-from-questionnaire', error, ENVIRONMENT);
-  }
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  console.log('complexly validating request parameters');
+  const effectInput = await complexValidation(validatedParameters);
+  console.log('complex validation successful');
+  await performEffect(effectInput, oystehr);
+  const response: UpdatePatientAccountResponse = { result: 'success' };
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<void> => {

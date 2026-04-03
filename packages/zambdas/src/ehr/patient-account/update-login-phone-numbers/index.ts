@@ -4,19 +4,16 @@ import { Person, RelatedPerson } from 'fhir/r4b';
 import {
   createUserResourcesForPatient,
   getCoding,
-  getSecret,
   INVALID_INPUT_ERROR,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
   PRIVATE_EXTENSION_BASE_URL,
   Secrets,
-  SecretsKeys,
   UpdatePatientLoginPhoneNumbersInput,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  topLevelCatch,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -32,20 +29,14 @@ interface Input extends UpdatePatientLoginPhoneNumbersInput {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (zambdaInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const input = validateRequestParameters(zambdaInput);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-    const oystehr = createOystehrClient(m2mToken, input.secrets);
-    await updateLoginPhoneNumbers(input, oystehr);
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ result: 'success' }),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, zambdaInput.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  const input = validateRequestParameters(zambdaInput);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
+  const oystehr = createOystehrClient(m2mToken, input.secrets);
+  await updateLoginPhoneNumbers(input, oystehr);
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ result: 'success' }),
+  };
 });
 
 const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<void> => {

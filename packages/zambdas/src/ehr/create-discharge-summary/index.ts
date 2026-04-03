@@ -3,25 +3,15 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   CreateDischargeSummaryInputValidated,
   CreateDischargeSummaryResponse,
-  getSecret,
   progressNoteChartDataRequestedFields,
   Secrets,
-  SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
 import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-discharge-summary-document-reference';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { getChartData } from '../get-chart-data';
 import { getMedicationOrders } from '../get-medication-orders';
-import { getLabResources } from '../lab/external/get-lab-orders/helpers';
-import { getInHouseResources } from '../lab/in-house/get-in-house-orders/helpers';
 import { getRadiologyOrders } from '../radiology/order-list';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -45,22 +35,17 @@ export const index = wrapHandler(
       };
     }
 
-    try {
-      const { appointmentId, timezone, secrets } = validatedParameters;
+    const { appointmentId, timezone, secrets } = validatedParameters;
 
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      const oystehr = createOystehrClient(m2mToken, secrets);
-      console.log('Created Oystehr client');
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
+    console.log('Created Oystehr client');
 
-      const response = await performEffect(oystehr, appointmentId, secrets, timezone);
-      return {
-        statusCode: 200,
-        body: JSON.stringify(response),
-      };
-    } catch (error: any) {
-      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      return topLevelCatch('create-discharge-summary', error, ENVIRONMENT);
-    }
+    const response = await performEffect(oystehr, appointmentId, secrets, timezone);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
   }
 );
 
@@ -95,31 +80,6 @@ export const performEffect = async (
     encounterIds: [encounter.id!],
   });
 
-  const externalLabOrdersPromise = getLabResources(
-    oystehr,
-    {
-      searchBy: { field: 'encounterId', value: encounter.id! },
-      itemsPerPage: 10,
-      pageIndex: 0,
-      secrets,
-    },
-    m2mToken,
-    { searchBy: { field: 'encounterId', value: encounter.id! } }
-  );
-
-  const inHouseOrdersPromise = getInHouseResources(
-    oystehr,
-    {
-      searchBy: { field: 'encounterId', value: encounter.id! },
-      itemsPerPage: 10,
-      pageIndex: 0,
-      secrets,
-      userToken: '',
-    },
-    { searchBy: { field: 'encounterId', value: encounter.id! } },
-    m2mToken
-  );
-
   const medicationOrdersPromise = getMedicationOrders(oystehr, {
     searchBy: {
       field: 'encounterId',
@@ -127,19 +87,10 @@ export const performEffect = async (
     },
   });
 
-  const [
-    chartDataResult,
-    additionalChartDataResult,
-    radiologyData,
-    externalLabsData,
-    inHouseOrdersData,
-    medicationOrdersData,
-  ] = await Promise.all([
+  const [chartDataResult, additionalChartDataResult, radiologyData, medicationOrdersData] = await Promise.all([
     chartDataPromise,
     additionalChartDataPromise,
     radiologyOrdersPromise,
-    externalLabOrdersPromise,
-    inHouseOrdersPromise,
     medicationOrdersPromise,
   ]);
   const chartData = chartDataResult.response;
@@ -153,8 +104,6 @@ export const performEffect = async (
         chartData,
         additionalChartData,
         radiologyData,
-        externalLabsData,
-        inHouseOrdersData,
         medicationOrders,
       },
       appointmentPackage: visitResources,

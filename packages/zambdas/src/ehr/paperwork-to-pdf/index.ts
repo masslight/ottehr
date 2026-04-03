@@ -7,20 +7,17 @@ import {
   createFilesDocumentReferences,
   EXPORTED_QUESTIONNAIRE_CODE,
   getPaperworkResources,
-  getSecret,
   OTTEHR_MODULE,
   PAPERWORK_PDF_ATTACHMENT_TITLE,
   PAPERWORK_PDF_BASE_NAME,
   PaperworkToPDFInputValidated,
   Secrets,
-  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   createPresignedUrl,
   getAuth0Token,
-  topLevelCatch,
   uploadObjectToZ3,
   validateJsonBody,
   validateString,
@@ -39,94 +36,89 @@ let oystehrToken: string;
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const { questionnaireResponseId, secrets } = validateInput(input);
+  const oystehr = await createOystehr(secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+
+  const paperworkResources = await getPaperworkResources(oystehr, questionnaireResponseId);
+  if (!paperworkResources) throw new Error('Paperwork not submitted');
+
+  const { questionnaireResponse, listResources, appointment, schedule, location } = paperworkResources;
+  if (!questionnaireResponse) throw new Error('QuestionnaireResponse not found');
+  const document = await createDocument(questionnaireResponse, appointment, oystehr, schedule, location);
+  const pdfDocument = await generatePdf(document);
+
+  const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
+  const fileName = `${PAPERWORK_PDF_BASE_NAME}-${questionnaireResponse?.id}-${questionnaireResponse?.meta?.versionId}-${timestamp}.pdf`;
+
+  const baseFileUrl = makeZ3Url({
+    secrets,
+    fileName,
+    bucketName: BUCKET_NAMES.PAPERWORK,
+    patientID: document.patientInfo.id,
+  });
+
+  console.log('Uploading file to bucket, ', BUCKET_NAMES.PAPERWORK);
+
+  let presignedUrl;
   try {
-    const { questionnaireResponseId, secrets } = validateInput(input);
-    const oystehr = await createOystehr(secrets);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-
-    const paperworkResources = await getPaperworkResources(oystehr, questionnaireResponseId);
-    if (!paperworkResources) throw new Error('Paperwork not submitted');
-
-    const { questionnaireResponse, listResources, appointment, schedule, location } = paperworkResources;
-    if (!questionnaireResponse) throw new Error('QuestionnaireResponse not found');
-    const document = await createDocument(questionnaireResponse, appointment, oystehr, schedule, location);
-    const pdfDocument = await generatePdf(document);
-
-    const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
-    const fileName = `${PAPERWORK_PDF_BASE_NAME}-${questionnaireResponse?.id}-${questionnaireResponse?.meta?.versionId}-${timestamp}.pdf`;
-
-    const baseFileUrl = makeZ3Url({
-      secrets,
-      fileName,
-      bucketName: BUCKET_NAMES.PAPERWORK,
-      patientID: document.patientInfo.id,
-    });
-
-    console.log('Uploading file to bucket, ', BUCKET_NAMES.PAPERWORK);
-
-    let presignedUrl;
-    try {
-      presignedUrl = await createPresignedUrl(m2mToken, baseFileUrl, 'upload');
-      await uploadObjectToZ3(await pdfDocument.save(), presignedUrl);
-    } catch (error: unknown) {
-      throw new Error('failed uploading pdf to z3', { cause: error });
-    }
-
-    const { docRefs } = await createFilesDocumentReferences({
-      files: [
-        {
-          url: baseFileUrl,
-          title: PAPERWORK_PDF_ATTACHMENT_TITLE,
-        },
-      ],
-      type: {
-        coding: [
-          {
-            system: 'http://loinc.org',
-            code: EXPORTED_QUESTIONNAIRE_CODE,
-            display: PAPERWORK_PDF_ATTACHMENT_TITLE,
-          },
-        ],
-        text: PAPERWORK_PDF_ATTACHMENT_TITLE,
-      },
-      dateCreated: DateTime.now().toUTC().toISO(),
-      searchParams: [
-        {
-          name: 'subject',
-          value: `Patient/${document.patientInfo.id}`,
-        },
-        {
-          name: 'type',
-          value: EXPORTED_QUESTIONNAIRE_CODE,
-        },
-        ...(questionnaireResponse.encounter?.reference
-          ? [{ name: 'encounter', value: questionnaireResponse.encounter.reference }]
-          : []),
-      ],
-      references: {
-        subject: { reference: `Patient/${document.patientInfo.id}` },
-        ...(questionnaireResponse.encounter && {
-          context: { encounter: [questionnaireResponse.encounter] },
-        }),
-      },
-      oystehr,
-      generateUUID: randomUUID,
-      listResources: listResources,
-      meta: {
-        tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
-      },
-    });
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        documentReference: 'DocumentReference/' + docRefs[0].id,
-      }),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+    presignedUrl = await createPresignedUrl(m2mToken, baseFileUrl, 'upload');
+    await uploadObjectToZ3(await pdfDocument.save(), presignedUrl);
+  } catch (error: unknown) {
+    throw new Error('failed uploading pdf to z3', { cause: error });
   }
+
+  const { docRefs } = await createFilesDocumentReferences({
+    files: [
+      {
+        url: baseFileUrl,
+        title: PAPERWORK_PDF_ATTACHMENT_TITLE,
+      },
+    ],
+    type: {
+      coding: [
+        {
+          system: 'http://loinc.org',
+          code: EXPORTED_QUESTIONNAIRE_CODE,
+          display: PAPERWORK_PDF_ATTACHMENT_TITLE,
+        },
+      ],
+      text: PAPERWORK_PDF_ATTACHMENT_TITLE,
+    },
+    dateCreated: DateTime.now().toUTC().toISO(),
+    searchParams: [
+      {
+        name: 'subject',
+        value: `Patient/${document.patientInfo.id}`,
+      },
+      {
+        name: 'type',
+        value: EXPORTED_QUESTIONNAIRE_CODE,
+      },
+      ...(questionnaireResponse.encounter?.reference
+        ? [{ name: 'encounter', value: questionnaireResponse.encounter.reference }]
+        : []),
+    ],
+    references: {
+      subject: { reference: `Patient/${document.patientInfo.id}` },
+      ...(questionnaireResponse.encounter && {
+        context: { encounter: [questionnaireResponse.encounter] },
+      }),
+    },
+    oystehr,
+    generateUUID: randomUUID,
+    listResources: listResources,
+    meta: {
+      tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
+    },
+  });
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      documentReference: 'DocumentReference/' + docRefs[0].id,
+    }),
+  };
 });
 
 function validateInput(input: ZambdaInput): PaperworkToPDFInputValidated {

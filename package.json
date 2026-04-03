@@ -1,7 +1,8 @@
 {
   "name": "ottehr",
-  "version": "1.30.2",
+  "version": "1.30.17",
   "private": true,
+  "packageManager": "npm@10.9.3",
   "engines": {
     "node": ">=22.0.0",
     "npm": ">=10.0.0"
@@ -90,6 +91,7 @@
     "ehr:e2e:staging": "ENV=staging tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:staging:ui": "ENV=staging tsx scripts/run-e2e.ts --app=ehr --ui",
     "ehr:e2e:staging:smoke": "ENV=staging SMOKE_TEST=true INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=ehr",
+    "ehr:e2e:local:flaky": "tsx scripts/run-e2e.ts --app=ehr --specs-only --repeat-each=10",
     "ehr:generate-seed-data": "tsx scripts/run-e2e.ts --app=ehr --generate-seed-data",
     "ehr:build": "turbo build --filter=ehr-ui",
     "ehr:lint": "turbo lint --filter=ehr-ui...",
@@ -128,7 +130,7 @@
     "@mui/material": "^5.14.18",
     "@mui/system": "^5.10.16",
     "@mui/x-date-pickers": "^6.18.6",
-    "@oystehr/sdk": "^4.2.6",
+    "@oystehr/sdk": "^4.3.3",
     "@pdf-lib/fontkit": "^1.1.1",
     "@sendgrid/mail": "^8.1.6",
     "@sentry/aws-serverless": "^8.26.0",
@@ -204,6 +206,7 @@
     "aws-lambda": "^1.0.7",
     "c8": "^10.1.3",
     "constructs": "^10.0.0",
+    "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "cspell": "^9.0.2",
     "env-cmd": "^10.1.0",
@@ -223,7 +226,7 @@
     "simple-zustand-devtools": "^1.1.0",
     "start-server-and-test": "^2.0.12",
     "tsx": "^4.19.2",
-    "turbo": "^1.10.16",
+    "turbo": "^2.8.16",
     "typescript": "5.8.3",
     "vite": "^6.3.5",
     "vite-plugin-node-polyfills": "^0.23.0",

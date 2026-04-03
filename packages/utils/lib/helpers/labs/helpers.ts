@@ -1,4 +1,13 @@
-import { Coverage, DiagnosticReport, DocumentReference, Location, Organization, ServiceRequest } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  Coverage,
+  DiagnosticReport,
+  DocumentReference,
+  List,
+  Location,
+  Organization,
+  ServiceRequest,
+} from 'fhir/r4b';
 import {
   CreateLabPaymentMethod,
   DEFAULT_OYSTEHR_LABS_HL7_SYSTEM,
@@ -6,10 +15,13 @@ import {
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LAB_DOC_REF_TAG_hl7_TRANSMISSION,
+  LAB_LIST_CODE_CODING,
+  LAB_LIST_CODING_SYSTEM,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabPaymentMethod,
   LabsTableColumn,
+  LabType,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   ORDER_NUMBER_LEN,
   OYSTEHR_ABN_DOC_CATEGORY_CODING,
@@ -165,6 +177,26 @@ export function createOrderNumber(length = ORDER_NUMBER_LEN): string {
   return result;
 }
 
+export const parseLabInfoFromServiceRequest = (
+  serviceRequest: ServiceRequest
+): { testItem: string; fillerLab: string } => {
+  const activityDefinition = serviceRequest.contained?.find(
+    (resource) => resource.resourceType === 'ActivityDefinition'
+  ) as ActivityDefinition | undefined;
+
+  if (!activityDefinition) {
+    return {
+      testItem: 'Unknown Test',
+      fillerLab: 'Unknown Lab',
+    };
+  }
+
+  return {
+    testItem: activityDefinition.title || 'Unknown Test',
+    fillerLab: activityDefinition.publisher || 'Unknown Lab',
+  };
+};
+
 export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
   const testName =
     dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
@@ -289,4 +321,18 @@ export const docRefIsOttehrGeneratedResultAndCurrent = (docRef: DocumentReferenc
     (c) => c.system === LAB_RESULT_DOC_REF_CODING_CODE.system && c.code === LAB_RESULT_DOC_REF_CODING_CODE.code
   );
   return isCurrent && isResult;
+};
+
+export const getLabListType = (list: List): LabType.external | LabType.inHouse | undefined => {
+  const code = list.code?.coding?.find((c) => c.system === LAB_LIST_CODING_SYSTEM)?.code;
+  if (!code) return;
+
+  switch (code) {
+    case LAB_LIST_CODE_CODING.external.code:
+      return LabType.external;
+    case LAB_LIST_CODE_CODING.inHouse.code:
+      return LabType.inHouse;
+    default:
+      return;
+  }
 };

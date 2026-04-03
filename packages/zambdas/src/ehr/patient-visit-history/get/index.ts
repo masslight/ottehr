@@ -11,12 +11,12 @@ import {
   FOLLOWUP_SYSTEMS,
   FollowUpVisitHistoryRow,
   getAttendingPractitionerId,
+  getCoding,
   getFirstName,
   getInPersonVisitStatus,
   getLastName,
   GetPatientVisitListInput,
   getReasonForVisitFromAppointment,
-  getSecret,
   getTelemedLength,
   getTelemedVisitStatus,
   getVisitStatusHistory,
@@ -31,21 +31,14 @@ import {
   RCM_TASK_SYSTEM,
   RcmTaskCode,
   Secrets,
-  SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   ServiceMode,
   TelemedAppointmentStatusEnum,
   TIMEZONES,
   VisitStatusLabel,
 } from 'utils';
 import { z } from 'zod';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  lambdaResponse,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
@@ -53,46 +46,40 @@ let oystehrM2MClientToken: string;
 const ZAMBDA_NAME = 'get-patient-visit-history';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.group('validateRequestParameters');
+  let validatedParameters: ReturnType<typeof validateRequestParameters>;
   try {
-    console.group('validateRequestParameters');
-    let validatedParameters: ReturnType<typeof validateRequestParameters>;
-    try {
-      validatedParameters = validateRequestParameters(input);
-      console.log(JSON.stringify(validatedParameters, null, 4));
-    } catch (error: any) {
-      console.log(error);
-      return lambdaResponse(400, { message: error.message });
-    }
-
-    const secrets = input.secrets;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-
-    if (!oystehrM2MClientToken) {
-      console.log('getting m2m token for service calls');
-      oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
-
-    const effectInput = await complexValidation(
-      {
-        ...validatedParameters,
-        secrets: input.secrets,
-      },
-      oystehrClient
-    );
-
-    const response = await performEffect(effectInput, oystehrClient);
-
-    return lambdaResponse(200, response);
+    validatedParameters = validateRequestParameters(input);
+    console.log(JSON.stringify(validatedParameters, null, 4));
   } catch (error: any) {
-    console.error(error);
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+    console.log(error);
+    return lambdaResponse(400, { message: error.message });
   }
+
+  const secrets = input.secrets;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  if (!oystehrM2MClientToken) {
+    console.log('getting m2m token for service calls');
+    oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
+  } else {
+    console.log('already have a token, no need to update');
+  }
+
+  const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
+
+  const effectInput = await complexValidation(
+    {
+      ...validatedParameters,
+      secrets: input.secrets,
+    },
+    oystehrClient
+  );
+
+  const response = await performEffect(effectInput, oystehrClient);
+
+  return lambdaResponse(200, response);
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<PatientVisitListResponse> => {
@@ -204,6 +191,10 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
     );
     const provider = getProviderFromEncounter(encounter, practitioners);
 
+    const serviceCategory =
+      getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code ??
+      getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.display;
+
     const followUps: FollowUpVisitHistoryRow[] | undefined = encounter
       ? followUpMap[encounter.id || '']
           ?.map((followUpEncounter) =>
@@ -211,6 +202,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
               practitioners,
               locations,
               originalEncounter: encounter,
+              serviceCategory,
             })
           )
           .filter((fu): fu is FollowUpVisitHistoryRow => fu !== undefined)
@@ -253,6 +245,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
     const baseRow = {
       appointmentId: appointment.id,
       type,
+      serviceCategory,
       visitReason: getReasonForVisitFromAppointment(appointment),
       office: location?.name,
       dateTime,
@@ -414,6 +407,7 @@ interface FollowUpContext {
   practitioners: Practitioner[];
   locations: Location[];
   originalEncounter: Encounter;
+  serviceCategory?: string;
 }
 
 const followUpVisitHistoryRowFromEncounter = (
@@ -424,7 +418,7 @@ const followUpVisitHistoryRowFromEncounter = (
     return undefined;
   }
   const followUpType = getFollowUpTypeFromEncounter(encounter);
-  const { practitioners, locations, originalEncounter } = context;
+  const { practitioners, locations, originalEncounter, serviceCategory } = context;
 
   const location = locations.find(
     (location) => encounter?.location?.some((loc) => loc.location?.reference?.replace('Location/', '') === location.id)
@@ -436,6 +430,7 @@ const followUpVisitHistoryRowFromEncounter = (
     encounterId: encounter.id,
     dateTime: encounter.period?.start,
     type: followUpType,
+    serviceCategory,
     visitReason: encounter.reasonCode?.[0]?.text,
     provider: getProviderFromEncounter(encounter, practitioners),
     office,

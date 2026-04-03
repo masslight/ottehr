@@ -5,46 +5,39 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, QuestionnaireResponse, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  getSecret,
   isTelemedAppointment,
   pageHarvestStrategy,
-  SecretsKeys,
   TASK_INPUT_TYPE_CODES,
   TASK_INPUT_TYPE_SYSTEM,
   TaskIndicator,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 import { PatchPaperworkEffectInput, validatePatchInputs } from '../validateRequestParameters';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.
 export let token: string;
 
 export const index = wrapHandler('patch-paperwork', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const secrets = input.secrets;
-    if (!token) {
-      console.log('getting token');
-      token = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(token, secrets);
-
-    const effectInput = await validatePatchInputs(input, oystehr);
-
-    console.log('effect input', JSON.stringify(effectInput));
-
-    const qr = await performEffect(effectInput, oystehr);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(qr),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('patch-paperwork', error, ENVIRONMENT);
+  const secrets = input.secrets;
+  if (!token) {
+    console.log('getting token');
+    token = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
   }
+
+  const oystehr = createOystehrClient(token, secrets);
+
+  const effectInput = await validatePatchInputs(input, oystehr);
+
+  console.log('effect input', JSON.stringify(effectInput));
+
+  const qr = await performEffect(effectInput, oystehr);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(qr),
+  };
 });
 
 const performEffect = async (input: PatchPaperworkEffectInput, oystehr: Oystehr): Promise<QuestionnaireResponse> => {
@@ -174,9 +167,12 @@ async function createHarvestTaskIfNeeded(
     return;
   }
 
+  console.log(`creating harvest task for QR ${questionnaireResponseId} page index ${patchIndex}`);
+
   await oystehr.fhir.create<Task>({
     resourceType: 'Task',
     status: 'requested',
+    authoredOn: new Date().toISOString(),
     code: {
       coding: [{ ...TaskIndicator.harvestPaperwork }],
     },

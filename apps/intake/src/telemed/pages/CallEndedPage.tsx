@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { BRANDING_CONFIG } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
 import { primaryIcon } from '../../branding/assets';
+import { getPrimaryIconSize, PRIMARY_ICON_PAGE, shouldShowPrimaryIcon } from '../../branding/primaryIconVisibility';
 import { CustomContainer } from '../features/common';
 
 const CallEndedPage = (): JSX.Element => {
@@ -12,6 +13,8 @@ const CallEndedPage = (): JSX.Element => {
   const location = useLocation();
   const isRegularParticipant =
     location.pathname === (intakeFlowPageRoute.CallEnded.path || intakeFlowPageRoute.IOSCallEnded.path);
+  const showPrimaryIcon = shouldShowPrimaryIcon(PRIMARY_ICON_PAGE.CALL_ENDED);
+  const primaryIconSize = getPrimaryIconSize();
 
   return (
     <CustomContainer title="" useEmptyBody>
@@ -33,7 +36,9 @@ const CallEndedPage = (): JSX.Element => {
               gap: 3,
             }}
           >
-            <img alt={BRANDING_CONFIG.primaryIconAlt} src={primaryIcon} width={120} />
+            {showPrimaryIcon && (
+              <img alt={BRANDING_CONFIG.intake.primaryIconAlt} src={primaryIcon} width={primaryIconSize} />
+            )}
 
             <Box>
               <Typography variant="h2" color="primary.main" textAlign="center">

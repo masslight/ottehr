@@ -18,6 +18,7 @@ export type PlacesResult = {
 
 export interface SearchPlacesInput {
   searchTerm?: string;
+  locationBias?: { latitude: number; longitude: number };
   placesId?: string;
 }
 

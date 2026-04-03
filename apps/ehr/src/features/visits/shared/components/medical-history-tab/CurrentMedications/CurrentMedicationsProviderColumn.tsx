@@ -17,18 +17,19 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { DateTime } from 'luxon';
-import { FC, useCallback, useMemo, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
-import { MEDICAL_HISTORY_CONFIG, MedicationDTO } from 'utils';
-import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
+import { useMergedMedicationHistoryQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { MedicationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
+import { useAiSuggestionPrefillStore } from '../../../stores/aiSuggestionPrefill.store';
 import { ExtractObjectType, useGetMedicationsSearch } from '../../../stores/appointment/appointment.queries';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
 import { QuickPicksButton } from '../../QuickPicksButton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
+import { ExternalMedicationSelection } from './ExternalRxSuggestions';
 
 interface CurrentMedicationsProviderColumnForm {
   medication: ExtractObjectType<ErxSearchMedicationsResponse> | null;
@@ -38,7 +39,23 @@ interface CurrentMedicationsProviderColumnForm {
   patientCouldNotConfirmDosage: boolean;
 }
 
-export const CurrentMedicationsProviderColumn: FC = () => {
+export interface MedicationDataProps {
+  medications: MedicationDTO[];
+  isLoading: boolean;
+  onRemove: (resourceId: string) => Promise<void>;
+}
+
+interface CurrentMedicationsProviderColumnProps {
+  medicationData: MedicationDataProps;
+  onAddMedication: (selection: ExternalMedicationSelection) => Promise<boolean>;
+}
+
+export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColumnProps> = ({
+  medicationData,
+  onAddMedication,
+}) => {
+  const { medications, isLoading, onRemove } = medicationData;
+
   const methods = useForm<CurrentMedicationsProviderColumnForm>({
     defaultValues: {
       medication: null,
@@ -53,23 +70,19 @@ export const CurrentMedicationsProviderColumn: FC = () => {
 
   const { control, reset, handleSubmit, setValue } = methods;
 
-  const { refetchHistory } = useMedicationHistory();
-
-  const {
-    isLoading,
-    onSubmit,
-    onRemove,
-    values: medications,
-  } = useChartDataArrayValue(
-    'medications',
-    undefined,
-    {
-      _sort: '-_lastUpdated',
-      _include: 'MedicationStatement:source',
-      status: { type: 'token', value: 'active' },
-    },
-    refetchHistory
-  );
+  const { medicationPrefill, clearMedicationPrefill } = useAiSuggestionPrefillStore();
+  useEffect(() => {
+    if (medicationPrefill) {
+      setValue('medication', medicationPrefill.medication);
+      if (medicationPrefill.dose) {
+        setValue('dose', medicationPrefill.dose);
+      }
+      if (medicationPrefill.date) {
+        setValue('date', medicationPrefill.date);
+      }
+      clearMedicationPrefill();
+    }
+  }, [medicationPrefill, setValue, clearMedicationPrefill]);
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
@@ -96,17 +109,14 @@ export const CurrentMedicationsProviderColumn: FC = () => {
   );
 
   const handleFormSubmitted = async (data: CurrentMedicationsProviderColumnForm): Promise<void> => {
-    if (data) {
-      const success = await onSubmit({
-        name: `${data.medication?.name}${data.medication?.strength ? ` (${data.medication?.strength})` : ''}`,
-        id: data.medication?.id?.toString(),
+    if (data && data.medication) {
+      const success = await onAddMedication({
+        medication: data.medication,
+        dose: data.dose,
+        directions: null,
         type: data.type,
-        intakeInfo: {
-          date: data.date?.toUTC().toString(),
-          dose: data.dose ?? undefined,
-          patientCouldNotConfirmDosage: data.patientCouldNotConfirmDosage || undefined,
-        },
-        status: 'active',
+        date: data.date?.toUTC().toString(),
+        patientCouldNotConfirmDosage: data.patientCouldNotConfirmDosage,
       });
       if (success) {
         reset({
@@ -116,16 +126,17 @@ export const CurrentMedicationsProviderColumn: FC = () => {
           type: 'scheduled',
           patientCouldNotConfirmDosage: false,
         });
-        void refetchHistory();
       }
     }
   };
 
-  const handleQuickPickSelect = (quickPick: (typeof MEDICAL_HISTORY_CONFIG.medications.quickPicks)[number]): void => {
+  const { quickPicks: medicationHistoryQuickPicks } = useMergedMedicationHistoryQuickPicks();
+
+  const handleQuickPickSelect = (quickPick: (typeof medicationHistoryQuickPicks)[number]): void => {
     const quickPickAsMedication: ExtractObjectType<ErxSearchMedicationsResponse> = {
       name: quickPick.name,
       strength: quickPick.strength,
-      id: quickPick.id,
+      id: quickPick.medicationId,
     } as ExtractObjectType<ErxSearchMedicationsResponse>;
 
     setValue('medication', quickPickAsMedication);
@@ -190,7 +201,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
             }}
           >
             <QuickPicksButton
-              quickPicks={MEDICAL_HISTORY_CONFIG.medications.quickPicks}
+              quickPicks={medicationHistoryQuickPicks}
               getLabel={(quickPick) => `${quickPick.name}${quickPick.strength ? ` (${quickPick.strength})` : ''}`}
               onSelect={handleQuickPickSelect}
               disabled={isLoading || isChartDataLoading}

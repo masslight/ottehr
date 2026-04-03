@@ -1,20 +1,10 @@
 import {
   type FormFieldTrigger,
   type PatientRecordConfig,
-  PatientRecordConfigSchema,
+  type PatientRecordFormFields,
   type QuestionnaireBase,
 } from 'config-types';
-import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
-import _ from 'lodash';
-import { PATIENT_RECORD_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
-import {
-  getTaxID,
-  makeAnswer,
-  makePrepopulatedItemsFromPatientRecord,
-  PrePopulationFromPatientRecordInput,
-  ServiceMode,
-} from '../../main';
-import { mergeAndFreezeConfigObjects } from '../helpers';
+import { Questionnaire } from 'fhir/r4b';
 import { createQuestionnaireFromConfig } from '../shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
 
@@ -43,6 +33,7 @@ const InsuredPersonNotSelfTrigger: FormFieldTrigger = {
   operator: '!=',
   answerString: formValueSets.relationshipToInsuredOptions[0].value,
 };
+
 const InsuredAddressNotSameAsPatientTrigger: FormFieldTrigger = {
   targetQuestionLinkId: 'policy-holder-address-as-patient',
   effect: ['enable'],
@@ -56,6 +47,7 @@ const InsuredPersonNotSelfTrigger2: FormFieldTrigger = {
   operator: '!=',
   answerString: formValueSets.relationshipToInsuredOptions[0].value,
 };
+
 const InsuredAddressNotSameAsPatientTrigger2: FormFieldTrigger = {
   targetQuestionLinkId: 'policy-holder-address-as-patient-2',
   effect: ['enable'],
@@ -63,7 +55,7 @@ const InsuredAddressNotSameAsPatientTrigger2: FormFieldTrigger = {
   answerBoolean: true,
 };
 
-const FormFields = {
+const FormFields: PatientRecordFormFields = {
   patientSummary: {
     linkId: 'patient-info-section',
     title: 'Patient summary',
@@ -605,7 +597,7 @@ const FormFields = {
         type: 'string',
         label: 'First name',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-first-name' },
+        dynamicPopulation: { sourceLinkId: 'patient-first-name', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       lastName: {
@@ -613,7 +605,7 @@ const FormFields = {
         type: 'string',
         label: 'Last name',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-last-name' },
+        dynamicPopulation: { sourceLinkId: 'patient-last-name', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       birthDate: {
@@ -622,7 +614,7 @@ const FormFields = {
         label: 'Date of birth',
         dataType: 'DOB',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
+        dynamicPopulation: { sourceLinkId: 'patient-birthdate', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       birthSex: {
@@ -631,7 +623,7 @@ const FormFields = {
         label: 'Birth sex',
         options: formValueSets.birthSexOptions,
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
+        dynamicPopulation: { sourceLinkId: 'patient-birth-sex', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       phone: {
@@ -640,7 +632,7 @@ const FormFields = {
         label: 'Phone',
         dataType: 'Phone Number',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-number' },
+        dynamicPopulation: { sourceLinkId: 'patient-number', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       email: {
@@ -649,7 +641,7 @@ const FormFields = {
         label: 'Email',
         dataType: 'Email',
         triggers: [RPNotSelfTrigger],
-        dynamicPopulation: { sourceLinkId: 'patient-email' },
+        dynamicPopulation: { sourceLinkId: 'patient-email', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       addressSameAsPatient: {
@@ -665,7 +657,7 @@ const FormFields = {
         label: 'Street Address',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-street-address' },
+        dynamicPopulation: { sourceLinkId: 'patient-street-address', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       addressLine2: {
@@ -674,7 +666,7 @@ const FormFields = {
         label: 'Address line 2',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
+        dynamicPopulation: { sourceLinkId: 'patient-street-address-2', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       city: {
@@ -683,7 +675,7 @@ const FormFields = {
         label: 'City',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-city' },
+        dynamicPopulation: { sourceLinkId: 'patient-city', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       state: {
@@ -693,7 +685,7 @@ const FormFields = {
         options: formValueSets.stateOptions,
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-state' },
+        dynamicPopulation: { sourceLinkId: 'patient-state', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
       zip: {
@@ -703,7 +695,7 @@ const FormFields = {
         dataType: 'ZIP',
         triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
         enableBehavior: 'all',
-        dynamicPopulation: { sourceLinkId: 'patient-zip' },
+        dynamicPopulation: { sourceLinkId: 'patient-zip', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
       },
     },
@@ -849,6 +841,7 @@ const FormFields = {
             answerBoolean: true,
           },
         ],
+        disabledDisplay: 'hidden',
       },
       address: {
         key: 'pharmacy-address',
@@ -862,6 +855,7 @@ const FormFields = {
             answerBoolean: true,
           },
         ],
+        disabledDisplay: 'hidden',
       },
     },
     hiddenFields: [],
@@ -1012,100 +1006,13 @@ const questionnaireBaseDefaults = {
   status: 'active',
 } as const satisfies QuestionnaireBase;
 
-const PATIENT_RECORD_DEFAULTS = {
+const PATIENT_RECORD_DEFAULTS: PatientRecordConfig = {
   questionnaireBase: questionnaireBaseDefaults,
   hiddenFormSections,
   FormFields,
 };
 
-const mergedPatientRecordConfig = mergeAndFreezeConfigObjects(PATIENT_RECORD_DEFAULTS, OVERRIDES);
-
-export const PATIENT_RECORD_CONFIG: PatientRecordConfig = PatientRecordConfigSchema.parse(mergedPatientRecordConfig);
-
-const prepopulateLogicalFields = (
-  questionnaire: Questionnaire,
-  appointmentContext?: AppointmentContext
-): QuestionnaireResponseItem[] => {
-  const shouldShowSSNField = !(
-    PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields?.includes('patient-ssn') ?? false
-  );
-  const ssnRequired =
-    shouldShowSSNField && PATIENT_RECORD_CONFIG.FormFields.patientSummary.requiredFields?.includes('patient-ssn');
-
-  const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
-    const populatedItem: QuestionnaireResponseItem[] = (() => {
-      const itemItems = (item.item ?? []).filter((i: QuestionnaireItem) => i.type !== 'display');
-      return itemItems.map((item) => {
-        let answer: QuestionnaireResponseItemAnswer[] | undefined;
-        const { linkId } = item;
-
-        if (linkId === 'should-display-ssn-field') {
-          answer = makeAnswer(shouldShowSSNField, 'Boolean');
-        }
-        if (linkId === 'ssn-field-required') {
-          answer = makeAnswer(ssnRequired, 'Boolean');
-        }
-        if (linkId === 'appointment-service-category' && appointmentContext?.appointmentServiceCategory) {
-          answer = makeAnswer(appointmentContext.appointmentServiceCategory);
-        }
-        if (linkId === 'appointment-service-mode' && appointmentContext?.appointmentServiceMode) {
-          answer = makeAnswer(appointmentContext.appointmentServiceMode);
-        }
-        if (linkId === 'reason-for-visit' && appointmentContext?.reasonForVisit) {
-          answer = makeAnswer(appointmentContext.reasonForVisit);
-        }
-
-        return {
-          linkId,
-          answer,
-        };
-      });
-    })();
-    return {
-      linkId: item.linkId,
-      item: populatedItem,
-    };
-  });
-
-  return item.flatMap((i) => i.item ?? []).filter((i) => i.answer !== undefined);
-};
-
-export interface AppointmentContext {
-  appointmentServiceCategory?: string;
-  appointmentServiceMode?: ServiceMode;
-  reasonForVisit?: string;
-  encounterId?: string;
-}
-
-interface PrePopulationFromPatientRecordInputWithContext extends PrePopulationFromPatientRecordInput {
-  appointmentContext?: AppointmentContext;
-}
-
-export const prepopulatePatientRecordItems = (
-  input: PrePopulationFromPatientRecordInputWithContext
-): QuestionnaireResponseItem[] => {
-  if (!input) {
-    return [];
-  }
-
-  const q = input.questionnaire;
-  const { appointmentContext, patient } = input;
-  const prepopOverrides = prepopulateLogicalFields(q, appointmentContext);
-  // todo: this is exported from another util file, but only used here. probably want to move it and
-  // consolidate the interface exposed to the rest of the system.
-  if (prepopOverrides.some((item) => item.linkId === 'should-display-ssn-field' && item.answer?.[0]?.valueBoolean)) {
-    const ssn = getTaxID(patient);
-    if (ssn) {
-      prepopOverrides.push({
-        linkId: 'patient-ssn',
-        answer: makeAnswer(ssn),
-      });
-    }
-  }
-  const patientRecordItems = makePrepopulatedItemsFromPatientRecord({ ...input, overriddenItems: prepopOverrides });
-
-  return patientRecordItems;
-};
+export const PATIENT_RECORD_CONFIG: PatientRecordConfig = Object.freeze(PATIENT_RECORD_DEFAULTS);
 
 export const PATIENT_RECORD_QUESTIONNAIRE = (): Questionnaire =>
   JSON.parse(JSON.stringify(createQuestionnaireFromConfig(PATIENT_RECORD_CONFIG)));

@@ -3494,7 +3494,7 @@
             "extension": [
               {
                 "url": "http://ottehr.org/fhir/StructureDefinition/reflex-test-to-run",
-                "valueCanonical": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholConfirmationTest|1.0.0"
+                "valueCanonical": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholConfirmationTest|1.0.1"
               },
               {
                 "url": "http://ottehr.org/fhir/StructureDefinition/reflex-test-to-run-name",

@@ -100,13 +100,7 @@
           "linkId": "patient-preferred-name",
           "type": "string",
           "text": "Chosen or preferred name (optional)",
-          "required": false,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": false
         },
         {
           "linkId": "patient-birthdate",
@@ -124,10 +118,6 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "DOB"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -162,12 +152,6 @@
             },
             {
               "valueString": "Intersex"
-            }
-          ],
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             }
           ]
         },
@@ -239,10 +223,50 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "Email"
+            }
+          ]
+        },
+        {
+          "linkId": "return-patient-check",
+          "type": "choice",
+          "text": "Have you been to Ottehr in the past 3 years?",
+          "required": false,
+          "answerOption": [
+            {
+              "valueString": "Yes"
             },
+            {
+              "valueString": "No"
+            }
+          ],
+          "enableWhen": [
+            {
+              "question": "existing-patient-id",
+              "operator": "exists",
+              "answerBoolean": false
+            }
+          ],
+          "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
               "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "existing-patient-id"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "exists"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueBoolean": false
+                }
+              ]
             }
           ]
         },
@@ -468,10 +492,6 @@
           "required": false,
           "extension": [
             {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
               "extension": [
                 {
@@ -494,13 +514,7 @@
           "linkId": "authorized-non-legal-guardian",
           "type": "string",
           "text": "Who, besides the parent or legal guardian, is allowed to bring in the patient?",
-          "required": false,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            }
-          ]
+          "required": false
         },
         {
           "linkId": "should-display-ssn-field",
