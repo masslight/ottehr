@@ -263,10 +263,6 @@ export class ResourceHandler {
         throw new Error('LOCATION_ID is not set');
       }
 
-      if (!process.env.STATE_ONE) {
-        throw new Error('STATE_ONE is not set');
-      }
-
       if (!process.env.PROJECT_ID) {
         throw new Error('PROJECT_ID is not set');
       }
@@ -282,7 +278,7 @@ export class ResourceHandler {
         zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
         serviceMode: this.#flow === 'telemed' ? ServiceMode.virtual : ServiceMode['in-person'],
         selectedLocationId: inputParams?.selectedLocationId ?? process.env.LOCATION_ID,
-        locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // todo: check why state is used here
+        locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // only relevant for telemed flow; undefined falls back to a random virtual location
         demoData: patientData,
         projectId: process.env.PROJECT_ID!,
         paperworkAnswers: this.#paperworkAnswers,
