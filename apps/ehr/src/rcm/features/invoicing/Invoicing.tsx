@@ -7,14 +7,12 @@ import {
   Button,
   Chip,
   CircularProgress,
-  FormControlLabel,
   FormHelperText,
   List,
   ListItemButton,
   ListItemText,
   Paper,
   Stack,
-  Switch,
   Tab,
   TextField,
   Tooltip,
@@ -76,14 +74,12 @@ interface InvoicingFormValues {
   smsTemplate: string;
   memoTemplate: string;
   invoiceDueDays: number;
-  autoChargeOnDueDate: boolean;
 }
 
 const DEFAULTS: InvoicingFormValues = {
   smsTemplate: DEFAULT_SMS_TEMPLATE,
   memoTemplate: DEFAULT_MEMO_TEMPLATE,
   invoiceDueDays: 7,
-  autoChargeOnDueDate: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -478,7 +474,6 @@ function parseQuestionnaireResponse(
   const findAnswer = (linkId: string): any => items.find((i) => i.linkId === linkId)?.answer?.[0];
   return {
     invoiceDueDays: findAnswer('invoicing.dueDaysFromGeneration')?.valueInteger ?? DEFAULTS.invoiceDueDays,
-    autoChargeOnDueDate: findAnswer('invoicing.autoChargeOnDueDate')?.valueBoolean ?? DEFAULTS.autoChargeOnDueDate,
     smsTemplate: findAnswer('invoicing.defaultSmsTemplate')?.valueString ?? DEFAULTS.smsTemplate,
     memoTemplate: findAnswer('invoicing.defaultInvoiceMemo')?.valueString ?? DEFAULTS.memoTemplate,
   };
@@ -519,7 +514,6 @@ export default function Invoicing(): ReactElement {
       try {
         await saveMutation.mutateAsync({
           dueDaysFromGeneration: data.invoiceDueDays,
-          autoChargeOnDueDate: data.autoChargeOnDueDate,
           defaultSmsTemplate: data.smsTemplate,
           defaultInvoiceMemo: data.memoTemplate,
         });
@@ -569,23 +563,6 @@ export default function Invoicing(): ReactElement {
               />
             )}
           />
-
-          <Box>
-            <Controller
-              name="autoChargeOnDueDate"
-              control={control}
-              render={({ field }) => (
-                <FormControlLabel
-                  control={<Switch checked={field.value} onChange={field.onChange} disabled />}
-                  label="Auto-Charge on Due Date"
-                />
-              )}
-            />
-            <FormHelperText>
-              When enabled, the patient&apos;s card on file is automatically charged on the invoice due date (coming
-              soon)
-            </FormHelperText>
-          </Box>
         </Stack>
 
         <TemplateField

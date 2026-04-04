@@ -31,11 +31,6 @@ export const index = wrapHandler('save-invoice-config', async (input: ZambdaInpu
             answer: [{ valueInteger: validated.dueDaysFromGeneration }],
           },
           {
-            linkId: 'invoicing.autoChargeOnDueDate',
-            text: 'Auto-charge on due date',
-            answer: [{ valueBoolean: validated.autoChargeOnDueDate }],
-          },
-          {
             linkId: 'invoicing.defaultSmsTemplate',
             text: 'Default SMS message template',
             answer: [{ valueString: validated.defaultSmsTemplate }],

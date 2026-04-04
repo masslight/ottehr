@@ -12,7 +12,6 @@ export interface InvoiceConfigResponse {
 
 export interface SaveInvoiceConfigInput {
   dueDaysFromGeneration: number;
-  autoChargeOnDueDate: boolean;
   defaultSmsTemplate: string;
   defaultInvoiceMemo: string;
 }

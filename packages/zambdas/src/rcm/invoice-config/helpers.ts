@@ -73,13 +73,6 @@ function buildDefaultQuestionnaire(): Questionnaire {
             ],
           },
           {
-            linkId: 'invoicing.autoChargeOnDueDate',
-            text: 'Auto-charge on due date',
-            type: 'boolean',
-            required: true,
-            initial: [{ valueBoolean: false }],
-          },
-          {
             linkId: 'invoicing.defaultSmsTemplate',
             text: 'Default SMS message template',
             type: 'text',
@@ -118,11 +111,6 @@ function buildDefaultQuestionnaireResponse(questionnaireId: string): Omit<Questi
             answer: [{ valueInteger: 7 }],
           },
           {
-            linkId: 'invoicing.autoChargeOnDueDate',
-            text: 'Auto-charge on due date',
-            answer: [{ valueBoolean: false }],
-          },
-          {
             linkId: 'invoicing.defaultSmsTemplate',
             text: 'Default SMS message template',
             answer: [{ valueString: DEFAULT_SMS_TEMPLATE }],
@@ -145,7 +133,6 @@ export interface InvoicingConfigPair {
 
 export interface ParsedInvoicingConfig {
   dueDaysFromGeneration: number;
-  autoChargeOnDueDate: boolean;
   defaultSmsTemplate: string;
   defaultInvoiceMemo: string;
 }
@@ -159,7 +146,6 @@ export function parseInvoicingConfig(qr: QuestionnaireResponse): ParsedInvoicing
     items.find((i) => i.linkId === linkId)?.answer?.[0];
   return {
     dueDaysFromGeneration: findAnswer('invoicing.dueDaysFromGeneration')?.valueInteger ?? 7,
-    autoChargeOnDueDate: findAnswer('invoicing.autoChargeOnDueDate')?.valueBoolean ?? false,
     defaultSmsTemplate: findAnswer('invoicing.defaultSmsTemplate')?.valueString ?? DEFAULT_SMS_TEMPLATE,
     defaultInvoiceMemo: findAnswer('invoicing.defaultInvoiceMemo')?.valueString ?? DEFAULT_MEMO_TEMPLATE,
   };

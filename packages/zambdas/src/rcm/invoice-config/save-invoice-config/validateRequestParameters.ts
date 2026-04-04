@@ -2,7 +2,6 @@ import { ZambdaInput } from '../../../shared';
 
 export interface SaveInvoiceConfigInput {
   dueDaysFromGeneration: number;
-  autoChargeOnDueDate: boolean;
   defaultSmsTemplate: string;
   defaultInvoiceMemo: string;
   secrets: Record<string, string>;
@@ -14,14 +13,10 @@ export function validateRequestParameters(input: ZambdaInput): SaveInvoiceConfig
 
   const parsed = JSON.parse(input.body);
 
-  const { dueDaysFromGeneration, autoChargeOnDueDate, defaultSmsTemplate, defaultInvoiceMemo } = parsed;
+  const { dueDaysFromGeneration, defaultSmsTemplate, defaultInvoiceMemo } = parsed;
 
   if (typeof dueDaysFromGeneration !== 'number' || dueDaysFromGeneration < 1 || dueDaysFromGeneration > 365) {
     throw new Error('dueDaysFromGeneration must be an integer between 1 and 365');
-  }
-
-  if (typeof autoChargeOnDueDate !== 'boolean') {
-    throw new Error('autoChargeOnDueDate must be a boolean');
   }
 
   if (typeof defaultSmsTemplate !== 'string' || defaultSmsTemplate.trim().length === 0) {
@@ -34,7 +29,6 @@ export function validateRequestParameters(input: ZambdaInput): SaveInvoiceConfig
 
   return {
     dueDaysFromGeneration,
-    autoChargeOnDueDate,
     defaultSmsTemplate,
     defaultInvoiceMemo,
     secrets: input.secrets,
