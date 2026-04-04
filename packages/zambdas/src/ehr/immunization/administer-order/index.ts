@@ -20,7 +20,6 @@ import {
   EMERGENCY_CONTACT_RELATIONSHIPS,
   getFullName,
   getMedicationName,
-  getSecret,
   ImmunizationEmergencyContact,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
@@ -29,7 +28,6 @@ import {
   MEDICATION_DISPENSABLE_DRUG_ID,
   MVX_CODE_SYSTEM_URL,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
-  SecretsKeys,
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils';
@@ -38,7 +36,6 @@ import {
   createOystehrClient,
   fillMeta,
   getMyPractitionerId,
-  topLevelCatch,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -56,26 +53,21 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'administer-immunization-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const userToken = input.headers.Authorization.replace('Bearer ', '');
-    const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
-    const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
-    const userPractitioner = await oystehr.fhir.get<Practitioner>({
-      resourceType: 'Practitioner',
-      id: userPractitionerId,
-    });
-    const response = await administerImmunizationOrder(oystehr, validatedParameters, userPractitioner);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  const validatedParameters = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const userToken = input.headers.Authorization.replace('Bearer ', '');
+  const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
+  const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+  const userPractitioner = await oystehr.fhir.get<Practitioner>({
+    resourceType: 'Practitioner',
+    id: userPractitionerId,
+  });
+  const response = await administerImmunizationOrder(oystehr, validatedParameters, userPractitioner);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 async function administerImmunizationOrder(

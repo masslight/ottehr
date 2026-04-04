@@ -1,8 +1,8 @@
-import { aiIcon } from '@ehrTheme/icons';
 import { InfoOutlined } from '@mui/icons-material';
 import { Box, Button, CircularProgress, Container, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import { DocumentReference } from 'fhir/r4b';
 import React, { useMemo } from 'react';
+import { AiSectionHeader } from 'src/features/visits/shared/components/AiSection';
 import { getSource } from 'src/features/visits/shared/components/OttehrAi';
 import { MappedSuggestion } from 'src/features/visits/shared/hooks/useAiSuggestionMapping';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -214,20 +214,7 @@ export default function AiSuggestion({
           marginBottom: '8px',
         }}
       >
-        <Box style={{ display: 'flex', alignItems: 'center' }}>
-          <img src={aiIcon} style={{ width: '30px', marginRight: '8px' }} />
-          <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
-            Oystehr AI
-          </Typography>
-          <Tooltip
-            placement="top"
-            title="AI generated outputs, recommendations, and suggestions are provided for informational purposes only and are not intended to replace professional medical judgment or clinical expertise. AI technology may produce inaccurate, incomplete, or misleading results, and you must independently verify, validate, and confirm all AI-generated information before making any clinical decisions or taking any actions based on these outputs."
-          >
-            <IconButton size="small" sx={{ marginLeft: '5px' }}>
-              <InfoOutlined sx={{ fontSize: '17px' }} />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        <AiSectionHeader />
       </Container>
       <Container
         style={{

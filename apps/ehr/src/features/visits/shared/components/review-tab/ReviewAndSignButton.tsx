@@ -50,6 +50,9 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       historyOfPresentIllness: {
         _tag: 'history-of-present-illness',
       },
+      accident: {
+        _tag: 'accident',
+      },
       inHouseLabResults: {},
       patientInfoConfirmed: {},
     },
@@ -78,6 +81,8 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const hpi = chartFields?.chiefComplaint?.text;
   const emCode = chartData?.emCode;
   const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
+  const accidentHasType = (chartFields?.accident?.type?.length ?? 0) > 0;
+  const accidentMissingDate = accidentHasType && !chartFields?.accident?.date;
   const inHouseLabResultsPending = chartFields?.inHouseLabResults?.resultsPending;
   const inHouseLabReflexTestPending = chartFields?.inHouseLabResults?.reflexTestsPending;
 
@@ -126,7 +131,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       }
     }
 
-    if (!primaryDiagnosis || !medicalDecision || !emCode || !hpi) {
+    if (!primaryDiagnosis || !medicalDecision || !emCode || !hpi || accidentMissingDate) {
       messages.push('You need to fill in the missing data');
     }
 
@@ -153,6 +158,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     medicalDecision,
     hpi,
     emCode,
+    accidentMissingDate,
     patientInfoConfirmed,
     appointmentAccessibility.status,
     inHouseLabResultsPending,
