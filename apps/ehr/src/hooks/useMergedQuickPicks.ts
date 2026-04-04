@@ -30,25 +30,34 @@ function useFhirQuickPicks<T>(fetchFn: (oystehr: any) => Promise<{ quickPicks: T
   const [quickPicks, setQuickPicks] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const doFetch = useCallback(async () => {
-    if (!oystehrZambda) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const response = await fetchFn(oystehrZambda);
-      setQuickPicks(response.quickPicks);
-    } catch (error) {
-      console.error('Failed to load quick picks:', error);
-      enqueueSnackbar('Failed to load quick picks', { variant: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [oystehrZambda, fetchFn]);
+  const doFetch = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!oystehrZambda) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        const response = await fetchFn(oystehrZambda);
+        if (signal?.aborted) return;
+        setQuickPicks(response.quickPicks);
+      } catch (error) {
+        if (signal?.aborted) return;
+        console.error('Failed to load quick picks:', error);
+        enqueueSnackbar('Failed to load quick picks', { variant: 'error' });
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [oystehrZambda, fetchFn]
+  );
 
   useEffect(() => {
-    void doFetch();
+    const controller = new AbortController();
+    void doFetch(controller.signal);
+    return () => controller.abort();
   }, [doFetch]);
 
   return { quickPicks, loading, refetch: doFetch };
