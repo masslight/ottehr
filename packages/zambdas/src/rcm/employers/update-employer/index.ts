@@ -40,13 +40,22 @@ export const index = wrapHandler('update-employer', async (input: ZambdaInput): 
 
     const updatedCategory = category ?? existing.type?.[0]?.text ?? 'Occupational Medicine';
 
+    const mergedIdentifier = (() => {
+      if (identifier === undefined) return existing.identifier;
+      const normalized = normalizeIdentifier(identifier);
+      if (!normalized) return existing.identifier;
+      const incomingSystems = new Set(normalized.map((id) => id.system));
+      const kept = (existing.identifier ?? []).filter((id) => !incomingSystems.has(id.system));
+      return [...kept, ...normalized];
+    })();
+
     const updated = await oystehr.fhir.update<Organization>(
       {
         ...existing,
         name: name ?? existing.name,
         active: active ?? existing.active,
         type: category ? buildEmployerType(category) : existing.type ?? buildEmployerType(),
-        identifier: identifier === undefined ? existing.identifier : normalizeIdentifier(identifier),
+        identifier: mergedIdentifier,
         address: address === undefined ? existing.address : normalizeAddress(address),
         telecom: contact === undefined ? existing.telecom : normalizeTelecom(contact),
         extension:
