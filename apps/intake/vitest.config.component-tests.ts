@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
+import GithubActionsReporter from 'vitest-github-actions-reporter';
 
 const envName = process.env.ENV || 'local';
 dotenv.config({ path: path.resolve(__dirname, `env/.env.${envName}`) });
@@ -14,6 +15,7 @@ export default defineConfig({
     include: ['**/*.test.tsx'],
     setupFiles: ['./tests/component/setup.ts'],
     environment: 'happy-dom',
+    reporters: process.env.CI ? ['default', new GithubActionsReporter()] : ['default'],
   },
   plugins: [tsconfigPaths(), react()],
 });

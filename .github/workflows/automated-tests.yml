@@ -108,7 +108,7 @@ jobs:
           fail-on-cache-miss: true
 
       - name: Unit tests
-        run: npm run test
+        run: npx turbo test --output-logs=errors-only
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
