@@ -15,7 +15,7 @@ export function validateRequestParameters(input: ZambdaInput): SaveInvoiceConfig
 
   const { dueDaysFromGeneration, defaultSmsTemplate, defaultInvoiceMemo } = parsed;
 
-  if (typeof dueDaysFromGeneration !== 'number' || dueDaysFromGeneration < 1 || dueDaysFromGeneration > 365) {
+  if (!Number.isInteger(dueDaysFromGeneration) || dueDaysFromGeneration < 1 || dueDaysFromGeneration > 365) {
     throw new Error('dueDaysFromGeneration must be an integer between 1 and 365');
   }
 

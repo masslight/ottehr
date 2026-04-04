@@ -7,6 +7,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormHelperText,
   Grid,
   IconButton,
   Skeleton,
@@ -259,6 +260,8 @@ function TemplateEditorField({
   previewValues,
   disabled,
   required,
+  error,
+  helperText,
 }: {
   label: string;
   value: string;
@@ -267,6 +270,8 @@ function TemplateEditorField({
   previewValues: Record<string, string>;
   disabled?: boolean;
   required?: boolean;
+  error?: boolean;
+  helperText?: string;
 }): ReactElement {
   const theme = useTheme();
   const [tab, setTab] = useState<'write' | 'preview'>('write');
@@ -332,7 +337,9 @@ function TemplateEditorField({
           </Typography>
         )}
       </Typography>
-      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+      <Box
+        sx={{ border: '1px solid', borderColor: error ? 'error.main' : 'divider', borderRadius: 1, overflow: 'hidden' }}
+      >
         <TabContext value={tab}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'grey.50' }}>
             <TabList
@@ -389,6 +396,7 @@ function TemplateEditorField({
           </TabPanel>
         </TabContext>
       </Box>
+      {helperText && <FormHelperText error={error}>{helperText}</FormHelperText>}
     </Box>
   );
 }
@@ -612,7 +620,7 @@ export default function SendInvoiceToPatientDialog({
                 control={control}
                 rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
                 disabled={disableAllFields}
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <TemplateEditorField
                     label="SMS message"
                     value={field.value ?? ''}
@@ -621,6 +629,8 @@ export default function SendInvoiceToPatientDialog({
                     previewValues={previewValues}
                     disabled={disableAllFields}
                     required
+                    error={!!fieldState.error}
+                    helperText={fieldState.error?.message}
                   />
                 )}
               />
@@ -632,7 +642,7 @@ export default function SendInvoiceToPatientDialog({
                 control={control}
                 rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
                 disabled={disableAllFields}
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <TemplateEditorField
                     label="Invoice memo"
                     value={field.value ?? ''}
@@ -641,6 +651,8 @@ export default function SendInvoiceToPatientDialog({
                     previewValues={previewValues}
                     disabled={disableAllFields}
                     required
+                    error={!!fieldState.error}
+                    helperText={fieldState.error?.message}
                   />
                 )}
               />

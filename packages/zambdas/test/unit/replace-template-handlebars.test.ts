@@ -50,10 +50,9 @@ describe('replaceTemplateVariablesHandlebars', () => {
   });
 
   test('handles variables with spaces around braces', () => {
-    // The function should NOT match {{ name }} with extra spaces (strict matching)
+    // The function should NOT match {{ name }} with extra spaces because variable names
+    // are matched strictly (word characters and hyphens only, with no spaces inside braces).
     const result = replaceTemplateVariablesHandlebars('Hello {{ name }}', { name: 'Alice' });
-    // If the regex is strict, it won't replace. If lenient, it will. Either way, verify consistent behavior.
-    // Current implementation uses /\{\{(\S+?)\}\}/g which skips spaces inside braces.
     expect(result).toBe('Hello {{ name }}');
   });
 

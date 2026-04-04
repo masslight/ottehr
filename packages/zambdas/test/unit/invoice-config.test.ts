@@ -244,7 +244,11 @@ describe('getOrCreateInvoicingConfig', () => {
   });
 
   test('creates only QuestionnaireResponse when Questionnaire exists', async () => {
-    const questionnaire = { resourceType: 'Questionnaire', id: 'q-existing' };
+    const questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'q-existing',
+      url: INVOICING_CONFIG_QUESTIONNAIRE_URL,
+    };
     const { client } = createMockOystehr([questionnaire], []);
 
     const result = await getOrCreateInvoicingConfig(client);

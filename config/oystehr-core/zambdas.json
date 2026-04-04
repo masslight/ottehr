@@ -1706,6 +1706,7 @@
       "runtime": "nodejs22.x",
       "src": "src/rcm/invoice-config/save-invoice-config/index",
       "zip": ".dist/zips/save-invoice-config.zip"
+    },
     "ADMIN_LIST_IN_HOUSE_LABS": {
       "name": "admin-list-in-house-labs",
       "type": "http_auth",
