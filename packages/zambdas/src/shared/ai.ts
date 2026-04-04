@@ -123,7 +123,7 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
 
     try {
       const response = await fetch(
-        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-2.5-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
+        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-3.1-flash-lite-preview:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
           body: JSON.stringify({
