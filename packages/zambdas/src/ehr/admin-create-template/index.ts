@@ -11,6 +11,7 @@ import {
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
   GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
+  ICD_10_CODE_SYSTEM,
   SecretsKeys,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
@@ -129,7 +130,7 @@ const performEffect = async (
     // ICD-10 diagnoses are additive (multiple per encounter), so skip deduplication for them
     if (
       entry.resource?.resourceType === 'Condition' &&
-      (entry.resource as Condition).code?.coding?.some((c) => c.system === 'http://hl7.org/fhir/sid/icd-10')
+      (entry.resource as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
     ) {
       return true;
     }
@@ -165,7 +166,7 @@ const performEffect = async (
     // Keep ICD-10 Conditions (Assessment / Diagnoses)
     if (
       entry.resource.resourceType === 'Condition' &&
-      (entry.resource as Condition).code?.coding?.some((c) => c.system === 'http://hl7.org/fhir/sid/icd-10')
+      (entry.resource as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
     ) {
       return true;
     }

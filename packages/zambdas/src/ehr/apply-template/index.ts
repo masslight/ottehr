@@ -13,6 +13,7 @@ import {
   chunkThings,
   getSecret,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
+  ICD_10_CODE_SYSTEM,
   SecretsKeys,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
@@ -315,7 +316,7 @@ const makeCreateRequests = (
     // For Condition resources that are ICD-10 codes, we need to update the Encounter.diagnosis references
     if (
       resourceToCreate.resourceType === 'Condition' &&
-      resourceToCreate.code?.coding?.find((c) => c.system === 'http://hl7.org/fhir/sid/icd-10')
+      resourceToCreate.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM)
     ) {
       const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
         return d.condition.reference?.split('/')[1] === containedResource.id;
