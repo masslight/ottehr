@@ -19,7 +19,7 @@ interface UseAiSuggestionApplyResult {
   expandedContent: ObservationTextFieldDTO[];
   mappedSuggestions: MappedSuggestion[];
   effectiveAppliedIndices: Set<number>;
-  handleSuggestionClick: (index: number) => void;
+  handleSuggestionClick: (index: number) => Promise<void>;
 }
 
 export const useAiSuggestionApply = ({
