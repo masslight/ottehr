@@ -42,7 +42,7 @@ export default function UpdateMedicationPage(): ReactElement {
   const [debouncedHcpcsSearch, setDebouncedHcpcsSearch] = useState('');
 
   const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
-  const medicationOptions: Medication[] = (data ?? []).map((option) => ({
+  const medicationOptions: Medication[] = (data?.filter((option) => !option.isObsolete) ?? []).map((option) => ({
     resourceType: 'Medication',
     identifier: [
       {
@@ -52,7 +52,7 @@ export default function UpdateMedicationPage(): ReactElement {
     ],
     code: {
       coding: [
-        { system: MEDICATION_DISPENSABLE_DRUG_ID, code: option.routedDoseFormDrugId.toString() },
+        { system: MEDICATION_DISPENSABLE_DRUG_ID, code: option.id.toString() },
         ...(option.ndc ? [{ system: CODE_SYSTEM_NDC, code: option.ndc }] : []),
       ],
     },
@@ -186,8 +186,8 @@ export default function UpdateMedicationPage(): ReactElement {
                   getOptionLabel={getMedicationName}
                   fullWidth
                   isOptionEqualToValue={(option, value) => getMedispanId(option) === getMedispanId(value)}
-                  loading={isSearching}
                   disableClearable
+                  loading={isSearching}
                   disablePortal
                   noOptionsText={
                     debouncedSearchTerm && debouncedSearchTerm.length > 2 && medicationOptions.length === 0
