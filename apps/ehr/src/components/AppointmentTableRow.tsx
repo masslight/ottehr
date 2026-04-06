@@ -79,7 +79,6 @@ const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 interface AppointmentTableRowProps {
   appointment: InPersonAppointmentInformation;
   location?: LocationWithWalkinSchedule;
-  actionButtons: boolean;
   now: DateTime;
   tab: ApptTab;
   updateAppointments: () => void;
@@ -172,7 +171,6 @@ const getIsLongWaitTime = (
 export default function AppointmentTableRow({
   appointment,
   location,
-  actionButtons,
   now,
   tab,
   updateAppointments,
@@ -756,6 +754,28 @@ export default function AppointmentTableRow({
     return undefined;
   };
 
+  const renderArrivedButton = (): ReactElement | undefined => {
+    if (tab === 'prebooked' && appointment.appointmentAttendanceType === 'in-person') {
+      return (
+        <LoadingButton
+          data-testid={dataTestIds.dashboard.arrivedButton}
+          onClick={handleArrivedClick}
+          loading={arrivedStatusSaving}
+          variant="contained"
+          sx={{
+            borderRadius: 8,
+            textTransform: 'none',
+            fontSize: '15px',
+            fontWeight: 500,
+          }}
+        >
+          Arrived
+        </LoadingButton>
+      );
+    }
+    return undefined;
+  };
+
   // there are two different tooltips that are show on the tracking board depending which tab/section you are on
   // 1. visit components on prebooked, in-office/waiting and cancelled
   // 2. orders on in-office/in-exam and discharged
@@ -1022,7 +1042,7 @@ export default function AppointmentTableRow({
         )}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
-        <Stack direction={'row'} spacing={1}>
+        <Stack direction={'row'} spacing={1} alignItems="center">
           <GoToButton
             text="Visit Details"
             onClick={() => navigate(`/visit/${appointment.id}`)}
@@ -1030,6 +1050,7 @@ export default function AppointmentTableRow({
           >
             <MedicalInformationIcon />
           </GoToButton>
+          {renderArrivedButton()}
           {renderStartIntakeButton()}
           {renderAssignMeButton()}
           {renderProgressNoteButton()}
@@ -1037,24 +1058,6 @@ export default function AppointmentTableRow({
           {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && renderSupervisorApproval()}
         </Stack>
       </TableCell>
-      {actionButtons && (
-        <TableCell sx={{ verticalAlign: 'center' }}>
-          <LoadingButton
-            data-testid={dataTestIds.dashboard.arrivedButton}
-            onClick={handleArrivedClick}
-            loading={arrivedStatusSaving}
-            variant="contained"
-            sx={{
-              borderRadius: 8,
-              textTransform: 'none',
-              fontSize: '15px',
-              fontWeight: 500,
-            }}
-          >
-            Arrived
-          </LoadingButton>
-        </TableCell>
-      )}
       {chatModalOpen && (
         <ChatModal
           appointment={appointment}
