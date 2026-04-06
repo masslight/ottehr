@@ -129,8 +129,14 @@ const performEffect = async (
     if (entry.resource?.resourceType === 'Condition') return true;
     const tags = entry.resource?.meta?.tag?.map((tag) => `${tag.system}|${tag.code}`);
     if (!tags) return true;
-    // CPT codes are additive (multiple per encounter), so skip deduplication for them
-    if (tags.some((tag) => tag?.includes(chartDataTagSystem('cpt-code')))) return true;
+    // CPT codes and patient instructions are additive (multiple per encounter), so skip deduplication for them
+    if (
+      tags.some(
+        (tag) =>
+          tag?.includes(chartDataTagSystem('cpt-code')) || tag?.includes(chartDataTagSystem('patient-instruction'))
+      )
+    )
+      return true;
     const isDuplicate = tags.some((tag) => seenTags.has(tag!));
     if (!isDuplicate) tags.forEach((tag) => seenTags.add(tag!));
     return !isDuplicate;

@@ -197,10 +197,12 @@ const performEffect = async (
   });
 
   // Parse patient instructions
-  const instructionResource = contained.find(
+  const instructionResources = contained.filter(
     (r) => r.resourceType === 'Communication' && hasTag(r, chartDataTagSystem('patient-instruction'))
-  ) as Communication | undefined;
-  const patientInstructions = instructionResource?.payload?.[0]?.contentString ?? null;
+  ) as Communication[];
+  const patientInstructions = instructionResources
+    .map((r) => r.payload?.[0]?.contentString)
+    .filter((s): s is string => Boolean(s));
 
   // Parse CPT codes
   const cptProcedures = contained.filter(

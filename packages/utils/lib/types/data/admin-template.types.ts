@@ -74,7 +74,7 @@ export interface AdminGetTemplateDetailOutput {
     examFindings: TemplateExamFinding[];
     mdm: string | null;
     diagnoses: TemplateCodeInfo[];
-    patientInstructions: string | null;
+    patientInstructions: string[];
     cptCodes: TemplateCodeInfo[];
     emCode: TemplateCodeInfo | null;
     accident: TemplateAccidentInfo | null;

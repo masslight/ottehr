@@ -368,10 +368,14 @@ export default function GlobalTemplateDetailPage(): ReactElement {
 
           {/* Patient Instructions */}
           <SectionCard title="Patient Instructions">
-            {sections.patientInstructions ? (
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                {sections.patientInstructions}
-              </Typography>
+            {sections.patientInstructions.length > 0 ? (
+              <Stack spacing={1}>
+                {sections.patientInstructions.map((instruction, index) => (
+                  <Typography key={index} variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {instruction}
+                  </Typography>
+                ))}
+              </Stack>
             ) : (
               <NotIncluded />
             )}
