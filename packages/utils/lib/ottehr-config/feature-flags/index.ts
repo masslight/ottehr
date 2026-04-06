@@ -1,6 +1,6 @@
-import { FeatureFlagsConfigSchema } from 'config-types';
+import { type FeatureFlagsConfig, FeatureFlagsConfigSchema } from 'config-types';
 
-const FEATURE_FLAGS_DATA = {
+const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   labOrdersEnabled: true,
   inHouseLabsEnabled: true,
   radiologyEnabled: true,
