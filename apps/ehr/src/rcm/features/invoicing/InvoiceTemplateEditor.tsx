@@ -7,6 +7,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { SuggestionKeyDownProps, SuggestionOptions, SuggestionProps } from '@tiptap/suggestion';
 import React, { forwardRef, ReactElement, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createRoot, Root } from 'react-dom/client';
+import { replaceTemplateVariablesHandlebars } from 'utils';
 
 // ---------------------------------------------------------------------------
 // Token IDs (bare, without braces) — used as Mention node attrs.id
@@ -253,7 +254,7 @@ export function TemplateEditorField({
 
   const resolvedPreview = useMemo(() => {
     if (!previewValues) return value;
-    return value.replace(/\{\{([a-z-]+)\}\}/g, (full, id) => previewValues[id] ?? full);
+    return replaceTemplateVariablesHandlebars(value, previewValues);
   }, [value, previewValues]);
 
   return (

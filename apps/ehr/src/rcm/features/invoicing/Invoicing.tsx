@@ -31,18 +31,19 @@ import {
   DEFAULT_INVOICE_MEMO_TEMPLATE,
   DEFAULT_INVOICE_SMS_TEMPLATE,
   parseInvoiceConfigFromQR,
+  replaceTemplateVariablesHandlebars,
 } from 'utils';
 import { INVOICE_TOKEN_IDS, makeSuggestion, textToTiptapContent, tiptapContentToText } from './InvoiceTemplateEditor';
 
 const SAMPLE_VALUES: Record<string, string> = {
-  '{{patient-full-name}}': 'Jane Smith',
-  '{{clinic}}': 'Ottehr Clinic',
-  '{{location}}': 'Washington, DC',
-  '{{visit-date}}': 'Sunday, March 15, 2026',
-  '{{due-date}}': 'Sunday, March 29, 2026',
-  '{{amount}}': '$125.00',
-  '{{invoice-link}}': 'https://payments.ottehr.com/inv/abc123',
-  '{{patient-portal-link}}': 'https://patient.ottehr.com/',
+  'patient-full-name': 'Jane Smith',
+  clinic: 'Ottehr Clinic',
+  location: 'Washington, DC',
+  'visit-date': 'Sunday, March 15, 2026',
+  'due-date': 'Sunday, March 29, 2026',
+  amount: '$125.00',
+  'invoice-link': 'https://payments.ottehr.com/inv/abc123',
+  'patient-portal-link': 'https://patient.ottehr.com/',
 };
 
 interface InvoicingFormValues {
@@ -179,7 +180,7 @@ function PlaceholderChips({
 // ---------------------------------------------------------------------------
 
 function resolveTemplate(template: string): string {
-  return template.replace(/\{\{[a-z-]+\}\}/g, (match) => SAMPLE_VALUES[match] ?? match);
+  return replaceTemplateVariablesHandlebars(template, SAMPLE_VALUES);
 }
 
 function TemplatePreview({ template }: { template: string }): ReactElement {
