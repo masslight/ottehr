@@ -7,7 +7,6 @@ import {
   ClosureType,
   DOW,
   getScheduleExtension,
-  getSecret,
   getTimezone,
   INVALID_INPUT_ERROR,
   ListScheduleOwnersParams,
@@ -19,16 +18,9 @@ import {
   ScheduleListItem,
   ScheduleOwnerFhirResource,
   Secrets,
-  SecretsKeys,
   TIMEZONES,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
 
 let m2mToken: string;
@@ -36,35 +28,29 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'list-schedule-owners';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const { ownerType } = validatedParameters;
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  const { ownerType } = validatedParameters;
 
-    let effectInput: EffectInput;
-    if (ownerType === 'HealthcareService') {
-      effectInput = await complexValidation<HealthcareService>(validatedParameters, oystehr);
-    } else if (ownerType === 'Location') {
-      effectInput = await complexValidation<Location>(validatedParameters, oystehr);
-    } else {
-      effectInput = await complexValidation<Practitioner>(validatedParameters, oystehr);
-    }
-    const response = performEffect(effectInput);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('list-schedule-owners', error, ENVIRONMENT);
+  let effectInput: EffectInput;
+  if (ownerType === 'HealthcareService') {
+    effectInput = await complexValidation<HealthcareService>(validatedParameters, oystehr);
+  } else if (ownerType === 'Location') {
+    effectInput = await complexValidation<Location>(validatedParameters, oystehr);
+  } else {
+    effectInput = await complexValidation<Practitioner>(validatedParameters, oystehr);
   }
+  const response = performEffect(effectInput);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {

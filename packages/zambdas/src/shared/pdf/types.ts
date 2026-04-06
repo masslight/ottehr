@@ -23,7 +23,7 @@ import {
   OrderedCoveragesWithSubscribers,
   PatientPaymentDTO,
   ProviderDetails,
-  QuantityComponent,
+  QuantityDataEntryComponent,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   SupportedObsImgAttachmentTypes,
   VitalsVisitNoteData,
@@ -216,7 +216,7 @@ export interface InHouseLabResult {
   value: string | undefined;
   units?: string;
   rangeString?: string[];
-  rangeQuantity?: QuantityComponent;
+  rangeQuantity?: QuantityDataEntryComponent;
   interpretationCoding: Coding | undefined;
 }
 export interface InHouseLabResultConfig {
