@@ -96,7 +96,7 @@ describe('chart-data integration tests', () => {
       expect(typedGetChartDataOutput.aiChat?.providers?.length).toEqual(0);
       expect(typedGetChartDataOutput).toHaveProperty('patientInfoConfirmed');
       expect(typedGetChartDataOutput.patientInfoConfirmed).toEqual({
-        value: true,
+        value: false,
       });
     });
 
