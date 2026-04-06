@@ -95,8 +95,8 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     path: ROUTER_PATH.CC_AND_INTAKE_NOTES,
     modes: ['main', 'readonly'],
     element: <ChiefComplaintAndIntakeNotes />,
-    text: 'CC & Intake Notes',
-    iconKey: 'CC & Intake Notes',
+    text: 'Chief Complaint',
+    iconKey: 'Chief Complaint',
     groupLabel: 'Intake',
   },
   [ROUTER_PATH.SCREENING]: {

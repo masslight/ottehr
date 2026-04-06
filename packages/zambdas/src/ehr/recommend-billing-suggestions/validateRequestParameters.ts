@@ -8,11 +8,14 @@ export function validateRequestParameters(input: ZambdaInput): BillingSuggestion
 
   const {
     newPatient,
+    patientAge,
+    patientSex,
     hpi,
     mdm,
     externalLabOrders,
     internalLabOrders,
     radiologyOrders,
+    radiologyReports,
     procedures,
     diagnoses,
     billing,
@@ -20,11 +23,14 @@ export function validateRequestParameters(input: ZambdaInput): BillingSuggestion
 
   return {
     newPatient,
+    patientAge: patientAge || '',
+    patientSex: patientSex || '',
     hpi,
     mdm,
     externalLabOrders,
     internalLabOrders,
     radiologyOrders,
+    radiologyReports: radiologyReports || '',
     procedures,
     diagnoses,
     billing,

@@ -2,7 +2,9 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
+import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
 import Insurances from '../features/visits/telemed/components/admin/Insurance';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
@@ -17,9 +19,11 @@ enum PageTab {
   employees = 'employees',
   providers = 'providers',
   insurance = 'insurances',
+  'global-templates' = 'global-templates',
   medications = 'medications',
   billing = 'billing',
   'quick-picks' = 'quick-picks',
+  'in-house-labs' = 'in-house-labs',
 }
 
 export function AdminPage(): JSX.Element {
@@ -66,6 +70,12 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab.insurance}`)}
                 />
                 <Tab
+                  label="Global Templates"
+                  value={PageTab['global-templates']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['global-templates']}`)}
+                />
+                <Tab
                   label="Medications"
                   value={PageTab.medications}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
@@ -82,6 +92,12 @@ export function AdminPage(): JSX.Element {
                   value={PageTab['quick-picks']}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['quick-picks']}`)}
+                />
+                <Tab
+                  label="In-House Labs"
+                  value={PageTab['in-house-labs']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['in-house-labs']}`)}
                 />
               </TabList>
             </Box>
@@ -110,6 +126,9 @@ export function AdminPage(): JSX.Element {
           <TabPanel value={PageTab.insurance} sx={{ padding: 0 }}>
             <Insurances />
           </TabPanel>
+          <TabPanel value={PageTab['global-templates']} sx={{ padding: 0 }}>
+            <GlobalTemplatesAdminPage />
+          </TabPanel>
           <TabPanel value={PageTab.medications} sx={{ padding: 0 }}>
             <MedicationsConfigurationPage />
           </TabPanel>
@@ -118,6 +137,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['in-house-labs']} sx={{ padding: 0 }}>
+            <InHouseLabAdminPage />
           </TabPanel>
         </TabContext>
       </Box>

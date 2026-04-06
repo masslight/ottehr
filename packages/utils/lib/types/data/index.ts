@@ -13,6 +13,7 @@ export * from './paperwork.types';
 export * from './payment';
 export * from './telemed';
 export * from './immunization';
+export * from './admin-template.types';
 export * from './apply-template.types';
 export * from './list-template.types';
 export * from './screening-questions';

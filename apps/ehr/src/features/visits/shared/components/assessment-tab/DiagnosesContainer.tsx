@@ -1,6 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
+import { AddCircleOutline, InfoOutlined } from '@mui/icons-material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { Box, Button, CircularProgress, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, IconButton, Tooltip, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
@@ -14,6 +15,7 @@ import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAcc
 import { useICD10SearchNew } from '../../stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
+import { AiSectionContainer } from '../AiSection';
 import { DiagnosesField } from './DiagnosesField';
 
 const getUpdatedDiagnoses = (
@@ -65,7 +67,12 @@ export const useAddDiagnosis = (): { onAdd: (value: IcdSearchResponse['codes'][n
   return { onAdd };
 };
 
-export const DiagnosesContainer: FC = () => {
+interface DiagnosesContainerProps {
+  aiSuggestedDiagnoses?: { code: string; description: string; reason: string }[];
+  aiSuggestionsLoading?: boolean;
+}
+
+export const DiagnosesContainer: FC<DiagnosesContainerProps> = ({ aiSuggestedDiagnoses, aiSuggestionsLoading }) => {
   const { chartData, setPartialChartData } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
@@ -280,6 +287,45 @@ export const DiagnosesContainer: FC = () => {
           />
         </Box>
       )}
+
+      <AiSectionContainer isLoading={aiSuggestionsLoading}>
+        {!aiSuggestionsLoading && aiSuggestedDiagnoses && aiSuggestedDiagnoses.length > 0 && (
+          <ActionsList
+            data={aiSuggestedDiagnoses}
+            getKey={(value) => value.code}
+            renderItem={(value) => (
+              <Typography>
+                {value.description} {value.code}
+              </Typography>
+            )}
+            renderActions={
+              isReadOnly
+                ? undefined
+                : (value) => (
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <Tooltip title={value.reason}>
+                        <IconButton size="small">
+                          <InfoOutlined sx={{ fontSize: '17px' }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Add diagnosis">
+                        <IconButton
+                          size="small"
+                          onClick={() => onAdd({ code: value.code, display: value.description })}
+                        >
+                          <AddCircleOutline sx={{ fontSize: '17px' }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  )
+            }
+            divider
+          />
+        )}
+        {!aiSuggestionsLoading && (!aiSuggestedDiagnoses || aiSuggestedDiagnoses.length === 0) && (
+          <Typography color="secondary.light">No suggestions</Typography>
+        )}
+      </AiSectionContainer>
     </Box>
   );
 };

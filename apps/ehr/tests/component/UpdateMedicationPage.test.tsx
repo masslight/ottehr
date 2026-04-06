@@ -79,8 +79,10 @@ describe('UpdateMedicationPage', () => {
 
   it('renders medication name after data loads', async () => {
     render(<UpdateMedicationPage />, { wrapper: createWrapper() });
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Update medication' })).toBeInTheDocument());
-    expect(screen.getByLabelText('Name')).toHaveValue('Ibuprofen 200mg');
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Update medication' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Name')).toHaveValue('Ibuprofen 200mg');
+    });
   });
 
   it('renders loaded CPT codes as chips', async () => {

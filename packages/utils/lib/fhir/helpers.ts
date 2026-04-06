@@ -1543,3 +1543,15 @@ export async function patchWithOptimisticLock<T extends FhirResource & { id: str
     }
   }
 }
+
+export function makeOptimisticLockIfMatchHeader(res: FhirResource | string): string | undefined {
+  let versionId: string | undefined;
+
+  if (typeof res === 'string') {
+    versionId = res;
+  } else {
+    versionId = res.meta?.versionId;
+  }
+
+  return versionId ? `W/"${versionId}"` : undefined;
+}
