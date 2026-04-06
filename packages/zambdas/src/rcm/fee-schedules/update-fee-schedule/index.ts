@@ -34,8 +34,9 @@ export const index = wrapHandler('update-fee-schedule', async (input: ZambdaInpu
     propertyGroup = undefined;
   }
 
-  // Store case rate amount if provided (only when designation is explicitly case-rate)
-  if (caseRateAmount !== undefined && designation === 'case-rate') {
+  // Store case rate amount if provided and the schedule is (or is becoming) a case-rate
+  const isCaseRateAfterUpdate = tags.some((t) => t.system === RCM_TAG_SYSTEM && t.code === CASE_RATE_CODE);
+  if (caseRateAmount !== undefined && isCaseRateAfterUpdate) {
     propertyGroup = [
       {
         priceComponent: [
