@@ -28,6 +28,7 @@ export const useChartDataArrayValue = <
   onRemoveCallback?: () => any
 ): {
   isLoading: boolean;
+  isDataReady: boolean;
   onSubmit: (data: ElementType<K>) => Promise<boolean>;
   onRemove: (resourceId: string) => Promise<void>;
   values: K;
@@ -38,6 +39,7 @@ export const useChartDataArrayValue = <
 
   const {
     isLoading: isChartDataLoading,
+    isFetched: isChartDataFetched,
     data: currentFieldData,
     setQueryCache,
   } = useChartFields({
@@ -108,5 +110,7 @@ export const useChartDataArrayValue = <
     );
   };
 
-  return { isLoading: isSaveLoading || isDeleteLoading || isChartDataLoading, onSubmit, onRemove, values };
+  const isDataReady = customParams ? isChartDataFetched : true;
+
+  return { isLoading: isSaveLoading || isDeleteLoading || isChartDataLoading, isDataReady, onSubmit, onRemove, values };
 };
