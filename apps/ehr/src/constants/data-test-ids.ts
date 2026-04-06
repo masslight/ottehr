@@ -285,6 +285,7 @@ export const dataTestIds = {
     medicalDecisionLink: 'medical-decision-link',
     emCodeLink: 'em-code-link',
     hpiLink: 'hpi-link',
+    accidentDateLink: 'accident-date-link',
     ccLink: 'chief-complaint-link',
     visitNoteCard: 'visit-note-card',
     procedureItem: 'procedure-item',

@@ -20,6 +20,7 @@ import { GenericToolTip } from 'src/components/GenericToolTip';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
+import Loading from 'src/components/Loading';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
 import {
@@ -174,13 +175,22 @@ export const Tasks: React.FC = () => {
 
   const page = Number(searchParams.get('page') ?? '0');
 
-  const { data: tasksData, isLoading: isTasksLoading } = useGetTasks({
-    assignedTo: searchParams.get('assignedTo'),
-    category: searchParams.get('category'),
-    location: searchParams.get('location'),
-    status: searchParams.get('status'),
-    page: page,
-  });
+  const {
+    data: tasksData,
+    isLoading: isTasksLoading,
+    isFetching: isTasksRefreshing,
+  } = useGetTasks(
+    {
+      assignedTo: searchParams.get('assignedTo'),
+      category: searchParams.get('category'),
+      location: searchParams.get('location'),
+      status: searchParams.get('status'),
+      page: page,
+    },
+    {
+      refetchInterval: 30000,
+    }
+  );
 
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const onNewTaskClick = (): void => {
@@ -225,126 +235,139 @@ export const Tasks: React.FC = () => {
           </Paper>
         </FormProvider>
         <Paper>
-          <Table sx={{ width: '100%' }}>
-            <TableHead>
-              <TableRow>
-                <TableCell style={{ width: '200px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Category and Date
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Task
-                  </Typography>
-                </TableCell>
-                <TableCell style={{ width: '200px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Assigned To
-                  </Typography>
-                </TableCell>
-                <TableCell style={{ width: '200px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Status
-                  </Typography>
-                </TableCell>
-                <TableCell style={{ width: '200px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Action
-                  </Typography>
-                </TableCell>
-                <TableCell style={{ width: '50px' }}></TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {isTasksLoading ? (
+          <Box sx={{ position: 'relative' }}>
+            {isTasksRefreshing && !isTasksLoading && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 12,
+                  right: 0,
+                }}
+              >
+                <Loading />
+              </Box>
+            )}
+            <Table sx={{ width: '100%' }}>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    <CircularProgress />
+                  <TableCell style={{ width: '200px' }}>
+                    <Typography fontWeight="500" fontSize="14px">
+                      Category and Date
+                    </Typography>
                   </TableCell>
-                </TableRow>
-              ) : null}
-              {!isTasksLoading && (tasksData?.tasks ?? []).length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    <Typography variant="body2">No tasks</Typography>
+                  <TableCell>
+                    <Typography fontWeight="500" fontSize="14px">
+                      Task
+                    </Typography>
                   </TableCell>
+                  <TableCell style={{ width: '200px' }}>
+                    <Typography fontWeight="500" fontSize="14px">
+                      Assigned To
+                    </Typography>
+                  </TableCell>
+                  <TableCell style={{ width: '200px' }}>
+                    <Typography fontWeight="500" fontSize="14px">
+                      Status
+                    </Typography>
+                  </TableCell>
+                  <TableCell style={{ width: '200px' }}>
+                    <Typography fontWeight="500" fontSize="14px">
+                      Action
+                    </Typography>
+                  </TableCell>
+                  <TableCell style={{ width: '50px' }}></TableCell>
                 </TableRow>
-              ) : null}
-              {!isTasksLoading &&
-                (tasksData?.tasks ?? []).map((task) => {
-                  return (
-                    <TableRow>
-                      <TableCell>
-                        <CategoryChip category={task.category} />
-                        <Typography
-                          variant="body2"
-                          display="inline"
-                          style={{ color: '#00000099', display: 'block', marginTop: '5px' }}
-                        >
-                          {formatDate(task.createdDate)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Box>
+              </TableHead>
+              <TableBody>
+                {isTasksLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      <CircularProgress />
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+                {!isTasksLoading && (tasksData?.tasks ?? []).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      <Typography variant="body2">No tasks</Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+                {!isTasksLoading &&
+                  (tasksData?.tasks ?? []).map((task) => {
+                    return (
+                      <TableRow>
+                        <TableCell>
+                          <CategoryChip category={task.category} />
                           <Typography
-                            variant="body1"
+                            variant="body2"
                             display="inline"
-                            style={{
-                              color: '#000000DE',
-                              fontWeight: 500,
-                              textDecoration: task.status === COMPLETED ? 'line-through' : 'none',
-                            }}
+                            style={{ color: '#00000099', display: 'block', marginTop: '5px' }}
                           >
-                            {task.title}
+                            {formatDate(task.createdDate)}
                           </Typography>
-                          {task.alert ? renderAlertIcon(task.alert) : null}
-                        </Box>
-                        {task.details ? <Typography variant="body2">{task.details}</Typography> : null}
-                        <Typography variant="body2" style={{ color: '#00000099' }}>
-                          {task.subtitle}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {task.assignee ? (
-                          <>
-                            <Typography variant="body2">{task.assignee.name}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Box>
                             <Typography
-                              variant="body2"
+                              variant="body1"
                               display="inline"
-                              style={{ color: '#00000099', display: 'block' }}
+                              style={{
+                                color: '#000000DE',
+                                fontWeight: 500,
+                                textDecoration: task.status === COMPLETED ? 'line-through' : 'none',
+                              }}
                             >
-                              {formatDate(task.assignee.date)}
+                              {task.title}
                             </Typography>
-                          </>
-                        ) : (
-                          'Unassigned'
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <StatusChip
-                          status={TASK_STATUS_LABEL[task.status] ?? UNKNOWN}
-                          style={
-                            task.status === COMPLETED ? 'green' : task.status === 'in-progress' ? 'orange' : 'purple'
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {task.status !== COMPLETED ? (
-                          <Stack direction="row" justifyContent="space-between" spacing={1}>
-                            {renderActionButton(task)}
-                            {renderCompleteButton(task)}
-                          </Stack>
-                        ) : null}
-                      </TableCell>
-                      <TableCell>
-                        <MoreTaskActions task={task} currentUser={currentUser} />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-            </TableBody>
-          </Table>
+                            {task.alert ? renderAlertIcon(task.alert) : null}
+                          </Box>
+                          {task.details ? <Typography variant="body2">{task.details}</Typography> : null}
+                          <Typography variant="body2" style={{ color: '#00000099' }}>
+                            {task.subtitle}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {task.assignee ? (
+                            <>
+                              <Typography variant="body2">{task.assignee.name}</Typography>
+                              <Typography
+                                variant="body2"
+                                display="inline"
+                                style={{ color: '#00000099', display: 'block' }}
+                              >
+                                {formatDate(task.assignee.date)}
+                              </Typography>
+                            </>
+                          ) : (
+                            'Unassigned'
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <StatusChip
+                            status={TASK_STATUS_LABEL[task.status] ?? UNKNOWN}
+                            style={
+                              task.status === COMPLETED ? 'green' : task.status === 'in-progress' ? 'orange' : 'purple'
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {task.status !== COMPLETED ? (
+                            <Stack direction="row" justifyContent="space-between" spacing={1}>
+                              {renderActionButton(task)}
+                              {renderCompleteButton(task)}
+                            </Stack>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          <MoreTaskActions task={task} currentUser={currentUser} />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+              </TableBody>
+            </Table>
+          </Box>
           <TablePagination
             rowsPerPageOptions={[TASKS_PAGE_SIZE]}
             component="div"

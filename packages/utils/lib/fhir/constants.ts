@@ -748,6 +748,9 @@ export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_UR
 export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-in-person`;
 export const GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-telemed`;
 
+/** Builds the full meta.tag system URL from a chart data field name (e.g. 'chief-complaint' → full URL). */
+export const chartDataTagSystem = (fieldName: string): string => `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}`;
+
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_TYPE = ottehrCodeSystemUrl('task-type');
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE = 'video-chat-waiting-room-notification';
 
