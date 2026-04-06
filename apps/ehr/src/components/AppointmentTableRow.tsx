@@ -33,6 +33,7 @@ import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { TrackingBoardTableButton } from 'src/features/visits/telemed/components/tracking-board/TrackingBoardTableButton';
+import { getTelemedAppointmentUrl } from 'src/features/visits/telemed/utils/routing';
 import { makeAbbreviation } from 'src/helpers/misc.helper';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
@@ -625,7 +626,11 @@ export default function AppointmentTableRow({
   const handleProgressNoteButton = async (): Promise<void> => {
     setProgressNoteButtonLoading(true);
     try {
-      navigate(`/in-person/${appointment.id}/${ROUTER_PATH.REVIEW_AND_SIGN}`);
+      if (appointment.appointmentAttendanceType === 'in-person') {
+        navigate(`/in-person/${appointment.id}/${ROUTER_PATH.REVIEW_AND_SIGN}`);
+      } else {
+        navigate(getTelemedAppointmentUrl(appointment.id));
+      }
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
@@ -635,11 +640,13 @@ export default function AppointmentTableRow({
 
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
-      appointment.status === 'ready for provider' ||
-      appointment.status === 'provider' ||
-      appointment.status === 'awaiting supervisor approval' ||
-      appointment.status === 'completed' ||
-      appointment.status === 'discharged'
+      (appointment.appointmentAttendanceType === 'in-person' &&
+        (appointment.status === 'ready for provider' ||
+          appointment.status === 'provider' ||
+          appointment.status === 'awaiting supervisor approval' ||
+          appointment.status === 'completed' ||
+          appointment.status === 'discharged')) ||
+      appointment.appointmentAttendanceType === 'virtual'
     ) {
       return (
         <GoToButton
@@ -1052,9 +1059,9 @@ export default function AppointmentTableRow({
           </GoToButton>
           {renderArrivedButton()}
           {renderStartIntakeButton()}
-          {renderAssignMeButton()}
           {renderProgressNoteButton()}
           {renderDischargeButton()}
+          {renderAssignMeButton()}
           {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && renderSupervisorApproval()}
         </Stack>
       </TableCell>
