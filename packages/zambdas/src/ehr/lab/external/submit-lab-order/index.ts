@@ -47,7 +47,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // submit to oystehr labs when NOT manual order
   const successfulBundledOrders: OrderResourcesByOrderNumber = {};
-  const failedBundledOrders: OrderResourcesByOrderNumber = {};
+  const failedBundledOrders: { [orderNumber: string]: string } = {};
   if (!manualOrder) {
     console.log('calling oystehr submit lab');
 
@@ -70,7 +70,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
         if (!res.ok) {
           const body = await res.json();
-          throw new Error(`Error submitting requisition number: ${orderNumber}. Error: ${body.message}`);
+          throw new Error(`Requisition ${orderNumber} failed with error "${body.message}"`);
         }
 
         const result = await res.json();
@@ -105,8 +105,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
       } else if (res.status === 'rejected') {
         console.error('rejected result', res);
-        const resources = bundledOrdersByOrderNumber[res.orderNumber];
-        failedBundledOrders[res.orderNumber] = resources;
+        failedBundledOrders[res.orderNumber || 'unknown'] = res.reason || '';
       }
     }
   } else {
@@ -163,12 +162,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     ? await makeOrderFormsAndDocRefs(successfulBundledOrders, now, secrets, m2mToken, oystehr)
     : [];
 
-  const hasFailures = Object.keys(failedBundledOrders).length > 0;
-  const failedOrdersByOrderNumber = hasFailures
-    ? Object.keys(failedBundledOrders).map((orderNumber) => orderNumber)
-    : undefined;
-
-  const responseBody: SubmitLabOrderOutput = { orderPdfUrls, failedOrdersByOrderNumber };
+  const responseBody: SubmitLabOrderOutput = { orderPdfUrls, failedOrdersByOrderNumber: failedBundledOrders };
 
   return {
     body: JSON.stringify(responseBody),
