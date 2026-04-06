@@ -364,7 +364,7 @@ export const makeEncounterSearchParams = async ({
   oystehr,
 }: {
   resourceId: string;
-  resourceType: 'Location' | 'Practitioner' | undefined;
+  resourceType: 'Location' | 'Practitioner';
   cacheKey: string;
   oystehr: Oystehr;
 }): Promise<SearchParam[] | null> => {
