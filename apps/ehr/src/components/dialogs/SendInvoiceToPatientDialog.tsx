@@ -20,6 +20,7 @@ import { TemplateEditorField, textToTiptapContent } from 'src/rcm/features/invoi
 import { useGetInvoiceConfigQuery } from 'src/rcm/state/invoice-config/invoice-config.queries';
 import {
   BRANDING_CONFIG,
+  buildInvoicePlaceholders,
   InvoiceablePatientReport,
   InvoiceTaskInput,
   parseInvoiceConfigFromQR,
@@ -83,26 +84,26 @@ export default function SendInvoiceToPatientDialog({
   const previewValues = useMemo<Record<string, string>>(() => {
     const amount = watch('amount');
     const dueDate = watch('dueDate');
-    const formatDate = (raw: string | undefined): string => {
-      if (!raw) return '';
-      const dt = DateTime.fromISO(raw);
-      if (dt.isValid) return dt.toFormat('EEEE, MMMM d, yyyy');
-      const dtUs = DateTime.fromFormat(raw, 'MM/dd/yyyy');
-      if (dtUs.isValid) return dtUs.toFormat('EEEE, MMMM d, yyyy');
-      return raw;
-    };
-    return {
-      'patient-full-name': patient?.fullName ?? '[Patient Name]',
-      clinic: BRANDING_CONFIG.projectName,
-      location: location ?? '[Location]',
-      'visit-date': formatDate(visitDate) || '[Visit Date]',
-      'due-date': formatDate(dueDate) || '[Due Date]',
-      amount: amount
-        ? `$${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-        : '[Amount]',
+    const PLACEHOLDER_FALLBACKS: Record<string, string> = {
+      'patient-full-name': '[Patient Name]',
+      location: '[Location]',
+      'visit-date': '[Visit Date]',
+      'due-date': '[Due Date]',
+      amount: '[Amount]',
       'invoice-link': 'https://example.com/invoice-link',
       'patient-portal-link': 'https://example.com/patient-portal',
     };
+    return buildInvoicePlaceholders(
+      {
+        patientFullName: patient?.fullName,
+        clinic: BRANDING_CONFIG.projectName,
+        location: location ?? undefined,
+        visitDate: visitDate ?? undefined,
+        dueDate: dueDate ?? undefined,
+        amountCents: amount ? Math.round(Number(amount) * 100) : undefined,
+      },
+      PLACEHOLDER_FALLBACKS
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patient?.fullName, location, visitDate, watch('amount'), watch('dueDate')]);
 

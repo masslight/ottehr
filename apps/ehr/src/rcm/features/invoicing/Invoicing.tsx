@@ -30,20 +30,21 @@ import {
   DEFAULT_INVOICE_DUE_DAYS,
   DEFAULT_INVOICE_MEMO_TEMPLATE,
   DEFAULT_INVOICE_SMS_TEMPLATE,
+  fillInvoiceTemplate,
+  InvoicePlaceholderInput,
   parseInvoiceConfigFromQR,
-  replaceTemplateVariablesHandlebars,
 } from 'utils';
 import { INVOICE_TOKEN_IDS, makeSuggestion, textToTiptapContent, tiptapContentToText } from './InvoiceTemplateEditor';
 
-const SAMPLE_VALUES: Record<string, string> = {
-  'patient-full-name': 'Jane Smith',
+const SAMPLE_INPUT: InvoicePlaceholderInput = {
+  patientFullName: 'Jane Smith',
   clinic: 'Ottehr Clinic',
   location: 'Washington, DC',
-  'visit-date': 'Sunday, March 15, 2026',
-  'due-date': 'Sunday, March 29, 2026',
-  amount: '$125.00',
-  'invoice-link': 'https://payments.ottehr.com/inv/abc123',
-  'patient-portal-link': 'https://patient.ottehr.com/',
+  visitDate: '2026-03-15',
+  dueDate: '2026-03-29',
+  amountCents: 12500,
+  invoiceLink: 'https://payments.ottehr.com/inv/abc123',
+  patientPortalLink: 'https://patient.ottehr.com/',
 };
 
 interface InvoicingFormValues {
@@ -180,7 +181,7 @@ function PlaceholderChips({
 // ---------------------------------------------------------------------------
 
 function resolveTemplate(template: string): string {
-  return replaceTemplateVariablesHandlebars(template, SAMPLE_VALUES);
+  return fillInvoiceTemplate(template, SAMPLE_INPUT);
 }
 
 function TemplatePreview({ template }: { template: string }): ReactElement {
