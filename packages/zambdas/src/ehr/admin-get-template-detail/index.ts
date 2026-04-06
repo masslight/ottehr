@@ -201,8 +201,11 @@ const performEffect = async (
     (r) => r.resourceType === 'Communication' && hasTag(r, chartDataTagSystem('patient-instruction'))
   ) as Communication[];
   const patientInstructions = instructionResources
-    .map((r) => r.payload?.[0]?.contentString)
-    .filter((s): s is string => Boolean(s));
+    .map((r) => ({
+      title: r.topic?.text ?? null,
+      text: r.payload?.[0]?.contentString ?? '',
+    }))
+    .filter((i) => Boolean(i.text));
 
   // Parse CPT codes
   const cptProcedures = contained.filter(
