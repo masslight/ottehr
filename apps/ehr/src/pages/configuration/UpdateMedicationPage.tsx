@@ -186,8 +186,8 @@ export default function UpdateMedicationPage(): ReactElement {
                   getOptionLabel={getMedicationName}
                   fullWidth
                   isOptionEqualToValue={(option, value) => getMedispanId(option) === getMedispanId(value)}
-                  disableClearable
                   loading={isSearching}
+                  disableClearable
                   disablePortal
                   noOptionsText={
                     debouncedSearchTerm && debouncedSearchTerm.length > 2 && medicationOptions.length === 0
