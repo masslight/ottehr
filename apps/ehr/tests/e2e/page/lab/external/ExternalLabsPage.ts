@@ -35,7 +35,7 @@ export class ExternalLabsPage {
     fillerLabName: string;
     testName: string;
     status: ExternalLabsStatus;
-    submitBtnDisplay: 'disabled';
+    submitBtnDisplay: 'disabled' | 'enabled';
   }): Promise<Locator> {
     const { fillerLabName, testName, status, submitBtnDisplay } = input;
     const bundleContainer = this.#page.getByTestId(configBundleTableTestId(fillerLabName));
@@ -44,9 +44,11 @@ export class ExternalLabsPage {
     // confirm header is correct
     await expect(header, `Confirming bundle exists with the title ${fillerLabName}`).toHaveText(fillerLabName);
 
+    const submitBtn = bundleContainer.getByTestId(tableTestIds.bundleRowSubmitBtn);
     if (submitBtnDisplay === 'disabled') {
-      const submitBtn = bundleContainer.getByTestId(tableTestIds.bundleRowSubmitBtn);
       await expect(submitBtn, 'Confirming submit button is disabled').toBeDisabled();
+    } else {
+      await expect(submitBtn, 'Confirming submit button is enabled').toBeEnabled();
     }
 
     // confirm test is in the bundleContainer

@@ -471,6 +471,11 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     }}
                     loading={isSearching}
                     options={icdSearchOptions}
+                    renderOption={(props, option) => (
+                      <li {...props} data-testid="dx-option" data-code={option.code} data-display={option.display}>
+                        {option.code} {option.display}
+                      </li>
+                    )}
                     getOptionLabel={(option) =>
                       typeof option === 'string' ? option : `${option.code} ${option.display}`
                     }

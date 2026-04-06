@@ -242,7 +242,10 @@ export const DiagnosesContainer: FC = () => {
       )}
 
       {otherDiagnoses.length > 0 && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+          data-testid={dataTestIds.diagnosisContainer.secondaryDiagnosisContainer}
+        >
           <AssessmentTitle>Secondary (optional)</AssessmentTitle>
           <ActionsList
             data={otherDiagnoses}

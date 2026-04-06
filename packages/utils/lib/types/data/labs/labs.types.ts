@@ -53,7 +53,6 @@ export interface sampleDTO {
 
 // todo: maybe rename to OrderableItemSpecimenDefinition to fit the FHIR terms
 export interface OrderableItemSpecimen {
-  // todo sarah check this against oystehr, i think they can all be null
   container: string;
   volume: string;
   minimumVolume: string | null;

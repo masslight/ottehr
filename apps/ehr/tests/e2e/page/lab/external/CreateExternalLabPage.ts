@@ -47,7 +47,9 @@ export class CreateExternalLabPage {
     const option = this.#page.getByRole('option').first();
     await option.waitFor({ state: 'visible' });
 
-    const selectedDx = (await option.textContent())?.trim() || '';
+    const code = await option.getAttribute('data-code');
+    const display = await option.getAttribute('data-display');
+    const selectedDx = `${display} ${code}`;
 
     await option.click();
 

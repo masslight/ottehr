@@ -316,6 +316,7 @@ export const dataTestIds = {
     diagnosisDropdown: 'diagnosis-dropdown',
     allDiagnosesContainer: 'diagnosis-container-all-diagnoses',
     primaryDiagnosis: 'diagnosis-container-primary-diagnosis',
+    secondaryDiagnosisContainer: 'diagnosis-container-secondary-diagnosis-container',
     secondaryDiagnosis: 'diagnosis-container-secondary-diagnosis',
     primaryDiagnosisDeleteButton: 'diagnosis-container-primary-diagnosis-delete-button',
     secondaryDiagnosisDeleteButton: 'diagnosis-container-secondary-diagnosis-delete-button',

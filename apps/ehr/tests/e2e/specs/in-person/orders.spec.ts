@@ -741,7 +741,6 @@ test.describe('External labs page', async () => {
         fillerLabName = labDetails.fillerLabName;
         await createExternalLabPage.labIsSelected(labDetails);
         additionalDx = await createExternalLabPage.selectAdditionalDx('plague');
-        console.log('additionalDx', additionalDx); // todo sarah remove
         await createExternalLabPage.addClinicalInfoNote(note);
 
         await createExternalLabPage.clickOrderButton();
@@ -773,16 +772,30 @@ test.describe('External labs page', async () => {
         const aoeAnswers = mockResults.aoeAnswers;
         await detailsPage.enterAoeAnswers(aoeAnswers);
 
+        // also confirms label pdf opens when applicable
         await detailsPage.clickMarkAsReady({ isPSC: false });
-        // confirm label pdf opens in new tab
       });
 
-      // step ELX-1.5 confirm table is ready
-      // status should be ready AND submit button enabled
-      // we won't bother submitting since that ultimately goes to oystehr/ dorn and that could be flakey
+      await test.step('ELX-1.5 Confirm lab is ready for submit', async () => {
+        const externalLabsPage = await ExternalLabsPage.isOpen(page);
 
-      // step ELX-1.6 check assessment page
-      // confirm the additionalDx is present there
+        // we won't click submit since that ultimately goes to oystehr/dorn and could be flaky
+        await externalLabsPage.confirmTestWithOutResultsIsPresent({
+          fillerLabName: fillerLabName || 'missing',
+          testName: selectedTestName || 'missing',
+          status: ExternalLabsStatus.ready,
+          submitBtnDisplay: 'enabled',
+        });
+      });
+
+      await test.step('ELX-1.6 Check additional dx is present on assessment page', async () => {
+        await sideMenu.clickAssessment();
+        const assessmentPage = await expectAssessmentPage(page);
+
+        await assessmentPage.checkForSecondaryDx({ secondaryDx: additionalDx || 'unknown', addedViaLabOrder: true });
+      });
+
+      // step EXL-1.7 Check the patient record labs table
     });
   });
 });

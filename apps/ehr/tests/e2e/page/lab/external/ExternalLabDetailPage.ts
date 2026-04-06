@@ -144,6 +144,32 @@ export class ExternalLabDetailPage {
 
     await expect(markAsReadyBtn, `Confirming button label - expecting ${btnLabel}`).toHaveText(btnLabel);
 
-    await markAsReadyBtn.click();
+    if (!isPSC) {
+      // Patch window.open to capture the URL before the popup opens
+      await this.#page.evaluate(() => {
+        const original = window.open;
+        (window as any).lastOpenUrl = '';
+        window.open = new Proxy(original, {
+          apply(target, thisArg, argArray: unknown[]) {
+            try {
+              (window as any).lastOpenUrl = String(argArray?.[0] ?? '');
+            } catch (e) {
+              console.warn('Failed to capture open URL', e);
+            }
+            return target.apply(thisArg, argArray as any);
+          },
+        });
+      });
+
+      const [popup] = await Promise.all([this.#page.waitForEvent('popup').catch(() => null), markAsReadyBtn.click()]);
+      expect(popup, 'Confirming label PDF opened in a new tab').toBeTruthy();
+
+      const openedUrl = await this.#page.evaluate(() => (window as any).lastOpenUrl || '');
+      expect(openedUrl, 'Confirming a URL was opened').not.toEqual('');
+      const formattedUrl = openedUrl.split(/[?#]/)[0];
+      expect(formattedUrl.toLowerCase(), 'Confirming opened URL is a PDF').toMatch(/\.pdf$/);
+    } else {
+      await markAsReadyBtn.click();
+    }
   }
 }

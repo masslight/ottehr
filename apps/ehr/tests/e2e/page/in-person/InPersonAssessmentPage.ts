@@ -78,6 +78,39 @@ export class InPersonAssessmentPage extends BaseAssessmentPage {
 
     return await primaryDx.innerText();
   }
+
+  async checkForSecondaryDx(input: { secondaryDx: string; addedViaLabOrder: boolean }): Promise<void> {
+    const { secondaryDx, addedViaLabOrder } = input;
+
+    const secondaryDxContainer = this.#page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosisContainer);
+    const secondaryDxItems = secondaryDxContainer.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis);
+
+    const count = await secondaryDxItems.count();
+    let found = false;
+
+    for (let i = 0; i < count; i++) {
+      const item = secondaryDxItems.nth(i);
+      const text = (await item.textContent())?.trim() || '';
+
+      if (text.includes(secondaryDx)) {
+        // Confirm text exists
+        await expect(item, `Confirming secondary diagnosis "${secondaryDx}" appears`).toContainText(secondaryDx);
+
+        // If added via lab order, confirm the info icon exists
+        if (addedViaLabOrder) {
+          const infoIcon = item.locator('svg');
+          await expect(infoIcon, `Confirming info icon is present for "${secondaryDx}"`).toBeVisible();
+        }
+
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      throw new Error(`Secondary diagnosis "${secondaryDx}" not found in the list`);
+    }
+  }
 }
 
 export async function expectAssessmentPage(page: Page): Promise<InPersonAssessmentPage> {
