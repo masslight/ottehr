@@ -8,9 +8,6 @@ import {
   Chip,
   CircularProgress,
   FormHelperText,
-  List,
-  ListItemButton,
-  ListItemText,
   Paper,
   Stack,
   Tab,
@@ -22,37 +19,20 @@ import { useTheme } from '@mui/material/styles';
 import Mention from '@tiptap/extension-mention';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { SuggestionKeyDownProps, SuggestionProps } from '@tiptap/suggestion';
 import { enqueueSnackbar } from 'notistack';
-import React, {
-  forwardRef,
-  ReactElement,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import { createRoot, Root } from 'react-dom/client';
+import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   useGetInvoiceConfigQuery,
   useSaveInvoiceConfigMutation,
 } from 'src/rcm/state/invoice-config/invoice-config.queries';
-import { DEFAULT_INVOICE_DUE_DAYS, DEFAULT_INVOICE_MEMO_TEMPLATE, DEFAULT_INVOICE_SMS_TEMPLATE } from 'utils';
-
-// Token IDs (bare, without braces) — used as Mention node attrs.id
-const TOKEN_IDS = [
-  'patient-full-name',
-  'clinic',
-  'location',
-  'visit-date',
-  'due-date',
-  'amount',
-  'invoice-link',
-  'patient-portal-link',
-] as const;
+import {
+  DEFAULT_INVOICE_DUE_DAYS,
+  DEFAULT_INVOICE_MEMO_TEMPLATE,
+  DEFAULT_INVOICE_SMS_TEMPLATE,
+  parseInvoiceConfigFromQR,
+} from 'utils';
+import { INVOICE_TOKEN_IDS, makeSuggestion, textToTiptapContent, tiptapContentToText } from './InvoiceTemplateEditor';
 
 const SAMPLE_VALUES: Record<string, string> = {
   '{{patient-full-name}}': 'Jane Smith',
@@ -76,164 +56,6 @@ const DEFAULTS: InvoicingFormValues = {
   memoTemplate: DEFAULT_INVOICE_MEMO_TEMPLATE,
   invoiceDueDays: DEFAULT_INVOICE_DUE_DAYS,
 };
-
-// ---------------------------------------------------------------------------
-// Mention suggestion dropdown (rendered via React portal)
-// ---------------------------------------------------------------------------
-
-interface MentionListRef {
-  onKeyDown: (props: SuggestionKeyDownProps) => boolean;
-}
-
-const MentionList = forwardRef<MentionListRef, SuggestionProps<string>>(function MentionList(props, ref) {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [props.items]);
-
-  useImperativeHandle(ref, () => ({
-    onKeyDown: ({ event }: SuggestionKeyDownProps) => {
-      if (event.key === 'ArrowUp') {
-        setSelectedIndex((i) => (i - 1 + props.items.length) % props.items.length);
-        return true;
-      }
-      if (event.key === 'ArrowDown') {
-        setSelectedIndex((i) => (i + 1) % props.items.length);
-        return true;
-      }
-      if (event.key === 'Enter' || event.key === 'Tab') {
-        const item = props.items[selectedIndex];
-        if (item) props.command({ id: item });
-        return true;
-      }
-      if (event.key === 'Escape') {
-        return true;
-      }
-      return false;
-    },
-  }));
-
-  if (props.items.length === 0) return null;
-
-  return (
-    <Paper elevation={4} sx={{ maxHeight: 200, overflow: 'auto', minWidth: 220 }}>
-      <List dense disablePadding>
-        {props.items.map((item, i) => (
-          <ListItemButton
-            key={item}
-            selected={i === selectedIndex}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              props.command({ id: item });
-            }}
-          >
-            <ListItemText
-              primary={`{{${item}}}`}
-              sx={{ '& .MuiListItemText-primary': { color: 'info.main', fontWeight: 500 } }}
-            />
-          </ListItemButton>
-        ))}
-      </List>
-    </Paper>
-  );
-});
-
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function makeSuggestion() {
-  return {
-    char: '{{',
-    items: ({ query }: { query: string }) => {
-      const q = query.toLowerCase();
-      return TOKEN_IDS.filter((id) => id.toLowerCase().includes(q));
-    },
-    render: () => {
-      let container: HTMLDivElement | null = null;
-      let root: Root | null = null;
-      const reactRef = { current: null as MentionListRef | null };
-
-      return {
-        onStart: (props: SuggestionProps<string>) => {
-          container = document.createElement('div');
-          container.style.position = 'absolute';
-          container.style.zIndex = '1300';
-
-          const rect = props.clientRect?.();
-          if (rect) {
-            container.style.top = `${rect.bottom + window.scrollY}px`;
-            container.style.left = `${rect.left + window.scrollX}px`;
-          }
-
-          document.body.appendChild(container);
-          root = createRoot(container);
-          root.render(<MentionList {...props} ref={reactRef} />);
-        },
-        onUpdate: (props: SuggestionProps<string>) => {
-          const rect = props.clientRect?.();
-          if (container && rect) {
-            container.style.top = `${rect.bottom + window.scrollY}px`;
-            container.style.left = `${rect.left + window.scrollX}px`;
-          }
-          root?.render(<MentionList {...props} ref={reactRef} />);
-        },
-        onKeyDown: (props: SuggestionKeyDownProps) => {
-          return reactRef.current?.onKeyDown(props) ?? false;
-        },
-        onExit: () => {
-          root?.unmount();
-          container?.remove();
-          container = null;
-          root = null;
-        },
-      };
-    },
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Tiptap ↔ plain text conversion
-// ---------------------------------------------------------------------------
-
-function textToTiptapContent(text: string): Record<string, unknown> {
-  const lines = text.split('\n');
-  const paragraphs = lines.map((line) => {
-    if (!line) return { type: 'paragraph' };
-    const content: Record<string, unknown>[] = [];
-    const regex = /\{\{([a-z-]+)\}\}/g;
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(line)) !== null) {
-      if (match.index > lastIndex) {
-        content.push({ type: 'text', text: line.slice(lastIndex, match.index) });
-      }
-      content.push({ type: 'mention', attrs: { id: match[1], label: match[1] } });
-      lastIndex = regex.lastIndex;
-    }
-    if (lastIndex < line.length) {
-      content.push({ type: 'text', text: line.slice(lastIndex) });
-    }
-    return content.length > 0 ? { type: 'paragraph', content } : { type: 'paragraph' };
-  });
-  return { type: 'doc', content: paragraphs };
-}
-
-function tiptapContentToText(doc: Record<string, unknown>): string {
-  const content = (doc.content ?? []) as Record<string, unknown>[];
-  return content
-    .map((paragraph) => {
-      const nodes = (paragraph.content ?? []) as Record<string, unknown>[];
-      return nodes
-        .map((node) => {
-          if (node.type === 'mention') {
-            const attrs = node.attrs as { id?: string };
-            return `{{${attrs.id ?? ''}}}`;
-          }
-          return (node.text as string) ?? '';
-        })
-        .join('');
-    })
-    .join('\n');
-}
 
 // ---------------------------------------------------------------------------
 // TemplateEditor — Tiptap-based template field
@@ -429,7 +251,7 @@ function TemplateField({
             />
             <Box sx={{ px: 1.5, pb: 1.5 }}>
               <FormHelperText sx={{ mt: 0 }}>Type {'{{'} to insert a placeholder, or click one below</FormHelperText>
-              <PlaceholderChips tokens={TOKEN_IDS} onInsert={insertToken} />
+              <PlaceholderChips tokens={INVOICE_TOKEN_IDS} onInsert={insertToken} />
             </Box>
           </TabPanel>
           <TabPanel value="preview" sx={{ p: 0 }}>
@@ -464,13 +286,11 @@ function parseQuestionnaireResponse(
       }
     | undefined
 ): InvoicingFormValues {
-  const group = qr?.item?.find((i) => i.linkId === 'invoicing');
-  const items = group?.item ?? [];
-  const findAnswer = (linkId: string): any => items.find((i) => i.linkId === linkId)?.answer?.[0];
+  const parsed = parseInvoiceConfigFromQR(qr);
   return {
-    invoiceDueDays: findAnswer('invoicing.dueDaysFromGeneration')?.valueInteger ?? DEFAULTS.invoiceDueDays,
-    smsTemplate: findAnswer('invoicing.defaultSmsTemplate')?.valueString ?? DEFAULTS.smsTemplate,
-    memoTemplate: findAnswer('invoicing.defaultInvoiceMemo')?.valueString ?? DEFAULTS.memoTemplate,
+    invoiceDueDays: parsed.dueDaysFromGeneration,
+    smsTemplate: parsed.defaultSmsTemplate,
+    memoTemplate: parsed.defaultInvoiceMemo,
   };
 }
 
