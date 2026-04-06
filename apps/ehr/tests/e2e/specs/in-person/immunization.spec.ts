@@ -86,6 +86,8 @@ const PATIENT_REFUSED = 'Patient refused';
 const resourceHandler = new ResourceHandler(`immunization-mutating-${DateTime.now().toMillis()}`);
 
 test.describe('Immunization Page mutating tests', () => {
+  test.skip(!Object.keys(vaccines.fhirResources).length, 'Need vaccines to run immunization tests');
+
   test.beforeEach(async ({ page }) => {
     await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
