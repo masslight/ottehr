@@ -42,8 +42,13 @@ interface AdministrationDetails {
 const firstAvailableVaccine =
   vaccines.fhirResources[Object.keys(vaccines.fhirResources)[0] as keyof typeof vaccines.fhirResources];
 
+const doesProjectHaveMoreThanOneVaccine = Object.keys(vaccines.fhirResources).length > 1;
 const secondAvailableVaccine =
-  vaccines.fhirResources[Object.keys(vaccines.fhirResources)[1] as keyof typeof vaccines.fhirResources];
+  vaccines.fhirResources[
+    Object.keys(vaccines.fhirResources)[
+      doesProjectHaveMoreThanOneVaccine ? 1 : 0
+    ] as keyof typeof vaccines.fhirResources
+  ];
 
 const VACCINE_A: VaccineInfo = {
   vaccine: firstAvailableVaccine?.resource.identifier[1].value,
