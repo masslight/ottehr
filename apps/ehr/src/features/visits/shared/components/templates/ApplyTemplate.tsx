@@ -290,7 +290,7 @@ export const ApplyTemplate: React.FC = () => {
             <br />
             <strong>Overwritten:</strong> Exam, MDM, Patient Instructions, E&amp;M Code
             <br />
-            <strong>Appended:</strong> HPI, ROS, ICD-10 Diagnoses, CPT Codes
+            <strong>Appended:</strong> HPI, MOI, ROS, ICD-10 Diagnoses, CPT Codes
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>
