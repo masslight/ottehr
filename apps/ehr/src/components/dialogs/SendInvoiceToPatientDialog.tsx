@@ -28,6 +28,9 @@ import { Controller, useForm } from 'react-hook-form';
 import { useGetInvoiceConfigQuery } from 'src/rcm/state/invoice-config/invoice-config.queries';
 import {
   BRANDING_CONFIG,
+  DEFAULT_INVOICE_DUE_DAYS,
+  DEFAULT_INVOICE_MEMO_TEMPLATE,
+  DEFAULT_INVOICE_SMS_TEMPLATE,
   InvoiceablePatientReport,
   InvoiceTaskInput,
   parseInvoiceTaskInput,
@@ -50,14 +53,6 @@ const TOKEN_IDS = [
   'invoice-link',
   'patient-portal-link',
 ] as const;
-
-const DEFAULT_SMS_TEMPLATE =
-  "Thank you, {{patient-full-name}}, for visiting {{clinic}} at {{location}} on {{visit-date}}! You have a balance due of {{amount}}.\n\n\ud83d\udcb3 If we have your card on file, it will be billed on {{due-date}}, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before due date: {{invoice-link}}";
-
-const DEFAULT_MEMO_TEMPLATE =
-  "Thank you, {{patient-full-name}}, for visiting {{clinic}} at {{location}} on {{visit-date}}! You have a balance due of {{amount}}.\n\n\ud83d\udcb3 If we have your card on file, it will be billed on {{due-date}}, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before the due date. For more details about the visit, please, visit your patient portal, {{patient-portal-link}}";
-
-const DEFAULT_DUE_DAYS = 7;
 
 // ---------------------------------------------------------------------------
 // Parse invoice config from FHIR QuestionnaireResponse
@@ -86,9 +81,9 @@ function parseQuestionnaireResponse(
   const items = group?.item ?? [];
   const findAnswer = (linkId: string): any => items.find((i) => i.linkId === linkId)?.answer?.[0];
   return {
-    dueDays: findAnswer('invoicing.dueDaysFromGeneration')?.valueInteger ?? DEFAULT_DUE_DAYS,
-    smsTemplate: findAnswer('invoicing.defaultSmsTemplate')?.valueString ?? DEFAULT_SMS_TEMPLATE,
-    memoTemplate: findAnswer('invoicing.defaultInvoiceMemo')?.valueString ?? DEFAULT_MEMO_TEMPLATE,
+    dueDays: findAnswer('invoicing.dueDaysFromGeneration')?.valueInteger ?? DEFAULT_INVOICE_DUE_DAYS,
+    smsTemplate: findAnswer('invoicing.defaultSmsTemplate')?.valueString ?? DEFAULT_INVOICE_SMS_TEMPLATE,
+    memoTemplate: findAnswer('invoicing.defaultInvoiceMemo')?.valueString ?? DEFAULT_INVOICE_MEMO_TEMPLATE,
   };
 }
 
@@ -490,10 +485,10 @@ export default function SendInvoiceToPatientDialog({
         : undefined;
 
       const { amountCents } = invoiceTaskInput;
-      const dueDays = config?.dueDays ?? DEFAULT_DUE_DAYS;
+      const dueDays = config?.dueDays ?? DEFAULT_INVOICE_DUE_DAYS;
       const dueDate = DateTime.now().plus({ days: dueDays }).toISODate();
-      const smsTemplate = config?.smsTemplate ?? DEFAULT_SMS_TEMPLATE;
-      const memoTemplate = config?.memoTemplate ?? DEFAULT_MEMO_TEMPLATE;
+      const smsTemplate = config?.smsTemplate ?? DEFAULT_INVOICE_SMS_TEMPLATE;
+      const memoTemplate = config?.memoTemplate ?? DEFAULT_INVOICE_MEMO_TEMPLATE;
 
       reset({
         amount: (amountCents ?? 0) / 100,

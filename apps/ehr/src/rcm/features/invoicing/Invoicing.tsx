@@ -40,6 +40,7 @@ import {
   useGetInvoiceConfigQuery,
   useSaveInvoiceConfigMutation,
 } from 'src/rcm/state/invoice-config/invoice-config.queries';
+import { DEFAULT_INVOICE_DUE_DAYS, DEFAULT_INVOICE_MEMO_TEMPLATE, DEFAULT_INVOICE_SMS_TEMPLATE } from 'utils';
 
 // Token IDs (bare, without braces) — used as Mention node attrs.id
 const TOKEN_IDS = [
@@ -64,12 +65,6 @@ const SAMPLE_VALUES: Record<string, string> = {
   '{{patient-portal-link}}': 'https://patient.ottehr.com/',
 };
 
-const DEFAULT_SMS_TEMPLATE =
-  "Thank you, {{patient-full-name}}, for visiting {{clinic}} at {{location}} on {{visit-date}}! You have a balance due of {{amount}}.\n\n\ud83d\udcb3 If we have your card on file, it will be billed on {{due-date}}, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before due date: {{invoice-link}}";
-
-const DEFAULT_MEMO_TEMPLATE =
-  "Thank you, {{patient-full-name}}, for visiting {{clinic}} at {{location}} on {{visit-date}}! You have a balance due of {{amount}}.\n\n\ud83d\udcb3 If we have your card on file, it will be billed on {{due-date}}, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before the due date. For more details about the visit, please, visit your patient portal, {{patient-portal-link}}";
-
 interface InvoicingFormValues {
   smsTemplate: string;
   memoTemplate: string;
@@ -77,9 +72,9 @@ interface InvoicingFormValues {
 }
 
 const DEFAULTS: InvoicingFormValues = {
-  smsTemplate: DEFAULT_SMS_TEMPLATE,
-  memoTemplate: DEFAULT_MEMO_TEMPLATE,
-  invoiceDueDays: 7,
+  smsTemplate: DEFAULT_INVOICE_SMS_TEMPLATE,
+  memoTemplate: DEFAULT_INVOICE_MEMO_TEMPLATE,
+  invoiceDueDays: DEFAULT_INVOICE_DUE_DAYS,
 };
 
 // ---------------------------------------------------------------------------

@@ -1,18 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { Extension, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import {
+  DEFAULT_INVOICE_DUE_DAYS,
+  DEFAULT_INVOICE_MEMO_TEMPLATE,
+  DEFAULT_INVOICE_SMS_TEMPLATE,
+  PRIVATE_EXTENSION_BASE_URL,
+} from 'utils';
 import { rcmMeta } from '../../shared';
 
 const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 
 export const INVOICING_CONFIG_QUESTIONNAIRE_URL = 'urn:uuid:questionnaire:invoicing-config';
 export const AVAILABLE_TOKENS_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/available-tokens`;
-
-const DEFAULT_SMS_TEMPLATE =
-  "Thank you, {{patient-full-name}}, for visiting {{clinic}} at {{location}} on {{visit-date}}! You have a balance due of {{amount}}.\n\n💳 If we have your card on file, it will be billed on {{due-date}}, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before due date: {{invoice-link}}";
-
-const DEFAULT_MEMO_TEMPLATE =
-  "Thank you, {{patient-full-name}}, for visiting {{clinic}} at {{location}} on {{visit-date}}! You have a balance due of {{amount}}.\n\n💳 If we have your card on file, it will be billed on {{due-date}}, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before the due date. For more details about the visit, please, visit your patient portal, {{patient-portal-link}}";
 
 const TOKENS = [
   '{{patient-full-name}}',
@@ -60,7 +59,7 @@ function buildDefaultQuestionnaire(): Questionnaire {
             text: 'Days until invoice due (from generation date)',
             type: 'integer',
             required: true,
-            initial: [{ valueInteger: 7 }],
+            initial: [{ valueInteger: DEFAULT_INVOICE_DUE_DAYS }],
             extension: [
               {
                 url: 'http://hl7.org/fhir/StructureDefinition/minValue',
@@ -77,7 +76,7 @@ function buildDefaultQuestionnaire(): Questionnaire {
             text: 'Default SMS message template',
             type: 'text',
             required: true,
-            initial: [{ valueString: DEFAULT_SMS_TEMPLATE }],
+            initial: [{ valueString: DEFAULT_INVOICE_SMS_TEMPLATE }],
             extension: buildTokenExtension(TOKENS),
           },
           {
@@ -85,7 +84,7 @@ function buildDefaultQuestionnaire(): Questionnaire {
             text: 'Default invoice memo template',
             type: 'text',
             required: true,
-            initial: [{ valueString: DEFAULT_MEMO_TEMPLATE }],
+            initial: [{ valueString: DEFAULT_INVOICE_MEMO_TEMPLATE }],
             extension: buildTokenExtension(TOKENS),
           },
         ],
@@ -108,17 +107,17 @@ function buildDefaultQuestionnaireResponse(questionnaireId: string): Omit<Questi
           {
             linkId: 'invoicing.dueDaysFromGeneration',
             text: 'Days until invoice due (from generation date)',
-            answer: [{ valueInteger: 7 }],
+            answer: [{ valueInteger: DEFAULT_INVOICE_DUE_DAYS }],
           },
           {
             linkId: 'invoicing.defaultSmsTemplate',
             text: 'Default SMS message template',
-            answer: [{ valueString: DEFAULT_SMS_TEMPLATE }],
+            answer: [{ valueString: DEFAULT_INVOICE_SMS_TEMPLATE }],
           },
           {
             linkId: 'invoicing.defaultInvoiceMemo',
             text: 'Default invoice memo template',
-            answer: [{ valueString: DEFAULT_MEMO_TEMPLATE }],
+            answer: [{ valueString: DEFAULT_INVOICE_MEMO_TEMPLATE }],
           },
         ],
       },
@@ -145,9 +144,9 @@ export function parseInvoicingConfig(qr: QuestionnaireResponse): ParsedInvoicing
   ): { valueInteger?: number; valueBoolean?: boolean; valueString?: string } | undefined =>
     items.find((i) => i.linkId === linkId)?.answer?.[0];
   return {
-    dueDaysFromGeneration: findAnswer('invoicing.dueDaysFromGeneration')?.valueInteger ?? 7,
-    defaultSmsTemplate: findAnswer('invoicing.defaultSmsTemplate')?.valueString ?? DEFAULT_SMS_TEMPLATE,
-    defaultInvoiceMemo: findAnswer('invoicing.defaultInvoiceMemo')?.valueString ?? DEFAULT_MEMO_TEMPLATE,
+    dueDaysFromGeneration: findAnswer('invoicing.dueDaysFromGeneration')?.valueInteger ?? DEFAULT_INVOICE_DUE_DAYS,
+    defaultSmsTemplate: findAnswer('invoicing.defaultSmsTemplate')?.valueString ?? DEFAULT_INVOICE_SMS_TEMPLATE,
+    defaultInvoiceMemo: findAnswer('invoicing.defaultInvoiceMemo')?.valueString ?? DEFAULT_INVOICE_MEMO_TEMPLATE,
   };
 }
 
