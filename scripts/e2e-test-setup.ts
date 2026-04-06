@@ -294,15 +294,17 @@ async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
     ],
   });
 
+  if (!isVirtualEnabled) {
+    console.warn('Virtual mode not configured for this project — skipping telemed practitioner setup');
+    return;
+  }
+
   const virtualLocations = locationsResponse.unbundle().filter(isLocationVirtual);
 
   if (virtualLocations.length === 0) {
-    if (isVirtualEnabled) {
-      throw Error('No virtual locations found in FHIR API');
-    }
-    console.warn('No virtual locations found — skipping telemed practitioner setup (virtual mode not configured)');
-    return;
+    throw Error('No virtual locations found in FHIR API');
   }
+
   const firstDefaultVirtualLocation = virtualDefaultLocations[0];
 
   const licenses = allLicensesForPractitioner(practitioner);

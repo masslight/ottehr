@@ -151,7 +151,7 @@ function MedicationsTable({
               />
             </Grid>
             <Grid item xs={3}>
-              {currentUser?.hasRole([RoleType.Administrator]) ? (
+              {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ? (
                 <Link to={`/admin/medications/add`}>
                   <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
                     Add medication
