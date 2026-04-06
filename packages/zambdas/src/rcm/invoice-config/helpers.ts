@@ -141,6 +141,8 @@ export function parseInvoicingConfig(qr: QuestionnaireResponse): ParsedInvoicing
 /**
  * Finds the existing invoicing config Questionnaire + QuestionnaireResponse pair.
  * If either doesn't exist, creates them with defaults.
+ * Guarantees at most one Questionnaire and one QuestionnaireResponse exist;
+ * logs a warning if duplicates are detected.
  */
 export async function getOrCreateInvoicingConfig(oystehr: Oystehr): Promise<InvoicingConfigPair> {
   // Search for existing Questionnaire tagged as rcm + invoice-config
@@ -155,6 +157,13 @@ export async function getOrCreateInvoicingConfig(oystehr: Oystehr): Promise<Invo
 
   let questionnaire: Questionnaire;
 
+  if (questionnaires.length > 1) {
+    const ids = questionnaires.map((q) => q.id).join(', ');
+    console.warn(
+      `Found ${questionnaires.length} invoicing config Questionnaires (expected 1). Using the first. IDs: ${ids}`
+    );
+  }
+
   if (questionnaires.length > 0) {
     questionnaire = questionnaires[0];
   } else {
@@ -162,20 +171,42 @@ export async function getOrCreateInvoicingConfig(oystehr: Oystehr): Promise<Invo
     questionnaire = await oystehr.fhir.create<Questionnaire>(buildDefaultQuestionnaire());
   }
 
-  // Search for existing QuestionnaireResponse
+  // Search for existing QuestionnaireResponse linked to *any* invoicing config
+  // Questionnaire (search by tag, not by specific ID, so that even if the QR
+  // outlives a deleted Questionnaire it is still found and re-linked).
   const responseBundle = await oystehr.fhir.search<QuestionnaireResponse>({
     resourceType: 'QuestionnaireResponse',
-    params: [
-      { name: '_tag', value: `${RCM_TAG_SYSTEM}|invoice-config` },
-      { name: 'questionnaire', value: `Questionnaire/${questionnaire.id}` },
-    ],
+    params: [{ name: '_tag', value: `${RCM_TAG_SYSTEM}|invoice-config` }],
   });
   const responses = responseBundle.unbundle();
+
+  if (responses.length > 1) {
+    const ids = responses.map((r) => r.id).join(', ');
+    console.warn(
+      `Found ${responses.length} invoicing config QuestionnaireResponses (expected 1). Using the first. IDs: ${ids}`
+    );
+  }
 
   let questionnaireResponse: QuestionnaireResponse;
 
   if (responses.length > 0) {
     questionnaireResponse = responses[0];
+    // Ensure the QR points at the current Questionnaire
+    const expectedRef = `Questionnaire/${questionnaire.id}`;
+    if (questionnaireResponse.questionnaire !== expectedRef) {
+      console.log(`Re-linking QuestionnaireResponse/${questionnaireResponse.id} to ${expectedRef}`);
+      questionnaireResponse = await oystehr.fhir.patch<QuestionnaireResponse>({
+        resourceType: 'QuestionnaireResponse',
+        id: questionnaireResponse.id!,
+        operations: [
+          {
+            op: questionnaireResponse.questionnaire ? 'replace' : 'add',
+            path: '/questionnaire',
+            value: expectedRef,
+          },
+        ],
+      });
+    }
   } else {
     console.log('No invoicing config QuestionnaireResponse found, creating one with defaults');
     questionnaireResponse = await oystehr.fhir.create<QuestionnaireResponse>(
