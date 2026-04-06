@@ -1,4 +1,5 @@
 import { BrowserContext, Page, test } from '@playwright/test';
+import { LOCATION_CONFIG } from 'utils/lib/ottehr-config/locations';
 import {
   expectPaymentLocationDetailPage,
   expectPaymentLocationsPage,
@@ -21,7 +22,7 @@ test.afterAll(async () => {
 
 let paymentLocationsPage: PaymentLocationsPage;
 let detailPage: PaymentLocationDetailPage;
-const TARGET_LOCATION = 'Los Angeles';
+const TARGET_LOCATION = LOCATION_CONFIG.inPersonLocations[0]?.name || LOCATION_CONFIG.telemedLocations[0]?.name;
 
 test.describe.configure({ mode: 'serial' });
 
