@@ -95,7 +95,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const [overwriteTarget, setOverwriteTarget] = useState<RadiologyQuickPickData | null>(null);
   const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
   const currentUser = useEvolveUser();
-  const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
+  const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
 
   const cptCodes = chartData?.cptCodes || [];
 
