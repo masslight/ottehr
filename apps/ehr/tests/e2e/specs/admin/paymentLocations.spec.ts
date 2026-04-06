@@ -1,5 +1,5 @@
 import { BrowserContext, Page, test } from '@playwright/test';
-import { LOCATION_CONFIG } from 'utils/lib/ottehr-config/locations/index';
+import { LOCATION_CONFIG } from 'utils';
 import {
   expectPaymentLocationDetailPage,
   expectPaymentLocationsPage,
