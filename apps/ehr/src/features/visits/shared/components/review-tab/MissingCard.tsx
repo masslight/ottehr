@@ -28,6 +28,7 @@ export const MissingCard: FC = () => {
       historyOfPresentIllness: {
         _tag: 'history-of-present-illness',
       },
+      patientInfoConfirmed: {},
     },
   });
 
@@ -39,6 +40,8 @@ export const MissingCard: FC = () => {
   const medicalDecision = chartFields?.medicalDecision?.text;
   const emCode = chartData?.emCode;
   const hpi = chartFields?.chiefComplaint?.text;
+  const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
+  const isPatientVerificationMissing = isInPerson && !patientInfoConfirmed;
   const [suggestionNote, setSuggestionNote] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -56,13 +59,14 @@ export const MissingCard: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hpi]);
 
-  if (primaryDiagnosis && medicalDecision && emCode && hpi && !suggestionNote) {
+  if (primaryDiagnosis && medicalDecision && emCode && hpi && !suggestionNote && !isPatientVerificationMissing) {
     return null;
   }
 
-  const navigateTo = (target: 'chief-complaint' | 'hpi' | 'assessment'): void => {
+  const navigateTo = (target: 'patient-info' | 'chief-complaint' | 'hpi' | 'assessment'): void => {
     if (isInPerson) {
-      const inPersonRoutes: Record<'chief-complaint' | 'hpi' | 'assessment', string> = {
+      const inPersonRoutes: Record<'patient-info' | 'chief-complaint' | 'hpi' | 'assessment', string> = {
+        'patient-info': getChiefComplaintUrl(appointment?.id || ''),
         'chief-complaint': getChiefComplaintUrl(appointment?.id || ''),
         hpi: getHPIUrl(appointment?.id || ''),
         assessment: getAssessmentUrl(appointment?.id || ''),
@@ -77,7 +81,7 @@ export const MissingCard: FC = () => {
         assessment: TelemedAppointmentVisitTabs.assessment,
       };
 
-      if (target === 'chief-complaint') return;
+      if (target === 'chief-complaint' || target === 'patient-info') return;
 
       useAppTelemedLocalStore.setState({
         currentTab: telemedTabs[target],
@@ -94,6 +98,16 @@ export const MissingCard: FC = () => {
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {isPatientVerificationMissing && (
+            <Link
+              sx={{ cursor: 'pointer' }}
+              color="error"
+              onClick={() => navigateTo('patient-info')}
+              data-testid={dataTestIds.progressNotePage.patientVerificationLink}
+            >
+              Verify Patient&apos;s Name and DOB
+            </Link>
+          )}
           {!hpi && (
             <Link
               sx={{ cursor: 'pointer' }}
