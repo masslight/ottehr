@@ -294,7 +294,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
               <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
                 <Grid item xs={12}>
                   <QuickPicksButton
-                    quickPicks={mergedQuickPicks}
+                    quickPicks={[...mergedQuickPicks].sort((a, b) => a.name.localeCompare(b.name))}
                     getLabel={(qp) => {
                       const parts = [qp.name] as string[];
                       if (qp.cptCode) parts.push(qp.cptCode);
