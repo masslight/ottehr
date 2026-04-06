@@ -52,6 +52,10 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
       date: chartDataFields?.accident?.date,
       state: chartDataFields?.accident?.state,
     });
+    const hasType = (chartDataFields?.accident?.type?.length ?? 0) > 0;
+    if (hasType && !chartDataFields?.accident?.date) {
+      methods.setError('date', { message: 'Date is required' });
+    }
   }, [chartDataFields, methods]);
 
   useEffect(() => {
@@ -76,6 +80,11 @@ export const AccidentField: FC<Props> = ({ readOnly }) => {
           });
           return;
         }
+
+        if (types.length === 0) {
+          return;
+        }
+
         if (!values.date) {
           methods.setError('date', {
             message: 'Date is required',

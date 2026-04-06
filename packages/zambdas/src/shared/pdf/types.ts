@@ -23,7 +23,7 @@ import {
   OrderedCoveragesWithSubscribers,
   PatientPaymentDTO,
   ProviderDetails,
-  QuantityComponent,
+  QuantityDataEntryComponent,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   SupportedObsImgAttachmentTypes,
   VitalsVisitNoteData,
@@ -216,7 +216,7 @@ export interface InHouseLabResult {
   value: string | undefined;
   units?: string;
   rangeString?: string[];
-  rangeQuantity?: QuantityComponent;
+  rangeQuantity?: QuantityDataEntryComponent;
   interpretationCoding: Coding | undefined;
 }
 export interface InHouseLabResultConfig {
@@ -557,6 +557,7 @@ export interface PlanData extends PdfData {
     virusTest: string;
     followUpIn?: number;
     reason?: string;
+    specialty?: string;
   };
   subSpecialtyFollowup?: string[];
   workSchoolExcuse?: string[];
@@ -851,6 +852,7 @@ export interface DispositionData extends PdfData {
   instruction: string;
   reason?: string;
   followUpIn?: string;
+  specialty?: string;
 }
 
 export interface PhysicianData extends PdfData {

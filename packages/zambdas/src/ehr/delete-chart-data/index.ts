@@ -25,20 +25,12 @@ import {
   ExamObservationDTO,
   FHIR_RESOURCE_IS_GONE,
   getPatchBinary,
-  getSecret,
   MedicalConditionDTO,
   MedicationDTO,
   ObservationDTO,
   ProcedureDTO,
-  SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  parseCreatedResourcesBundle,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, wrapHandler, ZambdaInput } from '../../shared';
 import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
@@ -351,6 +343,6 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     if (error.name === 'OystehrFHIRError' && error.code === 410) {
       errorToUse = FHIR_RESOURCE_IS_GONE();
     }
-    return topLevelCatch('delete-chart-data', errorToUse, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+    throw errorToUse;
   }
 });
