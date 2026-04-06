@@ -1,6 +1,7 @@
 import { Box, Grid, Paper, Stack, TextField, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { useEffect, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { sampleDTO } from 'utils';
 import { AccordionCard } from '../../../components/AccordionCard';
 import { BoldedTitleText } from './BoldedTitleText';
@@ -53,13 +54,33 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
         withBorder={false}
         onSwitch={() => setCollapsed((prev) => !prev)}
       >
-        <Paper sx={{ p: 3 }}>
+        <Paper data-testid={dataTestIds.externalLabs.detailsPg.samples.card} sx={{ p: 3 }}>
           <Stack spacing={1}>
-            <BoldedTitleText title="Container" description={definition.container} />
-            <BoldedTitleText title="Volume" description={definition.volume} />
-            <BoldedTitleText title="Minimum Volume" description={definition.minimumVolume} />
-            <BoldedTitleText title="Storage Requirements" description={definition.storageRequirements} />
-            <BoldedTitleText title="Collection Instructions" description={definition.collectionInstructions} />
+            <BoldedTitleText
+              dataTestId={dataTestIds.externalLabs.detailsPg.samples.container}
+              title="Container"
+              description={definition.container}
+            />
+            <BoldedTitleText
+              dataTestId={dataTestIds.externalLabs.detailsPg.samples.volume}
+              title="Volume"
+              description={definition.volume}
+            />
+            <BoldedTitleText
+              dataTestId={dataTestIds.externalLabs.detailsPg.samples.minVolume}
+              title="Minimum Volume"
+              description={definition.minimumVolume || ''}
+            />
+            <BoldedTitleText
+              dataTestId={dataTestIds.externalLabs.detailsPg.samples.storage}
+              title="Storage Requirements"
+              description={definition.storageRequirements}
+            />
+            <BoldedTitleText
+              dataTestId={dataTestIds.externalLabs.detailsPg.samples.instructions}
+              title="Collection Instructions"
+              description={definition.collectionInstructions || ''}
+            />
           </Stack>
 
           <Grid container spacing={2} sx={{ mt: 2 }}>
@@ -74,6 +95,7 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
                 value={date.toFormat('yyyy-MM-dd')}
                 onChange={(e) => handleDateChange('collectionDate', e.target.value)}
                 disabled={!isDateEditable}
+                inputProps={{ 'data-testid': dataTestIds.externalLabs.detailsPg.samples.collectionDate }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -87,6 +109,7 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
                 value={date.toFormat('HH:mm')}
                 onChange={(e) => handleDateChange('collectionTime', e.target.value)}
                 disabled={!isDateEditable}
+                inputProps={{ 'data-testid': dataTestIds.externalLabs.detailsPg.samples.collectionTime }}
               />
             </Grid>
           </Grid>

@@ -13,6 +13,7 @@ import {
   openPdf,
   ReflexLabDTO,
 } from 'utils';
+import { configBundleTableTestId } from '../../utils/test-ids';
 import { LabsTable } from './LabsTable';
 import { LabsTableBundleHeaderRow } from './LabsTableBundleHeaderRow';
 
@@ -164,6 +165,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
               columns={columns}
               labOrders={labOrders}
               bundleRow={<LabsTableBundleHeaderRow {...bundleHeaderRowProps} />}
+              dataTestId={configBundleTableTestId(orderBundleName)}
               allowDelete={allowDelete}
               showDeleteLabOrderDialog={showDeleteLabOrderDialog}
               handleRejectedAbn={handleRejectedAbn}

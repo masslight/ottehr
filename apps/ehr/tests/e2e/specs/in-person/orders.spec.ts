@@ -18,17 +18,23 @@ import {
   PerformTestPage,
   RadioSelectionResult,
 } from 'tests/e2e/page/lab';
+import { ExternalLabDetailPage } from 'tests/e2e/page/lab/external/ExternalLabDetailPage';
+import { ExternalLabsPage } from 'tests/e2e/page/lab/external/ExternalLabsPage';
+import { MOCK_LAB_RESULTS } from 'tests/e2e/page/lab/external/mock-data';
 import inHouseLabsMockData from 'tests/e2e/page/lab/in-house/mock-data.json' assert { type: 'json' };
 import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
 import { NursingOrdersPage } from 'tests/e2e/page/NursingOrdersPage';
 import { ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
+import { ENV_LOCATION_NAME } from 'tests/e2e-utils/resource/constants';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import {
   checkActivityDefinitionForReflexLogic,
   convertActivityDefinitionToTestItem,
   CPTCodeDTO,
+  ExternalLabsStatus,
+  LabPaymentMethod,
   makeCptCodeDisplay,
   REPEAT_TEST_CPT_CODE_MODIFIER,
   TestItem,
@@ -154,8 +160,11 @@ let sideMenu: SideMenu;
 let context: BrowserContext;
 let page: Page;
 test.beforeAll(async ({ browser }) => {
-  await resourceHandler.setResources({ skipPaperwork: true });
-  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  await resourceHandler.setResources({ skipPaperwork: false });
+  await Promise.all([
+    resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
+    resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
+  ]);
 
   context = await browser.newContext();
   page = await context.newPage();
@@ -686,6 +695,96 @@ test.describe('In-house labs page', async () => {
     const inHouseLabsPage = await sideMenu.clickInHouseLabs();
     return await inHouseLabsPage.clickOrderButton();
   }
+});
+
+test.describe('External labs page', async () => {
+  test('External labs. Tests Various Functionality.', async () => {
+    await test.step('EXL-1 Create a single self pay lab', async () => {
+      const mockResults = MOCK_LAB_RESULTS.withAoe;
+      const orderingOfficeName = ENV_LOCATION_NAME;
+      const note = 'hey! im a note :)';
+      let primaryDx: string | null = null;
+      let additionalDx: string | null = null;
+      let selectedTestName: string | null = null;
+      let fillerLabName: string | null = null;
+
+      await test.step('EXL-1.1 Check assessment page for dx', async () => {
+        await sideMenu.clickAssessment();
+        const assessmentPage = await expectAssessmentPage(page);
+        primaryDx = await assessmentPage.checkForPrimaryDx();
+
+        if (!primaryDx) {
+          // if this is being run with the entire orders.spec this step should not be reached but if running on its own i think it could happen
+          await test.step('EXL-1.1.1 No primary dx entered ', async () => {
+            await assessmentPage.selectDiagnosis({ diagnosisNamePart: 'Plague meningitis' });
+
+            // now assign the primaryDx
+            primaryDx = await assessmentPage.checkForPrimaryDx();
+          });
+        }
+
+        await expect(primaryDx, `confirming we've captured the primary dx for encounter: ${primaryDx}`).not.toBeNull();
+      });
+
+      await test.step('EXL-1.2 Create the lab order', async () => {
+        const externalLabsPage = await sideMenu.clickExternalLabs();
+        const createExternalLabPage = await externalLabsPage.clickOrderButton();
+
+        // confirming expected values are prefilled (expecting an error if unknown gets passed in)
+        await createExternalLabPage.officeIsSelected(orderingOfficeName || 'unknown');
+        await createExternalLabPage.diagnosisIsSelected(primaryDx || 'unknown');
+        await createExternalLabPage.paymentMethodIsSelected(LabPaymentMethod.SelfPay);
+
+        // start clicking / typing
+        const labDetails = await createExternalLabPage.searchAndSelectLab({ withAoe: true });
+        selectedTestName = labDetails.testName;
+        fillerLabName = labDetails.fillerLabName;
+        await createExternalLabPage.labIsSelected(labDetails);
+        additionalDx = await createExternalLabPage.selectAdditionalDx('plague');
+        console.log('additionalDx', additionalDx); // todo sarah remove
+        await createExternalLabPage.addClinicalInfoNote(note);
+
+        await createExternalLabPage.clickOrderButton();
+      });
+
+      await test.step('EXL-1.3 Confirm test is present in labs table', async () => {
+        const externalLabsPage = await ExternalLabsPage.isOpen(page);
+        const testRow = await externalLabsPage.confirmTestWithOutResultsIsPresent({
+          fillerLabName: fillerLabName || 'missing',
+          testName: selectedTestName || 'missing',
+          status: ExternalLabsStatus.pending,
+          submitBtnDisplay: 'disabled',
+        });
+
+        await testRow.click();
+      });
+
+      await test.step('EXL-1.4 Enter AOE for lab order, confirm data is shown and mark ready', async () => {
+        const detailsPage = await ExternalLabDetailPage.isOpen(page);
+
+        // confirm expected data is displayed
+        await detailsPage.checkBreadCrumbs(selectedTestName || 'unknown');
+        await detailsPage.confirmRequisitionNumberIsDisplayed();
+        await detailsPage.confirmOrderingOfficeIsDisplayed(orderingOfficeName || 'unknown');
+        await detailsPage.confirmClinicalNoteIsDisplayed(note);
+        await detailsPage.validateSampleCollectionInstructions(mockResults.labsData.item.specimens);
+
+        // start clicking / typing
+        const aoeAnswers = mockResults.aoeAnswers;
+        await detailsPage.enterAoeAnswers(aoeAnswers);
+
+        await detailsPage.clickMarkAsReady({ isPSC: false });
+        // confirm label pdf opens in new tab
+      });
+
+      // step ELX-1.5 confirm table is ready
+      // status should be ready AND submit button enabled
+      // we won't bother submitting since that ultimately goes to oystehr/ dorn and that could be flakey
+
+      // step ELX-1.6 check assessment page
+      // confirm the additionalDx is present there
+    });
+  });
 });
 
 test.describe('Nursing Orders Page', () => {

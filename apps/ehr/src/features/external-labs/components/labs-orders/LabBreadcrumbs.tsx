@@ -1,5 +1,6 @@
 import { FC, useMemo } from 'react';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 
 interface LabBreadcrumbsProps {
@@ -19,7 +20,11 @@ export const LabBreadcrumbs: FC<LabBreadcrumbsProps> = ({ sectionName, children 
   );
 
   return (
-    <BaseBreadcrumbs sectionName={sectionName} baseCrumb={baseCrumb}>
+    <BaseBreadcrumbs
+      sectionName={sectionName}
+      baseCrumb={baseCrumb}
+      dataTestId={dataTestIds.externalLabs.labsBreadCrumbs}
+    >
       {children}
     </BaseBreadcrumbs>
   );

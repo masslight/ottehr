@@ -21,6 +21,7 @@ import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
@@ -41,6 +42,7 @@ import {
   DiagnosisDTO,
   getAttendingPractitionerId,
   HL7_NOTE_CHAR_LIMIT,
+  LAB_PAYMENT_METHOD_DISPLAY,
   LabPaymentMethod,
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
@@ -342,7 +344,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           <LabOrderLoading />
         ) : (
           <form onSubmit={handleSubmit}>
-            <Paper sx={{ p: 3 }}>
+            <Paper data-testid={dataTestIds.externalLabs.createPg.createExternalLabForm} sx={{ p: 3 }}>
               <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
                 <Grid item xs={12}>
                   <Typography
@@ -357,6 +359,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         Office
                       </InputLabel>
                       <Select
+                        data-testid={dataTestIds.externalLabs.createPg.orderingOffice}
                         notched
                         fullWidth
                         id="select-office"
@@ -474,6 +477,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     renderInput={(params) => (
                       <TextField
                         {...params}
+                        inputProps={{
+                          ...params.inputProps,
+                          'data-testid': dataTestIds.externalLabs.createPg.additionalDxSelect,
+                        }}
                         onChange={(e) => debouncedHandleDxInputChange(e.target.value)}
                         label="Additional Dx"
                         placeholder="Search for Dx if not on list above"
@@ -484,7 +491,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                 </Grid>
                 {orderDx.length > 0 && (
                   <Grid item xs={12}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box
+                      data-testid={dataTestIds.externalLabs.createPg.selectedDxContainer}
+                      sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+                    >
                       <ActionsList
                         data={orderDx}
                         getKey={(value, index) => value.resourceId || index}
@@ -509,6 +519,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   <Grid container gap={1} sx={{ display: 'flex' }}>
                     <Grid item xs={6} width="100%">
                       <Select
+                        data-testid={dataTestIds.externalLabs.createPg.paymentMethod}
                         notched
                         fullWidth
                         id="select-payment-method"
@@ -524,19 +535,19 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                       >
                         {hasInsurance && (
                           <MenuItem id={'payment-method-item-insurance'} value={LabPaymentMethod.Insurance}>
-                            Insurance
+                            {LAB_PAYMENT_METHOD_DISPLAY[LabPaymentMethod.Insurance]}
                           </MenuItem>
                         )}
                         {isWorkersComp && (
                           <MenuItem id={'payment-method-item-workers-comp'} value={LabPaymentMethod.WorkersComp}>
-                            Workers Comp
+                            {LAB_PAYMENT_METHOD_DISPLAY[LabPaymentMethod.WorkersComp]}
                           </MenuItem>
                         )}
                         <MenuItem id={'payment-method-item-self-pay'} value={LabPaymentMethod.SelfPay}>
-                          Self Pay
+                          {LAB_PAYMENT_METHOD_DISPLAY[LabPaymentMethod.SelfPay]}
                         </MenuItem>
                         <MenuItem id={'payment-method-item-client-bill'} value={LabPaymentMethod.ClientBill}>
-                          Client Bill
+                          {LAB_PAYMENT_METHOD_DISPLAY[LabPaymentMethod.ClientBill]}
                         </MenuItem>
                       </Select>
                     </Grid>
@@ -580,7 +591,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                       minRows={2}
                       value={clinicalInfoNotes}
                       onChange={(e) => setClinicalInfoNotes(e.target.value)}
-                      inputProps={{ maxLength: HL7_NOTE_CHAR_LIMIT }}
+                      inputProps={{
+                        'data-testid': dataTestIds.externalLabs.createPg.clinicalInfoNote,
+                        maxLength: HL7_NOTE_CHAR_LIMIT,
+                      }}
                       error={!!(clinicalInfoNotes && clinicalInfoNotes?.length >= HL7_NOTE_CHAR_LIMIT)}
                       helperText={
                         clinicalInfoNotes && clinicalInfoNotes?.length >= HL7_NOTE_CHAR_LIMIT
@@ -597,6 +611,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     label={<Typography variant="body2">{PSC_HOLD_LOCALE}</Typography>}
                   />
                   <Button
+                    data-testid={dataTestIds.externalLabs.createPg.addClinicalInfoNote}
                     sx={{ textTransform: 'none' }}
                     onClick={() => {
                       if (showNotesFields) setClinicalInfoNotes(undefined);
@@ -619,6 +634,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                 </Grid>
                 <Grid item xs={6} display="flex" justifyContent="flex-end">
                   <LoadingButton
+                    data-testid={dataTestIds.externalLabs.createPg.createExternalLabOrderBtn}
                     disabled={isOrderingDisabled}
                     loading={submitting}
                     type="submit"

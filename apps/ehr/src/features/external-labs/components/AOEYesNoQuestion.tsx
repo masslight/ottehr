@@ -1,6 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
 import { FormControlLabel, FormLabel, Radio, RadioGroup } from '@mui/material';
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
+import { configAoeRadioEntryTestId } from '../utils/test-ids';
 
 interface YesNoQuestionProps {
   questionText: string;
@@ -40,7 +41,13 @@ export const AOEYesNoQuestion: React.FC<YesNoQuestionProps> = (props) => {
   return (
     <>
       <FormLabel id={labelId}>{questionText}</FormLabel>
-      <RadioGroup {...field} row aria-labelledby={labelId} name={`${labelId}-row-radio-buttons-group`}>
+      <RadioGroup
+        data-testid={configAoeRadioEntryTestId(linkId)}
+        {...field}
+        row
+        aria-labelledby={labelId}
+        name={`${labelId}-row-radio-buttons-group`}
+      >
         <FormControlLabel
           value="true"
           control={<Radio disabled={isReadOnly} inputProps={{ required: required }} sx={radioStyles} />}

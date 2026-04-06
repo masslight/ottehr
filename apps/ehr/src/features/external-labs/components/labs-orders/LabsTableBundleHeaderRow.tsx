@@ -7,7 +7,9 @@ import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { ReactElement, useState } from 'react';
 import { updateLabOrderResources } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { HL7_NOTE_CHAR_LIMIT, LabOrderListPageDTO, openPdf } from 'utils';
+import { configBundleHeaderRowTitleTestId } from '../../utils/test-ids';
 
 interface LabsTableBundleHeaderRowProps {
   columnsLen: number;
@@ -93,7 +95,11 @@ export const LabsTableBundleHeaderRow = ({
         <TableCell colSpan={columnsLen} sx={{ p: '8px 18px', backgroundColor: '#2169F514' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography variant="body1" sx={{ fontWeight: '500', color: 'primary.dark' }}>
+              <Typography
+                data-testid={configBundleHeaderRowTitleTestId(orderBundleName)}
+                variant="body1"
+                sx={{ fontWeight: '500', color: 'primary.dark' }}
+              >
                 {orderBundleName}
               </Typography>
             </Box>
@@ -109,6 +115,7 @@ export const LabsTableBundleHeaderRow = ({
                 </Button>
 
                 <LoadingButton
+                  data-testid={dataTestIds.externalLabs.labsTable.bundleRowSubmitBtn}
                   loading={submitLoading}
                   variant="contained"
                   sx={{ borderRadius: '50px', textTransform: 'none', py: 1, px: 5, textWrap: 'nowrap' }}

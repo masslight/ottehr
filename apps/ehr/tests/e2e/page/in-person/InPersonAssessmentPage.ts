@@ -62,6 +62,22 @@ export class InPersonAssessmentPage extends BaseAssessmentPage {
     const billingCodesContainer = this.#page.getByTestId(dataTestIds.billingContainer.container);
     await expect(billingCodesContainer).toBeVisible(DEFAULT_TIMEOUT);
   }
+
+  /**
+   * will return the primary dx and code string IF its entered, if nothing has been entered it returns null
+   * it will NOT error if nothing is entered
+   * @returns string or null
+   */
+  async checkForPrimaryDx(): Promise<string | null> {
+    const primaryDx = this.#page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
+
+    // if theres no dx entered,
+    if ((await primaryDx.count()) === 0) {
+      return null;
+    }
+
+    return await primaryDx.innerText();
+  }
 }
 
 export async function expectAssessmentPage(page: Page): Promise<InPersonAssessmentPage> {
