@@ -126,7 +126,13 @@ const performEffect = async (
 
   const seenTags = new Set<string>();
   encounterBundle.entry = encounterBundle.entry.filter((entry) => {
-    if (entry.resource?.resourceType === 'Condition') return true;
+    // ICD-10 diagnoses are additive (multiple per encounter), so skip deduplication for them
+    if (
+      entry.resource?.resourceType === 'Condition' &&
+      (entry.resource as Condition).code?.coding?.some((c) => c.system === 'http://hl7.org/fhir/sid/icd-10')
+    ) {
+      return true;
+    }
     const tags = entry.resource?.meta?.tag?.map((tag) => `${tag.system}|${tag.code}`);
     if (!tags) return true;
     // CPT codes and patient instructions are additive (multiple per encounter), so skip deduplication for them
