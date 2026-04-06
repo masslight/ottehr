@@ -297,7 +297,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Code</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', width: 120 }}>Code</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
                     </TableRow>
                   </TableHead>
@@ -323,7 +323,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Code</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', width: 120 }}>Code</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
                     </TableRow>
                   </TableHead>
@@ -349,7 +349,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Code</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', width: 120 }}>Code</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
                     </TableRow>
                   </TableHead>
