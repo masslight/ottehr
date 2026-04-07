@@ -137,7 +137,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   } catch (error: unknown) {
     try {
-      if (oystehr && taskId) await patchTaskStatus(oystehr, taskId, 'failed', JSON.stringify(error));
+      const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+      if (oystehr && taskId) await patchTaskStatus(oystehr, taskId, 'failed', errorMessage);
     } catch (patchError) {
       console.error('Error patching task status in top level catch:', patchError);
     }
