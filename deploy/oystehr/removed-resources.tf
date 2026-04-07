@@ -2365,3 +2365,19 @@ removed {
   }
 }
 
+
+removed {
+  from = oystehr_fhir_resource.list-external-lab-set-autolab-example
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.list-in-house-lab-set-upper-respiratory-example
+
+  lifecycle {
+    destroy = false
+  }
+}
