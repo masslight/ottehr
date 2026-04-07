@@ -353,6 +353,7 @@ export interface DispositionDTO {
   type: DispositionType;
   note: string;
   reason?: string;
+  specialty?: string;
   labService?: string[];
   virusTest?: string[];
   followUp?: {
@@ -476,11 +477,14 @@ export const followUpInOptions = [
 
 export interface BillingSuggestionInput {
   newPatient: boolean | undefined;
+  patientAge?: string;
+  patientSex?: string;
   hpi: string;
   mdm: string;
   externalLabOrders: string;
   internalLabOrders: string;
   radiologyOrders: any;
+  radiologyReports?: string;
   procedures: any;
   diagnoses: DiagnosisDTO[] | undefined;
   billing: CPTCodeDTO[] | undefined;

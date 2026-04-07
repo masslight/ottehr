@@ -1,9 +1,9 @@
 import { FormControl, TextField, useTheme } from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
-import { TestItemComponent } from 'utils';
+import { DataEntryComponent } from 'utils';
 
 interface ResultEntryFreeTextProps {
-  testItemComponent: TestItemComponent;
+  testItemComponent: DataEntryComponent;
   disabled?: boolean; // equates to the final view
 }
 

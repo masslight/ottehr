@@ -22,8 +22,9 @@ import { BILLING_URL, PAYMENT_LOCATIONS_URL } from 'src/App';
 import { PaymentLocation } from 'src/rcm/state/payments/payments.api';
 import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
 import FeeSchedule from './ChargeItemList';
+import EmployersTab from './employers/EmployersTab';
 
-type BillingSubTab = 'fee-schedules' | 'charge-masters' | 'payment-locations';
+type BillingSubTab = 'fee-schedules' | 'charge-masters' | 'employers' | 'payment-locations';
 
 function PaymentLocationsList(): ReactElement {
   const navigate = useNavigate();
@@ -150,6 +151,7 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
           <TabList onChange={handleSubTabChange} aria-label="Billing configuration tabs">
             <Tab label="Fee Schedules" value="fee-schedules" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Charge Masters" value="charge-masters" sx={{ textTransform: 'none', fontWeight: 500 }} />
+            <Tab label="Employers" value="employers" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Payment Locations" value="payment-locations" sx={{ textTransform: 'none', fontWeight: 500 }} />
           </TabList>
         </Box>
@@ -158,6 +160,9 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
         </TabPanel>
         <TabPanel value="charge-masters" sx={{ padding: 0 }}>
           <FeeSchedule mode="charge-master" />
+        </TabPanel>
+        <TabPanel value="employers" sx={{ padding: 0 }}>
+          <EmployersTab />
         </TabPanel>
         <TabPanel value="payment-locations" sx={{ padding: 0 }}>
           <PaymentLocationsList />

@@ -1,9 +1,9 @@
 import { FormControl, MenuItem, Select, useTheme } from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
-import { LabComponentValueSetConfig, TestItemComponent } from 'utils';
+import { DataEntryComponent, LabComponentValueSetConfig } from 'utils';
 
 interface ResultEntrySelectProps {
-  testItemComponent: TestItemComponent;
+  testItemComponent: DataEntryComponent;
   isAbnormal: boolean;
   setIsAbnormal: (bool: boolean) => void;
   disabled?: boolean; // equates to the final view

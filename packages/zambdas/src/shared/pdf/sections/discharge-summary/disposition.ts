@@ -10,14 +10,16 @@ export const composeDisposition: DataComposer<{ allChartData: AllChartData }, Di
   let instruction = '';
   let followUpIn: string | undefined;
   let reason: string | undefined;
+  let specialty: string | undefined;
   if (disposition?.type) {
     label = mapDispositionTypeToLabel[disposition.type];
     instruction = disposition.note || getDefaultNote(disposition.type);
     reason = disposition.reason;
+    specialty = disposition.specialty;
 
     followUpIn = followUpInOptions.find((opt) => opt.value === disposition.followUpIn)?.label;
   }
-  return { label, instruction, reason, followUpIn };
+  return { label, instruction, reason, followUpIn, specialty };
 };
 
 export const createDispositionSection = <TData extends { disposition?: DispositionData }>(): PdfSection<
@@ -27,9 +29,10 @@ export const createDispositionSection = <TData extends { disposition?: Dispositi
   return createConfiguredSection(null, () => ({
     title: 'Disposition',
     dataSelector: (data) => data.disposition,
-    shouldRender: (sectionData) => !!sectionData.instruction,
+    shouldRender: (sectionData) => !!(sectionData.instruction || sectionData.specialty),
     render: (client, data, styles) => {
-      client.drawText(data.instruction, styles.textStyles.regular);
+      if (data.specialty) client.drawText(data.specialty, styles.textStyles.regular);
+      if (data.instruction) client.drawText(data.instruction, styles.textStyles.regular);
       if (data.reason) client.drawText(`Reason for transfer: ${data.reason}`, styles.textStyles.regular);
       if (data.followUpIn) client.drawText(`Follow-up visit in ${data.followUpIn}`, styles.textStyles.regular);
       client.drawSeparatedLine(styles.lineStyles.separator);

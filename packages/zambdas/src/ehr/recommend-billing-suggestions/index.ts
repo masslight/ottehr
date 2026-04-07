@@ -15,11 +15,14 @@ export const index = wrapHandler(
     const validatedParameters = validateRequestParameters(input);
     const {
       newPatient,
+      patientAge,
+      patientSex,
       hpi,
       mdm,
       externalLabOrders,
       internalLabOrders,
       radiologyOrders,
+      radiologyReports,
       procedures,
       diagnoses,
       billing,
@@ -30,17 +33,31 @@ export const index = wrapHandler(
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-    let prompt = `Suggest appropriate CPT and ICD codes supported by clinical data provided for an urgent care visit in a simple list without commentary but with a code and a short reason why it was suggested for the supplied clinical data. Exactly 5 ICD and 5 CPT codes. If we don't know whether the patient is new or returning, suggest an E&M code for both a new and an established patient. Be sure to include a modifier to the E&M code if needed and HCPCS Q-codes as appropriate. Do not include E&M code in the list of CPT codes. Suggest the highest complexity E&M code reasonably likely to be approved given the clinical information.
-      
+    let prompt = `You are an expert medical coder for an urgent care clinic. Suggest appropriate ICD-10 and CPT codes for this visit.
+
+      CRITICAL RULE — Lab Orders, Radiology Reports & Procedures:
+      Before suggesting ANY ICD or CPT codes, first review the "Internal Lab Orders", "External Lab Orders", "Radiology Reports", and "Procedures" sections below. Every positive, abnormal, or clinically significant lab/radiology finding MUST have a corresponding specific ICD-10 diagnosis code in your suggestions. Every documented procedure MUST have its corresponding CPT code included. These result-driven and procedure-driven codes take absolute priority and must appear before any general symptom or encounter codes. Never omit a diagnosis that is confirmed by a test result or a CPT code for a procedure that was performed. Only suggest diagnoses that match the actual test results provided — do not infer conditions from tests that are not listed.
+
+      Always prefer the most specific ICD-10 code available. Avoid unspecified, 'other specified,' or general symptom codes (e.g., codes ending in .9 or .8) when a more precise code exists based on the clinical data.
+
+      Only suggest CPT codes for procedures, tests, and services that were actually performed or ordered during this visit. Do not suggest screening or preventive procedure codes unless the clinical data explicitly indicates they were performed. Ensure CPT codes are appropriate for the patient's age and sex.
+
+      Suggest up to 5 ICD-10 and up to 5 CPT codes supported by the clinical data, in a simple list without commentary but with a code and a short reason why it was suggested. If we don't know whether the patient is new or returning, suggest an E&M code for both a new and an established patient. Be sure to include a modifier to the E&M code if needed and HCPCS Q-codes as appropriate. Do not include E&M code in the list of CPT codes. Suggest the most accurate E&M code based on the most recent AMA CPT Guidelines. Evaluate the MDM by scoring the complexity of problems, the data analyzed, and the risk of management (e.g., prescription drug management usually triggers Level 4).
+
       Include whether the patient is new or established when suggesting an E&M code. If there are not relevant results, return an empty list.
 
       Here are the E&M codes:
 
       ${PROVIDER_CONFIG.assessment.emCodeOptions.map((option) => `${option.code}: ${option.display}`).join('\n')}
 
-      Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level and a sample MDM paragraph that would satisfy that level.
+      Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level, identifying exactly which progress note data were the bottlenecks preventing a higher level and a sample MDM paragraph that would satisfy that level.
 
-      Also take on a persona of a medical biller and coder looking for errors that might cause a claim to be rejected in an urgent care setting. Review the following claim based on provided ICD and CPT codes and provide a very concise single sentence explaining any possible issues or say "No coding changes."
+      Act as a Senior RCM Compliance Auditor specializing in Urgent Care. Review the final claim for 'Denial Triggers.' Specifically, check for:
+      1. NCCI PTP (Procedure-to-Procedure) edits (e.g., unbundling an E&M with a procedure).
+      2. Lack of medical necessity linking (does the primary ICD-10 support the E&M level/procedure?).
+      3. Missing or misplaced modifiers (specifically -25, -57, or -59).
+      4. Any other coding issues that might cause a claim denial.
+      Provide a concise single-sentence 'Audit Finding' identifying the highest-risk issues, or say 'No coding changes' if the claim is clean and defensible.
 
       Return the response in the following JSON:
 
@@ -61,7 +78,7 @@ export const index = wrapHandler(
           {
             "code": "code",
             "description": "description",
-            "upcodingSuggestion": "upcodingSuggestion. Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level and a sample MDM paragraph that would satisfy that level"
+            "upcodingSuggestion": "upcodingSuggestion. Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level, identifying exactly which progress note data were the bottlenecks preventing a higher level and a sample MDM paragraph that would satisfy that level"
           }
         ],
         "codingSuggestions": "codingSuggestions"
@@ -74,6 +91,13 @@ export const index = wrapHandler(
       prompt += `\n The patient is new to the practice.`;
     } else {
       prompt += `\n The patient is established with the practice.`;
+    }
+
+    if (patientAge) {
+      prompt += `\n Patient Age: ${patientAge}`;
+    }
+    if (patientSex) {
+      prompt += `\n Patient Sex: ${patientSex}`;
     }
 
     if (hpi) {
@@ -90,6 +114,9 @@ export const index = wrapHandler(
     }
     if (radiologyOrders) {
       prompt += `\n Radiology Orders: ${radiologyOrders}`;
+    }
+    if (radiologyReports) {
+      prompt += `\n Radiology Reports: ${radiologyReports}`;
     }
     if (procedures) {
       prompt += `\n Procedures: ${procedures}`;
@@ -180,15 +207,20 @@ export const index = wrapHandler(
     // Validate E&M codes and get the descriptions for the codes
     if (suggestions?.emCode) {
       suggestions.emCode.forEach((code) => {
-        const emCodeOption = PROVIDER_CONFIG.assessment.emCodeOptions.find((option) => option.code === code.code);
-        if (emCodeOption) {
-          emCodeSuggestions.push({
-            code: code.code,
-            description: emCodeOption.display,
-            upcodingSuggestion: code.upcodingSuggestion,
-          });
-        } else {
-          console.log("Didn't get an E&M code", code.code);
+        // AI sometimes returns combined codes like "99203 / 99213" — split and validate each
+        const codeParts = code.code.split(/\s*\/\s*/);
+        for (const codePart of codeParts) {
+          const trimmedCode = codePart.trim();
+          const emCodeOption = PROVIDER_CONFIG.assessment.emCodeOptions.find((option) => option.code === trimmedCode);
+          if (emCodeOption) {
+            emCodeSuggestions.push({
+              code: trimmedCode,
+              description: emCodeOption.display,
+              upcodingSuggestion: code.upcodingSuggestion,
+            });
+          } else {
+            console.log("Didn't get an E&M code", trimmedCode);
+          }
         }
       });
     }

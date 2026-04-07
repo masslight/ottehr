@@ -5,6 +5,7 @@ import {
   Appointment,
   AppointmentParticipant,
   Bundle,
+  Condition,
   Encounter,
   Extension,
   List,
@@ -20,6 +21,7 @@ import {
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
+  ACCIDENT_TYPE_SYSTEM,
   CanonicalUrl,
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
@@ -41,6 +43,7 @@ import {
   OTTEHR_MODULE,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PatientInfo,
+  PRIVATE_EXTENSION_BASE_URL,
   RETURNING_PATIENT_META_TAG,
   ScheduleOwnerFhirResource,
   Secrets,
@@ -646,8 +649,38 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     });
   }
 
+  const postAccidentConditionRequests: BatchInputPostRequest<Condition>[] = [];
+  const serviceCategoryCode = getCoding(slot?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  if (serviceCategoryCode === 'workers-comp') {
+    postAccidentConditionRequests.push({
+      method: 'POST',
+      url: '/Condition',
+      resource: {
+        resourceType: 'Condition',
+        subject: { reference: patientRef },
+        encounter: { reference: encUrl },
+        code: {
+          coding: [
+            {
+              system: ACCIDENT_TYPE_SYSTEM,
+              code: 'EM',
+            },
+          ],
+        },
+        meta: {
+          tag: [
+            {
+              code: 'accident',
+              system: `${PRIVATE_EXTENSION_BASE_URL}/accident`,
+            },
+          ],
+        },
+      },
+    });
+  }
+
   const transactionInput: BatchInput<
-    Appointment | Encounter | Patient | List | QuestionnaireResponse | Account | Task | Slot
+    Appointment | Encounter | Patient | List | QuestionnaireResponse | Account | Task | Slot | Condition
   > = {
     requests: [
       ...patientRequests,
@@ -659,6 +692,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       postEncRequest,
       postQuestionnaireResponseRequest,
       taskRequest,
+      ...postAccidentConditionRequests,
     ],
   };
   console.log('making transaction request');
