@@ -228,22 +228,36 @@ export class Schema20250925 implements Schema<Spec20250925> {
     }
 
     const fhirOutFile = path.join(this.outputPath, 'fhir-resources.tf.json');
+    const payerFhirOutFile = path.join(this.outputPath, 'payer-fhir-resources.tf.json');
     const fhirResources: { resource: { oystehr_fhir_resource: { [key: string]: any } } } = {
+      resource: { oystehr_fhir_resource: {} },
+    };
+    const payerFhirResources: { resource: { oystehr_fhir_resource: { [key: string]: any } } } = {
       resource: { oystehr_fhir_resource: {} },
     };
     for (const [resourceKey, resource] of Object.entries(this.resources.fhirResources)) {
       const resourceData = structuredClone(resource.resource);
       const managedFields = resource.managedFields ?? undefined;
-      fhirResources.resource.oystehr_fhir_resource[resourceKey] = {
+      const tfResource = {
         type: this.getValue(resourceData.resourceType, this.resources),
         data: JSON.parse(this.getValue(JSON.stringify(resourceData), this.resources)),
         managed_fields: managedFields,
       };
+      if (resourceKey.startsWith('payer-organization-')) {
+        payerFhirResources.resource.oystehr_fhir_resource[resourceKey] = tfResource;
+      } else {
+        fhirResources.resource.oystehr_fhir_resource[resourceKey] = tfResource;
+      }
     }
     if (Object.keys(fhirResources.resource.oystehr_fhir_resource).length) {
       await fs.writeFile(fhirOutFile, JSON.stringify(fhirResources, null, 2));
     } else {
       await fs.rm(fhirOutFile, { force: true });
+    }
+    if (Object.keys(payerFhirResources.resource.oystehr_fhir_resource).length) {
+      await fs.writeFile(payerFhirOutFile, JSON.stringify(payerFhirResources, null, 2));
+    } else {
+      await fs.rm(payerFhirOutFile, { force: true });
     }
 
     const labRoutesOutFile = path.join(this.outputPath, 'lab-routes.tf.json');
@@ -357,11 +371,22 @@ export class Schema20250925 implements Schema<Spec20250925> {
 
     // There are 3 kinds of outputs: explicit outputs from spec files, implicit outputs from resource references,
     // and implicit outputs of all resource IDs.
+    // Payer outputs are written to a separate file so they can be applied independently.
     const outputsOutFile = path.join(this.outputPath, 'outputs.tf.json');
+    const payerOutputsOutFile = path.join(this.outputPath, 'payer-outputs.tf.json');
     const outputDirectives: { output: { [key: string]: { value: any } } } = { output: {} };
+    const payerOutputDirectives: { output: { [key: string]: { value: any } } } = { output: {} };
+
+    const isPayerOutput = (name: string): boolean => name.includes('payer-organization-');
+
     // Explicit outputs from spec files:
     for (const [outputName, output] of Object.entries(this.resources.outputs)) {
-      outputDirectives.output[outputName] = { value: this.getValue(output.value, this.resources) };
+      const directive = { value: this.getValue(output.value, this.resources) };
+      if (isPayerOutput(outputName)) {
+        payerOutputDirectives.output[outputName] = directive;
+      } else {
+        outputDirectives.output[outputName] = directive;
+      }
     }
     // Implicit outputs from resource references:
     const refMatches = [...JSON.stringify(this.resources).matchAll(REF_REGEX)];
@@ -376,7 +401,12 @@ export class Schema20250925 implements Schema<Spec20250925> {
       if (tfRef) {
         console.log(`Reference ${fullMatch} resolved to ${tfRef}`);
         const tfOutputName = this.getTerraformResourceOutputName(fullMatch);
-        outputDirectives.output[tfOutputName] = { value: `\${${tfRef}}` };
+        const directive = { value: `\${${tfRef}}` };
+        if (isPayerOutput(tfOutputName)) {
+          payerOutputDirectives.output[tfOutputName] = directive;
+        } else {
+          outputDirectives.output[tfOutputName] = directive;
+        }
       } else {
         console.log('Warning: could not resolve reference', fullMatch);
       }
@@ -393,7 +423,12 @@ export class Schema20250925 implements Schema<Spec20250925> {
           );
           if (tfRef) {
             const tfOutputName = this.getTerraformResourceOutputName(tfRef);
-            outputDirectives.output[tfOutputName] = { value: `\${${tfRef}}` };
+            const directive = { value: `\${${tfRef}}` };
+            if (isPayerOutput(tfOutputName)) {
+              payerOutputDirectives.output[tfOutputName] = directive;
+            } else {
+              outputDirectives.output[tfOutputName] = directive;
+            }
           }
         }
       }
@@ -410,6 +445,11 @@ export class Schema20250925 implements Schema<Spec20250925> {
       await fs.writeFile(outputsOutFile, JSON.stringify(outputDirectives, null, 2));
     } else {
       await fs.rm(outputsOutFile, { force: true });
+    }
+    if (Object.keys(payerOutputDirectives.output).length) {
+      await fs.writeFile(payerOutputsOutFile, JSON.stringify(payerOutputDirectives, null, 2));
+    } else {
+      await fs.rm(payerOutputsOutFile, { force: true });
     }
   }
 

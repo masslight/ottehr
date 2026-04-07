@@ -1,9 +1,6 @@
 terraform {
-  backend "s3" {
-    bucket  = "YOUR_TF_BUCKET_NAME"
-    region  = "us-east-1"
-    profile = "YOUR_AWS_PROFILE_NAME"
-    key     = "terraform.tfstate"
+  backend "local" {
+    path = "terraform.tfstate"
   }
   required_version = ">= 1.12.0"
   required_providers {
