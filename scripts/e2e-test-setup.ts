@@ -256,6 +256,11 @@ async function getLocationsForTesting(ehrZambdaEnv: Record<string, string>): Pro
 }
 
 async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
+  if (!isVirtualEnabled) {
+    console.warn('No virtual locations configured — skipping telemed practitioner setup');
+    return;
+  }
+
   console.log(`Setting up test EHR provider credentials`);
   const oystehr = await getToken(ehrConfig, ehrConfig.AUTH0_CLIENT_TESTS, ehrConfig.AUTH0_SECRET_TESTS);
 
@@ -283,26 +288,6 @@ async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
 
   if (!practitioner) {
     throw Error('e2e test user profile practitioner not found');
-  }
-  const locationsResponse = await oystehr.fhir.search<Location>({
-    resourceType: 'Location',
-    params: [
-      {
-        name: 'address-state:missing',
-        value: 'false',
-      },
-    ],
-  });
-
-  if (!isVirtualEnabled) {
-    console.warn('Virtual mode not configured for this project — skipping telemed practitioner setup');
-    return;
-  }
-
-  const virtualLocations = locationsResponse.unbundle().filter(isLocationVirtual);
-
-  if (virtualLocations.length === 0) {
-    throw Error('No virtual locations found in FHIR API');
   }
 
   const firstDefaultVirtualLocation = virtualDefaultLocations[0];
