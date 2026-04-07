@@ -1988,3 +1988,380 @@ removed {
   }
 }
 
+
+# Resources from in-house-lab-activity-definitions-archive.json
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-flu-b-13
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-glucose-finger-heel-stick-14
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-flu-vid-13
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-rapid-strep-a-9
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-rapid-influenza-b-13
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-urinalysis-14
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-urine-pregnancy-test-13
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-rapid-rsv-13
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-id-now-strep-5
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-covid-19-antigen-13
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-flu-a-14
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-monospot-test-13
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-rapid-covid-19-antigen-13
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-stool-guaiac-13
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-rsv-13
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-rapid-influenza-a-13
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-alcohol-confirmation-test-1_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+
+# Resources from in-house-lab-activity-definitions.json
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-flu-b-13_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-glucose-finger-heel-stick-14_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-flu-vid-13_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-rapid-strep-a-9_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-rapid-influenza-b-13_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-urinalysis-14_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-urine-pregnancy-test-13_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-rapid-rsv-13_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-id-now-strep-5_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-covid-19-antigen-13_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-flu-a-14_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-monospot-test-13_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-rapid-covid-19-antigen-13_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-stool-guaiac-13_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-rsv-13_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-rapid-influenza-a-13_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-snellen-test-1_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-alcohol-test-1_0_0
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.activity-definition-alcohol-confirmation-test-1_0_1
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+
+# Resources from in-house-medications.json
+
+removed {
+  from = oystehr_fhir_resource.MEDICATION_ACETAMINOPHEN_LIQUID
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.MEDICATION_ACETAMINOPHEN_TABS
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.MEDICATION_ACETAMINOPHEN_80mg_SUPPOSITORY
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.MEDICATION_ACETAMINOPHEN_325mg_SUPPOSITORY
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.MEDICATION_ACETAMINOPHEN_120mg_SUPPOSITORY
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.MEDICATION_ACTIVATED_CHARCOAL
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.MEDICATION_ALBUTEROL
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.MEDICATION_VENTOLIN_HFA
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.MEDICATION_AMOXICILLIN
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.MEDICATION_AMOXICILLIN_CLAVULANATE
+
+  lifecycle {
+    destroy = false
+  }
+}
+
