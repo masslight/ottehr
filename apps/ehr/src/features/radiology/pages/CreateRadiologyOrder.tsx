@@ -431,6 +431,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     fullWidth
                     multiline
                     size="small"
+                    InputLabelProps={{ shrink: !!clinicalHistory }}
                     value={clinicalHistory}
                     onChange={(e) => {
                       const value = e.target.value;
