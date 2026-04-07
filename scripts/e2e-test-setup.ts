@@ -256,6 +256,11 @@ async function getLocationsForTesting(ehrZambdaEnv: Record<string, string>): Pro
 }
 
 async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
+  if (!isVirtualEnabled) {
+    console.warn('No virtual locations configured — skipping telemed practitioner setup');
+    return;
+  }
+
   console.log(`Setting up test EHR provider credentials`);
   const oystehr = await getToken(ehrConfig, ehrConfig.AUTH0_CLIENT_TESTS, ehrConfig.AUTH0_SECRET_TESTS);
 
@@ -283,11 +288,6 @@ async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
 
   if (!practitioner) {
     throw Error('e2e test user profile practitioner not found');
-  }
-
-  if (!isVirtualEnabled) {
-    console.warn('No virtual locations configured — skipping telemed practitioner setup');
-    return;
   }
 
   const firstDefaultVirtualLocation = virtualDefaultLocations[0];
