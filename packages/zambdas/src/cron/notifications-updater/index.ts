@@ -334,6 +334,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
     // Process recently assigned tasks to create task assignment notifications
     const updateTaskRequests: BatchInputRequest<Task>[] = [];
+    const telemedRelatedTaskCodes = [VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE];
     Object.keys(recentlyAssignedTasksMap).forEach((taskId) => {
       try {
         const { task, practitioner } = recentlyAssignedTasksMap[taskId];
@@ -358,13 +359,17 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             })
           );
 
+          const taskCode = task.code?.coding?.find((coding) => coding.system === OttehrTaskSystem)?.code;
           const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
 
-          if (notificationSettings?.taskNotificationsEnabled) {
+          const areNotificationsEnabledForThisTask = telemedRelatedTaskCodes.includes(taskCode || '')
+            ? notificationSettings?.telemedNotificationsEnabled
+            : notificationSettings?.taskNotificationsEnabled;
+          if (areNotificationsEnabledForThisTask) {
             let title = 'A new task has been assigned to you: ' + (task.description ?? `task ID ${task.id}`);
-            let status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
+            let status = getCommunicationStatus(notificationSettings!, busyPractitionerIds, practitioner);
 
-            switch (task.code?.coding?.find((coding) => coding.system === OttehrTaskSystem)?.code) {
+            switch (taskCode) {
               case VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE: {
                 title = task.description ?? `task ID ${task.id}`;
                 // waiting room practitioners will always become "busy" (status "preparation"),
