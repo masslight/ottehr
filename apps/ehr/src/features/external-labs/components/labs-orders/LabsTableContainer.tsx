@@ -95,6 +95,8 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
       });
       await Promise.all(orderPdfUrls.map((pdfUrl) => openPdf(pdfUrl)));
 
+      console.log('failedOrdersByOrderNumber', failedOrdersByOrderNumber);
+
       if (failedOrdersByOrderNumber) {
         setFailedOrderNumbers(failedOrdersByOrderNumber);
         setErrorDialogOpen(true);
@@ -121,6 +123,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
       .filter((order) => order.orderNumber && Object.keys(failedOrderNumbers).includes(order.orderNumber));
     await submitOrders(true, labs);
   };
+
   function isLabOrder(order: LabOrderListPageDTO | ReflexLabDTO): order is LabOrderListPageDTO {
     return !('drCentricResultType' in order);
   }
