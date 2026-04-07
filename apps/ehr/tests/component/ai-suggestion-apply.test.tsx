@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import React, { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -54,7 +54,7 @@ describe('useAiSuggestionApply', () => {
   });
 
   it('expands content by parsing AI values', () => {
-    const observations = [makeObservation('Appendectomy, Tonsillectomy')];
+    const observations = [makeObservation('["Appendectomy", "Tonsillectomy"]')];
 
     const { result } = renderHook(
       () =>
@@ -73,7 +73,7 @@ describe('useAiSuggestionApply', () => {
   });
 
   it('maps surgical history items to static options', () => {
-    const observations = [makeObservation('Appendectomy')];
+    const observations = [makeObservation('["Appendectomy"]')];
 
     const { result } = renderHook(
       () =>
@@ -96,7 +96,7 @@ describe('useAiSuggestionApply', () => {
   });
 
   it('returns null mappedData for unrecognized surgical history', () => {
-    const observations = [makeObservation('Some unknown procedure XYZ')];
+    const observations = [makeObservation('["Some unknown procedure XYZ"]')];
 
     const { result } = renderHook(
       () =>
@@ -114,7 +114,7 @@ describe('useAiSuggestionApply', () => {
   });
 
   it('detects already-applied suggestions via isAlreadyApplied callback', () => {
-    const observations = [makeObservation('Appendectomy')];
+    const observations = [makeObservation('["Appendectomy"]')];
     isAlreadyApplied.mockImplementation((data: MappedItemData) => {
       return data.section === 'surgicalHistory' && 'code' in data && data.code === '44950';
     });
@@ -134,8 +134,14 @@ describe('useAiSuggestionApply', () => {
   });
 
   it('marks index as applied after handleSuggestionClick', async () => {
-    onApply.mockResolvedValue(undefined);
-    const observations = [makeObservation('Appendectomy')];
+    onApply.mockImplementation(() => {
+      // Simulate real behavior: after applying, isAlreadyApplied detects the new data
+      isAlreadyApplied.mockImplementation((data: MappedItemData) => {
+        return data.section === 'surgicalHistory' && 'code' in data && data.code === '44950';
+      });
+      return Promise.resolve();
+    });
+    const observations = [makeObservation('["Appendectomy"]')];
 
     const { result } = renderHook(
       () =>
@@ -158,7 +164,7 @@ describe('useAiSuggestionApply', () => {
 
   it('rolls back applied index on onApply error', async () => {
     onApply.mockRejectedValue(new Error('Save failed'));
-    const observations = [makeObservation('Appendectomy')];
+    const observations = [makeObservation('["Appendectomy"]')];
 
     const { result } = renderHook(
       () =>
@@ -172,17 +178,15 @@ describe('useAiSuggestionApply', () => {
     );
 
     await act(async () => {
-      await result.current.handleSuggestionClick(0);
+      await expect(result.current.handleSuggestionClick(0)).rejects.toThrow('Save failed');
     });
 
     expect(onApply).toHaveBeenCalledOnce();
-    await waitFor(() => {
-      expect(result.current.effectiveAppliedIndices.has(0)).toBe(false);
-    });
+    expect(result.current.effectiveAppliedIndices.has(0)).toBe(false);
   });
 
   it('does nothing when clicking a suggestion with no mappedData', async () => {
-    const observations = [makeObservation('Some unknown procedure XYZ')];
+    const observations = [makeObservation('["Some unknown procedure XYZ"]')];
 
     const { result } = renderHook(
       () =>
@@ -203,7 +207,7 @@ describe('useAiSuggestionApply', () => {
   });
 
   it('skips negated values', () => {
-    const observations = [makeObservation('Denies any surgeries')];
+    const observations = [makeObservation('["Denies any surgeries"]')];
 
     const { result } = renderHook(
       () =>
@@ -222,7 +226,7 @@ describe('useAiSuggestionApply', () => {
   });
 
   it('maps episodeOfCare to hospitalization options', () => {
-    const observations = [makeObservation('Appendicitis')];
+    const observations = [makeObservation('["Appendicitis"]')];
 
     const { result } = renderHook(
       () =>
