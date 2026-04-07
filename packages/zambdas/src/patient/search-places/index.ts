@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, PlacesResult, SearchPlacesInput, SearchPlacesOutput, SecretsKeys } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import {
   addressComponentsFromPlacesDetailRes,
   extractPharmacyIdFromSearchRes,
@@ -16,33 +16,28 @@ const ZAMBDA_NAME = 'search-places';
 let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedInput = validateRequestParameters(input);
-    const { searchTerm, locationBias, placesId, secrets } = validatedInput;
+  const validatedInput = validateRequestParameters(input);
+  const { searchTerm, locationBias, placesId, secrets } = validatedInput;
 
-    console.log('locationBias: ', JSON.stringify(locationBias));
+  console.log('locationBias: ', JSON.stringify(locationBias));
 
-    const googleApiKey = getSecret(SecretsKeys.GOOGLE_PLACES_API_KEY, secrets);
+  const googleApiKey = getSecret(SecretsKeys.GOOGLE_PLACES_API_KEY, secrets);
 
-    if (!oystehrToken) {
-      console.log('getting m2m token for service calls');
-      oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
-
-    const output = await performEffect({ searchTerm, locationBias, placesId, googleApiKey, oystehr });
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(output),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+  if (!oystehrToken) {
+    console.log('getting m2m token for service calls');
+    oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
+  } else {
+    console.log('already have a token, no need to update');
   }
+
+  const oystehr = createOystehrClient(oystehrToken, secrets);
+
+  const output = await performEffect({ searchTerm, locationBias, placesId, googleApiKey, oystehr });
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(output),
+  };
 });
 
 const performEffect = async (

@@ -3,7 +3,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner, Provenance } from 'fhir/r4b';
 import {
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  getSecret,
   GetVisitFaxHistoryInput,
   GetVisitFaxHistoryInputSchema,
   GetVisitFaxHistoryInputValidated,
@@ -11,14 +10,12 @@ import {
   GetVisitFaxHistoryOutput,
   PROVENANCE_FAX_ACTIVITY_CODES,
   PROVENANCE_FAX_SYSTEM,
-  SecretsKeys,
 } from 'utils';
 import { ZodError } from 'zod';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   formatZodError,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -28,29 +25,23 @@ const ZAMBDA_NAME = 'get-visit-fax-history';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    console.group('performEffect');
-    const resources = await performEffect(validatedParameters, oystehr);
-    console.groupEnd();
-    console.debug('performEffect success', JSON.stringify(resources));
+  console.group('performEffect');
+  const resources = await performEffect(validatedParameters, oystehr);
+  console.groupEnd();
+  console.debug('performEffect success', JSON.stringify(resources));
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(resources),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(resources),
+  };
 });
 
 const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): Promise<GetVisitFaxHistoryOutput> => {

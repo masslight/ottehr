@@ -10,21 +10,22 @@ import {
   createReference,
   getCandidInventoryPages,
   getResourcesFromBatchInlineRequests,
-  getSecret,
   InvoiceTaskInput,
   mapDisplayToInvoiceTaskStatus,
   RcmTaskCodings,
-  SecretsKeys,
-  TEXTING_CONFIG,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
+import {
+  getOrCreateInvoicingConfig,
+  ParsedInvoicingConfig,
+  parseInvoicingConfig,
+} from '../../rcm/invoice-config/helpers';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -42,70 +43,65 @@ interface EncounterPackage {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const { secrets } = input;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const candid = createCandidApiClient(secrets);
+  const { secrets } = input;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  const candid = createCandidApiClient(secrets);
 
-    const twoDaysAgo = DateTime.now().minus({ days: 2 });
-    const candidClaims = await getAllCandidClaims(candid, twoDaysAgo);
-    console.log('getting candid claims for the past two days');
+  console.log('Fetching invoicing config from FHIR');
+  const { questionnaireResponse } = await getOrCreateInvoicingConfig(oystehr);
+  const invoicingConfig = parseInvoicingConfig(questionnaireResponse);
+  console.log('Invoicing config loaded, dueDays:', invoicingConfig.dueDaysFromGeneration);
 
-    console.log('getting pending and to create packages');
-    const packagesToCreate = await getEncountersWithoutTaskFhir(oystehr, candid, candidClaims);
+  const twoDaysAgo = DateTime.now().minus({ days: 2 });
+  const candidClaims = await getAllCandidClaims(candid, twoDaysAgo);
+  console.log('getting candid claims for the past two days');
 
-    console.log('encounters without a task: ', packagesToCreate.length);
+  console.log('getting pending and to create packages');
+  const packagesToCreate = await getEncountersWithoutTaskFhir(oystehr, candid, candidClaims);
 
-    const promises: Promise<void>[] = [];
-    packagesToCreate.forEach((encounter) => {
-      promises.push(createTaskForEncounter(oystehr, encounter));
-    });
-    await Promise.all(promises);
+  console.log('encounters without a task: ', packagesToCreate.length);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Successfully created tasks for encounters' }),
-    };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    console.log('Error occurred:', error);
-    return await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  await Promise.all(packagesToCreate.map((pkg) => createTaskForEncounter(oystehr, pkg, invoicingConfig)));
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ message: 'Successfully created tasks for encounters' }),
+  };
 });
 
-async function getInvoiceTaskInput(
+function getInvoiceTaskInput(
   claimId: string,
   finalizationDate: Date,
-  patientBalanceInCents: number
-): Promise<InvoiceTaskInput> {
-  try {
-    const smsMessageFromSecret = TEXTING_CONFIG.invoicing.smsMessage;
-    const memoFromSecret = TEXTING_CONFIG.invoicing.stripeMemoMessage;
-    const dueDateFromSecret = TEXTING_CONFIG.invoicing.dueDateInDays;
-    const dueDate = DateTime.now().plus({ days: dueDateFromSecret }).toISODate();
-    const finalizationDateIso = finalizationDate.toISOString();
+  patientBalanceInCents: number,
+  config: ParsedInvoicingConfig
+): InvoiceTaskInput {
+  const dueDate = DateTime.now().plus({ days: config.dueDaysFromGeneration }).toISODate();
+  const finalizationDateIso = finalizationDate.toISOString();
 
-    return {
-      smsTextMessage: smsMessageFromSecret,
-      memo: memoFromSecret,
-      dueDate,
-      amountCents: patientBalanceInCents,
-      claimId,
-      finalizationDate: finalizationDateIso,
-    };
-  } catch (error) {
-    console.error('Error fetching prefilled invoice info: ', error);
-    throw new Error('Error fetching prefilled invoice info: ' + error);
-  }
+  return {
+    smsTextMessage: config.defaultSmsTemplate,
+    memo: config.defaultInvoiceMemo,
+    dueDate,
+    amountCents: patientBalanceInCents,
+    claimId,
+    finalizationDate: finalizationDateIso,
+  };
 }
 
-export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterPackage): Promise<void> {
+export async function createTaskForEncounter(
+  oystehr: Oystehr,
+  encounterPkg: EncounterPackage,
+  config: ParsedInvoicingConfig
+): Promise<void> {
   try {
     const { encounter, claim, amountCents } = encounterPkg;
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
+
     if (!patientId) throw new Error('Patient ID not found in encounter: ' + encounter.id);
-    const prefilledInvoiceInfo = await getInvoiceTaskInput(claim.claimId, claim.timestamp, amountCents);
+
+    const prefilledInvoiceInfo = getInvoiceTaskInput(claim.claimId, claim.timestamp, amountCents, config);
+
     console.log(
       `Creating task. patient: ${claim.patientExternalId}, claim: ${claim.claimId}, oyst encounter: ${encounter.id} balance (cents): ${amountCents}`
     );
@@ -119,18 +115,30 @@ export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: Enc
       encounter: createReference(encounter),
       for: { reference: `Patient/${patientId}` },
       authoredOn: prefilledInvoiceInfo.finalizationDate ?? DateTime.now().toISO(),
-      executionPeriod: {
-        start: encounter.period?.start,
-        end: encounter.period?.start,
-      },
+      ...(encounter.period?.start
+        ? { executionPeriod: { start: encounter.period.start, end: encounter.period.start } }
+        : {}),
       ...(amountCents === 0 ? { businessStatus: ZERO_BALANCE_BUSINESS_STATUS } : {}),
       input: createInvoiceTaskInput(prefilledInvoiceInfo),
     };
 
+    console.log('Creating task:', JSON.stringify(task));
+
     const created = await oystehr.fhir.create(task);
+
     console.log('Created task: ', created.id);
   } catch (error) {
-    captureException(error);
+    console.error(
+      `Failed to create task for encounter ${encounterPkg.encounter.id}, claim ${encounterPkg.claim.claimId}:`,
+      error
+    );
+
+    captureException(error, {
+      tags: {
+        claimId: encounterPkg.claim.claimId,
+        encounterId: encounterPkg.encounter.id,
+      },
+    });
   }
 }
 
@@ -190,18 +198,49 @@ export async function populateAmountInPackages(
   const itemizationResponse = await Promise.all(itemizationPromises);
 
   const resultPackages: EncounterPackage[] = [];
-  itemizationResponse.forEach((res) => {
-    if (res && res.ok && res.body) {
-      const itemization = res.body as InvoiceItemizationResponse;
-      const incomingPkg = packages.find((pkg) => pkg.claim.claimId === itemization.claimId);
-      if (itemization.claimId && itemization.patientBalanceCents && incomingPkg) {
-        resultPackages.push({
-          ...incomingPkg,
-          amountCents: itemization.patientBalanceCents,
-        });
-      }
+  itemizationResponse.forEach((res, idx) => {
+    if (!res || !res.ok || !res.body) {
+      const pkg = packages[idx];
+      const claimId = pkg?.claim.claimId;
+      const error = new Error(`Candid itemization failed for claim ${claimId}`);
+
+      console.error(error.message, JSON.stringify(res, null, 2));
+
+      captureException(error, {
+        tags: {
+          claimId,
+          encounterId: pkg?.encounter.id,
+        },
+      });
+      return;
     }
+
+    const itemization = res.body as InvoiceItemizationResponse;
+
+    if (!itemization.claimId) {
+      console.warn(`Itemization response is missing claimId, skipping`);
+      return;
+    }
+
+    const incomingPkg = packages.find((pkg) => pkg.claim.claimId === itemization.claimId);
+
+    if (!incomingPkg) {
+      console.warn(`No matching package found for itemization claimId: ${itemization.claimId}`);
+      return;
+    }
+
+    if (!itemization.patientBalanceCents && itemization.patientBalanceCents !== 0) {
+      console.warn(`patientBalanceCents is missing for claim ${itemization.claimId}, skipping`);
+      return;
+    }
+
+    console.log(`Itemization for claim ${itemization.claimId}: patientBalanceCents=${itemization.patientBalanceCents}`);
+    resultPackages.push({
+      ...incomingPkg,
+      amountCents: itemization.patientBalanceCents,
+    });
   });
+
   return resultPackages;
 }
 

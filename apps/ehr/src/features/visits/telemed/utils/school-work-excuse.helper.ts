@@ -163,8 +163,12 @@ export const getDefaultExcuseFormValues = (params: {
     ? `${params.patientName || '{Patient name}'}, the child of ${params.parentName || '{Parent/Guardian name}'},`
     : `${params.patientName || '{Patient name}'},`;
 
-  const headerNoteEnding = !params.isSchool && params.isTemplate ? 'They:' : 'They are:';
+  const headerNoteEnding = params.isSchool ? 'They are:' : 'They:';
   defaultFormValues.headerNote = `To whom it may concern:\n${headerNoteName} was treated by ${BRANDING_CONFIG.projectName} on ${currentDate}. ${headerNoteEnding}`;
+
+  if (!params.isTemplate && params.phoneNumber) {
+    defaultFormValues.headerNote += `\n\n\nFor any questions, please do not hesitate to call ${params.phoneNumber}.`;
+  }
 
   if (params.isTemplate) {
     if (params.phoneNumber) {

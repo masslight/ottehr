@@ -284,6 +284,7 @@ export const dataTestIds = {
     medicalDecisionLink: 'medical-decision-link',
     emCodeLink: 'em-code-link',
     hpiLink: 'hpi-link',
+    accidentDateLink: 'accident-date-link',
     ccLink: 'chief-complaint-link',
     visitNoteCard: 'visit-note-card',
     procedureItem: 'procedure-item',
@@ -512,6 +513,7 @@ export const dataTestIds = {
     deleteButtonPrefix: 'delete-button-',
     tableRowPrefix: 'in-house-lab-table-row-',
     loading: 'in-house-labs-table-loading',
+    noLabsMessage: 'in-house-labs-table-no-labs-text',
   },
   orderInHouseLabPage: {
     title: 'order-in-house-labs-title',
@@ -687,6 +689,7 @@ export const dataTestIds = {
   },
 
   commonLabOrder: {
+    deleteDialog: 'delete-lab-order-dialog',
     deleteDialogButton: 'delete-lab-order-dialog-btn',
     labSets: {
       launchModal: 'launch-lab-set-modal-btn',

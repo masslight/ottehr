@@ -10,10 +10,10 @@ import {
 export const useGetAppointmentAccessibility = (): GetAppointmentAccessibilityDataResult => {
   const { locationVirtual, encounter, appointment } = useAppointmentData();
   const user = useEvolveUser();
-  const featureFlags = useAppFlags();
+  const appFlags = useAppFlags();
 
   return useMemo(
-    () => getAppointmentAccessibilityData({ locationVirtual, encounter, appointment, user, featureFlags }),
-    [locationVirtual, encounter, appointment, user, featureFlags]
+    () => getAppointmentAccessibilityData({ locationVirtual, encounter, appointment, user, appFlags }),
+    [locationVirtual, encounter, appointment, user, appFlags]
   );
 };

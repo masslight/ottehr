@@ -5,6 +5,7 @@ import { FhirResource, HealthcareService, Location, Practitioner, Schedule } fro
 import fs from 'fs';
 import {
   allLicensesForPractitioner,
+  BOOKING_CONFIG,
   FULL_DAY_SCHEDULE,
   makeQualificationForPractitioner,
   SCHEDULE_EXTENSION_URL,
@@ -41,6 +42,24 @@ const getMode = (): string | undefined => {
 const environment = getEnvironment();
 const mode = getMode();
 console.log(`Using environment: ${environment}`);
+
+// Whether this project supports virtual (telemed) visits, based on booking config.
+// Used throughout this file to skip virtual-location requirements for in-person-only projects.
+const isVirtualEnabled = (BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes as string[]).includes('virtual');
+
+/**
+ * Throws if any key in `config` has an empty string value, except for keys listed in `optionalKeys`.
+ * Use `optionalKeys` for fields that are legitimately absent in certain project configurations
+ * (e.g. STATE_ONE is not required when virtual mode is disabled).
+ */
+function assertRequiredConfig(config: Record<string, unknown>, label: string, optionalKeys: string[] = []): void {
+  const emptyKeys = Object.entries(config)
+    .filter(([key, value]) => !optionalKeys.includes(key) && value === '')
+    .map(([key]) => key);
+  if (emptyKeys.length > 0) {
+    throw new Error(`${label} config contains empty values for keys: ${emptyKeys.join(', ')}`);
+  }
+}
 
 interface EhrConfig {
   TEXT_USERNAME?: string;
@@ -107,9 +126,12 @@ async function getToken(
   return oystehr;
 }
 
-async function getLocationsForTesting(
-  ehrZambdaEnv: Record<string, string>
-): Promise<{ locationId: string; locationName: string; locationSlug: string; virtualLocationState: string }> {
+async function getLocationsForTesting(ehrZambdaEnv: Record<string, string>): Promise<{
+  locationId: string;
+  locationName: string;
+  locationSlug: string;
+  virtualLocationState: string | undefined;
+}> {
   console.log(`Setting up locations for testing`);
   const oystehr = await getToken(ehrZambdaEnv);
 
@@ -181,7 +203,10 @@ async function getLocationsForTesting(
   }
 
   if (virtualLocations.length === 0) {
-    throw Error('No virtual locations found in FHIR API');
+    if (isVirtualEnabled) {
+      throw Error('No virtual locations found in FHIR API');
+    }
+    console.warn('No virtual locations found in FHIR API — skipping (virtual mode not configured for this project)');
   }
 
   const locationResource = locations.find((location) => location.name === firstDefaultLocation.name);
@@ -190,12 +215,12 @@ async function getLocationsForTesting(
   const locationName = locationResource?.name;
   const locationSlug = locationResource?.identifier?.[0]?.value;
 
-  const virtualLocation = virtualLocations.find(
-    (location) => location.address?.state === firstDefaultVirtualLocation.state
-  );
-  const virtualLocationState = (virtualLocation?.address?.state || '').toLowerCase();
+  const virtualLocation = isVirtualEnabled
+    ? virtualLocations.find((location) => location.address?.state === firstDefaultVirtualLocation.state)
+    : undefined;
+  const virtualLocationState = virtualLocation ? (virtualLocation.address?.state || '').toLowerCase() : undefined;
 
-  if (!virtualLocation) {
+  if (isVirtualEnabled && !virtualLocation) {
     throw Error('Required virtual location not found');
   }
 
@@ -211,21 +236,23 @@ async function getLocationsForTesting(
     throw Error('Required locationSlug not found');
   }
 
-  if (!virtualLocationState) {
+  if (isVirtualEnabled && !virtualLocationState) {
     throw Error('Required virtual location state not found');
   }
 
   console.log(`Found location by name '${locationResource.name}' with ID: ${locationId}`);
   console.log(`Location name: ${locationName}, slug: ${locationSlug}`);
 
-  console.log(`Found virtual location by state: ${firstDefaultVirtualLocation.state} with ID: ${virtualLocation?.id}`);
-  console.log(`Location name: ${virtualLocation?.name}, state: ${virtualLocation?.address?.state}`);
+  if (virtualLocation) {
+    console.log(`Found virtual location by state: ${firstDefaultVirtualLocation.state} with ID: ${virtualLocation.id}`);
+    console.log(`Location name: ${virtualLocation.name}, state: ${virtualLocation.address?.state}`);
+  }
 
   console.group('Ensure test location schedules and slots. Only if mode is not SMOKE');
   if (mode !== 'smoke') {
     await Promise.all([
       ensureOwnerResourceSchedulesAndSlots(locationResource, schedules, oystehr),
-      ensureOwnerResourceSchedulesAndSlots(virtualLocation, schedules, oystehr),
+      ...(virtualLocation ? [ensureOwnerResourceSchedulesAndSlots(virtualLocation, schedules, oystehr)] : []),
       defaultGroupLocationsAndPractitioners.map((owner) =>
         ensureOwnerResourceSchedulesAndSlots(owner, defaultGroupSchedules, oystehr)
       ),
@@ -237,7 +264,7 @@ async function getLocationsForTesting(
     locationId,
     locationName,
     locationSlug,
-    virtualLocationState: virtualLocationState,
+    virtualLocationState,
   };
 }
 
@@ -283,7 +310,11 @@ async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
   const virtualLocations = locationsResponse.unbundle().filter(isLocationVirtual);
 
   if (virtualLocations.length === 0) {
-    throw Error('No virtual locations found in FHIR API');
+    if (isVirtualEnabled) {
+      throw Error('No virtual locations found in FHIR API');
+    }
+    console.warn('No virtual locations found — skipping telemed practitioner setup (virtual mode not configured)');
+    return;
   }
   const firstDefaultVirtualLocation = virtualDefaultLocations[0];
 
@@ -410,7 +441,7 @@ export async function createTestEnvFiles(): Promise<void> {
       GET_ANSWER_OPTIONS_ZAMBDA_ID: 'get-answer-options',
       PROJECT_ID: ehrUiEnv.VITE_APP_PROJECT_ID,
       SLUG_ONE: locationSlug,
-      STATE_ONE: virtualLocationState,
+      ...(isVirtualEnabled && { STATE_ONE: virtualLocationState }),
       EHR_APPLICATION_ID: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_ID,
       ...(environment === 'local' && { APP_IS_LOCAL: 'true' }),
     };
@@ -420,7 +451,7 @@ export async function createTestEnvFiles(): Promise<void> {
       TEXT_USERNAME: textUsername,
       TEXT_PASSWORD: textPassword,
       SLUG_ONE: locationSlug,
-      STATE_ONE: virtualLocationState,
+      ...(isVirtualEnabled && { STATE_ONE: virtualLocationState }),
       AUTH0_CLIENT: zambdaEnv.AUTH0_CLIENT,
       AUTH0_SECRET: zambdaEnv.AUTH0_SECRET,
       AUTH0_CLIENT_TESTS: existingIntakeConfig.AUTH0_CLIENT_TESTS,
@@ -434,13 +465,8 @@ export async function createTestEnvFiles(): Promise<void> {
       PROJECT_API: intakeUiEnv.VITE_APP_PROJECT_API_URL,
     };
 
-    if (Object.values(intakeConfig).some((value) => value === '')) {
-      throw new Error('Intake config contains empty values');
-    }
-
-    if (Object.values(ehrConfig).some((value) => value === '')) {
-      throw new Error('EHR config contains empty values');
-    }
+    assertRequiredConfig(intakeConfig, 'Intake');
+    assertRequiredConfig(ehrConfig, 'EHR');
 
     fs.writeFileSync(`apps/ehr/env/tests.${environment}.json`, JSON.stringify(ehrConfig, null, 2));
     fs.writeFileSync(`apps/intake/env/tests.${environment}.json`, JSON.stringify(intakeConfig, null, 2));
