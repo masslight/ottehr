@@ -13,6 +13,7 @@ import {
   chunkThings,
   getSecret,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
+  ICD_10_CODE_SYSTEM,
   SecretsKeys,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
@@ -196,7 +197,8 @@ const makeDeleteRequests = async (
           tag.system === chartDataTagSystem('medical-decision') ||
           tag.system === chartDataTagSystem('patient-instruction') ||
           // E&M code is replaced (one per visit); CPT codes are additive (like ICD diagnoses)
-          tag.system === chartDataTagSystem('em-code')
+          tag.system === chartDataTagSystem('em-code') ||
+          tag.system === chartDataTagSystem('mechanism-of-injury')
         // tag.system === chartDataTagSystem('chief-complaint')
       )
   );
@@ -244,6 +246,10 @@ const makeCreateRequests = (
     (resource) => resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('chief-complaint'))
   );
 
+  const existingMoiCondition = encounterBundle.find(
+    (resource) => resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('mechanism-of-injury'))
+  );
+
   const existingRosCondition = encounterBundle.find(
     (resource) => resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('ros'))
   );
@@ -253,6 +259,7 @@ const makeCreateRequests = (
   const templateEncounterExtensions = templateEncounter?.extension ?? [];
   let templateHpiCondition: Condition | undefined;
   let templateRosCondition: Condition | undefined;
+  let moiHandled = false;
 
   for (const resource of templateList.entry) {
     // grab contained resource from resource.id in entry
@@ -273,6 +280,14 @@ const makeCreateRequests = (
 
     if (containedResource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('ros')) && existingRosCondition) {
       templateRosCondition = containedResource as Condition;
+      continue;
+    }
+
+    // Skip duplicate MOI Conditions from the template (only the first one is used)
+    if (
+      containedResource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('mechanism-of-injury')) &&
+      moiHandled
+    ) {
       continue;
     }
 
@@ -301,7 +316,7 @@ const makeCreateRequests = (
     // For Condition resources that are ICD-10 codes, we need to update the Encounter.diagnosis references
     if (
       resourceToCreate.resourceType === 'Condition' &&
-      resourceToCreate.code?.coding?.find((c) => c.system === 'http://hl7.org/fhir/sid/icd-10')
+      resourceToCreate.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM)
     ) {
       const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
         return d.condition.reference?.split('/')[1] === containedResource.id;
@@ -310,6 +325,21 @@ const makeCreateRequests = (
         ...diagnosisToAdd, // This pulls in the `rank: 1` if present.
         condition: { reference: fullUrl },
       });
+    }
+
+    // For MOI, append existing text to the template text (existing MOI Conditions are deleted separately)
+    if (
+      resourceToCreate.resourceType === 'Condition' &&
+      resourceToCreate.meta?.tag?.some((t) => t.system === chartDataTagSystem('mechanism-of-injury'))
+    ) {
+      moiHandled = true;
+      if (existingMoiCondition) {
+        const existingText = (existingMoiCondition as Condition).note?.[0]?.text;
+        const templateText = (containedResource as Condition).note?.[0]?.text;
+        if (existingText) {
+          resourceToCreate.note = [{ text: `${existingText}\n\n${templateText || ''}` }];
+        }
+      }
     }
 
     createResourcesRequests.push({
