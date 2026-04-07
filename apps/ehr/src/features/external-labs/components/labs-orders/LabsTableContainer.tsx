@@ -95,8 +95,6 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
       });
       await Promise.all(orderPdfUrls.map((pdfUrl) => openPdf(pdfUrl)));
 
-      console.log('failedOrdersByOrderNumber', failedOrdersByOrderNumber);
-
       if (failedOrdersByOrderNumber) {
         setFailedOrderNumbers(failedOrdersByOrderNumber);
         setErrorDialogOpen(true);
