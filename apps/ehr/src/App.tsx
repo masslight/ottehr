@@ -1,12 +1,11 @@
 import { TabContext } from '@mui/lab';
 import { CssBaseline } from '@mui/material';
-// import Alert from '@mui/material/Alert';
 import { LicenseInfo } from '@mui/x-data-grid-pro';
 import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { RoleType, setupSentry } from 'utils';
+import { parseCommaSeparatedTags, RoleType, setupSentry } from 'utils';
 import Banner from './components/Banner';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -65,11 +64,12 @@ import VisitDetailsPage from './pages/VisitDetailsPage';
 import { Claim, Claims } from './rcm';
 import { useNavStore } from './state/nav.store';
 
-const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV } = import.meta.env;
+const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_TAGS } = import.meta.env;
 
 setupSentry({
   dsn: VITE_APP_SENTRY_DSN,
   environment: VITE_APP_SENTRY_ENV,
+  tags: parseCommaSeparatedTags(VITE_APP_SENTRY_TAGS),
 });
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));

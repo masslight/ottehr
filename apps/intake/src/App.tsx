@@ -4,7 +4,7 @@ import mixpanel from 'mixpanel-browser';
 import { useEffect } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
-import { setupSentry } from 'utils';
+import { parseCommaSeparatedTags, setupSentry } from 'utils';
 import { ScrollToTop } from './components/ScrollToTop';
 import { TestErrorPage } from './components/TestErrorPage';
 import { MixpanelContextProps, setupMixpanel } from './configurations';
@@ -46,11 +46,13 @@ import { IOSVideoCallMenu } from './telemed/pages/IOS/IOSVideoCallMenu';
 import VideoChatPage from './telemed/pages/VideoChatPage';
 import WaitingRoom from './telemed/pages/WaitingRoom';
 import Welcome from './telemed/pages/Welcome';
-const { VITE_APP_MIXPANEL_TOKEN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_DSN } = import.meta.env;
+
+const { VITE_APP_MIXPANEL_TOKEN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_TAGS } = import.meta.env;
 
 setupSentry({
   dsn: VITE_APP_SENTRY_DSN,
   environment: VITE_APP_SENTRY_ENV,
+  tags: parseCommaSeparatedTags(VITE_APP_SENTRY_TAGS),
 });
 
 const MIXPANEL_SETTINGS: MixpanelContextProps = {
