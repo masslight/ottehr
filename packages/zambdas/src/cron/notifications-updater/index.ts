@@ -368,6 +368,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           if (areNotificationsEnabledForThisTask) {
             let title = 'A new task has been assigned to you: ' + (task.description ?? `task ID ${task.id}`);
             let status = getCommunicationStatus(notificationSettings!, busyPractitionerIds, practitioner);
+            let notificationType = AppointmentProviderNotificationTypes.task_assigned;
 
             switch (taskCode) {
               case VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE: {
@@ -375,6 +376,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 // waiting room practitioners will always become "busy" (status "preparation"),
                 // so we force "in-progress" to ensure they receive the notification
                 status = 'in-progress';
+                notificationType = AppointmentProviderNotificationTypes.patient_waiting;
                 break;
               }
               default: {
@@ -392,7 +394,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                     coding: [
                       {
                         system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-                        code: AppointmentProviderNotificationTypes.task_assigned,
+                        code: notificationType,
                       },
                     ],
                   },
