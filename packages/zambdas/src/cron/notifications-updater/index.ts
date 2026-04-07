@@ -15,6 +15,7 @@ import { DateTime, Duration } from 'luxon';
 import {
   AppointmentProviderNotificationTags,
   AppointmentProviderNotificationTypes,
+  ERX_TASK,
   getFullestAvailableName,
   getPatchBinary,
   getPatchOperationForNewMetaTag,
@@ -359,10 +360,13 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             })
           );
 
-          const taskCode = task.code?.coding?.find((coding) => coding.system === OttehrTaskSystem)?.code;
+          const taskCodes = task.code?.coding;
+          const ottehrTaskCode = taskCodes?.find((coding) => coding.system === OttehrTaskSystem)?.code;
+          const erxTaskCode = taskCodes?.find((coding) => coding.system === ERX_TASK.system)?.code;
+          const taskCode = ottehrTaskCode || erxTaskCode || '';
           const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
 
-          const areNotificationsEnabledForThisTask = telemedRelatedTaskCodes.includes(taskCode || '')
+          const areNotificationsEnabledForThisTask = telemedRelatedTaskCodes.includes(taskCode)
             ? notificationSettings?.telemedNotificationsEnabled
             : notificationSettings?.taskNotificationsEnabled;
           if (areNotificationsEnabledForThisTask) {
@@ -374,6 +378,12 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 title = task.description ?? `task ID ${task.id}`;
                 // waiting room practitioners will always become "busy" (status "preparation"),
                 // so we force "in-progress" to ensure they receive the notification
+                status = 'in-progress';
+                break;
+              }
+              case ERX_TASK.code.providerNotification: {
+                // similarly, practitioners prescribing eRX are assigned to an
+                // appointment already
                 status = 'in-progress';
                 break;
               }
