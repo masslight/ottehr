@@ -383,11 +383,11 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
               }
               case ERX_TASK.code.providerNotification: {
                 // similarly, practitioners prescribing eRX are assigned to an
-                // appointment already. Keep phone-only notifications as "completed"
-                // so SMS delivery remains eligible, but bypass "preparation" for
-                // methods that support in-app/computer notifications.
+                // appointment already. phone-only notifications require a
+                // status of "completed" but phone and computer ones require
+                // "in-progress".
                 status =
-                  notificationSettings.method === ProviderNotificationMethod.phone ? 'completed' : 'in-progress';
+                  notificationSettings!.method === ProviderNotificationMethod.phone ? 'completed' : 'in-progress';
                 break;
               }
               default: {
