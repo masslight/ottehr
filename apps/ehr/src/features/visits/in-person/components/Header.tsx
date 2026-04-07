@@ -93,7 +93,21 @@ const PatientInfoWrapper = styled(Box)({
 });
 
 const getPatientWeightFallback = (weight: string | undefined): string | undefined => {
-  return weight?.match(/^\d+(?:\.\d+)?\skg/)?.[0];
+  return weight?.match(/^\d+(?:\.\d+)?\skg/)?.[0].replace(/\s/, '');
+};
+
+const getDisplayWeight = (
+  observations: { value?: number | string }[],
+  patientWeight: string | undefined
+): string | undefined => {
+  const numericObs = observations.find((o) => typeof o.value === 'number');
+  if (numericObs) {
+    return `${formatWeightKg(numericObs.value as number)}kg`;
+  }
+  if (observations.length === 0) {
+    return getPatientWeightFallback(patientWeight);
+  }
+  return undefined;
 };
 
 const getFollowupStatusChip = (status: 'OPEN' | 'RESOLVED'): ReactElement => {
@@ -242,13 +256,7 @@ export const Header = (): JSX.Element => {
   const gender = formatLabelValue(mappedData?.gender, 'Gender');
   const language = formatLabelValue(mappedData?.preferredLanguage, 'Lang');
   const dob = formatLabelValue(mappedData?.DOB, 'DOB', true);
-  const currentWeightObservations = encounterVitals?.[VitalFieldNames.VitalWeight] ?? [];
-  const latestEncounterWeight = currentWeightObservations.find((observation) => typeof observation.value === 'number');
-  const weight = latestEncounterWeight
-    ? `${formatWeightKg(latestEncounterWeight.value)}kg`
-    : currentWeightObservations.length === 0
-    ? getPatientWeightFallback(mappedData?.weight)
-    : undefined;
+  const weight = getDisplayWeight(encounterVitals?.[VitalFieldNames.VitalWeight] ?? [], mappedData?.weight);
 
   const allergies = formatLabelValue(
     chartData?.allergies
