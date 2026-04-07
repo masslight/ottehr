@@ -15,7 +15,6 @@ interface ImportMetaEnv {
   readonly VITE_APP_PROJECT_API_ZAMBDA_URL: string;
   readonly VITE_APP_PATIENT_APP_URL?: string;
   readonly VITE_APP_DYNAMSOFT_LICENSE_KEY?: string;
-  readonly VITE_APP_IS_LEGACY_PATIENT_FOLLOWUPS_ENABLED_FEATURE_FLAG?: string;
 }
 
 interface ImportMeta {

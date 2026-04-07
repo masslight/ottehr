@@ -5,7 +5,6 @@ import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedB
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
-import Insurances from '../features/visits/telemed/components/admin/Insurance';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
@@ -18,7 +17,6 @@ enum PageTab {
   'virtual-locations' = 'virtual-locations',
   employees = 'employees',
   providers = 'providers',
-  insurance = 'insurances',
   'global-templates' = 'global-templates',
   medications = 'medications',
   billing = 'billing',
@@ -62,12 +60,6 @@ export function AdminPage(): JSX.Element {
                   value={PageTab.providers}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab.providers}`)}
-                />
-                <Tab
-                  label="Insurance"
-                  value={PageTab.insurance}
-                  sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab.insurance}`)}
                 />
                 <Tab
                   label="Global Templates"
@@ -122,9 +114,6 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab.providers} sx={{ padding: 0 }}>
             <EmployeesPage employeeType={EmployeeTypes.providers} />
-          </TabPanel>
-          <TabPanel value={PageTab.insurance} sx={{ padding: 0 }}>
-            <Insurances />
           </TabPanel>
           <TabPanel value={PageTab['global-templates']} sx={{ padding: 0 }}>
             <GlobalTemplatesAdminPage />
