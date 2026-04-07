@@ -32,6 +32,7 @@ export type GetOystehrTelemedAPIParams = {
   searchPlacesID?: string;
   inhouseLabResourceSearchID?: string;
   makeMedicationHistoryPdfID?: string;
+  generatePatientEducationZambdaID?: string;
 };
 
 export type { PromiseReturnType } from 'utils';

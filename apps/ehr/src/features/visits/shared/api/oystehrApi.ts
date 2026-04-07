@@ -94,6 +94,7 @@ enum ZambdaNames {
   'search places' = 'search places',
   'inhouse lab resource search' = 'inhouse lab resource search',
   'make medication history pdf' = 'make medication history pdf',
+  'generate patient education' = 'generate patient education',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
@@ -129,6 +130,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'search places': false,
   'inhouse lab resource search': false,
   'make medication history pdf': false,
+  'generate patient education': false,
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
@@ -169,6 +171,7 @@ export const getOystehrTelemedAPI = (
   searchPlaces: typeof searchPlaces;
   getCreateInHouseLabOrderResources: typeof getCreateInHouseLabOrderResources;
   makeMedicationHistoryPdf: typeof makeMedicationHistoryPdf;
+  generatePatientEducation: typeof generatePatientEducation;
 } => {
   const {
     getTelemedAppointmentsZambdaID,
@@ -203,6 +206,7 @@ export const getOystehrTelemedAPI = (
     searchPlacesID,
     inhouseLabResourceSearchID,
     makeMedicationHistoryPdfID,
+    generatePatientEducationZambdaID,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
@@ -238,6 +242,7 @@ export const getOystehrTelemedAPI = (
     'search places': searchPlacesID,
     'inhouse lab resource search': inhouseLabResourceSearchID,
     'make medication history pdf': makeMedicationHistoryPdfID,
+    'generate patient education': generatePatientEducationZambdaID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
@@ -416,6 +421,19 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('make medication history pdf', parameters);
   };
 
+  const generatePatientEducation = async (parameters: {
+    icdCode: string;
+    icdDescription: string;
+  }): Promise<{
+    content: string | null;
+    error?: string;
+    icdCode: string;
+    icdDescription: string;
+    links?: { title: string; url: string }[];
+  }> => {
+    return await makeZapRequest('generate patient education', parameters);
+  };
+
   return {
     getTelemedAppointments,
     initTelemedSession,
@@ -449,5 +467,6 @@ export const getOystehrTelemedAPI = (
     searchPlaces,
     getCreateInHouseLabOrderResources,
     makeMedicationHistoryPdf,
+    generatePatientEducation,
   };
 };

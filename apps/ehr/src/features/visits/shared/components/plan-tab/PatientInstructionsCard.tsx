@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import DoneIcon from '@mui/icons-material/Done';
-import { Box, TextField, Typography } from '@mui/material';
+import SchoolIcon from '@mui/icons-material/School';
+import { Box, CircularProgress, TextField, Tooltip, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { BRANDING_CONFIG, CommunicationDTO } from 'utils';
@@ -9,6 +10,7 @@ import { ActionsList } from '../../../../../components/ActionsList';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
+import { usePatientEducation } from '../../hooks/usePatientEducation';
 import { useSavePatientInstruction } from '../../stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 import { PatientInstructionsTemplatesDialog } from './components/PatientInstructionsTemplatesDialog';
@@ -24,6 +26,12 @@ export const PatientInstructionsCard: FC = () => {
   const { mutate: deleteChartData } = useDeleteChartData();
   const isLoading = isSavePatientInstructionLoading || isSaveChartDataLoading;
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const {
+    generate: generateEducation,
+    isLoading: isEducationLoading,
+    error: educationError,
+    primaryDiagnosis,
+  } = usePatientEducation();
   const { chartData, setPartialChartData } = useChartData();
   const instructions = chartData?.instructions || [];
 
@@ -150,7 +158,29 @@ export const PatientInstructionsCard: FC = () => {
                 <RoundedButton onClick={() => setDefaultTemplatesOpen(true)}>
                   {BRANDING_CONFIG.projectName} Templates
                 </RoundedButton>
+                <Tooltip
+                  title={
+                    primaryDiagnosis
+                      ? `Generate for: ${primaryDiagnosis.code} - ${primaryDiagnosis.display}`
+                      : 'No primary diagnosis set'
+                  }
+                >
+                  <span>
+                    <RoundedButton
+                      onClick={generateEducation}
+                      disabled={!primaryDiagnosis || isEducationLoading}
+                      startIcon={isEducationLoading ? <CircularProgress size={16} /> : <SchoolIcon />}
+                    >
+                      Patient Education
+                    </RoundedButton>
+                  </span>
+                </Tooltip>
               </Box>
+              {educationError && (
+                <Typography color="error" variant="body2">
+                  {educationError}
+                </Typography>
+              )}
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <RoundedButton
                   onClick={onAdd}

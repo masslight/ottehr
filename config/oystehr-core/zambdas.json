@@ -1061,6 +1061,13 @@
       "src": "src/ehr/recommend-billing-codes/index",
       "zip": ".dist/zips/recommend-billing-codes.zip"
     },
+    "GENERATE-PATIENT-EDUCATION": {
+      "name": "generate-patient-education",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/generate-patient-education/index",
+      "zip": ".dist/zips/generate-patient-education.zip"
+    },
     "AI-INTERVIEW-SUMMARY": {
       "name": "ai-interview-summary",
       "type": "subscription",
