@@ -427,7 +427,11 @@ export const EditableMedicationCard: React.FC<{
         await handleStatusChange(newStatus);
       }
 
-      if (typeRef.current === 'order-new') {
+      if (
+        typeRef.current === 'order-new' ||
+        typeRef.current === 'dispense' ||
+        typeRef.current === 'dispense-not-administered'
+      ) {
         navigate(getInHouseMedicationMARUrl(appointmentId!));
       }
 
@@ -482,8 +486,9 @@ export const EditableMedicationCard: React.FC<{
     isUnsavedData
   );
 
-  const hasNotEditableStatus = currentStatus !== 'pending';
+  const hasNotEditableStatus = currentStatus !== 'pending' && typeRef.current !== 'completed-edit';
   const isCreatingOrEditingOrder = typeRef.current === 'order-new' || typeRef.current === 'order-edit';
+  const isCompletedEditWithNothingToSave = typeRef.current === 'completed-edit' && !isUnsavedData;
   const isCreatingOrEditingOrderAndNothingToSave = isCreatingOrEditingOrder && !isUnsavedData;
   const isErxLoading = erxEnabled && erxStatus === ERXStatus.LOADING;
   const hasInprogressOrUnresolvedInteractions =
@@ -492,6 +497,7 @@ export const EditableMedicationCard: React.FC<{
   const isCardSaveButtonDisabled =
     isOrderUpdating ||
     hasNotEditableStatus ||
+    isCompletedEditWithNothingToSave ||
     isCreatingOrEditingOrderAndNothingToSave ||
     isErxLoading ||
     hasInprogressOrUnresolvedInteractions ||
