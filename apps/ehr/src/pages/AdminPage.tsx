@@ -76,7 +76,7 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab['global-templates']}`)}
                 />
                 <Tab
-                  label="Medications"
+                  label="In-House Medications"
                   value={PageTab.medications}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab.medications}`)}

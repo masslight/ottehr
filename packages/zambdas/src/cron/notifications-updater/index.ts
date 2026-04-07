@@ -15,6 +15,7 @@ import { DateTime, Duration } from 'luxon';
 import {
   AppointmentProviderNotificationTags,
   AppointmentProviderNotificationTypes,
+  ERX_TASK,
   getFullestAvailableName,
   getPatchBinary,
   getPatchOperationForNewMetaTag,
@@ -334,6 +335,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
     // Process recently assigned tasks to create task assignment notifications
     const updateTaskRequests: BatchInputRequest<Task>[] = [];
+    const telemedRelatedTaskCodes = [VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE];
     Object.keys(recentlyAssignedTasksMap).forEach((taskId) => {
       try {
         const { task, practitioner } = recentlyAssignedTasksMap[taskId];
@@ -358,18 +360,34 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             })
           );
 
+          const taskCodes = task.code?.coding;
+          const ottehrTaskCode = taskCodes?.find((coding) => coding.system === OttehrTaskSystem)?.code;
+          const erxTaskCode = taskCodes?.find((coding) => coding.system === ERX_TASK.system)?.code;
+          const taskCode = ottehrTaskCode || erxTaskCode || '';
           const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
 
-          if (notificationSettings?.taskNotificationsEnabled) {
+          const areNotificationsEnabledForThisTask = telemedRelatedTaskCodes.includes(taskCode)
+            ? notificationSettings?.telemedNotificationsEnabled
+            : notificationSettings?.taskNotificationsEnabled;
+          if (areNotificationsEnabledForThisTask) {
             let title = 'A new task has been assigned to you: ' + (task.description ?? `task ID ${task.id}`);
-            let status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
+            let status = getCommunicationStatus(notificationSettings!, busyPractitionerIds, practitioner);
 
-            switch (task.code?.coding?.find((coding) => coding.system === OttehrTaskSystem)?.code) {
+            switch (taskCode) {
               case VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE: {
                 title = task.description ?? `task ID ${task.id}`;
                 // waiting room practitioners will always become "busy" (status "preparation"),
                 // so we force "in-progress" to ensure they receive the notification
                 status = 'in-progress';
+                break;
+              }
+              case ERX_TASK.code.providerNotification: {
+                // similarly, practitioners prescribing eRX are assigned to an
+                // appointment already. phone-only notifications require a
+                // status of "completed" but phone and computer ones require
+                // "in-progress".
+                status =
+                  notificationSettings!.method === ProviderNotificationMethod.phone ? 'completed' : 'in-progress';
                 break;
               }
               default: {

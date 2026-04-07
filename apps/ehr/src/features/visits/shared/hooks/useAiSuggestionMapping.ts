@@ -308,100 +308,15 @@ function shouldSkipMapping(text: string): boolean {
   return !text || isNegated(text) || isTooVague(text);
 }
 
-export function parseAiValue(value: string, section: AiSuggestionSection): string[] {
+export function parseAiValue(value: string, _section: AiSuggestionSection): string[] {
   if (!value) return [];
 
-  // New format: JSON-serialized array from the updated AI prompt
-  if (value.startsWith('[')) {
-    try {
-      return (JSON.parse(value) as unknown[]).map((item) => String(item).trim()).filter(Boolean);
-    } catch (error) {
-      console.warn('Failed to parse AI suggestion JSON, falling back to legacy parsing:', error);
-    }
+  try {
+    return (JSON.parse(value) as unknown[]).map((item) => String(item).trim()).filter(Boolean);
+  } catch {
+    console.warn('Failed to parse AI suggestion JSON:', value);
+    return [];
   }
-
-  // Legacy format: free-text prose from old observations
-  const items = splitSentences(value)
-    .filter((s) => isRelevantForSection(s, section))
-    .map(cleanSentence)
-    .flatMap((sentence) => smartSplit(sentence))
-    .map(cleanItem)
-    .filter(Boolean);
-
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    const key = item.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function splitSentences(text: string): string[] {
-  return text
-    .split(/(?<=[.?!])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-function cleanSentence(text: string): string {
-  return text
-    .replace(/^the patient\s+/i, '')
-    .replace(/^(she|he)\s+/i, '')
-    .replace(/\b(currently|also)\b/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function isRelevantForSection(text: string, section: AiSuggestionSection): boolean {
-  const t = text.toLowerCase();
-
-  const hasSentenceVerb =
-    /\b(takes?|taking|has|have|had|is|are|was|were|allerg|react|prescribed|denies|reports?)\b/.test(t);
-  if (!hasSentenceVerb) return true;
-
-  if (section === 'medications') {
-    return /(take|taking|medication|drug|prescribed)/.test(t);
-  }
-
-  if (section === 'allergies') {
-    return /(allergy|allergic|reaction)/.test(t);
-  }
-
-  if (section === 'conditions') {
-    return !/(denies|no history|negative for)/.test(t);
-  }
-
-  return true;
-}
-
-function smartSplit(text: string): string[] {
-  if (!text) return [];
-
-  const cleaned = text.replace(/^the patient (currently )?(takes|has|reports|denies)\s+/i, '').replace(/\.$/, '');
-
-  const commaParts = cleaned.split(',');
-
-  return commaParts
-    .flatMap((part, index) => {
-      const trimmed = part.trim();
-
-      if (index === commaParts.length - 1 && /\band\b/i.test(trimmed)) {
-        return trimmed.split(/\band\b/i).map((p) => p.trim());
-      }
-
-      return [trimmed];
-    })
-    .filter(Boolean);
-}
-
-function cleanItem(text: string): string {
-  return text
-    .replace(/^\b(and|with|to)\b\s+/i, '')
-    .replace(/^\b(takes|taking|has|have|had|experiences|is|are|was|were|reports?|reporting|reported)\b\s+/i, '')
-    .replace(/^(?:\b(?:prescribed|a|an|known|previous|prior|severe)\b\s*)+/i, '')
-    .replace(/\.$/, '')
-    .trim();
 }
 
 export function normalizeMedicationName(value: string): string {

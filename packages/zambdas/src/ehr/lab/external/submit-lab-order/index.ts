@@ -176,7 +176,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ? await makeOrderFormsAndDocRefs(successfulBundledOrders, now, secrets, m2mToken, oystehr)
       : [];
 
-    const responseBody: SubmitLabOrderOutput = { orderPdfUrls, failedOrdersByOrderNumber: failedBundledOrders };
+    const failedOrdersByOrderNumber = Object.entries(failedBundledOrders).length > 0 ? failedBundledOrders : undefined;
+
+    const responseBody: SubmitLabOrderOutput = { orderPdfUrls, failedOrdersByOrderNumber };
 
     return {
       body: JSON.stringify(responseBody),
