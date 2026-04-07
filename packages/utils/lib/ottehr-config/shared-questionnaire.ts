@@ -382,7 +382,8 @@ const convertAttachmentFieldToQuestionnaireItem = (
 
 const convertGroupFieldToQuestionnaireItem = (
   field: FormFieldsGroupItem,
-  requiredFields?: string[]
+  requiredFields?: string[],
+  hiddenFields?: string[]
 ): QuestionnaireItem => {
   const item: QuestionnaireItem = {
     linkId: field.key,
@@ -455,6 +456,7 @@ const convertGroupFieldToQuestionnaireItem = (
   for (const [, nestedField] of Object.entries(field.items)) {
     let questionnaireItem: QuestionnaireItem;
     const typedField = nestedField as any;
+    if (hiddenFields?.includes(typedField.key)) continue;
     if (typedField.type === 'display') {
       questionnaireItem = convertDisplayFieldToQuestionnaireItem(typedField as FormFieldsDisplayItem);
     } else if (typedField.type === 'attachment') {
@@ -463,7 +465,8 @@ const convertGroupFieldToQuestionnaireItem = (
     } else if (typedField.type === 'group') {
       questionnaireItem = convertGroupFieldToQuestionnaireItem(
         typedField as FormFieldsGroupItem,
-        effectiveRequiredFields
+        effectiveRequiredFields,
+        hiddenFields
       );
     } else {
       const isRequired = effectiveRequiredFields?.includes(typedField.key) ?? false;
@@ -768,7 +771,8 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
           } else if (typedField.type === 'group') {
             questionnaireItem = convertGroupFieldToQuestionnaireItem(
               typedField as FormFieldsGroupItem,
-              section.requiredFields
+              section.requiredFields,
+              section.hiddenFields
             );
           } else {
             const isRequired = section.requiredFields?.includes(typedField.key) ?? false;
@@ -819,7 +823,8 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
         } else if (typedField.type === 'group') {
           questionnaireItem = convertGroupFieldToQuestionnaireItem(
             typedField as FormFieldsGroupItem,
-            section.requiredFields
+            section.requiredFields,
+            section.hiddenFields
           );
         } else {
           const isRequired = section.requiredFields?.includes(typedField.key) ?? false;
