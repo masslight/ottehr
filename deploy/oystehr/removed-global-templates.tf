@@ -5,14 +5,6 @@
 # After a successful `terraform apply`, this file can be deleted.
 
 removed {
-  from = oystehr_fhir_resource.GlobalTemplatesHolderList
-
-  lifecycle {
-    destroy = false
-  }
-}
-
-removed {
   from = oystehr_fhir_resource.LEFT_AOM_ACUTE_OTITIS_MEDIA_WITH_WATCH_AND_WAIT
 
   lifecycle {
