@@ -24,8 +24,9 @@ import { PaymentLocation } from 'src/rcm/state/payments/payments.api';
 import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
 import FeeSchedule from './ChargeItemList';
 import EmployersTab from './employers/EmployersTab';
+import Insurances from './Insurance';
 
-type BillingSubTab = 'fee-schedules' | 'charge-masters' | 'employers' | 'payment-locations' | 'invoicing';
+type BillingSubTab = 'insurance' | 'fee-schedules' | 'charge-masters' | 'employers' | 'payment-locations' | 'invoicing';
 
 function PaymentLocationsList(): ReactElement {
   const navigate = useNavigate();
@@ -139,7 +140,7 @@ function PaymentLocationsList(): ReactElement {
 
 export default function BillingConfiguration({ billingTab }: { billingTab?: string }): ReactElement {
   const navigate = useNavigate();
-  const subTab: BillingSubTab = (billingTab as BillingSubTab) || 'fee-schedules';
+  const subTab: BillingSubTab = (billingTab as BillingSubTab) || 'insurance';
 
   const handleSubTabChange = (_: unknown, newValue: BillingSubTab): void => {
     navigate(`${BILLING_URL}/${newValue}`);
@@ -150,6 +151,7 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
       <TabContext value={subTab}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList onChange={handleSubTabChange} aria-label="Billing configuration tabs">
+            <Tab label="Insurance" value="insurance" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Fee Schedules" value="fee-schedules" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Charge Masters" value="charge-masters" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Employers" value="employers" sx={{ textTransform: 'none', fontWeight: 500 }} />
@@ -157,6 +159,9 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
             <Tab label="Invoicing" value="invoicing" sx={{ textTransform: 'none', fontWeight: 500 }} />
           </TabList>
         </Box>
+        <TabPanel value="insurance" sx={{ padding: 0 }}>
+          <Insurances />
+        </TabPanel>
         <TabPanel value="fee-schedules" sx={{ padding: 0 }}>
           <FeeSchedule />
         </TabPanel>
