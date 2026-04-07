@@ -719,8 +719,10 @@ export const dataTestIds = {
   externalLabs: {
     labsStatusChip: 'labs-status-chip',
     labsBreadCrumbs: 'labs-bread-crumbs',
+    patientRecordLabsTab: 'patient-record-labs-tab',
     labsTable: {
       patientChartExternalLabsPage: 'patient-chart-external-labs',
+      patientRecordExternalLabsPage: 'patient-record-external-labs',
       addExternalLabBtn: 'add-external-lab-btn',
       bundleContainerPrefix: 'tables-table-bundle-container-',
       bundleHeaderRowTitlePrefix: 'labs-table-bundle-header-row-title-',

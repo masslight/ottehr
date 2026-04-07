@@ -31,6 +31,10 @@ export class ExternalLabsPage {
     return CreateExternalLabPage.isOpen(this.#page);
   }
 
+  /**
+   * searches the patient chart lab table
+   * @returns the row locator fot the test you're search for
+   */
   async confirmTestWithOutResultsIsPresent(input: {
     fillerLabName: string;
     testName: string;
@@ -56,7 +60,7 @@ export class ExternalLabsPage {
     const testNameCell = testRow.getByTestId(tableTestIds.bundleRowCellTestType);
     await expect(testNameCell, `Confirming ${testName} is present in the bundle`).toHaveText(testName);
 
-    // confirm status is pending
+    // confirm status
     const statusChip = testRow.getByTestId(dataTestIds.externalLabs.labsStatusChip);
     await expect(statusChip, `Confirming status is ${status}`).toHaveText(status);
 

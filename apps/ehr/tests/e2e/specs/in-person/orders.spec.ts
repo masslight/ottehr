@@ -157,6 +157,7 @@ const PROCEDURE_B: ProcedureInfo = {
 const resourceHandler = new ResourceHandler(`documentProceduresPage-${DateTime.now().toMillis()}`);
 
 let sideMenu: SideMenu;
+let header: InPersonHeader;
 let context: BrowserContext;
 let page: Page;
 test.beforeAll(async ({ browser }) => {
@@ -172,6 +173,7 @@ test.beforeAll(async ({ browser }) => {
   await setupPractitioners(page);
 
   sideMenu = new SideMenu(page);
+  header = new InPersonHeader(page);
 });
 
 test.afterAll(async () => {
@@ -797,14 +799,21 @@ test.describe('External labs page', async () => {
         });
       });
 
-      await test.step('ELX-1.6 Check additional dx is present on assessment page', async () => {
+      await test.step('ELX-1.6 Check assessment page and patient record labs table', async () => {
         await sideMenu.clickAssessment();
         const assessmentPage = await expectAssessmentPage(page);
 
         await assessmentPage.checkForSecondaryDx({ secondaryDx: additionalDx || 'unknown', addedViaLabOrder: true });
-      });
 
-      // step EXL-1.7 Check the patient record labs table
+        const patientRecordPage = await header.clickPatientName(resourceHandler.patient.id!);
+        await patientRecordPage.clickLabsTableTab();
+
+        await patientRecordPage.confirmPatientRecordLab({
+          testName: selectedTestName || 'unknown',
+          status: ExternalLabsStatus.ready,
+          navToLabDetailPage: true,
+        });
+      });
     });
   });
 });
