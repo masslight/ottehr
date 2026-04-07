@@ -6,12 +6,16 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunization';
+import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { LOCATION_OPTIONS, ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { UNIT_OPTIONS } from 'utils';
 
 export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
   const { data: vaccines, isLoading } = useGetVaccines();
+  const { chartData } = useChartData();
+  const diagnosisOptions = (chartData?.diagnosis ?? []).map((dx) => `${dx.code} - ${dx.display}`);
+
   return (
     <Grid container spacing={2}>
       <Grid xs={12} item>
@@ -38,9 +42,11 @@ export const OrderDetailsSection: React.FC = () => {
         />
       </Grid>
       <Grid xs={6} item>
-        <TextInput
+        <AutocompleteInput
           name="details.associatedDx"
           label="Associated Dx"
+          options={diagnosisOptions}
+          freeSolo
           dataTestId={dataTestIds.orderVaccinePage.associatedDx}
         />
       </Grid>

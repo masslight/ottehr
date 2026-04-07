@@ -22,7 +22,6 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createImmunizationQuickPick, getImmunizationQuickPicks, updateImmunizationQuickPick } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { CptCodesInput } from 'src/components/input/CptCodesInput';
@@ -42,19 +41,17 @@ import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPic
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
-import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useFhirQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { ROUTE_OPTIONS } from 'src/shared/utils/options';
 import {
   EMERGENCY_CONTACT_RELATIONSHIPS,
   ImmunizationOrder,
-  ImmunizationQuickPickData,
   REQUIRED_FIELD_ERROR_MESSAGE,
   RoleType,
   UNIT_OPTIONS,
 } from 'utils';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
+import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
 import { OrderDetailsSection } from './OrderDetailsSection';
 import { OrderStatusChip } from './OrderStatusChip';
@@ -94,117 +91,23 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
-  const { quickPicks: mergedQuickPicks, refetch: refetchQuickPicks } = useFhirQuickPicks(getImmunizationQuickPicks);
-  const { oystehrZambda } = useApiClients();
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
-  const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
-  const [quickPickName, setQuickPickName] = useState('');
-  const [existingQuickPicks, setExistingQuickPicks] = useState<ImmunizationQuickPickData[]>([]);
-  const [quickPickSaving, setQuickPickSaving] = useState(false);
-  const [overwriteTarget, setOverwriteTarget] = useState<ImmunizationQuickPickData | null>(null);
 
-  const onQuickPickSelect = (quickPick: ImmunizationQuickPickData): void => {
-    const currentValues = methods.getValues();
-    methods.reset({
-      ...currentValues,
-      details: {
-        ...currentValues.details,
-        medication: quickPick.vaccine,
-        dose: quickPick.dose,
-        units: quickPick.units,
-        route: quickPick.route,
-        location: quickPick.location,
-        associatedDx: quickPick.associatedDx,
-        manufacturer: quickPick.manufacturer,
-        instructions: quickPick.instructions,
-      },
-      administrationDetails: {
-        ...currentValues.administrationDetails,
-        lot: quickPick.lot,
-        expDate: quickPick.expDate,
-        mvx: quickPick.mvx,
-        cvx: quickPick.cvx,
-        cptCodes: quickPick.cptCodes ?? [],
-        ndc: quickPick.ndc,
-      },
-    });
-  };
-
-  const openQuickPickDialog = async (): Promise<void> => {
-    if (!oystehrZambda) return;
-    try {
-      const response = await getImmunizationQuickPicks(oystehrZambda);
-      setExistingQuickPicks(response.quickPicks);
-    } catch (error) {
-      console.error('Failed to load existing quick picks:', error);
-      setExistingQuickPicks(mergedQuickPicks);
-    }
-    // Suggest name: Vaccine Name | Dose | Units | Route | Injection Site | lot: number | exp: date
-    const values = methods.getValues();
-    const parts: string[] = [];
-    if (values.details?.medication?.name) parts.push(values.details.medication.name);
-    if (values.details?.dose) parts.push(values.details.dose);
-    if (values.details?.units) parts.push(values.details.units);
-    if (values.details?.route) {
-      const routeName = ROUTE_OPTIONS.find((opt) => opt.code === values.details.route)?.name;
-      parts.push(routeName ?? values.details.route);
-    }
-    if (values.details?.location?.name) parts.push(values.details.location.name);
-    if (values.administrationDetails?.lot) parts.push(`lot: ${values.administrationDetails.lot}`);
-    if (values.administrationDetails?.expDate) parts.push(`exp: ${values.administrationDetails.expDate}`);
-    setQuickPickName(parts.join(' | '));
-    setOverwriteTarget(null);
-    setQuickPickDialogOpen(true);
-  };
-
-  const buildQuickPickFromCurrentState = (): Omit<ImmunizationQuickPickData, 'id'> => {
-    const values = methods.getValues();
-    return {
-      name: quickPickName.trim(),
-      vaccine: values.details?.medication,
-      dose: values.details?.dose,
-      units: values.details?.units,
-      route: values.details?.route,
-      location: values.details?.location,
-      associatedDx: values.details?.associatedDx,
-      manufacturer: values.details?.manufacturer,
-      instructions: values.details?.instructions,
-      cvx: values.administrationDetails?.cvx,
-      mvx: values.administrationDetails?.mvx,
-      cptCodes: values.administrationDetails?.cptCodes,
-      ndc: values.administrationDetails?.ndc,
-      lot: values.administrationDetails?.lot,
-      expDate: values.administrationDetails?.expDate,
-    };
-  };
-
-  const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
-    if (!quickPickName.trim()) {
-      enqueueSnackbar('Quick pick name is required', { variant: 'error' });
-      return;
-    }
-    if (!oystehrZambda) throw new Error('oystehrZambda was null');
-
-    setQuickPickSaving(true);
-    try {
-      const quickPickData = buildQuickPickFromCurrentState();
-      if (overwriteId) {
-        await updateImmunizationQuickPick(oystehrZambda, overwriteId, quickPickData);
-        enqueueSnackbar(`Quick pick "${quickPickName}" updated`, { variant: 'success' });
-      } else {
-        await createImmunizationQuickPick(oystehrZambda, { quickPick: quickPickData });
-        enqueueSnackbar(`Quick pick "${quickPickName}" created`, { variant: 'success' });
-      }
-      setQuickPickDialogOpen(false);
-      void refetchQuickPicks();
-    } catch (error) {
-      console.error('Failed to save quick pick:', error);
-      enqueueSnackbar('Failed to save quick pick', { variant: 'error' });
-    } finally {
-      setQuickPickSaving(false);
-    }
-  };
+  const {
+    mergedQuickPicks,
+    quickPickDialogOpen,
+    setQuickPickDialogOpen,
+    quickPickName,
+    setQuickPickName,
+    existingQuickPicks,
+    quickPickSaving,
+    overwriteTarget,
+    setOverwriteTarget,
+    onQuickPickSelect,
+    openQuickPickDialog,
+    onSaveAsQuickPick,
+  } = useImmunizationQuickPickManagement({ methods, applyOrderDetails: false });
 
   const handleDeleteOrder = async (): Promise<void> => {
     try {
@@ -384,8 +287,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     getOptionLabel={(option) =>
                       RELATIONSHIP_OPTIONS.find((opt) => opt.value === option)?.label ?? option
                     }
-                    required
-                    validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.relationship}
                   />
                 </Grid>
@@ -393,8 +294,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <TextInput
                     name="administrationDetails.emergencyContact.fullName"
                     label="Full name"
-                    required
-                    validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.fullName}
                   />
                 </Grid>
@@ -402,8 +301,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <PhoneInput
                     name="administrationDetails.emergencyContact.mobile"
                     label="Mobile"
-                    required
-                    validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.mobile}
                   />
                 </Grid>

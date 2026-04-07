@@ -48,26 +48,28 @@ export function AutocompleteInput<Value>({
       control={control}
       rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false, validate: validate }}
       render={({ field, fieldState: { error } }) => {
-        const optionsToUse = options ?? [];
+        let optionsToUse = options ?? [];
         if (
           field.value &&
           !options?.find((option) =>
             isOptionEqualToValue ? isOptionEqualToValue(option, field.value) : option === field.value
           )
         ) {
-          optionsToUse?.push(field.value);
+          optionsToUse = [...optionsToUse, field.value];
         }
         return (
           <Box sx={{ width: '100%' }}>
             <Autocomplete<Value, false, false, boolean>
               value={field.value ?? null}
               options={optionsToUse}
-              getOptionKey={getOptionKey as (option: Value | string) => string}
+              getOptionKey={getOptionKey as ((option: string | Value) => string | number) | undefined}
               noOptionsText={noOptionsText}
-              getOptionLabel={getOptionLabel as (option: Value | string) => string}
-              isOptionEqualToValue={isOptionEqualToValue as (option: Value | string, value: Value | string) => boolean}
+              getOptionLabel={getOptionLabel as ((option: string | Value) => string) | undefined}
+              isOptionEqualToValue={
+                isOptionEqualToValue as ((option: string | Value, value: string | Value) => boolean) | undefined
+              }
               freeSolo={freeSolo}
-              onChange={(_e, option: Value | string | null) => field.onChange(option ?? null)}
+              onChange={(_e, option) => field.onChange(option ?? null)}
               {...(freeSolo
                 ? {
                     onInputChange: (_e: React.SyntheticEvent, newValue: string, reason: string) => {
@@ -81,7 +83,7 @@ export function AutocompleteInput<Value>({
                 <TextField
                   {...params}
                   label={label + (required ? '*' : '')}
-                  placeholder={`Select ${label}`}
+                  placeholder={label}
                   inputProps={{ ...params.inputProps, readOnly: selectOnly }}
                   error={error != null}
                   size="small"

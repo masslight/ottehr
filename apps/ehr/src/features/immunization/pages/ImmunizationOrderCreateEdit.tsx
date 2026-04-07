@@ -19,7 +19,6 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createImmunizationQuickPick, getImmunizationQuickPicks, updateImmunizationQuickPick } from 'src/api/api';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
 import { CustomDialog } from 'src/components/dialogs';
@@ -30,11 +29,8 @@ import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/hel
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
-import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useFhirQuickPicks } from 'src/hooks/useMergedQuickPicks';
-import { ROUTE_OPTIONS } from 'src/shared/utils/options';
-import { ImmunizationQuickPickData, RoleType } from 'utils';
+import { RoleType } from 'utils';
 import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
 import {
   useCancelImmunizationOrder,
@@ -43,12 +39,11 @@ import {
 } from '../../visits/in-person/hooks/useImmunization';
 import { OrderDetailsSection } from '../components/OrderDetailsSection';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
+import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 
 export const ImmunizationOrderCreateEdit: React.FC = () => {
   const navigate = useNavigate();
   const { id: appointmentId, orderId } = useParams();
-  const { oystehrZambda } = useApiClients();
-
   const {
     resources: { encounter, patient },
   } = useAppointmentData(appointmentId);
@@ -58,14 +53,6 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { mutateAsync: createUpdateOrder, isPending: isOrderSaving } = useCreateUpdateImmunizationOrder();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
-
-  // Quick picks state
-  const { quickPicks: mergedQuickPicks } = useFhirQuickPicks(getImmunizationQuickPicks);
-  const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
-  const [quickPickName, setQuickPickName] = useState('');
-  const [existingQuickPicks, setExistingQuickPicks] = useState<ImmunizationQuickPickData[]>([]);
-  const [quickPickSaving, setQuickPickSaving] = useState(false);
-  const [overwriteTarget, setOverwriteTarget] = useState<ImmunizationQuickPickData | null>(null);
 
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
@@ -89,11 +76,10 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
       await cancelOrder({ orderId });
       navigate(getImmunizationMARUrl(appointmentId!));
     } catch {
+      setIsDeleteDialogOpen(false);
       enqueueSnackbar('An error occurred while deleting the immunization order. Please try again.', {
         variant: 'error',
       });
-    } finally {
-      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -102,6 +88,21 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
   });
 
   const methods = useForm();
+
+  const {
+    mergedQuickPicks,
+    quickPickDialogOpen,
+    setQuickPickDialogOpen,
+    quickPickName,
+    setQuickPickName,
+    existingQuickPicks,
+    quickPickSaving,
+    overwriteTarget,
+    setOverwriteTarget,
+    onQuickPickSelect,
+    openQuickPickDialog,
+    onSaveAsQuickPick,
+  } = useImmunizationQuickPickManagement({ methods, applyOrderDetails: true });
 
   useEffect(() => {
     const order = ordersResponse?.orders?.find((order) => order.id === orderId);
@@ -121,110 +122,6 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
       });
     }
   }, [methods, defaultProviderId, orderId, currentUser]);
-
-  // Quick pick handlers
-  const onQuickPickSelect = (quickPick: ImmunizationQuickPickData): void => {
-    const currentValues = methods.getValues();
-    methods.reset({
-      ...currentValues,
-      details: {
-        ...currentValues.details,
-        medication: quickPick.vaccine,
-        dose: quickPick.dose,
-        units: quickPick.units,
-        route: quickPick.route,
-        location: quickPick.location,
-        associatedDx: quickPick.associatedDx,
-        manufacturer: quickPick.manufacturer,
-        instructions: quickPick.instructions,
-      },
-      administrationDetails: {
-        ...currentValues.administrationDetails,
-        cvx: quickPick.cvx,
-        mvx: quickPick.mvx,
-        cptCodes: quickPick.cptCodes ?? [],
-        ndc: quickPick.ndc,
-        lot: quickPick.lot,
-        expDate: quickPick.expDate,
-      },
-    });
-  };
-
-  const openQuickPickDialog = async (): Promise<void> => {
-    if (!oystehrZambda) return;
-    try {
-      const response = await getImmunizationQuickPicks(oystehrZambda);
-      setExistingQuickPicks(response.quickPicks);
-    } catch (error) {
-      console.error('Failed to load existing quick picks:', error);
-      setExistingQuickPicks(mergedQuickPicks);
-    }
-    // Suggest name: Vaccine Name | Dose | Units | Route | Injection Site
-    const values = methods.getValues();
-    const parts: string[] = [];
-    if (values.details?.medication?.name) parts.push(values.details.medication.name);
-    if (values.details?.dose) parts.push(values.details.dose);
-    if (values.details?.units) parts.push(values.details.units);
-    if (values.details?.route) {
-      const routeName = ROUTE_OPTIONS.find((opt) => opt.code === values.details.route)?.name;
-      parts.push(routeName ?? values.details.route);
-    }
-    if (values.details?.location?.name) parts.push(values.details.location.name);
-    setQuickPickName(parts.join(' | '));
-    setOverwriteTarget(null);
-    setQuickPickDialogOpen(true);
-  };
-
-  const buildQuickPickFromCurrentState = (): Omit<ImmunizationQuickPickData, 'id'> => {
-    const values = methods.getValues();
-    return {
-      name: quickPickName.trim(),
-      vaccine: values.details?.medication,
-      dose: values.details?.dose,
-      units: values.details?.units,
-      route: values.details?.route,
-      location: values.details?.location,
-      associatedDx: values.details?.associatedDx,
-      manufacturer: values.details?.manufacturer,
-      instructions: values.details?.instructions,
-      cvx: values.administrationDetails?.cvx,
-      mvx: values.administrationDetails?.mvx,
-      cptCodes: values.administrationDetails?.cptCodes,
-      ndc: values.administrationDetails?.ndc,
-      lot: values.administrationDetails?.lot,
-      expDate: values.administrationDetails?.expDate,
-    };
-  };
-
-  const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
-    if (!quickPickName.trim()) {
-      enqueueSnackbar('Quick pick name is required', { variant: 'error' });
-      return;
-    }
-    if (!oystehrZambda) {
-      throw new Error('oystehrZambda was null');
-    }
-
-    setQuickPickSaving(true);
-    try {
-      const quickPickData = buildQuickPickFromCurrentState();
-
-      if (overwriteId) {
-        await updateImmunizationQuickPick(oystehrZambda, overwriteId, quickPickData);
-        enqueueSnackbar(`Quick pick "${quickPickName}" updated`, { variant: 'success' });
-      } else {
-        await createImmunizationQuickPick(oystehrZambda, { quickPick: quickPickData });
-        enqueueSnackbar(`Quick pick "${quickPickName}" created`, { variant: 'success' });
-      }
-
-      setQuickPickDialogOpen(false);
-    } catch (error) {
-      console.error('Failed to save quick pick:', error);
-      enqueueSnackbar('Failed to save quick pick', { variant: 'error' });
-    } finally {
-      setQuickPickSaving(false);
-    }
-  };
 
   return (
     <FormProvider {...methods}>

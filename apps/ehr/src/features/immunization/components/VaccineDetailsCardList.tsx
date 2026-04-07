@@ -24,12 +24,12 @@ export const VaccineDetailsCardList: React.FC = () => {
     encounterIds: [encounter.id!],
   });
 
-  const activeOrders = (ordersResponse?.orders ?? [])
+  const nonCancelledOrders = (ordersResponse?.orders ?? [])
     .filter((order) => order.status !== 'cancelled')
     .sort(ordersRecentFirstComparator);
 
   useLayoutEffect(() => {
-    if (scrollTo && activeOrders.length > 0) {
+    if (scrollTo && nonCancelledOrders.length > 0) {
       requestAnimationFrame(() => {
         const element = document.getElementById(`order-${scrollTo}`);
         element?.scrollIntoView?.({ behavior: 'auto', block: 'start', inline: 'nearest' });
@@ -39,15 +39,15 @@ export const VaccineDetailsCardList: React.FC = () => {
         window.history.replaceState({}, '', url.toString());
       });
     }
-  }, [scrollTo, activeOrders]);
+  }, [scrollTo, nonCancelledOrders]);
 
-  if (activeOrders.length === 0) {
+  if (nonCancelledOrders.length === 0) {
     return <Typography>No orders found.</Typography>;
   }
 
   return (
     <Stack spacing={2}>
-      {activeOrders.map((order) => (
+      {nonCancelledOrders.map((order) => (
         <Box
           sx={{
             scrollMarginTop: '48px',

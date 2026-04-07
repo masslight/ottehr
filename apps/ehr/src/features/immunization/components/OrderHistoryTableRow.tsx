@@ -64,11 +64,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions, show
 
   const handleRowClick = (): void => {
     if (!showActions) return;
-    if (isPending) {
-      navigateToDetails();
-    } else {
-      navigateToDetails();
-    }
+    navigateToDetails();
   };
 
   return (
