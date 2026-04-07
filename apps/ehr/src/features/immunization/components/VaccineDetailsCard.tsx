@@ -44,7 +44,7 @@ import { useAppointmentData } from 'src/features/visits/shared/stores/appointmen
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { useFhirQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { ROUTE_OPTIONS } from 'src/shared/utils/options';
 import {
   EMERGENCY_CONTACT_RELATIONSHIPS,
@@ -94,7 +94,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
-  const { quickPicks: mergedQuickPicks, refetch: refetchQuickPicks } = useMergedImmunizationQuickPicks();
+  const { quickPicks: mergedQuickPicks, refetch: refetchQuickPicks } = useFhirQuickPicks(getImmunizationQuickPicks);
   const { oystehrZambda } = useApiClients();
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;

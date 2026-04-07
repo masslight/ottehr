@@ -1,4 +1,5 @@
 import { Autocomplete, Box, FormHelperText, Skeleton, TextField } from '@mui/material';
+import React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 
@@ -61,15 +62,15 @@ export function AutocompleteInput<Value>({
             <Autocomplete<Value, false, false, boolean>
               value={field.value ?? null}
               options={optionsToUse}
-              getOptionKey={getOptionKey as any}
+              getOptionKey={getOptionKey as (option: Value | string) => string}
               noOptionsText={noOptionsText}
-              getOptionLabel={getOptionLabel as any}
-              isOptionEqualToValue={isOptionEqualToValue as any}
+              getOptionLabel={getOptionLabel as (option: Value | string) => string}
+              isOptionEqualToValue={isOptionEqualToValue as (option: Value | string, value: Value | string) => boolean}
               freeSolo={freeSolo}
-              onChange={(_e, option: any) => field.onChange(option ?? null)}
+              onChange={(_e, option: Value | string | null) => field.onChange(option ?? null)}
               {...(freeSolo
                 ? {
-                    onInputChange: (_e: any, newValue: string, reason: string) => {
+                    onInputChange: (_e: React.SyntheticEvent, newValue: string, reason: string) => {
                       if (reason === 'input') {
                         field.onChange(newValue || null);
                       }

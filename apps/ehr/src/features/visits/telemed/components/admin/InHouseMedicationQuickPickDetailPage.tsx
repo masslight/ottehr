@@ -1,13 +1,10 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, CircularProgress, IconButton, Stack, Typography, useTheme } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useCallback, useEffect, useState } from 'react';
+import React, { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getInHouseMedicationQuickPicks } from 'src/api/api';
 import { Row } from 'src/components/layout/Row';
 import { Section } from 'src/components/layout/Section';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { InHouseMedicationQuickPickData } from 'utils';
+import { useInHouseMedicationQuickPicksQuery } from './admin.queries';
 
 function ValueDisplay({ value }: { value: string | number | undefined | null }): ReactElement {
   return (
@@ -21,35 +18,11 @@ export default function InHouseMedicationQuickPickDetailPage(): ReactElement {
   const { quickPickId } = useParams<{ quickPickId: string }>();
   const navigate = useNavigate();
   const theme = useTheme();
-  const { oystehrZambda } = useApiClients();
-  const [quickPick, setQuickPick] = useState<InHouseMedicationQuickPickData | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  const fetchQuickPick = useCallback(async () => {
-    if (!oystehrZambda || !quickPickId) return;
-    setLoading(true);
-    try {
-      const response = await getInHouseMedicationQuickPicks(oystehrZambda);
-      const found = response.quickPicks.find((qp) => qp.id === quickPickId);
-      if (found) {
-        setQuickPick(found);
-      } else {
-        enqueueSnackbar('Quick pick not found', { variant: 'error' });
-        navigate('/admin/quick-picks');
-      }
-    } catch (error) {
-      console.error('Failed to load quick pick:', error);
-      enqueueSnackbar('Failed to load quick pick details', { variant: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [oystehrZambda, quickPickId, navigate]);
+  const { data: quickPicks = [], isLoading } = useInHouseMedicationQuickPicksQuery();
+  const quickPick = quickPicks.find((qp) => qp.id === quickPickId);
 
-  useEffect(() => {
-    void fetchQuickPick();
-  }, [fetchQuickPick]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
         <CircularProgress />
@@ -95,9 +68,15 @@ export default function InHouseMedicationQuickPickDetailPage(): ReactElement {
           </Row>
         </Section>
 
+        <Section title="Codes">
+          <Row label="NDC">
+            <ValueDisplay value={quickPick.ndc} />
+          </Row>
+        </Section>
+
         <Section title="Administration Details">
           <Row label="Lot Number">
-            <ValueDisplay value={quickPick.lotNumber} />
+            <ValueDisplay value={quickPick.lot} />
           </Row>
           <Row label="Expiration Date">
             <ValueDisplay value={quickPick.expDate} />

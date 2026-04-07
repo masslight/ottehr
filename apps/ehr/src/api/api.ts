@@ -2103,7 +2103,7 @@ export const updateImmunizationQuickPick = async (
       id: ADMIN_UPDATE_IMMUNIZATION_QUICK_PICK_ZAMBDA_ID,
       quickPickId,
       quickPick,
-    } as any);
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -2119,7 +2119,7 @@ export const removeImmunizationQuickPick = async (
     const response = await oystehr.zambda.execute({
       id: ADMIN_REMOVE_IMMUNIZATION_QUICK_PICK_ZAMBDA_ID,
       quickPickId,
-    } as any);
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -2167,7 +2167,7 @@ export const updateInHouseMedicationQuickPick = async (
       id: ADMIN_UPDATE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID,
       quickPickId,
       quickPick,
-    } as any);
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -2183,7 +2183,7 @@ export const removeInHouseMedicationQuickPick = async (
     const response = await oystehr.zambda.execute({
       id: ADMIN_REMOVE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID,
       quickPickId,
-    } as any);
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);

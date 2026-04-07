@@ -15,7 +15,7 @@ interface CptCodesInputProps {
 export const CptCodesInput: FC<CptCodesInputProps> = ({ cptCodes, onChange, isEditable }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { debounce } = useDebounce(800);
+  const { debounce, clear } = useDebounce(800);
   const { isFetching, data } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
   const searchOptions = data?.codes || [];
 
@@ -30,6 +30,7 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({ cptCodes, onChange, isEd
     if (!code) return;
     if (cptCodes.some((c) => c.code === code.code)) return;
     onChange([...cptCodes, { code: code.code, display: code.display }]);
+    clear();
     setSearchTerm('');
     setDebouncedSearchTerm('');
   };
@@ -55,6 +56,7 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({ cptCodes, onChange, isEd
           onInputChange={(_e, value, reason) => {
             if (reason === 'input') handleInputChange(value);
             if (reason === 'clear') {
+              clear();
               setSearchTerm('');
               setDebouncedSearchTerm('');
             }

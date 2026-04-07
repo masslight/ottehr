@@ -28,7 +28,7 @@ import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useMergedInHouseMedicationQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { useFhirQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_HCPCS,
@@ -102,7 +102,7 @@ export const EditableMedicationCard: React.FC<{
   const { isLoading: isMedicationHistoryLoading, medicationHistory, refetchHistory } = useMedicationHistory();
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
-  const { quickPicks: fhirQuickPicks } = useMergedInHouseMedicationQuickPicks();
+  const { quickPicks: fhirQuickPicks } = useFhirQuickPicks(getInHouseMedicationQuickPicks);
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicksForDialog, setExistingQuickPicksForDialog] = useState<InHouseMedicationQuickPickData[]>([]);
@@ -186,7 +186,7 @@ export const EditableMedicationCard: React.FC<{
     if (field === 'medicationId' && value && value !== IN_HOUSE_CONTAINED_MEDICATION_ID && oystehr) {
       void (async () => {
         try {
-          const med = await oystehr.fhir.get<import('fhir/r4b').Medication>({
+          const med = await oystehr.fhir.get<Medication>({
             resourceType: 'Medication',
             id: value as string,
           });

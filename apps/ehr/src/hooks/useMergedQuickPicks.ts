@@ -2,8 +2,6 @@ import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useState } from 'react';
 import {
   getAllergyQuickPicks,
-  getImmunizationQuickPicks,
-  getInHouseMedicationQuickPicks,
   getMedicalConditionQuickPicks,
   getMedicationHistoryQuickPicks,
   getProcedureQuickPicks,
@@ -11,8 +9,6 @@ import {
 } from 'src/api/api';
 import {
   AllergyQuickPickData,
-  ImmunizationQuickPickData,
-  InHouseMedicationQuickPickData,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   ProcedureQuickPickData,
@@ -29,7 +25,9 @@ interface UseFhirQuickPicksResult<T> {
 /**
  * Generic hook that fetches FHIR-based quick picks from a zambda endpoint.
  */
-function useFhirQuickPicks<T>(fetchFn: (oystehr: any) => Promise<{ quickPicks: T[] }>): UseFhirQuickPicksResult<T> {
+export function useFhirQuickPicks<T>(
+  fetchFn: (oystehr: any) => Promise<{ quickPicks: T[] }>
+): UseFhirQuickPicksResult<T> {
   const { oystehrZambda } = useApiClients();
   const [quickPicks, setQuickPicks] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,12 +74,4 @@ export function useMergedMedicationHistoryQuickPicks(): UseFhirQuickPicksResult<
 
 export function useMergedRadiologyQuickPicks(): UseFhirQuickPicksResult<RadiologyQuickPickData> {
   return useFhirQuickPicks(getRadiologyQuickPicks);
-}
-
-export function useMergedImmunizationQuickPicks(): UseFhirQuickPicksResult<ImmunizationQuickPickData> {
-  return useFhirQuickPicks(getImmunizationQuickPicks);
-}
-
-export function useMergedInHouseMedicationQuickPicks(): UseFhirQuickPicksResult<InHouseMedicationQuickPickData> {
-  return useFhirQuickPicks(getInHouseMedicationQuickPicks);
 }

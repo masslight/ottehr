@@ -20,41 +20,26 @@ import {
   useTheme,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useCallback, useEffect, useState } from 'react';
+import React, { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getProcedureQuickPicks, removeProcedureQuickPick, updateProcedureQuickPick } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { useApiClients } from 'src/hooks/useAppClients';
 import { ProcedureQuickPickData } from 'utils';
+import {
+  useProcedureQuickPicksQuery,
+  useRemoveProcedureQuickPickMutation,
+  useRenameProcedureQuickPickMutation,
+} from './admin.queries';
 
 export default function ProcedureQuickPicksPage(): ReactElement {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { oystehrZambda } = useApiClients();
-  const [quickPicks, setQuickPicks] = useState<ProcedureQuickPickData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingQuickPick, setRenamingQuickPick] = useState<ProcedureQuickPickData | null>(null);
   const [newName, setNewName] = useState('');
 
-  const fetchQuickPicks = useCallback(async () => {
-    if (!oystehrZambda) return;
-    setLoading(true);
-    try {
-      const response = await getProcedureQuickPicks(oystehrZambda);
-      setQuickPicks([...response.quickPicks].sort((a, b) => a.name.localeCompare(b.name)));
-    } catch (error) {
-      console.error('Failed to fetch procedure quick picks:', error);
-      enqueueSnackbar('Failed to load procedure quick picks', { variant: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [oystehrZambda]);
-
-  useEffect(() => {
-    void fetchQuickPicks();
-  }, [fetchQuickPicks]);
+  const { data: quickPicks = [], isLoading } = useProcedureQuickPicksQuery();
+  const renameMutation = useRenameProcedureQuickPickMutation();
+  const removeMutation = useRemoveProcedureQuickPickMutation();
 
   const handleOpenRename = (qp: ProcedureQuickPickData): void => {
     setRenamingQuickPick(qp);
@@ -62,45 +47,40 @@ export default function ProcedureQuickPicksPage(): ReactElement {
     setRenameDialogOpen(true);
   };
 
-  const handleRename = async (): Promise<void> => {
-    if (!oystehrZambda) throw new Error('oystehrZambda was null');
-    if (!renamingQuickPick?.id) throw new Error('renamingQuickPick or its id was undefined');
+  const handleRename = (): void => {
+    if (!renamingQuickPick) return;
     if (!newName.trim()) {
       enqueueSnackbar('Name is required', { variant: 'warning' });
       return;
     }
-
-    setSaving(true);
-    try {
-      const { id, name: _name, ...rest } = renamingQuickPick;
-      await updateProcedureQuickPick(oystehrZambda, id, { ...rest, name: newName.trim() });
-      enqueueSnackbar('Quick pick renamed successfully', { variant: 'success' });
-      setRenameDialogOpen(false);
-      setRenamingQuickPick(null);
-      await fetchQuickPicks();
-    } catch (error) {
-      console.error('Failed to rename quick pick:', error);
-      enqueueSnackbar('Failed to rename quick pick', { variant: 'error' });
-    } finally {
-      setSaving(false);
-    }
+    renameMutation.mutate(
+      { quickPick: renamingQuickPick, newName: newName.trim() },
+      {
+        onSuccess: () => {
+          enqueueSnackbar('Quick pick renamed successfully', { variant: 'success' });
+          setRenameDialogOpen(false);
+          setRenamingQuickPick(null);
+        },
+        onError: (error) => {
+          console.error('Failed to rename quick pick:', error);
+          enqueueSnackbar('Failed to rename quick pick', { variant: 'error' });
+        },
+      }
+    );
   };
 
-  const handleDelete = async (qp: ProcedureQuickPickData): Promise<void> => {
-    if (!oystehrZambda) throw new Error('oystehrZambda was null');
-    if (!qp.id) throw new Error('quick pick id was undefined');
-
-    try {
-      await removeProcedureQuickPick(oystehrZambda, qp.id);
-      enqueueSnackbar('Quick pick removed successfully', { variant: 'success' });
-      await fetchQuickPicks();
-    } catch (error) {
-      console.error('Failed to remove quick pick:', error);
-      enqueueSnackbar('Failed to remove quick pick', { variant: 'error' });
-    }
+  const handleDelete = (qp: ProcedureQuickPickData): void => {
+    if (!qp.id) return;
+    removeMutation.mutate(qp.id, {
+      onSuccess: () => enqueueSnackbar('Quick pick removed successfully', { variant: 'success' }),
+      onError: (error) => {
+        console.error('Failed to remove quick pick:', error);
+        enqueueSnackbar('Failed to remove quick pick', { variant: 'error' });
+      },
+    });
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
         <CircularProgress />
@@ -159,7 +139,7 @@ export default function ProcedureQuickPicksPage(): ReactElement {
                       size="small"
                       onClick={() => {
                         if (window.confirm(`Remove quick pick "${qp.name}"?`)) {
-                          void handleDelete(qp);
+                          handleDelete(qp);
                         }
                       }}
                       title="Remove"
@@ -175,7 +155,6 @@ export default function ProcedureQuickPicksPage(): ReactElement {
         </TableContainer>
       )}
 
-      {/* Rename Dialog */}
       <Dialog open={renameDialogOpen} onClose={() => setRenameDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Rename Quick Pick</DialogTitle>
         <DialogContent>
@@ -189,11 +168,11 @@ export default function ProcedureQuickPicksPage(): ReactElement {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <RoundedButton onClick={() => setRenameDialogOpen(false)} disabled={saving}>
+          <RoundedButton onClick={() => setRenameDialogOpen(false)} disabled={renameMutation.isPending}>
             Cancel
           </RoundedButton>
-          <RoundedButton variant="contained" onClick={handleRename} disabled={saving}>
-            {saving ? <CircularProgress size={20} /> : 'Rename'}
+          <RoundedButton variant="contained" onClick={handleRename} disabled={renameMutation.isPending}>
+            {renameMutation.isPending ? <CircularProgress size={20} /> : 'Rename'}
           </RoundedButton>
         </DialogActions>
       </Dialog>

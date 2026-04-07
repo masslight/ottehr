@@ -21,70 +21,53 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getRadiologyQuickPicks, removeRadiologyQuickPick, updateRadiologyQuickPick } from 'src/api/api';
-import { useApiClients } from 'src/hooks/useAppClients';
 import { RadiologyQuickPickData } from 'utils';
+import {
+  useRadiologyQuickPicksQuery,
+  useRemoveRadiologyQuickPickMutation,
+  useRenameRadiologyQuickPickMutation,
+} from './admin.queries';
 
 const RadiologyQuickPicksPage: React.FC = () => {
   const navigate = useNavigate();
-  const { oystehrZambda } = useApiClients();
-  const [quickPicks, setQuickPicks] = useState<RadiologyQuickPickData[]>([]);
-  const [loading, setLoading] = useState(true);
   const [renameTarget, setRenameTarget] = useState<RadiologyQuickPickData | null>(null);
   const [renameName, setRenameName] = useState('');
-  const [renaming, setRenaming] = useState(false);
 
-  const fetchQuickPicks = useCallback(async () => {
-    if (!oystehrZambda) return;
-    setLoading(true);
-    try {
-      const response = await getRadiologyQuickPicks(oystehrZambda);
-      setQuickPicks(response.quickPicks.sort((a, b) => a.name.localeCompare(b.name)));
-    } catch (error) {
-      console.error('Failed to load radiology quick picks:', error);
-      enqueueSnackbar('Failed to load radiology quick picks', { variant: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [oystehrZambda]);
+  const { data: quickPicks = [], isLoading } = useRadiologyQuickPicksQuery();
+  const renameMutation = useRenameRadiologyQuickPickMutation();
+  const removeMutation = useRemoveRadiologyQuickPickMutation();
 
-  useEffect(() => {
-    void fetchQuickPicks();
-  }, [fetchQuickPicks]);
-
-  const handleRename = async (): Promise<void> => {
-    if (!oystehrZambda || !renameTarget?.id || !renameName.trim()) return;
-    setRenaming(true);
-    try {
-      const { id: _id, ...rest } = renameTarget;
-      await updateRadiologyQuickPick(oystehrZambda, renameTarget.id, { ...rest, name: renameName.trim() });
-      enqueueSnackbar('Quick pick renamed', { variant: 'success' });
-      setRenameTarget(null);
-      void fetchQuickPicks();
-    } catch (error) {
-      console.error('Failed to rename quick pick:', error);
-      enqueueSnackbar('Failed to rename quick pick', { variant: 'error' });
-    } finally {
-      setRenaming(false);
-    }
+  const handleRename = (): void => {
+    if (!renameTarget || !renameName.trim()) return;
+    renameMutation.mutate(
+      { quickPick: renameTarget, newName: renameName.trim() },
+      {
+        onSuccess: () => {
+          enqueueSnackbar('Quick pick renamed', { variant: 'success' });
+          setRenameTarget(null);
+        },
+        onError: (error) => {
+          console.error('Failed to rename quick pick:', error);
+          enqueueSnackbar('Failed to rename quick pick', { variant: 'error' });
+        },
+      }
+    );
   };
 
-  const handleDelete = async (qp: RadiologyQuickPickData): Promise<void> => {
-    if (!oystehrZambda || !qp.id) return;
-    if (!window.confirm(`Delete quick pick "${qp.name}"?`)) return;
-    try {
-      await removeRadiologyQuickPick(oystehrZambda, qp.id);
-      enqueueSnackbar('Quick pick deleted', { variant: 'success' });
-      void fetchQuickPicks();
-    } catch (error) {
-      console.error('Failed to delete quick pick:', error);
-      enqueueSnackbar('Failed to delete quick pick', { variant: 'error' });
-    }
+  const handleDelete = (qp: RadiologyQuickPickData): void => {
+    if (!qp.id || !window.confirm(`Delete quick pick "${qp.name}"?`)) return;
+    removeMutation.mutate(qp.id, {
+      onSuccess: () => enqueueSnackbar('Quick pick deleted', { variant: 'success' }),
+      onError: (error) => {
+        console.error('Failed to delete quick pick:', error);
+        enqueueSnackbar('Failed to delete quick pick', { variant: 'error' });
+      },
+    });
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
         <CircularProgress />
@@ -141,7 +124,7 @@ const RadiologyQuickPicksPage: React.FC = () => {
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete">
-                      <IconButton size="small" color="error" onClick={() => void handleDelete(qp)}>
+                      <IconButton size="small" color="error" onClick={() => handleDelete(qp)}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -166,11 +149,11 @@ const RadiologyQuickPicksPage: React.FC = () => {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setRenameTarget(null)} disabled={renaming}>
+          <Button onClick={() => setRenameTarget(null)} disabled={renameMutation.isPending}>
             Cancel
           </Button>
-          <Button variant="contained" disabled={!renameName.trim() || renaming} onClick={() => void handleRename()}>
-            {renaming ? <CircularProgress size={20} /> : 'Rename'}
+          <Button variant="contained" disabled={!renameName.trim() || renameMutation.isPending} onClick={handleRename}>
+            {renameMutation.isPending ? <CircularProgress size={20} /> : 'Rename'}
           </Button>
         </DialogActions>
       </Dialog>

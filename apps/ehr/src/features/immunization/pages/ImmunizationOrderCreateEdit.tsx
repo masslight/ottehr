@@ -32,7 +32,7 @@ import { useAppointmentData } from 'src/features/visits/shared/stores/appointmen
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { useFhirQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { ImmunizationQuickPickData, RoleType } from 'utils';
 import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
@@ -60,7 +60,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
 
   // Quick picks state
-  const { quickPicks: mergedQuickPicks } = useMergedImmunizationQuickPicks();
+  const { quickPicks: mergedQuickPicks } = useFhirQuickPicks(getImmunizationQuickPicks);
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<ImmunizationQuickPickData[]>([]);
