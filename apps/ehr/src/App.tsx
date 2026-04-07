@@ -25,7 +25,10 @@ import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAp
 import EditChargeItem from './features/visits/telemed/components/admin/EditChargeItem';
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
+import GlobalTemplateDetailPage from './features/visits/telemed/components/admin/GlobalTemplateDetailPage';
 import ImmunizationQuickPickDetailPage from './features/visits/telemed/components/admin/ImmunizationQuickPickDetailPage';
+import AdminAddInHouseLab from './features/visits/telemed/components/admin/in-house-labs/AdminAddInHouseLab';
+import AdminInHouseLabDetails from './features/visits/telemed/components/admin/in-house-labs/AdminInHouseLabDetails';
 import InHouseMedicationQuickPickDetailPage from './features/visits/telemed/components/admin/InHouseMedicationQuickPickDetailPage';
 import ProcedureQuickPickDetailPage from './features/visits/telemed/components/admin/ProcedureQuickPickDetailPage';
 import RadiologyQuickPickDetailPage from './features/visits/telemed/components/admin/RadiologyQuickPickDetailPage';
@@ -89,6 +92,7 @@ export const INSURANCES_URL = '/admin/insurances';
 export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
 export const CHARGE_MASTERS_URL = '/admin/charge-masters';
 export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
+export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 export const BILLING_URL = '/admin/billing';
 export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';
 
@@ -226,7 +230,9 @@ function App(): ReactElement {
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                  <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
+                    <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  )}
                   <Route path="/admin" element={<AdminPage />} />
                   <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
@@ -250,9 +256,12 @@ function App(): ReactElement {
                   <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
+                  <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                   <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
                   <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
                   <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />
+                  <Route path="/admin/in-house-labs/add" element={<AdminAddInHouseLab />} />
+                  <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
                   {/** telemed */}
                   <Route
                     path="/telemed/appointments"
@@ -287,7 +296,9 @@ function App(): ReactElement {
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                  <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
+                    <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  )}
                   <Route path="/patients" element={<PatientsPage />} />
 
                   <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />

@@ -14,13 +14,11 @@ import {
   CreateInHouseLabOrderParameters,
   getAttendingPractitionerId,
   getFullestAvailableName,
-  getSecret,
   IN_HOUSE_LAB_ERROR,
   IN_HOUSE_TEST_CODE_SYSTEM,
   isApiError,
   REFLEX_ARTIFACT_DISPLAY,
   Secrets,
-  SecretsKeys,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
 } from 'utils';
@@ -29,7 +27,6 @@ import {
   createOystehrClient,
   getMyPractitionerId,
   parseCreatedResourcesBundle,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -45,22 +42,22 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'create-in-house-lab-order';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`create-in-house-lab-order started, input: ${JSON.stringify(input)}`);
-  let secrets = input.secrets;
-  let validatedParameters: CreateInHouseLabOrderParameters & { secrets: Secrets | null; userToken: string };
-
   try {
-    validatedParameters = validateRequestParameters(input);
-  } catch (error: any) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        message: `Invalid request parameters. ${error.message || error}`,
-      }),
-    };
-  }
+    console.log(`create-in-house-lab-order started, input: ${JSON.stringify(input)}`);
+    let secrets = input.secrets;
+    let validatedParameters: CreateInHouseLabOrderParameters & { secrets: Secrets | null; userToken: string };
 
-  try {
+    try {
+      validatedParameters = validateRequestParameters(input);
+    } catch (error: any) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: `Invalid request parameters. ${error.message || error}`,
+        }),
+      };
+    }
+
     secrets = validatedParameters.secrets;
 
     console.log('validateRequestParameters success');
@@ -400,6 +397,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         body,
       };
     }
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+    throw error;
   }
 });

@@ -1,7 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Extension, Location, Organization } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import {
+  adminAddInHouseLab,
+  adminGetInHouseLabConfig,
+  adminListInHouseLabs,
+  adminUpdateInHouseLab,
   bulkUpdateInsuranceStatus,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
@@ -18,17 +23,26 @@ import {
 } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  AdminAddInHouseLabInput,
+  AdminAddInHouseLabOutput,
+  AdminGetInHouseLabConfigInput,
+  AdminInHouseLabConfigOutput,
+  AdminListInHouseLabsOutput,
+  AdminUpdateInHouseLabInput,
+  APIError,
   BulkUpdateInsuranceStatusInput,
   FHIR_EXTENSION,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
   INSURANCE_SETTINGS_MAP,
+  isApiError,
   isLocationVirtual,
   ORG_TYPE_CODE_SYSTEM,
   ORG_TYPE_PAYER_CODE,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
 } from 'utils';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { InsuranceData } from './EditInsurance';
 
 export const useVirtualLocationsQuery = (): UseQueryResult<Location[], Error> => {
@@ -358,3 +372,108 @@ export const useRemoveRadiologyQuickPickMutation = makeRemoveQuickPickMutation(
   'radiology-quick-picks',
   removeRadiologyQuickPick
 );
+
+export const useAdminListInHouseLabs = (): UseQueryResult<AdminListInHouseLabsOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-in-house-labs-list'],
+    queryFn: async () => {
+      return adminListInHouseLabs(oystehrZambda!);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
+  });
+};
+
+export const useAdminAddInHouseLab = (): UseMutationResult<
+  AdminAddInHouseLabOutput,
+  Error,
+  AdminAddInHouseLabInput
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-add-in-house-lab'],
+    mutationFn: async (input: AdminAddInHouseLabInput) => {
+      console.log('mutation for add in house lab called');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return adminAddInHouseLab(oystehrZambda!, input);
+    },
+    onSuccess: async (_data, _variables) => {
+      // invalidate so the list page re-loads correctly
+      await queryClient.invalidateQueries({
+        queryKey: ['admin-in-house-labs-list'],
+      });
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! In-house lab could not be created.';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminGetInHouseLabConfig = (
+  input: AdminGetInHouseLabConfigInput
+): UseQueryResult<AdminInHouseLabConfigOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+  const { activityDefinitionId } = input;
+
+  return useQuery({
+    queryKey: ['admin-get-in-house-lab-config', activityDefinitionId],
+    queryFn: async () => {
+      return adminGetInHouseLabConfig(oystehrZambda!, input);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
+    refetchOnMount: 'always', // refetch every mount
+    refetchOnWindowFocus: true, // refetch when you tab back
+  });
+};
+
+// on mutate for update, need to invalidate the list endpoint and the get config endpoint
+export const useAdminUpdateInHouseLab = (
+  mutatingActivityDefinitionId: string
+): UseMutationResult<AdminInHouseLabConfigOutput, Error, AdminUpdateInHouseLabInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-update-in-house-lab', mutatingActivityDefinitionId],
+    mutationFn: async (input: AdminUpdateInHouseLabInput) => {
+      console.log('mutation for update in house lab called');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return adminUpdateInHouseLab(oystehrZambda!, input);
+    },
+    onSuccess: async (data, _variables) => {
+      // invalidate so the list page and get-page re-loads correctly
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['admin-in-house-labs-list'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['admin-get-in-house-lab-config', data.activityDefinitionId],
+        }),
+      ]);
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! In-house lab update could not be made.';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};

@@ -2,17 +2,17 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
 import {
+  chunkThings,
   examConfig,
   ExamType,
-  getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
   GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
-  SecretsKeys,
+  TemplateInfo,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -20,23 +20,18 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 export const index = wrapHandler('list-templates', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedInput = validateRequestParameters(input);
+  const validatedInput = validateRequestParameters(input);
 
-    const { secrets } = validatedInput;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  const { secrets } = validatedInput;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const templates = await performEffect(validatedInput, oystehr);
+  const templates = await performEffect(validatedInput, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(templates),
-    };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('apply-template', error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(templates),
+  };
 });
 
 const performEffect = async (
@@ -45,50 +40,84 @@ const performEffect = async (
 ): Promise<ListTemplatesZambdaOutput> => {
   const { examType } = validatedInput;
 
-  const listSearchResult = (
+  // Find the holder list (tagged with GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
+  const holderLists = (
     await oystehr.fhir.search<List>({
       resourceType: 'List',
-      params: [
-        { name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` },
-        { name: '_include', value: 'List:item' },
-        // Beware, this may tip over the 6MB limit on lambda response payload if you have a lot of templates.
-        // Then paginate the results if necessary
-      ],
+      params: [{ name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` }],
     })
   ).unbundle();
 
-  if (!listSearchResult || listSearchResult.length === 0) {
-    throw new Error(`Could not fetch templates.`);
-  }
-
-  // Filter out the global templates holder List
-  let filteredTemplates = listSearchResult.filter(
-    (template) => !template.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
+  const holderList = holderLists.find(
+    (l) => l.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
   );
 
-  // Filter out the templates which are not for the requested examType and the latest version
-  filteredTemplates = filteredTemplates.filter((template) => {
-    if (examType === ExamType.IN_PERSON) {
-      return template.code?.coding?.some(
-        (c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM && c.version === examConfig.inPerson.default.version
-      );
-    } else if (examType === ExamType.TELEMED) {
-      return template.code?.coding?.some(
-        (c) => c.system === GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM && c.version === examConfig.telemed.default.version
-      );
-    }
-    return false;
-  });
+  if (!holderList) {
+    throw new Error('Global templates holder list not found — this should never happen');
+  }
 
-  const templateTitles = filteredTemplates
+  if (!holderList.entry?.length) {
+    return { templates: [] };
+  }
+
+  // Get all template IDs from the holder list entries (deduplicated)
+  const templateIds = [
+    ...new Set(
+      holderList.entry.map((entry) => entry.item.reference?.replace('List/', '')).filter((id): id is string => !!id)
+    ),
+  ];
+
+  if (templateIds.length === 0) {
+    return { templates: [] };
+  }
+
+  // Fetch all template Lists by their IDs in parallel groups of 50
+  const idChunks = chunkThings(templateIds, 50);
+  const chunkResults = await Promise.all(
+    idChunks.map((chunk) =>
+      oystehr.fhir
+        .search<List>({
+          resourceType: 'List',
+          params: [
+            { name: '_id', value: chunk.join(',') },
+            { name: '_count', value: '50' },
+          ],
+        })
+        .then((result) => result.unbundle())
+    )
+  );
+  const filteredTemplates = chunkResults.flat();
+
+  const codeSystem =
+    examType === ExamType.IN_PERSON ? GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM : GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM;
+  const currentVersion =
+    examType === ExamType.IN_PERSON ? examConfig.inPerson.default.version : examConfig.telemed.default.version;
+
+  // Filter to templates matching the requested exam type code system
+  const examTypeTemplates = filteredTemplates.filter(
+    (template) => template.code?.coding?.some((c) => c.system === codeSystem)
+  );
+
+  const templateInfos: TemplateInfo[] = examTypeTemplates
     .map((template) => {
-      return template.title;
+      const coding = template.code?.coding?.find((c) => c.system === codeSystem);
+      const examVersion = coding?.version ?? '';
+
+      return {
+        id: template.id!,
+        title: template.title ?? '',
+        examVersion,
+        isCurrentVersion: examVersion === currentVersion,
+      };
     })
-    .filter((title): title is string => typeof title === 'string'); // Filter out undefined titles
+    .filter((info) => info.title !== '');
 
-  templateTitles.sort((a, b) => a.localeCompare(b));
+  templateInfos.sort((a, b) => a.title.localeCompare(b.title));
 
-  console.log('Templates:', templateTitles);
+  console.log(
+    'Templates:',
+    templateInfos.map((t) => t.title)
+  );
 
-  return { templates: templateTitles };
+  return { templates: templateInfos };
 };

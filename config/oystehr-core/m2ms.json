@@ -97,6 +97,11 @@
           "resource": ["eRx:Pharmacy"]
         },
         {
+          "action": ["eRx:SyncPatient", "eRx:GetMedicationHistory"],
+          "effect": "Allow",
+          "resource": ["eRx:Patient"]
+        },
+        {
           "action": ["Terminology:SearchCodes"],
           "effect": "Allow",
           "resource": ["Terminology:Code:*"]

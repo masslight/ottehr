@@ -1,12 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { GetNursingOrdersInputValidated, getSecret, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { GetNursingOrdersInputValidated } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { getNursingOrderResources, mapResourcesNursingOrderDTOs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -28,44 +22,39 @@ export const index = wrapHandler('get-nursing-orders', async (input: ZambdaInput
     };
   }
 
-  try {
-    const { secrets, searchBy } = validatedParameters;
+  const { secrets, searchBy } = validatedParameters;
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const { serviceRequests, tasks, practitioners, provenances, encounters } = await getNursingOrderResources(
-      oystehr,
-      validatedParameters
-    );
+  const { serviceRequests, tasks, practitioners, provenances, encounters } = await getNursingOrderResources(
+    oystehr,
+    validatedParameters
+  );
 
-    if (!serviceRequests.length) {
-      console.log('no serviceRequests found, returning empty data array');
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          data: [],
-        }),
-      };
-    }
-
-    const nursingOrders = mapResourcesNursingOrderDTOs(
-      serviceRequests,
-      tasks,
-      practitioners,
-      provenances,
-      encounters,
-      searchBy
-    );
-
+  if (!serviceRequests.length) {
+    console.log('no serviceRequests found, returning empty data array');
     return {
       statusCode: 200,
       body: JSON.stringify({
-        data: nursingOrders,
+        data: [],
       }),
     };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('get-nursing-orders', error, ENVIRONMENT);
   }
+
+  const nursingOrders = mapResourcesNursingOrderDTOs(
+    serviceRequests,
+    tasks,
+    practitioners,
+    provenances,
+    encounters,
+    searchBy
+  );
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      data: nursingOrders,
+    }),
+  };
 });

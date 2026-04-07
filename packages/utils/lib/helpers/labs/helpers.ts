@@ -3,6 +3,7 @@ import {
   Coverage,
   DiagnosticReport,
   DocumentReference,
+  List,
   Location,
   Organization,
   ServiceRequest,
@@ -14,10 +15,13 @@ import {
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LAB_DOC_REF_TAG_hl7_TRANSMISSION,
+  LAB_LIST_CODE_CODING,
+  LAB_LIST_CODING_SYSTEM,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabPaymentMethod,
   LabsTableColumn,
+  LabType,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   ORDER_NUMBER_LEN,
   OYSTEHR_ABN_DOC_CATEGORY_CODING,
@@ -317,4 +321,18 @@ export const docRefIsOttehrGeneratedResultAndCurrent = (docRef: DocumentReferenc
     (c) => c.system === LAB_RESULT_DOC_REF_CODING_CODE.system && c.code === LAB_RESULT_DOC_REF_CODING_CODE.code
   );
   return isCurrent && isResult;
+};
+
+export const getLabListType = (list: List): LabType.external | LabType.inHouse | undefined => {
+  const code = list.code?.coding?.find((c) => c.system === LAB_LIST_CODING_SYSTEM)?.code;
+  if (!code) return;
+
+  switch (code) {
+    case LAB_LIST_CODE_CODING.external.code:
+      return LabType.external;
+    case LAB_LIST_CODE_CODING.inHouse.code:
+      return LabType.inHouse;
+    default:
+      return;
+  }
 };

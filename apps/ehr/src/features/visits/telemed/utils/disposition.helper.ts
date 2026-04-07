@@ -6,17 +6,18 @@ import {
   DispositionType,
   followUpInOptions,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
 } from 'utils';
 
 export const dispositionFieldsPerType: { [key in DispositionType]: string[] } = {
   pcp: ['followUpIn', 'followUpType'],
   ip: ['bookVisit'],
   'ip-lab': ['labService', 'bookVisit', 'followUpType'],
-  ed: [NOTHING_TO_EAT_OR_DRINK_FIELD],
+  ed: [NOTHING_TO_EAT_OR_DRINK_FIELD, REFUSAL_OF_EMS_TRANSPORT_FIELD],
   'ip-oth': [],
   'pcp-no-type': ['followUpIn'],
   another: ['reason'],
-  specialty: ['followUpIn'],
+  specialty: ['specialty', 'followUpIn'],
 };
 
 export const DEFAULT_DISPOSITION_VALUES: DispositionFormValues = {
@@ -24,6 +25,7 @@ export const DEFAULT_DISPOSITION_VALUES: DispositionFormValues = {
   note: '',
   followUpIn: '',
   reason: '',
+  specialty: '',
   labService: [],
   virusTest: [],
   dentistry: false,
@@ -34,9 +36,13 @@ export const DEFAULT_DISPOSITION_VALUES: DispositionFormValues = {
   'lurie-ct': false,
   otherNote: '',
   [NOTHING_TO_EAT_OR_DRINK_FIELD]: false,
+  [REFUSAL_OF_EMS_TRANSPORT_FIELD]: false,
 };
 
-export type DispositionFormValues = Pick<DispositionDTO, 'type' | 'note' | typeof NOTHING_TO_EAT_OR_DRINK_FIELD> & {
+export type DispositionFormValues = Pick<
+  DispositionDTO,
+  'type' | 'note' | typeof NOTHING_TO_EAT_OR_DRINK_FIELD | typeof REFUSAL_OF_EMS_TRANSPORT_FIELD
+> & {
   [key in DispositionFollowUpType]: boolean;
 } & {
   otherNote: string;
@@ -44,6 +50,7 @@ export type DispositionFormValues = Pick<DispositionDTO, 'type' | 'note' | typeo
   labService: string[];
   virusTest: string[];
   reason: string;
+  specialty: string;
 };
 
 export const mapFormToDisposition = (values: DispositionFormValues): DispositionDTO => {
@@ -62,6 +69,10 @@ export const mapFormToDisposition = (values: DispositionFormValues): Disposition
 
   if (fields.includes('reason')) {
     disposition.reason = values.reason === '' ? undefined : values.reason;
+  }
+
+  if (fields.includes('specialty')) {
+    disposition.specialty = values.specialty === '' ? undefined : values.specialty;
   }
 
   if (fields.includes('followUpType')) {
@@ -89,6 +100,10 @@ export const mapFormToDisposition = (values: DispositionFormValues): Disposition
     disposition[NOTHING_TO_EAT_OR_DRINK_FIELD] = values[NOTHING_TO_EAT_OR_DRINK_FIELD];
   }
 
+  if (fields.includes(REFUSAL_OF_EMS_TRANSPORT_FIELD)) {
+    disposition[REFUSAL_OF_EMS_TRANSPORT_FIELD] = values[REFUSAL_OF_EMS_TRANSPORT_FIELD];
+  }
+
   return disposition;
 };
 
@@ -113,6 +128,10 @@ export const mapDispositionToForm = (disposition: DispositionDTO): DispositionFo
     values.reason = disposition.reason || '';
   }
 
+  if (fields.includes('specialty')) {
+    values.specialty = disposition.specialty || '';
+  }
+
   if (fields.includes('followUpType')) {
     disposition.followUp?.forEach((followUp) => {
       values[followUp.type] = true;
@@ -124,6 +143,10 @@ export const mapDispositionToForm = (disposition: DispositionDTO): DispositionFo
 
   if (fields.includes(NOTHING_TO_EAT_OR_DRINK_FIELD)) {
     values[NOTHING_TO_EAT_OR_DRINK_FIELD] = disposition[NOTHING_TO_EAT_OR_DRINK_FIELD];
+  }
+
+  if (fields.includes(REFUSAL_OF_EMS_TRANSPORT_FIELD)) {
+    values[REFUSAL_OF_EMS_TRANSPORT_FIELD] = disposition[REFUSAL_OF_EMS_TRANSPORT_FIELD];
   }
 
   return values;

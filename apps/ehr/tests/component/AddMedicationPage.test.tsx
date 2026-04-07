@@ -14,11 +14,15 @@ vi.mock('src/hooks/useAppClients', () => ({
 
 vi.mock('src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetMedicationsSearch: vi.fn(),
+  useGetCPTHCPCSSearch: vi.fn(),
   ExtractObjectType: undefined,
 }));
 
 import { createInHouseMedication } from 'src/api/api';
-import { useGetMedicationsSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import {
+  useGetCPTHCPCSSearch,
+  useGetMedicationsSearch,
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
 import AddMedicationPage from '../../src/pages/configuration/AddMedicationPage';
 
@@ -48,6 +52,7 @@ describe('AddMedicationPage', () => {
     vi.clearAllMocks();
     vi.mocked(useApiClients).mockReturnValue({ oystehrZambda: mockOystehrZambda });
     vi.mocked(useGetMedicationsSearch).mockReturnValue({ isFetching: false, data: [] } as any);
+    vi.mocked(useGetCPTHCPCSSearch).mockReturnValue({ isFetching: false, data: [] } as any);
     vi.mocked(createInHouseMedication).mockResolvedValue({ resourceType: 'Medication', id: 'new-med' } as any);
   });
 

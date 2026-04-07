@@ -878,6 +878,14 @@
       "src": "src/subscriptions/appointment/appointment-chart-data-prefilling/index",
       "zip": ".dist/zips/appointment-chart-data-prefilling.zip"
     },
+    "SUB-ERX-PATIENT-SYNC": {
+      "name": "sub-erx-patient-sync",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "timeout": "300",
+      "src": "src/subscriptions/appointment/sub-erx-patient-sync/index",
+      "zip": ".dist/zips/sub-erx-patient-sync.zip"
+    },
     "SUB-CANCELLATION-EMAIL": {
       "name": "sub-cancellation-email",
       "type": "subscription",
@@ -1327,6 +1335,34 @@
       "src": "src/ehr/list-templates/index",
       "zip": ".dist/zips/list-templates.zip"
     },
+    "ADMIN-CREATE-TEMPLATE": {
+      "name": "admin-create-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-template/index",
+      "zip": ".dist/zips/admin-create-template.zip"
+    },
+    "ADMIN-RENAME-TEMPLATE": {
+      "name": "admin-rename-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-rename-template/index",
+      "zip": ".dist/zips/admin-rename-template.zip"
+    },
+    "ADMIN-DELETE-TEMPLATE": {
+      "name": "admin-delete-template",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-delete-template/index",
+      "zip": ".dist/zips/admin-delete-template.zip"
+    },
+    "ADMIN-GET-TEMPLATE-DETAIL": {
+      "name": "admin-get-template-detail",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-template-detail/index",
+      "zip": ".dist/zips/admin-get-template-detail.zip"
+    },
     "DELETE-PATIENT-DOCUMENT": {
       "name": "delete-patient-document",
       "type": "http_auth",
@@ -1650,6 +1686,27 @@
       "src": "src/rcm/charge-masters/list-charge-masters/index",
       "zip": ".dist/zips/list-charge-masters.zip"
     },
+    "CREATE-EMPLOYER": {
+      "name": "create-employer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/employers/create-employer/index",
+      "zip": ".dist/zips/create-employer.zip"
+    },
+    "LIST-EMPLOYERS": {
+      "name": "list-employers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/employers/list-employers/index",
+      "zip": ".dist/zips/list-employers.zip"
+    },
+    "UPDATE-EMPLOYER": {
+      "name": "update-employer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/employers/update-employer/index",
+      "zip": ".dist/zips/update-employer.zip"
+    },
     "DESIGNATE-CHARGE-MASTER-ENTRY": {
       "name": "designate-charge-master-entry",
       "type": "http_auth",
@@ -1712,6 +1769,48 @@
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-bulk-add-procedure-codes/index",
       "zip": ".dist/zips/cm-bulk-add-procedure-codes.zip"
+    },
+    "GET-INVOICE-CONFIG": {
+      "name": "get-invoice-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/invoice-config/get-invoice-config/index",
+      "zip": ".dist/zips/get-invoice-config.zip"
+    },
+    "SAVE-INVOICE-CONFIG": {
+      "name": "save-invoice-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/invoice-config/save-invoice-config/index",
+      "zip": ".dist/zips/save-invoice-config.zip"
+    },
+    "ADMIN_LIST_IN_HOUSE_LABS": {
+      "name": "admin-list-in-house-labs",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/in-house/admin-list-in-house-labs/index",
+      "zip": ".dist/zips/admin-list-in-house-labs.zip"
+    },
+    "ADMIN_ADD_IN_HOUSE_LAB": {
+      "name": "admin-add-in-house-lab",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/in-house/admin-add-in-house-lab/index",
+      "zip": ".dist/zips/admin-add-in-house-lab.zip"
+    },
+    "ADMIN_GET_IN_HOUSE_LAB_CONFIG": {
+      "name": "admin-get-in-house-lab-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/in-house/admin-get-in-house-lab-config/index",
+      "zip": ".dist/zips/admin-get-in-house-lab-config.zip"
+    },
+    "ADMIN_UPDATE_IN_HOUSE_LAB": {
+      "name": "admin-update-in-house-lab",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/in-house/admin-update-in-house-lab/index",
+      "zip": ".dist/zips/admin-update-in-house-lab.zip"
     }
   },
   "fhirResources": {
@@ -2064,6 +2163,28 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-REFRESH-INVOICE-TASK/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_ERX_PATIENT_SYNC_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Sync patient with eRx service when height or weight vitals are recorded",
+        "criteria": "Observation?code=29463-7,8302-2",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-ERX-PATIENT-SYNC/id}"
         },
         "extension": [
           {

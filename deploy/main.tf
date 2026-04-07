@@ -105,16 +105,6 @@ module "ottehr_apps" {
     SENTRY_PROJECT                              = module.oystehr.sentry_project
     SENTRY_DSN                                  = module.oystehr.sentry_dsn
     SENTRY_ENV                                  = var.environment
-    IS_LAB_ORDERS_ENABLED_FEATURE_FLAG          = module.oystehr.IS_LAB_ORDERS_ENABLED_FEATURE_FLAG
-    IS_IN_HOUSE_LABS_ENABLED_FEATURE_FLAG       = module.oystehr.IS_IN_HOUSE_LABS_ENABLED_FEATURE_FLAG
-    IS_RADIOLOGY_ENABLED_FEATURE_FLAG           = module.oystehr.IS_RADIOLOGY_ENABLED_FEATURE_FLAG
-    IS_NURSING_ORDERS_ENABLED_FEATURE_FLAG      = module.oystehr.IS_NURSING_ORDERS_ENABLED_FEATURE_FLAG
-    IS_SUPERVISOR_APPROVAL_ENABLED_FEATURE_FLAG = module.oystehr.IS_SUPERVISOR_APPROVAL_ENABLED_FEATURE_FLAG
-    CREATE_DEMO_VISITS_FEATURE_FLAG             = module.oystehr.CREATE_DEMO_VISITS_FEATURE_FLAG
-    IS_GLOBAL_TEMPLATES_ENABLED_FEATURE_FLAG    = module.oystehr.IS_GLOBAL_TEMPLATES_ENABLED_FEATURE_FLAG
-    IS_FORMS_ENABLED_FEATURE_FLAG               = module.oystehr.IS_FORMS_ENABLED_FEATURE_FLAG
-    IS_LEGACY_DATA_ENABLED_FEATURE_FLAG         = module.oystehr.IS_LEGACY_DATA_ENABLED_FEATURE_FLAG
-    IS_MAILING_PAPER_STATEMENTS_ENABLED_FEATURE_FLAG = module.oystehr.IS_MAILING_PAPER_STATEMENTS_ENABLED_FEATURE_FLAG
   }
   patient_portal_vars = {
     ENV                           = var.environment

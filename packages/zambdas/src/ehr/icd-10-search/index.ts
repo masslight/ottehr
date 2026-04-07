@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, SecretsKeys } from 'utils';
-import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
+import { wrapHandler, ZambdaInput } from '../../shared';
 import { searchIcd10Codes } from '../../shared/icd-10-search';
 
 interface Icd10SearchResponse {
@@ -37,29 +37,23 @@ function validateRequestParameters(input: ZambdaInput): Icd10SearchRequestParams
 const ZAMBDA_NAME = 'icd-10-search';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { search } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const { search } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
-    console.group('searchIcd10Codes');
-    const codes = await searchIcd10Codes(search);
-    console.groupEnd();
-    console.debug('searchIcd10Codes success');
+  console.group('searchIcd10Codes');
+  const codes = await searchIcd10Codes(search);
+  console.groupEnd();
+  console.debug('searchIcd10Codes success');
 
-    const response: Icd10SearchResponse = {
-      codes,
-    };
+  const response: Icd10SearchResponse = {
+    codes,
+  };
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });

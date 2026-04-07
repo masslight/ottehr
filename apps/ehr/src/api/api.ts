@@ -1,6 +1,20 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Medication, Schedule, Slot } from 'fhir/r4b';
 import {
+  AdminAddInHouseLabInput,
+  AdminAddInHouseLabOutput,
+  AdminCreateTemplateInput,
+  AdminCreateTemplateOutput,
+  AdminDeleteTemplateInput,
+  AdminDeleteTemplateOutput,
+  AdminGetInHouseLabConfigInput,
+  AdminGetTemplateDetailInput,
+  AdminGetTemplateDetailOutput,
+  AdminInHouseLabConfigOutput,
+  AdminListInHouseLabsOutput,
+  AdminRenameTemplateInput,
+  AdminRenameTemplateOutput,
+  AdminUpdateInHouseLabInput,
   AiAssistedEncountersReportZambdaInput,
   AiAssistedEncountersReportZambdaOutput,
   AllergyQuickPickData,
@@ -263,6 +277,14 @@ const ADMIN_UPDATE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID = 'admin-update-in-h
 const ADMIN_REMOVE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID = 'admin-remove-in-house-medication-quick-pick';
 const UPDATE_INVOICE_TASK_ZAMBDA_ID = 'update-invoice-task';
 const GET_PATIENT_BALANCES_ZAMBDA_ID = 'get-patient-balances';
+const ADMIN_CREATE_TEMPLATE_ZAMBDA_ID = 'admin-create-template';
+const ADMIN_RENAME_TEMPLATE_ZAMBDA_ID = 'admin-rename-template';
+const ADMIN_DELETE_TEMPLATE_ZAMBDA_ID = 'admin-delete-template';
+const ADMIN_GET_TEMPLATE_DETAIL_ZAMBDA_ID = 'admin-get-template-detail';
+const ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID = 'admin-list-in-house-labs';
+const ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-add-in-house-lab';
+const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
+const ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-update-in-house-lab';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1712,6 +1734,79 @@ export const updatePatientLoginPhoneNumbers = async (
   }
 };
 
+export const adminListInHouseLabs = async (oystehr: Oystehr): Promise<AdminListInHouseLabsOutput> => {
+  try {
+    if (ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID == null) {
+      throw new Error('admin list in house labs environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminAddInHouseLab = async (
+  oystehr: Oystehr,
+  parameters: AdminAddInHouseLabInput
+): Promise<AdminAddInHouseLabOutput> => {
+  try {
+    if (ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID == null) {
+      throw new Error('admin add in house labs environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminGetInHouseLabConfig = async (
+  oystehr: Oystehr,
+  parameters: AdminGetInHouseLabConfigInput
+): Promise<AdminInHouseLabConfigOutput> => {
+  try {
+    if (ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID == null) {
+      throw new Error('admin get in house lab config environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateInHouseLab = async (
+  oystehr: Oystehr,
+  parameters: AdminUpdateInHouseLabInput
+): Promise<AdminInHouseLabConfigOutput> => {
+  try {
+    if (ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID == null) {
+      throw new Error('admin update in house labs environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 // ── Legacy Records ─────────────────────────────────────────────────────────────
 
 export interface SearchLegacyRecordsInput {
@@ -1754,6 +1849,22 @@ export const searchLegacyRecords = async (
       ...parameters,
     });
     return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const createTemplate = async (
+  oystehr: Oystehr,
+  parameters: AdminCreateTemplateInput
+): Promise<AdminCreateTemplateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_TEMPLATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as AdminCreateTemplateOutput;
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);
@@ -1834,6 +1945,22 @@ export const getRadiologyQuickPicks = async (oystehr: Oystehr): Promise<GetRadio
   }
 };
 
+export const renameTemplate = async (
+  oystehr: Oystehr,
+  parameters: AdminRenameTemplateInput
+): Promise<AdminRenameTemplateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_RENAME_TEMPLATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as AdminRenameTemplateOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 export const createRadiologyQuickPick = async (
   oystehr: Oystehr,
   parameters: CreateRadiologyQuickPickInput
@@ -1844,6 +1971,22 @@ export const createRadiologyQuickPick = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const deleteTemplate = async (
+  oystehr: Oystehr,
+  parameters: AdminDeleteTemplateInput
+): Promise<AdminDeleteTemplateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_DELETE_TEMPLATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as AdminDeleteTemplateOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -1862,6 +2005,22 @@ export const updateRadiologyQuickPick = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const getTemplateDetail = async (
+  oystehr: Oystehr,
+  parameters: AdminGetTemplateDetailInput
+): Promise<AdminGetTemplateDetailOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_TEMPLATE_DETAIL_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson<AdminGetTemplateDetailOutput>(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };
 

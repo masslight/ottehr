@@ -52,6 +52,7 @@ export enum APIErrorCode {
   MISSING_NLM_API_KEY_ERROR = 4401,
   IN_HOUSE_LAB_GENERAL = 4402,
   MISSING_WC_INFO_FOR_LABS = 4403,
+  ADMIN_IN_HOUSE_TEST_EXISTS = 4404,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -432,4 +433,13 @@ export const checkForStripeCustomerDeletedError = (stripeError: any): APIError |
     return STRIPE_CUSTOMER_ID_DOES_NOT_EXIST_ERROR;
   }
   return stripeError;
+};
+
+export const ADMIN_IN_HOUSE_LAB_TEST_EXISTS_ERROR = (testName?: string): APIError => {
+  return {
+    code: APIErrorCode.ADMIN_IN_HOUSE_TEST_EXISTS,
+    message: `A test matching that name${
+      testName ? ` "${testName}"` : ''
+    } already exists. Please change the name, or update the existing test`,
+  };
 };

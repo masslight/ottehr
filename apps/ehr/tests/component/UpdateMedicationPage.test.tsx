@@ -22,11 +22,15 @@ vi.mock('src/hooks/useAppClients', () => ({
 
 vi.mock('src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetMedicationsSearch: vi.fn(),
+  useGetCPTHCPCSSearch: vi.fn(),
 }));
 
 import { useParams } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
-import { useGetMedicationsSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import {
+  useGetCPTHCPCSSearch,
+  useGetMedicationsSearch,
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
 import UpdateMedicationPage from '../../src/pages/configuration/UpdateMedicationPage';
 
@@ -62,6 +66,7 @@ describe('UpdateMedicationPage', () => {
     vi.mocked(useApiClients).mockReturnValue({ oystehrZambda: mockOystehrZambda });
     vi.mocked(useParams).mockReturnValue({ 'medication-id': 'med-abc' });
     vi.mocked(useGetMedicationsSearch).mockReturnValue({ isFetching: false, data: [] } as any);
+    vi.mocked(useGetCPTHCPCSSearch).mockReturnValue({ isFetching: false, data: [] } as any);
     vi.mocked(getInHouseMedications).mockResolvedValue([activeMedication]);
     vi.mocked(updateInHouseMedication).mockResolvedValue(activeMedication);
   });

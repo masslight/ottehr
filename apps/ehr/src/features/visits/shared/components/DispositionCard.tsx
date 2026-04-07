@@ -26,6 +26,9 @@ import {
   mapDispositionTypeToLabel,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
+  REFUSAL_OF_EMS_TRANSPORT_LABEL,
+  specialtyTransferOptions,
 } from 'utils';
 import { AccordionCard } from '../../../../components/AccordionCard';
 import { ContainedPrimaryToggleButton } from '../../../../components/ContainedPrimaryToggleButton';
@@ -99,10 +102,11 @@ export const DispositionCard: FC = () => {
   const onSubmit = useCallback(
     (values: DispositionFormValues): void => {
       setIsError(false);
+      const dispositionToSave = withNote(values);
       const requestId = ++latestRequestId.current;
       debounce(() => {
         mutate(
-          { disposition: withNote(values) },
+          { disposition: dispositionToSave },
           {
             onSuccess: (data) => {
               if (requestId === latestRequestId.current) {
@@ -138,7 +142,7 @@ export const DispositionCard: FC = () => {
     });
     return () => subscription.unsubscribe();
   }, [handleSubmit, onSubmit, watch]);
-
+  const isEmsTransportRefused = watch(REFUSAL_OF_EMS_TRANSPORT_FIELD);
   const fields = dispositionFieldsPerType[currentType];
   const tabs: DispositionType[] = ['pcp-no-type', 'another', 'ed', 'specialty'];
 
@@ -275,32 +279,63 @@ export const DispositionCard: FC = () => {
             </Box>
           )}
 
-          {fields.includes('followUpIn') && (
-            <Controller
-              name="followUpIn"
-              control={control}
-              render={({ field: { onChange, value } }) => (
-                <TextField
-                  select
-                  disabled={isReadOnly}
-                  label="Follow up visit in"
-                  data-testid={dataTestIds.telemedEhrFlow.planTabDispositionFollowUpDropdown}
-                  size="small"
-                  sx={{ minWidth: '200px', width: 'fit-content' }}
-                  value={value}
-                  onChange={onChange}
-                >
-                  <MenuItem value={''}>
-                    <em>None</em>
-                  </MenuItem>
-                  {followUpInOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
+          {(fields.includes('followUpIn') || fields.includes('specialty')) && (
+            <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
+              {fields.includes('followUpIn') && (
+                <Controller
+                  name="followUpIn"
+                  control={control}
+                  render={({ field: { onChange, value } }) => (
+                    <TextField
+                      select
+                      disabled={isReadOnly}
+                      label="Follow up visit in"
+                      data-testid={dataTestIds.telemedEhrFlow.planTabDispositionFollowUpDropdown}
+                      size="small"
+                      sx={{ minWidth: '200px', width: 'fit-content' }}
+                      value={value}
+                      onChange={onChange}
+                    >
+                      <MenuItem value={''}>
+                        <em>None</em>
+                      </MenuItem>
+                      {followUpInOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
               )}
-            />
+
+              {fields.includes('specialty') && (
+                <Controller
+                  name="specialty"
+                  control={control}
+                  render={({ field: { onChange, value } }) => (
+                    <TextField
+                      select
+                      disabled={isReadOnly}
+                      label="Specialty"
+                      size="small"
+                      sx={{ minWidth: '200px', width: '40%' }}
+                      value={value}
+                      onChange={onChange}
+                    >
+                      <MenuItem value={''}>
+                        <em>None</em>
+                      </MenuItem>
+                      {specialtyTransferOptions.map((option) => (
+                        <MenuItem key={option} value={option}>
+                          {option}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
+              )}
+            </Box>
           )}
 
           {fields.includes('reason') && (
@@ -377,6 +412,39 @@ export const DispositionCard: FC = () => {
                 />
               }
             />
+          )}
+
+          {fields.includes(REFUSAL_OF_EMS_TRANSPORT_FIELD) && (
+            <Box>
+              <FormControlLabel
+                label={REFUSAL_OF_EMS_TRANSPORT_LABEL}
+                control={
+                  <Controller
+                    name={REFUSAL_OF_EMS_TRANSPORT_FIELD}
+                    control={control}
+                    render={({ field: { value, onChange } }) => (
+                      <Checkbox
+                        name={REFUSAL_OF_EMS_TRANSPORT_FIELD}
+                        disabled={isReadOnly}
+                        checked={value}
+                        onChange={onChange}
+                      />
+                    )}
+                  />
+                }
+              />
+              {isEmsTransportRefused && (
+                <Typography variant="body2" sx={{ fontSize: 12, opacity: '60%', lineHeight: '125%' }}>
+                  Patient was advised that their condition requires immediate transfer to the Emergency Department via
+                  EMS or higher-level care to ensure proper treatment for this condition. Patient has decision-making
+                  capacity and has been informed of the risks of self-transport, including potential clinical worsening,
+                  permanent disability, or death during transit. Patient refused EMS transport and elected to transport
+                  self against medical advice (AMA). Advised to go to the Emergency Department immediately for worsening
+                  or persistent symptoms. Patient understands that the clinic's responsibility for care ends upon their
+                  departure from this facility.
+                </Typography>
+              )}
+            </Box>
           )}
 
           {fields.includes('bookVisit') && (

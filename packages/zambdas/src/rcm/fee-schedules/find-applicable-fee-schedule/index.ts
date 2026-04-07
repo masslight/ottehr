@@ -1,11 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   RCM_TAG_SYSTEM,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -26,44 +24,39 @@ let m2mToken: string;
 export const index = wrapHandler(
   'find-applicable-fee-schedule',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    try {
-      const { payerOrganizationId, dateOfService, secrets } = validateRequestParameters(input);
+    const { payerOrganizationId, dateOfService, secrets } = validateRequestParameters(input);
 
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      const oystehr = createOystehrClient(m2mToken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
-      // Fetch all fee schedules (active and inactive) for historical lookups
-      const allResults = await oystehr.fhir.search<ChargeItemDefinition>({
-        resourceType: 'ChargeItemDefinition',
-        params: [{ name: '_tag', value: `${RCM_TAG_SYSTEM}|fee-schedule` }],
-      });
+    // Fetch all fee schedules (active and inactive) for historical lookups
+    const allResults = await oystehr.fhir.search<ChargeItemDefinition>({
+      resourceType: 'ChargeItemDefinition',
+      params: [{ name: '_tag', value: `${RCM_TAG_SYSTEM}|fee-schedule` }],
+    });
 
-      const allFeeSchedules = allResults.unbundle();
+    const allFeeSchedules = allResults.unbundle();
 
-      // Filter to those associated with this payer
-      const payerFeeSchedules = allFeeSchedules.filter(
-        (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`)
-      );
+    // Filter to those associated with this payer
+    const payerFeeSchedules = allFeeSchedules.filter(
+      (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`)
+    );
 
-      if (payerFeeSchedules.length === 0) {
-        return {
-          statusCode: 200,
-          body: JSON.stringify({ feeSchedule: null }),
-        };
-      }
-
-      // Find the one with the most recent effective date on or before the date of service
-      const applicable = payerFeeSchedules
-        .filter((fs) => fs.date && fs.date <= dateOfService)
-        .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
-
+    if (payerFeeSchedules.length === 0) {
       return {
         statusCode: 200,
-        body: JSON.stringify({ feeSchedule: applicable[0] ?? null }),
+        body: JSON.stringify({ feeSchedule: null }),
       };
-    } catch (error: unknown) {
-      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      return topLevelCatch('find-applicable-fee-schedule', error, ENVIRONMENT);
     }
+
+    // Find the one with the most recent effective date on or before the date of service
+    const applicable = payerFeeSchedules
+      .filter((fs) => fs.date && fs.date <= dateOfService)
+      .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ feeSchedule: applicable[0] ?? null }),
+    };
   }
 );

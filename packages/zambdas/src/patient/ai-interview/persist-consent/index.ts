@@ -10,14 +10,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import {
-  getAuth0Token,
-  topLevelCatch,
-  validateJsonBody,
-  validateString,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { getAuth0Token, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'persist-consent';
 
@@ -29,53 +22,49 @@ interface Input extends PersistConsentInput {
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    const { appointmentId, secrets } = validateInput(input);
-    const oystehr = await createOystehr(secrets);
-    const consent = await oystehr.fhir.create<Consent>({
-      resourceType: 'Consent',
-      status: 'active',
-      category: [
-        {
-          coding: [
-            {
-              system: 'http://terminology.hl7.org/CodeSystem/consentcategorycodes',
-              code: FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
-            },
-          ],
-        },
-      ],
-      policy: [
-        {
-          uri: PROJECT_WEBSITE,
-        },
-      ],
-      scope: {
+  const { appointmentId, secrets } = validateInput(input);
+  const oystehr = await createOystehr(secrets);
+  const consent = await oystehr.fhir.create<Consent>({
+    resourceType: 'Consent',
+    status: 'active',
+    category: [
+      {
         coding: [
           {
-            system: 'http://terminology.hl7.org/CodeSystem/consentscope',
-            code: 'patient-privacy',
+            system: 'http://terminology.hl7.org/CodeSystem/consentcategorycodes',
+            code: FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
           },
         ],
       },
-      provision: {
-        data: [
-          {
-            meaning: 'related',
-            reference: {
-              reference: 'Appointment/' + appointmentId,
-            },
-          },
-        ],
+    ],
+    policy: [
+      {
+        uri: PROJECT_WEBSITE,
       },
-    });
-    return {
-      statusCode: 200,
-      body: JSON.stringify(consent),
-    };
-  } catch (error: any) {
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+    ],
+    scope: {
+      coding: [
+        {
+          system: 'http://terminology.hl7.org/CodeSystem/consentscope',
+          code: 'patient-privacy',
+        },
+      ],
+    },
+    provision: {
+      data: [
+        {
+          meaning: 'related',
+          reference: {
+            reference: 'Appointment/' + appointmentId,
+          },
+        },
+      ],
+    },
+  });
+  return {
+    statusCode: 200,
+    body: JSON.stringify(consent),
+  };
 });
 
 function validateInput(input: ZambdaInput): Input {
