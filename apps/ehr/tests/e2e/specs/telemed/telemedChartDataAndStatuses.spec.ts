@@ -7,7 +7,6 @@ import {
   waitForChartDataDeletion,
   waitForSaveChartDataResponse,
 } from 'test-utils';
-import { expectTelemedTrackingBoard, TelemedTrackingBoardPage } from 'tests/e2e/page/telemed/TelemedTrackingBoardPage';
 import { expectVisitsPage, openVisitsPage } from 'tests/e2e/page/VisitsPage';
 import {
   allLicensesForPractitioner,
@@ -825,7 +824,6 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
 test.describe('Telemed appointment with two locations (physical and virtual)', () => {
   const PROCESS_ID = `telemedEhrFlow.spec.ts-2-locs-no-appointment-state-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
-  let telemedTrackingBoard: TelemedTrackingBoardPage;
   let location: Location;
   test.beforeAll(async () => {
     location = await createAppointmentWithVirtualAndPhysicalLocations(resourceHandler);
@@ -834,18 +832,9 @@ test.describe('Telemed appointment with two locations (physical and virtual)', (
     await resourceHandler.cleanupResources();
   });
   test('Appointment is present in tracking board and searchable by location filter', async ({ page }) => {
-    await page.goto(`telemed/appointments`);
-    telemedTrackingBoard = await expectTelemedTrackingBoard(page);
-    await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
-    await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelect).locator('input').click();
-    await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelectOption(location.id!)).click();
-
-    await page.waitForLoadState('networkidle', { timeout: 30_000 });
-    await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
-
-    await expect(
-      page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
-    ).toBeVisible({ timeout: 30_000 });
+    const visitsPage = await openVisitsPage(page);
+    await visitsPage.selectLocation(location.name ?? 'Unknown');
+    await visitsPage.verifyVisitPresent(resourceHandler.appointment.id!);
   });
 });
 
