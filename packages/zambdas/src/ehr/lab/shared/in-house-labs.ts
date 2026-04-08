@@ -444,7 +444,24 @@ export const fetchActiveInHouseLabActivityDefinitions = async (oystehr: Oystehr)
         { name: 'status', value: 'active' },
       ],
     })
-    .then((response) => response.unbundle());
+    .then((response) => {
+      const unbundled = response.unbundle();
+      console.log(
+        `These are the ActivityDefinitions found in fetchActiveInHouseLabActivityDefinitions: `,
+        JSON.stringify(
+          unbundled.map((ad) => ({
+            name: ad.name,
+            id: ad.id,
+            url: ad.url,
+            version: ad.version,
+            status: ad.status,
+          })),
+          undefined,
+          2
+        )
+      );
+      return unbundled;
+    });
 };
 
 export const getInHouseLabTestUrlAndVersionForADFromServiceRequest = (
