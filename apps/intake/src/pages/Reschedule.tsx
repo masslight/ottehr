@@ -1,4 +1,3 @@
-import { useAuth0 } from '@auth0/auth0-react';
 import { Typography } from '@mui/material';
 import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -14,14 +13,12 @@ import {
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   PROJECT_WEBSITE,
   SlotListItem,
-  VisitType,
 } from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../branding/primaryIconVisibility';
 import { PageContainer, Schedule } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
-import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import i18n from '../lib/i18n';
 import { useVisitContext } from './ThankYou';
@@ -34,27 +31,18 @@ const Reschedule = (): JSX.Element => {
   const [selectedSlot, setSelectedSlot] = useState<Slot | undefined>(undefined);
   const [appointment, setAppointment] = useState<GetAppointmentResponseAppointmentDetails | undefined>();
   const [pageNotFound, setPageNotFound] = useState(false);
-  const { isLoading } = useAuth0();
   const navigate = useNavigate();
   const { updateAppointmentStart } = useVisitContext();
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
   const [submitPending, setSubmitPending] = useState(false);
 
-  const { location, visitType } = useMemo(() => {
+  const { location } = useMemo(() => {
     if (appointment) {
       return appointment;
     } else {
       return { location: undefined, visitType: undefined };
     }
   }, [appointment]);
-  // Track Welcome page in Mixpanel
-  useTrackMixpanelEvents({
-    eventName: 'Modify Booking Time',
-    visitType: visitType as VisitType,
-    loading: loading || isLoading,
-    bookingCity: location?.address?.city,
-    bookingState: location?.address?.state,
-  });
 
   useEffect(() => {
     const getAppointmentDetails = async (appointmentID: string): Promise<any> => {

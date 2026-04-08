@@ -7,17 +7,16 @@ import Stripe from 'stripe';
 import {
   BRANDING_CONFIG,
   FHIR_RESOURCE_NOT_FOUND,
+  fillInvoiceTemplate,
   getFullName,
   getPatientReferenceFromAccount,
   getSecret,
   getStripeAccountForAppointmentOrEncounter,
   getStripeCustomerIdFromAccount,
-  InvoiceMessagesPlaceholders,
   mapDisplayToInvoiceTaskStatus,
   PATIENT_BILLING_ACCOUNT_TYPE,
   RcmTaskCodings,
   removePrefix,
-  replaceTemplateVariablesArrows,
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
   Secrets,
   SecretsKeys,
@@ -61,25 +60,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
     console.log('Stripe and candid ids retrieved');
 
-    const locationName = location?.name;
-    const visitDateObj = DateTime.fromISO(appointment.start ?? '');
-    const visitDate = visitDateObj.isValid ? visitDateObj.toFormat('MM/dd/yyyy') : undefined;
     const patientPortalUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
-    if (!visitDate) throw new Error('visit date is missing required field');
+    if (!appointment.start) throw new Error('visit date is missing required field');
+
+    const basePlaceholderInput = {
+      patientFullName: getFullName(fhirResources.patient),
+      clinic: BRANDING_CONFIG.projectName,
+      location: location?.name,
+      visitDate: appointment.start,
+      dueDate,
+      amountCents,
+      patientPortalLink: patientPortalUrl,
+    };
 
     console.log('Creating invoice and invoice item');
     const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
     if (!patientId) throw new Error("Encounter doesn't have patient reference");
-    const filledMemo = memo
-      ? fillMessagePlaceholders(memo, {
-          patientFullName: getFullName(fhirResources.patient),
-          location: locationName,
-          visitDate,
-          dueDate,
-          amount: `${amountCents / 100}`,
-          patientPortalUrl,
-        })
-      : undefined;
+    const filledMemo = memo ? fillInvoiceTemplate(memo, basePlaceholderInput) : undefined;
     const invoiceResponse = await createInvoice(stripe, stripeCustomerId, stripeAccountId, {
       oystehrEncounterId: encounterId,
       oystehrPatientId: patientId,
@@ -103,14 +100,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('Filling in invoice sms messages placeholders');
     const invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
-    const smsMessage = fillMessagePlaceholders(smsTextMessage, {
-      patientFullName: getFullName(fhirResources.patient),
-      location: locationName,
-      visitDate,
-      dueDate,
-      amount: `${amountCents / 100}`,
+    const smsMessage = fillInvoiceTemplate(smsTextMessage, {
+      ...basePlaceholderInput,
       invoiceLink: invoiceUrl,
-      patientPortalUrl,
     });
 
     console.log('Sending sms to patient');
@@ -349,29 +341,4 @@ async function sendInvoiceSmsToPatient(
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   console.log('Sending sms to patient: ', smsTextMessage);
   await sendSmsForPatient(smsTextMessage, oystehr, patient, ENVIRONMENT);
-}
-
-interface MessagePlaceholders {
-  patientFullName: string;
-  location?: string;
-  visitDate: string;
-  dueDate: string;
-  amount?: string;
-  patientPortalUrl?: string;
-  invoiceLink?: string;
-}
-
-function fillMessagePlaceholders(message: string, placeholders: MessagePlaceholders): string {
-  const { patientFullName, location, visitDate, dueDate, patientPortalUrl, invoiceLink } = placeholders;
-  const clinic = BRANDING_CONFIG.projectName;
-  const params: InvoiceMessagesPlaceholders = {
-    'patient-full-name': patientFullName,
-    location,
-    'visit-date': visitDate,
-    'url-to-patient-portal': patientPortalUrl,
-    clinic,
-    'due-date': dueDate,
-    'invoice-link': invoiceLink,
-  };
-  return replaceTemplateVariablesArrows(message, params);
 }

@@ -13,10 +13,14 @@ import {
   InvoiceTaskInput,
   mapDisplayToInvoiceTaskStatus,
   RcmTaskCodings,
-  TEXTING_CONFIG,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
+import {
+  getOrCreateInvoicingConfig,
+  ParsedInvoicingConfig,
+  parseInvoicingConfig,
+} from '../../rcm/invoice-config/helpers';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
@@ -44,6 +48,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createOystehrClient(m2mToken, secrets);
   const candid = createCandidApiClient(secrets);
 
+  console.log('Fetching invoicing config from FHIR');
+  const { questionnaireResponse } = await getOrCreateInvoicingConfig(oystehr);
+  const invoicingConfig = parseInvoicingConfig(questionnaireResponse);
+  console.log('Invoicing config loaded, dueDays:', invoicingConfig.dueDaysFromGeneration);
+
   const twoDaysAgo = DateTime.now().minus({ days: 2 });
   const candidClaims = await getAllCandidClaims(candid, twoDaysAgo);
   console.log('getting candid claims for the past two days');
@@ -53,7 +62,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('encounters without a task: ', packagesToCreate.length);
 
-  await Promise.all(packagesToCreate.map((pkg) => createTaskForEncounter(oystehr, pkg)));
+  await Promise.all(packagesToCreate.map((pkg) => createTaskForEncounter(oystehr, pkg, invoicingConfig)));
 
   return {
     statusCode: 200,
@@ -61,40 +70,37 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function getInvoiceTaskInput(
+function getInvoiceTaskInput(
   claimId: string,
   finalizationDate: Date,
-  patientBalanceInCents: number
-): Promise<InvoiceTaskInput> {
-  try {
-    const smsMessageFromSecret = TEXTING_CONFIG.invoicing.smsMessage;
-    const memoFromSecret = TEXTING_CONFIG.invoicing.stripeMemoMessage;
-    const dueDateFromSecret = TEXTING_CONFIG.invoicing.dueDateInDays;
-    const dueDate = DateTime.now().plus({ days: dueDateFromSecret }).toISODate();
-    const finalizationDateIso = finalizationDate.toISOString();
+  patientBalanceInCents: number,
+  config: ParsedInvoicingConfig
+): InvoiceTaskInput {
+  const dueDate = DateTime.now().plus({ days: config.dueDaysFromGeneration }).toISODate();
+  const finalizationDateIso = finalizationDate.toISOString();
 
-    return {
-      smsTextMessage: smsMessageFromSecret,
-      memo: memoFromSecret,
-      dueDate,
-      amountCents: patientBalanceInCents,
-      claimId,
-      finalizationDate: finalizationDateIso,
-    };
-  } catch (error) {
-    console.error('Error fetching prefilled invoice info: ', error);
-    throw new Error('Error fetching prefilled invoice info: ' + error);
-  }
+  return {
+    smsTextMessage: config.defaultSmsTemplate,
+    memo: config.defaultInvoiceMemo,
+    dueDate,
+    amountCents: patientBalanceInCents,
+    claimId,
+    finalizationDate: finalizationDateIso,
+  };
 }
 
-export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterPackage): Promise<void> {
+export async function createTaskForEncounter(
+  oystehr: Oystehr,
+  encounterPkg: EncounterPackage,
+  config: ParsedInvoicingConfig
+): Promise<void> {
   try {
     const { encounter, claim, amountCents } = encounterPkg;
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
 
     if (!patientId) throw new Error('Patient ID not found in encounter: ' + encounter.id);
 
-    const prefilledInvoiceInfo = await getInvoiceTaskInput(claim.claimId, claim.timestamp, amountCents);
+    const prefilledInvoiceInfo = getInvoiceTaskInput(claim.claimId, claim.timestamp, amountCents, config);
 
     console.log(
       `Creating task. patient: ${claim.patientExternalId}, claim: ${claim.claimId}, oyst encounter: ${encounter.id} balance (cents): ${amountCents}`
