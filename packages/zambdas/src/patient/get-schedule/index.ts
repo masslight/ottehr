@@ -60,12 +60,12 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
 
   const { serviceCategoryCode } = validatedParameters;
 
-  const serviceCategory = BOOKING_CONFIG.serviceCategories.find((sc) => sc.code === serviceCategoryCode);
-  const serviceCategories: Coding[] | undefined = serviceCategory
+  const serviceCategoryConfig = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategoryCode);
+  const serviceCategories: Coding[] | undefined = serviceCategoryConfig
     ? [
         {
-          system: serviceCategory.system,
-          code: serviceCategory.code,
+          system: serviceCategoryConfig.category.system,
+          code: serviceCategoryConfig.category.code,
         },
       ]
     : undefined;

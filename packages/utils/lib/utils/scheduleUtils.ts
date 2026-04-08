@@ -1919,7 +1919,12 @@ export const getServiceCategoryFromSlot = (slot: Slot): ServiceCategoryCode | un
   let serviceCategory: ServiceCategoryCode | undefined;
   (slot.serviceCategory ?? []).forEach((category) => {
     const categoryCoding = category.coding?.[0] ?? {};
-    if (codingContainedInList(categoryCoding, BOOKING_CONFIG.serviceCategories)) {
+    if (
+      codingContainedInList(
+        categoryCoding,
+        BOOKING_CONFIG.serviceCategories.map((sc) => sc.category)
+      )
+    ) {
       serviceCategory = categoryCoding.code;
     }
   });

@@ -233,12 +233,14 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
       ? [SlotServiceCategory.inPersonServiceMode]
       : [SlotServiceCategory.virtualServiceMode];
   if (serviceCategoryCode) {
-    const serviceCategoryCodeCoding = BOOKING_CONFIG.serviceCategories.find((sc) => sc.code === serviceCategoryCode);
-    if (serviceCategoryCodeCoding) {
+    const serviceCategoryCodeConfig = BOOKING_CONFIG.serviceCategories.find(
+      (sc) => sc.category.code === serviceCategoryCode
+    );
+    if (serviceCategoryCodeConfig) {
       serviceCategory.push({
         coding: [
           {
-            ...serviceCategoryCodeCoding,
+            ...serviceCategoryCodeConfig.category,
           },
         ],
       });

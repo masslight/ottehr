@@ -880,7 +880,7 @@ describe('saving and getting visit details', () => {
         `reasonForVisit "gum in my hair" is not valid for service category "urgent-care"`
       );
     }
-    const availableCodes = SERVICE_CATEGORIES_AVAILABLE.map((c) => c.code);
+    const availableCodes = SERVICE_CATEGORIES_AVAILABLE.map((c) => c.category.code);
 
     if (availableCodes.includes('workers-comp')) {
       try {

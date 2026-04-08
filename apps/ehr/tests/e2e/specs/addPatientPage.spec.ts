@@ -155,7 +155,7 @@ async function createAppointment(
 ): Promise<{ appointmentId: string; slotTime: string | undefined }> {
   const addPatientPage = await expectAddPatientPage(page);
   await addPatientPage.selectVisitType(visitType);
-  await addPatientPage.selectServiceCategory(BOOKING_CONFIG.serviceCategories[0].display);
+  await addPatientPage.selectServiceCategory(BOOKING_CONFIG.serviceCategories[0].category.display);
   await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
   await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
   await addPatientPage.clickSearchForPatientsButton();

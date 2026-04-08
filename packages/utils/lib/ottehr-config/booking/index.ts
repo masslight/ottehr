@@ -4,6 +4,7 @@ import {
   HomepageOptions,
   type QuestionnaireBase,
   type QuestionnaireConfigType,
+  type ServiceCategoryConfig,
 } from 'config-types';
 import { Coding, Questionnaire, Slot } from 'fhir/r4b';
 import z from 'zod';
@@ -274,14 +275,22 @@ const FORM_DEFAULTS = {
   FormFields,
 };
 
-export const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
-  { display: 'Urgent Care', code: 'urgent-care', system: SERVICE_CATEGORY_SYSTEM },
+export const SERVICE_CATEGORIES_AVAILABLE: ServiceCategoryConfig[] = [
   {
-    display: 'Occupational Medicine',
-    code: 'occupational-medicine',
-    system: SERVICE_CATEGORY_SYSTEM,
+    category: { display: 'Urgent Care', code: 'urgent-care', system: SERVICE_CATEGORY_SYSTEM },
+    serviceModes: ['in-person', 'virtual'],
+    visitTypes: ['prebook', 'walk-in'],
   },
-  { display: 'Workers Comp', code: 'workers-comp', system: SERVICE_CATEGORY_SYSTEM },
+  {
+    category: { display: 'Occupational Medicine', code: 'occupational-medicine', system: SERVICE_CATEGORY_SYSTEM },
+    serviceModes: ['in-person', 'virtual'],
+    visitTypes: ['prebook', 'walk-in'],
+  },
+  {
+    category: { display: 'Workers Comp', code: 'workers-comp', system: SERVICE_CATEGORY_SYSTEM },
+    serviceModes: ['in-person', 'virtual'],
+    visitTypes: ['prebook', 'walk-in'],
+  },
 ];
 
 export const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
@@ -298,10 +307,6 @@ enum VisitType {
 }
 
 const BOOKING_DEFAULTS_DATA = {
-  serviceCategoriesEnabled: {
-    serviceModes: ['in-person', 'virtual'],
-    visitType: ['prebook', 'walk-in'],
-  },
   homepageOptions: [
     { id: HomepageOptions.StartInPersonVisit, label: 'In-Person Check-In' },
     { id: HomepageOptions.ScheduleInPersonVisit, label: 'Schedule In-Person Visit' },
@@ -357,13 +362,9 @@ export const selectBookingQuestionnaire: (_slot?: Slot) => {
 };
 
 export interface BookingConfig {
-  serviceCategoriesEnabled: {
-    serviceModes: string[];
-    visitType: string[];
-  };
   homepageOptions: BookingOption[];
   ehrBookingOptions: BookingOption[];
-  serviceCategories: StrongCoding[];
+  serviceCategories: ServiceCategoryConfig[];
   formConfig: QuestionnaireConfigType;
   inPersonPrebookRoutingParams: { key: string; value: string }[];
   defaultWalkinLocationName?: string;
@@ -402,16 +403,8 @@ export function getBookingConfig(testOverrides?: Partial<BookingConfig>): Bookin
 // Export as a getter property to allow runtime config injection in tests
 export const BOOKING_CONFIG = createProxyConfigObject<BookingConfig>(getBookingConfig, CONFIG_INJECTION_KEYS.BOOKING);
 
-export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
-  return (
-    (BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes as string[]).includes(params.serviceMode) &&
-    (BOOKING_CONFIG.serviceCategoriesEnabled.visitType as string[]).includes(params.visitType) &&
-    BOOKING_CONFIG.serviceCategories.length > 1
-  );
-};
-
 export const ServiceCategoryCodeSchema = z.enum(
-  BOOKING_CONFIG.serviceCategories.map((category: { code: string }) => category.code) as [string, ...string[]]
+  BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code) as [string, ...string[]]
 );
 
 export type ServiceCategoryCode = z.infer<typeof ServiceCategoryCodeSchema>;
@@ -422,9 +415,53 @@ export const HomepageOptionSchema = z.enum(
 
 export type HomepageOption = z.infer<typeof HomepageOptionSchema>;
 
+/**
+ * Get reason-for-visit options for a given service category and optional service mode.
+ *
+ * Resolution order:
+ * 1. If the category config has reasonsForVisit[serviceMode], use it
+ * 2. If the category config has reasonsForVisit.default, use it
+ * 3. Fall back to legacy VALUE_SETS pattern
+ *
+ * When serviceMode is omitted (e.g., EHR context), returns the default or
+ * a combined list of all mode-specific options for the category.
+ */
 export const getReasonForVisitOptionsForServiceCategory = (
-  serviceCategory: string
+  serviceCategory: string,
+  serviceMode?: string
 ): { value: string; label: string }[] => {
+  // Try new-shape config first
+  const categoryConfig = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategory);
+  if (categoryConfig?.reasonsForVisit) {
+    const rfv = categoryConfig.reasonsForVisit;
+
+    // If service mode specified, try mode-specific then default
+    if (serviceMode) {
+      const modeKey = serviceMode as keyof typeof rfv;
+      if (rfv[modeKey]) {
+        return [...rfv[modeKey]!];
+      }
+      if (rfv.default) {
+        return [...rfv.default];
+      }
+    }
+
+    // No mode specified: return default, or combine all mode-specific lists
+    if (rfv.default) {
+      return [...rfv.default];
+    }
+    const combined = new Map<string, { value: string; label: string }>();
+    for (const options of Object.values(rfv)) {
+      if (options) {
+        for (const opt of options) {
+          combined.set(opt.value, opt);
+        }
+      }
+    }
+    return [...combined.values()];
+  }
+
+  // Legacy VALUE_SETS fallback
   if (serviceCategory === 'occupational-medicine') {
     return [...VALUE_SETS.reasonForVisitOptionsOccMed];
   }

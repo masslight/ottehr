@@ -7,12 +7,37 @@ import {
 } from 'fhir/r4b';
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName } from '../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../helpers';
-import { BOOKING_CONFIG } from '../ottehr-config/booking';
+import { BOOKING_CONFIG, type StrongCoding } from '../ottehr-config/booking';
 import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../types';
 
 // Questionnaire fields that distinguish between "not provided" (undefined) vs "cleared" ('')
 // Cleared fields trigger FHIR resource removal in harvest/update-visit-details zambdas
 export const FIELDS_TO_TRACK_CLEARING = ['patient-preferred-name', 'authorized-non-legal-guardian'] as const;
+
+/**
+ * Extract StrongCoding objects from the service category config array.
+ */
+export const getServiceCategoryCodings = (): StrongCoding[] => {
+  return BOOKING_CONFIG.serviceCategories.map((sc) => sc.category);
+};
+
+/**
+ * Get service categories available for a given service mode and visit type.
+ * Returns the StrongCoding for each matching category.
+ */
+export const getServiceCategoriesForContext = (serviceMode: string, visitType: string): StrongCoding[] => {
+  return BOOKING_CONFIG.serviceCategories
+    .filter((sc) => sc.serviceModes.includes(serviceMode as any) && sc.visitTypes.includes(visitType as any))
+    .map((sc) => sc.category);
+};
+
+/**
+ * Determine whether to show the service category selection page.
+ * Returns true when more than one category matches the given mode and visit type.
+ */
+export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
+  return getServiceCategoriesForContext(params.serviceMode, params.visitType).length > 1;
+};
 
 // Helper to normalize form data by converting empty objects to proper questionnaire response format
 // react-hook-form returns {} for conditionally hidden fields with disabled-display extension

@@ -393,7 +393,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         const location = findLocation(appointment, locations);
         const serviceCategoryCode = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
         const serviceCategoryName =
-          BOOKING_CONFIG.serviceCategories.find((category) => category.code === serviceCategoryCode)?.display ??
+          BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategoryCode)?.category.display ??
           serviceCategoryCode ??
           'Unknown';
         const key = location.id + '-' + serviceCategoryName;

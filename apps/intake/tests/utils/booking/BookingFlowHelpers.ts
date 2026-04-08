@@ -245,31 +245,29 @@ export class BookingFlowHelpers {
     serviceMode?: 'in-person' | 'virtual'
   ): Promise<void> {
     const categories = config.serviceCategories;
-    const { serviceCategoriesEnabled } = config;
 
-    // Check if category selection is enabled for this specific flow type
-    const isEnabledForFlow =
-      serviceMode &&
-      serviceCategoriesEnabled.serviceModes.includes(serviceMode) &&
-      serviceCategoriesEnabled.visitType.includes(visitType);
+    // Filter categories to those available for this flow's mode and visit type
+    const availableCategories = serviceMode
+      ? categories.filter((sc) => sc.serviceModes.includes(serviceMode) && sc.visitTypes.includes(visitType))
+      : categories;
 
-    // Skip if service categories are disabled for this flow or only one exists
-    if (!isEnabledForFlow || categories.length <= 1) {
+    // Skip if only one or no categories available for this flow
+    if (availableCategories.length <= 1) {
       console.log(
-        `Skipping category selection (enabledModes: ${serviceCategoriesEnabled.serviceModes}, ` +
-          `enabledTypes: ${serviceCategoriesEnabled.visitType}, current: ${serviceMode}/${visitType}, count: ${categories.length})`
+        `Skipping category selection (available: ${availableCategories.length}, ` +
+          `current: ${serviceMode}/${visitType}, total: ${categories.length})`
       );
       return;
     }
 
     // Find the category by code to get its display label
-    const category = categories.find((cat) => cat.code === preferredCategory);
+    const category = categories.find((sc) => sc.category.code === preferredCategory);
     if (!category) {
       throw new Error(`Service category '${preferredCategory}' not found in config`);
     }
 
     // Select by the user-visible label text
-    await page.getByRole('button', { name: category.display }).click();
+    await page.getByRole('button', { name: category.category.display }).click();
 
     // For in-person walk-in flows only, handle the Continue button on the walk-in landing page
     // Virtual walk-in flows proceed to location selection

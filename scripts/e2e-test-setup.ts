@@ -45,7 +45,7 @@ console.log(`Using environment: ${environment}`);
 
 // Whether this project supports virtual (telemed) visits, based on booking config.
 // Used throughout this file to skip virtual-location requirements for in-person-only projects.
-const isVirtualEnabled = (BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes as string[]).includes('virtual');
+const isVirtualEnabled = BOOKING_CONFIG.serviceCategories.some((sc) => sc.serviceModes.includes('virtual'));
 
 /**
  * Throws if any key in `config` has an empty string value, except for keys listed in `optionalKeys`.

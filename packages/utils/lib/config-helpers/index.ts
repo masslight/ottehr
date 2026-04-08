@@ -1,4 +1,4 @@
-export * from './helpers';
+export { CONFIG_INJECTION_KEYS, createProxyConfigObject, mergeAndFreezeConfigObjects } from './helpers';
 export * from './locations';
 export * from './intake-paperwork';
 export * from './booking';

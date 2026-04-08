@@ -70,7 +70,7 @@ export interface LocationWithWalkinSchedule extends Location {
 }
 
 const defaultServiceCategory =
-  BOOKING_CONFIG.serviceCategories.length === 1 ? BOOKING_CONFIG.serviceCategories[0]?.code : '';
+  BOOKING_CONFIG.serviceCategories.length === 1 ? BOOKING_CONFIG.serviceCategories[0]?.category.code : '';
 
 // todo: this lives in the util folder and is redundantly declared here - should be consolidated
 enum VisitType {
@@ -316,10 +316,10 @@ export default function AddPatient(): JSX.Element {
                       setServiceCategory(event.target.value);
                     }}
                   >
-                    {BOOKING_CONFIG.serviceCategories.map((category) => {
+                    {BOOKING_CONFIG.serviceCategories.map((sc) => {
                       return (
-                        <MenuItem value={category.code} key={category.code}>
-                          {category.display}
+                        <MenuItem value={sc.category.code} key={sc.category.code}>
+                          {sc.category.display}
                         </MenuItem>
                       );
                     })}

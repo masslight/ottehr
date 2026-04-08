@@ -1885,7 +1885,7 @@ test.describe('Patient Record Page tests with zero patient data filled in', { ta
     await page.goto('/patient/' + resourceHandler.patient.id);
     const addPatientPage = await openAddPatientPage(page);
     await addPatientPage.selectVisitType('Walk-in In Person Visit');
-    await addPatientPage.selectServiceCategory(BOOKING_CONFIG.serviceCategories[0].display);
+    await addPatientPage.selectServiceCategory(BOOKING_CONFIG.serviceCategories[0].category.display);
     await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
     await addPatientPage.enterMobilePhone(NEW_PATIENT_MOBILE);
     await addPatientPage.clickSearchForPatientsButton();
