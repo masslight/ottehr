@@ -133,12 +133,12 @@ describe('validateRequestParameters (save-invoice-config)', () => {
 
   test('throws when body is missing', () => {
     const input = { secrets: { KEY: 'val' } } as unknown as ZambdaInput;
-    expect(() => validateRequestParameters(input)).toThrow('Request body is missing');
+    expect(() => validateRequestParameters(input)).toThrow('The request was missing a required request body');
   });
 
   test('throws when secrets are missing', () => {
     const input = { body: JSON.stringify(validBody), secrets: null } as unknown as ZambdaInput;
-    expect(() => validateRequestParameters(input)).toThrow('Secrets are not defined');
+    expect(() => validateRequestParameters(input)).toThrow('The request was missing secrets required to process it');
   });
 
   test('throws when dueDaysFromGeneration is less than 1', () => {
@@ -215,6 +215,13 @@ describe('getOrCreateInvoicingConfig', () => {
             created.push(withId);
             return Promise.resolve(withId);
           }),
+          patch: vi.fn().mockImplementation((params: any) => {
+            return Promise.resolve({
+              resourceType: params.resourceType,
+              id: params.id,
+              questionnaire: params.operations?.[0]?.value,
+            });
+          }),
         },
       } as any,
       created,
@@ -223,7 +230,7 @@ describe('getOrCreateInvoicingConfig', () => {
 
   test('returns existing resources when both are found', async () => {
     const questionnaire = { resourceType: 'Questionnaire', id: 'q-1', url: INVOICING_CONFIG_QUESTIONNAIRE_URL };
-    const response = { resourceType: 'QuestionnaireResponse', id: 'qr-1' };
+    const response = { resourceType: 'QuestionnaireResponse', id: 'qr-1', questionnaire: 'Questionnaire/q-1' };
     const { client } = createMockOystehr([questionnaire], [response]);
 
     const result = await getOrCreateInvoicingConfig(client);
