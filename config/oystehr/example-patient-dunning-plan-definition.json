@@ -1,0 +1,734 @@
+{
+  "resourceType": "PlanDefinition",
+  "id": "patient-dunning-workflow",
+  "url": "https://ottehr.com/r4/PlanDefinition/patient-dunning-workflow",
+  "version": "1.0.0",
+  "name": "PatientDunningWorkflow",
+  "title": "Patient AR Dunning Workflow",
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/plan-definition-type",
+        "code": "workflow-definition",
+        "display": "Workflow Definition"
+      }
+    ]
+  },
+  "description": "Automated patient accounts receivable dunning workflow. Actions are triggered relative to the invoice due date and executed in sequence by offset days.",
+  "purpose": "To automate patient balance collection through a series of escalating actions including card charges, notifications, and collections referral.",
+  "useContext": [
+    {
+      "code": {
+        "system": "http://terminology.hl7.org/CodeSystem/usage-context-type",
+        "code": "workflow",
+        "display": "Workflow Setting"
+      },
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://ottehr.com/CodeSystem/workflow-context",
+            "code": "patient-ar",
+            "display": "Patient Accounts Receivable"
+          }
+        ]
+      }
+    }
+  ],
+  "topic": [
+    {
+      "coding": [
+        {
+          "system": "https://ottehr.com/CodeSystem/dunning-topic",
+          "code": "patient-collections",
+          "display": "Patient Collections"
+        }
+      ]
+    }
+  ],
+  "action": [
+    {
+      "id": "action-1",
+      "title": "Charge Credit Card on File — Initial Attempt",
+      "description": "Attempt to charge the patient's card on file on the invoice due date. Retry 2 times every 3 days.",
+      "priority": "routine",
+      "code": [
+        {
+          "coding": [
+            {
+              "system": "https://ottehr.com/CodeSystem/dunning-action-type",
+              "code": "charge-card",
+              "display": "Charge Credit Card on File"
+            }
+          ]
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "invoice-due",
+          "condition": {
+            "description": "Triggered when the invoice due date is reached",
+            "language": "text/fhirpath",
+            "expression": "Invoice.date <= today()"
+          }
+        }
+      ],
+      "timingTiming": {
+        "repeat": {
+          "count": 2,
+          "frequency": 1,
+          "period": 3,
+          "periodUnit": "d"
+        }
+      },
+      "participant": [
+        {
+          "type": "device",
+          "role": {
+            "coding": [
+              {
+                "system": "https://ottehr.com/CodeSystem/dunning-participant",
+                "code": "payment-processor",
+                "display": "Payment Processor"
+              }
+            ]
+          }
+        }
+      ],
+      "action": [
+        {
+          "id": "action-1-success",
+          "title": "Notify on Successful Charge",
+          "condition": [
+            {
+              "kind": "applicability",
+              "expression": {
+                "description": "Charge was successful",
+                "language": "text/fhirpath",
+                "expression": "%outcome = 'success'"
+              }
+            }
+          ],
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "https://ottehr.com/CodeSystem/dunning-action-type",
+                  "code": "send-notification",
+                  "display": "Send Notification"
+                }
+              ]
+            }
+          ],
+          "action": [
+            {
+              "id": "action-1-success-email",
+              "title": "Send Success Email",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://ottehr.com/CodeSystem/notification-medium",
+                      "code": "email",
+                      "display": "Email"
+                    }
+                  ]
+                }
+              ],
+              "documentation": [
+                {
+                  "type": "documentation",
+                  "label": "email-template",
+                  "document": {
+                    "contentType": "text/plain",
+                    "data": "RGVhciB7e3BhdGllbnQtZnVsbC1uYW1lfX0sCgpZb3VyIHBheW1lbnQgb2Yge3thbW91bnR9fSBmb3IgeW91ciB2aXNpdCBhdCB7e2NsaW5pY319IG9uIHt7dmlzaXQtZGF0ZX19IGhhcyBiZWVuIHN1Y2Nlc3NmdWxseSBwcm9jZXNzZWQuCgpUaGFuayB5b3UsCnt7Y2xpbmljfX0=",
+                    "title": "Payment Success Email Template"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "action-1-failure",
+          "title": "Notify on Failed Charge",
+          "condition": [
+            {
+              "kind": "applicability",
+              "expression": {
+                "description": "Charge failed",
+                "language": "text/fhirpath",
+                "expression": "%outcome = 'failure'"
+              }
+            }
+          ],
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "https://ottehr.com/CodeSystem/dunning-action-type",
+                  "code": "send-notification",
+                  "display": "Send Notification"
+                }
+              ]
+            }
+          ],
+          "action": [
+            {
+              "id": "action-1-failure-email",
+              "title": "Send Failure Email",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://ottehr.com/CodeSystem/notification-medium",
+                      "code": "email",
+                      "display": "Email"
+                    }
+                  ]
+                }
+              ],
+              "documentation": [
+                {
+                  "type": "documentation",
+                  "label": "email-template",
+                  "document": {
+                    "contentType": "text/plain",
+                    "data": "RGVhciB7e3BhdGllbnQtZnVsbC1uYW1lfX0sCgpXZSB3ZXJlIHVuYWJsZSB0byBwcm9jZXNzIHlvdXIgcGF5bWVudCBvZiB7e2Ftb3VudH19IGZvciB5b3VyIHZpc2l0IG9uIHt7dmlzaXQtZGF0ZX19IGF0IHt7Y2xpbmljfX0uCgpQbGVhc2UgdXBkYXRlIHlvdXIgcGF5bWVudCBtZXRob2Qgb3IgcGF5IG9ubGluZToge3tpbnZvaWNlLWxpbmt9fQoKVGhhbmsgeW91LAp7e2NsaW5pY319",
+                    "title": "Payment Failure Email Template"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "action-1-failure-sms",
+              "title": "Send Failure SMS",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://ottehr.com/CodeSystem/notification-medium",
+                      "code": "sms",
+                      "display": "SMS"
+                    }
+                  ]
+                }
+              ],
+              "documentation": [
+                {
+                  "type": "documentation",
+                  "label": "sms-template",
+                  "document": {
+                    "contentType": "text/plain",
+                    "data": "SGkge3twYXRpZW50LWZ1bGwtbmFtZX19LCB3ZSB3ZXJlIHVuYWJsZSB0byBjaGFyZ2UgeW91ciBjYXJkIGZvciB7e2Ftb3VudH19LiBQbGVhc2UgdXBkYXRlIHlvdXIgcGF5bWVudCBtZXRob2Q6IHt7cGF0aWVudC1wb3J0YWwtbGlua319",
+                    "title": "Payment Failure SMS Template"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "action-2",
+      "title": "Send Friendly Payment Reminder",
+      "description": "Send a friendly reminder via email and SMS 3 days after invoice due.",
+      "priority": "routine",
+      "code": [
+        {
+          "coding": [
+            {
+              "system": "https://ottehr.com/CodeSystem/dunning-action-type",
+              "code": "send-notification",
+              "display": "Send Notification"
+            }
+          ]
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "invoice-due"
+        }
+      ],
+      "timingTiming": {
+        "repeat": {
+          "count": 1,
+          "offset": 3
+        },
+        "_repeat": {
+          "offset": {
+            "extension": [
+              {
+                "url": "https://ottehr.com/StructureDefinition/offset-unit",
+                "valueCode": "d"
+              }
+            ]
+          }
+        }
+      },
+      "relatedAction": [
+        {
+          "actionId": "action-1",
+          "relationship": "after",
+          "offsetDuration": {
+            "value": 3,
+            "unit": "days",
+            "system": "http://unitsofmeasure.org",
+            "code": "d"
+          }
+        }
+      ],
+      "action": [
+        {
+          "id": "action-2-email",
+          "title": "Send Reminder Email",
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "https://ottehr.com/CodeSystem/notification-medium",
+                  "code": "email",
+                  "display": "Email"
+                }
+              ]
+            }
+          ],
+          "documentation": [
+            {
+              "type": "documentation",
+              "label": "email-template",
+              "document": {
+                "contentType": "text/plain",
+                "data": "RGVhciB7e3BhdGllbnQtZnVsbC1uYW1lfX0sCgpUaGlzIGlzIGEgZnJpZW5kbHkgcmVtaW5kZXIgdGhhdCB5b3VyIGJhbGFuY2Ugb2Yge3thbW91bnR9fSBmb3IgeW91ciB2aXNpdCBvbiB7e3Zpc2l0LWRhdGV9fSBhdCB7e2NsaW5pY319IGlzIGR1ZSBvbiB7e2R1ZS1kYXRlfX0uCgpQYXkgb25saW5lOiB7e2ludm9pY2UtbGlua319CgpUaGFuayB5b3UsCnt7Y2xpbmljfX0=",
+                "title": "Friendly Reminder Email Template"
+              }
+            }
+          ]
+        },
+        {
+          "id": "action-2-sms",
+          "title": "Send Reminder SMS",
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "https://ottehr.com/CodeSystem/notification-medium",
+                  "code": "sms",
+                  "display": "SMS"
+                }
+              ]
+            }
+          ],
+          "documentation": [
+            {
+              "type": "documentation",
+              "label": "sms-template",
+              "document": {
+                "contentType": "text/plain",
+                "data": "SGkge3twYXRpZW50LWZ1bGwtbmFtZX19LCBmcmllbmRseSByZW1pbmRlcjogeW91IGhhdmUgYSBiYWxhbmNlIG9mIHt7YW1vdW50fX0gZHVlIG9uIHt7ZHVlLWRhdGV9fSBmb3IgeW91ciB2aXNpdCBhdCB7e2NsaW5pY319LiBQYXkgaGVyZToge3tpbnZvaWNlLWxpbmt9fQ==",
+                "title": "Friendly Reminder SMS Template"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "action-3",
+      "title": "Charge Credit Card on File — Second Attempt",
+      "description": "Retry charging the patient's card 14 days after invoice due. Retry 3 times every 5 days.",
+      "priority": "urgent",
+      "code": [
+        {
+          "coding": [
+            {
+              "system": "https://ottehr.com/CodeSystem/dunning-action-type",
+              "code": "charge-card",
+              "display": "Charge Credit Card on File"
+            }
+          ]
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "invoice-due"
+        }
+      ],
+      "relatedAction": [
+        {
+          "actionId": "action-1",
+          "relationship": "after",
+          "offsetDuration": {
+            "value": 14,
+            "unit": "days",
+            "system": "http://unitsofmeasure.org",
+            "code": "d"
+          }
+        }
+      ],
+      "timingTiming": {
+        "repeat": {
+          "count": 3,
+          "frequency": 1,
+          "period": 5,
+          "periodUnit": "d"
+        }
+      },
+      "action": [
+        {
+          "id": "action-3-success",
+          "title": "Notify on Successful Charge",
+          "condition": [
+            {
+              "kind": "applicability",
+              "expression": {
+                "description": "Charge was successful",
+                "language": "text/fhirpath",
+                "expression": "%outcome = 'success'"
+              }
+            }
+          ],
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "https://ottehr.com/CodeSystem/dunning-action-type",
+                  "code": "send-notification",
+                  "display": "Send Notification"
+                }
+              ]
+            }
+          ],
+          "action": [
+            {
+              "id": "action-3-success-email",
+              "title": "Send Success Email",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://ottehr.com/CodeSystem/notification-medium",
+                      "code": "email",
+                      "display": "Email"
+                    }
+                  ]
+                }
+              ],
+              "documentation": [
+                {
+                  "type": "documentation",
+                  "label": "email-template",
+                  "document": {
+                    "contentType": "text/plain",
+                    "data": "RGVhciB7e3BhdGllbnQtZnVsbC1uYW1lfX0sCgpZb3VyIHBheW1lbnQgb2Yge3thbW91bnR9fSBoYXMgYmVlbiBzdWNjZXNzZnVsbHkgcHJvY2Vzc2VkLgoKVGhhbmsgeW91LAp7e2NsaW5pY319",
+                    "title": "Payment Success Email Template"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "action-3-failure",
+          "title": "Notify on Failed Charge",
+          "condition": [
+            {
+              "kind": "applicability",
+              "expression": {
+                "description": "Charge failed",
+                "language": "text/fhirpath",
+                "expression": "%outcome = 'failure'"
+              }
+            }
+          ],
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "https://ottehr.com/CodeSystem/dunning-action-type",
+                  "code": "send-notification",
+                  "display": "Send Notification"
+                }
+              ]
+            }
+          ],
+          "action": [
+            {
+              "id": "action-3-failure-email",
+              "title": "Send Failure Email",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://ottehr.com/CodeSystem/notification-medium",
+                      "code": "email",
+                      "display": "Email"
+                    }
+                  ]
+                }
+              ],
+              "documentation": [
+                {
+                  "type": "documentation",
+                  "label": "email-template",
+                  "document": {
+                    "contentType": "text/plain",
+                    "data": "RGVhciB7e3BhdGllbnQtZnVsbC1uYW1lfX0sCgpZb3VyIHBheW1lbnQgb2Yge3thbW91bnR9fSBmb3IgeW91ciB2aXNpdCBvbiB7e3Zpc2l0LWRhdGV9fSBjb3VsZCBub3QgYmUgcHJvY2Vzc2VkLiBZb3VyIGFjY291bnQgaXMgbm93IHBhc3QgZHVlLgoKUGxlYXNlIHBheSBpbW1lZGlhdGVseToge3tpbnZvaWNlLWxpbmt9fQoKSWYgd2UgZG8gbm90IHJlY2VpdmUgcGF5bWVudCwgZnVydGhlciBjb2xsZWN0aW9uIGFjdGlvbiBtYXkgYmUgdGFrZW4uCgp7e2NsaW5pY319",
+                    "title": "Payment Failure Email Template"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "action-3-failure-sms",
+              "title": "Send Failure SMS",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://ottehr.com/CodeSystem/notification-medium",
+                      "code": "sms",
+                      "display": "SMS"
+                    }
+                  ]
+                }
+              ],
+              "documentation": [
+                {
+                  "type": "documentation",
+                  "label": "sms-template",
+                  "document": {
+                    "contentType": "text/plain",
+                    "data": "VVJHRU5UOiB7e3BhdGllbnQtZnVsbC1uYW1lfX0sIHBheW1lbnQgb2Yge3thbW91bnR9fSBmYWlsZWQuIFlvdXIgYWNjb3VudCBpcyBwYXN0IGR1ZS4gVXBkYXRlIHBheW1lbnQ6IHt7cGF0aWVudC1wb3J0YWwtbGlua319",
+                    "title": "Payment Failure SMS Template"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "action-3-failure-mail",
+              "title": "Mail Statement on Failure",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://ottehr.com/CodeSystem/notification-medium",
+                      "code": "paper-mail",
+                      "display": "Mail Statement"
+                    }
+                  ]
+                }
+              ],
+              "description": "Generate and mail a printed statement to the patient's address on file."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "action-4",
+      "title": "Send Urgent Payment Reminder",
+      "description": "Send urgent overdue notice via email and paper mail 21 days after invoice due.",
+      "priority": "urgent",
+      "code": [
+        {
+          "coding": [
+            {
+              "system": "https://ottehr.com/CodeSystem/dunning-action-type",
+              "code": "send-notification",
+              "display": "Send Notification"
+            }
+          ]
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "invoice-due"
+        }
+      ],
+      "relatedAction": [
+        {
+          "actionId": "action-1",
+          "relationship": "after",
+          "offsetDuration": {
+            "value": 21,
+            "unit": "days",
+            "system": "http://unitsofmeasure.org",
+            "code": "d"
+          }
+        }
+      ],
+      "action": [
+        {
+          "id": "action-4-email",
+          "title": "Send Urgent Reminder Email",
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "https://ottehr.com/CodeSystem/notification-medium",
+                  "code": "email",
+                  "display": "Email"
+                }
+              ]
+            }
+          ],
+          "documentation": [
+            {
+              "type": "documentation",
+              "label": "email-template",
+              "document": {
+                "contentType": "text/plain",
+                "data": "RGVhciB7e3BhdGllbnQtZnVsbC1uYW1lfX0sCgpZb3VyIGFjY291bnQgd2l0aCB7e2NsaW5pY319IGhhcyBhbiBvdmVyZHVlIGJhbGFuY2Ugb2Yge3thbW91bnR9fSBmcm9tIHlvdXIgdmlzaXQgb24ge3t2aXNpdC1kYXRlfX0uCgpUaGlzIGlzIGFuIHVyZ2VudCBub3RpY2UuIFBsZWFzZSBwYXkgaW1tZWRpYXRlbHkgdG8gYXZvaWQgcmVmZXJyYWwgdG8gYSBjb2xsZWN0aW9ucyBhZ2VuY3kuCgpQYXkgb25saW5lOiB7e2ludm9pY2UtbGlua319Cgp7e2NsaW5pY319",
+                "title": "Urgent Reminder Email Template"
+              }
+            }
+          ]
+        },
+        {
+          "id": "action-4-mail",
+          "title": "Mail Urgent Statement",
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "https://ottehr.com/CodeSystem/notification-medium",
+                  "code": "paper-mail",
+                  "display": "Mail Statement"
+                }
+              ]
+            }
+          ],
+          "description": "Generate and mail a printed urgent overdue statement to the patient's address on file."
+        }
+      ]
+    },
+    {
+      "id": "action-5",
+      "title": "Send Final Notice via Mail",
+      "description": "Mail a final notice statement 45 days after invoice due.",
+      "priority": "urgent",
+      "code": [
+        {
+          "coding": [
+            {
+              "system": "https://ottehr.com/CodeSystem/dunning-action-type",
+              "code": "send-notification",
+              "display": "Send Notification"
+            }
+          ]
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "invoice-due"
+        }
+      ],
+      "relatedAction": [
+        {
+          "actionId": "action-1",
+          "relationship": "after",
+          "offsetDuration": {
+            "value": 45,
+            "unit": "days",
+            "system": "http://unitsofmeasure.org",
+            "code": "d"
+          }
+        }
+      ],
+      "action": [
+        {
+          "id": "action-5-mail",
+          "title": "Mail Final Notice",
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "https://ottehr.com/CodeSystem/notification-medium",
+                  "code": "paper-mail",
+                  "display": "Mail Statement"
+                }
+              ]
+            }
+          ],
+          "description": "Generate and mail a final notice statement to the patient's address on file."
+        }
+      ]
+    },
+    {
+      "id": "action-6",
+      "title": "Refer to Collections",
+      "description": "Refer the patient's account to National Recovery Agency 90 days after invoice due, for balances of $50 or more.",
+      "priority": "urgent",
+      "code": [
+        {
+          "coding": [
+            {
+              "system": "https://ottehr.com/CodeSystem/dunning-action-type",
+              "code": "refer-to-collections",
+              "display": "Refer to Collections"
+            }
+          ]
+        }
+      ],
+      "trigger": [
+        {
+          "type": "named-event",
+          "name": "invoice-due"
+        }
+      ],
+      "relatedAction": [
+        {
+          "actionId": "action-1",
+          "relationship": "after",
+          "offsetDuration": {
+            "value": 90,
+            "unit": "days",
+            "system": "http://unitsofmeasure.org",
+            "code": "d"
+          }
+        }
+      ],
+      "condition": [
+        {
+          "kind": "applicability",
+          "expression": {
+            "description": "Only refer balances of $50 or more",
+            "language": "text/fhirpath",
+            "expression": "%balance >= 50"
+          }
+        }
+      ],
+      "participant": [
+        {
+          "type": "practitioner",
+          "role": {
+            "coding": [
+              {
+                "system": "https://ottehr.com/CodeSystem/collections-agency",
+                "code": "national-recovery-agency",
+                "display": "National Recovery Agency"
+              }
+            ]
+          }
+        }
+      ],
+      "input": [
+        {
+          "type": "Invoice",
+          "profile": ["http://hl7.org/fhir/StructureDefinition/Invoice"]
+        },
+        {
+          "type": "PaymentReconciliation",
+          "profile": ["http://hl7.org/fhir/StructureDefinition/PaymentReconciliation"]
+        }
+      ]
+    }
+  ]
+}
