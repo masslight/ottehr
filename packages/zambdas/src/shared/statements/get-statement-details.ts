@@ -93,7 +93,7 @@ const getResources = async (encounterId: string, oystehr: Oystehr): Promise<Stat
         },
         {
           name: '_revinclude:iterate',
-          value: 'Schedule:actor',
+          value: 'Schedule:actor:Location',
         },
       ],
     })
@@ -109,7 +109,9 @@ const getResources = async (encounterId: string, oystehr: Oystehr): Promise<Stat
   if (!patient) throw new Error('Patient not found');
 
   const location = items.find((item: Resource) => item.resourceType === 'Location') as Location | undefined;
-  const schedule = items.find((item: Resource) => item.resourceType === 'Schedule') as Schedule | undefined;
+  const schedule = (items.filter((item: Resource) => item.resourceType === 'Schedule') as Schedule[]).find(
+    (s) => s.actor?.some((a) => a.reference === `Location/${location?.id}`)
+  );
 
   return {
     appointment,

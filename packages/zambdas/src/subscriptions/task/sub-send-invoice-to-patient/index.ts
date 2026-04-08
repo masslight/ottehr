@@ -245,7 +245,7 @@ async function getFhirResources(
         },
         {
           name: '_revinclude:iterate',
-          value: 'Schedule:actor',
+          value: 'Schedule:actor:Location',
         },
       ],
     })
@@ -278,7 +278,9 @@ async function getFhirResources(
     location = response.find((res) => res.resourceType === 'Location' && res.id === locationId) as Location;
     if (!location) throw FHIR_RESOURCE_NOT_FOUND('Location');
   } else console.log("Appointment doesn't have location id");
-  const schedule = response.find((res) => res.resourceType === 'Schedule') as Schedule | undefined;
+  const schedule = (response.filter((res) => res.resourceType === 'Schedule') as Schedule[]).find(
+    (s) => s.actor?.some((a) => a.reference === `Location/${location?.id}`)
+  );
   const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
 
   console.log('Fhir encounter found: ', encounter.id);
