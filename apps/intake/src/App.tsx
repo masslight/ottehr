@@ -1,13 +1,9 @@
-import { useAuth0 } from '@auth0/auth0-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import mixpanel from 'mixpanel-browser';
-import { useEffect } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import { parseCommaSeparatedTags, setupSentry } from 'utils';
 import { ScrollToTop } from './components/ScrollToTop';
 import { TestErrorPage } from './components/TestErrorPage';
-import { MixpanelContextProps, setupMixpanel } from './configurations';
 import { IntakeThemeProvider } from './IntakeThemeProvider';
 import { BookingHome, GetReadyForVisit, NewUser, Reschedule, Version } from './pages';
 import AIInterview from './pages/AIInterview';
@@ -46,22 +42,13 @@ import { IOSVideoCallMenu } from './telemed/pages/IOS/IOSVideoCallMenu';
 import VideoChatPage from './telemed/pages/VideoChatPage';
 import WaitingRoom from './telemed/pages/WaitingRoom';
 import Welcome from './telemed/pages/Welcome';
-
-const { VITE_APP_MIXPANEL_TOKEN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_TAGS } = import.meta.env;
+const { VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_TAGS } = import.meta.env;
 
 setupSentry({
   dsn: VITE_APP_SENTRY_DSN,
   environment: VITE_APP_SENTRY_ENV,
   tags: parseCommaSeparatedTags(VITE_APP_SENTRY_TAGS),
 });
-
-const MIXPANEL_SETTINGS: MixpanelContextProps = {
-  token: VITE_APP_MIXPANEL_TOKEN,
-  // cSpell:disable-next appname
-  registerProps: { appname: 'In Person' },
-};
-
-setupMixpanel(MIXPANEL_SETTINGS);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -274,19 +261,6 @@ export const intakeFlowPageRoute = {
 
 function App(): JSX.Element {
   useIOSAppSync();
-
-  const { user } = useAuth0();
-  useEffect(() => {
-    mixpanel.identify();
-  }, []);
-  useEffect(() => {
-    // user.name = user's verified phone number
-    if (user?.name) {
-      mixpanel.people.set({
-        $phone: user.name,
-      });
-    }
-  }, [user?.name]);
 
   return (
     <QueryClientProvider client={queryClient}>
