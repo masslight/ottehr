@@ -83,7 +83,7 @@ export class OrderInHouseLabPage {
     ).toHaveText(CPTCode);
   }
 
-  async selectALabSet(): Promise<void> {
+  async selectALabSet(labSetId: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.commonLabOrder.labSets.launchModal).click();
 
     const modal = this.#page.getByTestId(dataTestIds.commonLabOrder.labSets.selectionModal);
@@ -93,9 +93,9 @@ export class OrderInHouseLabPage {
     const count = await buttons.count();
     expect(count).toBeGreaterThan(0);
 
-    const firstLabSetSelectionBtn = buttons.first();
-    await expect(firstLabSetSelectionBtn).toBeEnabled();
-    await firstLabSetSelectionBtn.click();
+    const labSetBtn = this.#page.getByTestId(`${dataTestIds.commonLabOrder.labSets.selectionModal}-${labSetId}`);
+    await expect(labSetBtn).toBeEnabled();
+    await labSetBtn.click();
   }
 
   async clickRunAsRepeatForTest(testName: string): Promise<void> {
