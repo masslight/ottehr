@@ -85,9 +85,9 @@ interface DunningAction {
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const TRIGGER_EVENT_LABELS: Record<TriggerEvent, string> = {
-  'date-of-visit': 'Date of Visit',
-  'invoice-issued': 'Date Invoice Issued',
-  'invoice-due': 'Date Invoice Due',
+  'date-of-visit': 'Visit Date',
+  'invoice-issued': 'Invoice Issue Date',
+  'invoice-due': 'Invoice Due Date',
 };
 
 const ACTION_TYPE_LABELS: Record<ActionType, string> = {
@@ -647,29 +647,6 @@ function ActionConfigEditor({
   }
 }
 
-function ActionSummary({ action }: { action: DunningAction }): ReactElement {
-  const details: string[] = [];
-
-  if (action.actionType === 'charge-card' && action.chargeCardConfig) {
-    const c = action.chargeCardConfig;
-    if (c.retryAttempts > 0) {
-      details.push(`retry ${c.retryAttempts} time(s) every ${c.retryIntervalDays} day(s)`);
-    }
-  } else if (action.actionType === 'refer-to-collections' && action.referToCollectionsConfig) {
-    const r = action.referToCollectionsConfig;
-    if (r.agency) details.push(r.agency);
-    if (r.minimumBalance > 0) details.push(`min $${r.minimumBalance}`);
-  }
-
-  if (details.length === 0) return <></>;
-
-  return (
-    <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-      {details.join(' · ')}
-    </Typography>
-  );
-}
-
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export default function PatientDunning(): ReactElement {
@@ -678,11 +655,18 @@ export default function PatientDunning(): ReactElement {
   const [newActionType, setNewActionType] = React.useState<ActionType>('send-notification');
   const [newTriggerEvent, setNewTriggerEvent] = React.useState<TriggerEvent>('invoice-due');
   const [newDaysAfter, setNewDaysAfter] = React.useState(0);
+  const [deleteConfirmAction, setDeleteConfirmAction] = React.useState<DunningAction | null>(null);
 
-  const sortedActions = React.useMemo(
-    () => [...actions].sort((a, b) => a.trigger.daysAfter - b.trigger.daysAfter),
-    [actions]
-  );
+  const sortedActions = React.useMemo(() => {
+    const eventOrder: Record<TriggerEvent, number> = {
+      'date-of-visit': 0,
+      'invoice-issued': 1,
+      'invoice-due': 2,
+    };
+    return [...actions].sort(
+      (a, b) => eventOrder[a.trigger.event] - eventOrder[b.trigger.event] || a.trigger.daysAfter - b.trigger.daysAfter
+    );
+  }, [actions]);
 
   const updateAction = (updated: DunningAction): void => {
     setActions((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
@@ -708,7 +692,9 @@ export default function PatientDunning(): ReactElement {
     <Box sx={{ mt: 2 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h6">Patient AR Dunning Actions</Typography>
+          <Typography variant="h3" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+            Patient Accounts Receivable Automation
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             Configure automated collection actions triggered relative to billing events. Actions execute in order of
             days from the trigger event.
@@ -758,9 +744,6 @@ export default function PatientDunning(): ReactElement {
                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
                   after {TRIGGER_EVENT_LABELS[action.trigger.event]}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  —
-                </Typography>
                 <Chip
                   label={ACTION_TYPE_LABELS[action.actionType]}
                   size="small"
@@ -777,7 +760,7 @@ export default function PatientDunning(): ReactElement {
                     {ms.successMediums.length > 0 && (
                       <>
                         <Typography variant="body2" color="text.secondary">
-                          · on success via
+                          · on success send
                         </Typography>
                         {ms.successMediums.map((m) => (
                           <Chip
@@ -799,7 +782,7 @@ export default function PatientDunning(): ReactElement {
                     {ms.failureMediums.length > 0 && (
                       <>
                         <Typography variant="body2" color="text.secondary">
-                          · on failure via
+                          · on failure send
                         </Typography>
                         {ms.failureMediums.map((m) => (
                           <Chip
@@ -819,6 +802,15 @@ export default function PatientDunning(): ReactElement {
                       </>
                     )}
                   </>
+                ) : action.actionType === 'refer-to-collections' && action.referToCollectionsConfig ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {action.referToCollectionsConfig.minimumBalance > 0 &&
+                      `when balance is greater than $${action.referToCollectionsConfig.minimumBalance}`}
+                    {action.referToCollectionsConfig.minimumBalance > 0 &&
+                      action.referToCollectionsConfig.agency &&
+                      '\u00a0\u00a0'}
+                    {action.referToCollectionsConfig.agency && `via ${action.referToCollectionsConfig.agency}`}
+                  </Typography>
                 ) : (
                   ms.combined.length > 0 && (
                     <>
@@ -843,15 +835,13 @@ export default function PatientDunning(): ReactElement {
                     </>
                   )
                 )}
-                <Box sx={{ flexGrow: 1, ml: 1 }}>
-                  <ActionSummary action={action} />
-                </Box>
+                <Box sx={{ flexGrow: 1 }} />
                 <Tooltip title="Delete action">
                   <IconButton
                     size="small"
                     onClick={(e) => {
                       e.stopPropagation();
-                      deleteAction(action.id);
+                      setDeleteConfirmAction(action);
                     }}
                     sx={{ color: 'error.main' }}
                   >
@@ -901,6 +891,7 @@ export default function PatientDunning(): ReactElement {
                     <Select
                       value={action.actionType}
                       label="Action Type"
+                      sx={{ color: ACTION_CHIP_COLORS[action.actionType], fontWeight: 500 }}
                       onChange={(e: SelectChangeEvent) => {
                         const newType = e.target.value as ActionType;
                         updateAction({
@@ -914,7 +905,7 @@ export default function PatientDunning(): ReactElement {
                       }}
                     >
                       {(Object.keys(ACTION_TYPE_LABELS) as ActionType[]).map((at) => (
-                        <MenuItem key={at} value={at}>
+                        <MenuItem key={at} value={at} sx={{ color: ACTION_CHIP_COLORS[at], fontWeight: 500 }}>
                           {ACTION_TYPE_LABELS[at]}
                         </MenuItem>
                       ))}
@@ -931,6 +922,151 @@ export default function PatientDunning(): ReactElement {
           </Accordion>
         );
       })}
+
+      {/* ── Delete Confirmation Dialog ─────────────────────────────────── */}
+      <Dialog open={deleteConfirmAction !== null} onClose={() => setDeleteConfirmAction(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete Dunning Action</DialogTitle>
+        <DialogContent>
+          {deleteConfirmAction &&
+            (() => {
+              const action = deleteConfirmAction;
+              const ms = getActionMediumsSummary(action);
+              return (
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                  <Typography variant="body2">Are you sure you want to delete this action?</Typography>
+                  <Paper variant="outlined" sx={{ p: 1.5 }}>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
+                      <Chip
+                        label={`Day ${action.trigger.daysAfter}`}
+                        size="small"
+                        sx={{
+                          fontWeight: 600,
+                          minWidth: 65,
+                          justifyContent: 'center',
+                          bgcolor: dayChipBackground(action.trigger.daysAfter),
+                          color: dayChipTextColor(action.trigger.daysAfter),
+                          border: 'none',
+                        }}
+                      />
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        after {TRIGGER_EVENT_LABELS[action.trigger.event]}
+                      </Typography>
+                      <Chip
+                        label={ACTION_TYPE_LABELS[action.actionType]}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          bgcolor: '#fff',
+                          color: ACTION_CHIP_COLORS[action.actionType],
+                          borderColor: ACTION_CHIP_COLORS[action.actionType],
+                          fontWeight: 500,
+                        }}
+                      />
+                      {ms.isChargeCard ? (
+                        <>
+                          {ms.successMediums.length > 0 && (
+                            <>
+                              <Typography variant="body2" color="text.secondary">
+                                · on success send
+                              </Typography>
+                              {ms.successMediums.map((m) => (
+                                <Chip
+                                  key={`s-${m}`}
+                                  label={MEDIUM_LABELS[m]}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{
+                                    bgcolor: '#fff',
+                                    color: MEDIUM_CHIP_COLORS[m],
+                                    borderColor: MEDIUM_CHIP_COLORS[m],
+                                    fontWeight: 500,
+                                    fontSize: '0.75rem',
+                                  }}
+                                />
+                              ))}
+                            </>
+                          )}
+                          {ms.failureMediums.length > 0 && (
+                            <>
+                              <Typography variant="body2" color="text.secondary">
+                                · on failure send
+                              </Typography>
+                              {ms.failureMediums.map((m) => (
+                                <Chip
+                                  key={`f-${m}`}
+                                  label={MEDIUM_LABELS[m]}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{
+                                    bgcolor: '#fff',
+                                    color: MEDIUM_CHIP_COLORS[m],
+                                    borderColor: MEDIUM_CHIP_COLORS[m],
+                                    fontWeight: 500,
+                                    fontSize: '0.75rem',
+                                  }}
+                                />
+                              ))}
+                            </>
+                          )}
+                        </>
+                      ) : action.actionType === 'refer-to-collections' && action.referToCollectionsConfig ? (
+                        <Typography variant="body2" color="text.secondary">
+                          {action.referToCollectionsConfig.minimumBalance > 0 &&
+                            `when balance is greater than $${action.referToCollectionsConfig.minimumBalance}`}
+                          {action.referToCollectionsConfig.minimumBalance > 0 &&
+                            action.referToCollectionsConfig.agency &&
+                            '\u00a0\u00a0'}
+                          {action.referToCollectionsConfig.agency && `via ${action.referToCollectionsConfig.agency}`}
+                        </Typography>
+                      ) : (
+                        ms.combined.length > 0 && (
+                          <>
+                            <Typography variant="body2" color="text.secondary">
+                              via
+                            </Typography>
+                            {ms.combined.map((m) => (
+                              <Chip
+                                key={m}
+                                label={MEDIUM_LABELS[m]}
+                                size="small"
+                                variant="outlined"
+                                sx={{
+                                  bgcolor: '#fff',
+                                  color: MEDIUM_CHIP_COLORS[m],
+                                  borderColor: MEDIUM_CHIP_COLORS[m],
+                                  fontWeight: 500,
+                                  fontSize: '0.75rem',
+                                }}
+                              />
+                            ))}
+                          </>
+                        )
+                      )}
+                    </Stack>
+                  </Paper>
+                </Stack>
+              );
+            })()}
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteConfirmAction(null)} sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => {
+              if (deleteConfirmAction) {
+                deleteAction(deleteConfirmAction.id);
+              }
+              setDeleteConfirmAction(null);
+            }}
+            sx={{ textTransform: 'none' }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ── Add Action Dialog ──────────────────────────────────────────── */}
       <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="xs" fullWidth>
@@ -965,10 +1101,11 @@ export default function PatientDunning(): ReactElement {
               <Select
                 value={newActionType}
                 label="Action Type"
+                sx={{ color: ACTION_CHIP_COLORS[newActionType], fontWeight: 500 }}
                 onChange={(e: SelectChangeEvent) => setNewActionType(e.target.value as ActionType)}
               >
                 {(Object.keys(ACTION_TYPE_LABELS) as ActionType[]).map((at) => (
-                  <MenuItem key={at} value={at}>
+                  <MenuItem key={at} value={at} sx={{ color: ACTION_CHIP_COLORS[at], fontWeight: 500 }}>
                     {ACTION_TYPE_LABELS[at]}
                   </MenuItem>
                 ))}
