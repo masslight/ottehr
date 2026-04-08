@@ -20,6 +20,7 @@ import {
   IN_HOUSE_TEST_CODE_SYSTEM,
   isApiError,
   REFLEX_ARTIFACT_DISPLAY,
+  repeatTestErrorMessage,
   Secrets,
   SecretsKeys,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
@@ -258,9 +259,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         if (!serviceRequests || serviceRequests.length === 0) {
           // edge case: if a repeat test is ordered, then the version is updated, and the user clicks the "repeat" button from the order details screen
           // We still try to match SRs to the ad url and version, and so a match cannot be found. Alternative is to find too many matches
-          throw IN_HOUSE_LAB_ERROR(
-            `You cannot run '${activityDefinition.name}' as repeat. No initial tests could be found for this encounter. Ask an admin if the version of the test you are trying to run has changed, or re-run the test not as repeat.`
-          );
+          throw IN_HOUSE_LAB_ERROR(repeatTestErrorMessage(activityDefinition.name || ''));
         }
         const possibleInitialSRs = serviceRequests.reduce((acc: ServiceRequest[], sr) => {
           if (!sr.basedOn) acc.push(sr);
