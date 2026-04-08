@@ -170,7 +170,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
       return `${c.code}${modifier}${!isStandard ? ' (QW)' : ''}`;
     });
-    return cptCodesFormatted.join(',');
+    return cptCodesFormatted.join(', ');
   };
 
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldPrintLabel = false): Promise<void> => {
