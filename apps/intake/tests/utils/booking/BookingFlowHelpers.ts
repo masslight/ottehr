@@ -340,10 +340,7 @@ export class BookingFlowHelpers {
     // Look for "Different family member" button by its test ID
     const addNewPatientButton = page.getByTestId('Different family member');
     try {
-      // Force click to bypass actionability checks — a loading spinner from the
-      // telemed-get-appointments request can overlay the element and block Playwright's
-      // default click behavior indefinitely.
-      await addNewPatientButton.click({ force: true });
+      await addNewPatientButton.click();
       // Wait for the selection to be visually confirmed - the radio button should be checked
       // The button contains a radio input that gets checked when selected
       await expect(addNewPatientButton.locator('input[type="radio"]')).toBeChecked({ timeout: 20000 });
