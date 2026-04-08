@@ -16,6 +16,7 @@ import {
   getFullestAvailableName,
   getSecret,
   IN_HOUSE_LAB_ERROR,
+  IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
   isApiError,
   REFLEX_ARTIFACT_DISPLAY,
@@ -70,6 +71,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
     const { encounterId, testItems, diagnosesAll, diagnosesNew, notes } = validatedParameters;
+    console.log('This is testItems in create-in-house-lab-order', JSON.stringify(testItems, undefined, 2));
 
     const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
       (
@@ -108,7 +110,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               resourceType: 'ActivityDefinition',
               params: [
                 { name: 'url', value: item.adUrl },
-                { name: 'version', value: item.adVersion },
+                { name: 'status', value: 'active' },
+                {
+                  name: '_tag',
+                  value: `${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.system}|${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.code}`, // we care less about the version and more that it is latest
+                },
               ],
             })
             .then((result) => result.unbundle() as ActivityDefinition[]);
@@ -250,8 +256,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       if (orderMode === 'repeat') {
         if (!serviceRequests || serviceRequests.length === 0) {
+          // edge case: if a repeat test is ordered, then the version is updated, and the user clicks the "repeat" button from the order details screen
+          // We still try to match SRs to the ad url and version, and so a match cannot be found. Alternative is to find too many matches
           throw IN_HOUSE_LAB_ERROR(
-            `You cannot run ${activityDefinition.name} as repeat, no initial tests could be found for this encounter.`
+            `You cannot run '${activityDefinition.name}' as repeat. No initial tests could be found for this encounter. Ask an admin if the version of the test you are trying to run has changed, or re-run the test not as repeat.`
           );
         }
         const possibleInitialSRs = serviceRequests.reduce((acc: ServiceRequest[], sr) => {

@@ -148,9 +148,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('Chart data received');
   try {
-    let statusMessage: string;
+    // Check if we should skip making visit note visible in patient portal
+    const skipVisitNoteInPatientPortal = isFeatureFlagEnabled(
+      'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG',
+      secrets
+    );
 
-    const createAndSendVisitNoteToPatientPortal = async (): Promise<void> => {
+    const createVisitNotePdfAndSendEmail = async (): Promise<void> => {
       const { pdfInfo } = await createProgressNotePdf(
         {
           patient,
@@ -182,79 +186,76 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const emailEnabled = emailClient.getFeatureFlag();
 
       if (emailEnabled && !isPDFOnlyTask) {
-        const patientEmail = getPatientContactEmail(patient);
-        let prettyStartTime = '';
-        let locationName = '';
-        let address = '';
-        if (appointment.start && visitResources.timezone) {
-          prettyStartTime = DateTime.fromISO(appointment.start)
-            .setZone(visitResources.timezone)
-            .toFormat(DATETIME_FULL_NO_YEAR);
-        }
-        if (location) {
-          locationName = getNameForOwner(location);
-          address = getAddressStringForScheduleResource(location) ?? '';
-        }
-        const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
-        const visitNoteUrl = presignedUrls['visit-note']?.presignedUrl;
-
-        if (isInPersonAppointment) {
-          const missingData: string[] = [];
-          if (!patientEmail) missingData.push('patient email');
-          if (!appointment.id) missingData.push('appointment ID');
-          if (!locationName) missingData.push('location name');
-          if (!address) missingData.push('address');
-          if (!prettyStartTime) missingData.push('appointment time');
-          if (!visitNoteUrl) missingData.push('visit note URL');
-          if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
-            // note: it's assumed that location is the schedule owner here, which is incorrect for Provider schedules
-            const templateData: InPersonCompletionTemplateData = {
-              location: getNameForOwner(location),
-              time: prettyStartTime,
-              address,
-              'address-url': makeAddressUrl(address),
-              'visit-note-url': visitNoteUrl,
-            };
-            await emailClient.sendInPersonCompletionEmail(patientEmail, templateData);
-          } else {
-            console.error(
-              `Not sending in-person completion email, missing the following data: ${missingData.join(', ')}`
-            );
-          }
+        if (skipVisitNoteInPatientPortal) {
+          console.log('Skipping completion email to patient - visit note patient portal feature flag is enabled');
         } else {
-          const missingData: string[] = [];
-          if (!patientEmail) missingData.push('patient email');
-          if (!appointment.id) missingData.push('appointment ID');
-          if (!locationName) missingData.push('location name');
-          if (!visitNoteUrl) missingData.push('visit note URL');
-          if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
-            const templateData: TelemedCompletionTemplateData = {
-              location: getNameForOwner(location),
-              'visit-note-url': visitNoteUrl,
-            };
-            await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
+          const patientEmail = getPatientContactEmail(patient);
+          let prettyStartTime = '';
+          let locationName = '';
+          let address = '';
+          if (appointment.start && visitResources.timezone) {
+            prettyStartTime = DateTime.fromISO(appointment.start)
+              .setZone(visitResources.timezone)
+              .toFormat(DATETIME_FULL_NO_YEAR);
+          }
+          if (location) {
+            locationName = getNameForOwner(location);
+            address = getAddressStringForScheduleResource(location) ?? '';
+          }
+          const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
+          const visitNoteUrl = presignedUrls['visit-note']?.presignedUrl;
+
+          if (isInPersonAppointment) {
+            const missingData: string[] = [];
+            if (!patientEmail) missingData.push('patient email');
+            if (!appointment.id) missingData.push('appointment ID');
+            if (!locationName) missingData.push('location name');
+            if (!address) missingData.push('address');
+            if (!prettyStartTime) missingData.push('appointment time');
+            if (!visitNoteUrl) missingData.push('visit note URL');
+            if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
+              // note: it's assumed that location is the schedule owner here, which is incorrect for Provider schedules
+              const templateData: InPersonCompletionTemplateData = {
+                location: getNameForOwner(location),
+                time: prettyStartTime,
+                address,
+                'address-url': makeAddressUrl(address),
+                'visit-note-url': visitNoteUrl,
+              };
+              await emailClient.sendInPersonCompletionEmail(patientEmail, templateData);
+            } else {
+              console.error(
+                `Not sending in-person completion email, missing the following data: ${missingData.join(', ')}`
+              );
+            }
           } else {
-            console.error(
-              `Not sending virtual completion email, missing the following data: ${missingData.join(', ')}`
-            );
+            const missingData: string[] = [];
+            if (!patientEmail) missingData.push('patient email');
+            if (!appointment.id) missingData.push('appointment ID');
+            if (!locationName) missingData.push('location name');
+            if (!visitNoteUrl) missingData.push('visit note URL');
+            if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
+              const templateData: TelemedCompletionTemplateData = {
+                location: getNameForOwner(location),
+                'visit-note-url': visitNoteUrl,
+              };
+              await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
+            } else {
+              console.error(
+                `Not sending virtual completion email, missing the following data: ${missingData.join(', ')}`
+              );
+            }
           }
         }
       }
     };
 
-    // Check if we should skip making visit note available to patient portal
-    const skipSendingVisitNoteToPatientPortal = isFeatureFlagEnabled(
-      'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG',
-      secrets
-    );
+    await createVisitNotePdfAndSendEmail();
 
-    if (skipSendingVisitNoteToPatientPortal) {
-      console.log('Skipping visit note creation and email to patient portal - feature flag is enabled');
-      statusMessage = 'PDF creation and email sending were skipped due to app settings';
-    } else {
-      await createAndSendVisitNoteToPatientPortal();
-      statusMessage = isPDFOnlyTask ? 'PDF created successfully' : 'PDF created and emailed successfully';
-    }
+    const statusMessage =
+      isPDFOnlyTask || skipVisitNoteInPatientPortal
+        ? 'PDF created successfully'
+        : 'PDF created and emailed successfully';
 
     // update task status and status reason
     console.log('making patch request to update task status');
