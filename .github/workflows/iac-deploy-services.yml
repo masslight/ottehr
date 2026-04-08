@@ -112,12 +112,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Resolve secrets branch
+        id: resolve-secrets
+        uses: ./.github/actions/resolve-secrets-branch
+        with:
+          core-branch: ${{ github.head_ref || github.ref_name }}
+          secrets-repository: ${{ env.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          token: ${{ github.token }}
+
       - name: Check out secrets repo to grab the env file.
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
-          ref: develop
+          ref: ${{ steps.resolve-secrets.outputs.branch }}
           path: "secrets"
 
       - name: Populate and validate secrets
