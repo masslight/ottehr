@@ -7,6 +7,7 @@ import { Sidebar } from '../../shared/components/Sidebar';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { AppointmentFooter } from '../../telemed/components/appointment/AppointmentFooter';
 import { Header } from '../components/Header';
 import { InfoAlert } from '../components/InfoAlert';
 import { RecordAudioContainer } from '../components/progress-note/RecordAudioContainer';
@@ -58,7 +59,7 @@ export const InPersonLayout: React.FC = () => {
                 color="primary"
                 aria-label=""
                 aria-describedby={recordingElementID}
-                sx={{ position: 'fixed', right: 8, bottom: 8 }}
+                sx={{ position: 'fixed', right: 8, bottom: 130 }}
                 onClick={(event) =>
                   recordingOpen ? setRecordingAnchorElement(null) : setRecordingAnchorElement(event.currentTarget)
                 }
@@ -104,6 +105,7 @@ export const InPersonLayout: React.FC = () => {
           <BottomNavigation />
         </div>
       </div>
+      <AppointmentFooter />
     </div>
   );
 };

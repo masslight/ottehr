@@ -37,6 +37,7 @@ import {
   getAttendingPractitionerId,
   getFullestAvailableName,
   getInsuranceNameFromCoverage,
+  OTTEHR_MODULE,
   PaymentVariant,
   PRACTITIONER_CODINGS,
   ProviderDetails,
@@ -214,7 +215,8 @@ export const Header = (): JSX.Element => {
       ? 'Scheduled'
       : 'On Demand'
     : undefined;
-  const visitTypeAndCategory = ['In Person', serviceCategory].filter(Boolean).join(' | ');
+  const inPerson = appointment?.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
+  const visitTypeAndCategory = [inPerson ? 'In Person' : 'Virtual', serviceCategory].filter(Boolean).join(' | ');
 
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
