@@ -537,6 +537,7 @@ interface ValueRowProps extends Pick<ComponentProps, 'control' | 'theme'> {
 
 function CodeableConceptValueRow(props: ValueRowProps): ReactElement {
   const { componentIndex, valueIndex, control, removeValueSet, theme } = props;
+  const { setValue } = useFormContext();
 
   return (
     <Grid container spacing={1} alignItems="center" justifyContent="space-between">
@@ -554,6 +555,11 @@ function CodeableConceptValueRow(props: ValueRowProps): ReactElement {
               label="Value"
               size="small"
               fullWidth
+              onChange={(e) => {
+                field.onChange(e.target.value);
+                // display mirrors code since there's no separate UI for it
+                setValue(`components.${componentIndex}.valueSet.${valueIndex}.display`, e.target.value);
+              }}
             />
           )}
         />
