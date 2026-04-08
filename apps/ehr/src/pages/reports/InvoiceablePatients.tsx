@@ -21,7 +21,6 @@ import {
 } from '@mui/material';
 import { Box, Stack } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
-import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -232,7 +231,6 @@ export default function InvoiceablePatients(): React.ReactElement {
           taskId,
           status: mapDisplayToInvoiceTaskStatus('sending'),
           invoiceTaskInput,
-          userTimezone: DateTime.local().zoneName,
         }).finally(() => {
           setSendingTaskIds((prev) => {
             const next = new Set(prev);
@@ -258,7 +256,6 @@ export default function InvoiceablePatients(): React.ReactElement {
     updateInvoiceTask(oystehrZambda, {
       taskId,
       status: mapDisplayToInvoiceTaskStatus('updating'),
-      userTimezone: DateTime.local().zoneName,
     })
       .then(async () => {
         enqueueSnackbar('Invoice status changed to "updating"', { variant: 'success' });
