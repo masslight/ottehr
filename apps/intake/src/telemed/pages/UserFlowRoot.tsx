@@ -1,4 +1,3 @@
-import mixpanel from 'mixpanel-browser';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { intakeFlowPageRoute } from '../../App';
@@ -14,7 +13,6 @@ const UserFlowRoot = (): JSX.Element => {
   const navigate = useNavigate();
 
   const clearState = (): void => {
-    mixpanel.track('New User');
     useIntakeCommonStore.setState({ selectedLocationState: initialLocationState.selectedLocationState });
     useAppointmentStore.setState({ appointmentID: undefined, appointmentDate: undefined });
     usePatientInfoStore.getState().setNewPatient();
