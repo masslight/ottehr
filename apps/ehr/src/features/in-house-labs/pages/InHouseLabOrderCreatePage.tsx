@@ -129,7 +129,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const labSets = createInHouseLabResources?.labSets;
 
   useEffect(() => {
-    if (!prefillData || didPrefillInit.current) {
+    if (!prefillData || didPrefillInit.current || !availableTests.length) {
       return;
     }
 
@@ -137,13 +137,17 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
     if (testItemName) {
       const found = availableTests.find((test) => test.name === testItemName);
-      if (found) {
-        if (prefillData.type === 'repeat') {
-          found.orderMode = 'repeat';
-        }
-        setSelectedTests([found]);
+      if (!found) {
+        console.log(`Cannot find test ${testItemName} in available tests`, availableTests);
+        return;
       }
+      if (prefillData.type === 'repeat') {
+        found.orderMode = 'repeat';
+      }
+      console.log('"found" test', found);
+      setSelectedTests([found]);
     }
+
     if (diagnoses) {
       setSelectedAssessmentDiagnoses(diagnoses);
     }

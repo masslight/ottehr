@@ -59,6 +59,7 @@ import {
   GetChartDataResponse,
   getVitalObservationFhirInterpretations,
   HospitalizationDTO,
+  ICD_10_CODE_SYSTEM,
   IN_PERSON_NOTE_ID,
   isVitalObservation,
   makeVitalsObservationDTO,
@@ -139,7 +140,7 @@ export function makeConditionResource(
       ? {
           coding: [
             {
-              system: 'http://hl7.org/fhir/sid/icd-10',
+              system: ICD_10_CODE_SYSTEM,
               version: '2019',
               code: dto.code,
               display: dto.display,
@@ -965,7 +966,7 @@ export function makeDiagnosisConditionResource(
     code: {
       coding: [
         {
-          system: 'http://hl7.org/fhir/sid/icd-10',
+          system: ICD_10_CODE_SYSTEM,
           code: data.code,
           display: data.display,
         },

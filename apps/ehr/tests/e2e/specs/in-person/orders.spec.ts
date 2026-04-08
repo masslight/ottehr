@@ -32,6 +32,7 @@ import {
   DataEntryTestItem,
   makeCptCodeDisplay,
   REPEAT_TEST_CPT_CODE_MODIFIER,
+  repeatTestErrorMessage,
   unbundleBatchPostOutput,
 } from 'utils';
 import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
@@ -232,6 +233,7 @@ test.describe('In-house labs page', async () => {
   const repeatableRadioEntryTestItems: DataEntryTestItem[] = [];
   const selectAndNumericTestItems: DataEntryTestItem[] = [];
   let mockResourceIds: string[] = [];
+  let mockLabSetListId: string = 'unknown';
   let reflexTest: MockReflexTestConfig;
 
   test.beforeAll('Handling ActivityDefinition and List resources for in-house labs tests', async () => {
@@ -323,6 +325,7 @@ test.describe('In-house labs page', async () => {
     const resources = unbundleBatchPostOutput<ActivityDefinition | List>(createdBundle);
 
     mockResourceIds = resources.map((r) => `${r.resourceType}/${r.id}`);
+    mockLabSetListId = resources.find((r): r is List => r.resourceType === 'List')?.id ?? 'unknown';
   });
 
   test.afterAll('Deleting all ActivityDefinition and List resources used in in-house lab tests', async () => {
@@ -448,7 +451,7 @@ test.describe('In-house labs page', async () => {
       let inHouseLabsPage = await sideMenu.clickInHouseLabs();
 
       const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
-      await orderInHouseLabPage.selectALabSet();
+      await orderInHouseLabPage.selectALabSet(mockLabSetListId);
       await orderInHouseLabPage.clickOrderInHouseLabButton();
 
       // confirm we've been nav'd to the orders table
@@ -478,9 +481,7 @@ test.describe('In-house labs page', async () => {
           await orderInHouseLabPage.clickOrderInHouseLabButton();
           const error = orderInHouseLabPage.error;
           await expect(error).toBeVisible();
-          await expect(error).toContainText(
-            `You cannot run ${testName} as repeat, no initial tests could be found for this encounter.`
-          );
+          await expect(error).toContainText(repeatTestErrorMessage(testName));
 
           // uncheck run as repeat and click order again
           await orderInHouseLabPage.clickRunAsRepeatForTest(testName);

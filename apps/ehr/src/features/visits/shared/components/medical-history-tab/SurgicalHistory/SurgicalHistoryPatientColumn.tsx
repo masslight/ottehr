@@ -23,7 +23,11 @@ export const SurgicalHistoryPatientColumn: FC = () => {
     (observation) => observation.field === AiObservationField.PastSurgicalHistory
   ) as ObservationTextFieldDTO[];
 
-  const { onSubmit, values: existingSurgicalHistory } = useChartDataArrayValue('surgicalHistory', undefined, {});
+  const {
+    onSubmit,
+    values: existingSurgicalHistory,
+    isDataReady,
+  } = useChartDataArrayValue('surgicalHistory', undefined, {});
 
   const isAlreadyApplied = useCallback(
     (mappedData: MappedItemData) => {
@@ -80,7 +84,7 @@ export const SurgicalHistoryPatientColumn: FC = () => {
             chartData={chartData}
             content={expandedContent}
             mappedSuggestions={mappedSuggestions}
-            onSuggestionClick={!isReadOnly ? handleSuggestionClick : undefined}
+            onSuggestionClick={!isReadOnly && isDataReady ? handleSuggestionClick : undefined}
             appliedIndices={effectiveAppliedIndices}
             hintArea="surgical history"
           />

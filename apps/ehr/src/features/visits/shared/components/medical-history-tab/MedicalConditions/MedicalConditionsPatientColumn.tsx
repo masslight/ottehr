@@ -23,7 +23,7 @@ export const MedicalConditionsPatientColumn: FC = () => {
     (observation) => observation.field === AiObservationField.PastMedicalHistory
   ) as ObservationTextFieldDTO[];
 
-  const { onSubmit, values: existingConditions } = useChartDataArrayValue('conditions');
+  const { onSubmit, values: existingConditions, isDataReady } = useChartDataArrayValue('conditions');
 
   const isAlreadyApplied = useCallback(
     (mappedData: MappedItemData) => {
@@ -82,7 +82,7 @@ export const MedicalConditionsPatientColumn: FC = () => {
             chartData={chartData}
             content={expandedContent}
             mappedSuggestions={mappedSuggestions}
-            onSuggestionClick={!isReadOnly ? handleSuggestionClick : undefined}
+            onSuggestionClick={!isReadOnly && isDataReady ? handleSuggestionClick : undefined}
             appliedIndices={effectiveAppliedIndices}
             hintArea="medical conditions"
           />
