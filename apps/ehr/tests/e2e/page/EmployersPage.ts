@@ -15,7 +15,7 @@ export class EmployersPage {
   }
 
   async searchEmployers(text: string): Promise<void> {
-    await this.page.getByLabel('Employer').fill(text);
+    await this.page.getByRole('textbox', { name: 'Employer' }).fill(text);
   }
 
   async verifyEmployerVisible(name: string): Promise<void> {
@@ -105,7 +105,7 @@ export class EmployerDialogPage {
   }
 
   async expectSnackbar(text: string | RegExp): Promise<void> {
-    await expect(this.page.locator('div[id=notistack-snackbar]')).toContainText(text, { timeout: 15000 });
+    await expect(this.page.locator('.notistack-SnackbarContainer').getByText(text)).toBeVisible(DEFAULT_TIMEOUT);
   }
 }
 
