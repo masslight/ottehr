@@ -149,7 +149,7 @@ export const fillMeta = (code: string, system: string): Meta => ({
 
 export const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 
-export const rcmMeta = (type: 'fee-schedule' | 'charge-master' | 'invoice-config'): Meta => ({
+export const rcmMeta = (type: 'fee-schedule' | 'charge-master' | 'invoice-config' | 'dunning-config'): Meta => ({
   tag: [
     { system: RCM_TAG_SYSTEM, code: 'rcm' },
     { system: RCM_TAG_SYSTEM, code: type },

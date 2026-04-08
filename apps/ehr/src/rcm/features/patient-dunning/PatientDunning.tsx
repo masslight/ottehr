@@ -1,15 +1,18 @@
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import SaveIcon from '@mui/icons-material/Save';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
+  Alert,
   Box,
   Button,
   Checkbox,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -25,6 +28,7 @@ import {
   Paper,
   Select,
   SelectChangeEvent,
+  Snackbar,
   Stack,
   Switch,
   Tab,
@@ -35,6 +39,10 @@ import {
 import { useEditor } from '@tiptap/react';
 import React, { ReactElement, useRef, useState } from 'react';
 import { TemplateEditorField } from 'src/rcm/features/invoicing/InvoiceTemplateEditor';
+import {
+  useGetDunningConfigQuery,
+  useSaveDunningConfigMutation,
+} from 'src/rcm/state/dunning-config/dunning-config.queries';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -650,12 +658,30 @@ function ActionConfigEditor({
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export default function PatientDunning(): ReactElement {
+  const { data: dunningConfigData, isLoading, error: loadError } = useGetDunningConfigQuery();
+  const saveMutation = useSaveDunningConfigMutation();
   const [actions, setActions] = React.useState<DunningAction[]>(INITIAL_ACTIONS);
+  const [hasLoadedFromServer, setHasLoadedFromServer] = React.useState(false);
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [newActionType, setNewActionType] = React.useState<ActionType>('send-notification');
   const [newTriggerEvent, setNewTriggerEvent] = React.useState<TriggerEvent>('invoice-due');
   const [newDaysAfter, setNewDaysAfter] = React.useState(0);
   const [deleteConfirmAction, setDeleteConfirmAction] = React.useState<DunningAction | null>(null);
+  const [snackbar, setSnackbar] = React.useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
+
+  // Load actions from server when data arrives
+  React.useEffect(() => {
+    if (dunningConfigData?.actions && !hasLoadedFromServer) {
+      if (dunningConfigData.actions.length > 0) {
+        setActions(dunningConfigData.actions as DunningAction[]);
+      }
+      setHasLoadedFromServer(true);
+    }
+  }, [dunningConfigData, hasLoadedFromServer]);
 
   const sortedActions = React.useMemo(() => {
     const eventOrder: Record<TriggerEvent, number> = {
@@ -688,6 +714,32 @@ export default function PatientDunning(): ReactElement {
     setNewDaysAfter(0);
   };
 
+  const handleSave = (): void => {
+    saveMutation.mutate(
+      { actions },
+      {
+        onSuccess: () => setSnackbar({ open: true, message: 'Dunning configuration saved', severity: 'success' }),
+        onError: (err) => setSnackbar({ open: true, message: `Failed to save: ${err.message}`, severity: 'error' }),
+      }
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Box sx={{ mt: 2 }}>
+        <Alert severity="error">Failed to load dunning configuration: {loadError.message}</Alert>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ mt: 2 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
@@ -700,14 +752,26 @@ export default function PatientDunning(): ReactElement {
             days from the trigger event.
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setAddDialogOpen(true)}
-          sx={{ textTransform: 'none' }}
-        >
-          Add Action
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setAddDialogOpen(true)}
+            sx={{ textTransform: 'none' }}
+          >
+            Add Action
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={saveMutation.isPending ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
+            onClick={handleSave}
+            disabled={saveMutation.isPending}
+            sx={{ textTransform: 'none' }}
+          >
+            Save
+          </Button>
+        </Stack>
       </Stack>
 
       {sortedActions.length === 0 && (
@@ -1122,6 +1186,22 @@ export default function PatientDunning(): ReactElement {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

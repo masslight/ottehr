@@ -1728,6 +1728,20 @@
       "src": "src/rcm/invoice-config/save-invoice-config/index",
       "zip": ".dist/zips/save-invoice-config.zip"
     },
+    "GET-DUNNING-CONFIG": {
+      "name": "get-dunning-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/dunning-config/get-dunning-config/index",
+      "zip": ".dist/zips/get-dunning-config.zip"
+    },
+    "SAVE-DUNNING-CONFIG": {
+      "name": "save-dunning-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/dunning-config/save-dunning-config/index",
+      "zip": ".dist/zips/save-dunning-config.zip"
+    },
     "ADMIN_LIST_IN_HOUSE_LABS": {
       "name": "admin-list-in-house-labs",
       "type": "http_auth",
