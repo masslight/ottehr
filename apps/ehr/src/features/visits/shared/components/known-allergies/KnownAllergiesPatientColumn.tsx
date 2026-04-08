@@ -31,7 +31,7 @@ export const KnownAllergiesPatientColumn: FC = () => {
     'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson'
   );
 
-  const { onSubmit, values: existingAllergies } = useChartDataArrayValue('allergies');
+  const { onSubmit, values: existingAllergies, isDataReady } = useChartDataArrayValue('allergies');
 
   const isAlreadyApplied = useCallback(
     (mappedData: MappedItemData) => {
@@ -101,7 +101,7 @@ export const KnownAllergiesPatientColumn: FC = () => {
             chartData={chartData}
             content={expandedContent}
             mappedSuggestions={mappedSuggestions}
-            onSuggestionClick={!isReadOnly ? handleSuggestionClick : undefined}
+            onSuggestionClick={!isReadOnly && isDataReady ? handleSuggestionClick : undefined}
             appliedIndices={effectiveAppliedIndices}
             hintArea="allergies"
           />

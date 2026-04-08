@@ -314,7 +314,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     console.log('Starting a transaction update of chart data...');
     await Promise.all([
       oystehr.fhir.transaction({
-        requests: deleteOrUpdateRequests,
+        requests: deleteOrUpdateRequests.filter((request) => !request.url.endsWith('undefined')),
       }),
       specialRulesDeletions,
     ]);

@@ -160,19 +160,7 @@ export const performEffect = async (
       }
     };
 
-    // Check if we should skip making visit note available to patient portal
-    const skipSendingVisitNoteToPatientPortal = isFeatureFlagEnabled(
-      'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG',
-      secrets
-    );
-
-    let visitNoteCreatedSuccessfully = false;
-
-    if (!skipSendingVisitNoteToPatientPortal) {
-      visitNoteCreatedSuccessfully = await createVisitNoteForPatientPortal();
-    } else {
-      console.log('Skipping visit note creation and email to patient portal - feature flag is enabled');
-    }
+    const visitNoteCreatedSuccessfully = await createVisitNoteForPatientPortal();
 
     let candidEncounterId: string | undefined;
     try {
@@ -272,8 +260,14 @@ export const performEffect = async (
         });
       }
     }
-    // Send email notification only if visit note was created successfully
-    if (visitNoteCreatedSuccessfully) {
+
+    const skipVisitNoteInPatientPortal = isFeatureFlagEnabled(
+      'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG',
+      secrets
+    );
+
+    // Send email notification only if visit note was created successfully and not suppressed
+    if (visitNoteCreatedSuccessfully && !skipVisitNoteInPatientPortal) {
       const emailClient = getEmailClient(secrets);
       const emailEnabled = emailClient.getFeatureFlag();
       const patientEmail = getPatientContactEmail(patient);
