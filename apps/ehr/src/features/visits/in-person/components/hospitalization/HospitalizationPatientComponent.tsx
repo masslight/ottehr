@@ -20,11 +20,7 @@ export const HospitalizationPatientComponent: FC = () => {
     (observation) => observation.field === AiObservationField.HospitalizationsHistory
   ) as ObservationTextFieldDTO[];
 
-  const {
-    onSubmit,
-    values: existingHospitalizations,
-    isDataReady,
-  } = useChartDataArrayValue('episodeOfCare', undefined, {});
+  const { onSubmit, values: existingHospitalizations } = useChartDataArrayValue('episodeOfCare', undefined, {});
 
   const isAlreadyApplied = useCallback(
     (mappedData: MappedItemData) => {
@@ -80,7 +76,7 @@ export const HospitalizationPatientComponent: FC = () => {
             chartData={chartData}
             content={expandedContent}
             mappedSuggestions={mappedSuggestions}
-            onSuggestionClick={!isReadOnly && isDataReady ? handleSuggestionClick : undefined}
+            onSuggestionClick={!isReadOnly ? handleSuggestionClick : undefined}
             appliedIndices={effectiveAppliedIndices}
             hintArea="hospitalizations"
           />
