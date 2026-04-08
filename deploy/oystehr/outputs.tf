@@ -34,6 +34,10 @@ output "sentry_project" {
   value = oystehr_secret.SENTRY_PROJECT.value
 }
 
+output "sentry_apps_project" {
+  value = oystehr_secret.SENTRY_APPS_PROJECT.value
+}
+
 output "sentry_apps_dsn" {
   value = oystehr_secret.SENTRY_APPS_DSN.value
 }
