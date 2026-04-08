@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Account, Appointment, Encounter, Location, Patient, Task, TaskOutput } from 'fhir/r4b';
+import { Account, Appointment, Encounter, Location, Patient, Schedule, Task, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   BRANDING_CONFIG,
   FHIR_RESOURCE_NOT_FOUND,
+  formatDateToMDYWithTime,
   getFullName,
   getPatientReferenceFromAccount,
   getSecret,
@@ -28,6 +29,7 @@ import {
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
   getStripeClient,
+  resolveTimezone,
   sendSmsForPatient,
   topLevelCatch,
   wrapHandler,
@@ -53,7 +55,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     try {
       console.log('Fetching fhir resources');
       const fhirResources = await getFhirResources(oystehr, encounterId);
-      const { patient, encounter, account, appointment, location, stripeAccountId } = fhirResources;
+      const { patient, encounter, account, appointment, location, schedule, stripeAccountId } = fhirResources;
       console.log('Fhir resources fetched');
 
       console.log('Getting stripe and candid ids');
@@ -64,8 +66,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('Stripe and candid ids retrieved');
 
       const locationName = location?.name;
-      const visitDateObj = DateTime.fromISO(appointment.start ?? '');
-      const visitDate = visitDateObj.isValid ? visitDateObj.toFormat('MM/dd/yyyy') : undefined;
+      const timezone = resolveTimezone(schedule, location);
+      const visitDate = formatDateToMDYWithTime(appointment.start, timezone)?.date;
       const patientPortalUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
       if (!visitDate) throw new Error('visit date is missing required field');
 
@@ -215,6 +217,7 @@ async function getFhirResources(
   appointment: Appointment;
   stripeAccountId?: string;
   location?: Location;
+  schedule?: Schedule;
 }> {
   const response = (
     await oystehr.fhir.search({
@@ -239,6 +242,10 @@ async function getFhirResources(
         {
           name: '_revinclude:iterate',
           value: 'Account:patient',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Schedule:actor',
         },
       ],
     })
@@ -271,6 +278,7 @@ async function getFhirResources(
     location = response.find((res) => res.resourceType === 'Location' && res.id === locationId) as Location;
     if (!location) throw FHIR_RESOURCE_NOT_FOUND('Location');
   } else console.log("Appointment doesn't have location id");
+  const schedule = response.find((res) => res.resourceType === 'Schedule') as Schedule | undefined;
   const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);
 
   console.log('Fhir encounter found: ', encounter.id);
@@ -286,6 +294,7 @@ async function getFhirResources(
     account,
     appointment,
     location,
+    schedule,
     stripeAccountId: stripeAccount,
   };
 }
