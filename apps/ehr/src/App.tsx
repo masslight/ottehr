@@ -249,6 +249,7 @@ function App(): ReactElement {
                   <Route path="/admin/in-house-labs/add" element={<AdminAddInHouseLab />} />
                   <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
                   {/** telemed */}
+
                   <Route
                     path="/telemed/appointments"
                     element={
