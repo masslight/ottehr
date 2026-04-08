@@ -57,6 +57,8 @@ const queryClient = new QueryClient({
   },
 });
 
+console.log('this is what we have to do to run the e2e tests in CI in core');
+
 export const BOOKING_SLOT_ID_PARAM = 'slotId';
 export const BOOKING_SERVICE_MODE_PARAM = 'service_mode';
 export const BOOKING_SCHEDULE_TYPE_QUERY_PARAM = 'scheduleType';
