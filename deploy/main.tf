@@ -103,7 +103,7 @@ module "ottehr_apps" {
     SENTRY_AUTH_TOKEN                = module.oystehr.sentry_auth_token
     SENTRY_ORG                       = module.oystehr.sentry_org
     SENTRY_PROJECT                   = module.oystehr.sentry_project
-    SENTRY_DSN                       = module.oystehr.sentry_dsn
+    SENTRY_DSN                       = module.oystehr.sentry_apps_dsn
     SENTRY_ENV                       = var.environment
     SENTRY_TAGS                      = module.oystehr.sentry_tags
   }
@@ -121,7 +121,7 @@ module "ottehr_apps" {
     SENTRY_AUTH_TOKEN             = module.oystehr.sentry_auth_token
     SENTRY_ORG                    = module.oystehr.sentry_org
     SENTRY_PROJECT                = module.oystehr.sentry_project
-    SENTRY_DSN                    = module.oystehr.sentry_dsn
+    SENTRY_DSN                    = module.oystehr.sentry_apps_dsn
     SENTRY_ENV                    = var.environment
     SENTRY_TAGS                   = module.oystehr.sentry_tags
   }
