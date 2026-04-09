@@ -1,7 +1,8 @@
 import AddIcon from '@mui/icons-material/Add';
+import CheckIcon from '@mui/icons-material/Check';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import SaveIcon from '@mui/icons-material/Save';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Accordion,
@@ -43,6 +44,7 @@ import {
   useGetDunningConfigQuery,
   useSaveDunningConfigMutation,
 } from 'src/rcm/state/dunning-config/dunning-config.queries';
+import { buildInvoicePlaceholders, InvoicePlaceholderInput } from 'utils';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -164,16 +166,18 @@ function getActionMediumsSummary(action: DunningAction): ActionMediumsSummary {
   return { combined: [], successMediums: [], failureMediums: [], isChargeCard: false };
 }
 
-const SAMPLE_PREVIEW_VALUES: Record<string, string> = {
-  'patient-full-name': 'Jane Smith',
+const SAMPLE_INPUT: InvoicePlaceholderInput = {
+  patientFullName: 'Jane Smith',
   clinic: 'Ottehr Clinic',
   location: 'Washington, DC',
-  'visit-date': '2026-03-15',
-  'due-date': '2026-03-29',
-  amount: '$125.00',
-  'invoice-link': 'https://payments.ottehr.com/inv/abc123',
-  'patient-portal-link': 'https://patient.ottehr.com/',
+  visitDate: '2026-03-15',
+  dueDate: '2026-03-29',
+  amountCents: 12500,
+  invoiceLink: 'https://payments.ottehr.com/inv/abc123',
+  patientPortalLink: 'https://patient.ottehr.com/',
 };
+
+const SAMPLE_PREVIEW_VALUES = buildInvoicePlaceholders(SAMPLE_INPUT);
 
 const DEFAULT_SMS_TEMPLATE =
   'Hi {{patient-full-name}}, you have an outstanding balance of {{amount}} for your visit at {{clinic}}. Pay now: {{invoice-link}}';
@@ -189,107 +193,15 @@ function defaultNotificationConfig(): NotificationConfig {
   };
 }
 
-// ── Stub data ──────────────────────────────────────────────────────────────
-
-const INITIAL_ACTIONS: DunningAction[] = [
-  {
-    id: '1',
-    trigger: { event: 'invoice-due', daysAfter: 0 },
-    actionType: 'charge-card',
-    chargeCardConfig: {
-      onSuccess: {
-        enabled: true,
-        mediums: ['email'],
-        smsTemplate: '',
-        emailTemplate:
-          'Dear {{patient-full-name}},\n\nYour payment of {{amount}} for your visit at {{clinic}} on {{visit-date}} has been successfully processed.\n\nThank you,\n{{clinic}}',
-      },
-      onFailure: {
-        enabled: true,
-        mediums: ['email', 'sms'],
-        smsTemplate:
-          'Hi {{patient-full-name}}, we were unable to charge your card for {{amount}}. Please update your payment method: {{patient-portal-link}}',
-        emailTemplate:
-          'Dear {{patient-full-name}},\n\nWe were unable to process your payment of {{amount}} for your visit on {{visit-date}} at {{clinic}}.\n\nPlease update your payment method or pay online: {{invoice-link}}\n\nThank you,\n{{clinic}}',
-      },
-      retryAttempts: 2,
-      retryIntervalDays: 3,
-    },
-  },
-  {
-    id: '2',
-    trigger: { event: 'invoice-due', daysAfter: 3 },
-    actionType: 'send-notification',
-    sendNotificationConfig: {
-      mediums: ['email', 'sms'],
-      smsTemplate:
-        'Hi {{patient-full-name}}, friendly reminder: you have a balance of {{amount}} due on {{due-date}} for your visit at {{clinic}}. Pay here: {{invoice-link}}',
-      emailTemplate:
-        'Dear {{patient-full-name}},\n\nThis is a friendly reminder that your balance of {{amount}} for your visit on {{visit-date}} at {{clinic}} is due on {{due-date}}.\n\nPay online: {{invoice-link}}\n\nThank you,\n{{clinic}}',
-    },
-  },
-  {
-    id: '3',
-    trigger: { event: 'invoice-due', daysAfter: 14 },
-    actionType: 'charge-card',
-    chargeCardConfig: {
-      onSuccess: {
-        enabled: true,
-        mediums: ['email'],
-        smsTemplate: '',
-        emailTemplate:
-          'Dear {{patient-full-name}},\n\nYour payment of {{amount}} has been successfully processed.\n\nThank you,\n{{clinic}}',
-      },
-      onFailure: {
-        enabled: true,
-        mediums: ['email', 'sms', 'paper-mail'],
-        smsTemplate:
-          'URGENT: {{patient-full-name}}, payment of {{amount}} failed. Your account is past due. Update payment: {{patient-portal-link}}',
-        emailTemplate:
-          'Dear {{patient-full-name}},\n\nYour payment of {{amount}} for your visit on {{visit-date}} could not be processed. Your account is now past due.\n\nPlease pay immediately: {{invoice-link}}\n\nIf we do not receive payment, further collection action may be taken.\n\n{{clinic}}',
-      },
-      retryAttempts: 3,
-      retryIntervalDays: 5,
-    },
-  },
-  {
-    id: '4',
-    trigger: { event: 'invoice-due', daysAfter: 21 },
-    actionType: 'send-notification',
-    sendNotificationConfig: {
-      mediums: ['email', 'paper-mail'],
-      smsTemplate: '',
-      emailTemplate:
-        'Dear {{patient-full-name}},\n\nYour account with {{clinic}} has an overdue balance of {{amount}} from your visit on {{visit-date}}.\n\nThis is an urgent notice. Please pay immediately to avoid referral to a collections agency.\n\nPay online: {{invoice-link}}\n\n{{clinic}}',
-    },
-  },
-  {
-    id: '5',
-    trigger: { event: 'invoice-due', daysAfter: 45 },
-    actionType: 'send-notification',
-    sendNotificationConfig: {
-      mediums: ['paper-mail'],
-      smsTemplate: '',
-      emailTemplate: '',
-    },
-  },
-  {
-    id: '6',
-    trigger: { event: 'invoice-due', daysAfter: 90 },
-    actionType: 'refer-to-collections',
-    referToCollectionsConfig: {
-      agency: 'National Recovery Agency',
-      minimumBalance: 50,
-      includePaymentHistory: true,
-    },
-  },
-];
-
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-let nextId = 100;
+/** Common props for numeric TextFields: select-all on focus. */
+const numericFieldProps = {
+  onFocus: (e: React.FocusEvent<HTMLInputElement>) => e.target.select(),
+};
+
 function genId(): string {
-  return String(nextId++);
+  return crypto.randomUUID();
 }
 
 function buildDefaultConfig(actionType: ActionType): Partial<DunningAction> {
@@ -498,18 +410,28 @@ function ChargeCardConfigEditor({
           type="number"
           size="small"
           value={config.retryAttempts}
-          onChange={(e) => onChange({ ...config, retryAttempts: Math.max(0, parseInt(e.target.value) || 0) })}
+          onChange={(e) =>
+            onChange({
+              ...config,
+              retryAttempts: e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0),
+            })
+          }
           sx={{ width: 70 }}
-          inputProps={{ min: 0, max: 10 }}
+          inputProps={{ min: 0, max: 10, ...numericFieldProps }}
         />
         <Typography variant="body2">time(s) every</Typography>
         <TextField
           type="number"
           size="small"
           value={config.retryIntervalDays}
-          onChange={(e) => onChange({ ...config, retryIntervalDays: Math.max(1, parseInt(e.target.value) || 1) })}
+          onChange={(e) =>
+            onChange({
+              ...config,
+              retryIntervalDays: e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0),
+            })
+          }
           sx={{ width: 70 }}
-          inputProps={{ min: 1, max: 90 }}
+          inputProps={{ min: 0, max: 90, ...numericFieldProps }}
         />
         <Typography variant="body2">day(s)</Typography>
       </Stack>
@@ -605,9 +527,14 @@ function CollectionsConfigEditor({
         type="number"
         size="small"
         value={config.minimumBalance}
-        onChange={(e) => onChange({ ...config, minimumBalance: Math.max(0, parseFloat(e.target.value) || 0) })}
+        onChange={(e) =>
+          onChange({
+            ...config,
+            minimumBalance: e.target.value === '' ? 0 : Math.max(0, parseFloat(e.target.value) || 0),
+          })
+        }
         sx={{ width: 200 }}
-        inputProps={{ min: 0, step: 5 }}
+        inputProps={{ min: 0, step: 5, ...numericFieldProps }}
       />
       <FormControlLabel
         control={
@@ -660,7 +587,7 @@ function ActionConfigEditor({
 export default function PatientDunning(): ReactElement {
   const { data: dunningConfigData, isLoading, error: loadError } = useGetDunningConfigQuery();
   const saveMutation = useSaveDunningConfigMutation();
-  const [actions, setActions] = React.useState<DunningAction[]>(INITIAL_ACTIONS);
+  const [actions, setActions] = React.useState<DunningAction[]>([]);
   const [hasLoadedFromServer, setHasLoadedFromServer] = React.useState(false);
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [newActionType, setNewActionType] = React.useState<ActionType>('send-notification');
@@ -699,7 +626,9 @@ export default function PatientDunning(): ReactElement {
   };
 
   const deleteAction = (id: string): void => {
-    setActions((prev) => prev.filter((a) => a.id !== id));
+    const updated = actions.filter((a) => a.id !== id);
+    setActions(updated);
+    saveActions(updated);
   };
 
   const handleAddAction = (): void => {
@@ -709,19 +638,25 @@ export default function PatientDunning(): ReactElement {
       actionType: newActionType,
       ...buildDefaultConfig(newActionType),
     };
-    setActions((prev) => [...prev, action]);
+    const updated = [...actions, action];
+    setActions(updated);
     setAddDialogOpen(false);
     setNewDaysAfter(0);
+    saveActions(updated);
   };
 
-  const handleSave = (): void => {
+  const saveActions = (actionsToSave: DunningAction[]): void => {
     saveMutation.mutate(
-      { actions },
+      { actions: actionsToSave },
       {
         onSuccess: () => setSnackbar({ open: true, message: 'Dunning configuration saved', severity: 'success' }),
         onError: (err) => setSnackbar({ open: true, message: `Failed to save: ${err.message}`, severity: 'error' }),
       }
     );
+  };
+
+  const handleSave = (): void => {
+    saveActions(actions);
   };
 
   if (isLoading) {
@@ -754,22 +689,20 @@ export default function PatientDunning(): ReactElement {
         </Box>
         <Stack direction="row" spacing={1}>
           <Button
-            variant="contained"
+            variant="outlined"
             startIcon={<AddIcon />}
             onClick={() => setAddDialogOpen(true)}
-            sx={{ textTransform: 'none' }}
+            sx={{ textTransform: 'none', borderRadius: 100 }}
           >
             Add Action
           </Button>
           <Button
             variant="contained"
-            color="success"
-            startIcon={saveMutation.isPending ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
             onClick={handleSave}
             disabled={saveMutation.isPending}
-            sx={{ textTransform: 'none' }}
+            sx={{ textTransform: 'none', borderRadius: 100 }}
           >
-            Save
+            {saveMutation.isPending ? <CircularProgress size={18} color="inherit" /> : 'Save'}
           </Button>
         </Stack>
       </Stack>
@@ -944,11 +877,14 @@ export default function PatientDunning(): ReactElement {
                     onChange={(e) =>
                       updateAction({
                         ...action,
-                        trigger: { ...action.trigger, daysAfter: Math.max(0, parseInt(e.target.value) || 0) },
+                        trigger: {
+                          ...action.trigger,
+                          daysAfter: e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0),
+                        },
                       })
                     }
                     sx={{ width: 150 }}
-                    inputProps={{ min: 0 }}
+                    inputProps={{ min: 0, ...numericFieldProps }}
                   />
                   <FormControl size="small" sx={{ minWidth: 240 }}>
                     <InputLabel>Action Type</InputLabel>
@@ -1157,8 +1093,8 @@ export default function PatientDunning(): ReactElement {
               size="small"
               fullWidth
               value={newDaysAfter}
-              onChange={(e) => setNewDaysAfter(Math.max(0, parseInt(e.target.value) || 0))}
-              inputProps={{ min: 0 }}
+              onChange={(e) => setNewDaysAfter(e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0))}
+              inputProps={{ min: 0, ...numericFieldProps }}
             />
             <FormControl size="small" fullWidth>
               <InputLabel>Action Type</InputLabel>
@@ -1202,6 +1138,48 @@ export default function PatientDunning(): ReactElement {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {dunningConfigData?.planDefinition?.id && <DunningConfigId value={dunningConfigData.planDefinition.id} />}
     </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// DunningConfigId — copyable FHIR resource ID footer
+// ---------------------------------------------------------------------------
+
+function DunningConfigId({ value }: { value: string }): ReactElement {
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopy = (): void => {
+    void navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Tooltip title={copied ? 'Copied!' : 'Click to copy'}>
+      <Typography
+        variant="caption"
+        color="text.disabled"
+        onClick={handleCopy}
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 0.5,
+          mt: 3,
+          cursor: 'pointer',
+          userSelect: 'none',
+          fontFamily: 'monospace',
+        }}
+      >
+        Dunning Configuration ID: {value}
+        {copied ? (
+          <CheckIcon sx={{ fontSize: 13, color: 'success.main' }} />
+        ) : (
+          <ContentCopyIcon sx={{ fontSize: 13, color: 'text.disabled' }} />
+        )}
+      </Typography>
+    </Tooltip>
   );
 }
