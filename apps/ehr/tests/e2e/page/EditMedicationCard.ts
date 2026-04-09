@@ -82,8 +82,8 @@ export class EditMedicationCard {
   }
 
   async chooseOption(optionName: string, exact: boolean = false): Promise<void> {
-    await this.#page.getByRole('option', { name: optionName, exact }).waitFor({ state: 'visible' });
-    await this.#page.getByRole('option', { name: optionName, exact }).click();
+    await this.#page.getByRole('option', { name: optionName, exact }).first().waitFor({ state: 'visible' });
+    await this.#page.getByRole('option', { name: optionName, exact }).first().click();
   }
 
   async selectOrderedBy(orderedBy: string): Promise<void> {

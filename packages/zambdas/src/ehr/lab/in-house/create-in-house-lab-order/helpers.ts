@@ -14,6 +14,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   CODE_SYSTEM_CPT,
+  DataEntryTestItem,
   DiagnosisDTO,
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDC10_VALUESET_SYSTEM,
@@ -22,7 +23,6 @@ import {
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   REPEAT_TEST_CPT_CODE_MODIFIER,
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
-  TestItem,
 } from 'utils';
 import { fillMeta, makeCptModifierExtension } from '../../../../shared';
 import { createTask } from '../../../../shared/tasks';
@@ -30,14 +30,14 @@ import { createTask } from '../../../../shared/tasks';
 export interface TestItemRequestData {
   activityDefinition: ActivityDefinition;
   serviceRequests: ServiceRequest[] | undefined;
-  orderMode: TestItem['orderMode'];
+  orderMode: DataEntryTestItem['orderMode'];
   parentTestCanonicalUrl: string | undefined; // for tests being run as reflex
 }
 
 export interface TestItemResources {
   activityDefinition: ActivityDefinition;
   initialServiceRequest: ServiceRequest | undefined;
-  orderMode: TestItem['orderMode'];
+  orderMode: DataEntryTestItem['orderMode'];
 }
 
 export interface CreateInHouseLabResources {

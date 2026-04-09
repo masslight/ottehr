@@ -1,7 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
 import CancelIcon from '@mui/icons-material/Cancel';
-import CircleIcon from '@mui/icons-material/Circle';
 import DownloadIcon from '@mui/icons-material/Download';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -40,6 +39,7 @@ import {
   getOrCreateVisitDetailsPdf,
   getPatientVisitDetails,
   getPatientVisitFiles,
+  getVisitFaxHistory,
   updatePatientVisitDetails,
   updateVisitFiles,
 } from 'src/api/api';
@@ -71,9 +71,11 @@ import {
   getReasonForVisitOptionsForServiceCategory,
   getTelemedVisitStatus,
   getUnconfirmedDOBForAppointment,
+  GetVisitFaxHistoryOutput,
   isApiError,
   isInPersonAppointment,
   isTelemedAppointment,
+  makeAbbreviation,
   OrderedCoveragesWithSubscribers,
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
@@ -121,7 +123,6 @@ import {
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
-import { appointmentTypeLabels, fhirAppointmentTypeToVisitType, visitTypeToTelemedLabel } from '../types/types';
 import { PatientAccountComponent } from './PatientInformationPage';
 
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
@@ -476,6 +477,19 @@ export default function VisitDetailsPage(): ReactElement {
   const patientId = patient?.id;
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
 
+  const { data: faxData, isLoading: faxLoading } = useQuery({
+    queryKey: ['get-visit-fax-history', appointmentID],
+
+    queryFn: async (): Promise<GetVisitFaxHistoryOutput> => {
+      if (oystehrZambda && appointmentID) {
+        return getVisitFaxHistory(oystehrZambda, { appointmentId: appointmentID });
+      }
+      throw new Error('fhir client not defined or appointmentId not provided');
+    },
+
+    enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+  });
+
   const {
     data: patientBalancesData,
     isLoading: patientBalancesLoading,
@@ -675,20 +689,22 @@ export default function VisitDetailsPage(): ReactElement {
   const appointmentTime = appointmentStartTime.toLocaleString(DateTime.TIME_SIMPLE);
   const appointmentDate = formatDateForDisplay(appointmentStartTime.toISO() || '', locationTimeZone);
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  const serviceCategoryLabel =
+    BOOKING_CONFIG.serviceCategories.find((category) => category.code === serviceCategory)?.display ??
+    serviceCategory ??
+    '';
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
   const unconfirmedDOB = appointment && getUnconfirmedDOBForAppointment(appointment);
   const getAppointmentType = (appointmentType: FhirAppointmentType | undefined): string => {
-    if (!appointmentType) {
-      return '';
-    }
-
-    if (isInPerson) {
-      return appointmentTypeLabels[appointmentType] || '';
-    } else {
-      return visitTypeToTelemedLabel[fhirAppointmentTypeToVisitType[appointmentType]] || '';
-    }
+    return appointmentType === 'prebook'
+      ? 'Scheduled'
+      : appointmentType === 'walkin'
+      ? 'On Demand'
+      : appointmentType === 'posttelemed'
+      ? 'Post Telemed'
+      : '';
   };
 
   const { nameLastModified, dobLastModified } = useMemo(() => {
@@ -709,13 +725,14 @@ export default function VisitDetailsPage(): ReactElement {
         const history = await getAppointmentAndPatientHistory(appointment, oystehr);
         if (history) {
           if (logs) {
-            const activityLogs = formatActivityLogs(
+            const activityLogs = formatActivityLogs({
               appointment,
-              history.appointmentHistory,
-              history.patientHistory,
-              undefined,
-              locationTimeZone
-            );
+              appointmentHistory: history.appointmentHistory,
+              patientHistory: history.patientHistory,
+              faxesSent: faxData?.faxesSent,
+              paperworkStartedFlag: undefined,
+              timezone: locationTimeZone,
+            });
             setActivityLogs(activityLogs);
           }
           if (notes) {
@@ -726,17 +743,17 @@ export default function VisitDetailsPage(): ReactElement {
         setActivityLogsLoading(false);
       }
     },
-    [appointment, oystehr, locationTimeZone]
+    [appointment, oystehr, locationTimeZone, faxData?.faxesSent]
   );
 
   useEffect(() => {
-    if (!activityLogs && appointment && locationTimeZone && oystehr) {
+    if (!activityLogs && !faxLoading && appointment && locationTimeZone && oystehr) {
       getAndSetHistoricResources({ logs: true, notes: true }).catch((error) => {
         console.error('error getting activity logs', error);
         setActivityLogsLoading(false);
       });
     }
-  }, [activityLogs, setActivityLogs, appointment, locationTimeZone, oystehr, getAndSetHistoricResources]);
+  }, [activityLogs, setActivityLogs, appointment, locationTimeZone, oystehr, getAndSetHistoricResources, faxLoading]);
 
   useEffect(() => {
     if (appointment && encounter) {
@@ -973,16 +990,18 @@ export default function VisitDetailsPage(): ReactElement {
                 </Box>
               )}
 
-              <CircleIcon
-                sx={{ color: 'primary.main', width: '10px', height: '10px', marginLeft: 2, alignSelf: 'center' }}
-              />
               {/* appointment start time as AM/PM and then date */}
               {loading || !appointment ? (
                 <Skeleton sx={{ marginLeft: 2 }} aria-busy="true" width={200} />
               ) : (
                 <>
+                  <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 4 }}>
+                    {isInPerson ? 'In-Person' : 'Virtual'}
+                    {' | '}
+                    {makeAbbreviation(serviceCategoryLabel)}
+                  </Typography>
                   <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 1 }}>
-                    {getAppointmentType(appointmentType ?? '')}
+                    {getAppointmentType(appointmentType)}
                   </Typography>
                   <Typography sx={{ alignSelf: 'center', marginLeft: 1 }} fontWeight="bold">
                     {appointmentTime}
@@ -1188,11 +1207,7 @@ export default function VisitDetailsPage(): ReactElement {
                                 "Patient's date of birth (Unmatched)": formatDateForDisplay(unconfirmedDOB),
                               }
                             : {}),
-                          'Service category':
-                            BOOKING_CONFIG.serviceCategories.find((category) => category.code === serviceCategory)
-                              ?.display ??
-                            serviceCategory ??
-                            '',
+                          'Service category': serviceCategoryLabel,
                           'Reason for visit': `${reasonForVisit} ${additionalDetails ? `- ${additionalDetails}` : ''}`,
                           'Authorized non-legal guardian(s)': patient?.extension?.find(
                             (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url

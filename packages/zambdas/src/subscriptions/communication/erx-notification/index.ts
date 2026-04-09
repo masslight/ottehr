@@ -44,7 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const task = createTask({
       category: ERX_TASK.category,
-      title: 'Provide [name] has notifications in DoseSpot',
+      title: `Provider ${practitionerName} has notifications in DoseSpot`,
       code: {
         system: ERX_TASK.system,
         code: ERX_TASK.code.providerNotification,

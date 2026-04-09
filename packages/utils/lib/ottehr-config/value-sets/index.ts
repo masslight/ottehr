@@ -1,5 +1,5 @@
 // cSpell:ignore AUTOPOL, Champus, LIAB, MCPOL, medib, PUBLICPOL, WCBPOL
-import { NetworkType } from 'candidhealth/api';
+import { NetworkType } from 'candidhealth/api/index.js';
 import { type InsurancePlanType as BaseInsurancePlanType, type ValueSetsConfig } from 'config-types';
 import { deepFreezeObject } from '../../utils/objects';
 

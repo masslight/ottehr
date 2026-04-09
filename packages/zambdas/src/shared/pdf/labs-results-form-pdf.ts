@@ -23,7 +23,7 @@ import {
   BRANDING_CONFIG,
   BUCKET_NAMES,
   compareDates,
-  convertActivityDefinitionToTestItem,
+  convertActivityDefinitionToDataEntryTestItem,
   createFilesDocumentReferences,
   EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
   formatPhoneNumberDisplay,
@@ -65,7 +65,6 @@ import {
   quantityRangeFormat,
   Secrets,
   SupportedObsImgAttachmentTypes,
-  TestItemComponent,
 } from 'utils';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/lab/external/submit-lab-order/helpers';
 import { getObservationsForDiagnosticReportResults } from '../../ehr/lab/shared/helpers';
@@ -1556,7 +1555,8 @@ const getFormattedInHouseLabResults = async (
     throw new Error('in-house lab collection date is not defined');
   }
 
-  const specimenSource = specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || '';
+  const specimenSource =
+    specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || 'Not provided';
   const finalResultDateTime = DateTime.fromISO(provenance.recorded);
 
   const collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime)
@@ -1564,8 +1564,8 @@ const getFormattedInHouseLabResults = async (
     .toFormat(LABS_DATE_STRING_FORMAT);
 
   const results: InHouseLabResult[] = [];
-  const components = convertActivityDefinitionToTestItem(activityDefinition, observations).components;
-  const componentsAll: TestItemComponent[] = [...components.radioComponents, ...components.groupedComponents];
+  const components = convertActivityDefinitionToDataEntryTestItem(activityDefinition, observations).components;
+  const componentsAll = components.type === 'grouped' || components.type === 'radio' ? components.components : [];
   const interpretationByComponentIdMap = new Map<string, Coding | undefined>(
     observations
       .map((ob) => {
