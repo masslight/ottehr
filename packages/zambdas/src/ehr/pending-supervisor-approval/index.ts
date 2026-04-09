@@ -7,20 +7,12 @@ import {
   findExtensionIndex,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
-  getSecret,
   getTaskResource,
   PendingSupervisorApprovalInputValidated,
-  SecretsKeys,
   TaskIndicator,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -44,103 +36,98 @@ export const index = wrapHandler(
       };
     }
 
-    try {
-      const { encounterId, practitionerId, secrets } = validatedParameters;
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      const oystehr = createOystehrClient(m2mToken, secrets);
+    const { encounterId, practitionerId, secrets } = validatedParameters;
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
-      const encounter = (
-        await oystehr.fhir.search<Encounter>({
-          resourceType: 'Encounter',
-          params: [
-            {
-              name: '_id',
-              value: encounterId,
-            },
-          ],
-        })
-      ).unbundle()[0];
-
-      const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
-
-      const encounterPatchOps: Operation[] = [
-        {
-          op: 'replace',
-          path: '/status',
-          value: encounterStatus,
-        },
-      ];
-
-      // Add statusHistory with Ottehr status extension
-      const statusHistoryUpdate = getEncounterStatusHistoryUpdateOp(
-        encounter,
-        encounterStatus,
-        'awaiting supervisor approval'
-      );
-
-      encounterPatchOps.push(statusHistoryUpdate);
-
-      const awaitingSupervisorApprovalExtension = createExtensionValue(
-        'awaiting-supervisor-approval',
-        true,
-        'valueBoolean'
-      );
-      const existingExtensionIndex = findExtensionIndex(encounter.extension ?? [], 'awaiting-supervisor-approval');
-
-      if (existingExtensionIndex >= 0) {
-        encounterPatchOps.push({
-          op: 'replace',
-          path: `/extension/${existingExtensionIndex}`,
-          value: awaitingSupervisorApprovalExtension,
-        });
-      } else {
-        encounterPatchOps.push({
-          op: 'add',
-          path: encounter.extension ? '/extension/-' : '/extension',
-          value: encounter.extension ? awaitingSupervisorApprovalExtension : [awaitingSupervisorApprovalExtension],
-        });
-      }
-
-      const encounterPatch = getPatchBinary({
+    const encounter = (
+      await oystehr.fhir.search<Encounter>({
         resourceType: 'Encounter',
-        resourceId: encounter.id!,
-        patchOperations: encounterPatchOps,
+        params: [
+          {
+            name: '_id',
+            value: encounterId,
+          },
+        ],
+      })
+    ).unbundle()[0];
+
+    const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
+
+    const encounterPatchOps: Operation[] = [
+      {
+        op: 'replace',
+        path: '/status',
+        value: encounterStatus,
+      },
+    ];
+
+    // Add statusHistory with Ottehr status extension
+    const statusHistoryUpdate = getEncounterStatusHistoryUpdateOp(
+      encounter,
+      encounterStatus,
+      'awaiting supervisor approval'
+    );
+
+    encounterPatchOps.push(statusHistoryUpdate);
+
+    const awaitingSupervisorApprovalExtension = createExtensionValue(
+      'awaiting-supervisor-approval',
+      true,
+      'valueBoolean'
+    );
+    const existingExtensionIndex = findExtensionIndex(encounter.extension ?? [], 'awaiting-supervisor-approval');
+
+    if (existingExtensionIndex >= 0) {
+      encounterPatchOps.push({
+        op: 'replace',
+        path: `/extension/${existingExtensionIndex}`,
+        value: awaitingSupervisorApprovalExtension,
       });
-
-      const provenanceCreate: BatchInputRequest<Provenance> = {
-        method: 'POST',
-        url: '/Provenance',
-        resource: createProvenanceForEncounter(encounter.id!, practitionerId, 'author'),
-      };
-
-      await oystehr.fhir.transaction({
-        requests: [encounterPatch, provenanceCreate] as BatchInputRequest<FhirResource>[],
+    } else {
+      encounterPatchOps.push({
+        op: 'add',
+        path: encounter.extension ? '/extension/-' : '/extension',
+        value: encounter.extension ? awaitingSupervisorApprovalExtension : [awaitingSupervisorApprovalExtension],
       });
-
-      console.log(`Updated encounter: ${encounter.id}.`);
-      const appointmentId = encounter.appointment?.[0].reference?.split('/')[1];
-
-      if (appointmentId === undefined) {
-        throw new Error('Appointment ID is not defined');
-      }
-
-      const visitNoteAndEmailTaskResource = getTaskResource(
-        TaskIndicator.visitNotePDFAndEmail,
-        'Require supervisor approval',
-        appointmentId
-      );
-      const taskCreationResults = await oystehr.fhir.create(visitNoteAndEmailTaskResource);
-      console.log('Task creation results ', taskCreationResults);
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          message: `Successfully updated visit #${appointmentId} to await supervisor approval`,
-        }),
-      };
-    } catch (error: any) {
-      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      return topLevelCatch('pending-supervisor-approval', error, ENVIRONMENT);
     }
+
+    const encounterPatch = getPatchBinary({
+      resourceType: 'Encounter',
+      resourceId: encounter.id!,
+      patchOperations: encounterPatchOps,
+    });
+
+    const provenanceCreate: BatchInputRequest<Provenance> = {
+      method: 'POST',
+      url: '/Provenance',
+      resource: createProvenanceForEncounter(encounter.id!, practitionerId, 'author'),
+    };
+
+    await oystehr.fhir.transaction({
+      requests: [encounterPatch, provenanceCreate] as BatchInputRequest<FhirResource>[],
+    });
+
+    console.log(`Updated encounter: ${encounter.id}.`);
+    const appointmentId = encounter.appointment?.[0].reference?.split('/')[1];
+
+    if (appointmentId === undefined) {
+      throw new Error('Appointment ID is not defined');
+    }
+
+    const visitNoteAndEmailTaskResource = getTaskResource(
+      TaskIndicator.visitNotePDFAndEmail,
+      'Require supervisor approval',
+      appointmentId
+    );
+    const taskCreationResults = await oystehr.fhir.create(visitNoteAndEmailTaskResource);
+    console.log('Task creation results ', taskCreationResults);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        message: `Successfully updated visit #${appointmentId} to await supervisor approval`,
+      }),
+    };
   }
 );

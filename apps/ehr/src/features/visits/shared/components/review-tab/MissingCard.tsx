@@ -28,6 +28,9 @@ export const MissingCard: FC = () => {
       historyOfPresentIllness: {
         _tag: 'history-of-present-illness',
       },
+      accident: {
+        _tag: 'accident',
+      },
     },
   });
 
@@ -39,6 +42,8 @@ export const MissingCard: FC = () => {
   const medicalDecision = chartFields?.medicalDecision?.text;
   const emCode = chartData?.emCode;
   const hpi = chartFields?.chiefComplaint?.text;
+  const accidentHasType = (chartFields?.accident?.type?.length ?? 0) > 0;
+  const accidentMissingDate = accidentHasType && !chartFields?.accident?.date;
   const [suggestionNote, setSuggestionNote] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -56,7 +61,7 @@ export const MissingCard: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hpi]);
 
-  if (primaryDiagnosis && medicalDecision && emCode && hpi && !suggestionNote) {
+  if (primaryDiagnosis && medicalDecision && emCode && hpi && !suggestionNote && !accidentMissingDate) {
     return null;
   }
 
@@ -132,6 +137,16 @@ export const MissingCard: FC = () => {
               data-testid={dataTestIds.progressNotePage.emCodeLink}
             >
               E&M code
+            </Link>
+          )}
+          {accidentMissingDate && (
+            <Link
+              sx={{ cursor: 'pointer' }}
+              color="error"
+              onClick={() => navigateTo('hpi')}
+              data-testid={dataTestIds.progressNotePage.accidentDateLink}
+            >
+              Date of accident
             </Link>
           )}
           {suggestionNote && (

@@ -28,7 +28,7 @@ const hiddenFormSections: string[] = [];
 const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
   url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson',
-  version: '1.1.6',
+  version: '1.1.7',
   name: 'in-person_pre-visit_paperwork',
   title: 'in-person pre-visit paperwork',
   status: 'active',
@@ -872,7 +872,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
         },
         insuranceCardBack: {
           key: 'insurance-card-back',
-          label: 'Back side of the insurance card',
+          label: 'Back side of the insurance card (optional)',
           type: 'attachment',
           attachmentText: 'Take a picture of the **back side** of your card and upload it here',
           dataType: 'Image',
@@ -1084,7 +1084,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
             },
             insuranceCardBack: {
               key: 'insurance-card-back-2',
-              label: 'Back side of the insurance card',
+              label: 'Back side of the insurance card (optional)',
               type: 'attachment',
               attachmentText: 'Take a picture of the **back side** of your card and upload it here',
               dataType: 'Image',

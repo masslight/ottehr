@@ -235,6 +235,11 @@ describe('escapeTerraformTemplateSyntax', () => {
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ';
       expect(escapeTerraformTemplateSyntax(input)).toBe(input);
     });
+
+    it('should handle ternary statements', () => {
+      const input = '${"#{var/SENTRY_TAGS}" == format("#{%s}", "var/SENTRY_TAGS") ? "" : "#{var/SENTRY_TAGS}"}';
+      expect(escapeTerraformTemplateSyntax(input)).toBe(input);
+    });
   });
 
   describe('systematic escaping - all $ and % counts', () => {

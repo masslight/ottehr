@@ -1,3 +1,4 @@
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { DateTime } from 'luxon';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
@@ -170,20 +171,19 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
   const hasData = labOrders.length > 0;
 
   const handleDeleteLabOrder = useCallback(
-    async ({ serviceRequestId }: DeleteInHouseLabOrderParameters): Promise<boolean> => {
+    async ({ serviceRequestId }: DeleteInHouseLabOrderParameters): Promise<{ success: boolean; errorMsg?: string }> => {
       if (!serviceRequestId) {
         console.error('Cannot delete lab order: Missing service request ID');
         setError(new Error('Missing service request ID'));
-        return false;
+        return { success: false };
       }
 
       if (!oystehrZambda) {
         console.error('Cannot delete lab order: API client is not available');
         setError(new Error('API client is not available'));
-        return false;
+        return { success: false };
       }
 
-      setLoading(true);
       setError(null);
 
       try {
@@ -193,16 +193,15 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
 
         setSearchParams({ pageNumber: 1 });
 
-        return true;
+        return { success: true };
       } catch (err) {
-        const errorObj =
-          err instanceof Error ? err : new Error(typeof err === 'string' ? err : 'Failed to delete lab order');
+        console.log('error deleting inhouse lab: ', err);
+        const oystehrError = err as OystehrSdkError;
+        let errorMsg: string | undefined;
 
-        setError(errorObj);
+        if (oystehrError.code !== 500 && oystehrError.message) errorMsg = oystehrError.message;
 
-        return false;
-      } finally {
-        setLoading(false);
+        return { success: false, errorMsg };
       }
     },
     [oystehrZambda, setSearchParams]

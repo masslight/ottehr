@@ -41,12 +41,12 @@ import {
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
+  DataEntryTestItem,
   getAttendingPractitionerId,
   isApiError,
   LabListsDTO,
   LabType,
   REPEAT_TEST_CPT_CODE_MODIFIER,
-  TestItem,
 } from 'utils';
 import { CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data';
 import { createInHouseLabOrder, getOrCreateVisitLabel } from '../../../api/api';
@@ -62,7 +62,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const { id: appointmentIdFromUrl } = useParams();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
-  const [selectedTests, setSelectedTests] = useState<TestItem[]>([]);
+  const [selectedTests, setSelectedTests] = useState<DataEntryTestItem[]>([]);
   const [notes, setNotes] = useState<string>('');
   const [error, setError] = useState<string[] | undefined>(undefined);
 
@@ -130,7 +130,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const labSets = createInHouseLabResources?.labSets;
 
   useEffect(() => {
-    if (!prefillData || didPrefillInit.current) {
+    if (!prefillData || didPrefillInit.current || !availableTests.length) {
       return;
     }
 
@@ -138,13 +138,17 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
     if (testItemName) {
       const found = availableTests.find((test) => test.name === testItemName);
-      if (found) {
-        if (prefillData.type === 'repeat') {
-          found.orderMode = 'repeat';
-        }
-        setSelectedTests([found]);
+      if (!found) {
+        console.log(`Cannot find test ${testItemName} in available tests`, availableTests);
+        return;
       }
+      if (prefillData.type === 'repeat') {
+        found.orderMode = 'repeat';
+      }
+      console.log('"found" test', found);
+      setSelectedTests([found]);
     }
+
     if (diagnoses) {
       setSelectedAssessmentDiagnoses(diagnoses);
     }
@@ -158,7 +162,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
   const canBeSubmitted = !!(encounter?.id && selectedTests.length > 0);
 
-  const formatCptCodesForCell = (cptCodes: CPTCodeDTO[], orderMode: TestItem['orderMode']): string => {
+  const formatCptCodesForCell = (cptCodes: CPTCodeDTO[], orderMode: DataEntryTestItem['orderMode']): string => {
     const cptCodesFormatted = cptCodes.map((c) => {
       // these modifiers are pulled from the activity definition are specific to the test (ex: alcohol confirmation test)
       let modifier = c.modifier ? c.modifier.map((m) => `-${m.code}`).join(',') : '';

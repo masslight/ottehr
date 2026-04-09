@@ -10,6 +10,8 @@ import {
   mapDispositionTypeToLabel,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
+  REFUSAL_OF_EMS_TRANSPORT_LABEL,
 } from 'utils';
 import { followUpInOptions } from 'utils';
 import { useChartFields } from '../../../hooks/useChartFields';
@@ -52,8 +54,12 @@ export const PatientInstructionsContainer: FC = () => {
           Disposition - {disposition?.type ? mapDispositionTypeToLabel[disposition.type] : 'Not provided'}
         </AssessmentTitle>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {disposition?.specialty && disposition.specialty.length > 0 && (
+            <Typography>{disposition.specialty}</Typography>
+          )}
           {disposition?.note && <Typography>{disposition?.note}</Typography>}
           {disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] && <Typography>{NOTHING_TO_EAT_OR_DRINK_LABEL}</Typography>}
+          {disposition?.[REFUSAL_OF_EMS_TRANSPORT_FIELD] && <Typography>{REFUSAL_OF_EMS_TRANSPORT_LABEL}</Typography>}
           {disposition?.labService && disposition.labService.length > 0 && (
             <Typography>Lab Services: {disposition.labService.join(', ')}</Typography>
           )}

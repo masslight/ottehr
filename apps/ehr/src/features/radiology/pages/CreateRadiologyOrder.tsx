@@ -96,7 +96,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const [overwriteTarget, setOverwriteTarget] = useState<RadiologyQuickPickData | null>(null);
   const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
   const currentUser = useEvolveUser();
-  const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
+  const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
 
   const cptCodes = chartData?.cptCodes || [];
 
@@ -295,7 +295,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
               <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
                 <Grid item xs={12}>
                   <QuickPicksButton
-                    quickPicks={mergedQuickPicks}
+                    quickPicks={[...mergedQuickPicks].sort((a, b) => a.name.localeCompare(b.name))}
                     getLabel={(qp) => {
                       const parts = [qp.name] as string[];
                       if (qp.cptCode) parts.push(qp.cptCode);
@@ -432,6 +432,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     fullWidth
                     multiline
                     size="small"
+                    InputLabelProps={{ shrink: !!clinicalHistory }}
                     value={clinicalHistory}
                     onChange={(e) => {
                       const value = e.target.value;

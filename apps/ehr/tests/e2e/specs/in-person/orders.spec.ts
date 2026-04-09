@@ -27,11 +27,12 @@ import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import {
   checkActivityDefinitionForReflexLogic,
-  convertActivityDefinitionToTestItem,
+  convertActivityDefinitionToDataEntryTestItem,
   CPTCodeDTO,
+  DataEntryTestItem,
   makeCptCodeDisplay,
   REPEAT_TEST_CPT_CODE_MODIFIER,
-  TestItem,
+  repeatTestErrorMessage,
   unbundleBatchPostOutput,
 } from 'utils';
 import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
@@ -228,10 +229,11 @@ test.describe('In-house labs page', async () => {
   };
 
   const TEST_TYPE_TO_CPT: Record<string, string> = {};
-  const radioEntryTestItems: TestItem[] = [];
-  const repeatableRadioEntryTestItems: TestItem[] = [];
-  const selectAndNumericTestItems: TestItem[] = [];
+  const radioEntryTestItems: DataEntryTestItem[] = [];
+  const repeatableRadioEntryTestItems: DataEntryTestItem[] = [];
+  const selectAndNumericTestItems: DataEntryTestItem[] = [];
   let mockResourceIds: string[] = [];
+  let mockLabSetListId: string = 'unknown';
   let reflexTest: MockReflexTestConfig;
 
   test.beforeAll('Handling ActivityDefinition and List resources for in-house labs tests', async () => {
@@ -240,14 +242,14 @@ test.describe('In-house labs page', async () => {
     // standard + repeatable tests
     inHouseLabsMockData.activityDefinitions.forEach((ad) => {
       const fhirActivityDefinition = ad as ActivityDefinition;
-      const testItem = convertActivityDefinitionToTestItem(fhirActivityDefinition);
+      const testItem = convertActivityDefinitionToDataEntryTestItem(fhirActivityDefinition);
 
-      if (testItem.components.radioComponents.length > 0 && testItem.components.groupedComponents.length === 0) {
+      if (testItem.components.type === 'radio') {
         radioEntryTestItems.push(testItem);
         if (testItem.repeatable) {
           repeatableRadioEntryTestItems.push(testItem);
         }
-      } else if (testItem.components.radioComponents.length === 0 && testItem.components.groupedComponents.length > 0) {
+      } else if (testItem.components.type === 'grouped') {
         selectAndNumericTestItems.push(testItem);
       }
 
@@ -271,13 +273,17 @@ test.describe('In-house labs page', async () => {
     // reflex test
     const { parentTest, childTest } = inHouseLabsMockData.reflexTest;
 
-    const parentTestItem = convertActivityDefinitionToTestItem(parentTest.activityDefinition as ActivityDefinition);
+    const parentTestItem = convertActivityDefinitionToDataEntryTestItem(
+      parentTest.activityDefinition as ActivityDefinition
+    );
     const parentReflexLogic = checkActivityDefinitionForReflexLogic(
       parentTest.activityDefinition as ActivityDefinition
     );
     const parentAlert = parentReflexLogic?.reflexAlertExt.valueString || 'alert is missing in mock data!?';
 
-    const childTestItem = convertActivityDefinitionToTestItem(childTest.activityDefinition as ActivityDefinition);
+    const childTestItem = convertActivityDefinitionToDataEntryTestItem(
+      childTest.activityDefinition as ActivityDefinition
+    );
 
     reflexTest = {
       parent: { test: parentTestItem, alert: parentAlert, results: parentTest.results },
@@ -319,6 +325,7 @@ test.describe('In-house labs page', async () => {
     const resources = unbundleBatchPostOutput<ActivityDefinition | List>(createdBundle);
 
     mockResourceIds = resources.map((r) => `${r.resourceType}/${r.id}`);
+    mockLabSetListId = resources.find((r): r is List => r.resourceType === 'List')?.id ?? 'unknown';
   });
 
   test.afterAll('Deleting all ActivityDefinition and List resources used in in-house lab tests', async () => {
@@ -444,7 +451,7 @@ test.describe('In-house labs page', async () => {
       let inHouseLabsPage = await sideMenu.clickInHouseLabs();
 
       const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
-      await orderInHouseLabPage.selectALabSet();
+      await orderInHouseLabPage.selectALabSet(mockLabSetListId);
       await orderInHouseLabPage.clickOrderInHouseLabButton();
 
       // confirm we've been nav'd to the orders table
@@ -474,9 +481,7 @@ test.describe('In-house labs page', async () => {
           await orderInHouseLabPage.clickOrderInHouseLabButton();
           const error = orderInHouseLabPage.error;
           await expect(error).toBeVisible();
-          await expect(error).toContainText(
-            `You cannot run ${testName} as repeat, no initial tests could be found for this encounter.`
-          );
+          await expect(error).toContainText(repeatTestErrorMessage(testName));
 
           // uncheck run as repeat and click order again
           await orderInHouseLabPage.clickRunAsRepeatForTest(testName);
@@ -587,7 +592,8 @@ test.describe('In-house labs page', async () => {
         await test.step('IHL-5.1.3 Enter results', async () => {
           const performTestPage = await PerformTestPage.isOpen(page);
 
-          const groupedComponents = reflexTest.parent.test.components.groupedComponents;
+          const groupedComponents =
+            reflexTest.child.test.components.type === 'grouped' ? reflexTest.child.test.components.components : [];
           const containsGroupedComponents = groupedComponents.length > 0;
           if (!containsGroupedComponents) {
             throw new Error(
@@ -643,7 +649,8 @@ test.describe('In-house labs page', async () => {
         await test.step('IHL-5.2.3 Enter results', async () => {
           const performTestPage = await PerformTestPage.isOpen(page);
 
-          const groupedComponents = reflexTest.child.test.components.groupedComponents;
+          const groupedComponents =
+            reflexTest.child.test.components.type === 'grouped' ? reflexTest.child.test.components.components : [];
           const containsGroupedComponents = groupedComponents.length > 0;
           if (!containsGroupedComponents) {
             throw new Error(
@@ -675,6 +682,9 @@ test.describe('In-house labs page', async () => {
         expect(resultCount, `confirming both the parent and child results are present on the final result page`).toBe(
           2
         );
+
+        // also confirm the order reflex test button is gone
+        await finalResultPage.orderReflexButtonIsHidden();
       });
     });
   });

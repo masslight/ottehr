@@ -6,7 +6,6 @@ import {
   AUDIT_EVENT_OUTCOME_CODE,
   checkBundleOutcomeOk,
   FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
   getVersionedReferencesFromBundleResources,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
@@ -15,15 +14,8 @@ import {
   NOT_AUTHORIZED,
   RemoveCoverageResponse,
   Secrets,
-  SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'remove-coverage';
@@ -31,28 +23,22 @@ const ZAMBDA_NAME = 'remove-coverage';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const effectInput = await complexValidation(validatedParameters, oystehr);
+  const effectInput = await complexValidation(validatedParameters, oystehr);
 
-    await performEffect(effectInput, oystehr);
-    const response: RemoveCoverageResponse = { message: 'Successfully removed coverage' };
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('remove-coverage', error, ENVIRONMENT);
-  }
+  await performEffect(effectInput, oystehr);
+  const response: RemoveCoverageResponse = { message: 'Successfully removed coverage' };
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 interface EffectInput {

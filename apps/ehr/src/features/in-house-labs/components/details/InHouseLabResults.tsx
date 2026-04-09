@@ -1,9 +1,11 @@
 import { BiotechOutlined } from '@mui/icons-material';
 import { Box, Button, Paper, Typography } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { DiagnosisDTO, EntryMode, getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, LoadingState } from 'utils';
 import { configResultPageContainerTestId } from '../../utils/test-ids';
 import { InHouseLabResultCard } from './InHouseLabResultCard';
@@ -23,6 +25,8 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
 }) => {
   const navigate = useNavigate();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { encounter } = useAppointmentData();
+  const queryClient = useQueryClient();
 
   // we sort the tests on the back end, most recent will always be first
   // const sortedOrders = inHouseOrders.sort((a, b) => compareDates(a.orderAddedDate, b.orderAddedDate));
@@ -66,6 +70,14 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
   );
 
   const handleRepeatOnClick = (): void => {
+    if (encounter?.id) {
+      // completely clears the cache and does not serve old data while the cache is refreshing
+      // we do this to make sure that any changes to repeat tests are picked up properly
+      queryClient.removeQueries({
+        queryKey: ['inhouse lab resource search', encounter.id],
+      });
+    }
+
     navigate(`/in-person/${testDetails?.[0].appointmentId}/in-house-lab-orders/create`, {
       state: {
         testItemName: testDetails?.[0]?.testItemName,

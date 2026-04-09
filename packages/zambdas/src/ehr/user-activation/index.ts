@@ -1,14 +1,8 @@
 import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createFetchClientWithOystehrAuth, FetchClientWithOysterAuth, getSecret, Secrets, SecretsKeys } from 'utils';
+import { createFetchClientWithOystehrAuth, FetchClientWithOysterAuth, getSecret, Secrets } from 'utils';
 import { UserActivationZambdaInput, UserActivationZambdaOutput } from 'utils/lib/types/api/user-activation.types';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface UserActivationZambdaInputValidated extends UserActivationZambdaInput {
@@ -18,38 +12,33 @@ export interface UserActivationZambdaInputValidated extends UserActivationZambda
 let oystehrToken: string;
 
 export const index = wrapHandler('user-activation', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { userId, mode, secrets } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const { userId, mode, secrets } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
-    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
-    const PROJECT_API = getSecret('PROJECT_API', secrets);
-    const oystehr = createOystehrClient(oystehrToken, secrets);
-    const fetchClient = createFetchClientWithOystehrAuth({ authToken: oystehrToken });
-    let user = await oystehr.user.get({ id: userId });
-    console.log(`user before ${mode}ing: `, JSON.stringify(user));
+  oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
+  const PROJECT_API = getSecret('PROJECT_API', secrets);
+  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const fetchClient = createFetchClientWithOystehrAuth({ authToken: oystehrToken });
+  let user = await oystehr.user.get({ id: userId });
+  console.log(`user before ${mode}ing: `, JSON.stringify(user));
 
-    let response: UserActivationZambdaOutput = {};
-    if (mode === 'activate') {
-      response = await activateUser(user, fetchClient, PROJECT_API);
-    } else if (mode === 'deactivate') {
-      response = await deactivateUser(user, fetchClient, PROJECT_API);
-    }
-
-    user = await oystehr.user.get({ id: userId });
-    console.log(`user after ${mode}ing: `, JSON.stringify(user));
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('admin-user-activation', error, ENVIRONMENT);
+  let response: UserActivationZambdaOutput = {};
+  if (mode === 'activate') {
+    response = await activateUser(user, fetchClient, PROJECT_API);
+  } else if (mode === 'deactivate') {
+    response = await deactivateUser(user, fetchClient, PROJECT_API);
   }
+
+  user = await oystehr.user.get({ id: userId });
+  console.log(`user after ${mode}ing: `, JSON.stringify(user));
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 async function deactivateUser(
