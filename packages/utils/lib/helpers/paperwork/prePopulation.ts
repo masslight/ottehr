@@ -16,6 +16,11 @@ import _ from 'lodash';
 import { capitalize } from 'lodash-es';
 import { DateTime } from 'luxon';
 import {
+  DOES_NOT_HAVE_ATTORNEY_OPTION,
+  HAS_ATTORNEY_OPTION,
+  INSURANCE_PAY_OPTION,
+} from '../../config-helpers/shared-questionnaire';
+import {
   ATTORNEY_FIRM_EXTENSION_URL,
   genderMap,
   getFirstName,
@@ -30,12 +35,7 @@ import {
   PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
-import {
-  DOES_NOT_HAVE_ATTORNEY_OPTION,
-  HAS_ATTORNEY_OPTION,
-  INSURANCE_PAY_OPTION,
-  VALUE_SETS,
-} from '../../ottehr-config';
+import { VALUE_SETS } from '../../ottehr-config';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,

@@ -13,10 +13,10 @@ import {
   createProxyConfigObject,
   mergeAndFreezeConfigObjects,
 } from '../../config-helpers/helpers';
+import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
 import { SERVICE_CATEGORY_SYSTEM } from '../../fhir';
 import { CanonicalUrl } from '../../types';
 import { BRANDING_CONFIG } from '../branding';
-import { createQuestionnaireFromConfig } from '../shared-questionnaire';
 import { VALUE_SETS } from '../value-sets';
 
 // --- Data inlined from defaults.ts ---
