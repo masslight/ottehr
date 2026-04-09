@@ -4,23 +4,15 @@ import { Extension, Schedule } from 'fhir/r4b';
 import {
   CreateScheduleParams,
   FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   SCHEDULE_EXTENSION_URL,
   ScheduleExtension,
   Secrets,
-  SecretsKeys,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateUpdateScheduleParameters } from '../shared';
 
 let m2mToken: string;
@@ -28,27 +20,21 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-schedule';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const effectInput = await complexValidation(validatedParameters, oystehr);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  const effectInput = await complexValidation(validatedParameters, oystehr);
 
-    const updatedSchedule = await performEffect(effectInput, oystehr);
+  const updatedSchedule = await performEffect(effectInput, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(updatedSchedule),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('create-schedule', error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(updatedSchedule),
+  };
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Schedule> => {

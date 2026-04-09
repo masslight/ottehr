@@ -12,7 +12,7 @@ import {
   SendFaxZambdaInput,
   VISIT_NOTE_SUMMARY_CODE,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getUser, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, getUser, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -21,38 +21,33 @@ const ZAMBDA_NAME = 'send-fax';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log(`Input: ${JSON.stringify(input)}`);
-    console.group('validateRequestParameters()');
-    const validatedInput = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters() success');
-    console.log('appointmentId', validatedInput.appointmentId, 'faxNumber', validatedInput.faxNumber);
+  console.log(`Input: ${JSON.stringify(input)}`);
+  console.group('validateRequestParameters()');
+  const validatedInput = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters() success');
+  console.log('appointmentId', validatedInput.appointmentId, 'faxNumber', validatedInput.faxNumber);
 
-    const authorization = input.headers.Authorization;
-    const user = await getUser(authorization.replace('Bearer ', ''), validatedInput.secrets);
+  const authorization = input.headers.Authorization;
+  const user = await getUser(authorization.replace('Bearer ', ''), validatedInput.secrets);
 
-    console.group('checkOrCreateM2MClientToken() then createOystehrClient()');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedInput.secrets);
-    console.groupEnd();
-    console.debug('checkOrCreateM2MClientToken() then createOystehrClient() success');
+  console.group('checkOrCreateM2MClientToken() then createOystehrClient()');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
+  const oystehr = createOystehrClient(m2mToken, validatedInput.secrets);
+  console.groupEnd();
+  console.debug('checkOrCreateM2MClientToken() then createOystehrClient() success');
 
-    console.group('complexValidation()');
-    const effectInput = await complexValidation(validatedInput, oystehr, user);
-    console.groupEnd();
-    console.debug('complexValidation() success');
+  console.group('complexValidation()');
+  const effectInput = await complexValidation(validatedInput, oystehr, user);
+  console.groupEnd();
+  console.debug('complexValidation() success');
 
-    console.group('performEffect()');
-    const response = await performEffect(effectInput, oystehr, user);
-    console.groupEnd();
-    console.debug('performEffect() success', JSON.stringify(response));
+  console.group('performEffect()');
+  const response = await performEffect(effectInput, oystehr, user);
+  console.groupEnd();
+  console.debug('performEffect() success', JSON.stringify(response));
 
-    return response;
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('send-fax', error, ENVIRONMENT);
-  }
+  return response;
 });
 
 interface EffectInput {

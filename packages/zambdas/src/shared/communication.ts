@@ -6,6 +6,7 @@ import {
   DynamicTemplateDataRecord,
   EmailTemplate,
   ErrorReportTemplateData,
+  FEATURE_FLAGS_CONFIG,
   getPatientContactEmail,
   getRelatedPersonForPatient,
   getSecret,
@@ -57,15 +58,17 @@ const defaultLowersFromEmail = 'ottehr-support@masslight.com'; // todo: change t
 class EmailClient {
   private config: SendgridConfig;
   private secrets: Secrets | null;
+  private featureFlag: boolean;
 
-  constructor(config: SendgridConfig, secrets: Secrets | null) {
+  constructor(config: SendgridConfig, featureFlag: boolean, secrets: Secrets | null) {
     this.config = config;
     this.secrets = secrets;
+    this.featureFlag = featureFlag;
     let SENDGRID_SEND_EMAIL_API_KEY = '';
     try {
       SENDGRID_SEND_EMAIL_API_KEY = getSecret(SecretsKeys.SENDGRID_SEND_EMAIL_API_KEY, secrets);
     } catch {
-      if (!this.config.featureFlag) {
+      if (!this.featureFlag) {
         console.log(`${SENDGRID_SEND_EMAIL_API_KEY} not found but email sending is disabled, continuing`);
       } else {
         throw new Error('SendGrid Send Email API key is not set in secrets');
@@ -88,7 +91,7 @@ class EmailClient {
     try {
       templateId = getSecret(templateIdSecretName, this.secrets);
     } catch (error) {
-      if (!this.config.featureFlag || template.disabled) {
+      if (!this.featureFlag || template.disabled) {
         console.log(`${templateIdSecretName} not found but email sending is disabled, continuing`);
       } else {
         throw error;
@@ -143,11 +146,9 @@ class EmailClient {
         }),
     };
 
-    const featureFlag = this.config.featureFlag;
-
-    if (!featureFlag || template.disabled) {
+    if (!this.featureFlag || template.disabled) {
       console.log('Email sending is disabled');
-      console.log(`featureFlag: ${featureFlag}, template.disabled: ${template.disabled}`);
+      console.log(`featureFlag: ${this.featureFlag}, template.disabled: ${template.disabled}`);
       console.log('Email input being swallowed: ', JSON.stringify(emailConfiguration, null, 2));
       return;
     } else {
@@ -169,7 +170,7 @@ class EmailClient {
   }
 
   getFeatureFlag(): boolean {
-    return this.config.featureFlag;
+    return this.featureFlag;
   }
 
   async sendErrorEmail(to: string | string[], templateData: ErrorReportTemplateData): Promise<void> {
@@ -245,7 +246,7 @@ class EmailClient {
 }
 
 export const getEmailClient = (secrets: Secrets | null): EmailClient => {
-  return new EmailClient(SENDGRID_CONFIG, secrets);
+  return new EmailClient(SENDGRID_CONFIG, FEATURE_FLAGS_CONFIG.sendgridEnabled, secrets);
 };
 
 export async function sendSms(
