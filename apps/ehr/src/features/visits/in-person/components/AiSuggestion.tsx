@@ -1,11 +1,41 @@
 import { InfoOutlined } from '@mui/icons-material';
-import { Box, CircularProgress, Container, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Checkbox,
+  CircularProgress,
+  Container,
+  FormControlLabel,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemText,
+  Popover,
+  Tooltip,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { DocumentReference } from 'fhir/r4b';
-import React from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { AiSectionHeader } from 'src/features/visits/shared/components/AiSection';
 import { getSource } from 'src/features/visits/shared/components/OttehrAi';
+import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { GetChartDataResponse, ObservationTextFieldDTO, ProcedureSuggestion } from 'utils';
+import {
+  AiObservationField,
+  AllergyDTO,
+  GetChartDataResponse,
+  MedicationDTO,
+  ObservationTextFieldDTO,
+  ProcedureSuggestion,
+} from 'utils';
+
+interface SearchResult {
+  id?: number;
+  name: string;
+  strength?: string;
+}
+
+type HighlightFieldType = 'medications' | 'allergies' | null;
 
 export interface AiSuggestionProps {
   title: string;
@@ -27,11 +57,237 @@ export default function AiSuggestion({
   const { oystehr } = useApiClients();
   const theme = useTheme();
 
+  const highlightFieldType: HighlightFieldType = useMemo(() => {
+    const field = content?.[0]?.field;
+    if (field === AiObservationField.MedicationsHistory || field === AiObservationField.eRX) return 'medications';
+    if (field === AiObservationField.Allergies) return 'allergies';
+    return null;
+  }, [content]);
+
+  const { onSubmit: addMedication } = useChartDataArrayValue('medications', undefined, {
+    _sort: '-_lastUpdated',
+    _include: 'MedicationStatement:source',
+    status: { type: 'token', value: 'active' },
+  });
+
+  const { onSubmit: addAllergy } = useChartDataArrayValue('allergies');
+
   function getDocumentReferenceSource(
     observation: ObservationTextFieldDTO,
     documentReferences: DocumentReference[]
   ): DocumentReference | undefined {
     return documentReferences.find((document) => document.id === observation.derivedFrom?.split('/')[1]);
+  }
+
+  function HighlightedText({
+    text,
+    items,
+    fieldType,
+  }: {
+    text: string;
+    items?: string[];
+    fieldType: HighlightFieldType;
+  }): React.ReactElement {
+    const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+    const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [activeItem, setActiveItem] = useState<string | null>(null);
+    const [dosageUnconfirmed, setDosageUnconfirmed] = useState(true);
+
+    const handleHighlightClick = useCallback(
+      async (event: React.MouseEvent<HTMLElement>, item: string) => {
+        if (!fieldType) return;
+        setAnchorEl(event.currentTarget);
+        setActiveItem(item);
+        setSearchLoading(true);
+        setSearchResults([]);
+        try {
+          if (oystehr) {
+            if (fieldType === 'medications') {
+              const results = await oystehr.erx.searchMedications({ name: item });
+              setSearchResults(results);
+            } else if (fieldType === 'allergies') {
+              const results = await oystehr.erx.searchAllergens({ name: item });
+              setSearchResults(results);
+            }
+          }
+        } catch (err) {
+          console.error('Search failed:', err);
+        } finally {
+          setSearchLoading(false);
+        }
+      },
+
+      [fieldType]
+    );
+
+    const handleClose = useCallback(() => {
+      setAnchorEl(null);
+      setActiveItem(null);
+      setSearchResults([]);
+      setDosageUnconfirmed(true);
+    }, []);
+
+    const handleSelectResult = useCallback(
+      async (result: SearchResult) => {
+        try {
+          if (fieldType === 'medications') {
+            const strength = result.strength;
+            const nameHasStrength = strength && result.name.toLowerCase().includes(strength.toLowerCase());
+            const displayName = nameHasStrength || !strength ? result.name : `${result.name} (${strength})`;
+            await addMedication({
+              name: displayName,
+              id: result.id?.toString(),
+              type: 'scheduled',
+              intakeInfo: {
+                patientCouldNotConfirmDosage: dosageUnconfirmed || undefined,
+              },
+              status: 'active',
+            } as MedicationDTO);
+          } else if (fieldType === 'allergies') {
+            await addAllergy({
+              name: result.name,
+              id: result.id?.toString(),
+              current: true,
+              lastUpdated: new Date().toISOString(),
+            } as AllergyDTO);
+          }
+        } catch (err) {
+          console.error('Failed to add item:', err);
+        }
+        handleClose();
+      },
+
+      [fieldType, dosageUnconfirmed, handleClose]
+    );
+
+    if (!items || items.length === 0) {
+      return <>{text}</>;
+    }
+
+    // Build a list of match ranges, case-insensitive
+    const ranges: { start: number; end: number; item: string }[] = [];
+    const textLower = text.toLowerCase();
+    for (const item of items) {
+      const itemLower = item.toLowerCase();
+      let searchFrom = 0;
+      while (searchFrom < textLower.length) {
+        const idx = textLower.indexOf(itemLower, searchFrom);
+        if (idx === -1) break;
+        ranges.push({ start: idx, end: idx + item.length, item });
+        searchFrom = idx + item.length;
+      }
+    }
+
+    if (ranges.length === 0) {
+      return <>{text}</>;
+    }
+
+    // Sort by start position and merge overlapping ranges
+    ranges.sort((a, b) => a.start - b.start);
+    const merged: typeof ranges = [];
+    for (const range of ranges) {
+      const last = merged[merged.length - 1];
+      if (last && range.start <= last.end) {
+        last.end = Math.max(last.end, range.end);
+        last.item = last.item || range.item;
+      } else {
+        merged.push({ ...range });
+      }
+    }
+
+    // Build fragments
+    const isClickable = !!fieldType;
+    const fragments: React.ReactNode[] = [];
+    let cursor = 0;
+    for (const range of merged) {
+      if (cursor < range.start) {
+        fragments.push(text.slice(cursor, range.start));
+      }
+      fragments.push(
+        <Box
+          component="span"
+          key={range.start}
+          onClick={isClickable ? (e) => handleHighlightClick(e, range.item) : undefined}
+          sx={{
+            backgroundColor: 'rgba(25, 118, 210, 0.15)',
+            borderRadius: '3px',
+            padding: '1px 2px',
+            ...(isClickable
+              ? {
+                  cursor: 'pointer',
+                  '&:hover': {
+                    backgroundColor: 'rgba(25, 118, 210, 0.3)',
+                  },
+                }
+              : {}),
+          }}
+        >
+          {text.slice(range.start, range.end)}
+        </Box>
+      );
+      cursor = range.end;
+    }
+    if (cursor < text.length) {
+      fragments.push(text.slice(cursor));
+    }
+
+    return (
+      <>
+        {fragments}
+        <Popover
+          open={Boolean(anchorEl)}
+          anchorEl={anchorEl}
+          onClose={handleClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          slotProps={{ paper: { sx: { maxHeight: 300, minWidth: 280, maxWidth: 400 } } }}
+        >
+          <Box sx={{ p: 1 }}>
+            <Typography variant="subtitle2" sx={{ px: 1, py: 0.5, fontWeight: 700 }}>
+              Matches for &ldquo;{activeItem}&rdquo;
+            </Typography>
+            {searchLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                <CircularProgress size={20} />
+              </Box>
+            ) : searchResults.length === 0 ? (
+              <Typography variant="body2" sx={{ px: 1, py: 1, color: 'text.secondary' }}>
+                No matches found
+              </Typography>
+            ) : (
+              <>
+                {fieldType === 'medications' && (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={dosageUnconfirmed}
+                        onChange={(e) => setDosageUnconfirmed(e.target.checked)}
+                      />
+                    }
+                    label={<Typography variant="caption">Dosage unconfirmed</Typography>}
+                    sx={{ px: 1, mb: 0.5 }}
+                  />
+                )}
+                <List dense disablePadding>
+                  {searchResults.slice(0, 15).map((result, idx) => (
+                    <ListItemButton key={idx} sx={{ borderRadius: 1 }} onClick={() => handleSelectResult(result)}>
+                      <ListItemText
+                        primary={result.name}
+                        secondary={result.strength || undefined}
+                        primaryTypographyProps={{ variant: 'body2' }}
+                        secondaryTypographyProps={{ variant: 'caption' }}
+                      />
+                    </ListItemButton>
+                  ))}
+                </List>
+              </>
+            )}
+          </Box>
+        </Popover>
+      </>
+    );
   }
 
   function SuggestionsItem(): React.ReactElement {
@@ -81,7 +337,9 @@ export default function AiSuggestion({
                     ? getSource(documentSource, oystehr, chartData?.aiChat?.providers)
                     : 'source is unknown'}
                 </Typography>
-                <Typography variant="body1">{item.value}</Typography>
+                <Typography variant="body1">
+                  <HighlightedText text={item.value} items={(item as any).items} fieldType={highlightFieldType} />
+                </Typography>
               </Box>
             );
           })}

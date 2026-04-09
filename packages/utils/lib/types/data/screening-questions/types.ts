@@ -69,6 +69,8 @@ export type PatientVaccinationDTO = {
 export type ObservationDateFieldDTO = {
   field: string;
   value: string;
+  note?: string;
+  items?: string[];
 } & SaveableDTO;
 
 export type ObservationDateRangeFieldDTO = {

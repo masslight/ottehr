@@ -432,16 +432,25 @@ export function makeObservationResource(
   // and date fields also have string values.
   const textData = data as ObservationTextFieldDTO;
   if (isObservationTextFieldDTO(data)) {
+    const component =
+      'items' in textData && Array.isArray(textData.items) && textData.items.length > 0
+        ? textData.items.map((item) => ({
+            code: { text: textData.field },
+            valueString: item,
+          }))
+        : undefined;
     if ('note' in textData && textData.note) {
       return {
         ...base,
         valueString: textData.value,
         note: [{ text: textData.note }],
+        ...(component ? { component } : {}),
       };
     } else {
       return {
         ...base,
         valueString: textData.value,
+        ...(component ? { component } : {}),
       };
     }
   }
@@ -1180,12 +1189,14 @@ export function makeObservationDTO(observation: Observation): null | Observation
       value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
     } as ObservationDateRangeFieldDTO;
   } else if (typeof observation.valueString === 'string') {
+    const items = observation.component?.map((c) => c.valueString).filter((v): v is string => typeof v === 'string');
     return {
       resourceId: observation.id,
       field,
       value: observation.valueString,
       note: observation.note?.[0]?.text,
       derivedFrom: observation.derivedFrom?.[0].reference,
+      ...(items && items.length > 0 ? { items } : {}),
     } as ObservationTextFieldDTO;
   }
 

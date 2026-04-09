@@ -49,24 +49,51 @@ let chatbot: ChatAnthropic;
 // let chatbotVertexAI: ChatVertexAI;
 
 function getPrompt(patientInfoDetails: string, fields: string): string {
-  return `I'll give you a transcript of a chat between a healthcare provider and a patient. 
-Patient details: ${patientInfoDetails} 
-Please generate ${fields} based on the trancsript.
-Please present a response in JSON format. Don't add markdown. Use property names in camel case.
-Use a single string property in JSON for each section.
-Here is an example response:
+  return `I'll give you a transcript of a chat between a healthcare provider and a patient.
+Patient details: ${patientInfoDetails}
+Please generate ${fields} based on the transcript.
+Return JSON. No markdown. Use camelCase keys.
+
+FORMAT RULES:
+- "historyOfPresentIllness", "mechanismOfInjury", "socialHistory", and "familyHistory" should be a single descriptive prose string.
+- For the following sections, provide BOTH a prose summary string AND a companion array of individual items with the suffix "Items":
+  pastMedicalHistory / pastMedicalHistoryItems,
+  pastSurgicalHistory / pastSurgicalHistoryItems,
+  medicationsHistory / medicationsHistoryItems,
+  allergies / allergiesItems,
+  hospitalizationsHistory / hospitalizationsHistoryItems,
+  labs / labsItems,
+  erx / erxItems,
+  procedures / proceduresItems.
+- The prose string summarizes the information as a readable sentence.
+- Each item in the Items array must be a term or phrase that appears verbatim in the corresponding prose string.
+- For medications: just the medication name as it appears in the prose (e.g. "Lisinopril", "ibuprofen").
+- For allergies: just the allergen name as it appears in the prose (e.g. "penicillin", "tree nuts"). Do NOT include reactions.
+- For conditions, surgical history, and hospitalizations: the key clinical term as it appears in the prose (e.g. "hypertension", "appendectomy").
+- Do NOT include items the patient denies or negates.
+- Omit sections with no relevant information entirely.
+
+Example response:
 {
-  "historyOfPresentIllness": "example",
-  "pastMedicalHistory": "example",
-  "pastSurgicalHistory": "example",
-  "medicationsHistory": "example",
-  "allergies": "example",
-  "socialHistory": "example",
-  "familyHistory": "example",
-  "hospitalizationsHistory": "example",
-  "labs": "example",
-  "erx": "example",
-  "procedures": "example"
+  "historyOfPresentIllness": "The patient presents with chest pain for 2 days, worsening with exertion.",
+  "pastMedicalHistory": "History of hypertension and type 2 diabetes.",
+  "pastMedicalHistoryItems": ["hypertension", "type 2 diabetes"],
+  "pastSurgicalHistory": "Appendectomy in 2019.",
+  "pastSurgicalHistoryItems": ["appendectomy 2019"],
+  "medicationsHistory": "Currently taking Lisinopril 10mg daily and Metformin 500mg twice daily.",
+  "medicationsHistoryItems": ["Lisinopril", "Metformin"],
+  "allergies": "Allergic to penicillin which causes a rash. Also allergic to sulfa drugs.",
+  "allergiesItems": ["penicillin", "sulfa drugs"],
+  "socialHistory": "Non-smoker, occasional alcohol use.",
+  "familyHistory": "Father with coronary artery disease, mother with breast cancer.",
+  "hospitalizationsHistory": "Hospitalized for pneumonia in January 2023.",
+  "hospitalizationsHistoryItems": ["pneumonia January 2023"],
+  "labs": "CBC and BMP ordered.",
+  "labsItems": ["CBC", "BMP"],
+  "erx": "Amoxicillin 500mg prescribed.",
+  "erxItems": ["Amoxicillin 500mg"],
+  "procedures": "Wound closure performed.",
+  "proceduresItems": ["wound closure"]
 }
 The transcript: `;
 }
@@ -349,6 +376,17 @@ function createDocumentReference(
   return saveResourceRequest(documentReference, documentReferenceCreateUrl);
 }
 
+const FIELDS_WITH_ITEMS = new Set([
+  'pastMedicalHistory',
+  'pastSurgicalHistory',
+  'medicationsHistory',
+  'allergies',
+  'hospitalizationsHistory',
+  'labs',
+  'erx',
+  'procedures',
+]);
+
 function createObservations(
   aiResponse: any,
   documentReferenceCreateUrl: string,
@@ -357,6 +395,10 @@ function createObservations(
 ): BatchInputPostRequest<Observation>[] {
   return Object.entries(AI_RESPONSE_KEY_TO_FIELD).flatMap(([key, field]) => {
     if (aiResponse[key] != null) {
+      const items =
+        FIELDS_WITH_ITEMS.has(key) && Array.isArray(aiResponse[key + 'Items'])
+          ? (aiResponse[key + 'Items'] as string[])
+          : undefined;
       return [
         saveResourceRequest(
           makeObservationResource(
@@ -367,6 +409,7 @@ function createObservations(
             {
               field: field,
               value: aiResponse[key],
+              items,
             },
             AI_OBSERVATION_META_SYSTEM
           )
