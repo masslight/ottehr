@@ -61,6 +61,7 @@ test.describe('Billing Employers Admin', () => {
     await dialog.fillEmployerName(EMPLOYER_NAME);
     await dialog.clickAdd();
     await dialog.expectSnackbar(/created successfully|saved, but candid sync failed/i);
+    await dialog.waitForClosed();
   });
 
   test('search filters employers and finds new employer', async () => {

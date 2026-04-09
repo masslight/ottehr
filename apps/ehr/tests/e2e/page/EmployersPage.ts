@@ -15,7 +15,7 @@ export class EmployersPage {
   }
 
   async searchEmployers(text: string): Promise<void> {
-    await this.page.getByRole('textbox', { name: 'Employer' }).fill(text);
+    await this.page.getByRole('textbox', { name: 'Employer', exact: true }).fill(text);
   }
 
   async verifyEmployerVisible(name: string): Promise<void> {
