@@ -771,6 +771,7 @@ export function makeDispositionDTO(
   const labServices = filterCodeableConcepts(followUp.orderDetail, 'lab-service');
   const virusTests = filterCodeableConcepts(followUp.orderDetail, 'virus-test');
   const reasonForTransfer = filterCodeableConcepts(followUp.orderDetail, 'reason-for-transfer')[0];
+  const specialtyTransfer = filterCodeableConcepts(followUp.orderDetail, 'specialty-transfer')[0];
 
   const followUpArr = subFollowUp?.map((element) => {
     const performerCode = element.performerType?.coding?.[0].code;
@@ -794,6 +795,7 @@ export function makeDispositionDTO(
     labService: labServices,
     virusTest: virusTests,
     reason: reasonForTransfer,
+    specialty: specialtyTransfer,
     followUp: followUpArr ?? undefined,
     followUpIn: typeof followUpTime === 'number' ? Math.floor(followUpTime / 1440) : undefined,
     [NOTHING_TO_EAT_OR_DRINK_FIELD]: followUp.extension?.some(
@@ -1538,6 +1540,18 @@ export const createDispositionServiceRequest = ({
         {
           code: disposition.reason,
           system: 'reason-for-transfer', // TODO phony Coding system
+        },
+      ])
+    );
+  }
+
+  if (disposition.type === 'specialty' && disposition.specialty) {
+    if (!orderDetail) orderDetail = [];
+    orderDetail.push(
+      createCodeableConcept([
+        {
+          code: disposition.specialty,
+          system: 'specialty-transfer', // TODO phony Coding system
         },
       ])
     );

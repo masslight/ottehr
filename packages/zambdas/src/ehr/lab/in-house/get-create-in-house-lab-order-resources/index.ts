@@ -17,7 +17,6 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   sendErrors,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -43,118 +42,112 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   }
 
-  try {
-    secrets = validatedParameters.secrets;
+  secrets = validatedParameters.secrets;
 
-    console.log('validateRequestParameters success');
+  console.log('validateRequestParameters success');
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const testItems: DataEntryTestItem[] = [];
-    let providerName: string | undefined;
-    let labSets: LabListsDTO[] | undefined;
+  const testItems: DataEntryTestItem[] = [];
+  let providerName: string | undefined;
+  let labSets: LabListsDTO[] | undefined;
 
-    if (validatedParameters.encounterId) {
-      const [attendingPractitionerName, activeActivityDefinitions, labLists] = await Promise.all([
-        (async () => {
-          if (!validatedParameters.encounterId) return '';
+  if (validatedParameters.encounterId) {
+    const [attendingPractitionerName, activeActivityDefinitions, labLists] = await Promise.all([
+      (async () => {
+        if (!validatedParameters.encounterId) return '';
 
-          const encounter = await oystehr.fhir.get<Encounter>({
-            resourceType: 'Encounter',
-            id: validatedParameters.encounterId,
-          });
+        const encounter = await oystehr.fhir.get<Encounter>({
+          resourceType: 'Encounter',
+          id: validatedParameters.encounterId,
+        });
 
-          if (!encounter) return '';
+        if (!encounter) return '';
 
-          const practitionerId = getAttendingPractitionerId(encounter);
+        const practitionerId = getAttendingPractitionerId(encounter);
 
-          if (!practitionerId) return '';
+        if (!practitionerId) return '';
 
-          const practitioner = await oystehr.fhir.get<Practitioner>({
-            resourceType: 'Practitioner',
-            id: practitionerId,
-          });
+        const practitioner = await oystehr.fhir.get<Practitioner>({
+          resourceType: 'Practitioner',
+          id: practitionerId,
+        });
 
-          return getFullestAvailableName(practitioner) || '';
-        })(),
-        fetchActiveInHouseLabActivityDefinitions(oystehr),
-        (async () => {
-          return (
-            await oystehr.fhir.search<List>({
-              resourceType: 'List',
-              params: [
-                { name: 'code', value: `${LAB_LIST_CODE_CODING.inHouse.system}|${LAB_LIST_CODE_CODING.inHouse.code}` },
-              ],
-            })
-          ).unbundle();
-        })(),
-      ]);
+        return getFullestAvailableName(practitioner) || '';
+      })(),
+      fetchActiveInHouseLabActivityDefinitions(oystehr),
+      (async () => {
+        return (
+          await oystehr.fhir.search<List>({
+            resourceType: 'List',
+            params: [
+              { name: 'code', value: `${LAB_LIST_CODE_CODING.inHouse.system}|${LAB_LIST_CODE_CODING.inHouse.code}` },
+            ],
+          })
+        ).unbundle();
+      })(),
+    ]);
 
-      console.log(`Found ${activeActivityDefinitions.length} active ActivityDefinition resources`);
+    console.log(`Found ${activeActivityDefinitions.length} active ActivityDefinition resources`);
 
-      for (const activeDefinition of activeActivityDefinitions) {
-        const testItem = convertActivityDefinitionToDataEntryTestItem(activeDefinition);
-        testItems.push(testItem);
-      }
-
-      labSets = formatLabListDTOs(labLists);
-
-      providerName = attendingPractitionerName;
-    } else if (validatedParameters.selectedLabSet) {
-      const { selectedLabSet } = validatedParameters;
-      const activityDefinitionIds = selectedLabSet.labs.map((lab) => lab.activityDefinitionId);
-      const labSetActivityDefinitions = (
-        await oystehr.fhir.search<ActivityDefinition>({
-          resourceType: 'ActivityDefinition',
-          params: [
-            {
-              name: '_id',
-              value: activityDefinitionIds.join(','),
-            },
-          ],
-        })
-      ).unbundle();
-
-      console.log(
-        `Found ${labSetActivityDefinitions.length} active ActivityDefinition resources for the labSet List/${selectedLabSet.listId}`
-      );
-
-      for (const activityDefinition of labSetActivityDefinitions) {
-        const testItem = convertActivityDefinitionToDataEntryTestItem(activityDefinition);
-        testItems.push(testItem);
-
-        // notify the dev team that something is misconfigured
-        if (activityDefinition.status !== 'active') {
-          const errorMessage = `There is an INACTIVE Activity Definition (ActivityDefinition/${activityDefinition.id}) linked to the current working Lab Set List/${selectedLabSet.listId}`;
-          const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-          console.log(errorMessage);
-          await sendErrors(errorMessage, ENVIRONMENT);
-        }
-      }
-    } else {
-      // patient record case, no params are passed - just need to fetch available tests for filter
-      const activeActivityDefinitions = await fetchActiveInHouseLabActivityDefinitions(oystehr);
-
-      for (const activeDefinition of activeActivityDefinitions) {
-        const testItem = convertActivityDefinitionToDataEntryTestItem(activeDefinition);
-        testItems.push(testItem);
-      }
+    for (const activeDefinition of activeActivityDefinitions) {
+      const testItem = convertActivityDefinitionToDataEntryTestItem(activeDefinition);
+      testItems.push(testItem);
     }
 
-    const response: GetCreateInHouseLabOrderResourcesOutput = {
-      labs: testItems.sort((a, b) => a.name.localeCompare(b.name)),
-      providerName,
-      labSets,
-    };
+    labSets = formatLabListDTOs(labLists);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.error('Error processing in-house lab order resources:', error);
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('get-create-in-house-lab-order-resources', error, ENVIRONMENT);
+    providerName = attendingPractitionerName;
+  } else if (validatedParameters.selectedLabSet) {
+    const { selectedLabSet } = validatedParameters;
+    const activityDefinitionIds = selectedLabSet.labs.map((lab) => lab.activityDefinitionId);
+    const labSetActivityDefinitions = (
+      await oystehr.fhir.search<ActivityDefinition>({
+        resourceType: 'ActivityDefinition',
+        params: [
+          {
+            name: '_id',
+            value: activityDefinitionIds.join(','),
+          },
+        ],
+      })
+    ).unbundle();
+
+    console.log(
+      `Found ${labSetActivityDefinitions.length} active ActivityDefinition resources for the labSet List/${selectedLabSet.listId}`
+    );
+
+    for (const activityDefinition of labSetActivityDefinitions) {
+      const testItem = convertActivityDefinitionToDataEntryTestItem(activityDefinition);
+      testItems.push(testItem);
+
+      // notify the dev team that something is misconfigured
+      if (activityDefinition.status !== 'active') {
+        const errorMessage = `There is an INACTIVE Activity Definition (ActivityDefinition/${activityDefinition.id}) linked to the current working Lab Set List/${selectedLabSet.listId}`;
+        const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+        console.log(errorMessage);
+        await sendErrors(errorMessage, ENVIRONMENT);
+      }
+    }
+  } else {
+    // patient record case, no params are passed - just need to fetch available tests for filter
+    const activeActivityDefinitions = await fetchActiveInHouseLabActivityDefinitions(oystehr);
+
+    for (const activeDefinition of activeActivityDefinitions) {
+      const testItem = convertActivityDefinitionToDataEntryTestItem(activeDefinition);
+      testItems.push(testItem);
+    }
   }
+
+  const response: GetCreateInHouseLabOrderResourcesOutput = {
+    labs: testItems.sort((a, b) => a.name.localeCompare(b.name)),
+    providerName,
+    labSets,
+  };
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });

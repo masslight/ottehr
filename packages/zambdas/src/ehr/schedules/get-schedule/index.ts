@@ -4,7 +4,6 @@ import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule }
 import {
   BLANK_SCHEDULE_JSON_TEMPLATE,
   getScheduleExtension,
-  getSecret,
   getSlugForBookableResource,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -21,16 +20,9 @@ import {
   ScheduleExtension,
   ScheduleOwnerFhirResource,
   Secrets,
-  SecretsKeys,
   TIMEZONES,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
 
 let m2mToken: string;
@@ -38,27 +30,21 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'get-schedule';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const effectInput = await complexValidation(validatedParameters, oystehr);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  const effectInput = await complexValidation(validatedParameters, oystehr);
 
-    const scheduleDTO = performEffect(effectInput);
+  const scheduleDTO = performEffect(effectInput);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(scheduleDTO),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('ehr-get-schedule', error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(scheduleDTO),
+  };
 });
 
 const performEffect = (input: EffectInput): ScheduleDTO => {
