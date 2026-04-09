@@ -392,7 +392,11 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
           </Grid>
         ) : null}
         <Grid item xs={12}>
-          {type === 'dispense' || type === 'dispense-not-administered' ? <DispenseFooter /> : <OrderFooter />}
+          {type === 'dispense' || type === 'dispense-not-administered' || type === 'completed-edit' ? (
+            <DispenseFooter />
+          ) : (
+            <OrderFooter />
+          )}
         </Grid>
       </Grid>
     </Paper>

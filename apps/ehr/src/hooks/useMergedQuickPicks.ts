@@ -2,6 +2,7 @@ import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useState } from 'react';
 import {
   getAllergyQuickPicks,
+  getImmunizationQuickPicks,
   getMedicalConditionQuickPicks,
   getMedicationHistoryQuickPicks,
   getProcedureQuickPicks,
@@ -9,6 +10,7 @@ import {
 } from 'src/api/api';
 import {
   AllergyQuickPickData,
+  ImmunizationQuickPickData,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   ProcedureQuickPickData,
@@ -74,4 +76,8 @@ export function useMergedMedicationHistoryQuickPicks(): UseFhirQuickPicksResult<
 
 export function useMergedRadiologyQuickPicks(): UseFhirQuickPicksResult<RadiologyQuickPickData> {
   return useFhirQuickPicks(getRadiologyQuickPicks);
+}
+
+export function useMergedImmunizationQuickPicks(): UseFhirQuickPicksResult<ImmunizationQuickPickData> {
+  return useFhirQuickPicks(getImmunizationQuickPicks);
 }

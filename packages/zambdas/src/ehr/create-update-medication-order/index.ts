@@ -144,8 +144,8 @@ async function updateOrder(
   console.log('updateOrder');
 
   const currentStatus = mapFhirToOrderStatus(orderResources.medicationAdministration);
-  if (currentStatus !== 'pending' && newStatus)
-    throw new Error(`Can't change status if current is not 'pending'. Current status is: ${currentStatus}`);
+  if (currentStatus === 'cancelled' && newStatus)
+    throw new Error(`Can't change status of a cancelled order. Current status is: ${currentStatus}`);
   console.log(`Current order status is: ${currentStatus}`);
 
   if (newStatus) validateProviderAccess(orderData, newStatus, orderResources, practitionerIdCalledZambda);
