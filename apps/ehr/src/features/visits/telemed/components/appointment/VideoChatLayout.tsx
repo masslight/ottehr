@@ -45,7 +45,6 @@ export const VideoChatLayout: FC<PropsWithChildren> = ({ children }) => {
             {children}
           </VideoRoomContainer>
         </Dialog>
-        <Box sx={{ height: '424px' }} />
       </>
     );
   }
