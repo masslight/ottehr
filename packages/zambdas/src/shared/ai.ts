@@ -66,6 +66,7 @@ FORMAT RULES:
 Example response:
 {
   "historyOfPresentIllness": "The patient presents with chest pain for 2 days, worsening with exertion. No associated shortness of breath or diaphoresis.",
+  "mechanismOfInjury": "The patient reports being struck by a falling object at the workplace, impacting the left shoulder and upper back.",
   "pastMedicalHistory": ["hypertension", "type 2 diabetes"],
   "pastSurgicalHistory": ["appendectomy 2019"],
   "medicationsHistory": ["Lisinopril 10mg, last taken 03/28/2025 08:00", "Metformin 500mg", "Aspirin 81mg"],

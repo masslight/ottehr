@@ -29,6 +29,7 @@ export const CurrentMedicationsPatientColumn: FC<CurrentMedicationsPatientColumn
   const { chartData } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const setMedicationPrefill = useAiSuggestionPrefillStore((s) => s.setMedicationPrefill);
+  const medicationPrefill = useAiSuggestionPrefillStore((s) => s.medicationPrefill);
 
   const currentMedications = getQuestionnaireResponseByLinkId('current-medications', questionnaireResponse)?.answer?.[0]
     .valueArray;
@@ -40,9 +41,13 @@ export const CurrentMedicationsPatientColumn: FC<CurrentMedicationsPatientColumn
   const isAlreadyApplied = useCallback(
     (mappedData: MappedItemData) => {
       if (mappedData.section !== 'medications') return false;
-      return !!chartData?.medications?.some((m) => m.name?.toLowerCase().includes(mappedData.name.toLowerCase()));
+      const inChart = !!chartData?.medications?.some(
+        (m) => m.name?.toLowerCase().includes(mappedData.name.toLowerCase())
+      );
+      const isPrefilled = !!medicationPrefill?.medication?.name?.toLowerCase().includes(mappedData.name.toLowerCase());
+      return inChart || isPrefilled;
     },
-    [chartData?.medications]
+    [chartData?.medications, medicationPrefill]
   );
 
   const onApply = useCallback(

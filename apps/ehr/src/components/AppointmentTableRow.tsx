@@ -34,7 +34,6 @@ import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerso
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { TrackingBoardTableButton } from 'src/features/visits/telemed/components/tracking-board/TrackingBoardTableButton';
 import { getTelemedAppointmentUrl } from 'src/features/visits/telemed/utils/routing';
-import { makeAbbreviation } from 'src/helpers/misc.helper';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
@@ -47,6 +46,7 @@ import {
   getVisitTotalTime,
   GetVitalsResponseData,
   InPersonAppointmentInformation,
+  makeAbbreviation,
   mdyStringFromISOString,
   NON_LOS_STATUSES,
   OrdersForTrackingBoardRow,

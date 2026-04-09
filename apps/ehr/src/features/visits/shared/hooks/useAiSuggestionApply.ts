@@ -19,7 +19,7 @@ interface UseAiSuggestionApplyResult {
   expandedContent: ObservationTextFieldDTO[];
   mappedSuggestions: MappedSuggestion[];
   effectiveAppliedIndices: Set<number>;
-  handleSuggestionClick: (index: number) => void;
+  handleSuggestionClick: (index: number) => Promise<void>;
 }
 
 export const useAiSuggestionApply = ({
@@ -39,10 +39,10 @@ export const useAiSuggestionApply = ({
   }, [aiObservations, section]);
 
   const mappedSuggestions = useAiSuggestionMapping(aiObservations, section);
-  const [appliedIndices, setAppliedIndices] = useState<Set<number>>(new Set());
+  const [pendingIndices, setPendingIndices] = useState<Set<number>>(new Set());
 
   const effectiveAppliedIndices = useMemo(() => {
-    const indices = new Set(appliedIndices);
+    const indices = new Set(pendingIndices);
     if (mappedSuggestions.length > 0) {
       mappedSuggestions.forEach((mapped, idx) => {
         if (mapped.mappedData && mapped.mappedData.section === section) {
@@ -53,18 +53,18 @@ export const useAiSuggestionApply = ({
       });
     }
     return indices;
-  }, [appliedIndices, mappedSuggestions, section, isAlreadyApplied]);
+  }, [pendingIndices, mappedSuggestions, section, isAlreadyApplied]);
 
   const handleSuggestionClick = useCallback(
     async (index: number) => {
       const mapped = mappedSuggestions[index];
       if (!mapped?.mappedData || mapped.mappedData.section !== section) return;
 
-      setAppliedIndices((prev) => new Set(prev).add(index));
+      setPendingIndices((prev) => new Set(prev).add(index));
       try {
         await onApply(mapped.mappedData, mapped.originalValue);
-      } catch {
-        setAppliedIndices((prev) => {
+      } finally {
+        setPendingIndices((prev) => {
           const next = new Set(prev);
           next.delete(index);
           return next;
