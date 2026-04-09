@@ -13,6 +13,7 @@ import {
 } from 'config-types';
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
+import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../fhir';
 import { VALUE_SETS as formValueSets } from './value-sets';
 
 export const INSURANCE_PAY_OPTION = formValueSets.patientPaymentPageOptions[0].value; // 'I have insurance'
@@ -147,6 +148,24 @@ const createCategoryTagExtension = (categoryTag: string): NonNullable<Questionna
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/category-tag',
   valueString: categoryTag,
 });
+
+const createAnswerDisplayFilterExtension = (
+  conditions: { question: string; operator: string; answer: string }[],
+  includeValues: string[]
+): NonNullable<QuestionnaireItem['extension']>[number] => {
+  const ext = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerDisplayFilter;
+  return {
+    url: ext.extension,
+    extension: [
+      ...conditions.flatMap((c) => [
+        { url: ext.question, valueString: c.question },
+        { url: ext.operator, valueString: c.operator },
+        { url: ext.answer, valueString: c.answer },
+      ]),
+      ...includeValues.map((v) => ({ url: ext.include, valueString: v })),
+    ],
+  };
+};
 
 const createAlwaysFilterExtension = (): NonNullable<QuestionnaireItem['extension']>[number] => ({
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/always-filter',
@@ -617,6 +636,13 @@ const convertFormFieldToQuestionnaireItem = (
         extensions.push(createFilterWhenExtension(trigger));
       });
     }
+  }
+
+  // Add answer-display-filter extensions
+  if (field.answerDisplayFilters && field.answerDisplayFilters.length > 0) {
+    field.answerDisplayFilters.forEach((filter) => {
+      extensions.push(createAnswerDisplayFilterExtension(filter.conditions, filter.includeValues));
+    });
   }
 
   if (extensions.length > 0) {

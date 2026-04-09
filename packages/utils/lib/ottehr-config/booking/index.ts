@@ -46,6 +46,101 @@ const PatientDoesntExistTriggerEnableOnly: FormFieldTrigger = {
   answerBoolean: false,
 };
 
+export const SERVICE_CATEGORIES_AVAILABLE: ServiceCategoryConfig[] = [
+  {
+    category: { display: 'Urgent Care', code: 'urgent-care', system: SERVICE_CATEGORY_SYSTEM },
+    serviceModes: ['in-person', 'virtual'],
+    visitTypes: ['prebook', 'walk-in'],
+  },
+  {
+    category: { display: 'Occupational Medicine', code: 'occupational-medicine', system: SERVICE_CATEGORY_SYSTEM },
+    serviceModes: ['in-person', 'virtual'],
+    visitTypes: ['prebook', 'walk-in'],
+  },
+  {
+    category: { display: 'Workers Comp', code: 'workers-comp', system: SERVICE_CATEGORY_SYSTEM },
+    serviceModes: ['in-person', 'virtual'],
+    visitTypes: ['prebook', 'walk-in'],
+  },
+];
+
+/**
+ * Build a single reason-for-visit form field from service category configs that have reasonsForVisit.
+ * Returns null if no category defines reasonsForVisit (fall back to legacy per-category fields).
+ *
+ * The generated field has:
+ * - options: deduplicated union of all RFV values across all categories/modes (the full value set)
+ * - triggers: enable when appointment-service-category matches any category with reasonsForVisit
+ * - answerDisplayFilters: one filter per category+mode combo, specifying which options to show
+ */
+const buildReasonForVisitFromConfig = (serviceCategories: ServiceCategoryConfig[]): Record<string, unknown> | null => {
+  const categoriesWithRfv = serviceCategories.filter((sc) => sc.reasonsForVisit);
+  if (categoriesWithRfv.length === 0) return null;
+
+  // Collect all unique options across all categories/modes
+  const allOptions = new Map<string, { label: string; value: string }>();
+  // Build display filters and enable triggers
+  const displayFilters: {
+    conditions: { question: string; operator: string; answer: string }[];
+    includeValues: string[];
+  }[] = [];
+  const enableTriggers: FormFieldTrigger[] = [];
+
+  for (const sc of categoriesWithRfv) {
+    const rfv = sc.reasonsForVisit!;
+
+    // Add an enable trigger for this category
+    enableTriggers.push({
+      targetQuestionLinkId: 'appointment-service-category',
+      effect: ['enable', 'require'],
+      operator: '=',
+      answerString: sc.category.code,
+    });
+
+    // For each mode this category supports, generate a display filter
+    for (const mode of sc.serviceModes) {
+      const modeOptions = rfv[mode] ?? rfv.default;
+      if (!modeOptions) continue;
+
+      // Add all options to the superset
+      for (const opt of modeOptions) {
+        allOptions.set(opt.value, opt);
+      }
+
+      // Build filter conditions
+      const conditions: { question: string; operator: string; answer: string }[] = [
+        { question: 'appointment-service-category', operator: '=', answer: sc.category.code },
+        { question: 'appointment-service-mode', operator: '=', answer: mode },
+      ];
+
+      displayFilters.push({
+        conditions,
+        includeValues: modeOptions.map((o) => o.value),
+      });
+    }
+
+    // If there's a default with no mode-specific entries, also add options from default
+    if (rfv.default) {
+      for (const opt of rfv.default) {
+        allOptions.set(opt.value, opt);
+      }
+    }
+  }
+
+  return {
+    reasonForVisit: {
+      key: 'reason-for-visit',
+      label: 'Reason for visit',
+      type: 'choice',
+      options: [...allOptions.values()],
+      triggers: enableTriggers,
+      disabledDisplay: 'hidden',
+      enableBehavior: 'any',
+      answerDisplayFilters: displayFilters,
+    },
+  };
+};
+
 const FormFields: Record<string, FormFieldSection> = {
   patientInfo: {
     linkId: 'patient-information-page',
@@ -162,77 +257,81 @@ const FormFields: Record<string, FormFieldSection> = {
         options: VALUE_SETS.yesNoOptions,
         triggers: [PatientDoesntExistTriggerEnableAndRequire],
       },
-      reasonForVisit: {
-        key: 'reason-for-visit',
-        label: 'Reason for visit',
-        type: 'choice',
-        options: VALUE_SETS.reasonForVisitOptions,
-        triggers: [
-          {
-            targetQuestionLinkId: 'appointment-service-category',
-            effect: ['enable', 'require'],
-            operator: '=',
-            answerString: 'urgent-care',
-          },
-          {
-            targetQuestionLinkId: 'appointment-service-category',
-            effect: ['enable', 'require'],
-            operator: 'exists',
-            answerBoolean: false,
-          },
-        ],
-        disabledDisplay: 'hidden',
-        enableBehavior: 'any',
-      },
-      reasonForVisitOccMed: {
-        key: 'reason-for-visit-om',
-        label: 'Reason for visit',
-        type: 'choice',
-        options: VALUE_SETS.reasonForVisitOptionsOccMed,
-        triggers: [
-          {
-            targetQuestionLinkId: 'appointment-service-category',
-            effect: ['enable', 'require'],
-            operator: '=',
-            answerString: 'occupational-medicine',
-          },
-        ],
-        disabledDisplay: 'hidden',
-      },
-      reasonForVisitWorkersComp: {
-        key: 'reason-for-visit-wc',
-        label: 'Reason for visit',
-        type: 'choice',
-        options: VALUE_SETS.reasonForVisitOptionsWorkersComp,
-        triggers: [
-          {
-            targetQuestionLinkId: 'appointment-service-category',
-            effect: ['enable', 'require'],
-            operator: '=',
-            answerString: 'workers-comp',
-          },
-        ],
-        disabledDisplay: 'hidden',
-      },
-      ...(VALUE_SETS.reasonForVisitOptionsPreOp
-        ? {
-            reasonForVisitPreOp: {
-              key: 'reason-for-visit-po',
-              label: 'Reason for visit',
-              type: 'choice',
-              options: VALUE_SETS.reasonForVisitOptionsPreOp,
-              triggers: [
-                {
-                  targetQuestionLinkId: 'appointment-service-category',
-                  effect: ['enable', 'require'],
-                  operator: '=',
-                  answerString: 'pre-op',
-                },
-              ],
-              disabledDisplay: 'hidden',
+      // Reason-for-visit fields: if any service category defines reasonsForVisit,
+      // generate a single field with display filters; otherwise fall back to legacy per-category fields
+      ...(buildReasonForVisitFromConfig(SERVICE_CATEGORIES_AVAILABLE) ?? {
+        reasonForVisit: {
+          key: 'reason-for-visit',
+          label: 'Reason for visit',
+          type: 'choice',
+          options: VALUE_SETS.reasonForVisitOptions,
+          triggers: [
+            {
+              targetQuestionLinkId: 'appointment-service-category',
+              effect: ['enable', 'require'],
+              operator: '=',
+              answerString: 'urgent-care',
             },
-          }
-        : {}),
+            {
+              targetQuestionLinkId: 'appointment-service-category',
+              effect: ['enable', 'require'],
+              operator: 'exists',
+              answerBoolean: false,
+            },
+          ],
+          disabledDisplay: 'hidden',
+          enableBehavior: 'any',
+        },
+        reasonForVisitOccMed: {
+          key: 'reason-for-visit-om',
+          label: 'Reason for visit',
+          type: 'choice',
+          options: VALUE_SETS.reasonForVisitOptionsOccMed,
+          triggers: [
+            {
+              targetQuestionLinkId: 'appointment-service-category',
+              effect: ['enable', 'require'],
+              operator: '=',
+              answerString: 'occupational-medicine',
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        reasonForVisitWorkersComp: {
+          key: 'reason-for-visit-wc',
+          label: 'Reason for visit',
+          type: 'choice',
+          options: VALUE_SETS.reasonForVisitOptionsWorkersComp,
+          triggers: [
+            {
+              targetQuestionLinkId: 'appointment-service-category',
+              effect: ['enable', 'require'],
+              operator: '=',
+              answerString: 'workers-comp',
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        ...(VALUE_SETS.reasonForVisitOptionsPreOp
+          ? {
+              reasonForVisitPreOp: {
+                key: 'reason-for-visit-po',
+                label: 'Reason for visit',
+                type: 'choice',
+                options: VALUE_SETS.reasonForVisitOptionsPreOp,
+                triggers: [
+                  {
+                    targetQuestionLinkId: 'appointment-service-category',
+                    effect: ['enable', 'require'],
+                    operator: '=',
+                    answerString: 'pre-op',
+                  },
+                ],
+                disabledDisplay: 'hidden',
+              },
+            }
+          : {}),
+      }),
       tellUsMore: {
         key: 'tell-us-more',
         label: 'Tell us more',
@@ -274,24 +373,6 @@ const FORM_DEFAULTS = {
   hiddenFormSections,
   FormFields,
 };
-
-export const SERVICE_CATEGORIES_AVAILABLE: ServiceCategoryConfig[] = [
-  {
-    category: { display: 'Urgent Care', code: 'urgent-care', system: SERVICE_CATEGORY_SYSTEM },
-    serviceModes: ['in-person', 'virtual'],
-    visitTypes: ['prebook', 'walk-in'],
-  },
-  {
-    category: { display: 'Occupational Medicine', code: 'occupational-medicine', system: SERVICE_CATEGORY_SYSTEM },
-    serviceModes: ['in-person', 'virtual'],
-    visitTypes: ['prebook', 'walk-in'],
-  },
-  {
-    category: { display: 'Workers Comp', code: 'workers-comp', system: SERVICE_CATEGORY_SYSTEM },
-    serviceModes: ['in-person', 'virtual'],
-    visitTypes: ['prebook', 'walk-in'],
-  },
-];
 
 export const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
   { key: 'bookingOn', value: 'visit-followup-group' },
