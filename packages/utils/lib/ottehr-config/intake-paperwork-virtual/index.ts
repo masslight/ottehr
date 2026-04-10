@@ -9,21 +9,21 @@ import {
 } from 'config-types';
 import { Questionnaire } from 'fhir/r4b';
 import { camelCase } from 'lodash-es';
+import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
+import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
+import { BRANDING_CONFIG } from '../branding';
+import { getConsentFormsForLocation } from '../consent-forms';
+import { patientScreeningQuestionsConfig } from '../screening-questions';
 import {
   ALLERGIES_YES_OPTION,
-  createQuestionnaireFromConfig,
   HAS_ATTORNEY_OPTION,
   INSURANCE_PAY_OPTION,
   OCC_MED_EMPLOYER_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
   SELF_PAY_OPTION,
   SURGICAL_HISTORY_YES_OPTION,
-} from '../../config-helpers/shared-questionnaire';
-import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
-import { BRANDING_CONFIG } from '../branding';
-import { getConsentFormsForLocation } from '../consent-forms';
-import { patientScreeningQuestionsConfig } from '../screening-questions';
-import { VALUE_SETS } from '../value-sets';
+  VALUE_SETS,
+} from '../value-sets';
 
 const hiddenFormSections: string[] = [];
 

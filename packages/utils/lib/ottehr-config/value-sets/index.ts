@@ -626,3 +626,16 @@ const formValueSets: ValueSetsConfig = {
 };
 
 export const VALUE_SETS = deepFreezeObject(formValueSets);
+
+// Convenience constants for comparing against specific value set options.
+// These live here (alongside the arrays they derive from) rather than in config-helpers,
+// because ottehr-config modules use them in trigger definitions — importing them from
+// config-helpers would create a circular dependency (ottehr-config → config-helpers → ottehr-config).
+export const INSURANCE_PAY_OPTION = VALUE_SETS.patientPaymentPageOptions[0].value; // 'I have insurance'
+export const SELF_PAY_OPTION = VALUE_SETS.patientPaymentPageOptions[1].value; // 'I will pay without insurance'
+export const OCC_MED_SELF_PAY_OPTION = VALUE_SETS.patientOccMedPaymentPageOptions[0].value; // 'Self'
+export const OCC_MED_EMPLOYER_PAY_OPTION = VALUE_SETS.patientOccMedPaymentPageOptions[1].value; // 'Employer'
+export const ALLERGIES_YES_OPTION = VALUE_SETS.allergiesYesNoOptions[1].value;
+export const SURGICAL_HISTORY_YES_OPTION = VALUE_SETS.surgicalHistoryYesNoOptions[1].value;
+export const HAS_ATTORNEY_OPTION = VALUE_SETS.attorneyOptions[0].value; // 'I have an attorney'
+export const DOES_NOT_HAVE_ATTORNEY_OPTION = VALUE_SETS.attorneyOptions[1].value; // 'I do not have an attorney'
