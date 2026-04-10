@@ -668,7 +668,7 @@ export default function ProcedureCodes({
           <Button
             variant="outlined"
             startIcon={<DownloadIcon />}
-            sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+            sx={{ textTransform: 'none', whiteSpace: 'nowrap', borderRadius: 28 }}
             onClick={handleDownloadTemplate}
           >
             Download template
@@ -676,7 +676,7 @@ export default function ProcedureCodes({
           <Button
             variant="outlined"
             startIcon={<DownloadIcon />}
-            sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+            sx={{ textTransform: 'none', whiteSpace: 'nowrap', borderRadius: 28 }}
             onClick={() => setDownloadDialogOpen(true)}
             disabled={procedureCodes.length === 0}
           >
@@ -685,7 +685,7 @@ export default function ProcedureCodes({
           <Button
             variant="outlined"
             startIcon={<UploadFileIcon />}
-            sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+            sx={{ textTransform: 'none', whiteSpace: 'nowrap', borderRadius: 28 }}
             onClick={() => fileInputRef.current?.click()}
             disabled={bulkAdding}
           >
@@ -693,9 +693,9 @@ export default function ProcedureCodes({
           </Button>
           <input ref={fileInputRef} type="file" accept=".csv" hidden onChange={(e) => void handleUploadCsv(e)} />
           <Button
-            variant="outlined"
+            variant="contained"
             startIcon={<AddIcon />}
-            sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+            sx={{ textTransform: 'none', whiteSpace: 'nowrap', borderRadius: 28 }}
             onClick={openAddDialog}
             data-testid={dataTestIds.procedureCodes.addButton}
           >

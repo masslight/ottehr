@@ -236,9 +236,9 @@ export default function LocationAssociations({
             sx={{ flex: 1 }}
           />
           <Button
-            variant="outlined"
+            variant="contained"
             startIcon={<AddIcon />}
-            sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+            sx={{ textTransform: 'none', whiteSpace: 'nowrap', borderRadius: 28 }}
             onClick={() => setDialogOpen(true)}
           >
             Add location
