@@ -24,7 +24,7 @@ let m2mToken: string;
 export const index = wrapHandler(
   'find-applicable-fee-schedule',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { payerOrganizationId, dateOfService, secrets } = validateRequestParameters(input);
+    const { payerOrganizationId, dateOfService, locationId, secrets } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
@@ -49,14 +49,28 @@ export const index = wrapHandler(
       };
     }
 
-    // Find the one with the most recent effective date on or before the date of service
-    const applicable = payerFeeSchedules
+    // Filter by effective date
+    const dateFiltered = payerFeeSchedules
       .filter((fs) => fs.date && fs.date <= dateOfService)
       .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 
+    // If locationId provided, prefer a fee schedule that also matches the location
+    if (locationId) {
+      const locationMatch = dateFiltered.find(
+        (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
+      );
+      if (locationMatch) {
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ feeSchedule: locationMatch }),
+        };
+      }
+    }
+
+    // Fall back to the best payer-only match (no location filter)
     return {
       statusCode: 200,
-      body: JSON.stringify({ feeSchedule: applicable[0] ?? null }),
+      body: JSON.stringify({ feeSchedule: dateFiltered[0] ?? null }),
     };
   }
 );

@@ -47,6 +47,7 @@ import {
   CPT_MODIFIER_EXTENSION_URL,
   FHIR_EXTENSION,
   getCoding,
+  getLocationIdFromAppointment,
   getPaymentVariantFromEncounter,
   isApiError,
   ListPatientPaymentResponse,
@@ -246,6 +247,10 @@ export default function PatientPaymentList({
     return start ? start.split('T')[0] : undefined;
   }, [appointment?.start]);
 
+  const locationId = useMemo(() => {
+    return appointment ? getLocationIdFromAppointment(appointment) : undefined;
+  }, [appointment]);
+
   const {
     data: selfPayResult,
     isLoading: selfPayLoading,
@@ -253,7 +258,8 @@ export default function PatientPaymentList({
   } = useGetChargeMasterEntryQuery(
     paymentVariant === PaymentVariant.selfPay ? 'self-pay' : undefined,
     undefined,
-    dateOfService
+    dateOfService,
+    locationId
   );
   const selfPayFeeSchedule = selfPayResult?.chargeMaster;
 
@@ -267,7 +273,8 @@ export default function PatientPaymentList({
     isFetched: feeScheduleFetched,
   } = useFindApplicableFeeScheduleQuery(
     canQueryFeeSchedule ? insuranceOrgId : undefined,
-    canQueryFeeSchedule ? dateOfService : undefined
+    canQueryFeeSchedule ? dateOfService : undefined,
+    locationId
   );
   const payerFeeSchedule = feeScheduleResult?.feeSchedule ?? undefined;
 
@@ -278,7 +285,12 @@ export default function PatientPaymentList({
     data: insurancePayResult,
     isLoading: insurancePayLoading,
     isFetched: insurancePayFetched,
-  } = useGetChargeMasterEntryQuery(shouldFallbackToCm ? 'default-insurance' : undefined, insuranceOrgId, dateOfService);
+  } = useGetChargeMasterEntryQuery(
+    shouldFallbackToCm ? 'default-insurance' : undefined,
+    insuranceOrgId,
+    dateOfService,
+    locationId
+  );
   const insuranceChargeMaster = insurancePayResult?.chargeMaster;
   const insuranceChargeMasterSource = insurancePayResult?.source;
 
@@ -290,7 +302,8 @@ export default function PatientPaymentList({
   } = useGetChargeMasterEntryQuery(
     paymentVariant === undefined ? 'default-insurance' : undefined,
     undefined,
-    dateOfService
+    dateOfService,
+    locationId
   );
   const defaultChargeMaster = defaultCmResult?.chargeMaster;
 

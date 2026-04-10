@@ -107,6 +107,7 @@ export interface GetChargeMasterEntryInput {
   designation: ChargeMasterDesignation;
   payerOrganizationId?: string;
   dateOfService?: string;
+  locationId?: string;
 }
 
 export interface GetChargeMasterEntryResponse {

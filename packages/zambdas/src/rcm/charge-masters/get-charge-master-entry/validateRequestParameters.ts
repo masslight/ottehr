@@ -5,6 +5,7 @@ export interface GetChargeMasterEntryParams {
   designation: ChargeMasterDesignation;
   payerOrganizationId?: string;
   dateOfService?: string;
+  locationId?: string;
   secrets: ZambdaInput['secrets'];
 }
 
@@ -13,7 +14,7 @@ export function validateRequestParameters(input: ZambdaInput): GetChargeMasterEn
     throw MISSING_REQUEST_BODY;
   }
 
-  const { designation, payerOrganizationId, dateOfService } = JSON.parse(input.body);
+  const { designation, payerOrganizationId, dateOfService, locationId } = JSON.parse(input.body);
 
   if (designation !== 'default-insurance' && designation !== 'self-pay') {
     throw INVALID_INPUT_ERROR('"designation" must be "default-insurance" or "self-pay"');
@@ -23,6 +24,7 @@ export function validateRequestParameters(input: ZambdaInput): GetChargeMasterEn
     designation,
     payerOrganizationId: payerOrganizationId || undefined,
     dateOfService: dateOfService || undefined,
+    locationId: locationId || undefined,
     secrets: input.secrets,
   };
 }

@@ -4,6 +4,7 @@ import { ZambdaInput } from '../../../shared';
 export interface FindApplicableFeeScheduleParams {
   payerOrganizationId: string;
   dateOfService: string;
+  locationId?: string;
   secrets: ZambdaInput['secrets'];
 }
 
@@ -12,7 +13,7 @@ export function validateRequestParameters(input: ZambdaInput): FindApplicableFee
     throw MISSING_REQUEST_BODY;
   }
 
-  const { payerOrganizationId, dateOfService } = JSON.parse(input.body);
+  const { payerOrganizationId, dateOfService, locationId } = JSON.parse(input.body);
 
   if (!payerOrganizationId || typeof payerOrganizationId !== 'string') {
     throw MISSING_REQUIRED_PARAMETERS(['payerOrganizationId']);
@@ -25,6 +26,7 @@ export function validateRequestParameters(input: ZambdaInput): FindApplicableFee
   return {
     payerOrganizationId,
     dateOfService,
+    locationId: locationId || undefined,
     secrets: input.secrets,
   };
 }

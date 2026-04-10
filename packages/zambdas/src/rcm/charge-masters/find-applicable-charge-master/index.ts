@@ -35,7 +35,7 @@ let m2mToken: string;
 export const index = wrapHandler(
   'find-applicable-charge-master',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { payerOrganizationId, dateOfService, secrets } = validateRequestParameters(input);
+    const { payerOrganizationId, dateOfService, locationId, secrets } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
@@ -56,6 +56,22 @@ export const index = wrapHandler(
       const payerSpecific = allChargeMasters.filter(
         (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`)
       );
+
+      // If locationId provided, prefer a payer match that also matches the location
+      if (locationId) {
+        const locationMatch = findMostRecentEffective(
+          payerSpecific.filter(
+            (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
+          ),
+          dateOfService
+        );
+        if (locationMatch) {
+          return {
+            statusCode: 200,
+            body: JSON.stringify({ chargeMaster: locationMatch, source: 'payer-specific' }),
+          };
+        }
+      }
 
       const match = findMostRecentEffective(payerSpecific, dateOfService);
       if (match) {
