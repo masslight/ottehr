@@ -672,11 +672,11 @@ test.describe('In-Person Visit Chart Data', async () => {
       // Check default text
       await assessmentPage.expectMdmField({ text: '' });
 
-      // Edit the text
+      // Edit the text and wait for the debounced save to complete
       const newText = 'Updated medical decision making text';
+      const saveResponsePromise = page.waitForResponse((resp) => resp.url().includes('save-chart-data'));
       await assessmentPage.fillMdmField(newText);
-      await page.getByTestId(dataTestIds.assessmentCard.medicalDecisionLoading).waitFor({ state: 'visible' });
-      await page.getByTestId(dataTestIds.assessmentCard.medicalDecisionLoading).waitFor({ state: 'hidden' });
+      await saveResponsePromise;
 
       // Verify text is updated
       await assessmentPage.expectMdmField({ text: newText });
