@@ -18,6 +18,7 @@ import {
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import {
+  FEATURE_FLAGS_CONFIG,
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   medicationApplianceRoutes,
@@ -445,6 +446,7 @@ test.describe('Order Deletion - Happy Path', () => {
   });
 
   test('Delete radiology order and verify it is removed from list', async ({ browser }) => {
+    test.skip(!FEATURE_FLAGS_CONFIG.radiologyEnabled, 'Radiology is not enabled in this configuration');
     // Create isolated context and page for this test
     const context = await browser.newContext();
     const page = await context.newPage();
