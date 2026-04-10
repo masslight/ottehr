@@ -15,6 +15,7 @@ import {
 import _ from 'lodash';
 import { capitalize } from 'lodash-es';
 import { DateTime } from 'luxon';
+import { getReasonForVisitOptionsForServiceCategory } from '../../config-helpers/booking';
 import {
   DOES_NOT_HAVE_ATTORNEY_OPTION,
   HAS_ATTORNEY_OPTION,
@@ -35,7 +36,6 @@ import {
   PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
-import { VALUE_SETS } from '../../ottehr-config';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
@@ -165,22 +165,8 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   if (reasonForVisit) {
     const [reasonOption] = reasonForVisit.split(REASON_FOR_VISIT_SEPARATOR);
     if (reasonOption && reasonOption !== normalizedReasonForVisit) {
-      if (
-        appointmentServiceCategory === 'occupational-medicine' &&
-        VALUE_SETS.reasonForVisitOptionsOccMed.some((opt) => opt.value === reasonOption)
-      ) {
-        normalizedReasonForVisit = reasonOption;
-      } else if (
-        appointmentServiceCategory === 'workers-comp' &&
-        VALUE_SETS.reasonForVisitOptionsWorkersComp.some((opt) => opt.value === reasonOption)
-      ) {
-        normalizedReasonForVisit = reasonOption;
-      } else if (
-        appointmentServiceCategory === 'pre-op' &&
-        VALUE_SETS.reasonForVisitOptionsPreOp?.some((opt) => opt.value === reasonOption)
-      ) {
-        normalizedReasonForVisit = reasonOption;
-      } else if (VALUE_SETS.reasonForVisitOptions.some((opt) => opt.value === reasonOption)) {
+      const validOptions = getReasonForVisitOptionsForServiceCategory(appointmentServiceCategory ?? '');
+      if (validOptions.some((opt) => opt.value === reasonOption)) {
         normalizedReasonForVisit = reasonOption;
       }
     }

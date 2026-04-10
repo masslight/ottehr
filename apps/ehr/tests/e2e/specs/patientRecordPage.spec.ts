@@ -29,9 +29,9 @@ import {
   DEMO_VISIT_STREET_ADDRESS,
   DEMO_VISIT_STREET_ADDRESS_OPTIONAL,
   DEMO_VISIT_ZIP,
+  getReasonForVisitOptionsForServiceCategory,
   PATIENT_RECORD_CONFIG,
   unpackFhirResponse,
-  VALUE_SETS,
 } from 'utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
@@ -96,7 +96,7 @@ const NEW_PRACTICE_NAME = 'Dental';
 const NEW_PHYSICIAN_ADDRESS = '5th avenue';
 const NEW_PHYSICIAN_MOBILE = '(202) 222-2222';
 const NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD = 'testing gender';
-const NEW_REASON_FOR_VISIT = VALUE_SETS.reasonForVisitOptions[0].value;
+const NEW_REASON_FOR_VISIT = getReasonForVisitOptionsForServiceCategory('urgent-care')[0].value;
 
 // Emergency Contact test data
 const NEW_EMERGENCY_CONTACT_RELATIONSHIP = 'Parent';

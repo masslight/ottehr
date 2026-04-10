@@ -66,7 +66,7 @@ export class BookingFlowHelpers {
           return options[0]?.value;
         }
         // Default to urgent-care if no category specified
-        return VALUE_SETS.reasonForVisitOptions[0].value; // 'Cough and/or congestion'
+        return getReasonForVisitOptionsForServiceCategory('urgent-care')[0]?.value;
       default:
         return undefined;
     }

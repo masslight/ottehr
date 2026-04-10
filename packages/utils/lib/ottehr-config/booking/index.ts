@@ -13,7 +13,10 @@ import {
   createProxyConfigObject,
   mergeAndFreezeConfigObjects,
 } from '../../config-helpers/helpers';
-import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
+import {
+  buildReasonForVisitFromConfig,
+  createQuestionnaireFromConfig,
+} from '../../config-helpers/shared-questionnaire';
 import { SERVICE_CATEGORY_SYSTEM } from '../../fhir';
 import { CanonicalUrl } from '../../types';
 import { BRANDING_CONFIG } from '../branding';
@@ -51,97 +54,58 @@ export const SERVICE_CATEGORIES_AVAILABLE: ServiceCategoryConfig[] = [
     category: { display: 'Urgent Care', code: 'urgent-care', system: SERVICE_CATEGORY_SYSTEM },
     serviceModes: ['in-person', 'virtual'],
     visitTypes: ['prebook', 'walk-in'],
+    reasonsForVisit: {
+      default: [
+        { label: 'Cough and/or congestion', value: 'Cough and/or congestion' },
+        { label: 'Throat pain', value: 'Throat pain' },
+        { label: 'Eye concern', value: 'Eye concern' },
+        { label: 'Fever', value: 'Fever' },
+        { label: 'Ear pain', value: 'Ear pain' },
+        { label: 'Vomiting and/or diarrhea', value: 'Vomiting and/or diarrhea' },
+        { label: 'Abdominal (belly) pain', value: 'Abdominal (belly) pain' },
+        { label: 'Rash or skin issue', value: 'Rash or skin issue' },
+        { label: 'Urinary problem', value: 'Urinary problem' },
+        { label: 'Breathing problem', value: 'Breathing problem' },
+        { label: 'Injury to arm', value: 'Injury to arm' },
+        { label: 'Injury to leg', value: 'Injury to leg' },
+        { label: 'Injury to head', value: 'Injury to head' },
+        { label: 'Injury (Other)', value: 'Injury (Other)' },
+        { label: 'Cut to arm or leg', value: 'Cut to arm or leg' },
+        { label: 'Cut to face or head', value: 'Cut to face or head' },
+        { label: 'Removal of sutures/stitches/staples', value: 'Removal of sutures/stitches/staples' },
+        { label: 'Choked or swallowed something', value: 'Choked or swallowed something' },
+        { label: 'Allergic reaction to medication or food', value: 'Allergic reaction to medication or food' },
+        { label: 'Auto accident', value: 'Auto accident' },
+        { label: 'Other', value: 'Other' },
+      ],
+    },
   },
   {
     category: { display: 'Occupational Medicine', code: 'occupational-medicine', system: SERVICE_CATEGORY_SYSTEM },
     serviceModes: ['in-person', 'virtual'],
     visitTypes: ['prebook', 'walk-in'],
+    reasonsForVisit: {
+      default: [
+        { label: 'Injury', value: 'Injury' },
+        { label: 'Testing', value: 'Testing' },
+        { label: 'Physical', value: 'Physical' },
+      ],
+    },
   },
   {
     category: { display: 'Workers Comp', code: 'workers-comp', system: SERVICE_CATEGORY_SYSTEM },
     serviceModes: ['in-person', 'virtual'],
     visitTypes: ['prebook', 'walk-in'],
+    reasonsForVisit: {
+      default: [
+        { label: 'New injury', value: 'New injury' },
+        { label: 'Follow-up', value: 'Follow-up' },
+      ],
+    },
   },
 ];
 
-/**
- * Build a single reason-for-visit form field from service category configs that have reasonsForVisit.
- * Returns null if no category defines reasonsForVisit (fall back to legacy per-category fields).
- *
- * The generated field has:
- * - options: deduplicated union of all RFV values across all categories/modes (the full value set)
- * - triggers: enable when appointment-service-category matches any category with reasonsForVisit
- * - answerDisplayFilters: one filter per category+mode combo, specifying which options to show
- */
-const buildReasonForVisitFromConfig = (serviceCategories: ServiceCategoryConfig[]): Record<string, unknown> | null => {
-  const categoriesWithRfv = serviceCategories.filter((sc) => sc.reasonsForVisit);
-  if (categoriesWithRfv.length === 0) return null;
-
-  // Collect all unique options across all categories/modes
-  const allOptions = new Map<string, { label: string; value: string }>();
-  // Build display filters and enable triggers
-  const displayFilters: {
-    conditions: { question: string; operator: string; answer: string }[];
-    includeValues: string[];
-  }[] = [];
-  const enableTriggers: FormFieldTrigger[] = [];
-
-  for (const sc of categoriesWithRfv) {
-    const rfv = sc.reasonsForVisit!;
-
-    // Add an enable trigger for this category
-    enableTriggers.push({
-      targetQuestionLinkId: 'appointment-service-category',
-      effect: ['enable', 'require'],
-      operator: '=',
-      answerString: sc.category.code,
-    });
-
-    // For each mode this category supports, generate a display filter
-    for (const mode of sc.serviceModes) {
-      const modeOptions = rfv[mode] ?? rfv.default;
-      if (!modeOptions) continue;
-
-      // Add all options to the superset
-      for (const opt of modeOptions) {
-        allOptions.set(opt.value, opt);
-      }
-
-      // Build filter conditions
-      const conditions: { question: string; operator: string; answer: string }[] = [
-        { question: 'appointment-service-category', operator: '=', answer: sc.category.code },
-        { question: 'appointment-service-mode', operator: '=', answer: mode },
-      ];
-
-      displayFilters.push({
-        conditions,
-        includeValues: modeOptions.map((o) => o.value),
-      });
-    }
-
-    // If there's a default with no mode-specific entries, also add options from default
-    if (rfv.default) {
-      for (const opt of rfv.default) {
-        allOptions.set(opt.value, opt);
-      }
-    }
-  }
-
-  return {
-    reasonForVisit: {
-      key: 'reason-for-visit',
-      label: 'Reason for visit',
-      type: 'choice',
-      options: [...allOptions.values()],
-      triggers: enableTriggers,
-      disabledDisplay: 'hidden',
-      enableBehavior: 'any',
-      answerDisplayFilters: displayFilters,
-    },
-  };
-};
-
-const FormFields: Record<string, FormFieldSection> = {
+const getFormFields = (): Record<string, FormFieldSection> => ({
   patientInfo: {
     linkId: 'patient-information-page',
     title: 'About the patient',
@@ -257,81 +221,8 @@ const FormFields: Record<string, FormFieldSection> = {
         options: VALUE_SETS.yesNoOptions,
         triggers: [PatientDoesntExistTriggerEnableAndRequire],
       },
-      // Reason-for-visit fields: if any service category defines reasonsForVisit,
-      // generate a single field with display filters; otherwise fall back to legacy per-category fields
-      ...(buildReasonForVisitFromConfig(SERVICE_CATEGORIES_AVAILABLE) ?? {
-        reasonForVisit: {
-          key: 'reason-for-visit',
-          label: 'Reason for visit',
-          type: 'choice',
-          options: VALUE_SETS.reasonForVisitOptions,
-          triggers: [
-            {
-              targetQuestionLinkId: 'appointment-service-category',
-              effect: ['enable', 'require'],
-              operator: '=',
-              answerString: 'urgent-care',
-            },
-            {
-              targetQuestionLinkId: 'appointment-service-category',
-              effect: ['enable', 'require'],
-              operator: 'exists',
-              answerBoolean: false,
-            },
-          ],
-          disabledDisplay: 'hidden',
-          enableBehavior: 'any',
-        },
-        reasonForVisitOccMed: {
-          key: 'reason-for-visit-om',
-          label: 'Reason for visit',
-          type: 'choice',
-          options: VALUE_SETS.reasonForVisitOptionsOccMed,
-          triggers: [
-            {
-              targetQuestionLinkId: 'appointment-service-category',
-              effect: ['enable', 'require'],
-              operator: '=',
-              answerString: 'occupational-medicine',
-            },
-          ],
-          disabledDisplay: 'hidden',
-        },
-        reasonForVisitWorkersComp: {
-          key: 'reason-for-visit-wc',
-          label: 'Reason for visit',
-          type: 'choice',
-          options: VALUE_SETS.reasonForVisitOptionsWorkersComp,
-          triggers: [
-            {
-              targetQuestionLinkId: 'appointment-service-category',
-              effect: ['enable', 'require'],
-              operator: '=',
-              answerString: 'workers-comp',
-            },
-          ],
-          disabledDisplay: 'hidden',
-        },
-        ...(VALUE_SETS.reasonForVisitOptionsPreOp
-          ? {
-              reasonForVisitPreOp: {
-                key: 'reason-for-visit-po',
-                label: 'Reason for visit',
-                type: 'choice',
-                options: VALUE_SETS.reasonForVisitOptionsPreOp,
-                triggers: [
-                  {
-                    targetQuestionLinkId: 'appointment-service-category',
-                    effect: ['enable', 'require'],
-                    operator: '=',
-                    answerString: 'pre-op',
-                  },
-                ],
-                disabledDisplay: 'hidden',
-              },
-            }
-          : {}),
-      }),
+      // Single RFV field with display filters, auto-generated from service category config
+      ...buildReasonForVisitFromConfig(SERVICE_CATEGORIES_AVAILABLE)!,
       tellUsMore: {
         key: 'tell-us-more',
         label: 'Tell us more',
@@ -355,7 +246,7 @@ const FormFields: Record<string, FormFieldSection> = {
     hiddenFields: [],
     requiredFields: ['patient-birth-sex', 'patient-email'],
   },
-};
+});
 
 const hiddenFormSections: string[] = [];
 
@@ -368,11 +259,11 @@ const questionnaireBaseDefaults: QuestionnaireBase = {
   status: 'active',
 };
 
-const FORM_DEFAULTS = {
+const getFormDefaults = (): QuestionnaireConfigType => ({
   questionnaireBase: questionnaireBaseDefaults,
   hiddenFormSections,
-  FormFields,
-};
+  FormFields: getFormFields(),
+});
 
 export const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
   { key: 'bookingOn', value: 'visit-followup-group' },
@@ -423,10 +314,8 @@ const BOOKING_DEFAULTS_DATA = {
 
 // --- End inlined data ---
 
-const formConfig = FORM_DEFAULTS;
-
 const BOOKING_QUESTIONNAIRE = (): Questionnaire =>
-  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(formConfig)));
+  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(getFormDefaults())));
 
 export const selectBookingQuestionnaire: (_slot?: Slot) => {
   url: string;
@@ -460,10 +349,10 @@ export interface BookingConfig {
   inPersonQuestionnaireCanonical?: CanonicalUrl;
 }
 
-const BOOKING_DEFAULTS: BookingConfig = {
+const getBookingDefaults = (): BookingConfig => ({
   ...BOOKING_DEFAULTS_DATA,
-  formConfig,
-};
+  formConfig: getFormDefaults(),
+});
 
 /**
  * Get booking configuration with optional test overrides
@@ -473,11 +362,11 @@ const BOOKING_DEFAULTS: BookingConfig = {
  */
 export function getBookingConfig(testOverrides?: Partial<BookingConfig>): BookingConfig {
   if (!testOverrides) {
-    return BOOKING_DEFAULTS;
+    return getBookingDefaults();
   }
   // Type assertion needed: DeepMerge with Partial<T> produces T | undefined properties,
   // but lodash merge skips undefined values so the base config properties are preserved.
-  return mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, testOverrides) as BookingConfig;
+  return mergeAndFreezeConfigObjects(getBookingDefaults(), testOverrides) as BookingConfig;
 }
 
 // todo: it would be nice to use zod to validate the merged booking config shape here

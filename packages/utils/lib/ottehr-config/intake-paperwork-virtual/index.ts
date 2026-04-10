@@ -82,8 +82,7 @@ function buildFormFields(
         },
         reasonForVisit: {
           key: 'reason-for-visit',
-          type: 'choice',
-          options: valueSets.reasonForVisitOptions,
+          type: 'string',
         },
       },
       items: {

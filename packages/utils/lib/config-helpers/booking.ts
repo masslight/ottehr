@@ -8,7 +8,6 @@ import {
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName } from '../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../helpers';
 import { BOOKING_CONFIG, type StrongCoding } from '../ottehr-config/booking';
-import { VALUE_SETS } from '../ottehr-config/value-sets';
 import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../types';
 
 // Questionnaire fields that distinguish between "not provided" (undefined) vs "cleared" ('')
@@ -46,7 +45,6 @@ export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: st
  * Resolution order:
  * 1. If the category config has reasonsForVisit[serviceMode], use it
  * 2. If the category config has reasonsForVisit.default, use it
- * 3. Fall back to legacy VALUE_SETS pattern
  *
  * When serviceMode is omitted (e.g., EHR context), returns the default or
  * a combined list of all mode-specific options for the category.
@@ -56,47 +54,36 @@ export const getReasonForVisitOptionsForServiceCategory = (
   serviceMode?: string
 ): { value: string; label: string }[] => {
   const categoryConfig = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategory);
-  if (categoryConfig?.reasonsForVisit) {
-    const rfv = categoryConfig.reasonsForVisit;
+  if (!categoryConfig?.reasonsForVisit) {
+    return [];
+  }
 
-    if (serviceMode) {
-      const modeKey = serviceMode as keyof typeof rfv;
-      if (rfv[modeKey]) {
-        return [...rfv[modeKey]!];
-      }
-      if (rfv.default) {
-        return [...rfv.default];
-      }
+  const rfv = categoryConfig.reasonsForVisit;
+
+  if (serviceMode) {
+    const modeKey = serviceMode as keyof typeof rfv;
+    if (rfv[modeKey]) {
+      return [...rfv[modeKey]!];
     }
-
     if (rfv.default) {
       return [...rfv.default];
     }
-    const combined = new Map<string, { value: string; label: string }>();
-    for (const options of Object.values(rfv)) {
-      if (options) {
-        for (const opt of options) {
-          combined.set(opt.value, opt);
-        }
-      }
-    }
-    return [...combined.values()];
   }
 
-  // Legacy VALUE_SETS fallback for projects that don't use reasonsForVisit on categories
-  if (serviceCategory === 'occupational-medicine') {
-    return [...VALUE_SETS.reasonForVisitOptionsOccMed];
+  if (rfv.default) {
+    return [...rfv.default];
   }
-  if (serviceCategory === 'workers-comp') {
-    return [...VALUE_SETS.reasonForVisitOptionsWorkersComp];
+
+  // No mode specified and no default: combine all mode-specific lists
+  const combined = new Map<string, { value: string; label: string }>();
+  for (const options of Object.values(rfv)) {
+    if (options) {
+      for (const opt of options) {
+        combined.set(opt.value, opt);
+      }
+    }
   }
-  if (serviceCategory === 'pre-op') {
-    return VALUE_SETS.reasonForVisitOptionsPreOp ? [...VALUE_SETS.reasonForVisitOptionsPreOp] : [];
-  }
-  if (serviceCategory === 'urgent-care') {
-    return [...VALUE_SETS.reasonForVisitOptions];
-  }
-  return [];
+  return [...combined.values()];
 };
 
 // Helper to normalize form data by converting empty objects to proper questionnaire response format
