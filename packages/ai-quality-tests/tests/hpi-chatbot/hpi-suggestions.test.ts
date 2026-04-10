@@ -7,6 +7,7 @@
  * Run: npx vitest run tests/hpi-chatbot/hpi-suggestions.test.ts
  */
 
+import { describe, expect, it } from 'vitest';
 import { createLLMAsJudge } from 'openevals';
 import { HPI_SUGGESTION_QUALITY_PROMPT } from '../../src/evaluation-prompts.js';
 import { runHpiSuggestion } from '../../src/models.js';

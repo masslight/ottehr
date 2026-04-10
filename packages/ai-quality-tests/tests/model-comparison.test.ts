@@ -8,6 +8,7 @@
  * Run: npx vitest run tests/model-comparison.test.ts
  */
 
+import { beforeAll, describe, expect, it } from 'vitest';
 import { createLLMAsJudge } from 'openevals';
 import { HPI_NARRATIVE_QUALITY_PROMPT, STRUCTURED_EXTRACTION_QUALITY_PROMPT } from '../src/evaluation-prompts.js';
 import { runExtraction } from '../src/models.js';
@@ -40,12 +41,12 @@ describe('Model Comparison', () => {
 
   // Only test models for which we have API keys
   beforeAll(() => {
-    if (process.env.GOOGLE_API_KEY) models.push('gemini');
+    if (process.env.GOOGLE_CLOUD_PROJECT_ID && process.env.GOOGLE_CLOUD_API_KEY) models.push('gemini');
     if (process.env.ANTHROPIC_API_KEY) models.push('claude');
 
     if (models.length < 2) {
       console.warn(
-        'Model comparison requires both GOOGLE_API_KEY and ANTHROPIC_API_KEY. ' +
+        'Model comparison requires GOOGLE_CLOUD_PROJECT_ID + GOOGLE_CLOUD_API_KEY and ANTHROPIC_API_KEY. ' +
           `Only ${models.length} model(s) available. Set both keys to compare.`
       );
     }

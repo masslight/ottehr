@@ -8,6 +8,7 @@
  * Run: npx vitest run tests/ambient-scribe/scribe-extraction.test.ts
  */
 
+import { beforeAll, describe, expect, it } from 'vitest';
 import { createLLMAsJudge } from 'openevals';
 import {
   FORMAT_COMPLIANCE_PROMPT,

@@ -7,6 +7,7 @@
  * Run: npx vitest run tests/hpi-chatbot/hpi-extraction.test.ts
  */
 
+import { beforeAll, describe, expect, it } from 'vitest';
 import { createLLMAsJudge } from 'openevals';
 import {
   FORMAT_COMPLIANCE_PROMPT,
