@@ -179,6 +179,8 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
   test('Unassign appointment', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign).click();
     await telemedDialogConfirm(page);
+    const visitsPage = await expectVisitsPage(page);
+    await visitsPage.verifyVisitPresent(myPatientsTabAppointmentResources.appointment.id!);
   });
 
   // test.skip('Check message for patient', { tag: '@flaky' }, async () => {
