@@ -68,6 +68,16 @@ export async function uploadObjectToZ3(fileBytes: Uint8Array, presignedUploadUrl
   });
 }
 
+export class Z3Error extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number
+  ) {
+    super(message);
+    this.name = 'Z3Error';
+  }
+}
+
 export async function deleteZ3Object(baseFileUrl: string, token: string): Promise<void> {
   const deleteRequest = await fetch(baseFileUrl, {
     method: 'DELETE',
@@ -78,6 +88,9 @@ export async function deleteZ3Object(baseFileUrl: string, token: string): Promis
   });
 
   if (!deleteRequest.ok) {
-    throw new Error(`Delete request was not OK: ${deleteRequest.statusText}`);
+    throw new Z3Error(
+      `Delete request was not OK: ${deleteRequest.status} ${deleteRequest.statusText}`,
+      deleteRequest.status
+    );
   }
 }
