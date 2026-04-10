@@ -52,6 +52,7 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
       // continuousWaveform: true,
       // continuousWaveformDuration: 0,
       renderRecordedAudio: false,
+      mediaRecorderTimeslice: 1000,
     });
 
     const ws = WaveSurfer.create({
