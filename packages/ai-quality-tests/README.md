@@ -35,7 +35,8 @@ cp packages/ai-quality-tests/.env.example packages/ai-quality-tests/.env
 | Key | Purpose |
 |-----|---------|
 | `OPENAI_API_KEY` | Judge model (evaluates outputs) |
-| `GOOGLE_API_KEY` | Gemini model under test (production default) |
+| `GOOGLE_CLOUD_PROJECT_ID` | GCP project for Vertex AI (Gemini) |
+| `GOOGLE_CLOUD_API_KEY` | Gemini model under test via Vertex AI (production default) |
 | `ANTHROPIC_API_KEY` | Claude model under test (alternative) |
 
 ## Running Tests

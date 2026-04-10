@@ -3,10 +3,12 @@
  *
  * These call the same models with the same prompts as the production code,
  * so we can evaluate output quality end-to-end.
+ *
+ * The Gemini path uses the Vertex AI REST endpoint directly, matching
+ * the production invokeChatbotVertexAI() in packages/zambdas/src/shared/ai.ts.
  */
 
 import { ChatAnthropic } from '@langchain/anthropic';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { getHpiExtractionPrompt, HPI_SUGGESTION_PROMPT } from './prompts.js';
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -21,21 +23,38 @@ export interface HpiSuggestionResult {
   parsed: { suggestions: string[] };
 }
 
-// ── Gemini (production default for extraction) ──────────────────────────────
+// ── Gemini via Vertex AI (production default for extraction) ─────────────────
 
-let geminiClient: ChatGoogleGenerativeAI | null = null;
+/**
+ * Calls Gemini via the Vertex AI REST endpoint, mirroring invokeChatbotVertexAI()
+ * from packages/zambdas/src/shared/ai.ts.
+ */
+async function invokeGeminiVertexAI(text: string): Promise<string> {
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
+  const apiKey = process.env.GOOGLE_CLOUD_API_KEY;
+  if (!projectId) throw new Error('GOOGLE_CLOUD_PROJECT_ID is required to run Gemini extraction tests');
+  if (!apiKey) throw new Error('GOOGLE_CLOUD_API_KEY is required to run Gemini extraction tests');
 
-function getGeminiClient(): ChatGoogleGenerativeAI {
-  if (!geminiClient) {
-    const apiKey = process.env.GOOGLE_API_KEY;
-    if (!apiKey) throw new Error('GOOGLE_API_KEY is required to run extraction tests');
-    geminiClient = new ChatGoogleGenerativeAI({
-      model: 'gemini-2.0-flash-lite',
-      apiKey,
-      temperature: 0,
-    });
+  const response = await fetch(
+    `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text }] }],
+        generationConfig: {
+          temperature: 0,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Vertex AI request failed (${response.status}): ${body}`);
   }
-  return geminiClient;
+
+  const json = await response.json();
+  return json.candidates[0].content.parts[0].text;
 }
 
 // ── Claude (alternative model for extraction) ───────────────────────────────
@@ -71,8 +90,7 @@ export async function runExtraction(
 
   let raw: string;
   if (model === 'gemini') {
-    const response = await getGeminiClient().invoke([{ role: 'user', content: prompt }]);
-    raw = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
+    raw = await invokeGeminiVertexAI(prompt);
   } else {
     const response = await getClaudeClient().invoke([{ role: 'user', content: prompt }]);
     raw = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
@@ -108,8 +126,7 @@ export async function runHpiSuggestion(
 
   let raw: string;
   if (model === 'gemini') {
-    const response = await getGeminiClient().invoke([{ role: 'user', content: prompt }]);
-    raw = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
+    raw = await invokeGeminiVertexAI(prompt);
   } else {
     const response = await getClaudeClient().invoke([{ role: 'user', content: prompt }]);
     raw = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
