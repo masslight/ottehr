@@ -9,12 +9,12 @@ import { Sidebar } from '../../shared/components/Sidebar';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
-import { AppointmentFooter } from '../../telemed/components/appointment/AppointmentFooter';
 import { VideoChatContainer } from '../../telemed/components/appointment/VideoChatContainer';
 import { useVideoCallStore } from '../../telemed/state/video-call/video-call.store';
 import { Header } from '../components/Header';
 import { InfoAlert } from '../components/InfoAlert';
 import { RecordAudioContainer } from '../components/progress-note/RecordAudioContainer';
+import { VirtualAppointmentFooter } from '../components/VirtualAppointmentFooter';
 import { BottomNavigation } from './BottomNavigation';
 
 const layoutStyle: React.CSSProperties = {
@@ -111,7 +111,7 @@ export const InPersonLayout: React.FC = () => {
           <BottomNavigation />
         </div>
       </div>
-      {virtual && <AppointmentFooter />}
+      {virtual && <VirtualAppointmentFooter />}
       {virtual && meetingData && (
         <ThemeProvider theme={lightTheme}>
           <GlobalStyles />
