@@ -65,9 +65,18 @@ export const index = wrapHandler(
           body: JSON.stringify({ feeSchedule: locationMatch }),
         };
       }
+
+      // No location match — fall back to fee schedules with no location associations at all
+      const noLocationAssociations = dateFiltered.filter(
+        (fs) => !fs.useContext?.some((uc) => uc.valueReference?.reference?.startsWith('Location/'))
+      );
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ feeSchedule: noLocationAssociations[0] ?? null }),
+      };
     }
 
-    // Fall back to the best payer-only match (no location filter)
+    // No locationId provided — use the best payer-only match
     return {
       statusCode: 200,
       body: JSON.stringify({ feeSchedule: dateFiltered[0] ?? null }),

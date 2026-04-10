@@ -71,14 +71,26 @@ export const index = wrapHandler(
             body: JSON.stringify({ chargeMaster: locationMatch, source: 'payer-specific' }),
           };
         }
-      }
 
-      const match = findMostRecentEffective(payerSpecific, dateOfService);
-      if (match) {
-        return {
-          statusCode: 200,
-          body: JSON.stringify({ chargeMaster: match, source: 'payer-specific' }),
-        };
+        // No location match — fall back to payer charge masters with no location associations
+        const noLocationAssociations = payerSpecific.filter(
+          (cm) => !cm.useContext?.some((uc) => uc.valueReference?.reference?.startsWith('Location/'))
+        );
+        const match = findMostRecentEffective(noLocationAssociations, dateOfService);
+        if (match) {
+          return {
+            statusCode: 200,
+            body: JSON.stringify({ chargeMaster: match, source: 'payer-specific' }),
+          };
+        }
+      } else {
+        const match = findMostRecentEffective(payerSpecific, dateOfService);
+        if (match) {
+          return {
+            statusCode: 200,
+            body: JSON.stringify({ chargeMaster: match, source: 'payer-specific' }),
+          };
+        }
       }
     }
 

@@ -55,14 +55,26 @@ export const index = wrapHandler(
             body: JSON.stringify({ chargeMaster: locationMatch, source: 'payer' }),
           };
         }
-      }
 
-      const payerChargeMaster = payerFiltered[0];
-      if (payerChargeMaster) {
-        return {
-          statusCode: 200,
-          body: JSON.stringify({ chargeMaster: payerChargeMaster, source: 'payer' }),
-        };
+        // No location match — fall back to payer charge masters with no location associations
+        const noLocationAssociations = payerFiltered.filter(
+          (cm) => !cm.useContext?.some((uc) => uc.valueReference?.reference?.startsWith('Location/'))
+        );
+        const payerChargeMaster = noLocationAssociations[0];
+        if (payerChargeMaster) {
+          return {
+            statusCode: 200,
+            body: JSON.stringify({ chargeMaster: payerChargeMaster, source: 'payer' }),
+          };
+        }
+      } else {
+        const payerChargeMaster = payerFiltered[0];
+        if (payerChargeMaster) {
+          return {
+            statusCode: 200,
+            body: JSON.stringify({ chargeMaster: payerChargeMaster, source: 'payer' }),
+          };
+        }
       }
     }
 
