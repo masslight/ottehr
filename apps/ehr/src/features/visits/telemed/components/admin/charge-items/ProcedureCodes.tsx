@@ -788,7 +788,7 @@ export default function ProcedureCodes({
               if (value && typeof value !== 'string') {
                 setFormData((prev) => ({ ...prev, code: value.code, description: value.display }));
               } else if (typeof value === 'string') {
-                setFormData((prev) => ({ ...prev, code: value }));
+                setFormData((prev) => ({ ...prev, code: value, description: '' }));
               } else {
                 setFormData((prev) => ({ ...prev, code: '', description: '' }));
               }
@@ -800,12 +800,6 @@ export default function ProcedureCodes({
                 : 'No codes found — type a custom code and press Enter'
             }
             handleHomeEndKeys
-            onBlur={() => {
-              if (cptInputValue.trim() && !formData.code) {
-                setFormData((prev) => ({ ...prev, code: cptInputValue.trim() }));
-                setCptInputValue('');
-              }
-            }}
             renderInput={(params) => (
               <TextField
                 {...params}
