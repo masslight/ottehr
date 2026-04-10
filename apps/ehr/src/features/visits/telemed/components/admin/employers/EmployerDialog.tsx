@@ -7,6 +7,7 @@ import {
   AccordionSummary,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -17,16 +18,20 @@ import {
   MenuItem,
   OutlinedInput,
   Select,
+  Skeleton,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { Organization } from 'fhir/r4b';
+import { ChargeItemDefinition, Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { Link } from 'react-router-dom';
+import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/App';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
+import { useListChargeMastersQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
 import {
   CreateEmployerInput,
   UpdateEmployerInput,
@@ -34,6 +39,8 @@ import {
   useUpdateEmployerMutation,
 } from 'src/rcm/state/employers';
 import { CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM } from 'src/rcm/state/employers/employers.api';
+import { useListFeeSchedulesQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
+import { CASE_RATE_CODE, RCM_TAG_SYSTEM } from 'utils';
 
 type EmployerFormState = {
   name: string;
@@ -71,6 +78,77 @@ interface EmployerDialogProps {
   employer?: Organization | null;
 }
 
+function AssociationRow({
+  item,
+  type,
+  linkBase,
+}: {
+  item: ChargeItemDefinition;
+  type: 'fee-schedule' | 'charge-master';
+  linkBase: string;
+}): JSX.Element {
+  const isCaseRate =
+    type === 'fee-schedule' && item.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === CASE_RATE_CODE);
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        px: 1,
+        py: 0.5,
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        mb: 0.5,
+      }}
+    >
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+            {item.title || item.name}
+          </Typography>
+          {type === 'fee-schedule' &&
+            (isCaseRate ? (
+              <Chip
+                label="Case Rate"
+                size="small"
+                sx={{ fontSize: '0.6rem', height: 18, backgroundColor: '#E65100', color: '#fff' }}
+              />
+            ) : (
+              <Chip
+                label="Fee-for-Service"
+                size="small"
+                variant="outlined"
+                sx={{ fontSize: '0.6rem', height: 18, borderColor: '#2E7D32', color: '#2E7D32' }}
+              />
+            ))}
+          <Chip
+            label={item.status === 'active' ? 'Active' : 'Inactive'}
+            size="small"
+            sx={{
+              fontSize: '0.6rem',
+              height: 18,
+              ...(item.status === 'active'
+                ? { backgroundColor: '#E8F5E9', color: '#2E7D32' }
+                : { backgroundColor: '#FFEBEE', color: '#C62828' }),
+            }}
+          />
+        </Box>
+        <Typography variant="caption" color="text.secondary">
+          Effective: {item.date ?? 'N/A'} · {item.propertyGroup?.length ?? 0} procedure codes
+        </Typography>
+      </Box>
+      <Link to={`${linkBase}/${item.id}`}>
+        <Button size="small" sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}>
+          View
+        </Button>
+      </Link>
+    </Box>
+  );
+}
+
 export default function EmployerDialog({ open, onClose, employer }: EmployerDialogProps): JSX.Element {
   const queryClient = useQueryClient();
   const createEmployerMutation = useCreateEmployerMutation();
@@ -90,11 +168,33 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
 
   const [addressExpanded, setAddressExpanded] = useState(false);
   const [contactExpanded, setContactExpanded] = useState(false);
+  const [associationsExpanded, setAssociationsExpanded] = useState(false);
   const [copiedOttehrId, setCopiedOttehrId] = useState(false);
   const [copiedCandidId, setCopiedCandidId] = useState(false);
   const isEditMode = Boolean(employer);
   const candidId = employer?.identifier?.find((id) => id.system === CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM)
     ?.value;
+
+  const { data: feeSchedules, isFetching: feeSchedulesFetching } = useListFeeSchedulesQuery({
+    enabled: isEditMode && !!employer?.id,
+  });
+  const { data: chargeMasters, isFetching: chargeMastersFetching } = useListChargeMastersQuery({
+    enabled: isEditMode && !!employer?.id,
+  });
+
+  const associatedFeeSchedules = useMemo(() => {
+    if (!feeSchedules || !employer?.id) return [];
+    return feeSchedules.filter(
+      (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employer.id}`)
+    );
+  }, [feeSchedules, employer?.id]);
+
+  const associatedChargeMasters = useMemo(() => {
+    if (!chargeMasters || !employer?.id) return [];
+    return chargeMasters.filter(
+      (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employer.id}`)
+    );
+  }, [chargeMasters, employer?.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -103,6 +203,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
       reset(INITIAL_EMPLOYER_FORM);
       setAddressExpanded(false);
       setContactExpanded(false);
+      setAssociationsExpanded(false);
       setCopiedOttehrId(false);
       setCopiedCandidId(false);
       return;
@@ -144,6 +245,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
     reset(INITIAL_EMPLOYER_FORM);
     setAddressExpanded(false);
     setContactExpanded(false);
+    setAssociationsExpanded(false);
     setCopiedOttehrId(false);
     setCopiedCandidId(false);
     onClose();
@@ -398,6 +500,61 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
               </AccordionDetails>
             </Accordion>
           </Grid>
+
+          {isEditMode && employer?.id && (
+            <Grid item xs={12}>
+              <Accordion
+                disableGutters
+                elevation={0}
+                expanded={associationsExpanded}
+                onChange={(_, expanded) => setAssociationsExpanded(expanded)}
+                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0, m: '2px' }}
+              >
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon fontSize="small" />}
+                  sx={{ px: 0, minHeight: 'unset', '.MuiAccordionSummary-content': { my: '2px' } }}
+                >
+                  <Typography variant="subtitle2">
+                    Associations
+                    {associatedFeeSchedules.length + associatedChargeMasters.length > 0 &&
+                      ` (${associatedFeeSchedules.length + associatedChargeMasters.length})`}
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ p: 0 }}>
+                  {feeSchedulesFetching || chargeMastersFetching ? (
+                    <Skeleton height={60} />
+                  ) : associatedFeeSchedules.length === 0 && associatedChargeMasters.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+                      No fee schedules or charge masters associated with this employer.
+                    </Typography>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pb: 1 }}>
+                      {associatedFeeSchedules.length > 0 && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5 }}>
+                            Fee Schedules
+                          </Typography>
+                          {associatedFeeSchedules.map((fs) => (
+                            <AssociationRow key={fs.id} item={fs} type="fee-schedule" linkBase={FEE_SCHEDULES_URL} />
+                          ))}
+                        </Box>
+                      )}
+                      {associatedChargeMasters.length > 0 && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5 }}>
+                            Charge Masters
+                          </Typography>
+                          {associatedChargeMasters.map((cm) => (
+                            <AssociationRow key={cm.id} item={cm} type="charge-master" linkBase={CHARGE_MASTERS_URL} />
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  )}
+                </AccordionDetails>
+              </Accordion>
+            </Grid>
+          )}
         </Grid>
       </DialogContent>
       {isEditMode && employer?.id && (
