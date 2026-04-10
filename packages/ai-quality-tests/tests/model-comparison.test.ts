@@ -2,13 +2,15 @@
  * Model comparison test — run the same cases through different models
  * and compare quality scores side-by-side.
  *
- * This test is useful for evaluating whether switching models (e.g., from
- * Gemini to Claude, or upgrading model versions) improves output quality.
+ * Configure via COMPARISON_MODELS env var (comma-separated list):
+ *   COMPARISON_MODELS=gemini:gemini-3.1-flash-lite-preview,claude:claude-opus-4-20250514
+ *
+ * Each model needs its corresponding API keys set.
  *
  * Run: npx vitest run tests/model-comparison.test.ts
  */
 
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createLLMAsJudge } from 'openevals';
 import { HPI_NARRATIVE_QUALITY_PROMPT, STRUCTURED_EXTRACTION_QUALITY_PROMPT } from '../src/evaluation-prompts.js';
 import { runExtraction } from '../src/models.js';
@@ -36,25 +38,23 @@ interface ModelScore {
   structuredComment: string | null;
 }
 
+function getComparisonModels(): string[] {
+  const raw = process.env.COMPARISON_MODELS;
+  if (!raw) {
+    console.warn(
+      'COMPARISON_MODELS not set. Set it to a comma-separated list of models to compare, e.g.:\n' +
+        '  COMPARISON_MODELS=gemini:gemini-3.1-flash-lite-preview,claude:claude-opus-4-20250514'
+    );
+    return [];
+  }
+  return raw.split(',').map((m) => m.trim()).filter(Boolean);
+}
+
 describe('Model Comparison', () => {
-  const models: Array<'gemini' | 'claude'> = [];
-
-  // Only test models for which we have API keys
-  beforeAll(() => {
-    if (process.env.GOOGLE_CLOUD_PROJECT_ID && process.env.GOOGLE_CLOUD_API_KEY) models.push('gemini');
-    if (process.env.ANTHROPIC_API_KEY) models.push('claude');
-
-    if (models.length < 2) {
-      console.warn(
-        'Model comparison requires GOOGLE_CLOUD_PROJECT_ID + GOOGLE_CLOUD_API_KEY and ANTHROPIC_API_KEY. ' +
-          `Only ${models.length} model(s) available. Set both keys to compare.`
-      );
-    }
-  });
-
   it('compares extraction quality across models', async () => {
+    const models = getComparisonModels();
     if (models.length === 0) {
-      console.log('Skipping: no model API keys configured');
+      console.log('Skipping: COMPARISON_MODELS not configured');
       return;
     }
 
@@ -108,9 +108,9 @@ describe('Model Comparison', () => {
     }
 
     // Print comparison table
-    console.log('\n╔══════════════════════════════════════════════════════════╗');
-    console.log('║              MODEL COMPARISON RESULTS                    ║');
-    console.log('╚══════════════════════════════════════════════════════════╝\n');
+    console.log('\n' + '='.length);
+    console.log('MODEL COMPARISON RESULTS');
+    console.log('='.repeat(60) + '\n');
 
     for (const model of models) {
       const modelScores = scores.filter((s) => s.model === model);
@@ -118,7 +118,7 @@ describe('Model Comparison', () => {
       const structuredPass = modelScores.filter((s) => s.structuredScore === true).length;
       const structuredTotal = modelScores.filter((s) => s.structuredScore !== null).length;
 
-      console.log(`📊 ${model.toUpperCase()}`);
+      console.log(`--- ${model} ---`);
       console.log(`   HPI Narrative:       ${hpiPass}/${modelScores.length} passed`);
       console.log(`   Structured Extract:  ${structuredPass}/${structuredTotal} passed`);
       console.log('');
