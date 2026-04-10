@@ -3,13 +3,12 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { chunkThings, createCandidApiClient, GetPatientBalancesZambdaOutput, getSecret, SecretsKeys } from 'utils';
+import { chunkThings, createCandidApiClient, GetPatientBalancesZambdaOutput } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   lambdaResponse,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -33,27 +32,21 @@ const CANDID_BATCH_SIZE = 3;
 const ZAMBDA_NAME = 'get-patient-balances';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const secrets = validateSecrets(unsafeInput.secrets);
+  const secrets = validateSecrets(unsafeInput.secrets);
 
-    const validatedInput = await validateInput(unsafeInput);
+  const validatedInput = await validateInput(unsafeInput);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    console.group('creating candid api client');
-    const candidApiClient = createCandidApiClient(secrets);
-    console.groupEnd();
-    console.debug('creating candid api client success');
+  console.group('creating candid api client');
+  const candidApiClient = createCandidApiClient(secrets);
+  console.groupEnd();
+  console.debug('creating candid api client success');
 
-    const response = await performEffect(validatedInput, oystehr, candidApiClient);
+  const response = await performEffect(validatedInput, oystehr, candidApiClient);
 
-    return lambdaResponse(200, response);
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets);
-    console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  return lambdaResponse(200, response);
 });
 
 export async function performEffect(

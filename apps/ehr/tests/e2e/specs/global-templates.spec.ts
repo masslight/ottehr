@@ -149,9 +149,6 @@ test.describe('Global Templates E2E', () => {
 
     const hpiPage = await sideMenu.clickHpiAndTemplates();
     await hpiPage.applyTemplate(RENAMED_TEMPLATE_NAME);
-
-    // Wait for data to reload after template application
-    await page.waitForLoadState('networkidle');
   });
 
   test('Verify template data applied correctly', async () => {

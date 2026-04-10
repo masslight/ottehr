@@ -1637,6 +1637,27 @@
       "src": "src/rcm/charge-masters/list-charge-masters/index",
       "zip": ".dist/zips/list-charge-masters.zip"
     },
+    "CREATE-EMPLOYER": {
+      "name": "create-employer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/employers/create-employer/index",
+      "zip": ".dist/zips/create-employer.zip"
+    },
+    "LIST-EMPLOYERS": {
+      "name": "list-employers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/employers/list-employers/index",
+      "zip": ".dist/zips/list-employers.zip"
+    },
+    "UPDATE-EMPLOYER": {
+      "name": "update-employer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/employers/update-employer/index",
+      "zip": ".dist/zips/update-employer.zip"
+    },
     "DESIGNATE-CHARGE-MASTER-ENTRY": {
       "name": "designate-charge-master-entry",
       "type": "http_auth",
@@ -1700,6 +1721,20 @@
       "src": "src/rcm/charge-masters/cm-bulk-add-procedure-codes/index",
       "zip": ".dist/zips/cm-bulk-add-procedure-codes.zip"
     },
+    "GET-INVOICE-CONFIG": {
+      "name": "get-invoice-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/invoice-config/get-invoice-config/index",
+      "zip": ".dist/zips/get-invoice-config.zip"
+    },
+    "SAVE-INVOICE-CONFIG": {
+      "name": "save-invoice-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/invoice-config/save-invoice-config/index",
+      "zip": ".dist/zips/save-invoice-config.zip"
+    },
     "ADMIN_LIST_IN_HOUSE_LABS": {
       "name": "admin-list-in-house-labs",
       "type": "http_auth",
@@ -1727,6 +1762,17 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/lab/in-house/admin-update-in-house-lab/index",
       "zip": ".dist/zips/admin-update-in-house-lab.zip"
+    },
+    "ERX_NOTIFICATION": {
+      "name": "erx-notification-subscription",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/communication/erx-notification/index",
+      "zip": ".dist/zips/erx-notification.zip",
+      "subscription": {
+        "criteria": "Communication?category=https://terminology.fhir.oystehr.com/CodeSystem/notification|erx-notification",
+        "reason": "Create Task for eRX notification"
+      }
     }
   },
   "fhirResources": {
@@ -2110,6 +2156,24 @@
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_ERX_NOTIFICATION_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "eRX notification",
+        "criteria": "Communication?category=https://terminology.fhir.oystehr.com/CodeSystem/notification|erx-notification",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/ERX_NOTIFICATION/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
           }
         ]
       }

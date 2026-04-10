@@ -21,7 +21,6 @@ import {
 } from '@mui/material';
 import { Box, Stack } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
-import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -232,7 +231,6 @@ export default function InvoiceablePatients(): React.ReactElement {
           taskId,
           status: mapDisplayToInvoiceTaskStatus('sending'),
           invoiceTaskInput,
-          userTimezone: DateTime.local().zoneName,
         }).finally(() => {
           setSendingTaskIds((prev) => {
             const next = new Set(prev);
@@ -251,27 +249,28 @@ export default function InvoiceablePatients(): React.ReactElement {
   };
 
   const updateInvoice = (taskId: string | undefined): void => {
-    try {
-      if (oystehrZambda && taskId) {
-        setUpdatingTaskIds((prev) => new Set(prev).add(taskId));
+    if (!oystehrZambda || !taskId) return;
 
-        void updateInvoiceTask(oystehrZambda, {
-          taskId,
-          status: mapDisplayToInvoiceTaskStatus('updating'),
-          userTimezone: DateTime.local().zoneName,
-        }).finally(async () => {
-          enqueueSnackbar('Invoice status changed to "updating"', { variant: 'success' });
-          await refetchInvoiceablePatients();
-          setUpdatingTaskIds((prev) => {
-            const next = new Set(prev);
-            next.delete(taskId);
-            return next;
-          });
+    setUpdatingTaskIds((prev) => new Set(prev).add(taskId));
+
+    updateInvoiceTask(oystehrZambda, {
+      taskId,
+      status: mapDisplayToInvoiceTaskStatus('updating'),
+    })
+      .then(async () => {
+        enqueueSnackbar('Invoice status changed to "updating"', { variant: 'success' });
+        await refetchInvoiceablePatients();
+      })
+      .catch(() => {
+        enqueueSnackbar('Error occurred, please try again', { variant: 'error' });
+      })
+      .finally(() => {
+        setUpdatingTaskIds((prev) => {
+          const next = new Set(prev);
+          next.delete(taskId);
+          return next;
         });
-      }
-    } catch {
-      enqueueSnackbar('Error occurred, please try again', { variant: 'error' });
-    }
+      });
   };
 
   useEffect(() => {

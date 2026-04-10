@@ -5,7 +5,6 @@ import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedB
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
-import Insurances from '../features/visits/telemed/components/admin/Insurance';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
@@ -18,11 +17,10 @@ enum PageTab {
   'virtual-locations' = 'virtual-locations',
   employees = 'employees',
   providers = 'providers',
-  insurance = 'insurances',
+  'global-templates' = 'global-templates',
   medications = 'medications',
   billing = 'billing',
   'quick-picks' = 'quick-picks',
-  'global-templates' = 'global-templates',
   'in-house-labs' = 'in-house-labs',
 }
 
@@ -64,13 +62,7 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab.providers}`)}
                 />
                 <Tab
-                  label="Insurance"
-                  value={PageTab.insurance}
-                  sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab.insurance}`)}
-                />
-                <Tab
-                  label="Medications"
+                  label="In-House Medications"
                   value={PageTab.medications}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab.medications}`)}
@@ -123,8 +115,8 @@ export function AdminPage(): JSX.Element {
           <TabPanel value={PageTab.providers} sx={{ padding: 0 }}>
             <EmployeesPage employeeType={EmployeeTypes.providers} />
           </TabPanel>
-          <TabPanel value={PageTab.insurance} sx={{ padding: 0 }}>
-            <Insurances />
+          <TabPanel value={PageTab['global-templates']} sx={{ padding: 0 }}>
+            <GlobalTemplatesAdminPage />
           </TabPanel>
           <TabPanel value={PageTab.medications} sx={{ padding: 0 }}>
             <MedicationsConfigurationPage />

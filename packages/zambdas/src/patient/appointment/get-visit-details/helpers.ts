@@ -4,10 +4,12 @@ import {
   FileURLInfo,
   FileURLs,
   getPresignedURL,
+  isFeatureFlagEnabled,
   LAB_DOC_REF_DETAIL_TAGS,
   LAB_RESULT_DOC_REF_CODING_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
   PrescribedMedication,
+  Secrets,
 } from 'utils';
 import { getLabDocRefDescriptionFromMetaTags } from '../../../shared/pdf/lab-pdf-utils';
 
@@ -204,4 +206,17 @@ export async function getPresignedURLs(
   );
 
   return { presignedUrls: presignedUrlObj, reviewedLabResultsUrls };
+}
+
+export async function getPatientPortalPresignedURLs(
+  oystehr: Oystehr,
+  oystehrToken: string,
+  encounterId: string | undefined,
+  secrets: Secrets | null
+): Promise<{ presignedUrls: FileURLs; reviewedLabResultsUrls: FileURLInfo[] }> {
+  const result = await getPresignedURLs(oystehr, oystehrToken, encounterId);
+  if (isFeatureFlagEnabled('SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG', secrets)) {
+    delete result.presignedUrls['visit-note'];
+  }
+  return result;
 }

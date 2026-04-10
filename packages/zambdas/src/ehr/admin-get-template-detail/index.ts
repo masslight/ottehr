@@ -10,6 +10,7 @@ import {
   examConfig,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
+  ICD_10_CODE_SYSTEM,
   SecretsKeys,
   TemplateAccidentInfo,
   TemplateCodeInfo,
@@ -192,13 +193,11 @@ const performEffect = async (
 
   // Parse diagnoses (ICD-10 coded Conditions)
   const diagnosisConditions = contained.filter(
-    (r) =>
-      r.resourceType === 'Condition' &&
-      (r as Condition).code?.coding?.some((c) => c.system === 'http://hl7.org/fhir/sid/icd-10')
+    (r) => r.resourceType === 'Condition' && (r as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
   ) as Condition[];
 
   const diagnoses: TemplateCodeInfo[] = diagnosisConditions.map((cond) => {
-    const icdCoding = cond.code?.coding?.find((c) => c.system === 'http://hl7.org/fhir/sid/icd-10');
+    const icdCoding = cond.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM);
     return {
       code: icdCoding?.code ?? '',
       display: icdCoding?.display ?? '',
@@ -206,10 +205,15 @@ const performEffect = async (
   });
 
   // Parse patient instructions
-  const instructionResource = contained.find(
+  const instructionResources = contained.filter(
     (r) => r.resourceType === 'Communication' && hasTag(r, chartDataTagSystem('patient-instruction'))
-  ) as Communication | undefined;
-  const patientInstructions = instructionResource?.payload?.[0]?.contentString ?? null;
+  ) as Communication[];
+  const patientInstructions = instructionResources
+    .map((r) => ({
+      title: r.topic?.text ?? null,
+      text: r.payload?.[0]?.contentString ?? '',
+    }))
+    .filter((i) => Boolean(i.text));
 
   // Parse CPT codes
   const cptProcedures = contained.filter(

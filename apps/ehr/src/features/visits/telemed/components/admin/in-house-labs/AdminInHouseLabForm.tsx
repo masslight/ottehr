@@ -41,6 +41,7 @@ export default function AdminInHouseLabform(props: AdminInHouseLabFormProps): Re
   });
   const formErrors = methods.formState.errors;
   const hasFormErrors = Object.keys(formErrors).length > 0;
+  console.log('formErrors', formErrors, JSON.stringify(formErrors));
 
   const formLabel = formMode === 'add' ? 'Add New In-House Lab' : 'Edit In-House Lab';
   const submitButtonText = formMode === 'add' ? 'Submit' : 'Save changes';

@@ -1,18 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  BillingSuggestionOutput,
-  fixAndParseJsonObjectFromString,
-  getSecret,
-  PROVIDER_CONFIG,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, PROVIDER_CONFIG } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { loadAndParseIcd10Data } from '../../shared/icd-10-search';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -23,30 +11,29 @@ let m2mToken: string;
 export const index = wrapHandler(
   'recommend-billing-suggestions',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    try {
-      console.group('validateRequestParameters');
-      const validatedParameters = validateRequestParameters(input);
-      const {
-        newPatient,
-        patientAge,
-        patientSex,
-        hpi,
-        mdm,
-        externalLabOrders,
-        internalLabOrders,
-        radiologyOrders,
-        radiologyReports,
-        procedures,
-        diagnoses,
-        billing,
-        secrets,
-      } = validatedParameters;
-      console.groupEnd();
-      console.debug('validateRequestParameters success');
+    console.group('validateRequestParameters');
+    const validatedParameters = validateRequestParameters(input);
+    const {
+      newPatient,
+      patientAge,
+      patientSex,
+      hpi,
+      mdm,
+      externalLabOrders,
+      internalLabOrders,
+      radiologyOrders,
+      radiologyReports,
+      procedures,
+      diagnoses,
+      billing,
+      secrets,
+    } = validatedParameters;
+    console.groupEnd();
+    console.debug('validateRequestParameters success');
 
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-      let prompt = `You are an expert medical coder for an urgent care clinic. Suggest appropriate ICD-10 and CPT codes for this visit.
+    let prompt = `You are an expert medical coder for an urgent care clinic. Suggest appropriate ICD-10 and CPT codes for this visit.
 
       CRITICAL RULE — Lab Orders, Radiology Reports & Procedures:
       Before suggesting ANY ICD or CPT codes, first review the "Internal Lab Orders", "External Lab Orders", "Radiology Reports", and "Procedures" sections below. Every positive, abnormal, or clinically significant lab/radiology finding MUST have a corresponding specific ICD-10 diagnosis code in your suggestions. Every documented procedure MUST have its corresponding CPT code included. These result-driven and procedure-driven codes take absolute priority and must appear before any general symptom or encounter codes. Never omit a diagnosis that is confirmed by a test result or a CPT code for a procedure that was performed. Only suggest diagnoses that match the actual test results provided — do not infer conditions from tests that are not listed.
@@ -98,167 +85,159 @@ export const index = wrapHandler(
       }
       `;
 
-      if (newPatient === undefined) {
-        prompt += `\n It is unknown whether the patient is new or established with the practice.`;
-      } else if (newPatient) {
-        prompt += `\n The patient is new to the practice.`;
-      } else {
-        prompt += `\n The patient is established with the practice.`;
-      }
+    if (newPatient === undefined) {
+      prompt += `\n It is unknown whether the patient is new or established with the practice.`;
+    } else if (newPatient) {
+      prompt += `\n The patient is new to the practice.`;
+    } else {
+      prompt += `\n The patient is established with the practice.`;
+    }
 
-      if (patientAge) {
-        prompt += `\n Patient Age: ${patientAge}`;
-      }
-      if (patientSex) {
-        prompt += `\n Patient Sex: ${patientSex}`;
-      }
+    if (patientAge) {
+      prompt += `\n Patient Age: ${patientAge}`;
+    }
+    if (patientSex) {
+      prompt += `\n Patient Sex: ${patientSex}`;
+    }
 
-      if (hpi) {
-        prompt += `\n HPI: ${hpi}`;
-      }
-      if (mdm) {
-        prompt += `\n MDM: ${mdm}`;
-      }
-      if (externalLabOrders) {
-        prompt += `\n External Lab Orders: ${externalLabOrders}`;
-      }
-      if (internalLabOrders) {
-        prompt += `\n Internal Lab Orders: ${internalLabOrders}`;
-      }
-      if (radiologyOrders) {
-        prompt += `\n Radiology Orders: ${radiologyOrders}`;
-      }
-      if (radiologyReports) {
-        prompt += `\n Radiology Reports: ${radiologyReports}`;
-      }
-      if (procedures) {
-        prompt += `\n Procedures: ${procedures}`;
-      }
+    if (hpi) {
+      prompt += `\n HPI: ${hpi}`;
+    }
+    if (mdm) {
+      prompt += `\n MDM: ${mdm}`;
+    }
+    if (externalLabOrders) {
+      prompt += `\n External Lab Orders: ${externalLabOrders}`;
+    }
+    if (internalLabOrders) {
+      prompt += `\n Internal Lab Orders: ${internalLabOrders}`;
+    }
+    if (radiologyOrders) {
+      prompt += `\n Radiology Orders: ${radiologyOrders}`;
+    }
+    if (radiologyReports) {
+      prompt += `\n Radiology Reports: ${radiologyReports}`;
+    }
+    if (procedures) {
+      prompt += `\n Procedures: ${procedures}`;
+    }
 
-      if (diagnoses && diagnoses.length > 0) {
-        prompt += `\n ICD: ${diagnoses
-          .map((diagnosis) => `${diagnosis.code} (${diagnosis.isPrimary ? 'primary' : 'secondary'})`)
-          .join(', ')}`;
-      }
+    if (diagnoses && diagnoses.length > 0) {
+      prompt += `\n ICD: ${diagnoses
+        .map((diagnosis) => `${diagnosis.code} (${diagnosis.isPrimary ? 'primary' : 'secondary'})`)
+        .join(', ')}`;
+    }
 
-      if (billing && billing.length > 0) {
-        prompt += `\n CPT: ${billing.map((code) => code.code).join(', ')}`;
-      }
+    if (billing && billing.length > 0) {
+      prompt += `\n CPT: ${billing.map((code) => code.code).join(', ')}`;
+    }
 
-      console.log(prompt);
+    console.log(prompt);
 
-      const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets);
-      // const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
+    const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets);
+    // const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
 
-      let suggestions: BillingSuggestionOutput | undefined;
-      try {
-        suggestions = JSON.parse(aiResponseString);
-      } catch (parseError) {
-        console.warn('Failed to parse AI CPT codes response, attempting to fix JSON format:', parseError);
-        suggestions = fixAndParseJsonObjectFromString(aiResponseString) as unknown as BillingSuggestionOutput;
-      }
+    let suggestions: BillingSuggestionOutput | undefined;
+    try {
+      suggestions = JSON.parse(aiResponseString);
+    } catch (parseError) {
+      console.warn('Failed to parse AI CPT codes response, attempting to fix JSON format:', parseError);
+      suggestions = fixAndParseJsonObjectFromString(aiResponseString) as unknown as BillingSuggestionOutput;
+    }
 
-      const icdSuggestions: { code: string; description: string; reason: string }[] = [];
-      const cptSuggestions: { code: string; description: string; reason: string }[] = [];
-      const emCodeSuggestions: { code: string; description: string; upcodingSuggestion: string }[] = [];
+    const icdSuggestions: { code: string; description: string; reason: string }[] = [];
+    const cptSuggestions: { code: string; description: string; reason: string }[] = [];
+    const emCodeSuggestions: { code: string; description: string; upcodingSuggestion: string }[] = [];
 
-      // Validate ICD codes and get the descriptions for the codes
-      if (suggestions?.icdCodes) {
-        const allCodes = await loadAndParseIcd10Data();
-        suggestions.icdCodes.forEach((code) => {
-          const icdCode = allCodes.filter((codeTemp) => codeTemp.code === code.code);
-          if (icdCode.length === 1) {
-            icdSuggestions.push({
-              code: code.code,
-              description: icdCode[0].display,
-              reason: code.reason,
-            });
-          } else {
-            console.log("Didn't get an ICD code", code.code);
-          }
-        });
-      }
+    // Validate ICD codes and get the descriptions for the codes
+    if (suggestions?.icdCodes) {
+      const allCodes = await loadAndParseIcd10Data();
+      suggestions.icdCodes.forEach((code) => {
+        const icdCode = allCodes.filter((codeTemp) => codeTemp.code === code.code);
+        if (icdCode.length === 1) {
+          icdSuggestions.push({
+            code: code.code,
+            description: icdCode[0].display,
+            reason: code.reason,
+          });
+        } else {
+          console.log("Didn't get an ICD code", code.code);
+        }
+      });
+    }
 
-      // Validate CPT codes and get the descriptions for the codes
-      if (suggestions?.cptCodes) {
-        const oystehr = createOystehrClient(m2mToken, secrets);
-        await Promise.all(
-          suggestions.cptCodes.map(async (code) => {
-            const terminologyResponse = await oystehr?.terminology.searchCpt({
+    // Validate CPT codes and get the descriptions for the codes
+    if (suggestions?.cptCodes) {
+      const oystehr = createOystehrClient(m2mToken, secrets);
+      await Promise.all(
+        suggestions.cptCodes.map(async (code) => {
+          const terminologyResponse = await oystehr?.terminology.searchCpt({
+            query: code.code,
+            searchType: 'code',
+            limit: 100,
+            strictMatch: true,
+          });
+          if (terminologyResponse.codes.length === 0) {
+            const hcpcsSearchResponse = await oystehr?.terminology.searchHcpcs({
               query: code.code,
               searchType: 'code',
               limit: 100,
               strictMatch: true,
             });
-            if (terminologyResponse.codes.length === 0) {
-              const hcpcsSearchResponse = await oystehr?.terminology.searchHcpcs({
-                query: code.code,
-                searchType: 'code',
-                limit: 100,
-                strictMatch: true,
-              });
-              if (hcpcsSearchResponse.codes.length === 1) {
-                cptSuggestions.push({
-                  code: code.code,
-                  description: hcpcsSearchResponse.codes[0].display,
-                  reason: code.reason,
-                });
-              } else {
-                console.log("Didn't get an CPT or HCPCS code", code.code);
-              }
-            } else if (terminologyResponse.codes.length === 1) {
+            if (hcpcsSearchResponse.codes.length === 1) {
               cptSuggestions.push({
                 code: code.code,
-                description: terminologyResponse.codes[0].display,
+                description: hcpcsSearchResponse.codes[0].display,
                 reason: code.reason,
               });
-            }
-          })
-        );
-      }
-
-      // Validate E&M codes and get the descriptions for the codes
-      if (suggestions?.emCode) {
-        suggestions.emCode.forEach((code) => {
-          // AI sometimes returns combined codes like "99203 / 99213" — split and validate each
-          const codeParts = code.code.split(/\s*\/\s*/);
-          for (const codePart of codeParts) {
-            const trimmedCode = codePart.trim();
-            const emCodeOption = PROVIDER_CONFIG.assessment.emCodeOptions.find((option) => option.code === trimmedCode);
-            if (emCodeOption) {
-              emCodeSuggestions.push({
-                code: trimmedCode,
-                description: emCodeOption.display,
-                upcodingSuggestion: code.upcodingSuggestion,
-              });
             } else {
-              console.log("Didn't get an E&M code", trimmedCode);
+              console.log("Didn't get an CPT or HCPCS code", code.code);
             }
+          } else if (terminologyResponse.codes.length === 1) {
+            cptSuggestions.push({
+              code: code.code,
+              description: terminologyResponse.codes[0].display,
+              reason: code.reason,
+            });
           }
-        });
-      }
-
-      if (suggestions?.icdCodes) {
-        suggestions.icdCodes = icdSuggestions;
-      }
-      if (suggestions?.cptCodes) {
-        suggestions.cptCodes = cptSuggestions;
-      }
-      if (suggestions?.emCode) {
-        suggestions.emCode = emCodeSuggestions;
-      }
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify(suggestions),
-      };
-    } catch (error: any) {
-      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      await topLevelCatch('recommend-billing-suggestions', error, ENVIRONMENT);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ message: `Error recommending billing suggestions: ${error}` }),
-      };
+        })
+      );
     }
+
+    // Validate E&M codes and get the descriptions for the codes
+    if (suggestions?.emCode) {
+      suggestions.emCode.forEach((code) => {
+        // AI sometimes returns combined codes like "99203 / 99213" — split and validate each
+        const codeParts = code.code.split(/\s*\/\s*/);
+        for (const codePart of codeParts) {
+          const trimmedCode = codePart.trim();
+          const emCodeOption = PROVIDER_CONFIG.assessment.emCodeOptions.find((option) => option.code === trimmedCode);
+          if (emCodeOption) {
+            emCodeSuggestions.push({
+              code: trimmedCode,
+              description: emCodeOption.display,
+              upcodingSuggestion: code.upcodingSuggestion,
+            });
+          } else {
+            console.log("Didn't get an E&M code", trimmedCode);
+          }
+        }
+      });
+    }
+
+    if (suggestions?.icdCodes) {
+      suggestions.icdCodes = icdSuggestions;
+    }
+    if (suggestions?.cptCodes) {
+      suggestions.cptCodes = cptSuggestions;
+    }
+    if (suggestions?.emCode) {
+      suggestions.emCode = emCodeSuggestions;
+    }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(suggestions),
+    };
   }
 );

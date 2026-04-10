@@ -6,6 +6,7 @@ import {
   CRITICAL_CHANGE_SYSTEM,
   FhirAppointmentType,
   formatDateForDisplay,
+  formatPhoneNumberDisplay,
   getCriticalUpdateTagOp,
   getFullName,
   GetVisitFaxHistoryOutput,
@@ -207,6 +208,7 @@ export const formatActivityLogs = ({
   faxesSent?.forEach((fax) => {
     logs.push({
       activityName: ActivityName.faxSent,
+      activityNameSupplement: formatPhoneNumberDisplay(fax.recipientNumber),
       activityDateTimeISO: fax.created,
       activityDateTime: formatActivityDateTime(fax.created || '', timezone),
       activityBy: fax.sender.display || 'n/a',

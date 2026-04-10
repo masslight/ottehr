@@ -25,7 +25,6 @@ import {
   getMyPractitionerId,
   parseCreatedResourcesBundle,
   saveResourceRequest,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -44,25 +43,19 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'change-telemed-appointment-status';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-    console.log('Created Oystehr client');
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
+  console.log('Created Oystehr client');
 
-    const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.error('Stringified error: ' + JSON.stringify(error));
-    console.error('Error: ' + error);
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export const performEffect = async (
@@ -167,19 +160,7 @@ export const performEffect = async (
       }
     };
 
-    // Check if we should skip making visit note available to patient portal
-    const skipSendingVisitNoteToPatientPortal = isFeatureFlagEnabled(
-      'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG',
-      secrets
-    );
-
-    let visitNoteCreatedSuccessfully = false;
-
-    if (!skipSendingVisitNoteToPatientPortal) {
-      visitNoteCreatedSuccessfully = await createVisitNoteForPatientPortal();
-    } else {
-      console.log('Skipping visit note creation and email to patient portal - feature flag is enabled');
-    }
+    const visitNoteCreatedSuccessfully = await createVisitNoteForPatientPortal();
 
     let candidEncounterId: string | undefined;
     try {
@@ -279,8 +260,14 @@ export const performEffect = async (
         });
       }
     }
-    // Send email notification only if visit note was created successfully
-    if (visitNoteCreatedSuccessfully) {
+
+    const skipVisitNoteInPatientPortal = isFeatureFlagEnabled(
+      'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG',
+      secrets
+    );
+
+    // Send email notification only if visit note was created successfully and not suppressed
+    if (visitNoteCreatedSuccessfully && !skipVisitNoteInPatientPortal) {
       const emailClient = getEmailClient(secrets);
       const emailEnabled = emailClient.getFeatureFlag();
       const patientEmail = getPatientContactEmail(patient);

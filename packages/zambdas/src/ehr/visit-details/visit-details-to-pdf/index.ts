@@ -4,17 +4,14 @@ import { Organization, Practitioner } from 'fhir/r4b';
 import {
   checkForStripeCustomerDeletedError,
   getConsentAndRelatedDocRefsForAppointment,
-  getSecret,
   PatientPaymentDTO,
   Secrets,
-  SecretsKeys,
   VisitDetailsResponse,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getStripeClient,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -33,23 +30,18 @@ let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
 
-  try {
-    const validatedParameters = validateRequestParameters(input);
-    const { appointmentId, timezone, secrets } = validatedParameters;
+  const validatedParameters = validateRequestParameters(input);
+  const { appointmentId, timezone, secrets } = validatedParameters;
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    console.log('Created Oystehr client');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  console.log('Created Oystehr client');
 
-    const response = await performEffect(oystehr, appointmentId, secrets, timezone);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('visit-details-to-pdf', error, ENVIRONMENT);
-  }
+  const response = await performEffect(oystehr, appointmentId, secrets, timezone);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export const performEffect = async (

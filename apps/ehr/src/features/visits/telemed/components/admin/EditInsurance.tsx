@@ -17,7 +17,7 @@ import { enqueueSnackbar } from 'notistack';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL, INSURANCES_URL } from 'src/App';
+import { BILLING_URL, CHARGE_MASTERS_URL, FEE_SCHEDULES_URL, INSURANCES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
 import { useListChargeMastersQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
@@ -234,7 +234,8 @@ export default function EditInsurance(): JSX.Element {
           <CustomBreadcrumbs
             chain={[
               { link: '/admin', children: 'Admin' },
-              { link: INSURANCES_URL, children: 'Insurance' },
+              { link: BILLING_URL, children: 'Billing Configuration' },
+              { link: `${BILLING_URL}/insurance`, children: 'Insurance' },
               {
                 link: '#',
                 children: isNew ? (
@@ -395,7 +396,7 @@ export default function EditInsurance(): JSX.Element {
                 >
                   Save changes
                 </LoadingButton>
-                <Link to={INSURANCES_URL}>
+                <Link to={`${BILLING_URL}/insurance`}>
                   <Button
                     variant="text"
                     color="primary"
