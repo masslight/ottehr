@@ -176,11 +176,17 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
     });
   });
 
-  test('Unassign appointment', async () => {
+  test('Unassign appointment and check buttons on visit page', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign).click();
     await telemedDialogConfirm(page);
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.verifyVisitPresent(myPatientsTabAppointmentResources.appointment.id!);
+    await visitsPage.clickProgressNoteButton(myPatientsTabAppointmentResources.appointment.id!);
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign)).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.cancelThisVisitButton)).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.inviteParticipant)).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.editPatientButtonSideBar)).not.toBeVisible();
   });
 
   // test.skip('Check message for patient', { tag: '@flaky' }, async () => {
@@ -191,16 +197,6 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
   //     'Thank you for your patience. We apologize, but the provider is unexpectedly no longer available. You will receive an update when another provider is available';
   //   await expect(page.getByText(expectedSms).first()).toBeVisible({ timeout: 25000 });
   // });
-
-  test('Buttons on visit page should not appear', async () => {
-    const visitsPage = await expectVisitsPage(page);
-    await visitsPage.clickProgressNoteButton(myPatientsTabAppointmentResources.appointment.id!);
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign)).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.cancelThisVisitButton)).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.inviteParticipant)).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.editPatientButtonSideBar)).not.toBeVisible();
-  });
 
   test('Assign my appointment back', async () => {
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
