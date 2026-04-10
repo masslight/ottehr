@@ -4,6 +4,8 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   addProcedureCode,
   AddProcedureCodeInput,
+  associateLocation,
+  AssociateLocationInput,
   associatePayer,
   AssociatePayerInput,
   bulkAddProcedureCodes,
@@ -12,6 +14,7 @@ import {
   CreateFeeScheduleInput,
   deleteProcedureCode,
   DeleteProcedureCodeInput,
+  disassociateLocation,
   disassociatePayer,
   findApplicableFeeSchedule,
   FindApplicableFeeScheduleResponse,
@@ -98,6 +101,42 @@ export const useDisassociatePayerMutation = (): UseMutationResult<ChargeItemDefi
       if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
 
       return disassociatePayer(oystehrZambda, data);
+    },
+  });
+};
+
+export const useAssociateLocationMutation = (): UseMutationResult<
+  ChargeItemDefinition,
+  Error,
+  AssociateLocationInput
+> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useMutation({
+    mutationKey: ['associate-location'],
+
+    mutationFn: async (data: AssociateLocationInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+
+      return associateLocation(oystehrZambda, data);
+    },
+  });
+};
+
+export const useDisassociateLocationMutation = (): UseMutationResult<
+  ChargeItemDefinition,
+  Error,
+  AssociateLocationInput
+> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useMutation({
+    mutationKey: ['disassociate-location'],
+
+    mutationFn: async (data: AssociateLocationInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+
+      return disassociateLocation(oystehrZambda, data);
     },
   });
 };

@@ -5,12 +5,15 @@ import { ChargeMasterDesignation } from 'utils';
 import {
   cmAddProcedureCode,
   CmAddProcedureCodeInput,
+  cmAssociateLocation,
+  CmAssociateLocationInput,
   cmAssociatePayer,
   CmAssociatePayerInput,
   cmBulkAddProcedureCodes,
   CmBulkAddProcedureCodesInput,
   cmDeleteProcedureCode,
   CmDeleteProcedureCodeInput,
+  cmDisassociateLocation,
   cmDisassociatePayer,
   cmUpdateProcedureCode,
   CmUpdateProcedureCodeInput,
@@ -146,6 +149,42 @@ export const useCmDisassociatePayerMutation = (): UseMutationResult<
       if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
 
       return cmDisassociatePayer(oystehrZambda, data);
+    },
+  });
+};
+
+export const useCmAssociateLocationMutation = (): UseMutationResult<
+  ChargeItemDefinition,
+  Error,
+  CmAssociateLocationInput
+> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useMutation({
+    mutationKey: ['cm-associate-location'],
+
+    mutationFn: async (data: CmAssociateLocationInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+
+      return cmAssociateLocation(oystehrZambda, data);
+    },
+  });
+};
+
+export const useCmDisassociateLocationMutation = (): UseMutationResult<
+  ChargeItemDefinition,
+  Error,
+  CmAssociateLocationInput
+> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useMutation({
+    mutationKey: ['cm-disassociate-location'],
+
+    mutationFn: async (data: CmAssociateLocationInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+
+      return cmDisassociateLocation(oystehrZambda, data);
     },
   });
 };
