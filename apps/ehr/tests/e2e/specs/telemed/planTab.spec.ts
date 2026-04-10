@@ -7,7 +7,7 @@ import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../..
 import { getDropdownOption } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
-test.describe('Disposition', async () => {
+test.describe('Disposition', { tag: '@flaky' }, async () => {
   test.describe('Primary Care Physician', async () => {
     const PROCESS_ID = `planTab.spec.ts-disposition-${DateTime.now().toMillis()}`;
     const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');

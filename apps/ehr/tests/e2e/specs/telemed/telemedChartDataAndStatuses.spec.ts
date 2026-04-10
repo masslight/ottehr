@@ -78,7 +78,7 @@ async function getTestStateThatNotQualificationsStatesList(
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Telemed tracking board checks, buttons, chart data filling', () => {
+test.describe('Telemed tracking board checks, buttons, chart data filling', { tag: '@flaky' }, () => {
   let page: Page;
   let context: BrowserContext;
 
@@ -876,7 +876,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
   });
 });
 
-test.describe('Telemed appointment with two locations (physical and virtual)', () => {
+test.describe('Telemed appointment with two locations (physical and virtual)', { tag: '@flaky' }, () => {
   const PROCESS_ID = `telemedEhrFlow.spec.ts-2-locs-no-appointment-state-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
   let telemedTrackingBoard: TelemedTrackingBoardPage;

@@ -15,7 +15,7 @@ import {
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
-test.describe('Component-based exam tests', async () => {
+test.describe('Component-based exam tests', { tag: '@flaky' }, async () => {
   const PROCESS_ID = `telemed_examTab.spec.ts-component-tests-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
   let page: Page;
