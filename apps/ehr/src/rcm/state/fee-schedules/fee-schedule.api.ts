@@ -287,9 +287,10 @@ export const getVersionHistory = async (
 };
 
 export interface FindApplicableFeeScheduleInput {
-  payerOrganizationId: string;
+  payerOrganizationId?: string;
   dateOfService: string;
   locationId?: string;
+  employerOrganizationId?: string;
 }
 
 export interface FindApplicableFeeScheduleResponse {

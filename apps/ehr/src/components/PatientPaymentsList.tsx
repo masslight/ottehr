@@ -242,6 +242,15 @@ export default function PatientPaymentList({
     ?.find((id) => id.type?.coding?.find((c) => c.code === 'MB'))
     ?.assigner?.reference?.replace('Organization/', '');
 
+  const employerOrgId = useMemo(() => {
+    if (paymentVariant !== PaymentVariant.employer) return undefined;
+    return insuranceData?.occupationalMedicineEmployerOrganization?.id ?? insuranceData?.employerOrganization?.id;
+  }, [
+    paymentVariant,
+    insuranceData?.occupationalMedicineEmployerOrganization?.id,
+    insuranceData?.employerOrganization?.id,
+  ]);
+
   const dateOfService = useMemo(() => {
     const start = appointment?.start;
     return start ? start.split('T')[0] : undefined;
@@ -265,7 +274,7 @@ export default function PatientPaymentList({
 
   // For non-self-pay, non-default variants: first try fee schedule, then fall back to charge master
   const isPayerVariant = paymentVariant === PaymentVariant.insurance || paymentVariant === PaymentVariant.employer;
-  const canQueryFeeSchedule = isPayerVariant && !!insuranceOrgId && !!dateOfService;
+  const canQueryFeeSchedule = isPayerVariant && (!!insuranceOrgId || !!employerOrgId) && !!dateOfService;
 
   const {
     data: feeScheduleResult,
@@ -274,7 +283,8 @@ export default function PatientPaymentList({
   } = useFindApplicableFeeScheduleQuery(
     canQueryFeeSchedule ? insuranceOrgId : undefined,
     canQueryFeeSchedule ? dateOfService : undefined,
-    locationId
+    locationId,
+    employerOrgId
   );
   const payerFeeSchedule = feeScheduleResult?.feeSchedule ?? undefined;
 
@@ -289,7 +299,8 @@ export default function PatientPaymentList({
     shouldFallbackToCm ? 'default-insurance' : undefined,
     insuranceOrgId,
     dateOfService,
-    locationId
+    locationId,
+    employerOrgId
   );
   const insuranceChargeMaster = insurancePayResult?.chargeMaster;
   const insuranceChargeMasterSource = insurancePayResult?.source;

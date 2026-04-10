@@ -108,6 +108,7 @@ export interface GetChargeMasterEntryInput {
   payerOrganizationId?: string;
   dateOfService?: string;
   locationId?: string;
+  employerOrganizationId?: string;
 }
 
 export interface GetChargeMasterEntryResponse {

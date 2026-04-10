@@ -24,7 +24,8 @@ let m2mToken: string;
 export const index = wrapHandler(
   'find-applicable-fee-schedule',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { payerOrganizationId, dateOfService, locationId, secrets } = validateRequestParameters(input);
+    const { payerOrganizationId, dateOfService, locationId, employerOrganizationId, secrets } =
+      validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
@@ -37,49 +38,62 @@ export const index = wrapHandler(
 
     const allFeeSchedules = allResults.unbundle();
 
-    // Filter to those associated with this payer
-    const payerFeeSchedules = allFeeSchedules.filter(
-      (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`)
-    );
+    // Helper: given a set of org-filtered fee schedules, apply date + location filtering
+    const findBestMatch = (orgFeeSchedules: ChargeItemDefinition[]): ChargeItemDefinition | null => {
+      const dateFiltered = orgFeeSchedules
+        .filter((fs) => fs.date && fs.date <= dateOfService)
+        .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 
-    if (payerFeeSchedules.length === 0) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ feeSchedule: null }),
-      };
-    }
+      if (dateFiltered.length === 0) return null;
 
-    // Filter by effective date
-    const dateFiltered = payerFeeSchedules
-      .filter((fs) => fs.date && fs.date <= dateOfService)
-      .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+      if (locationId) {
+        const locationMatch = dateFiltered.find(
+          (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
+        );
+        if (locationMatch) return locationMatch;
 
-    // If locationId provided, prefer a fee schedule that also matches the location
-    if (locationId) {
-      const locationMatch = dateFiltered.find(
-        (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
-      );
-      if (locationMatch) {
-        return {
-          statusCode: 200,
-          body: JSON.stringify({ feeSchedule: locationMatch }),
-        };
+        // No location match — fall back to fee schedules with no location associations at all
+        const noLocationAssociations = dateFiltered.filter(
+          (fs) => !fs.useContext?.some((uc) => uc.valueReference?.reference?.startsWith('Location/'))
+        );
+        return noLocationAssociations[0] ?? null;
       }
 
-      // No location match — fall back to fee schedules with no location associations at all
-      const noLocationAssociations = dateFiltered.filter(
-        (fs) => !fs.useContext?.some((uc) => uc.valueReference?.reference?.startsWith('Location/'))
+      return dateFiltered[0] ?? null;
+    };
+
+    // 1. If employer org provided, try employer-specific fee schedule first
+    if (employerOrganizationId) {
+      const employerFeeSchedules = allFeeSchedules.filter(
+        (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employerOrganizationId}`)
       );
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ feeSchedule: noLocationAssociations[0] ?? null }),
-      };
+      const employerMatch = findBestMatch(employerFeeSchedules);
+      if (employerMatch) {
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ feeSchedule: employerMatch }),
+        };
+      }
     }
 
-    // No locationId provided — use the best payer-only match
+    // 2. Fall back to payer (insurance) fee schedule
+    if (payerOrganizationId) {
+      const payerFeeSchedules = allFeeSchedules.filter(
+        (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`)
+      );
+
+      const payerMatch = findBestMatch(payerFeeSchedules);
+      if (payerMatch) {
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ feeSchedule: payerMatch }),
+        };
+      }
+    }
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ feeSchedule: dateFiltered[0] ?? null }),
+      body: JSON.stringify({ feeSchedule: null }),
     };
   }
 );

@@ -13,15 +13,16 @@ let m2mToken: string;
 export const index = wrapHandler(
   'get-charge-master-entry',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { designation, payerOrganizationId, dateOfService, locationId, secrets } = validateRequestParameters(input);
+    const { designation, payerOrganizationId, dateOfService, locationId, employerOrganizationId, secrets } =
+      validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
     const cutoffDate = dateOfService ?? new Date().toISOString().split('T')[0];
 
-    // If looking for insurance and a payer org is given, first look for a charge master with that payer
-    if (designation === 'default-insurance' && payerOrganizationId) {
+    // If looking for insurance/employer and an org is given, first look for org-specific charge masters
+    if (designation === 'default-insurance' && (payerOrganizationId || employerOrganizationId)) {
       const allChargeMasters = await oystehr.fhir.search<ChargeItemDefinition>({
         resourceType: 'ChargeItemDefinition',
         params: [
@@ -34,45 +35,54 @@ export const index = wrapHandler(
 
       const chargeMasters = allChargeMasters.unbundle();
 
-      const payerFiltered = chargeMasters
-        .filter(
-          (cm) =>
-            cm.status === 'active' &&
-            cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`) &&
-            cm.date &&
-            cm.date <= cutoffDate
-        )
-        .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+      // Helper: find best org-specific charge master with location filtering
+      const findBestOrgMatch = (orgId: string): ChargeItemDefinition | undefined => {
+        const orgFiltered = chargeMasters
+          .filter(
+            (cm) =>
+              cm.status === 'active' &&
+              cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${orgId}`) &&
+              cm.date &&
+              cm.date <= cutoffDate
+          )
+          .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 
-      // If locationId provided, prefer a payer charge master that also matches the location
-      if (locationId) {
-        const locationMatch = payerFiltered.find(
-          (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
-        );
-        if (locationMatch) {
-          return {
-            statusCode: 200,
-            body: JSON.stringify({ chargeMaster: locationMatch, source: 'payer' }),
-          };
+        if (orgFiltered.length === 0) return undefined;
+
+        if (locationId) {
+          const locationMatch = orgFiltered.find(
+            (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
+          );
+          if (locationMatch) return locationMatch;
+
+          // No location match — fall back to org charge masters with no location associations
+          const noLocationAssociations = orgFiltered.filter(
+            (cm) => !cm.useContext?.some((uc) => uc.valueReference?.reference?.startsWith('Location/'))
+          );
+          return noLocationAssociations[0];
         }
 
-        // No location match — fall back to payer charge masters with no location associations
-        const noLocationAssociations = payerFiltered.filter(
-          (cm) => !cm.useContext?.some((uc) => uc.valueReference?.reference?.startsWith('Location/'))
-        );
-        const payerChargeMaster = noLocationAssociations[0];
-        if (payerChargeMaster) {
+        return orgFiltered[0];
+      };
+
+      // Try employer first (higher priority)
+      if (employerOrganizationId) {
+        const employerMatch = findBestOrgMatch(employerOrganizationId);
+        if (employerMatch) {
           return {
             statusCode: 200,
-            body: JSON.stringify({ chargeMaster: payerChargeMaster, source: 'payer' }),
+            body: JSON.stringify({ chargeMaster: employerMatch, source: 'payer' }),
           };
         }
-      } else {
-        const payerChargeMaster = payerFiltered[0];
-        if (payerChargeMaster) {
+      }
+
+      // Then try insurance payer
+      if (payerOrganizationId) {
+        const payerMatch = findBestOrgMatch(payerOrganizationId);
+        if (payerMatch) {
           return {
             statusCode: 200,
-            body: JSON.stringify({ chargeMaster: payerChargeMaster, source: 'payer' }),
+            body: JSON.stringify({ chargeMaster: payerMatch, source: 'payer' }),
           };
         }
       }

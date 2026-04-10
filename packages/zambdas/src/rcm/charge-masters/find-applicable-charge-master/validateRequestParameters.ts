@@ -5,6 +5,7 @@ export interface FindApplicableChargeMasterParams {
   payerOrganizationId?: string;
   dateOfService: string;
   locationId?: string;
+  employerOrganizationId?: string;
   secrets: ZambdaInput['secrets'];
 }
 
@@ -13,7 +14,7 @@ export function validateRequestParameters(input: ZambdaInput): FindApplicableCha
     throw MISSING_REQUEST_BODY;
   }
 
-  const { payerOrganizationId, dateOfService, locationId } = JSON.parse(input.body);
+  const { payerOrganizationId, dateOfService, locationId, employerOrganizationId } = JSON.parse(input.body);
 
   if (!dateOfService || typeof dateOfService !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateOfService)) {
     throw INVALID_INPUT_ERROR('"dateOfService" is required and must be a date string (YYYY-MM-DD)');
@@ -23,6 +24,7 @@ export function validateRequestParameters(input: ZambdaInput): FindApplicableCha
     payerOrganizationId: payerOrganizationId || undefined,
     dateOfService,
     locationId: locationId || undefined,
+    employerOrganizationId: employerOrganizationId || undefined,
     secrets: input.secrets,
   };
 }

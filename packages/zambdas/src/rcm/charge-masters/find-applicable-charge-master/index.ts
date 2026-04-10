@@ -35,7 +35,8 @@ let m2mToken: string;
 export const index = wrapHandler(
   'find-applicable-charge-master',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { payerOrganizationId, dateOfService, locationId, secrets } = validateRequestParameters(input);
+    const { payerOrganizationId, dateOfService, locationId, employerOrganizationId, secrets } =
+      validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
@@ -51,51 +52,56 @@ export const index = wrapHandler(
 
     const allChargeMasters = allResults.unbundle();
 
-    // 1. Try payer-specific charge master
-    if (payerOrganizationId) {
-      const payerSpecific = allChargeMasters.filter(
-        (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`)
-      );
-
-      // If locationId provided, prefer a payer match that also matches the location
+    // Helper: given org-filtered charge masters, apply location filtering and find best match
+    const findBestOrgMatch = (orgChargeMasters: ChargeItemDefinition[]): ChargeItemDefinition | undefined => {
       if (locationId) {
         const locationMatch = findMostRecentEffective(
-          payerSpecific.filter(
+          orgChargeMasters.filter(
             (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
           ),
           dateOfService
         );
-        if (locationMatch) {
-          return {
-            statusCode: 200,
-            body: JSON.stringify({ chargeMaster: locationMatch, source: 'payer-specific' }),
-          };
-        }
+        if (locationMatch) return locationMatch;
 
-        // No location match — fall back to payer charge masters with no location associations
-        const noLocationAssociations = payerSpecific.filter(
+        // No location match — fall back to org charge masters with no location associations
+        const noLocationAssociations = orgChargeMasters.filter(
           (cm) => !cm.useContext?.some((uc) => uc.valueReference?.reference?.startsWith('Location/'))
         );
-        const match = findMostRecentEffective(noLocationAssociations, dateOfService);
-        if (match) {
-          return {
-            statusCode: 200,
-            body: JSON.stringify({ chargeMaster: match, source: 'payer-specific' }),
-          };
-        }
-      } else {
-        const match = findMostRecentEffective(payerSpecific, dateOfService);
-        if (match) {
-          return {
-            statusCode: 200,
-            body: JSON.stringify({ chargeMaster: match, source: 'payer-specific' }),
-          };
-        }
+        return findMostRecentEffective(noLocationAssociations, dateOfService);
+      }
+      return findMostRecentEffective(orgChargeMasters, dateOfService);
+    };
+
+    // 1. Try employer-specific charge master (highest priority when employer is provided)
+    if (employerOrganizationId) {
+      const employerSpecific = allChargeMasters.filter(
+        (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employerOrganizationId}`)
+      );
+      const employerMatch = findBestOrgMatch(employerSpecific);
+      if (employerMatch) {
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ chargeMaster: employerMatch, source: 'employer-specific' }),
+        };
       }
     }
 
-    // 2. Try default-insurance designated charge masters
+    // 2. Try payer-specific charge master
     if (payerOrganizationId) {
+      const payerSpecific = allChargeMasters.filter(
+        (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`)
+      );
+      const payerMatch = findBestOrgMatch(payerSpecific);
+      if (payerMatch) {
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ chargeMaster: payerMatch, source: 'payer-specific' }),
+        };
+      }
+    }
+
+    // 3. Try default-insurance designated charge masters
+    if (payerOrganizationId || employerOrganizationId) {
       const defaultInsurance = allChargeMasters.filter(
         (cm) => cm.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === 'default-insurance')
       );
@@ -109,8 +115,8 @@ export const index = wrapHandler(
       }
     }
 
-    // 3. Self-pay fallback (when no payer provided)
-    if (!payerOrganizationId) {
+    // 4. Self-pay fallback (when no payer or employer provided)
+    if (!payerOrganizationId && !employerOrganizationId) {
       const selfPay = allChargeMasters.filter(
         (cm) => cm.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === 'self-pay')
       );
