@@ -1,72 +1,13 @@
-import { type ServiceCategoryConfig } from 'config-types';
-// The buildReasonForVisitFromConfig function is pure — it only depends on
-// ServiceCategoryConfig and FormFieldTrigger types from config-types.
-// However, it lives in shared-questionnaire.ts which imports VALUE_SETS,
-// and the module graph pulls in ottehr-config/intake-paperwork which has
-// a pre-existing validation error at module scope.
-// To isolate the test, we inline the function logic here.
-import { type FormFieldTrigger } from 'config-types';
+import { type QuestionnaireConfigType, type ServiceCategoryConfig } from 'config-types';
 import { describe, expect, it } from 'vitest';
-
-type DisplayFilter = {
-  conditions: { question: string; operator: string; answer: string }[];
-  includeValues: string[];
-};
-
-const buildReasonForVisitFromConfig = (serviceCategories: ServiceCategoryConfig[]): Record<string, unknown> | null => {
-  const categoriesWithRfv = serviceCategories.filter((sc) => sc.reasonsForVisit);
-  if (categoriesWithRfv.length === 0) return null;
-
-  const allOptions = new Map<string, { label: string; value: string }>();
-  const displayFilters: DisplayFilter[] = [];
-  const enableTriggers: FormFieldTrigger[] = [];
-
-  for (const sc of categoriesWithRfv) {
-    const rfv = sc.reasonsForVisit!;
-    enableTriggers.push({
-      targetQuestionLinkId: 'appointment-service-category',
-      effect: ['enable', 'require'],
-      operator: '=',
-      answerString: sc.category.code,
-    });
-
-    for (const mode of sc.serviceModes) {
-      const modeOptions = rfv[mode as keyof typeof rfv] ?? rfv.default;
-      if (!modeOptions) continue;
-      for (const opt of modeOptions) {
-        allOptions.set(opt.value, opt);
-      }
-      displayFilters.push({
-        conditions: [
-          { question: 'appointment-service-category', operator: '=', answer: sc.category.code },
-          { question: 'appointment-service-mode', operator: '=', answer: mode },
-        ],
-        includeValues: modeOptions.map((o) => o.value),
-      });
-    }
-
-    if (rfv.default) {
-      for (const opt of rfv.default) {
-        allOptions.set(opt.value, opt);
-      }
-    }
-  }
-
-  return {
-    reasonForVisit: {
-      key: 'reason-for-visit',
-      label: 'Reason for visit',
-      type: 'choice',
-      options: [...allOptions.values()],
-      triggers: enableTriggers,
-      disabledDisplay: 'hidden',
-      enableBehavior: 'any',
-      answerDisplayFilters: displayFilters,
-    },
-  };
-};
+import { mapQuestionnaireAndValueSetsToItemsList } from '../helpers/paperwork/paperwork';
+import { buildReasonForVisitFromConfig, createQuestionnaireFromConfig } from './shared-questionnaire';
 
 const SYSTEM = 'https://fhir.ottehr.com/CodeSystem/service-category';
+const FILTER_EXT_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter';
+const FILTER_QUESTION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question';
+const FILTER_ANSWER_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer';
+const FILTER_INCLUDE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include';
 
 const makeCategory = (
   code: string,
@@ -78,6 +19,28 @@ const makeCategory = (
   visitTypes: ['prebook', 'walk-in'],
   ...overrides,
 });
+
+const makeQuestionnaireConfig = (rfvField: Record<string, unknown>): QuestionnaireConfigType =>
+  ({
+    questionnaireBase: {
+      resourceType: 'Questionnaire',
+      url: 'https://test.com/q',
+      version: '1.0.0',
+      name: 'Test',
+      title: 'Test',
+      status: 'active',
+    },
+    hiddenFormSections: [],
+    FormFields: {
+      testSection: {
+        linkId: 'test-page',
+        title: 'Test',
+        items: rfvField,
+        requiredFields: [],
+        hiddenFields: [],
+      },
+    },
+  }) as QuestionnaireConfigType;
 
 describe('buildReasonForVisitFromConfig', () => {
   it('returns null when no categories have reasonsForVisit', () => {
@@ -243,6 +206,142 @@ describe('buildReasonForVisitFromConfig', () => {
   });
 });
 
-// Note: round-trip tests (createQuestionnaireFromConfig → parse back) are deferred
-// because importing createQuestionnaireFromConfig pulls in VALUE_SETS → ottehr-config
-// module graph, which has module-scope validation that fails in isolated test context.
+describe('display filter round-trip: config → questionnaire → parse', () => {
+  it('generates questionnaire with correct answerOptions and display filter extensions', () => {
+    const rfvField = buildReasonForVisitFromConfig([
+      makeCategory('urgent-care', 'Urgent Care', {
+        serviceModes: ['in-person', 'virtual'],
+        reasonsForVisit: {
+          'in-person': [
+            { label: 'Fever', value: 'Fever' },
+            { label: 'Cough', value: 'Cough' },
+          ],
+          virtual: [{ label: 'Rash', value: 'Rash' }],
+        },
+      }),
+    ])!;
+
+    const questionnaire = createQuestionnaireFromConfig(makeQuestionnaireConfig(rfvField));
+    const rfvItem = questionnaire.item
+      ?.find((i) => i.linkId === 'test-page')
+      ?.item?.find((i) => i.linkId === 'reason-for-visit');
+
+    expect(rfvItem).toBeDefined();
+
+    // answerOptions contain the full superset
+    const answerValues = rfvItem!.answerOption?.map((o) => o.valueString);
+    expect(answerValues).toEqual(['Fever', 'Cough', 'Rash']);
+
+    // Two display filter extensions (one per mode)
+    const filterExts = rfvItem!.extension?.filter((e) => e.url === FILTER_EXT_URL);
+    expect(filterExts).toHaveLength(2);
+
+    // In-person filter
+    const ipIncludes = filterExts![0].extension?.filter((e) => e.url === FILTER_INCLUDE_URL).map((e) => e.valueString);
+    expect(ipIncludes).toEqual(['Fever', 'Cough']);
+
+    // Virtual filter
+    const virtualIncludes = filterExts![1].extension
+      ?.filter((e) => e.url === FILTER_INCLUDE_URL)
+      .map((e) => e.valueString);
+    expect(virtualIncludes).toEqual(['Rash']);
+  });
+
+  it('preserves filter conditions through serialization', () => {
+    const rfvField = buildReasonForVisitFromConfig([
+      makeCategory('wellness', 'Wellness', {
+        serviceModes: ['in-person', 'virtual'],
+        reasonsForVisit: {
+          'in-person': [{ label: 'Softwave', value: 'Softwave' }],
+          virtual: [{ label: 'HRT', value: 'HRT' }],
+        },
+      }),
+    ])!;
+
+    const questionnaire = createQuestionnaireFromConfig(makeQuestionnaireConfig(rfvField));
+    const rfvItem = questionnaire.item
+      ?.find((i) => i.linkId === 'test-page')
+      ?.item?.find((i) => i.linkId === 'reason-for-visit');
+    const filterExts = rfvItem!.extension?.filter((e) => e.url === FILTER_EXT_URL);
+
+    // Verify condition structure on first filter
+    const questions = filterExts![0].extension?.filter((e) => e.url === FILTER_QUESTION_URL).map((e) => e.valueString);
+    const answers = filterExts![0].extension?.filter((e) => e.url === FILTER_ANSWER_URL).map((e) => e.valueString);
+
+    expect(questions).toEqual(['appointment-service-category', 'appointment-service-mode']);
+    expect(answers).toEqual(['wellness', 'in-person']);
+  });
+
+  it('parses display filter extensions back into answerDisplayFilters via mapQuestionnaireAndValueSetsToItemsList', () => {
+    const rfvField = buildReasonForVisitFromConfig([
+      makeCategory('urgent-care', 'Urgent Care', {
+        serviceModes: ['in-person', 'virtual'],
+        reasonsForVisit: {
+          'in-person': [{ label: 'Fever', value: 'Fever' }],
+          virtual: [{ label: 'Rash', value: 'Rash' }],
+        },
+      }),
+    ])!;
+
+    const questionnaire = createQuestionnaireFromConfig(makeQuestionnaireConfig(rfvField));
+    const items = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
+    const rfvItem = items.find((i) => i.linkId === 'test-page')?.item?.find((i) => i.linkId === 'reason-for-visit');
+
+    expect(rfvItem).toBeDefined();
+    expect(rfvItem!.answerDisplayFilters).toHaveLength(2);
+
+    // In-person filter parsed correctly
+    expect(rfvItem!.answerDisplayFilters![0]).toEqual({
+      conditions: [
+        { question: 'appointment-service-category', operator: '=', answer: 'urgent-care' },
+        { question: 'appointment-service-mode', operator: '=', answer: 'in-person' },
+      ],
+      includeValues: ['Fever'],
+    });
+
+    // Virtual filter parsed correctly
+    expect(rfvItem!.answerDisplayFilters![1]).toEqual({
+      conditions: [
+        { question: 'appointment-service-category', operator: '=', answer: 'urgent-care' },
+        { question: 'appointment-service-mode', operator: '=', answer: 'virtual' },
+      ],
+      includeValues: ['Rash'],
+    });
+  });
+
+  it('round-trips multiple categories with mixed default and mode-specific RFV', () => {
+    const rfvField = buildReasonForVisitFromConfig([
+      makeCategory('urgent-care', 'Urgent Care', {
+        serviceModes: ['in-person', 'virtual'],
+        reasonsForVisit: {
+          'in-person': [{ label: 'Fever', value: 'Fever' }],
+          virtual: [{ label: 'Rash', value: 'Rash' }],
+        },
+      }),
+      makeCategory('workers-comp', 'Workers Comp', {
+        serviceModes: ['in-person'],
+        reasonsForVisit: {
+          default: [{ label: 'Injury', value: 'Injury' }],
+        },
+      }),
+    ])!;
+
+    const questionnaire = createQuestionnaireFromConfig(makeQuestionnaireConfig(rfvField));
+    const items = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
+    const rfvItem = items.find((i) => i.linkId === 'test-page')?.item?.find((i) => i.linkId === 'reason-for-visit');
+
+    // Full superset preserved
+    const answerValues = rfvItem!.answerOption?.map((o) => o.valueString);
+    expect(answerValues).toEqual(['Fever', 'Rash', 'Injury']);
+
+    // 3 filters: UC in-person, UC virtual, WC in-person
+    expect(rfvItem!.answerDisplayFilters).toHaveLength(3);
+    expect(rfvItem!.answerDisplayFilters![2]).toEqual({
+      conditions: [
+        { question: 'appointment-service-category', operator: '=', answer: 'workers-comp' },
+        { question: 'appointment-service-mode', operator: '=', answer: 'in-person' },
+      ],
+      includeValues: ['Injury'],
+    });
+  });
+});

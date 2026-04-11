@@ -1,0 +1,104 @@
+name: "Resolve secrets branch"
+description: >
+  Resolves the appropriate secrets repository branch for the current core branch.
+
+  Resolution order:
+    1. Branch in secrets repo matching the core branch name
+    2. Branch in secrets repo matching the core branch's PR target
+    3. Falls back to 'develop'
+
+inputs:
+  core-branch:
+    description: "Core branch name to match against (typically github.head_ref || github.ref_name)"
+    required: true
+  secrets-repository:
+    description: "Secrets repository in owner/repo format"
+    required: true
+  ssh-key:
+    description: "SSH private key with read access to the secrets repository"
+    required: true
+  token:
+    description: "GitHub token for PR target lookup in the core repo"
+    required: false
+    default: ""
+
+outputs:
+  branch:
+    description: "The resolved secrets branch to check out"
+    value: ${{ steps.resolve.outputs.branch }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Resolve secrets branch
+      id: resolve
+      shell: bash
+      env:
+        CORE_BRANCH: ${{ inputs.core-branch }}
+        SECRETS_REPO: ${{ inputs.secrets-repository }}
+        SSH_KEY: ${{ inputs.ssh-key }}
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        # Set up temporary SSH key for git ls-remote
+        TMPKEY=$(mktemp)
+        echo "$SSH_KEY" > "$TMPKEY"
+        chmod 600 "$TMPKEY"
+        export GIT_SSH_COMMAND="ssh -i $TMPKEY -o StrictHostKeyChecking=no"
+
+        cleanup() { rm -f "$TMPKEY"; }
+        trap cleanup EXIT
+
+        SECRETS_URL="git@github.com:${SECRETS_REPO}.git"
+
+        # 1. Try branch matching the core branch name in secrets repo
+        echo "Checking for '$CORE_BRANCH' in secrets repo..."
+        if git ls-remote --exit-code --heads "$SECRETS_URL" "$CORE_BRANCH" > /dev/null 2>&1; then
+          echo "Found matching branch '$CORE_BRANCH' in secrets repo"
+          echo "branch=$CORE_BRANCH" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # 2. Try the PR target branch from the core repo
+        if [[ -n "$GH_TOKEN" ]]; then
+          CORE_REPO="${{ github.repository }}"
+          echo "Looking up PR target branch for '$CORE_BRANCH' in $CORE_REPO..."
+          GH_OUT=$(mktemp)
+          GH_ERR=$(mktemp)
+          GH_EXIT=0
+          gh pr list \
+            --repo "$CORE_REPO" \
+            --head "$CORE_BRANCH" \
+            --json baseRefName \
+            --jq '.[].baseRefName' \
+            >"$GH_OUT" 2>"$GH_ERR" || GH_EXIT=$?
+
+          if [[ $GH_EXIT -ne 0 ]]; then
+            echo "::warning::gh pr list failed (exit $GH_EXIT): $(cat "$GH_ERR")"
+          else
+            PR_COUNT=$(wc -l < "$GH_OUT" | tr -d ' ')
+            if [[ "$PR_COUNT" -gt 1 ]]; then
+              echo "::warning::Multiple open PRs ($PR_COUNT) found for '$CORE_BRANCH' — using the first match"
+            fi
+            PR_TARGET=$(head -1 "$GH_OUT")
+            if [[ -n "$PR_TARGET" ]]; then
+              echo "PR target branch is '$PR_TARGET'"
+              if git ls-remote --exit-code --heads "$SECRETS_URL" "$PR_TARGET" > /dev/null 2>&1; then
+                echo "Found target branch '$PR_TARGET' in secrets repo"
+                echo "branch=$PR_TARGET" >> "$GITHUB_OUTPUT"
+                rm -f "$GH_OUT" "$GH_ERR"
+                exit 0
+              else
+                echo "Target branch '$PR_TARGET' not found in secrets repo"
+              fi
+            else
+              echo "No open PR found for branch '$CORE_BRANCH'"
+            fi
+          fi
+          rm -f "$GH_OUT" "$GH_ERR"
+        else
+          echo "No token provided — skipping PR target branch lookup"
+        fi
+
+        # 3. Fall back to develop
+        echo "Falling back to 'develop'"
+        echo "branch=develop" >> "$GITHUB_OUTPUT"
