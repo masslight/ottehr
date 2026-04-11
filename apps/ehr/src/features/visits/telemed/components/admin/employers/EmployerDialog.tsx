@@ -107,7 +107,7 @@ function AssociationRow({
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
-            {item.title || item.name}
+            {item.title || item.description}
           </Typography>
           {type === 'fee-schedule' &&
             (isCaseRate ? (
