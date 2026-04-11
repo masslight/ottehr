@@ -27,6 +27,7 @@ import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils';
@@ -38,6 +39,8 @@ import {
   BOOKING_CONFIG,
   FollowUpVisitHistoryRow,
   formatMinutes,
+  getAnnotationFollowupStatusLabel,
+  getFollowUpProgressNotePathSegment,
   getServiceCategoryAbbreviation,
   PatientVisitListResponse,
   ServiceMode,
@@ -260,26 +263,16 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         if (encounter.followupSubtype === 'scheduled') {
           return <Typography variant="body2">{encounter.status}</Typography>;
         }
-        const statusVal = encounter.status === 'in-progress' ? 'OPEN' : 'RESOLVED';
-        return getFollowupStatusChip(statusVal);
+        return getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter.status));
       }
       case 'note': {
         const { encounterId, originalAppointmentId, followupSubtype } = encounter;
-        // Scheduled follow-ups use the parent's appointment ID so the full encounter tree loads,
-        // with encounterId param to select the scheduled follow-up's encounter for display
-        if (followupSubtype === 'scheduled' && originalAppointmentId) {
-          if (encounter.status === 'planned' || encounter.status === 'arrived') {
-            return '-';
-          }
-          const to = `/in-person/${originalAppointmentId}/review-and-sign?encounterId=${encounterId}`;
-          return <RoundedButton to={to}>Progress Note</RoundedButton>;
-        }
-        // Annotation follow-ups use the limited follow-up note view
-        if (!originalAppointmentId) return '-';
-        const to = `/in-person/${originalAppointmentId}/follow-up-note${
-          encounterId ? `?encounterId=${encounterId}` : ''
-        }`;
-
+        const pathSegment = getFollowUpProgressNotePathSegment(followupSubtype, encounter.status);
+        if (!pathSegment || !originalAppointmentId) return '-';
+        const to = getInPersonUrlByAppointmentType(
+          { id: originalAppointmentId, encounterId, isFollowUp: true },
+          pathSegment
+        );
         return <RoundedButton to={to}>Progress Note</RoundedButton>;
       }
       default:

@@ -11,11 +11,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEmployees, saveFollowup } from 'src/api/api';
 import LocationSelect from 'src/components/LocationSelect';
+import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { FOLLOWUP_REASONS, FOLLOWUP_SYSTEMS, FollowupReason, PatientFollowupDetails, ProviderDetails } from 'utils';
+import { FOLLOWUP_REASONS, FollowupReason, isFollowupEncounter, PatientFollowupDetails, ProviderDetails } from 'utils';
 
 interface PatientFollowupFormProps {
   patient: Patient | undefined;
@@ -168,15 +169,7 @@ export default function PatientFollowupForm({
         const appointments = resources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
         const fhirLocations = resources.filter((resource) => resource.resourceType === 'Location') as Location[];
 
-        const nonFollowupEncounters = encounters.filter((encounter) => {
-          const isFollowup = encounter.type?.some(
-            (type) =>
-              type.coding?.some(
-                (coding) => coding.system === FOLLOWUP_SYSTEMS.type.url && coding.code === FOLLOWUP_SYSTEMS.type.code
-              )
-          );
-          return !isFollowup;
-        });
+        const nonFollowupEncounters = encounters.filter((encounter) => !isFollowupEncounter(encounter));
 
         const encounterRows: EncounterRow[] = nonFollowupEncounters
           .map((encounter) => {
@@ -293,9 +286,14 @@ export default function PatientFollowupForm({
       const followup = await saveFollowup(oystehrZambda, { encounterDetails });
 
       navigate(
-        `/in-person/${formData.initialVisit?.appointment?.id}/follow-up-note${
-          followup.encounterId ? `?encounterId=${followup.encounterId}` : ''
-        }`
+        getInPersonUrlByAppointmentType(
+          {
+            id: formData.initialVisit?.appointment?.id || '',
+            encounterId: followup.encounterId,
+            isFollowUp: true,
+          },
+          'follow-up-note'
+        )
       );
     } catch (error) {
       console.error(`Failed to add patient followup: ${error}`);

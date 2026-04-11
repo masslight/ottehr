@@ -1,22 +1,10 @@
 import { LoadingButton } from '@mui/lab';
 import { Autocomplete, Box, Button, Grid, TextField } from '@mui/material';
-import Oystehr from '@oystehr/sdk';
-import { Appointment, Encounter, Location, Patient } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import { useEffect, useState } from 'react';
+import { Patient } from 'fhir/r4b';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { FOLLOWUP_SYSTEMS } from 'utils';
-
-interface EncounterRow {
-  id: string | undefined;
-  typeLabel: string;
-  dateTime: string | undefined;
-  appointment: Appointment;
-  encounter: Encounter;
-  location?: Location;
-}
+import { useParentEncounters } from './useParentEncounters';
 
 interface ScheduledFollowupParentSelectorProps {
   patient: Patient;
@@ -28,93 +16,13 @@ export default function ScheduledFollowupParentSelector({
   initialEncounterId,
 }: ScheduledFollowupParentSelectorProps): JSX.Element {
   const navigate = useNavigate();
-  const { oystehrZambda } = useApiClients();
   const patientId = patient?.id;
 
-  const [previousEncounters, setPreviousEncounters] = useState<EncounterRow[]>([]);
-  const [selectedParentEncounter, setSelectedParentEncounter] = useState<EncounterRow | undefined>(undefined);
+  const { previousEncounters, selectedParentEncounter, setSelectedParentEncounter } = useParentEncounters(
+    patientId,
+    initialEncounterId
+  );
   const [error, setError] = useState<string>();
-
-  useEffect(() => {
-    const getPreviousEncounters = async (client: Oystehr): Promise<void> => {
-      if (!patientId) return;
-      try {
-        const resources = (
-          await client.fhir.search({
-            resourceType: 'Encounter',
-            params: [
-              { name: 'patient', value: patientId },
-              { name: '_include', value: 'Encounter:appointment' },
-              { name: '_include', value: 'Encounter:location' },
-              { name: '_sort', value: '-date' },
-            ],
-          })
-        ).unbundle();
-
-        const encounters = resources.filter((r) => r.resourceType === 'Encounter') as Encounter[];
-        const appointments = resources.filter((r) => r.resourceType === 'Appointment') as Appointment[];
-        const locations = resources.filter((r) => r.resourceType === 'Location') as Location[];
-
-        // Only show non-followup (top-level) encounters as parent options
-        const nonFollowupEncounters = encounters.filter((encounter) => {
-          const isFollowup = encounter.type?.some(
-            (type) =>
-              type.coding?.some(
-                (coding) => coding.system === FOLLOWUP_SYSTEMS.type.url && coding.code === FOLLOWUP_SYSTEMS.type.code
-              )
-          );
-          return !isFollowup;
-        });
-
-        const encounterRows: EncounterRow[] = nonFollowupEncounters
-          .map((encounter) => {
-            const appointment = encounter.appointment?.[0]?.reference
-              ? appointments.find((app) => `Appointment/${app.id}` === encounter.appointment?.[0]?.reference)
-              : undefined;
-
-            const locationRef = encounter.location?.[0]?.location?.reference?.replace('Location/', '');
-            const encounterLocation = locationRef ? locations.find((loc) => loc.id === locationRef) : undefined;
-
-            return {
-              id: encounter.id,
-              typeLabel: appointment?.appointmentType?.text || 'Visit',
-              dateTime: appointment?.start,
-              appointment: appointment!,
-              encounter: encounter,
-              location: encounterLocation,
-            };
-          })
-          .filter((row) => row.id)
-          .sort((a, b) => {
-            const dateA = DateTime.fromISO(a.dateTime ?? '');
-            const dateB = DateTime.fromISO(b.dateTime ?? '');
-            return dateB.diff(dateA).milliseconds;
-          });
-
-        setPreviousEncounters(encounterRows);
-
-        if (initialEncounterId && encounterRows.length > 0) {
-          console.log(
-            '[ScheduledSelector] Looking for initialEncounterId:',
-            initialEncounterId,
-            'in',
-            encounterRows.map((r) => r.id)
-          );
-          const matchingVisit = encounterRows.find((row) => row.encounter?.id === initialEncounterId);
-          console.log('[ScheduledSelector] Match:', matchingVisit?.id);
-          if (matchingVisit) {
-            setSelectedParentEncounter(matchingVisit);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching previous encounters:', err);
-      }
-    };
-
-    if (oystehrZambda && patientId) {
-      void getPreviousEncounters(oystehrZambda);
-    }
-  }, [oystehrZambda, patientId, initialEncounterId]);
 
   const handleContinue = (): void => {
     if (!selectedParentEncounter) {

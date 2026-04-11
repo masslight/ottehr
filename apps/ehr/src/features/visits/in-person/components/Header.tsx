@@ -33,9 +33,12 @@ import {
   FhirAppointmentType,
   formatDateToMDYWithTime,
   getAdmitterPractitionerId,
+  getAnnotationFollowupStatusLabel,
   getAppointmentServiceCategoryAbbreviation,
   getAttendingPractitionerId,
+  getEncounterLocationId,
   getFullestAvailableName,
+  getInitialEncounterIdForFollowUp,
   getInsuranceNameFromCoverage,
   PaymentVariant,
   PRACTITIONER_CODINGS,
@@ -172,11 +175,9 @@ export const Header = (): JSX.Element => {
   let optionalVisitLabel = '';
 
   if (isFollowup) {
-    const locationRef = encounter?.location?.[0]?.location?.reference;
-    if (locationRef) {
-      const locationId = locationRef.split('/')[1];
+    const locationId = getEncounterLocationId(encounter);
+    if (locationId) {
       const matchedLocation = locations.find((location) => location?.id === locationId);
-
       optionalVisitLabel = matchedLocation?.name ?? '';
     }
   } else {
@@ -368,7 +369,7 @@ export const Header = (): JSX.Element => {
                 <Grid container alignItems="center" spacing={2}>
                   <Grid item>
                     {isFollowup ? (
-                      getFollowupStatusChip(encounter?.status === 'in-progress' ? 'OPEN' : 'RESOLVED')
+                      getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter?.status))
                     ) : (
                       <ChangeStatusDropdown
                         appointmentID={appointmentID}
@@ -569,15 +570,7 @@ export const Header = (): JSX.Element => {
                     onClick={() => {
                       setHeaderMenuAnchorEl(null);
                       if (patient?.id) {
-                        // If viewing a follow-up, the initial visit is the parent encounter.
-                        // Otherwise, the current encounter is the initial visit.
-                        const initialEncounterId = encounter?.partOf ? followUpOriginEncounter?.id : encounter?.id;
-                        console.log('[Header] Create Follow-Up:', {
-                          encounterId: encounter?.id,
-                          partOf: encounter?.partOf,
-                          followUpOriginId: followUpOriginEncounter?.id,
-                          initialEncounterId,
-                        });
+                        const initialEncounterId = getInitialEncounterIdForFollowUp(encounter, followUpOriginEncounter);
                         navigate(`/patient/${patient.id}/followup/add`, {
                           state: { initialEncounterId },
                         });

@@ -1,3 +1,5 @@
+import { InPersonAppointmentInformation } from 'utils';
+
 export const getNewOrderUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/in-house-medication/order/new`;
 };
@@ -76,6 +78,20 @@ export const getImmunizationOrderEditUrl = (appointmentId: string, orderId: stri
 
 export const getInPersonVisitDetailsUrl = (appointmentId: string): string => {
   return `/visit/${appointmentId}`;
+};
+
+export const getInPersonUrlByAppointmentType = (
+  appointment: Pick<InPersonAppointmentInformation, 'id' | 'parentAppointmentId' | 'encounterId' | 'isFollowUp'>,
+  targetUrl?: string
+): string => {
+  let baseVisitUrl = `/in-person/${appointment.parentAppointmentId || appointment.id}`;
+  if (targetUrl) {
+    baseVisitUrl = `${baseVisitUrl}/${targetUrl}`;
+  }
+  if (appointment.isFollowUp && appointment.encounterId) {
+    baseVisitUrl = `${baseVisitUrl}?encounterId=${appointment.encounterId}`;
+  }
+  return baseVisitUrl;
 };
 
 export const getChiefComplaintUrl = (appointmentId: string): string => {

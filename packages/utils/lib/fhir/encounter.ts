@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Encounter, EncounterStatusHistory, Extension, Location } from 'fhir/r4b';
+import { Appointment, Encounter, EncounterStatusHistory, Extension, Location, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 import {
@@ -299,4 +299,81 @@ export const isEncounterSelfPay = (encounter?: Encounter): boolean => {
   if (!encounter) return false;
   const paymentVariant = getPaymentVariantFromEncounter(encounter);
   return paymentVariant === PaymentVariant.selfPay;
+};
+
+export const buildAppointmentStartMap = (resources: Resource[]): Record<string, string> => {
+  const map: Record<string, string> = {};
+  resources.forEach((r) => {
+    if (r.resourceType === 'Appointment' && r.id && (r as Appointment).start) {
+      map[r.id] = (r as Appointment).start!;
+    }
+  });
+  return map;
+};
+
+// Resolves the best available datetime for an encounter
+export const getEncounterDateTime = (
+  encounter: Encounter,
+  appointmentStartMap: Record<string, string>
+): string | undefined => {
+  const apptId = encounter.appointment?.[0]?.reference?.replace('Appointment/', '');
+  if (apptId && appointmentStartMap[apptId]) return appointmentStartMap[apptId];
+  if (encounter.period?.start) return encounter.period.start;
+  return encounter.statusHistory?.[0]?.period?.start;
+};
+
+export const getEncounterDisplayName = (
+  encounter: Encounter,
+  appointmentStartMap: Record<string, string>,
+  formatDateTime: (iso: string) => string
+): string => {
+  const dateTime = getEncounterDateTime(encounter, appointmentStartMap);
+  const dateStr = dateTime ? formatDateTime(dateTime) : '';
+  if (!encounter.partOf) {
+    return `Main Visit${dateStr ? ` - ${dateStr}` : ''}`;
+  }
+  const typeText = encounter.type?.[0]?.text || 'Follow-up';
+  return `${typeText}${dateStr ? ` - ${dateStr}` : ''}`;
+};
+
+export const getAnnotationFollowupStatusLabel = (encounterStatus: string | undefined): 'OPEN' | 'RESOLVED' => {
+  return encounterStatus === 'in-progress' ? 'OPEN' : 'RESOLVED';
+};
+
+/**
+ * Determines which encounter should be pre-selected as the "initial visit"
+ * when creating a new follow-up from the current visit context.
+ * If the current encounter is itself a follow-up child (has partOf), the parent
+ * (followUpOriginEncounter) is the initial visit; otherwise the current encounter is.
+ */
+export const getInitialEncounterIdForFollowUp = (
+  encounter: Encounter | undefined,
+  followUpOriginEncounter: Encounter | undefined
+): string | undefined => {
+  return encounter?.partOf ? followUpOriginEncounter?.id : encounter?.id;
+};
+
+export const getFollowUpProgressNotePathSegment = (
+  followupSubtype: FollowupSubtype | undefined,
+  encounterStatus: string | undefined
+): 'review-and-sign' | 'follow-up-note' | null => {
+  if (followupSubtype === 'scheduled') {
+    if (encounterStatus === 'planned' || encounterStatus === 'arrived') return null;
+    return 'review-and-sign';
+  }
+  return 'follow-up-note';
+};
+
+export const getInteractionModeForEncounter = (
+  encounter: Encounter,
+  followUpOriginEncounterId: string | undefined
+): 'main' | 'follow-up' => {
+  if (encounter.id === followUpOriginEncounterId) return 'main';
+  if (isScheduledFollowupEncounter(encounter)) return 'main';
+  return 'follow-up';
+};
+
+export const getEncounterLocationId = (encounter: Encounter | undefined): string | undefined => {
+  const locationRef = encounter?.location?.[0]?.location?.reference;
+  return locationRef?.split('/')[1];
 };

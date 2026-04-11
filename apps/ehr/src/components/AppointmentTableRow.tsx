@@ -31,6 +31,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
@@ -558,8 +559,6 @@ export default function AppointmentTableRow({
     return null;
   }
   const encounterId: string = encounter.id;
-  const navAppointmentId = appointment.parentAppointmentId || appointment.id;
-  const followUpParams = appointment.isFollowUp ? `?encounterId=${encounterId}` : '';
 
   const handleStartIntakeButton = async (): Promise<void> => {
     setStartIntakeButtonLoading(true);
@@ -575,7 +574,7 @@ export default function AppointmentTableRow({
         },
         oystehrZambda
       );
-      navigate(`/in-person/${navAppointmentId}/patient-info${followUpParams}`);
+      navigate(getInPersonUrlByAppointmentType(appointment, 'patient-info'));
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
@@ -602,7 +601,7 @@ export default function AppointmentTableRow({
   const handleProgressNoteButton = async (): Promise<void> => {
     setProgressNoteButtonLoading(true);
     try {
-      navigate(`/in-person/${navAppointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}${followUpParams}`);
+      navigate(getInPersonUrlByAppointmentType(appointment, ROUTER_PATH.REVIEW_AND_SIGN));
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
@@ -1000,7 +999,7 @@ export default function AppointmentTableRow({
         <Stack direction={'row'} spacing={1}>
           <GoToButton
             text="Visit Details"
-            onClick={() => navigate(`/visit/${navAppointmentId}${followUpParams}`)}
+            onClick={() => navigate(getInPersonUrlByAppointmentType(appointment, 'review-and-sign'))}
             dataTestId={dataTestIds.dashboard.visitDetailsButton}
           >
             <MedicalInformationIcon />
