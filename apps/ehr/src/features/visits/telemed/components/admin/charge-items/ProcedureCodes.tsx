@@ -794,14 +794,20 @@ export default function ProcedureCodes({
               }
               setCptInputValue('');
             }}
-            noOptionsText={cptSearchTerm.length === 0 ? 'Start typing to search' : 'No codes found'}
+            noOptionsText={
+              cptSearchTerm.length === 0
+                ? 'Start typing to search'
+                : 'No codes found — type a custom code and press Enter'
+            }
+            handleHomeEndKeys
             renderInput={(params) => (
               <TextField
                 {...params}
                 label={formData.code ? 'Change Code (CPT/HCPCS)' : 'Code (CPT/HCPCS)'}
                 required={!formData.code}
                 margin="dense"
-                placeholder="Search by code or description..."
+                placeholder="Search or enter a custom code..."
+                helperText={!formData.code ? 'Search for a standard code or type any code and press Enter' : undefined}
                 InputProps={{
                   ...params.InputProps,
                   endAdornment: (
@@ -826,6 +832,14 @@ export default function ProcedureCodes({
               </li>
             )}
             isOptionEqualToValue={(option, value) => option.code === value.code}
+          />
+          <TextField
+            label="Description"
+            value={formData.description}
+            onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+            fullWidth
+            margin="dense"
+            placeholder="e.g. Office visit, new patient"
           />
           <TextField
             label="Modifier"

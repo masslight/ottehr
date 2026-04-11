@@ -40,7 +40,9 @@ test.describe('Complete Encounters Report', () => {
     await page.goto('/reports/complete-encounters');
 
     // Heading
-    await expect(page.getByRole('heading', { name: 'Complete Encounters' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Complete Encounters', exact: true })).toBeVisible({
+      timeout: 15000,
+    });
 
     // Description text
     await expect(page.getByText(/This report shows encounters that have been completed/i)).toBeVisible();
