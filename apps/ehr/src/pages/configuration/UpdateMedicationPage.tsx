@@ -17,16 +17,13 @@ import {
   CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_NDC,
   CPTCodeDTO,
+  getMedicationName,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
 } from 'utils';
 
 function getMedispanId(medication: Medication): string | undefined {
   return medication.code?.coding?.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)?.code;
-}
-
-function getMedicationName(medication: Medication): string {
-  return medication.identifier?.find((i) => i.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value ?? '';
 }
 
 function updateMedicationName(medication: Medication | null, newName: string): Medication | null {
@@ -192,7 +189,7 @@ export default function UpdateMedicationPage(): ReactElement {
               <Grid item xs={6}>
                 <Autocomplete
                   value={medication}
-                  getOptionLabel={(option) => (typeof option === 'string' ? option : getMedicationName(option))}
+                  getOptionLabel={(option) => (typeof option === 'string' ? option : getMedicationName(option) || '')}
                   fullWidth
                   isOptionEqualToValue={(option, value) => getMedispanId(option) === getMedispanId(value)}
                   loading={isSearching}

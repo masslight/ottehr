@@ -6,6 +6,7 @@ import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_NDC,
+  getMedicationName,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   UpdateInHouseMedicationInput,
@@ -55,8 +56,7 @@ export const performEffect = async (
   }
   const patchOperations: Operation[] = [];
 
-  const medicationName =
-    medication?.identifier?.find((identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value || '';
+  const medicationName = getMedicationName(medication) || '';
 
   if (name !== undefined && name !== medicationName) {
     const medicationNameIndex = medication.identifier?.findIndex(
