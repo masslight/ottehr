@@ -294,7 +294,12 @@ export async function createAppointment(
     // If it is a new patient, create a RelatedPerson resource for the Patient
     // and create a Person resource if there is not one for the account
     // todo: this needs to happen via a transactional with the other must-happen-for-this-request-to-succeed items
-    const userResource = await createUserResourcesForPatient(oystehr, fhirPatient.id, verifiedFormattedPhoneNumber);
+    const [userResource] = await Promise.all([
+      createUserResourcesForPatient(oystehr, fhirPatient.id, verifiedFormattedPhoneNumber),
+      oystehr.fhir.generateFriendlyPatientId({ id: fhirPatient.id }).catch((error) => {
+        console.error(`Failed to generate friendly patient ID for Patient/${fhirPatient.id}:`, error);
+      }),
+    ]);
     relatedPersonId = userResource?.relatedPerson?.id || '';
     const person = userResource.person;
 
