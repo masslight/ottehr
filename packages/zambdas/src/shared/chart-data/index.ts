@@ -1189,7 +1189,20 @@ export function makeObservationDTO(observation: Observation): null | Observation
       value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
     } as ObservationDateRangeFieldDTO;
   } else if (typeof observation.valueString === 'string') {
-    const items = observation.component?.map((c) => c.valueString).filter((v): v is string => typeof v === 'string');
+    const rawItems = observation.component?.map((c) => c.valueString).filter((v): v is string => typeof v === 'string');
+    const items = rawItems
+      ?.map((raw) => {
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object' && parsed.display) {
+            return { display: parsed.display, searchTerms: parsed.searchTerms || [parsed.display] };
+          }
+        } catch {
+          // Not JSON — legacy plain string item, wrap it
+        }
+        return { display: raw, searchTerms: [raw] };
+      })
+      .filter(Boolean);
     return {
       resourceId: observation.id,
       field,

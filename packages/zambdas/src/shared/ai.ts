@@ -66,34 +66,38 @@ FORMAT RULES:
   erx / erxItems,
   procedures / proceduresItems.
 - The prose string summarizes the information as a readable sentence.
-- Each item in the Items array must be a term or phrase that appears verbatim in the corresponding prose string.
-- For medications: just the medication name as it appears in the prose (e.g. "Lisinopril", "ibuprofen").
-- For allergies: just the allergen name as it appears in the prose (e.g. "penicillin", "tree nuts"). Do NOT include reactions.
-- For conditions, surgical history, and hospitalizations: the key clinical term as it appears in the prose (e.g. "hypertension", "appendectomy").
+- Each item in the Items array must be an object with "display" and "searchTerms":
+  - "display": the term or phrase as it appears verbatim in the prose (used for highlighting).
+  - "searchTerms": an array of 1 to 3 clinical/standard terms to search a medical database. Use the same term as display if it is already a standard clinical term. Use different terms when the patient uses a lay/colloquial term (e.g. "ear infection" -> ["otitis media"], "blood thinner" -> ["warfarin", "apixaban", "enoxaparin"]).
+- For medications: display is the medication name from the prose. searchTerms are standard drug names.
+- For allergies: display is the allergen name from the prose. searchTerms are standard allergen names. Do NOT include reactions.
+- For conditions: display is the condition as stated in the prose. searchTerms are ICD-10 compatible clinical terms.
+- For surgical history: display is the procedure as stated. searchTerms are standard procedure names.
+- For hospitalizations: display is the reason as stated. searchTerms are standard clinical terms.
 - Do NOT include items the patient denies or negates.
 - Omit sections with no relevant information entirely.
 
 Example response:
 {
   "historyOfPresentIllness": "The patient presents with chest pain for 2 days, worsening with exertion.",
-  "pastMedicalHistory": "History of hypertension and type 2 diabetes.",
-  "pastMedicalHistoryItems": ["hypertension", "type 2 diabetes"],
+  "pastMedicalHistory": "History of high blood pressure and sugar disease.",
+  "pastMedicalHistoryItems": [{"display": "high blood pressure", "searchTerms": ["hypertension"]}, {"display": "sugar disease", "searchTerms": ["diabetes mellitus"]}],
   "pastSurgicalHistory": "Appendectomy in 2019.",
-  "pastSurgicalHistoryItems": ["appendectomy 2019"],
-  "medicationsHistory": "Currently taking Lisinopril 10mg daily and Metformin 500mg twice daily.",
-  "medicationsHistoryItems": ["Lisinopril", "Metformin"],
-  "allergies": "Allergic to penicillin which causes a rash. Also allergic to sulfa drugs.",
-  "allergiesItems": ["penicillin", "sulfa drugs"],
+  "pastSurgicalHistoryItems": [{"display": "appendectomy", "searchTerms": ["appendectomy"]}],
+  "medicationsHistory": "Currently taking a blood thinner and Metformin twice daily.",
+  "medicationsHistoryItems": [{"display": "blood thinner", "searchTerms": ["warfarin", "apixaban", "enoxaparin"]}, {"display": "Metformin", "searchTerms": ["Metformin"]}],
+  "allergies": "Allergic to penicillin and sulfa drugs.",
+  "allergiesItems": [{"display": "penicillin", "searchTerms": ["penicillin"]}, {"display": "sulfa drugs", "searchTerms": ["sulfonamide"]}],
   "socialHistory": "Non-smoker, occasional alcohol use.",
   "familyHistory": "Father with coronary artery disease, mother with breast cancer.",
   "hospitalizationsHistory": "Hospitalized for pneumonia in January 2023.",
-  "hospitalizationsHistoryItems": ["pneumonia January 2023"],
+  "hospitalizationsHistoryItems": [{"display": "pneumonia", "searchTerms": ["pneumonia"]}],
   "labs": "CBC and BMP ordered.",
-  "labsItems": ["CBC", "BMP"],
+  "labsItems": [{"display": "CBC", "searchTerms": ["CBC"]}, {"display": "BMP", "searchTerms": ["BMP"]}],
   "erx": "Amoxicillin 500mg prescribed.",
-  "erxItems": ["Amoxicillin 500mg"],
+  "erxItems": [{"display": "Amoxicillin", "searchTerms": ["Amoxicillin"]}],
   "procedures": "Wound closure performed.",
-  "proceduresItems": ["wound closure"]
+  "proceduresItems": [{"display": "wound closure", "searchTerms": ["wound closure"]}]
 }
 The transcript: `;
 }
@@ -395,9 +399,10 @@ function createObservations(
 ): BatchInputPostRequest<Observation>[] {
   return Object.entries(AI_RESPONSE_KEY_TO_FIELD).flatMap(([key, field]) => {
     if (aiResponse[key] != null) {
+      const rawItems = aiResponse[key + 'Items'];
       const items =
-        FIELDS_WITH_ITEMS.has(key) && Array.isArray(aiResponse[key + 'Items'])
-          ? (aiResponse[key + 'Items'] as string[])
+        FIELDS_WITH_ITEMS.has(key) && Array.isArray(rawItems)
+          ? rawItems.map((item: any) => (typeof item === 'string' ? item : JSON.stringify(item)))
           : undefined;
       return [
         saveResourceRequest(

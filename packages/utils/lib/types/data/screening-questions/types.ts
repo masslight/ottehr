@@ -66,11 +66,16 @@ export type PatientVaccinationDTO = {
   note?: string;
 } & SaveableDTO;
 
+export interface AiSuggestionItem {
+  display: string;
+  searchTerms: string[];
+}
+
 export type ObservationDateFieldDTO = {
   field: string;
   value: string;
   note?: string;
-  items?: string[];
+  items?: AiSuggestionItem[];
 } & SaveableDTO;
 
 export type ObservationDateRangeFieldDTO = {

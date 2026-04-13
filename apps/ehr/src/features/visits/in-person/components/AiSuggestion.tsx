@@ -25,6 +25,7 @@ import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChar
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AiObservationField,
+  AiSuggestionItem,
   AllergyDTO,
   CPTCodeDTO,
   GetChartDataResponse,
@@ -103,7 +104,7 @@ export default function AiSuggestion({
     fieldType,
   }: {
     text: string;
-    items?: string[];
+    items?: AiSuggestionItem[];
     fieldType: HighlightFieldType;
   }): React.ReactElement {
     const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -113,27 +114,40 @@ export default function AiSuggestion({
     const [dosageUnconfirmed, setDosageUnconfirmed] = useState(true);
 
     const handleHighlightClick = useCallback(
-      async (event: React.MouseEvent<HTMLElement>, item: string) => {
+      async (event: React.MouseEvent<HTMLElement>, item: AiSuggestionItem) => {
         if (!fieldType) return;
         setAnchorEl(event.currentTarget);
-        setActiveItem(item);
+        setActiveItem(item.display);
         setSearchLoading(true);
         setSearchResults([]);
         try {
-          if (fieldType === 'medications' && oystehr) {
-            const results = await oystehr.erx.searchMedications({ name: item });
-            setSearchResults(results);
-          } else if (fieldType === 'allergies' && oystehr) {
-            const results = await oystehr.erx.searchAllergens({ name: item });
-            setSearchResults(results);
-          } else if (fieldType === 'conditions' && oystehrZambda) {
-            const response = await icd10Search(oystehrZambda, { search: item });
-            setSearchResults((response.codes || []).map((c) => ({ name: c.display, code: c.code })));
-          } else if (fieldType === 'surgicalHistory') {
-            setSearchResults(filterStaticOptions(SURGICAL_HISTORY_OPTIONS, item));
-          } else if (fieldType === 'episodeOfCare') {
-            setSearchResults(filterStaticOptions(HospitalizationOptions, item));
+          const allResults: SearchResult[] = [];
+          const seen = new Set<string>();
+
+          for (const term of item.searchTerms) {
+            let results: SearchResult[] = [];
+            if (fieldType === 'medications' && oystehr) {
+              results = await oystehr.erx.searchMedications({ name: term });
+            } else if (fieldType === 'allergies' && oystehr) {
+              results = await oystehr.erx.searchAllergens({ name: term });
+            } else if (fieldType === 'conditions' && oystehrZambda) {
+              const response = await icd10Search(oystehrZambda, { search: term });
+              results = (response.codes || []).map((c) => ({ name: c.display, code: c.code }));
+            } else if (fieldType === 'surgicalHistory') {
+              results = filterStaticOptions(SURGICAL_HISTORY_OPTIONS, term);
+            } else if (fieldType === 'episodeOfCare') {
+              results = filterStaticOptions(HospitalizationOptions, term);
+            }
+            // Deduplicate by name
+            for (const r of results) {
+              const key = r.name.toLowerCase();
+              if (!seen.has(key)) {
+                seen.add(key);
+                allResults.push(r);
+              }
+            }
           }
+          setSearchResults(allResults);
         } catch (err) {
           console.error('Search failed:', err);
         } finally {
@@ -198,17 +212,17 @@ export default function AiSuggestion({
       return <>{text}</>;
     }
 
-    // Build a list of match ranges, case-insensitive
-    const ranges: { start: number; end: number; item: string }[] = [];
+    // Build a list of match ranges, case-insensitive, using display text for highlighting
+    const ranges: { start: number; end: number; item: AiSuggestionItem }[] = [];
     const textLower = text.toLowerCase();
     for (const item of items) {
-      const itemLower = item.toLowerCase();
+      const displayLower = item.display.toLowerCase();
       let searchFrom = 0;
       while (searchFrom < textLower.length) {
-        const idx = textLower.indexOf(itemLower, searchFrom);
+        const idx = textLower.indexOf(displayLower, searchFrom);
         if (idx === -1) break;
-        ranges.push({ start: idx, end: idx + item.length, item });
-        searchFrom = idx + item.length;
+        ranges.push({ start: idx, end: idx + item.display.length, item });
+        searchFrom = idx + item.display.length;
       }
     }
 
@@ -371,7 +385,7 @@ export default function AiSuggestion({
                     : 'source is unknown'}
                 </Typography>
                 <Typography variant="body1">
-                  <HighlightedText text={item.value} items={(item as any).items} fieldType={highlightFieldType} />
+                  <HighlightedText text={item.value} items={item.items} fieldType={highlightFieldType} />
                 </Typography>
               </Box>
             );
