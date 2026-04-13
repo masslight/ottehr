@@ -42,8 +42,6 @@ export default function UpdateMedicationPage(): ReactElement {
   const [medication, setMedication] = useState<Medication | null>(null);
   const [cptCodes, setCptCodes] = useState<CPTCodeDTO[]>([]);
   const [hcpcsCodes, setHcpcsCodes] = useState<CPTCodeDTO[]>([]);
-  const [cptDirty, setCptDirty] = useState(false);
-  const [hcpcsDirty, setHcpcsDirty] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [debouncedCptSearch, setDebouncedCptSearch] = useState('');
@@ -132,10 +130,8 @@ export default function UpdateMedicationPage(): ReactElement {
     const name = medication ? getMedicationName(medication) : '';
     const ndc = medication?.code?.coding?.find((c) => c.system === CODE_SYSTEM_NDC)?.code;
     const medispanID = medication ? getMedispanId(medication) : undefined;
-    const finalCptCodes =
-      cptDirty || cptCodes.length > 0 ? cptCodes.map(({ code, display }) => ({ code, display })) : undefined;
-    const finalHcpcsCodes =
-      hcpcsDirty || hcpcsCodes.length > 0 ? hcpcsCodes.map(({ code, display }) => ({ code, display })) : undefined;
+    const finalCptCodes = cptCodes.map(({ code, display }) => ({ code, display }));
+    const finalHcpcsCodes = hcpcsCodes.map(({ code, display }) => ({ code, display }));
 
     try {
       await updateInHouseMedication(oystehrZambda, {
@@ -143,8 +139,8 @@ export default function UpdateMedicationPage(): ReactElement {
         name,
         ndc,
         medispanID,
-        ...(finalCptCodes !== undefined && { cptCodes: finalCptCodes }),
-        ...(finalHcpcsCodes !== undefined && { hcpcsCodes: finalHcpcsCodes }),
+        cptCodes: finalCptCodes,
+        hcpcsCodes: finalHcpcsCodes,
       });
     } catch (error) {
       console.log('Error updating medication', error);
@@ -240,10 +236,7 @@ export default function UpdateMedicationPage(): ReactElement {
                   loading={isCptSearching}
                   getOptionLabel={(option) => (option.display ? `${option.code} ${option.display}` : option.code)}
                   isOptionEqualToValue={(option, value) => option.code === value.code}
-                  onChange={(_e, value) => {
-                    setCptCodes(value);
-                    setCptDirty(true);
-                  }}
+                  onChange={(_e, value) => setCptCodes(value)}
                   onInputChange={(_e, value) => debouncedHandleCptInputChange(value)}
                   noOptionsText={
                     debouncedCptSearch ? 'Nothing found for this search criteria' : 'Start typing to load results'
@@ -260,10 +253,7 @@ export default function UpdateMedicationPage(): ReactElement {
                   loading={isHcpcsSearching}
                   getOptionLabel={(option) => (option.display ? `${option.code} ${option.display}` : option.code)}
                   isOptionEqualToValue={(option, value) => option.code === value.code}
-                  onChange={(_e, value) => {
-                    setHcpcsCodes(value);
-                    setHcpcsDirty(true);
-                  }}
+                  onChange={(_e, value) => setHcpcsCodes(value)}
                   onInputChange={(_e, value) => debouncedHandleHcpcsInputChange(value)}
                   noOptionsText={
                     debouncedHcpcsSearch ? 'Nothing found for this search criteria' : 'Start typing to load results'
