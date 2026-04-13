@@ -216,17 +216,30 @@ export default function AiSuggestion({
       return <>{text}</>;
     }
 
-    // Build a list of match ranges, case-insensitive, using display text for highlighting
+    // Build a list of match ranges, case-insensitive, using display text for highlighting.
+    // If the exact display doesn't match, try searchTerms and common variations as fallbacks.
     const ranges: { start: number; end: number; item: AiSuggestionItem }[] = [];
     const textLower = text.toLowerCase();
     for (const item of items) {
-      const displayLower = item.display.toLowerCase();
-      let searchFrom = 0;
-      while (searchFrom < textLower.length) {
-        const idx = textLower.indexOf(displayLower, searchFrom);
-        if (idx === -1) break;
-        ranges.push({ start: idx, end: idx + item.display.length, item });
-        searchFrom = idx + item.display.length;
+      // Try display first, then searchTerms, then display with spaces inserted between words
+      const candidates = [
+        item.display,
+        ...item.searchTerms,
+        // Handle cases like "treenut" vs "tree nuts" — insert space between camelCase or concatenated words
+        item.display.replace(/([a-z])([A-Z])/g, '$1 $2'),
+      ];
+      let matched = false;
+      for (const candidate of candidates) {
+        const candidateLower = candidate.toLowerCase();
+        let searchFrom = 0;
+        while (searchFrom < textLower.length) {
+          const idx = textLower.indexOf(candidateLower, searchFrom);
+          if (idx === -1) break;
+          ranges.push({ start: idx, end: idx + candidate.length, item });
+          searchFrom = idx + candidate.length;
+          matched = true;
+        }
+        if (matched) break;
       }
     }
 
