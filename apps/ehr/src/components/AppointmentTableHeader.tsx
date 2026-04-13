@@ -1,10 +1,8 @@
 import { TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 import {
-  ACTION_WIDTH_MIN,
   CHAT_WIDTH_MIN,
   GO_TO_MANY_BUTTONS_WIDTH_MIN,
-  GO_TO_ONE_BUTTON_WIDTH_MIN,
   NOTES_WIDTH_MIN,
   PATIENT_AND_REASON_WIDTH_MIN,
   PROVIDER_WIDTH_MIN,
@@ -77,22 +75,11 @@ export default function AppointmentTableHeader({ tab, table }: AppointmentTableH
             Chat
           </Typography>
         </TableCell>
-        <TableCell
-          sx={{
-            width: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH_MIN : GO_TO_MANY_BUTTONS_WIDTH_MIN,
-          }}
-        >
+        <TableCell sx={{ width: GO_TO_MANY_BUTTONS_WIDTH_MIN }}>
           <Typography variant="subtitle2" sx={{ fontSize: '14px', fontWeight: 600 }}>
             Actions
           </Typography>
         </TableCell>
-        {tab === ApptTab.prebooked && (
-          <TableCell sx={{ width: ACTION_WIDTH_MIN }}>
-            <Typography variant="subtitle2" sx={{ fontSize: '14px', fontWeight: 600 }}>
-              Arrived
-            </Typography>
-          </TableCell>
-        )}
       </TableRow>
     </TableHead>
   );

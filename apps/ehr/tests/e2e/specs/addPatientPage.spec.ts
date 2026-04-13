@@ -2,7 +2,7 @@ import { Page, test } from '@playwright/test';
 import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { addProcessIdMetaTagToAppointment, waitForResponseWithData } from 'test-utils';
-import { BOOKING_CONFIG, chooseJson, unpackFhirResponse } from 'utils';
+import { BOOKING_CONFIG, chooseJson, getReasonForVisitOptionsForServiceCategory, unpackFhirResponse } from 'utils';
 import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import {
@@ -155,10 +155,14 @@ async function createAppointment(
 ): Promise<{ appointmentId: string; slotTime: string | undefined }> {
   const addPatientPage = await expectAddPatientPage(page);
   await addPatientPage.selectVisitType(visitType);
+  const serviceCategoryCode = BOOKING_CONFIG.serviceCategories[0].code;
   await addPatientPage.selectServiceCategory(BOOKING_CONFIG.serviceCategories[0].display);
   await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
   await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
   await addPatientPage.clickSearchForPatientsButton();
+
+  const reasonForVisitOptions = getReasonForVisitOptionsForServiceCategory(serviceCategoryCode);
+  const reasonForVisit = reasonForVisitOptions[0]?.label || PATIENT_REASON_FOR_VISIT;
 
   if (existingPatient) {
     await addPatientPage.selectExistingPatient(PATIENT_PREFILL_NAME);
@@ -168,14 +172,14 @@ async function createAppointment(
     await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
     await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_INPUT_GENDER);
     // await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL); // this has been removed
-    await addPatientPage.selectReasonForVisit(PATIENT_REASON_FOR_VISIT);
+    await addPatientPage.selectReasonForVisit(reasonForVisit);
   } else {
     await addPatientPage.clickPatientNotFoundButton();
     await addPatientPage.enterFirstName(PATIENT_FIRST_NAME);
     await addPatientPage.enterLastName(lastName || '');
     await addPatientPage.enterDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await addPatientPage.selectSexAtBirth(PATIENT_INPUT_GENDER);
-    await addPatientPage.selectReasonForVisit(PATIENT_REASON_FOR_VISIT);
+    await addPatientPage.selectReasonForVisit(reasonForVisit);
   }
 
   let slotTime: string | undefined;

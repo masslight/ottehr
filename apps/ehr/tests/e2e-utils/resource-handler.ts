@@ -10,6 +10,7 @@ import {
   Encounter,
   FhirResource,
   List,
+  Location,
   Patient,
   Person,
   Practitioner,
@@ -35,6 +36,7 @@ import {
   genderMap,
   GetPaperworkAnswers,
   RelationshipOption,
+  SampleAppointmentResponse,
   ServiceMode,
   VALUE_SETS,
 } from 'utils';
@@ -144,7 +146,10 @@ export type CreateTestAppointmentInput = {
 export class ResourceHandler {
   #apiClient!: Promise<Oystehr>;
   #authToken!: Promise<string>;
-  #resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
+  #resources!: CreateAppointmentResponse['resources'] & {
+    relatedPerson: { id: string; resourceType: string };
+    selectedLocation?: Location;
+  };
   #createAppointmentZambdaId: string;
   #flow: 'telemed' | 'in-person';
   #paperworkAnswers?: GetPaperworkAnswers;
@@ -198,7 +203,7 @@ export class ResourceHandler {
     return patient;
   }
 
-  public async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
+  public async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<SampleAppointmentResponse> {
     try {
       const address: Address = {
         city: inputParams?.city ?? PATIENT_CITY,
@@ -302,7 +307,7 @@ export class ResourceHandler {
         console.log(`✅ created relatedPerson: ${appointmentData.relatedPersonId}`);
       }
 
-      return appointmentData as CreateAppointmentResponse;
+      return appointmentData as SampleAppointmentResponse;
     } catch (error) {
       console.error('❌ Failed to create resources:', error);
       throw error;
@@ -318,6 +323,7 @@ export class ResourceHandler {
         id: response.relatedPersonId,
         resourceType: 'RelatedPerson',
       },
+      selectedLocation: response.selectedLocation,
     };
   }
 
@@ -618,6 +624,10 @@ export class ResourceHandler {
 
   public get questionnaireResponse(): QuestionnaireResponse {
     return this.findResourceByType('QuestionnaireResponse');
+  }
+
+  public get appointmentLocation(): Location | undefined {
+    return this.#resources.selectedLocation;
   }
 
   private findResourceByType<T>(resourceType: string): T {

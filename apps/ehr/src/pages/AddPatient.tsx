@@ -336,8 +336,8 @@ export default function AddPatient(): JSX.Element {
                     visitType === VisitType.InPersonWalkIn ||
                     visitType === VisitType.InPersonPreBook ||
                     visitType === VisitType.InPersonPostTelemed
-                      ? LocationType.IN_PERSON
-                      : LocationType.VIRTUAL
+                      ? [LocationType.IN_PERSON]
+                      : [LocationType.VIRTUAL]
                   }
                 />
 
