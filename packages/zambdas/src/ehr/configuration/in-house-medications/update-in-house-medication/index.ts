@@ -112,7 +112,7 @@ export const performEffect = async (
     }
   }
 
-  if (cptCodes !== undefined || hcpcsCodes !== undefined) {
+  if ((cptCodes !== undefined && cptCodes.length) || (hcpcsCodes !== undefined && hcpcsCodes.length)) {
     const existingCodings = medication.code?.coding ?? [];
     const otherCodings = existingCodings.filter((c) => c.system !== CODE_SYSTEM_CPT && c.system !== CODE_SYSTEM_HCPCS);
     const resolvedCptCodings = (
