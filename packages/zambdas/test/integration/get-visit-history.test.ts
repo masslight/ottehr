@@ -432,6 +432,9 @@ describe('tests for getting the visit history for a patient', () => {
       accessToken: token,
       fhirApiUrl: FHIR_API,
       projectApiUrl: EXECUTE_ZAMBDA_URL,
+      services: {
+        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
+      },
       projectId: PROJECT_ID,
     });
     await ensureM2MPractitionerProfile(token);

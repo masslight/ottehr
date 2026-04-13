@@ -5,6 +5,8 @@ import {
   mapDispositionTypeToLabel,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
+  REFUSAL_OF_EMS_TRANSPORT_LABEL,
 } from 'utils';
 import { drawBlockHeader, drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
@@ -33,6 +35,7 @@ export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanD
   const virusTest = disposition?.virusTest?.join(', ') ?? '';
   const followUpIn = typeof disposition?.followUpIn === 'number' ? disposition.followUpIn : undefined;
   const reason = disposition?.reason;
+  const specialty = disposition?.specialty;
 
   const subSpecialtyFollowup =
     additionalChartData?.disposition?.followUp?.map((followUp) => {
@@ -55,10 +58,12 @@ export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanD
       header,
       text,
       [NOTHING_TO_EAT_OR_DRINK_FIELD]: disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD],
+      [REFUSAL_OF_EMS_TRANSPORT_FIELD]: disposition?.[REFUSAL_OF_EMS_TRANSPORT_FIELD],
       labService,
       virusTest,
       followUpIn,
       reason,
+      specialty,
     },
     subSpecialtyFollowup,
     workSchoolExcuse,
@@ -70,10 +75,12 @@ const hasDisposition = (data: PlanData): boolean =>
   !!(
     data.disposition?.text ||
     data.disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] ||
+    data.disposition?.[REFUSAL_OF_EMS_TRANSPORT_FIELD] ||
     data.disposition?.labService ||
     data.disposition?.virusTest ||
     typeof data.disposition?.followUpIn === 'number' ||
-    data.disposition?.reason
+    data.disposition?.reason ||
+    data.disposition?.specialty
   );
 
 const hasPatientInstructions = (data: PlanData): boolean =>
@@ -112,11 +119,17 @@ export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSecti
       if (hasDisposition(data)) {
         drawBlockHeader(client, styles, data.disposition.header, styles.textStyles.blockSubHeader);
 
+        if (data.disposition.specialty) {
+          drawRegularText(client, styles, data.disposition.specialty);
+        }
         if (data.disposition.text) {
           drawRegularText(client, styles, data.disposition.text);
         }
         if (data.disposition[NOTHING_TO_EAT_OR_DRINK_FIELD]) {
           drawRegularText(client, styles, NOTHING_TO_EAT_OR_DRINK_LABEL);
+        }
+        if (data.disposition[REFUSAL_OF_EMS_TRANSPORT_FIELD]) {
+          drawRegularText(client, styles, REFUSAL_OF_EMS_TRANSPORT_LABEL);
         }
         if (data.disposition.labService) {
           drawRegularText(client, styles, `Lab Services: ${data.disposition.labService}`);

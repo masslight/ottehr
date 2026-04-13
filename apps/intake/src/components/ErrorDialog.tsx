@@ -113,6 +113,7 @@ export const ErrorDialog: FC<ErrorDialogProps> = ({
         <Button
           data-testid="error-dialog-close-button"
           variant={handleContinue ? 'outlined' : 'contained'}
+          color="secondary"
           onClick={handleClose}
           size={isMobile ? 'small' : 'large'}
           sx={{
@@ -124,6 +125,7 @@ export const ErrorDialog: FC<ErrorDialogProps> = ({
         {handleContinue && (
           <Button
             variant="contained"
+            color="secondary"
             onClick={handleContinue}
             size={isMobile ? 'small' : 'large'}
             sx={{

@@ -1628,23 +1628,32 @@ export function getAppointmentType(appointment: Appointment): { type: string } {
   return { type };
 }
 
-export function getServiceCategoryAbbreviation(serviceCategory?: string): 'UC' | 'OM' | 'WC' | undefined {
+export function makeAbbreviation(str: string): string {
+  return str.split(/[\s-]+/).reduce((previousValue: string, currentValue: string) => {
+    return previousValue + currentValue.charAt(0).toUpperCase();
+  }, '');
+}
+
+export function getServiceCategoryAbbreviation(serviceCategory?: string): 'UC' | 'OM' | 'WC' | 'PO' | undefined {
   if (!serviceCategory) return undefined;
 
   const normalizedServiceCategory = serviceCategory
     .trim()
     .toLowerCase()
     .replace(/[^a-z]/g, '');
-  const serviceCategoryMap: Record<string, 'UC' | 'OM' | 'WC'> = {
+  const serviceCategoryMap: Record<string, 'UC' | 'OM' | 'WC' | 'PO'> = {
     urgentcare: 'UC',
     occupationalmedicine: 'OM',
     workerscomp: 'WC',
+    preop: 'PO',
   };
 
   return serviceCategoryMap[normalizedServiceCategory];
 }
 
-export function getAppointmentServiceCategoryAbbreviation(appointment?: Appointment): 'UC' | 'OM' | 'WC' | undefined {
+export function getAppointmentServiceCategoryAbbreviation(
+  appointment?: Appointment
+): 'UC' | 'OM' | 'WC' | 'PO' | undefined {
   const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
   return getServiceCategoryAbbreviation(serviceCategoryCoding?.code ?? serviceCategoryCoding?.display);
 }
@@ -1676,6 +1685,18 @@ export function replaceTemplateVariablesArrows(template: string, variables: Temp
     if (!template) return '';
     return template.replace(/<([\w-]+)>/g, (match, key) => {
       if (key === 'phone') return match;
+      return variables[key]?.toString() || match;
+    });
+  } catch {
+    return template;
+  }
+}
+
+// {{key}} syntax
+export function replaceTemplateVariablesHandlebars(template: string, variables: TemplateVariables): string {
+  try {
+    if (!template) return '';
+    return template.replace(/\{\{([\w-]+)\}\}/g, (match, key) => {
       return variables[key]?.toString() || match;
     });
   } catch {

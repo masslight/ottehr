@@ -127,7 +127,8 @@ export async function getBundledOrderResources(
 
   results.forEach(({ serviceRequestID, result }) => {
     if (result.serviceRequest.status !== 'draft') {
-      throw Error(`This order has already been submitted: ${result.serviceRequest.id}`);
+      console.log(`This order has already been submitted: ${result.serviceRequest.id}`);
+      throw EXTERNAL_LAB_ERROR(`One or more labs has already been submitted, please try refreshing the page.`);
     }
 
     // TODO: fix in future. Pretty sure we don't need this, as result.location is part of the LabOrderResources type

@@ -30,7 +30,6 @@ import { PageContainer } from '../components';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
-import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
@@ -150,15 +149,6 @@ const ThankYou = (): JSX.Element => {
     marginBottom: 25,
   };
 
-  // Only start tracking Thank You page after the visit type is finished loading
-  useTrackMixpanelEvents({
-    eventName: 'Thank You',
-    visitType: visitType,
-    loading: loading,
-    bookingCity: selectedLocation?.address?.city,
-    bookingState: selectedLocation?.address?.state,
-  });
-
   useEffect(() => {
     async function updateData(): Promise<void> {
       if (!tokenlessZambdaClient) {
@@ -238,7 +228,7 @@ const ThankYou = (): JSX.Element => {
         <Grid item>
           {showRegisterAnotherPatient && (
             <Link to={intakeFlowPageRoute.Homepage.path}>
-              <Button variant="outlined" onClick={clearState}>
+              <Button variant="outlined" color="secondary" onClick={clearState}>
                 {t('thanks.registerAnother')}
               </Button>
             </Link>
@@ -247,7 +237,9 @@ const ThankYou = (): JSX.Element => {
         {!paperworkCompleted && (
           <Grid item>
             <Link to={`/paperwork/${appointmentID}`} className="edit-paperwork-button">
-              <Button variant="contained">{t('thanks.proceedToPaperwork')}</Button>
+              <Button variant="contained" color="secondary">
+                {t('thanks.proceedToPaperwork')}
+              </Button>
             </Link>
           </Grid>
         )}
@@ -256,7 +248,9 @@ const ThankYou = (): JSX.Element => {
           appointmentData.appointment?.serviceMode === ServiceMode.virtual && (
             <Grid item>
               <Link to={`/waiting-room?appointment_id=${appointmentID}`}>
-                <Button variant="contained">{t('thanks.goToWaitingRoom')}</Button>
+                <Button variant="contained" color="secondary">
+                  {t('thanks.goToWaitingRoom')}
+                </Button>
               </Link>
             </Grid>
           )}
@@ -318,7 +312,7 @@ const ThankYou = (): JSX.Element => {
               <Divider sx={{ marginBottom: 2 }} />
               {paperworkCompleted && !loading && (
                 <Link to={`/paperwork/${appointmentID}`}>
-                  <Button sx={{ marginRight: 2 }} startIcon={<CreateOutlinedIcon />}>
+                  <Button color="secondary" sx={{ marginRight: 2 }} startIcon={<CreateOutlinedIcon />}>
                     {t('thanks.editPaperwork')}
                   </Button>
                 </Link>
@@ -326,11 +320,13 @@ const ThankYou = (): JSX.Element => {
               {visitType !== VisitType.PostTelemed && !checkedIn && (
                 <>
                   <Link to={`/visit/${appointmentID}/reschedule`}>
-                    <Button startIcon={<EditCalendarOutlined />}>{t('appointments.modify')}</Button>
+                    <Button color="secondary" startIcon={<EditCalendarOutlined />}>
+                      {t('appointments.modify')}
+                    </Button>
                   </Link>
 
                   <Link to="cancel">
-                    <Button startIcon={<EventBusyOutlined />} sx={{ marginLeft: 2 }}>
+                    <Button color="secondary" startIcon={<EventBusyOutlined />} sx={{ marginLeft: 2 }}>
                       {t('thanks.cancel')}
                     </Button>
                   </Link>
@@ -364,7 +360,7 @@ const ThankYou = (): JSX.Element => {
               <Divider />
               {paperworkCompleted && !loading && (
                 <Link to={`/paperwork/${appointmentID}`}>
-                  <Button sx={{ marginRight: 2, marginTop: 2 }} startIcon={<CreateOutlinedIcon />}>
+                  <Button color="secondary" sx={{ marginRight: 2, marginTop: 2 }} startIcon={<CreateOutlinedIcon />}>
                     {t('thanks.editPaperwork')}
                   </Button>
                 </Link>

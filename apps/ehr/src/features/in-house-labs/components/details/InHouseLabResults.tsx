@@ -1,17 +1,20 @@
 import { BiotechOutlined } from '@mui/icons-material';
 import { Box, Button, Paper, Typography } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
-import { DiagnosisDTO, getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, LoadingState } from 'utils';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { DiagnosisDTO, EntryMode, getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, LoadingState } from 'utils';
+import { configResultPageContainerTestId } from '../../utils/test-ids';
 import { InHouseLabResultCard } from './InHouseLabResultCard';
 
 interface InHouseLabResultsProps {
   testDetails: InHouseOrderDetailPageItemDTO[] | undefined;
   setLoadingState: (loadingState: LoadingState) => void;
   onBack: () => void;
-  entryMode: 'initial' | 'edit';
+  entryMode: EntryMode;
 }
 
 export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
@@ -22,6 +25,8 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
 }) => {
   const navigate = useNavigate();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { encounter } = useAppointmentData();
+  const queryClient = useQueryClient();
 
   // we sort the tests on the back end, most recent will always be first
   // const sortedOrders = inHouseOrders.sort((a, b) => compareDates(a.orderAddedDate, b.orderAddedDate));
@@ -65,6 +70,14 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
   );
 
   const handleRepeatOnClick = (): void => {
+    if (encounter?.id) {
+      // completely clears the cache and does not serve old data while the cache is refreshing
+      // we do this to make sure that any changes to repeat tests are picked up properly
+      queryClient.removeQueries({
+        queryKey: ['inhouse lab resource search', encounter.id],
+      });
+    }
+
     navigate(`/in-person/${testDetails?.[0].appointmentId}/in-house-lab-orders/create`, {
       state: {
         testItemName: testDetails?.[0]?.testItemName,
@@ -84,7 +97,7 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
     });
   };
 
-  const pageTitle = entryMode === 'initial' && (
+  const pageTitle = entryMode === EntryMode.Initial && (
     <Typography
       data-testid={dataTestIds.performTestPage.title}
       variant="h4"
@@ -95,11 +108,11 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
     </Typography>
   );
 
-  const resultButtons = entryMode === 'edit' && (
+  const resultButtons = entryMode === EntryMode.Edit && (
     <Box display="flex" justifyContent="space-between" alignItems="center">
       {openPdf && (
         <Button
-          data-testid={dataTestIds.finalResultPage.resultsPDF}
+          data-testid={dataTestIds.resultPage.resultsPDF}
           variant="outlined"
           color="primary"
           sx={{ borderRadius: '50px', textTransform: 'none', mb: '12px' }}
@@ -111,7 +124,12 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
         </Button>
       )}
       {buttonsToDisplay?.repeat && (
-        <Button variant="outlined" onClick={handleRepeatOnClick} sx={{ borderRadius: '50px', px: 4 }}>
+        <Button
+          data-testid={dataTestIds.resultPage.repeatBtn}
+          variant="outlined"
+          onClick={handleRepeatOnClick}
+          sx={{ borderRadius: '50px', px: 4 }}
+        >
           Repeat
         </Button>
       )}
@@ -131,12 +149,8 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
   }
 
   return (
-    <Box>
-      <Typography
-        data-testid={dataTestIds.finalResultPage.diagnose}
-        variant="body1"
-        sx={{ mb: 2, fontWeight: 'medium' }}
-      >
+    <Box data-testid={configResultPageContainerTestId(entryMode)}>
+      <Typography data-testid={dataTestIds.resultPage.diagnose} variant="body1" sx={{ mb: 2, fontWeight: 'medium' }}>
         {getFormattedDiagnoses(diagnoses || [])}
       </Typography>
 
@@ -159,6 +173,7 @@ export const InHouseLabResults: React.FC<InHouseLabResultsProps> = ({
         </Button>
         {buttonsToDisplay?.reflexTest && (
           <Button
+            data-testid={dataTestIds.resultPage.orderReflexTestBtn}
             variant="outlined"
             onClick={() => handleReflexTestOrderClick(buttonsToDisplay.reflexTest || '')}
             sx={{ borderRadius: '50px', px: 4, textTransform: 'none' }}

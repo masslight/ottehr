@@ -9,14 +9,12 @@ import {
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
   GetRadiologyOrderListZambdaOutput,
-  getSecret,
   isPositiveNumberOrZero,
   ORDER_TYPE_CODE_SYSTEM,
   Pagination,
   RADIOLOGY_TASK,
   RadiologyOrderHistoryRow,
   RadiologyOrderStatus,
-  SecretsKeys,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
@@ -27,13 +25,7 @@ import {
   Task as OttehrTask,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -50,26 +42,21 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'radiology-order-list';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log('input body, ', JSON.stringify(unsafeInput.body));
+  console.log('input body, ', JSON.stringify(unsafeInput.body));
 
-    const secrets = validateSecrets(unsafeInput.secrets);
+  const secrets = validateSecrets(unsafeInput.secrets);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const validatedInput = await validateInput(unsafeInput);
+  const validatedInput = await validateInput(unsafeInput);
 
-    const response = await performEffect(validatedInput, oystehr);
+  const response = await performEffect(validatedInput, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 const performEffect = async (
@@ -301,7 +288,8 @@ const parseResultsToOrder = (
 
   const history = buildHistory(serviceRequest, bestFinalReport, preliminaryDiagnosticReport, providerName);
 
-  const clinicalHistory = extractClinicalHistory(serviceRequest);
+  const clinicalHistory = extractOrderDetailValue(serviceRequest, 'clinical-history');
+  const studyName = extractOrderDetailValue(serviceRequest, 'requested-procedure-description');
 
   const consentObtained = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.consentObtained.url)
     ?.valueBoolean;
@@ -319,6 +307,7 @@ const parseResultsToOrder = (
     preliminaryReport: preliminaryReportData,
     finalReport: finalReportData,
     clinicalHistory,
+    studyName,
     history,
     task: formattedFinalReviewTask,
     consentObtained,
@@ -447,9 +436,8 @@ const buildHistory = (
   return history;
 };
 
-const extractClinicalHistory = (serviceRequest: ServiceRequest): string | undefined => {
-  // Find the clinical history extension within the service request
-  const clinicalHistoryExtension = serviceRequest.extension
+const extractOrderDetailValue = (serviceRequest: ServiceRequest, code: string): string | undefined => {
+  const matchingExtension = serviceRequest.extension
     ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
     ?.find((orderDetailExt) => {
       const parameterExt = orderDetailExt.extension?.find(
@@ -458,11 +446,10 @@ const extractClinicalHistory = (serviceRequest: ServiceRequest): string | undefi
       const codeExt = parameterExt?.extension?.find(
         (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
       );
-      return codeExt?.valueCodeableConcept?.coding?.[0]?.code === 'clinical-history';
+      return codeExt?.valueCodeableConcept?.coding?.[0]?.code === code;
     });
 
-  // Extract the clinical history value
-  const parameterExt = clinicalHistoryExtension?.extension?.find(
+  const parameterExt = matchingExtension?.extension?.find(
     (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
   );
   const valueStringExt = parameterExt?.extension?.find(

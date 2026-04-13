@@ -171,85 +171,79 @@ const Homepage = (): JSX.Element => {
             }}
           />
         ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {activeAppointment && (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-start' }}>
-                <HomepageOption
-                  title={isAppointmentStatusProposed ? 'Continue Virtual Visit Request' : 'Return to Call'}
-                  icon={<VideoCameraFrontOutlinedIcon />}
-                  handleClick={isAppointmentStatusProposed ? handleContinueRequest : handleReturnToCall}
-                  subSlot={
-                    isAppointmentStatusProposed ? undefined : (
-                      <Typography
-                        variant="overline"
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'center',
-                          backgroundColor: '#FFD271',
-                          color: '#A67100',
-                          borderRadius: 1,
-                          px: 1,
-                        }}
-                      >
-                        Active call
-                      </Typography>
-                    )
-                  }
-                />
-                {isAppointmentStatusProposed && (
-                  <Button onClick={() => setCancelVisitDialogOpen(true)} startIcon={<CloseIcon />}>
-                    Cancel this request
-                  </Button>
-                )}
-              </Box>
-            )}
-
-            {/*{!isAppointmentStatusReady && (*/}
-            {/*  <HomepageOption title="Request a Virtual Visit" icon={requestVisit} handleClick={handleRequestVisit} />*/}
-            {/*)}*/}
-
-            {showScheduleVirtualOption ? (
+          activeAppointment && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-start' }}>
               <HomepageOption
-                title={scheduleVirtualLabel ?? 'Schedule a Virtual Visit'}
+                title={isAppointmentStatusProposed ? 'Continue Virtual Visit Request' : 'Return to Call'}
                 icon={<VideoCameraFrontOutlinedIcon />}
-                handleClick={handleScheduleVirtual}
-                dataTestId={dataTestIds.scheduleVirtualVisitButton}
+                handleClick={isAppointmentStatusProposed ? handleContinueRequest : handleReturnToCall}
+                subSlot={
+                  isAppointmentStatusProposed ? undefined : (
+                    <Typography
+                      variant="overline"
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        backgroundColor: '#FFD271',
+                        color: '#A67100',
+                        borderRadius: 1,
+                        px: 1,
+                      }}
+                    >
+                      Active call
+                    </Typography>
+                  )
+                }
               />
-            ) : null}
-            {showScheduleInPersonOption ? (
-              <HomepageOption
-                title={scheduleInPersonLabel ?? 'Schedule an In-Person Visit'}
-                icon={<LocalHospitalOutlinedIcon />}
-                handleClick={handleInPerson}
-                dataTestId={dataTestIds.scheduleInPersonVisitButton}
-              />
-            ) : null}
-            {showStartVirtualOption ? (
-              <HomepageOption
-                title={startVirtualLabel ?? 'Virtual Visit Check-In'}
-                icon={<VideoCameraFrontOutlinedIcon />}
-                handleClick={handleRequestVisit}
-                dataTestId={dataTestIds.startVirtualVisitButton}
-              />
-            ) : null}
-
-            {showStartInPersonOption ? (
-              <HomepageOption
-                title={startInPersonLabel ?? 'In-Person Check-In'}
-                icon={<LocalHospitalOutlinedIcon />}
-                handleClick={handleWalkIn}
-                dataTestId={dataTestIds.startInPersonVisitButton}
-              />
-            ) : null}
-            <HomepageOption
-              title="Past Visits"
-              icon={<MedicalInformationOutlinedIcon />}
-              handleClick={handlePastVisits}
-              subtitle="School/Work Notes and Prescriptions"
-              dataTestId={dataTestIds.navigatePastVisitsButton}
-            />
-          </Box>
+              {isAppointmentStatusProposed && (
+                <Button onClick={() => setCancelVisitDialogOpen(true)} startIcon={<CloseIcon />}>
+                  Cancel this request
+                </Button>
+              )}
+            </Box>
+          )
         )}
+
+        {showScheduleVirtualOption ? (
+          <HomepageOption
+            title={scheduleVirtualLabel ?? 'Schedule a Virtual Visit'}
+            icon={<VideoCameraFrontOutlinedIcon />}
+            handleClick={handleScheduleVirtual}
+            dataTestId={dataTestIds.scheduleVirtualVisitButton}
+          />
+        ) : null}
+        {showScheduleInPersonOption ? (
+          <HomepageOption
+            title={scheduleInPersonLabel ?? 'Schedule an In-Person Visit'}
+            icon={<LocalHospitalOutlinedIcon />}
+            handleClick={handleInPerson}
+            dataTestId={dataTestIds.scheduleInPersonVisitButton}
+          />
+        ) : null}
+        {showStartVirtualOption ? (
+          <HomepageOption
+            title={startVirtualLabel ?? 'Virtual Visit Check-In'}
+            icon={<VideoCameraFrontOutlinedIcon />}
+            handleClick={handleRequestVisit}
+            dataTestId={dataTestIds.startVirtualVisitButton}
+          />
+        ) : null}
+
+        {showStartInPersonOption ? (
+          <HomepageOption
+            title={startInPersonLabel ?? 'In-Person Check-In'}
+            icon={<LocalHospitalOutlinedIcon />}
+            handleClick={handleWalkIn}
+            dataTestId={dataTestIds.startInPersonVisitButton}
+          />
+        ) : null}
+        <HomepageOption
+          title="Past Visits"
+          icon={<MedicalInformationOutlinedIcon />}
+          handleClick={handlePastVisits}
+          subtitle="School/Work Notes and Prescriptions"
+          dataTestId={dataTestIds.navigatePastVisitsButton}
+        />
 
         <HomepageOption
           title="Contact Support"

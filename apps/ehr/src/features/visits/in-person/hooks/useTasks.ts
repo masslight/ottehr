@@ -1,5 +1,6 @@
 import { SearchParam } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
+import { Operation } from 'fast-json-patch';
 import { Encounter, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -70,13 +71,10 @@ export interface CompleteTaskRequest {
   taskId: string;
 }
 
-export const useGetTasks = ({
-  assignedTo,
-  category,
-  location,
-  status,
-  page,
-}: TasksSearchParams): UseQueryResult<{ tasks: Task[]; total: number }, Error> => {
+export const useGetTasks = (
+  { assignedTo, category, location, status, page }: TasksSearchParams,
+  options?: { refetchInterval?: number | false }
+): UseQueryResult<{ tasks: Task[]; total: number }, Error> => {
   const { oystehr } = useApiClients();
   return useQuery({
     queryKey: [GET_TASKS_KEY, assignedTo, category, location, status, page],
@@ -159,6 +157,7 @@ export const useGetTasks = ({
     enabled: oystehr != null,
     retry: 2,
     staleTime: 5 * 1000,
+    refetchInterval: options?.refetchInterval,
   });
 };
 
@@ -213,26 +212,33 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
         resourceType: 'Task',
         id: input.taskId,
       });
-      const updatedMetaTags = taskResource.meta?.tag?.filter((tag) => tag.system !== PROVIDER_NOTIFICATION_TAG_SYSTEM);
+      const operations: Operation[] = [
+        {
+          op: 'remove',
+          path: '/owner',
+        },
+        {
+          op: 'replace',
+          path: '/status',
+          value: 'ready',
+        },
+      ];
+
+      const taskMetaTags = taskResource.meta?.tag;
+      if (taskMetaTags) {
+        const updatedMetaTags = taskResource.meta?.tag?.filter(
+          (tag) => tag.system !== PROVIDER_NOTIFICATION_TAG_SYSTEM
+        );
+        operations.push({
+          op: updatedMetaTags?.length ? 'replace' : 'remove',
+          path: '/meta/tag',
+          value: updatedMetaTags?.length ? updatedMetaTags : undefined,
+        });
+      }
       await oystehr.fhir.patch<FhirTask>({
         resourceType: 'Task',
         id: input.taskId,
-        operations: [
-          {
-            op: 'remove',
-            path: '/owner',
-          },
-          {
-            op: 'replace',
-            path: '/status',
-            value: 'ready',
-          },
-          {
-            op: 'replace',
-            path: `/meta/tag`,
-            value: updatedMetaTags,
-          },
-        ],
+        operations,
       });
     },
     onSuccess: async () => {

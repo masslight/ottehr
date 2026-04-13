@@ -11,8 +11,11 @@ import { evaluate } from 'fhirpath';
 import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
-  CodeableConceptComponent,
+  CodeableConceptDataEntryComponent,
   CPTCodeDTO,
+  DataEntryComponent,
+  DataEntryComponentType,
+  DataEntryTestItem,
   DiagnosisDTO,
   EXTENSION_URL_CPT_MODIFIER,
   IN_HOUSE_LAB_DISPLAY_TYPES,
@@ -24,7 +27,7 @@ import {
   ObservationCode,
   OD_DISPLAY_CONFIG,
   OD_VALUE_VALIDATION_CONFIG,
-  QuantityComponent,
+  QuantityDataEntryComponent,
   REFLEX_ARTIFACT_DISPLAY,
   REFLEX_TEST_ALERT_URL,
   REFLEX_TEST_CONDITION_LANGUAGES,
@@ -36,10 +39,8 @@ import {
   REPEAT_TEST_CPT_CODE_MODIFIER,
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
-  StringComponent,
+  StringDataEntryComponent,
   TestComponentResult,
-  TestItem,
-  TestItemComponent,
   Validation,
 } from 'utils';
 
@@ -154,7 +155,7 @@ const processObservationDefinition = (
   obsDef: ObservationDefinition,
   containedResources: (ObservationDefinition | ValueSet)[],
   observation?: Observation
-): TestItemComponent | undefined => {
+): DataEntryComponent | undefined => {
   const componentName = obsDef.code?.text || '';
   const observationDefinitionId = obsDef.id || '';
   const dataType = obsDef.permittedDataType?.[0] as 'Quantity' | 'CodeableConcept' | 'string';
@@ -191,7 +192,7 @@ const processObservationDefinition = (
     const nullOption = extractNullOption(obsDef);
 
     const result = getResult(observation, dataType);
-    const component: CodeableConceptComponent = {
+    const component: CodeableConceptDataEntryComponent = {
       componentName,
       observationDefinitionId,
       loincCode,
@@ -212,7 +213,7 @@ const processObservationDefinition = (
       throw Error('Quantity type observation definition is misconfigured, should be Numeric');
     }
     const result = getResult(observation, dataType);
-    const component: QuantityComponent = {
+    const component: QuantityDataEntryComponent = {
       componentName,
       observationDefinitionId,
       loincCode,
@@ -230,7 +231,7 @@ const processObservationDefinition = (
     }
     const validations = extractValidations(obsDef);
     const result = getResult(observation, dataType);
-    const component: StringComponent = {
+    const component: StringDataEntryComponent = {
       componentName,
       loincCode,
       observationDefinitionId,
@@ -246,16 +247,16 @@ const processObservationDefinition = (
   return;
 };
 
-export function quantityRangeFormat(quantity: QuantityComponent): string {
+export function quantityRangeFormat(quantity: QuantityDataEntryComponent): string {
   return `${quantity.normalRange.low} - ${quantity.normalRange.high}`;
 }
 
-export const convertActivityDefinitionToTestItem = (
+export const convertActivityDefinitionToDataEntryTestItem = (
   activityDef: ActivityDefinition,
   observations?: Observation[],
   serviceRequest?: ServiceRequest,
   diagnosticReport?: DiagnosticReport
-): TestItem => {
+): DataEntryTestItem => {
   const name = activityDef.name || '';
 
   const repeatable = !!activityDef?.extension?.find((ext) => ext.url === REPEATABLE_TEXT_EXTENSION_CONFIG.url);
@@ -294,8 +295,8 @@ export const convertActivityDefinitionToTestItem = (
     });
   }
 
-  const groupedComponents: TestItemComponent[] = [];
-  const radioComponents: CodeableConceptComponent[] = [];
+  const groupedComponents: DataEntryComponent[] = [];
+  const radioComponents: CodeableConceptDataEntryComponent[] = [];
   for (const ref of obsDefRefs) {
     const obsDefId = ref.reference?.substring(1);
     const obsDef = containedResources.find(
@@ -328,7 +329,7 @@ export const convertActivityDefinitionToTestItem = (
     );
   }
 
-  let reflexAlert: TestItem['reflexAlert'];
+  let reflexAlert: DataEntryTestItem['reflexAlert'];
   // validate service request and diagnostic report are indeed related
   const srIsRelatedToDr =
     diagnosticReport && serviceRequest ? resourceIsBasedOnServiceRequest(diagnosticReport, serviceRequest) : false;
@@ -347,13 +348,43 @@ export const convertActivityDefinitionToTestItem = (
 
   const isReflexTest = activityDefinitionIsReflexTest(activityDef);
 
-  const orderMode: TestItem['orderMode'] = (() => {
+  const orderMode: DataEntryTestItem['orderMode'] = (() => {
     if (orderedAsRepeat) return 'repeat';
     if (isReflexTest) return 'reflex';
     return 'standard';
   })();
 
-  const testItem: TestItem = {
+  const determineComponentsType = (): DataEntryComponentType => {
+    if (groupedComponents.length && !radioComponents.length) {
+      return {
+        type: 'grouped',
+        components: groupedComponents,
+      };
+    } else if (radioComponents.length && !groupedComponents.length) {
+      return {
+        type: 'radio',
+        components: radioComponents,
+      };
+    } else if (radioComponents.length && groupedComponents.length) {
+      console.error(
+        `ActivityDefinition/${
+          activityDef.id
+        } returned both groupedComponents and radioComponents. Grouped: ${JSON.stringify(
+          groupedComponents
+        )} \n\n Radio: ${JSON.stringify(radioComponents)}`
+      );
+      throw new Error(
+        'Could not convert ActivityDefinition to DataEntryTestItem -- received both grouped and radio components'
+      );
+    } else {
+      return {
+        type: 'empty',
+        components: undefined,
+      };
+    }
+  };
+
+  const testItem: DataEntryTestItem = {
     name,
     methods,
     repeatable,
@@ -363,10 +394,7 @@ export const convertActivityDefinitionToTestItem = (
       .map((m) => m.device)
       .join(' or '),
     cptCode: cptCodes,
-    components: {
-      groupedComponents,
-      radioComponents,
-    },
+    components: determineComponentsType(),
     reflexAlert,
     adUrl: activityDef.url,
     adVersion: activityDef.version,
@@ -555,7 +583,7 @@ export const checkActivityDefinitionForReflexLogic = (
 
 export const checkDiagnosticReportForReflexAlert = (
   diagnosticReport: DiagnosticReport | undefined
-): TestItem['reflexAlert'] | undefined => {
+): DataEntryTestItem['reflexAlert'] | undefined => {
   if (!diagnosticReport) return;
   const reflexLogic = diagnosticReport.extension?.find((ext) => ext.url === REFLEX_TEST_TRIGGERED_URL)?.extension;
   if (!reflexLogic) return;
@@ -588,4 +616,8 @@ export const activityDefinitionIsReflexTest = (activityDefinition: ActivityDefin
   });
 
   return isReflex;
+};
+
+export const repeatTestErrorMessage = (testName: string): string => {
+  return `You cannot run '${testName}' as repeat. No initial tests could be found for this encounter. Ask an admin if the version of the test you are trying to run has changed, or re-run the test not as repeat.`;
 };

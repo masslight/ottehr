@@ -250,6 +250,9 @@ describe('get-patient-balances integration tests', () => {
       accessToken: token,
       fhirApiUrl: FHIR_API,
       projectApiUrl: EXECUTE_ZAMBDA_URL,
+      services: {
+        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
+      },
       projectId: PROJECT_ID,
     });
 
@@ -427,6 +430,43 @@ describe('get-patient-balances integration tests', () => {
       ) as Encounter;
 
       await oystehr.fhir.create(missingCandidIdEncounterInput);
+
+      const mockCandidClient = createMockCandidApiClient();
+
+      const response = await getPatientBalances(patient.id!, mockCandidClient);
+
+      expect(response).toBeDefined();
+      expect(response.encounters).toEqual([]);
+      expect(response.totalBalanceCents).toBe(0);
+      expect(response.pendingPaymentCents).toBe(0);
+    });
+
+    it('should return empty balance when encounter has no appointment reference (follow-up encounters)', async () => {
+      const patient = await createMockPatient();
+      // won't actually have one but want to test the specific scenario
+      const candidEncounterId = randomUUID();
+      const encounterInput = addProcessIdMetaTagToResource(
+        {
+          resourceType: 'Encounter',
+          status: 'finished',
+          subject: {
+            reference: `Patient/${patient.id}`,
+          },
+          class: {
+            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+            code: 'AMB',
+          },
+          identifier: [
+            {
+              system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
+              value: candidEncounterId,
+            },
+          ],
+        },
+        processId
+      ) as Encounter;
+
+      await oystehr.fhir.create(encounterInput);
 
       const mockCandidClient = createMockCandidApiClient();
 
@@ -643,97 +683,6 @@ describe('get-patient-balances integration tests', () => {
   });
 
   describe('unhappy paths', () => {
-    it('should throw error when encounter is missing appointment reference', async () => {
-      const patient = await createMockPatient();
-      const candidEncounterId = randomUUID();
-      const encounterInput = addProcessIdMetaTagToResource(
-        {
-          resourceType: 'Encounter',
-          status: 'finished',
-          subject: {
-            reference: `Patient/${patient.id}`,
-          },
-          class: {
-            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-            code: 'AMB',
-          },
-          identifier: [
-            {
-              system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-              value: candidEncounterId,
-            },
-          ],
-        },
-        processId
-      ) as Encounter;
-
-      await oystehr.fhir.create(encounterInput);
-
-      const mockCandidClient = createMockCandidApiClient();
-
-      await expect(getPatientBalances(patient.id!, mockCandidClient)).rejects.toThrow(
-        /Encounter is missing appointmentId or encounterDate/
-      );
-    });
-
-    it('should throw error when appointment is missing start date', async () => {
-      const patient = await createMockPatient();
-      const candidEncounterId = randomUUID();
-
-      const appointmentInput = addProcessIdMetaTagToResource(
-        {
-          resourceType: 'Appointment',
-          // proposed means an appointment doesn't have to have a start time
-          status: 'proposed',
-          participant: [
-            {
-              actor: {
-                reference: `Patient/${patient.id}`,
-              },
-              status: 'accepted',
-            },
-          ],
-        },
-        processId
-      ) as Appointment;
-
-      const appointment = (await oystehr.fhir.create(appointmentInput)) as Appointment;
-
-      const encounterInput = addProcessIdMetaTagToResource(
-        {
-          resourceType: 'Encounter',
-          status: 'finished',
-          subject: {
-            reference: `Patient/${patient.id}`,
-          },
-          appointment: [
-            {
-              reference: `Appointment/${appointment.id}`,
-            },
-          ],
-          class: {
-            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-            code: 'AMB',
-          },
-          identifier: [
-            {
-              system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-              value: candidEncounterId,
-            },
-          ],
-        },
-        processId
-      ) as Encounter;
-
-      await oystehr.fhir.create(encounterInput);
-
-      const mockCandidClient = createMockCandidApiClient();
-
-      await expect(getPatientBalances(patient.id!, mockCandidClient)).rejects.toThrow(
-        /Encounter is missing appointmentId or encounterDate/
-      );
-    });
-
     it('should throw error when Candid encounter API returns error', async () => {
       const patient = await createMockPatient();
       const appointment = await createMockAppointment({ patientId: patient.id!, processId });

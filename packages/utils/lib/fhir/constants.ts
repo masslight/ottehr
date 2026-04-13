@@ -270,6 +270,12 @@ export const APPOINTMENT_LOCKED_META_TAG = {
   code: 'APPOINTMENT_LOCKED',
 };
 
+export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM = 'encounter-erx-sync-status';
+export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG = {
+  system: FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM,
+  code: 'ERX_PATIENT_SYNCED',
+};
+
 export const ERX_MEDICATION_META_TAG_CODE = 'erx-medication';
 
 export const FHIR_APPOINTMENT_TYPE_MAP: Record<string, AppointmentType> = {
@@ -742,8 +748,37 @@ export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_UR
 export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-in-person`;
 export const GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-telemed`;
 
+/** Builds the full meta.tag system URL from a chart data field name (e.g. 'chief-complaint' → full URL). */
+export const chartDataTagSystem = (fieldName: string): string => `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}`;
+
+export const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
+
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_TYPE = ottehrCodeSystemUrl('task-type');
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE = 'video-chat-waiting-room-notification';
 
 export const ACCIDENT_TYPE_SYSTEM = ottehrCodeSystemUrl('accident-type');
 export const ACCIDENT_STATE_EXTENSION = ottehrExtensionUrl('accident-state');
+
+export const PROVENANCE_FAX_SYSTEM = ottehrCodeSystemUrl('faxes');
+export const PROVENANCE_FAX_ACTIVITY_CODES = {
+  faxSent: 'fax-sent',
+} as const;
+export const PROVENANCE_FAX_ACTIVITY_DISPLAY = {
+  faxSent: 'Fax Sent',
+} as const;
+export const FAX_SENT_PROVENANCE_ACTIVITY_CODING: Coding = {
+  code: PROVENANCE_FAX_ACTIVITY_CODES.faxSent,
+  display: PROVENANCE_FAX_ACTIVITY_DISPLAY.faxSent,
+  system: PROVENANCE_FAX_SYSTEM,
+};
+
+export const EMPLOYEE_ID_SYSTEM = ottehrIdentifierSystem('employee-id');
+
+export const CHARGE_MASTER_DESIGNATION_EXTENSION_URL = ottehrExtensionUrl('charge-master-designation');
+export const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
+export type ChargeMasterDesignation = 'default-insurance' | 'self-pay';
+export type FeeScheduleDesignation = 'case-rate';
+export const CASE_RATE_CODE = 'case-rate';
+
+export const CPT_MODIFIER_EXTENSION_URL = ottehrExtensionUrl('cpt-modifier');
+export const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';

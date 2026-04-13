@@ -14,13 +14,13 @@ import {
   CreateInHouseLabOrderParameters,
   getAttendingPractitionerId,
   getFullestAvailableName,
-  getSecret,
   IN_HOUSE_LAB_ERROR,
+  IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
   isApiError,
   REFLEX_ARTIFACT_DISPLAY,
+  repeatTestErrorMessage,
   Secrets,
-  SecretsKeys,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
 } from 'utils';
@@ -29,7 +29,6 @@ import {
   createOystehrClient,
   getMyPractitionerId,
   parseCreatedResourcesBundle,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -45,22 +44,22 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'create-in-house-lab-order';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`create-in-house-lab-order started, input: ${JSON.stringify(input)}`);
-  let secrets = input.secrets;
-  let validatedParameters: CreateInHouseLabOrderParameters & { secrets: Secrets | null; userToken: string };
-
   try {
-    validatedParameters = validateRequestParameters(input);
-  } catch (error: any) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        message: `Invalid request parameters. ${error.message || error}`,
-      }),
-    };
-  }
+    console.log(`create-in-house-lab-order started, input: ${JSON.stringify(input)}`);
+    let secrets = input.secrets;
+    let validatedParameters: CreateInHouseLabOrderParameters & { secrets: Secrets | null; userToken: string };
 
-  try {
+    try {
+      validatedParameters = validateRequestParameters(input);
+    } catch (error: any) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: `Invalid request parameters. ${error.message || error}`,
+        }),
+      };
+    }
+
     secrets = validatedParameters.secrets;
 
     console.log('validateRequestParameters success');
@@ -70,6 +69,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
     const { encounterId, testItems, diagnosesAll, diagnosesNew, notes } = validatedParameters;
+    console.log('This is testItems in create-in-house-lab-order', JSON.stringify(testItems, undefined, 2));
 
     const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
       (
@@ -108,7 +108,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               resourceType: 'ActivityDefinition',
               params: [
                 { name: 'url', value: item.adUrl },
-                { name: 'version', value: item.adVersion },
+                { name: 'status', value: 'active' },
+                {
+                  name: '_tag',
+                  value: `${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.system}|${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.code}`, // we care less about the version and more that it is latest
+                },
               ],
             })
             .then((result) => result.unbundle() as ActivityDefinition[]);
@@ -250,9 +254,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       if (orderMode === 'repeat') {
         if (!serviceRequests || serviceRequests.length === 0) {
-          throw IN_HOUSE_LAB_ERROR(
-            `You cannot run ${activityDefinition.name} as repeat, no initial tests could be found for this encounter.`
-          );
+          // edge case: if a repeat test is ordered, then the version is updated, and the user clicks the "repeat" button from the order details screen
+          // We still try to match SRs to the ad url and version, and so a match cannot be found. Alternative is to find too many matches
+          throw IN_HOUSE_LAB_ERROR(repeatTestErrorMessage(activityDefinition.name || ''));
         }
         const possibleInitialSRs = serviceRequests.reduce((acc: ServiceRequest[], sr) => {
           if (!sr.basedOn) acc.push(sr);
@@ -400,6 +404,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         body,
       };
     }
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+    throw error;
   }
 });

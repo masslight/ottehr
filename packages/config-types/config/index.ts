@@ -253,14 +253,14 @@ export type {
 export {
   MedicalConditionQuickPickSchema,
   AllergyQuickPickSchema,
-  MedicationQuickPickSchema,
+  MedicationHistoryQuickPickSchema,
   InHouseMedicationQuickPickSchema,
   MedicalHistoryConfigSchema,
 } from './medical-history';
 export type {
   MedicalConditionQuickPick,
   AllergyQuickPick,
-  MedicationQuickPick,
+  MedicationHistoryQuickPick,
   InHouseMedicationQuickPick,
   MedicalConditionsSection,
   AllergiesSection,
@@ -298,3 +298,7 @@ export type { PromptsConfig } from './prompts';
 // Provider config types
 export { ProviderConfigSchema, EmCodeOptionsSchema, EmCodeOptionSchema } from './provider';
 export type { ProviderConfig } from './provider';
+
+// Feature flags config types
+export { FeatureFlagsConfigSchema } from './feature-flags';
+export type { FeatureFlagsConfig } from './feature-flags';

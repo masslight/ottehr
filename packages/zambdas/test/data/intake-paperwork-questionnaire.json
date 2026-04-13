@@ -1,7 +1,7 @@
 {
   "resourceType": "Questionnaire",
   "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "name": "in-person_pre-visit_paperwork",
   "title": "in-person pre-visit paperwork",
   "status": "active",
@@ -599,6 +599,12 @@
               "operator": "=",
               "answerString": "My pronouns are not listed"
             }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            }
           ]
         },
         {
@@ -744,6 +750,12 @@
               "question": "preferred-language",
               "operator": "=",
               "answerString": "Other"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
             }
           ]
         }
@@ -919,6 +931,10 @@
           ],
           "extension": [
             {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
               "valueString": "Link"
             },
@@ -959,6 +975,10 @@
           ],
           "extension": [
             {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
               "extension": [
                 {
@@ -990,6 +1010,10 @@
             }
           ],
           "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
               "extension": [
@@ -1131,6 +1155,10 @@
               ]
             },
             {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
               "extension": [
                 {
@@ -1186,6 +1214,10 @@
             }
           ],
           "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
               "extension": [
@@ -1288,6 +1320,10 @@
             }
           ],
           "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
               "extension": [
@@ -2112,7 +2148,7 @@
         {
           "linkId": "insurance-card-back",
           "type": "attachment",
-          "text": "Back side of the insurance card",
+          "text": "Back side of the insurance card (optional)",
           "required": false,
           "enableWhen": [
             {
@@ -2166,6 +2202,10 @@
             }
           ],
           "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
               "valueString": "Button"
@@ -2660,7 +2700,7 @@
             {
               "linkId": "insurance-card-back-2",
               "type": "attachment",
-              "text": "Back side of the insurance card",
+              "text": "Back side of the insurance card (optional)",
               "required": false,
               "extension": [
                 {
@@ -3029,6 +3069,12 @@
               "question": "responsible-party-relationship",
               "operator": "!=",
               "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
             }
           ]
         },
@@ -4103,6 +4149,10 @@
           ],
           "extension": [
             {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
               "extension": [
                 {
@@ -4132,6 +4182,12 @@
               "operator": "=",
               "answerString": "I have an attorney"
             }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            }
           ]
         },
         {
@@ -4144,6 +4200,12 @@
               "question": "attorney-mva-has-attorney",
               "operator": "=",
               "answerString": "I have an attorney"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
             }
           ]
         },
@@ -4163,6 +4225,10 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "Email"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
             }
           ]
         },
@@ -4182,6 +4248,10 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "Phone Number"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
             }
           ]
         },
@@ -4201,6 +4271,10 @@
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "Phone Number"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
             }
           ]
         }

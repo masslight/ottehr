@@ -13,6 +13,22 @@ export const mapDispositionTypeToLabel: Record<DispositionType, string> = {
   specialty: 'Specialty Transfer',
 };
 
+export const specialtyTransferOptions = [
+  'Allergist',
+  'Cardiologist',
+  'Dermatology',
+  'Diagnostic Imaging',
+  'ENT',
+  'Family Medicine',
+  'Gastroenterology',
+  'General Surgery',
+  'Neurology',
+  'Ophthalmology',
+  'Orthopedics',
+  'Pediatrics',
+  'Physical Therapy',
+];
+
 export const dispositionCheckboxOptions = [
   {
     label: 'Dentistry',
