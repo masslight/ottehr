@@ -196,7 +196,6 @@ export default function UpdateMedicationPage(): ReactElement {
                   disableClearable
                   disablePortal
                   freeSolo
-                  clearOnBlur={false}
                   noOptionsText={
                     debouncedSearchTerm && debouncedSearchTerm.length > 2 && medicationOptions.length === 0
                       ? 'Nothing found for this search criteria'
