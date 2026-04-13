@@ -68,7 +68,7 @@ FORMAT RULES:
 - The prose string summarizes the information as a readable sentence.
 - Each item in the Items array must be an object with "display" and "searchTerms":
   - "display": the term or phrase as it appears verbatim in the prose (used for highlighting).
-  - "searchTerms": an array of 1 to 3 clinical/standard terms to search a medical database. Use the same term as display if it is already a standard clinical term. Use different terms when the patient uses a lay/colloquial term (e.g. "ear infection" -> ["otitis media"], "blood thinner" -> ["warfarin", "apixaban", "enoxaparin"]).
+  - "searchTerms": an array of 1 to 3 terms to search a medical database. Always include the display term as the first entry (it may be a valid brand name or common term). Add additional clinical/standard terms when the display term is a lay/colloquial term that may not match (e.g. "ear infection" -> ["ear infection", "otitis media"], "Tylenol" -> ["Tylenol", "acetaminophen"], "blood thinner" -> ["blood thinner", "warfarin", "apixaban"]).
 - For medications: display is the medication name from the prose. searchTerms are standard drug names.
 - For allergies: display is the allergen name from the prose. searchTerms are standard allergen names. Do NOT include reactions.
 - For conditions: display is the condition as stated in the prose. searchTerms are ICD-10 compatible clinical terms.
