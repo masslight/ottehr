@@ -124,8 +124,13 @@ export default function AiSuggestion({
           const allResults: SearchResult[] = [];
           const seen = new Set<string>();
 
-          const maxPerTerm = Math.max(5, Math.floor(15 / item.searchTerms.length));
-          for (const term of item.searchTerms) {
+          // For static list searches, include the display term since lists use common names
+          const termsToSearch =
+            fieldType === 'surgicalHistory' || fieldType === 'episodeOfCare'
+              ? [item.display, ...item.searchTerms.filter((t) => t.toLowerCase() !== item.display.toLowerCase())]
+              : item.searchTerms;
+          const maxPerTerm = Math.max(5, Math.floor(15 / termsToSearch.length));
+          for (const term of termsToSearch) {
             let results: SearchResult[] = [];
             if (fieldType === 'medications' && oystehr) {
               results = await oystehr.erx.searchMedications({ name: term });
@@ -233,10 +238,10 @@ export default function AiSuggestion({
         const candidateLower = candidate.toLowerCase();
         let searchFrom = 0;
         while (searchFrom < textLower.length) {
-          const idx = textLower.indexOf(candidateLower, searchFrom);
-          if (idx === -1) break;
-          ranges.push({ start: idx, end: idx + candidate.length, item });
-          searchFrom = idx + candidate.length;
+          const idx2 = textLower.indexOf(candidateLower, searchFrom);
+          if (idx2 === -1) break;
+          ranges.push({ start: idx2, end: idx2 + candidate.length, item });
+          searchFrom = idx2 + candidate.length;
           matched = true;
         }
         if (matched) break;
