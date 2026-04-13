@@ -175,7 +175,7 @@ async function main(): Promise<void> {
     );
   }
 
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   // Initialize Stripe
   const stripe = new Stripe(secrets.STRIPE_SECRET_KEY, {
