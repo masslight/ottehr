@@ -92,7 +92,7 @@ function populate(environment: string, project?: string): void {
     process.exit(1);
   }
 
-  console.log('\n=== Populating environment-specific secrets ===');
+  console.log('\n=== Populating environment-specific secrets === ');
 
   try {
     if (fs.existsSync(paths.zambdas.source)) {
