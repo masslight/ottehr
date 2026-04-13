@@ -583,7 +583,7 @@ export default function AppointmentTableRow({
 
   const renderStartIntakeButton = (): ReactElement | undefined => {
     if (
-      appointment.appointmentAttendanceType === 'in-person' &&
+      !isVirtual(appointment) &&
       (appointment.status === 'arrived' || appointment.status === 'ready' || appointment.status === 'intake')
     ) {
       return (
@@ -602,7 +602,7 @@ export default function AppointmentTableRow({
 
   const renderAssignMeButton = (): ReactElement | undefined => {
     const location = appointment.location;
-    if (appointment.appointmentAttendanceType === 'virtual' && location?.id) {
+    if (isVirtual(appointment) && location?.id) {
       return (
         <TrackingBoardTableButton
           appointment={{
@@ -626,10 +626,10 @@ export default function AppointmentTableRow({
   const handleProgressNoteButton = async (): Promise<void> => {
     setProgressNoteButtonLoading(true);
     try {
-      if (appointment.appointmentAttendanceType === 'in-person') {
-        navigate(`/in-person/${appointment.id}/${ROUTER_PATH.REVIEW_AND_SIGN}`);
-      } else {
+      if (isVirtual(appointment)) {
         navigate(getTelemedAppointmentUrl(appointment.id));
+      } else {
+        navigate(`/in-person/${appointment.id}/${ROUTER_PATH.REVIEW_AND_SIGN}`);
       }
     } catch (error) {
       console.error(error);
@@ -640,13 +640,13 @@ export default function AppointmentTableRow({
 
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
-      (appointment.appointmentAttendanceType === 'in-person' &&
+      (!isVirtual(appointment) &&
         (appointment.status === 'ready for provider' ||
           appointment.status === 'provider' ||
           appointment.status === 'awaiting supervisor approval' ||
           appointment.status === 'completed' ||
           appointment.status === 'discharged')) ||
-      appointment.appointmentAttendanceType === 'virtual'
+      isVirtual(appointment)
     ) {
       return (
         <GoToButton
@@ -762,7 +762,7 @@ export default function AppointmentTableRow({
   };
 
   const renderArrivedButton = (): ReactElement | undefined => {
-    if (tab === 'prebooked' && appointment.appointmentAttendanceType === 'in-person') {
+    if (tab === 'prebooked' && !isVirtual(appointment)) {
       return (
         <LoadingButton
           data-testid={dataTestIds.dashboard.arrivedButton}
@@ -842,11 +842,7 @@ export default function AppointmentTableRow({
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }} data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}>
         <Typography variant="body2">
-          {appointment.appointmentAttendanceType === 'in-person'
-            ? 'In Person'
-            : appointment.appointmentAttendanceType === 'virtual'
-            ? 'Virtual'
-            : 'Unknown'}{' '}
+          {isVirtual(appointment) ? 'Virtual' : 'In Person'}
           {serviceCategory}
         </Typography>
         <Typography variant="body2">{appointment.location?.name ?? ''}</Typography>
@@ -1076,4 +1072,8 @@ export default function AppointmentTableRow({
       )}
     </TableRow>
   );
+}
+
+function isVirtual(appointment: InPersonAppointmentInformation): boolean {
+  return appointment.appointmentAttendanceType === 'virtual';
 }
