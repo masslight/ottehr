@@ -134,13 +134,7 @@ export async function generateBookingTestScenarios(): Promise<BookingTestScenari
     // Determine which categories to generate scenarios for
     // If only one category available for this flow, use it directly (no selection page)
     const categoriesToTest =
-      availableCategories.length > 1
-        ? availableCategories
-        : [
-            availableCategories.find((sc) => sc.category.code === 'urgent-care') ||
-              availableCategories[0] ||
-              serviceCategories[0],
-          ];
+      availableCategories.length > 1 ? availableCategories : [availableCategories[0] || serviceCategories[0]];
 
     for (const category of categoriesToTest) {
       // Use the pre-resolved instance paperwork config (has downstream overrides baked in)

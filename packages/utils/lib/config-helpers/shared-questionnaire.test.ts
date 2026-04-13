@@ -1,20 +1,17 @@
 import { type QuestionnaireConfigType, type ServiceCategoryConfig } from 'config-types';
 import { describe, expect, it } from 'vitest';
+import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS, SERVICE_CATEGORY_SYSTEM } from '../fhir';
 import { mapQuestionnaireAndValueSetsToItemsList } from '../helpers/paperwork/paperwork';
 import { buildReasonForVisitFromConfig, createQuestionnaireFromConfig } from './shared-questionnaire';
 
-const SYSTEM = 'https://fhir.ottehr.com/CodeSystem/service-category';
-const FILTER_EXT_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter';
-const FILTER_QUESTION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question';
-const FILTER_ANSWER_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer';
-const FILTER_INCLUDE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include';
+const { answerDisplayFilter: FILTER_EXT_KEYS } = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS;
 
 const makeCategory = (
   code: string,
   display: string,
   overrides: Partial<ServiceCategoryConfig> = {}
 ): ServiceCategoryConfig => ({
-  category: { code, display, system: SYSTEM },
+  category: { code, display, system: SERVICE_CATEGORY_SYSTEM },
   serviceModes: ['in-person', 'virtual'],
   visitTypes: ['prebook', 'walk-in'],
   ...overrides,
@@ -233,16 +230,18 @@ describe('display filter round-trip: config → questionnaire → parse', () => 
     expect(answerValues).toEqual(['Fever', 'Cough', 'Rash']);
 
     // Two display filter extensions (one per mode)
-    const filterExts = rfvItem!.extension?.filter((e) => e.url === FILTER_EXT_URL);
+    const filterExts = rfvItem!.extension?.filter((e) => e.url === FILTER_EXT_KEYS.extension);
     expect(filterExts).toHaveLength(2);
 
     // In-person filter
-    const ipIncludes = filterExts![0].extension?.filter((e) => e.url === FILTER_INCLUDE_URL).map((e) => e.valueString);
+    const ipIncludes = filterExts![0].extension
+      ?.filter((e) => e.url === FILTER_EXT_KEYS.include)
+      .map((e) => e.valueString);
     expect(ipIncludes).toEqual(['Fever', 'Cough']);
 
     // Virtual filter
     const virtualIncludes = filterExts![1].extension
-      ?.filter((e) => e.url === FILTER_INCLUDE_URL)
+      ?.filter((e) => e.url === FILTER_EXT_KEYS.include)
       .map((e) => e.valueString);
     expect(virtualIncludes).toEqual(['Rash']);
   });
@@ -262,11 +261,13 @@ describe('display filter round-trip: config → questionnaire → parse', () => 
     const rfvItem = questionnaire.item
       ?.find((i) => i.linkId === 'test-page')
       ?.item?.find((i) => i.linkId === 'reason-for-visit');
-    const filterExts = rfvItem!.extension?.filter((e) => e.url === FILTER_EXT_URL);
+    const filterExts = rfvItem!.extension?.filter((e) => e.url === FILTER_EXT_KEYS.extension);
 
     // Verify condition structure on first filter
-    const questions = filterExts![0].extension?.filter((e) => e.url === FILTER_QUESTION_URL).map((e) => e.valueString);
-    const answers = filterExts![0].extension?.filter((e) => e.url === FILTER_ANSWER_URL).map((e) => e.valueString);
+    const questions = filterExts![0].extension
+      ?.filter((e) => e.url === FILTER_EXT_KEYS.question)
+      .map((e) => e.valueString);
+    const answers = filterExts![0].extension?.filter((e) => e.url === FILTER_EXT_KEYS.answer).map((e) => e.valueString);
 
     expect(questions).toEqual(['appointment-service-category', 'appointment-service-mode']);
     expect(answers).toEqual(['wellness', 'in-person']);

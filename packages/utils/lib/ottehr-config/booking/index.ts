@@ -105,7 +105,9 @@ export const SERVICE_CATEGORIES_AVAILABLE: ServiceCategoryConfig[] = [
   },
 ];
 
-const getFormFields = (): Record<string, FormFieldSection> => ({
+const getFormFields = (
+  serviceCategories: ServiceCategoryConfig[] = SERVICE_CATEGORIES_AVAILABLE
+): Record<string, FormFieldSection> => ({
   patientInfo: {
     linkId: 'patient-information-page',
     title: 'About the patient',
@@ -222,7 +224,7 @@ const getFormFields = (): Record<string, FormFieldSection> => ({
         triggers: [PatientDoesntExistTriggerEnableAndRequire],
       },
       // Single RFV field with display filters, auto-generated from service category config
-      ...buildReasonForVisitFromConfig(SERVICE_CATEGORIES_AVAILABLE)!,
+      ...buildReasonForVisitFromConfig(serviceCategories)!,
       tellUsMore: {
         key: 'tell-us-more',
         label: 'Tell us more',
@@ -259,10 +261,10 @@ const questionnaireBaseDefaults: QuestionnaireBase = {
   status: 'active',
 };
 
-const getFormDefaults = (): QuestionnaireConfigType => ({
+const getFormDefaults = (serviceCategories?: ServiceCategoryConfig[]): QuestionnaireConfigType => ({
   questionnaireBase: questionnaireBaseDefaults,
   hiddenFormSections,
-  FormFields: getFormFields(),
+  FormFields: getFormFields(serviceCategories),
 });
 
 export const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
@@ -364,28 +366,30 @@ export function getBookingConfig(testOverrides?: Partial<BookingConfig>): Bookin
   if (!testOverrides) {
     return getBookingDefaults();
   }
-  // Type assertion needed: DeepMerge with Partial<T> produces T | undefined properties,
-  // but lodash merge skips undefined values so the base config properties are preserved.
-  return mergeAndFreezeConfigObjects(getBookingDefaults(), testOverrides) as BookingConfig;
+  // If overrides include serviceCategories, rebuild formConfig to match
+  // so the RFV field's options and display filters stay consistent.
+  const merged = mergeAndFreezeConfigObjects(getBookingDefaults(), testOverrides) as BookingConfig;
+  if (testOverrides.serviceCategories) {
+    return {
+      ...merged,
+      formConfig: getFormDefaults(merged.serviceCategories),
+    };
+  }
+  return merged;
 }
 
 // todo: it would be nice to use zod to validate the merged booking config shape here
 // Export as a getter property to allow runtime config injection in tests
 export const BOOKING_CONFIG = createProxyConfigObject<BookingConfig>(getBookingConfig, CONFIG_INJECTION_KEYS.BOOKING);
 
-// Lazy schemas — avoid eagerly accessing BOOKING_CONFIG at module scope,
-// which would trigger circular initialization when shared-questionnaire
-// is loaded before booking finishes initializing.
-let _serviceCategoryCodeSchema: z.ZodEnum<[string, ...string[]]> | undefined;
+// Lazy schemas — computed on each call to stay consistent with BOOKING_CONFIG,
+// which may reflect runtime-injected overrides via the proxy.
+// Defined as functions (not module-scope constants) to avoid eagerly accessing
+// BOOKING_CONFIG during module initialization.
 export const getServiceCategoryCodeSchema = (): z.ZodEnum<[string, ...string[]]> => {
-  if (!_serviceCategoryCodeSchema) {
-    _serviceCategoryCodeSchema = z.enum(
-      BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code) as [string, ...string[]]
-    );
-  }
-  return _serviceCategoryCodeSchema;
+  return z.enum(BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code) as [string, ...string[]]);
 };
-/** @deprecated Use getServiceCategoryCodeSchema() — this eager access can cause circular init issues */
+/** @deprecated Use getServiceCategoryCodeSchema() — eager access can cause circular init issues */
 export const ServiceCategoryCodeSchema = new Proxy({} as z.ZodEnum<[string, ...string[]]>, {
   get(_target, prop) {
     return (getServiceCategoryCodeSchema() as any)[prop];
@@ -394,14 +398,10 @@ export const ServiceCategoryCodeSchema = new Proxy({} as z.ZodEnum<[string, ...s
 
 export type ServiceCategoryCode = z.infer<ReturnType<typeof getServiceCategoryCodeSchema>>;
 
-let _homepageOptionSchema: z.ZodEnum<[string, ...string[]]> | undefined;
 export const getHomepageOptionSchema = (): z.ZodEnum<[string, ...string[]]> => {
-  if (!_homepageOptionSchema) {
-    _homepageOptionSchema = z.enum(BOOKING_CONFIG.homepageOptions.map((opt) => opt.id) as [string, ...string[]]);
-  }
-  return _homepageOptionSchema;
+  return z.enum(BOOKING_CONFIG.homepageOptions.map((opt) => opt.id) as [string, ...string[]]);
 };
-/** @deprecated Use getHomepageOptionSchema() — this eager access can cause circular init issues */
+/** @deprecated Use getHomepageOptionSchema() — eager access can cause circular init issues */
 export const HomepageOptionSchema = new Proxy({} as z.ZodEnum<[string, ...string[]]>, {
   get(_target, prop) {
     return (getHomepageOptionSchema() as any)[prop];

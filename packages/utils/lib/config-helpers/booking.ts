@@ -1,3 +1,4 @@
+import { type ServiceCategoryConfig } from 'config-types';
 import {
   Patient,
   Questionnaire,
@@ -40,7 +41,7 @@ export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: st
 };
 
 /**
- * Get reason-for-visit options for a given service category and optional service mode.
+ * Pure resolver: get reason-for-visit options from a list of service categories.
  *
  * Resolution order:
  * 1. If the category config has reasonsForVisit[serviceMode], use it
@@ -49,11 +50,12 @@ export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: st
  * When serviceMode is omitted (e.g., EHR context), returns the default or
  * a combined list of all mode-specific options for the category.
  */
-export const getReasonForVisitOptionsForServiceCategory = (
+export const resolveReasonForVisitOptions = (
+  serviceCategories: ServiceCategoryConfig[],
   serviceCategory: string,
   serviceMode?: string
 ): { value: string; label: string }[] => {
-  const categoryConfig = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategory);
+  const categoryConfig = serviceCategories.find((sc) => sc.category.code === serviceCategory);
   if (!categoryConfig?.reasonsForVisit) {
     return [];
   }
@@ -84,6 +86,17 @@ export const getReasonForVisitOptionsForServiceCategory = (
     }
   }
   return [...combined.values()];
+};
+
+/**
+ * Get reason-for-visit options for a given service category and optional service mode,
+ * using the active BOOKING_CONFIG.
+ */
+export const getReasonForVisitOptionsForServiceCategory = (
+  serviceCategory: string,
+  serviceMode?: string
+): { value: string; label: string }[] => {
+  return resolveReasonForVisitOptions(BOOKING_CONFIG.serviceCategories, serviceCategory, serviceMode);
 };
 
 // Helper to normalize form data by converting empty objects to proper questionnaire response format

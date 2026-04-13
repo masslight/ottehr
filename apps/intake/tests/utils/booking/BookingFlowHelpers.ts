@@ -5,6 +5,7 @@ import {
   chooseJson,
   CreateAppointmentResponse,
   getReasonForVisitOptionsForServiceCategory,
+  getServiceCategoryCodings,
   prepopulateBookingForm,
   selectBookingQuestionnaire,
   VALUE_SETS,
@@ -65,8 +66,8 @@ export class BookingFlowHelpers {
           const options = getReasonForVisitOptionsForServiceCategory(serviceCategory);
           return options[0]?.value;
         }
-        // Default to urgent-care if no category specified
-        return getReasonForVisitOptionsForServiceCategory('urgent-care')[0]?.value;
+        // Default to first available category if no category specified
+        return getReasonForVisitOptionsForServiceCategory(getServiceCategoryCodings()[0]?.code ?? '')[0]?.value;
       default:
         return undefined;
     }
