@@ -1,4 +1,4 @@
-import { ChargeMasterDesignation, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
+import { ChargeMasterDesignation, INVALID_INPUT_ERROR, isValidUUID, MISSING_REQUEST_BODY } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface GetChargeMasterEntryParams {
@@ -21,6 +21,16 @@ export function validateRequestParameters(input: ZambdaInput): GetChargeMasterEn
 
   if (designation !== 'default-insurance' && designation !== 'self-pay') {
     throw INVALID_INPUT_ERROR('"designation" must be "default-insurance" or "self-pay"');
+  }
+
+  if (payerOrganizationId && !isValidUUID(payerOrganizationId)) {
+    throw INVALID_INPUT_ERROR('"payerOrganizationId" must be a valid UUID');
+  }
+  if (locationId && !isValidUUID(locationId)) {
+    throw INVALID_INPUT_ERROR('"locationId" must be a valid UUID');
+  }
+  if (employerOrganizationId && !isValidUUID(employerOrganizationId)) {
+    throw INVALID_INPUT_ERROR('"employerOrganizationId" must be a valid UUID');
   }
 
   return {
