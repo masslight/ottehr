@@ -44,7 +44,7 @@ function getFilePaths(environment: string, project?: string): GetFilePathConfig 
   console.log('Secrets path:', secretsPath);
   return {
     zambdas: {
-      source: path.join(secretsPath, 'zambdas', '.env', `${environment}.json`),
+      source: path.join(secretsPath, 'config', '.env', `${environment}.json`),
       target: path.join(repoRoot, 'config', '.env', `${environment}.json`),
       sentry: {
         source: path.join(secretsPath, 'zambdas', '.env', '.env.sentry-build-plugin'),
