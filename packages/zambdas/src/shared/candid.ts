@@ -1228,7 +1228,7 @@ async function candidCreateEncounterFromAppointmentRequest(
       npi: assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI'),
     },
     serviceFacility: {
-      organizationName: location?.description ?? assertDefined(SERVICE_FACILITY_LOCATION.name, 'Service facility name'),
+      organizationName: location?.name ?? assertDefined(SERVICE_FACILITY_LOCATION.name, 'Service facility name'),
       address: {
         address1: assertDefined(serviceFacilityAddress.line?.[0], 'Service facility address line'),
         city: assertDefined(serviceFacilityAddress.city, 'Service facility city'),
