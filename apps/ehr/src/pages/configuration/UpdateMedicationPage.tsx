@@ -145,7 +145,7 @@ export default function UpdateMedicationPage(): ReactElement {
     setLoading(false);
   }
 
-  async function updateStatus(status: string): Promise<void> {
+  async function updateStatus(newStatus: string): Promise<void> {
     if (!oystehrZambda || !medication?.id) {
       return;
     }
@@ -154,15 +154,18 @@ export default function UpdateMedicationPage(): ReactElement {
     try {
       const medicationTemp = await updateInHouseMedication(oystehrZambda, {
         medicationID: medication.id,
-        status,
+        status: newStatus,
       });
       setStatus(medicationTemp.status || '');
-      enqueueSnackbar(status === 'active' ? 'Medication activated successfully' : 'Medication removed successfully', {
-        variant: 'success',
-      });
+      enqueueSnackbar(
+        newStatus === 'active' ? 'Medication activated successfully' : 'Medication removed successfully',
+        {
+          variant: 'success',
+        }
+      );
     } catch (error) {
       console.log('Error updating medication', error);
-      enqueueSnackbar(status === 'active' ? 'Failed to activate medication' : 'Failed to remove medication', {
+      enqueueSnackbar(newStatus === 'active' ? 'Failed to activate medication' : 'Failed to remove medication', {
         variant: 'error',
       });
     }
