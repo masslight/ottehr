@@ -113,6 +113,7 @@ export const MissingCard: FC = () => {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {isPatientVerificationMissing && (
             <Link
+              component="button"
               sx={{ cursor: 'pointer' }}
               color="error"
               onClick={() => navigateTo('patient-info')}
@@ -123,6 +124,7 @@ export const MissingCard: FC = () => {
           )}
           {!hpi && (
             <Link
+              component="button"
               sx={{ cursor: 'pointer' }}
               color="error"
               onClick={() => navigateTo('hpi')}
@@ -133,6 +135,7 @@ export const MissingCard: FC = () => {
           )}
           {!primaryDiagnosis && (
             <Link
+              component="button"
               sx={{ cursor: 'pointer' }}
               color="error"
               onClick={() => navigateTo('assessment')}
@@ -143,6 +146,7 @@ export const MissingCard: FC = () => {
           )}
           {!medicalDecision && (
             <Link
+              component="button"
               sx={{ cursor: 'pointer' }}
               color="error"
               onClick={() => navigateTo('assessment')}
@@ -153,6 +157,7 @@ export const MissingCard: FC = () => {
           )}
           {!emCode && (
             <Link
+              component="button"
               sx={{ cursor: 'pointer' }}
               color="error"
               onClick={() => navigateTo('assessment')}
@@ -163,6 +168,7 @@ export const MissingCard: FC = () => {
           )}
           {accidentMissingDate && (
             <Link
+              component="button"
               sx={{ cursor: 'pointer' }}
               color="error"
               onClick={() => navigateTo('hpi')}
@@ -186,7 +192,7 @@ export const MissingCard: FC = () => {
               >
                 AI
               </Avatar>
-              <Link sx={{ cursor: 'pointer' }} color="#000000" onClick={() => navigateTo('hpi')}>
+              <Link component="button" sx={{ cursor: 'pointer' }} color="#000000" onClick={() => navigateTo('hpi')}>
                 {suggestionNote}
               </Link>
             </div>
