@@ -121,7 +121,7 @@ export function extractObservationsFromExamComponents(
         break;
       }
 
-      case 'modal-exam': {
+      case 'checkbox-with-modal': {
         // Check if this is part of an L/R pair by looking for base observation
         const baseKey = fieldName.replace(/-[lr]$/, '');
         const isLeftKey = fieldName.endsWith('-l');
@@ -240,7 +240,7 @@ export function collectKnownExamFields(examConfig: ExamItemConfig): Set<string> 
 
   const collectFromComponents = (components: Record<string, ExamCardComponent>): void => {
     Object.entries(components).forEach(([key, component]) => {
-      if (component.type === 'checkbox' || component.type === 'modal-exam') {
+      if (component.type === 'checkbox' || component.type === 'checkbox-with-modal') {
         knownFields.add(key);
         const baseKey = key.replace(/-[lr]$/, '');
         if (baseKey !== key) knownFields.add(baseKey);

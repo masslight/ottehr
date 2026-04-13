@@ -57,12 +57,12 @@ test.describe('In-Person Exam Modal Tests', () => {
   test('Should open a single modal via pencil icon and verify dialog', async () => {
     const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
 
-    // Find a modal-exam item (single, not paired) by its data-testid
-    const modalExamComponent = examTable.locator('[data-testid^="exam-component-modal-exam-"]').first();
+    // Find a checkbox-with-modal item (single, not paired) by its data-testid
+    const modalExamComponent = examTable.locator('[data-testid^="exam-component-checkbox-with-modal-"]').first();
     const modalExists = await modalExamComponent.count();
 
     if (modalExists === 0) {
-      test.skip(true, 'No modal-exam components found in exam table');
+      test.skip(true, 'No checkbox-with-modal components found in exam table');
       return;
     }
 
@@ -97,12 +97,12 @@ test.describe('In-Person Exam Modal Tests', () => {
   test('Should select items in modal, close, and verify parent checked with sub-items displayed', async () => {
     const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
 
-    // Find the first single modal-exam component
-    const modalExamComponent = examTable.locator('[data-testid^="exam-component-modal-exam-"]').first();
+    // Find the first single checkbox-with-modal component
+    const modalExamComponent = examTable.locator('[data-testid^="exam-component-checkbox-with-modal-"]').first();
     const modalExists = await modalExamComponent.count();
 
     if (modalExists === 0) {
-      test.skip(true, 'No modal-exam components found in exam table');
+      test.skip(true, 'No checkbox-with-modal components found in exam table');
       return;
     }
 
@@ -165,11 +165,11 @@ test.describe('In-Person Exam Modal Tests', () => {
   test('Should deselect all items in modal and verify parent unchecks', async () => {
     const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
 
-    const modalExamComponent = examTable.locator('[data-testid^="exam-component-modal-exam-"]').first();
+    const modalExamComponent = examTable.locator('[data-testid^="exam-component-checkbox-with-modal-"]').first();
     const modalExists = await modalExamComponent.count();
 
     if (modalExists === 0) {
-      test.skip(true, 'No modal-exam components found in exam table');
+      test.skip(true, 'No checkbox-with-modal components found in exam table');
       return;
     }
 
@@ -220,7 +220,7 @@ test.describe('In-Person Exam Modal Tests', () => {
     const pairedExists = await pairedModalComponent.count();
 
     if (pairedExists === 0) {
-      test.skip(true, 'No paired modal-exam components found in exam table');
+      test.skip(true, 'No paired exam-component-paired-modal components found in exam table');
       return;
     }
 
@@ -268,7 +268,7 @@ test.describe('In-Person Exam Modal Tests', () => {
     const pairedExists = await pairedModalComponent.count();
 
     if (pairedExists === 0) {
-      test.skip(true, 'No paired modal-exam components found in exam table');
+      test.skip(true, 'No paired exam-component-paired-modal components found in exam table');
       return;
     }
 
@@ -362,7 +362,7 @@ test.describe('In-Person Exam Modal Tests', () => {
     const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
 
     // Re-select items in the single modal (test 3 cleared them) so we have findings to verify
-    const modalExamComponent = examTable.locator('[data-testid^="exam-component-modal-exam-"]').first();
+    const modalExamComponent = examTable.locator('[data-testid^="exam-component-checkbox-with-modal-"]').first();
     const modalExists = await modalExamComponent.count();
 
     if (modalExists > 0) {

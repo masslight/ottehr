@@ -1,5 +1,6 @@
-import type { ExamCardModalExamComponent } from 'config-types';
+import type { ExamCardCheckboxWithModalComponent } from 'config-types';
 
+export const BORDER_STYLE = '1px solid rgba(224, 224, 224, 1)';
 export interface FlatOption {
   key: string;
   label: string;
@@ -8,8 +9,8 @@ export interface FlatOption {
   abnormal?: boolean;
 }
 
-export function buildAllOptions(config: ExamCardModalExamComponent): FlatOption[] {
-  return Object.values(config.sections).flatMap((section) =>
+export function buildAllOptions(config: ExamCardCheckboxWithModalComponent): FlatOption[] {
+  return Object.values(config.modal).flatMap((section) =>
     Object.values(section.groups).flatMap((group) =>
       Object.entries(group.options).map(([key, opt]) => ({
         key,

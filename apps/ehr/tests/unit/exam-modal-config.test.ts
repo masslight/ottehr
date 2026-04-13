@@ -1,4 +1,8 @@
-import type { ExamCardModalExamComponent, ExamCardNonTextComponent, ExamModalCheckboxOption } from 'config-types';
+import type {
+  ExamCardCheckboxWithModalComponent,
+  ExamCardNonTextComponent,
+  ExamModalCheckboxOption,
+} from 'config-types';
 import { examConfig } from 'utils';
 import { describe, expect, it } from 'vitest';
 
@@ -29,10 +33,10 @@ const NORMAL_LABELS = new Set([
  */
 function collectModalExamComponents(
   components: Record<string, ExamCardNonTextComponent>
-): { key: string; component: ExamCardModalExamComponent }[] {
-  const result: { key: string; component: ExamCardModalExamComponent }[] = [];
+): { key: string; component: ExamCardCheckboxWithModalComponent }[] {
+  const result: { key: string; component: ExamCardCheckboxWithModalComponent }[] = [];
   for (const [key, comp] of Object.entries(components)) {
-    if (comp.type === 'modal-exam') {
+    if (comp.type === 'checkbox-with-modal') {
       result.push({ key, component: comp });
     }
   }
@@ -42,7 +46,7 @@ function collectModalExamComponents(
 describe('InPersonExamConfig modal-exam components', () => {
   describe('NORMAL_LABELS classification', () => {
     // Collect all modal-exam components across the entire config
-    const allModalExams: { cardKey: string; compKey: string; component: ExamCardModalExamComponent }[] = [];
+    const allModalExams: { cardKey: string; compKey: string; component: ExamCardCheckboxWithModalComponent }[] = [];
 
     for (const [cardKey, card] of Object.entries(inPersonConfig)) {
       for (const { key, component } of collectModalExamComponents(card.components.normal)) {
@@ -61,7 +65,7 @@ describe('InPersonExamConfig modal-exam components', () => {
       const violations: string[] = [];
 
       for (const { cardKey, compKey, component } of allModalExams) {
-        for (const [sectionKey, section] of Object.entries(component.sections)) {
+        for (const [sectionKey, section] of Object.entries(component.modal)) {
           for (const [groupKey, group] of Object.entries(section.groups)) {
             for (const [optKey, option] of Object.entries(group.options)) {
               const opt = option as ExamModalCheckboxOption;
@@ -84,7 +88,7 @@ describe('InPersonExamConfig modal-exam components', () => {
       const violations: string[] = [];
 
       for (const { cardKey, compKey, component } of allModalExams) {
-        for (const [sectionKey, section] of Object.entries(component.sections)) {
+        for (const [sectionKey, section] of Object.entries(component.modal)) {
           for (const [groupKey, group] of Object.entries(section.groups)) {
             for (const [optKey, option] of Object.entries(group.options)) {
               const opt = option as ExamModalCheckboxOption;
@@ -116,8 +120,8 @@ describe('InPersonExamConfig modal-exam components', () => {
     });
 
     it('should have expected sections in an extremity modal', () => {
-      const shoulderL = extremitiesAbnormal['shoulder-l'] as ExamCardModalExamComponent;
-      const sectionKeys = Object.keys(shoulderL.sections);
+      const shoulderL = extremitiesAbnormal['shoulder-l'] as ExamCardCheckboxWithModalComponent;
+      const sectionKeys = Object.keys(shoulderL.modal);
 
       expect(sectionKeys).toContain('inspection');
       expect(sectionKeys).toContain('palpation');
@@ -126,18 +130,18 @@ describe('InPersonExamConfig modal-exam components', () => {
     });
 
     it('should have special-tests section for shoulder, knee, and wrist', () => {
-      const shoulderL = extremitiesAbnormal['shoulder-l'] as ExamCardModalExamComponent;
-      const kneeL = extremitiesAbnormal['knee-l'] as ExamCardModalExamComponent;
-      const wristL = extremitiesAbnormal['wrist-l'] as ExamCardModalExamComponent;
+      const shoulderL = extremitiesAbnormal['shoulder-l'] as ExamCardCheckboxWithModalComponent;
+      const kneeL = extremitiesAbnormal['knee-l'] as ExamCardCheckboxWithModalComponent;
+      const wristL = extremitiesAbnormal['wrist-l'] as ExamCardCheckboxWithModalComponent;
 
-      expect(Object.keys(shoulderL.sections)).toContain('special-tests');
-      expect(Object.keys(kneeL.sections)).toContain('special-tests');
-      expect(Object.keys(wristL.sections)).toContain('special-tests');
+      expect(Object.keys(shoulderL.modal)).toContain('special-tests');
+      expect(Object.keys(kneeL.modal)).toContain('special-tests');
+      expect(Object.keys(wristL.modal)).toContain('special-tests');
     });
 
     it('should have ROM section with active, passive, and pain-with-motion groups', () => {
-      const wristL = extremitiesAbnormal['wrist-l'] as ExamCardModalExamComponent;
-      const romSection = wristL.sections['range-of-motion'];
+      const wristL = extremitiesAbnormal['wrist-l'] as ExamCardCheckboxWithModalComponent;
+      const romSection = wristL.modal['range-of-motion'];
 
       expect(romSection).toBeDefined();
       expect(romSection.label).toBe('Range of Motion');
@@ -149,16 +153,16 @@ describe('InPersonExamConfig modal-exam components', () => {
     });
 
     it('should have tenderness group in palpation section', () => {
-      const elbowR = extremitiesAbnormal['elbow-r'] as ExamCardModalExamComponent;
-      const palpation = elbowR.sections.palpation;
+      const elbowR = extremitiesAbnormal['elbow-r'] as ExamCardCheckboxWithModalComponent;
+      const palpation = elbowR.modal.palpation;
 
       expect(palpation).toBeDefined();
       expect(Object.keys(palpation.groups)).toContain('tenderness');
     });
 
     it('should have neurovascular section with pulses, cap-refill, sensation, motor-strength', () => {
-      const ankleL = extremitiesAbnormal['ankle-l'] as ExamCardModalExamComponent;
-      const neuro = ankleL.sections.neurovascular;
+      const ankleL = extremitiesAbnormal['ankle-l'] as ExamCardCheckboxWithModalComponent;
+      const neuro = ankleL.modal.neurovascular;
 
       expect(neuro).toBeDefined();
       const groupKeys = Object.keys(neuro.groups);
@@ -179,16 +183,16 @@ describe('InPersonExamConfig modal-exam components', () => {
     });
 
     it('should have status and node-characteristics sections', () => {
-      const node = lymphAbnormal['lymph-anterior-cervical-l'] as ExamCardModalExamComponent;
-      const sectionKeys = Object.keys(node.sections);
+      const node = lymphAbnormal['lymph-anterior-cervical-l'] as ExamCardCheckboxWithModalComponent;
+      const sectionKeys = Object.keys(node.modal);
 
       expect(sectionKeys).toContain('status');
       expect(sectionKeys).toContain('node-characteristics');
     });
 
     it('should have Normal, Enlarged, Tender options in status section', () => {
-      const node = lymphAbnormal['lymph-anterior-cervical-l'] as ExamCardModalExamComponent;
-      const statusGroup = node.sections.status.groups.status;
+      const node = lymphAbnormal['lymph-anterior-cervical-l'] as ExamCardCheckboxWithModalComponent;
+      const statusGroup = node.modal.status.groups.status;
 
       expect(statusGroup).toBeDefined();
       const optionLabels = Object.values(statusGroup.options).map((o) => o.label);
@@ -198,8 +202,8 @@ describe('InPersonExamConfig modal-exam components', () => {
     });
 
     it('should have size, texture, mobility, tenderness, overlying-skin groups in node-characteristics', () => {
-      const node = lymphAbnormal['lymph-submandibular-r'] as ExamCardModalExamComponent;
-      const characteristics = node.sections['node-characteristics'];
+      const node = lymphAbnormal['lymph-submandibular-r'] as ExamCardCheckboxWithModalComponent;
+      const characteristics = node.modal['node-characteristics'];
 
       expect(characteristics).toBeDefined();
       const groupKeys = Object.keys(characteristics.groups);
@@ -221,10 +225,10 @@ describe('InPersonExamConfig modal-exam components', () => {
     });
 
     it('should have all common-skin-findings options without abnormal: false', () => {
-      const csf = skinAbnormal['common-skin-findings'] as ExamCardModalExamComponent;
+      const csf = skinAbnormal['common-skin-findings'] as ExamCardCheckboxWithModalComponent;
       const violations: string[] = [];
 
-      for (const [sectionKey, section] of Object.entries(csf.sections)) {
+      for (const [sectionKey, section] of Object.entries(csf.modal)) {
         for (const [groupKey, group] of Object.entries(section.groups)) {
           for (const [optKey, option] of Object.entries(group.options)) {
             const opt = option as ExamModalCheckboxOption;
@@ -282,8 +286,8 @@ describe('InPersonExamConfig modal-exam components', () => {
 
     it('should have L labels ending with " L" and R labels ending with " R"', () => {
       for (const baseName of expectedPairs) {
-        const leftComp = extremitiesAbnormal[`${baseName}-l`] as ExamCardModalExamComponent;
-        const rightComp = extremitiesAbnormal[`${baseName}-r`] as ExamCardModalExamComponent;
+        const leftComp = extremitiesAbnormal[`${baseName}-l`] as ExamCardCheckboxWithModalComponent;
+        const rightComp = extremitiesAbnormal[`${baseName}-r`] as ExamCardCheckboxWithModalComponent;
 
         expect(leftComp.label).toMatch(/ L$/);
         expect(rightComp.label).toMatch(/ R$/);

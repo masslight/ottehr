@@ -118,7 +118,7 @@ export function getAllExamFieldsMetadata(isInPersonAppointment?: boolean): (Exam
             bodySite: option.bodySite,
           });
         });
-      } else if (component.type === 'modal-exam') {
+      } else if (component.type === 'checkbox-with-modal') {
         observations.push({
           field: fieldName,
           value: component.defaultValue || false,

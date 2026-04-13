@@ -24,9 +24,17 @@
  *     cw-paronychia, cw-poison-ivy-contact-dermatitis, cw-tinea-capitis, cw-pityriasis-rosea, cw-lyme-ecm
  */
 
-type ModalExamOption = { label: string; defaultValue: boolean; abnormal?: boolean };
-type ModalExamGroup = { label: string; options: Record<string, ModalExamOption> };
-type ModalExamSection = { label: string; groups: Record<string, ModalExamGroup> };
+import { ExamCardCheckboxWithModalComponent } from 'config-types';
+import {
+  ExamItemConfig,
+  ExamModalCheckboxOption,
+  ExamModalOptionGroup,
+  ExamModalSection,
+} from 'config-types/config/examination';
+
+// type ModalExamOption = { label: string; defaultValue: boolean; abnormal?: boolean };
+// type ModalExamGroup = { label: string; options: Record<string, ModalExamOption> };
+// type ModalExamSection = { label: string; groups: Record<string, ModalExamGroup> };
 
 const NORMAL_LABELS = new Set([
   'Normal',
@@ -47,26 +55,21 @@ const NORMAL_LABELS = new Set([
   'All non-tender',
 ]);
 
-function opt(label: string, defaultValue = false): ModalExamOption {
+function opt(label: string, defaultValue = false): ExamModalCheckboxOption {
   return { label, defaultValue, abnormal: !NORMAL_LABELS.has(label) };
 }
 
-type SpecialTestsBuilder = (k: (suffix: string) => string) => Record<string, ModalExamGroup>;
+type SpecialTestsBuilder = (k: (suffix: string) => string) => Record<string, ExamModalOptionGroup>;
 
 function createExtremityModalExam(
   partKey: string,
   partLabel: string,
   specialTestsBuilder?: SpecialTestsBuilder,
-  inspectionPrefixBuilder?: (k: (suffix: string) => string) => Record<string, ModalExamGroup>
-): {
-  label: string;
-  defaultValue: boolean;
-  type: 'modal-exam';
-  sections: Record<string, ModalExamSection>;
-} {
+  inspectionPrefixBuilder?: (k: (suffix: string) => string) => Record<string, ExamModalOptionGroup>
+): ExamCardCheckboxWithModalComponent {
   const k = (suffix: string): string => `${partKey}-${suffix}`;
   const prefixGroups = inspectionPrefixBuilder ? inspectionPrefixBuilder(k) : {};
-  const sections: Record<string, ModalExamSection> = {
+  const modal: Record<string, ExamModalSection> = {
     inspection: {
       label: 'Inspection',
       groups: {
@@ -215,7 +218,7 @@ function createExtremityModalExam(
     },
   };
   if (specialTestsBuilder) {
-    sections['special-tests'] = {
+    modal['special-tests'] = {
       label: 'Special Tests',
       groups: specialTestsBuilder(k),
     };
@@ -223,8 +226,8 @@ function createExtremityModalExam(
   return {
     label: partLabel,
     defaultValue: false,
-    type: 'modal-exam' as const,
-    sections,
+    type: 'checkbox-with-modal' as const,
+    modal,
   };
 }
 
@@ -381,7 +384,7 @@ const handWristSpecialTests: SpecialTestsBuilder = (k) => ({
   },
 });
 
-const fingerInspectionPrefix: (k: (suffix: string) => string) => Record<string, ModalExamGroup> = (k) => ({
+const fingerInspectionPrefix: (k: (suffix: string) => string) => Record<string, ExamModalOptionGroup> = (k) => ({
   'fingers-affected': {
     label: 'Finger(s) affected',
     options: {
@@ -693,21 +696,13 @@ const footToeSpecialTests: SpecialTestsBuilder = (k) => ({
   },
 });
 
-function createLymphNodeModalExam(
-  nodeKey: string,
-  nodeLabel: string
-): {
-  label: string;
-  defaultValue: boolean;
-  type: 'modal-exam';
-  sections: Record<string, ModalExamSection>;
-} {
+function createLymphNodeModalExam(nodeKey: string, nodeLabel: string): ExamCardCheckboxWithModalComponent {
   const k = (suffix: string): string => `${nodeKey}-${suffix}`;
   return {
     label: nodeLabel,
     defaultValue: false,
-    type: 'modal-exam' as const,
-    sections: {
+    type: 'checkbox-with-modal' as const,
+    modal: {
       status: {
         label: 'Status',
         groups: {
@@ -779,7 +774,7 @@ function createLymphNodePair(
   };
 }
 
-export const InPersonExamConfig = {
+export const InPersonExamConfig: ExamItemConfig = {
   general: {
     label: 'General Appearance',
     components: {
@@ -977,8 +972,8 @@ export const InPersonExamConfig = {
         'external-nose': {
           label: 'External nose',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             'external-nose': {
               label: 'External Nose',
               groups: {
@@ -1014,8 +1009,8 @@ export const InPersonExamConfig = {
         'anterior-rhinoscopy-l': {
           label: 'Anterior rhinoscopy L',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             rhinoscopy: {
               label: 'Anterior Rhinoscopy',
               groups: {
@@ -1077,8 +1072,8 @@ export const InPersonExamConfig = {
         'anterior-rhinoscopy-r': {
           label: 'Anterior rhinoscopy R',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             rhinoscopy: {
               label: 'Anterior Rhinoscopy',
               groups: {
@@ -1140,8 +1135,8 @@ export const InPersonExamConfig = {
         epistaxis: {
           label: 'Epistaxis',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             epistaxis: {
               label: 'Epistaxis',
               groups: {
@@ -1175,8 +1170,8 @@ export const InPersonExamConfig = {
         'sinus-tenderness': {
           label: 'Sinus tenderness',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             'sinus-tenderness': {
               label: 'Sinus Tenderness',
               groups: {
@@ -1280,7 +1275,7 @@ export const InPersonExamConfig = {
       },
       abnormal: {
         ...createLymphNodePair('anterior-cervical', 'Anterior cervical'),
-        ...createLymphNodePair('posterior-cervical', 'Posterior cervical'),
+        ...createLymphNodePair('posterior-cervical', 'Posterior cervicalllll'),
         ...createLymphNodePair('submandibular', 'Submandibular'),
         ...createLymphNodePair('supraclavicular', 'Supraclavicular'),
         'lymph-submental': createLymphNodeModalExam('lymph-submental', 'Submental'),
@@ -1301,8 +1296,8 @@ export const InPersonExamConfig = {
         'common-skin-findings': {
           label: 'Common skin findings',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             'adult-findings': {
               label: 'Common Findings',
               groups: {
@@ -1515,8 +1510,8 @@ export const InPersonExamConfig = {
         'skin-location': {
           label: 'Location',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             location: {
               label: 'Location(s)',
               groups: {
@@ -1571,8 +1566,8 @@ export const InPersonExamConfig = {
         'skin-lesion-characteristics': {
           label: 'Lesion characteristics',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             characteristics: {
               label: 'Lesion Characteristics',
               groups: {
@@ -1642,8 +1637,8 @@ export const InPersonExamConfig = {
         'skin-wound-laceration': {
           label: 'Wound / laceration',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             wound: {
               label: 'Wound / Laceration',
               groups: {
@@ -1698,8 +1693,8 @@ export const InPersonExamConfig = {
         'skin-abscess-cellulitis': {
           label: 'Abscess / cellulitis',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             abscess: {
               label: 'Abscess / Cellulitis',
               groups: {
@@ -1744,8 +1739,8 @@ export const InPersonExamConfig = {
         'skin-burn': {
           label: 'Burn',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             burn: {
               label: 'Burn',
               groups: {
@@ -1779,8 +1774,8 @@ export const InPersonExamConfig = {
         'skin-bite-sting': {
           label: 'Bite / sting',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             bite: {
               label: 'Bite / Sting',
               groups: {
@@ -1839,8 +1834,8 @@ export const InPersonExamConfig = {
         'skin-associated-findings': {
           label: 'Associated findings',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             associated: {
               label: 'Associated Findings',
               groups: {
@@ -1860,8 +1855,8 @@ export const InPersonExamConfig = {
         'skin-distribution': {
           label: 'Distribution pattern',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             distribution: {
               label: 'Distribution Pattern',
               groups: {
@@ -1919,8 +1914,8 @@ export const InPersonExamConfig = {
         'murmur-grade': {
           label: 'Murmur',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             murmur: {
               label: 'Murmur',
               groups: {
@@ -2033,8 +2028,8 @@ export const InPersonExamConfig = {
         wheezing: {
           label: 'Wheezing',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             wheezing: {
               label: 'Wheezing',
               groups: {
@@ -2055,8 +2050,8 @@ export const InPersonExamConfig = {
         crackles: {
           label: 'Crackles',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             crackles: {
               label: 'Crackles',
               groups: {
@@ -2077,8 +2072,8 @@ export const InPersonExamConfig = {
         'breath-sounds': {
           label: 'Decreased breath sounds',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             'breath-sounds': {
               label: 'Decreased Breath Sounds',
               groups: {
@@ -2099,8 +2094,8 @@ export const InPersonExamConfig = {
         retractions: {
           label: 'Retractions',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             retractions: {
               label: 'Retractions',
               groups: {
@@ -2168,8 +2163,8 @@ export const InPersonExamConfig = {
         tender: {
           label: 'Tender',
           defaultValue: false,
-          type: 'modal-exam' as const,
-          sections: {
+          type: 'checkbox-with-modal' as const,
+          modal: {
             tender: {
               label: 'Tender',
               groups: {

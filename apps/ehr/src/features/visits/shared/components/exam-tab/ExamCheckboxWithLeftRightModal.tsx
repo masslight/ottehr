@@ -18,26 +18,32 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import type { ExamCardModalExamComponent } from 'config-types';
+import type { ExamCardCheckboxWithModalComponent } from 'config-types';
 import { FC, useCallback, useMemo, useState } from 'react';
-import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
-import { ExamObservationComponentDTO } from 'utils';
-import { buildAbnormalMap, buildAllOptions, buildDescriptionMap } from './exam-modal-helpers';
+import { Delete, Update, useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
+import { ExamObservationComponentDTO, ExamObservationDTO } from 'utils';
+import { BORDER_STYLE, buildAbnormalMap, buildAllOptions, buildDescriptionMap } from './exam-modal-helpers';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
-type ExamPairedModalCheckboxProps = {
+type ExamCheckboxWithLeftRightModalProps = {
   label: string;
   baseName: string;
   leftName: string;
   rightName: string;
-  leftConfig: ExamCardModalExamComponent;
-  rightConfig: ExamCardModalExamComponent;
+  leftConfig: ExamCardCheckboxWithModalComponent;
+  rightConfig: ExamCardCheckboxWithModalComponent;
   abnormal?: boolean;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function useSideState(name: string) {
-  const { value: field, update, delete: deleteField, isLoading } = useExamObservations(name);
+function useSideState(name: string): {
+  field: ExamObservationDTO;
+  updateField: Update;
+  deleteField: Delete;
+  isLoading: boolean;
+  componentMap: Record<string, boolean>;
+  hasAnySelected: boolean;
+} {
+  const { value: field, update: updateField, delete: deleteField, isLoading } = useExamObservations(name);
 
   const componentMap = useMemo(() => {
     const map: Record<string, boolean> = {};
@@ -49,10 +55,10 @@ function useSideState(name: string) {
 
   const hasAnySelected = Object.keys(componentMap).length > 0;
 
-  return { field, update, deleteField, isLoading, componentMap, hasAnySelected };
+  return { field, updateField, deleteField, isLoading, componentMap, hasAnySelected };
 }
 
-export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
+export const ExamCheckboxWithLeftRightModal: FC<ExamCheckboxWithLeftRightModalProps> = ({
   label,
   baseName,
   leftName,
@@ -63,7 +69,6 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const theme = useTheme();
-  const border = '1px solid rgba(224, 224, 224, 1)';
 
   const base = useSideState(baseName);
   const left = useSideState(leftName);
@@ -157,17 +162,17 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
 
     if (dL) {
       if (leftHasSelections) {
-        left.update({ ...leftField, value: true, components: dL });
+        left.updateField({ ...leftField, value: true, components: dL });
       } else if (leftField.resourceId) {
-        left.update({ ...leftField, value: false, components: [] });
+        left.updateField({ ...leftField, value: false, components: [] });
       }
     }
 
     if (dR) {
       if (rightHasSelections) {
-        right.update({ ...rightField, value: true, components: dR });
+        right.updateField({ ...rightField, value: true, components: dR });
       } else if (rightField.resourceId) {
-        right.update({ ...rightField, value: false, components: [] });
+        right.updateField({ ...rightField, value: false, components: [] });
       }
     }
 
@@ -179,7 +184,7 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
 
   const onCheckboxChange = (value: boolean): void => {
     if (value) {
-      base.update({ ...base.field, value: true });
+      base.updateField({ ...base.field, value: true });
     } else if (hasAnySelected) {
       handleOpenModal();
     } else {
@@ -190,7 +195,7 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
   };
 
   // Build section keys from left config (left and right share the same sections)
-  const sectionEntries = Object.entries(leftConfig.sections);
+  const sectionEntries = Object.entries(leftConfig.modal);
 
   return (
     <Box>
@@ -254,7 +259,7 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
             backgroundColor: alpha(theme.palette.primary.main, 0.05),
             color: theme.palette.primary.dark,
             fontWeight: 600,
-            borderBottom: border,
+            borderBottom: BORDER_STYLE,
             py: 1.5,
           }}
         >
@@ -264,14 +269,14 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: 0 }}>
-          <TableContainer component={Paper} elevation={0} sx={{ border }}>
+          <TableContainer component={Paper} elevation={0} sx={{ BORDER_STYLE }}>
             <Table
               size="small"
               sx={{
                 tableLayout: 'fixed',
                 '& .MuiTableCell-root': {
-                  borderRight: border,
-                  borderBottom: border,
+                  borderRight: BORDER_STYLE,
+                  borderBottom: BORDER_STYLE,
                 },
                 '& .MuiTableBody-root .MuiTableRow-root:last-child .MuiTableCell-root': {
                   borderBottom: 'none',
@@ -315,7 +320,7 @@ export const ExamPairedModalCheckbox: FC<ExamPairedModalCheckboxProps> = ({
               </TableHead>
               <TableBody>
                 {sectionEntries.map(([sectionKey, section]) => {
-                  const rightSection = rightConfig.sections[sectionKey];
+                  const rightSection = rightConfig.modal[sectionKey];
                   return (
                     <TableRow key={sectionKey} sx={{ '& .MuiTableCell-root': { verticalAlign: 'top' } }}>
                       <TableCell

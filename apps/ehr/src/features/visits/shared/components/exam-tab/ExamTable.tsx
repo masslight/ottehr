@@ -11,16 +11,16 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import type { ExamCardComponent, ExamCardModalExamComponent, ExamItemConfig } from 'config-types';
+import type { ExamCardCheckboxWithModalComponent, ExamCardComponent, ExamItemConfig } from 'config-types';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ControlledCheckboxSelect } from './ControlledCheckboxSelect';
 import { ControlledExamCheckbox } from './ControlledExamCheckbox';
 import { ControlledExamCheckboxDropdown } from './ControlledExamCheckboxDropdown';
+import { ExamCheckboxWithLeftRightModal } from './ExamCheckboxWithLeftRightModal';
+import { ExamCheckboxWithModal } from './ExamCheckboxWithModal';
 import { ExamCommentField } from './ExamCommentField';
 import { ExamForm } from './ExamForm';
-import { ExamModalCheckbox } from './ExamModalCheckbox';
-import { ExamPairedModalCheckbox } from './ExamPairedModalCheckbox';
 
 type ExamTableProps = {
   examConfig: ExamItemConfig;
@@ -141,25 +141,26 @@ const ExamTableCellComponent: FC<{
           result.push(renderSingleElement(currentKey, currentElement));
           i++;
         }
-      } else if (currentElement.type === 'modal-exam') {
-        // Pair consecutive modal-exam items into two-column rows when they form L/R pairs
+      } else if (currentElement.type === 'checkbox-with-modal') {
+        // Pair consecutive checkbox-with-modal items into two-column rows when they form L/R pairs
         const nextKey = elementKeys[i + 1];
         const nextElement = nextKey ? elements[nextKey] : undefined;
+        // todo sarah theres probably a better way to discern if its a left/right pair
         const isLRPair =
-          nextElement?.type === 'modal-exam' &&
+          nextElement?.type === 'checkbox-with-modal' &&
           ((currentKey.endsWith('-l') && nextKey.endsWith('-r')) ||
             (currentKey.endsWith('-r') && nextKey.endsWith('-l')));
         if (isLRPair) {
           const leftKey = currentKey.endsWith('-l') ? currentKey : nextKey;
           const rightKey = currentKey.endsWith('-r') ? currentKey : nextKey;
-          const leftElem = elements[leftKey] as ExamCardModalExamComponent;
-          const rightElem = elements[rightKey] as ExamCardModalExamComponent;
+          const leftElem = elements[leftKey] as ExamCardCheckboxWithModalComponent;
+          const rightElem = elements[rightKey] as ExamCardCheckboxWithModalComponent;
           // Derive label from the left config, stripping the " L" suffix
           const baseLabel = leftElem.label.replace(/\s+L$/, '');
 
           result.push(
             <Box key={`modal-combined-${i}`} data-testid={`exam-component-paired-modal-${leftKey.replace(/-l$/, '')}`}>
-              <ExamPairedModalCheckbox
+              <ExamCheckboxWithLeftRightModal
                 label={baseLabel}
                 baseName={leftKey.replace(/-l$/, '')}
                 leftName={leftKey}
@@ -242,10 +243,10 @@ const ExamTableCellComponent: FC<{
           <ExamForm form={element} abnormal={abnormal} />
         </Box>
       );
-    } else if (element.type === 'modal-exam') {
+    } else if (element.type === 'checkbox-with-modal') {
       return (
-        <Box key={key} data-testid={`exam-component-modal-exam-${key}`}>
-          <ExamModalCheckbox name={key} config={element} abnormal={abnormal} />
+        <Box key={key} data-testid={`exam-component-checkbox-with-modal-${key}`}>
+          <ExamCheckboxWithModal name={key} config={element} abnormal={abnormal} />
         </Box>
       );
     }

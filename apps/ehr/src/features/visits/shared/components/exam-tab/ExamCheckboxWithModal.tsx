@@ -18,28 +18,26 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import type { ExamCardModalExamComponent } from 'config-types';
+import type { ExamCardCheckboxWithModalComponent } from 'config-types';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import { ExamObservationComponentDTO } from 'utils';
-import { buildAbnormalMap, buildAllOptions, buildDescriptionMap } from './exam-modal-helpers';
+import { BORDER_STYLE, buildAbnormalMap, buildAllOptions, buildDescriptionMap } from './exam-modal-helpers';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
-type ExamModalCheckboxProps = {
+type ExamCheckboxWithModalProps = {
   name: string;
-  config: ExamCardModalExamComponent;
+  config: ExamCardCheckboxWithModalComponent;
   abnormal?: boolean;
 };
 
-export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, abnormal }) => {
+export const ExamCheckboxWithModal: FC<ExamCheckboxWithModalProps> = ({ name, config, abnormal }) => {
   const [open, setOpen] = useState(false);
   const theme = useTheme();
-  const { value: field, update, delete: deleteField, isLoading } = useExamObservations(name);
+  const { value: field, update: updateField, delete: deleteField, isLoading } = useExamObservations(name);
 
   // Local draft of components while modal is open — avoids saving on every click
   const [draftComponents, setDraftComponents] = useState<ExamObservationComponentDTO[] | null>(null);
-
-  const border = '1px solid rgba(224, 224, 224, 1)';
 
   const allOptions = useMemo(() => buildAllOptions(config), [config]);
 
@@ -84,7 +82,7 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
 
   const onCheckboxChange = (value: boolean): void => {
     if (value) {
-      update({ ...field, value: true });
+      updateField({ ...field, value: true });
     } else if (hasAnySubSelected) {
       handleOpenModal();
     } else if (field.resourceId) {
@@ -110,13 +108,13 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
     if (draft) {
       const hasSelections = draft.some((c) => c.value);
       if (hasSelections) {
-        update({
+        updateField({
           ...currentField,
           value: true,
           components: draft,
         });
       } else if (currentField.resourceId) {
-        update({
+        updateField({
           ...currentField,
           value: false,
           components: [],
@@ -124,7 +122,7 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
       }
       // If no selections and no resourceId, nothing to do — field was never saved
     }
-  }, [draftComponents, field, update]);
+  }, [draftComponents, field, updateField]);
 
   return (
     <Box>
@@ -170,7 +168,7 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
             backgroundColor: alpha(theme.palette.primary.main, 0.05),
             color: theme.palette.primary.dark,
             fontWeight: 600,
-            borderBottom: border,
+            borderBottom: BORDER_STYLE,
             py: 1.5,
           }}
         >
@@ -185,14 +183,14 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
           </Typography>
         )}
         <DialogContent sx={{ p: 0 }}>
-          <TableContainer component={Paper} elevation={0} sx={{ border }}>
+          <TableContainer component={Paper} elevation={0} sx={{ BORDER_STYLE }}>
             <Table
               size="small"
               sx={{
                 tableLayout: 'fixed',
                 '& .MuiTableCell-root': {
-                  borderRight: border,
-                  borderBottom: border,
+                  borderRight: BORDER_STYLE,
+                  borderBottom: BORDER_STYLE,
                 },
                 '& .MuiTableBody-root .MuiTableRow-root:last-child .MuiTableCell-root': {
                   borderBottom: 'none',
@@ -203,7 +201,7 @@ export const ExamModalCheckbox: FC<ExamModalCheckboxProps> = ({ name, config, ab
               }}
             >
               <TableBody>
-                {Object.entries(config.sections).map(([sectionKey, section]) => (
+                {Object.entries(config.modal).map(([sectionKey, section]) => (
                   <TableRow key={sectionKey} sx={{ '& .MuiTableCell-root': { verticalAlign: 'top' } }}>
                     <TableCell
                       sx={{
