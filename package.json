@@ -107,7 +107,11 @@
     "prepare": "husky",
     "spellcheck": "cspell .",
     "merge-payer-addresses": "tsx scripts/merge-payer-addresses.ts config/payers.json scripts/data/payers-addresses.csv config/payers-with-addresses.json scripts/data/payers-addresses-unmatched.csv",
-    "bump-canonical-version": "tsx scripts/config/bump-canonical-version.ts"
+    "bump-canonical-version": "tsx scripts/config/bump-canonical-version.ts",
+    "invite:demo": "tsx scripts/setup/invites/invite-demo-user.ts",
+    "invite:e2e": "tsx scripts/setup/invites/invite-e2e-user.ts",
+    "invite:devs": "tsx scripts/setup/invites/invite-devs.ts",
+    "invite:users": "tsx scripts/setup/invites/invite-users-batch.ts"
   },
   "workspaces": [
     "packages/**/*",
