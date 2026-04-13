@@ -224,7 +224,7 @@ const getFormFields = (
         triggers: [PatientDoesntExistTriggerEnableAndRequire],
       },
       // Single RFV field with display filters, auto-generated from service category config
-      ...buildReasonForVisitFromConfig(serviceCategories)!,
+      ...buildReasonForVisitFromConfig(serviceCategories),
       tellUsMore: {
         key: 'tell-us-more',
         label: 'Tell us more',
@@ -351,10 +351,19 @@ export interface BookingConfig {
   inPersonQuestionnaireCanonical?: CanonicalUrl;
 }
 
-const getBookingDefaults = (): BookingConfig => ({
-  ...BOOKING_DEFAULTS_DATA,
-  formConfig: getFormDefaults(),
-});
+// Cached defaults — built lazily on first access, then reused for all subsequent
+// proxy reads. This preserves referential stability and avoids rebuilding
+// FormFields/formConfig on every BOOKING_CONFIG property access.
+let _bookingDefaults: BookingConfig | undefined;
+const getBookingDefaults = (): BookingConfig => {
+  if (!_bookingDefaults) {
+    _bookingDefaults = Object.freeze({
+      ...BOOKING_DEFAULTS_DATA,
+      formConfig: getFormDefaults(),
+    }) as BookingConfig;
+  }
+  return _bookingDefaults;
+};
 
 /**
  * Get booking configuration with optional test overrides
@@ -370,10 +379,9 @@ export function getBookingConfig(testOverrides?: Partial<BookingConfig>): Bookin
   // so the RFV field's options and display filters stay consistent.
   const merged = mergeAndFreezeConfigObjects(getBookingDefaults(), testOverrides) as BookingConfig;
   if (testOverrides.serviceCategories) {
-    return {
-      ...merged,
+    return mergeAndFreezeConfigObjects(merged, {
       formConfig: getFormDefaults(merged.serviceCategories),
-    };
+    }) as BookingConfig;
   }
   return merged;
 }

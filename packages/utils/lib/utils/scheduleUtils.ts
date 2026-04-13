@@ -1916,15 +1916,11 @@ export const getServiceModeFromSlot = (slot: Slot): ServiceMode | undefined => {
 };
 
 export const getServiceCategoryFromSlot = (slot: Slot): ServiceCategoryCode | undefined => {
+  const knownCategories = BOOKING_CONFIG.serviceCategories.map((sc) => sc.category);
   let serviceCategory: ServiceCategoryCode | undefined;
   (slot.serviceCategory ?? []).forEach((category) => {
     const categoryCoding = category.coding?.[0] ?? {};
-    if (
-      codingContainedInList(
-        categoryCoding,
-        BOOKING_CONFIG.serviceCategories.map((sc) => sc.category)
-      )
-    ) {
+    if (codingContainedInList(categoryCoding, knownCategories)) {
       serviceCategory = categoryCoding.code;
     }
   });

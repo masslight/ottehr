@@ -882,20 +882,14 @@ export const createQuestionnaireFromConfig = (config: QuestionnaireConfigType): 
 };
 
 /**
- * Build a single reason-for-visit form field from service category configs that have reasonsForVisit.
- * Returns null if no category defines reasonsForVisit (fall back to legacy per-category fields).
+ * Build a single reason-for-visit form field from service category configs.
  *
  * The generated field has:
  * - options: deduplicated union of all RFV values across all categories/modes (the full value set)
- * - triggers: enable when appointment-service-category matches any category with reasonsForVisit
+ * - triggers: enable when appointment-service-category matches any category
  * - answerDisplayFilters: one filter per category+mode combo, specifying which options to show
  */
-export const buildReasonForVisitFromConfig = (
-  serviceCategories: ServiceCategoryConfig[]
-): Record<string, unknown> | null => {
-  const categoriesWithRfv = serviceCategories.filter((sc) => sc.reasonsForVisit);
-  if (categoriesWithRfv.length === 0) return null;
-
+export const buildReasonForVisitFromConfig = (serviceCategories: ServiceCategoryConfig[]): Record<string, unknown> => {
   const allOptions = new Map<string, { label: string; value: string }>();
   const displayFilters: {
     conditions: { question: string; operator: string; answer: string }[];
@@ -903,8 +897,8 @@ export const buildReasonForVisitFromConfig = (
   }[] = [];
   const enableTriggers: FormFieldTrigger[] = [];
 
-  for (const sc of categoriesWithRfv) {
-    const rfv = sc.reasonsForVisit!;
+  for (const sc of serviceCategories) {
+    const rfv = sc.reasonsForVisit;
     enableTriggers.push({
       targetQuestionLinkId: 'appointment-service-category',
       effect: ['enable', 'require'],

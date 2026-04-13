@@ -14,6 +14,7 @@ const makeCategory = (
   category: { code, display, system: SERVICE_CATEGORY_SYSTEM },
   serviceModes: ['in-person', 'virtual'],
   visitTypes: ['prebook', 'walk-in'],
+  reasonsForVisit: { default: [] },
   ...overrides,
 });
 
@@ -40,11 +41,6 @@ const makeQuestionnaireConfig = (rfvField: Record<string, unknown>): Questionnai
   }) as QuestionnaireConfigType;
 
 describe('buildReasonForVisitFromConfig', () => {
-  it('returns null when no categories have reasonsForVisit', () => {
-    const categories = [makeCategory('urgent-care', 'Urgent Care'), makeCategory('workers-comp', 'Workers Comp')];
-    expect(buildReasonForVisitFromConfig(categories)).toBeNull();
-  });
-
   it('produces a single reason-for-visit field with correct key and type', () => {
     const categories = [
       makeCategory('urgent-care', 'Urgent Care', {
@@ -97,7 +93,7 @@ describe('buildReasonForVisitFromConfig', () => {
     expect(field.options).toEqual([{ label: 'Injury', value: 'Injury' }]);
   });
 
-  it('generates one enable trigger per category with reasonsForVisit', () => {
+  it('generates one enable trigger per category', () => {
     const categories = [
       makeCategory('urgent-care', 'Urgent Care', {
         reasonsForVisit: { default: [{ label: 'Fever', value: 'Fever' }] },
@@ -105,13 +101,14 @@ describe('buildReasonForVisitFromConfig', () => {
       makeCategory('workers-comp', 'Workers Comp', {
         reasonsForVisit: { default: [{ label: 'Injury', value: 'Injury' }] },
       }),
-      makeCategory('occ-med', 'Occ Med'), // no reasonsForVisit
+      makeCategory('occ-med', 'Occ Med'),
     ];
     const result = buildReasonForVisitFromConfig(categories);
     const field = (result as any).reasonForVisit;
-    expect(field.triggers).toHaveLength(2);
+    expect(field.triggers).toHaveLength(3);
     expect(field.triggers[0].answerString).toBe('urgent-care');
     expect(field.triggers[1].answerString).toBe('workers-comp');
+    expect(field.triggers[2].answerString).toBe('occ-med');
     field.triggers.forEach((t: any) => {
       expect(t.targetQuestionLinkId).toBe('appointment-service-category');
       expect(t.effect).toEqual(['enable', 'require']);

@@ -7,6 +7,7 @@ const makeCategory = (code: string, overrides: Partial<ServiceCategoryConfig> = 
   category: { code, display: code, system: SERVICE_CATEGORY_SYSTEM },
   serviceModes: ['in-person', 'virtual'],
   visitTypes: ['prebook', 'walk-in'],
+  reasonsForVisit: { default: [] },
   ...overrides,
 });
 

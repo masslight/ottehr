@@ -55,13 +55,13 @@ export const ReasonsForVisitByModeSchema = z.object({
 export type ReasonsForVisitByMode = z.infer<typeof ReasonsForVisitByModeSchema>;
 
 /**
- * ServiceCategoryConfig - A service category with its available modes, visit types, and optional RFV options
+ * ServiceCategoryConfig - A service category with its available modes, visit types, and RFV options
  */
 export const ServiceCategoryConfigSchema = z.object({
   category: StrongCodingSchema,
   serviceModes: z.array(z.enum(['in-person', 'virtual'])),
   visitTypes: z.array(z.enum(['prebook', 'walk-in'])),
-  reasonsForVisit: ReasonsForVisitByModeSchema.optional(),
+  reasonsForVisit: ReasonsForVisitByModeSchema,
 });
 
 export type ServiceCategoryConfig = z.infer<typeof ServiceCategoryConfigSchema>;
