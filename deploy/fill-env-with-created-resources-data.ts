@@ -36,7 +36,7 @@ async function main(): Promise<void> {
   // get default billing resource
   const defaultBillingResourceSearch = await oystehr.fhir.search<Organization>({
     resourceType: 'Organization',
-    params: [{ name: 'name', value: 'Default Billing Provider' }],
+    params: [{ name: 'name', value: 'Ottehr Clinic' }],
   });
   const defaultBillingResource = (await defaultBillingResourceSearch.unbundle())[0];
   if (!defaultBillingResource) {

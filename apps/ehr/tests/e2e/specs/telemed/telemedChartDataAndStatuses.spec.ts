@@ -7,10 +7,9 @@ import {
   waitForChartDataDeletion,
   waitForSaveChartDataResponse,
 } from 'test-utils';
-import { expectTelemedTrackingBoard, TelemedTrackingBoardPage } from 'tests/e2e/page/telemed/TelemedTrackingBoardPage';
+import { expectVisitsPage, openVisitsPage } from 'tests/e2e/page/VisitsPage';
 import {
   allLicensesForPractitioner,
-  ApptTelemedTab,
   DATE_FORMAT,
   formatScreeningQuestionValue,
   getAdditionalQuestionsAnswers,
@@ -81,8 +80,6 @@ test.describe.configure({ mode: 'serial' });
 test.describe('Telemed tracking board checks, buttons, chart data filling', () => {
   let page: Page;
   let context: BrowserContext;
-
-  let telemedTrackingBoard: TelemedTrackingBoardPage;
 
   const myPatientsProcessId = `telemedEhrFlow.spec.ts-my-patients-non-mutating-${DateTime.now().toMillis()}`;
   const myPatientsTabAppointmentResources = new ResourceHandler(
@@ -155,53 +152,11 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
     ]);
   });
 
-  test('Appointments should appear correctly in telemed tracking board tabs', async () => {
-    await page.goto(`telemed/appointments`);
-    telemedTrackingBoard = await expectTelemedTrackingBoard(page);
-
-    await test.step("Appointment should appear correctly in 'all patients' tab.", async () => {
-      await telemedTrackingBoard.clickAllPatientsTab();
-      await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
-
-      await telemedTrackingBoard.expectAppointment(otherPatientsTabAppointmentResources.appointment.id!);
-    });
-
-    await test.step("Appointment should appear correctly in 'my patients' tab.", async () => {
-      await telemedTrackingBoard.clickMyPatientsTab();
-      await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
-
-      await telemedTrackingBoard.expectAppointment(myPatientsTabAppointmentResources.appointment.id!);
-    });
-  });
-
-  test('Appointment has location label and is in a relevant location group', async () => {
-    const appointmentId = myPatientsTabAppointmentResources.appointment.id;
-    const appointmentRow = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(appointmentId!));
-
-    const locationGroup = await appointmentRow.getAttribute('data-location-group');
-
-    expect(locationGroup?.toLowerCase()).toEqual(testsUserQualificationState.toLowerCase());
-  });
-
-  test('All appointments in my-patients section has appropriate assign buttons', async () => {
-    const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
-    const allButtonsNames = (await table.getByRole('button').allTextContents()).join(', ');
-    expect(allButtonsNames).not.toEqual(new RegExp('View'));
-  });
-
   test('Appointment is present in tracking board, can be assigned', async () => {
     await test.step('Find and assign my appointment', async () => {
-      const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
-
-      const appointmentRow = table
-        .locator('tbody tr')
-        .filter({ hasText: myPatientsTabAppointmentResources.appointment?.id });
-
-      await expect(
-        appointmentRow.filter({ has: page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton) })
-      ).toBeVisible(DEFAULT_TIMEOUT);
-
-      await appointmentRow.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton).click(DEFAULT_TIMEOUT);
+      const visitsPage = await openVisitsPage(page);
+      await visitsPage.selectLocation(myPatientsTabAppointmentResources.appointmentLocation?.name ?? 'Unknown');
+      await visitsPage.clickAssignButton(myPatientsTabAppointmentResources.appointment.id!);
 
       await telemedDialogConfirm(page);
     });
@@ -221,19 +176,17 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
     });
   });
 
-  test('Assigned appointment should be in "provider" tab', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.closeChartButton).click();
-    await telemedTrackingBoard.openTab(ApptTelemedTab.provider);
-    await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
-    await telemedTrackingBoard.expectAppointment(myPatientsTabAppointmentResources.appointment.id!);
-  });
-
-  test('Unassign appointment, and check in "Ready for provider"', async () => {
-    await telemedTrackingBoard.clickAppointmentRow(myPatientsTabAppointmentResources.appointment.id!);
+  test('Unassign appointment and check buttons on visit page', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign).click();
     await telemedDialogConfirm(page);
-    await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
-    await telemedTrackingBoard.expectAppointment(myPatientsTabAppointmentResources.appointment.id!);
+    const visitsPage = await expectVisitsPage(page);
+    await visitsPage.verifyVisitPresent(myPatientsTabAppointmentResources.appointment.id!);
+    await visitsPage.clickProgressNoteButton(myPatientsTabAppointmentResources.appointment.id!);
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign)).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.cancelThisVisitButton)).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.inviteParticipant)).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.editPatientButtonSideBar)).not.toBeVisible();
   });
 
   // test.skip('Check message for patient', { tag: '@flaky' }, async () => {
@@ -244,16 +197,6 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
   //     'Thank you for your patience. We apologize, but the provider is unexpectedly no longer available. You will receive an update when another provider is available';
   //   await expect(page.getByText(expectedSms).first()).toBeVisible({ timeout: 25000 });
   // });
-
-  test('Buttons on visit page should not appear', async () => {
-    await telemedTrackingBoard.clickAppointmentRow(myPatientsTabAppointmentResources.appointment.id!);
-
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign)).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.cancelThisVisitButton)).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.inviteParticipant)).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.editPatientButtonSideBar)).not.toBeVisible();
-  });
 
   test('Assign my appointment back', async () => {
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
@@ -879,7 +822,6 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
 test.describe('Telemed appointment with two locations (physical and virtual)', () => {
   const PROCESS_ID = `telemedEhrFlow.spec.ts-2-locs-no-appointment-state-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
-  let telemedTrackingBoard: TelemedTrackingBoardPage;
   let location: Location;
   test.beforeAll(async () => {
     location = await createAppointmentWithVirtualAndPhysicalLocations(resourceHandler);
@@ -888,18 +830,9 @@ test.describe('Telemed appointment with two locations (physical and virtual)', (
     await resourceHandler.cleanupResources();
   });
   test('Appointment is present in tracking board and searchable by location filter', async ({ page }) => {
-    await page.goto(`telemed/appointments`);
-    telemedTrackingBoard = await expectTelemedTrackingBoard(page);
-    await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
-    await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelect).locator('input').click();
-    await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelectOption(location.id!)).click();
-
-    await page.waitForLoadState('networkidle', { timeout: 30_000 });
-    await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
-
-    await expect(
-      page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
-    ).toBeVisible({ timeout: 30_000 });
+    const visitsPage = await openVisitsPage(page);
+    await visitsPage.selectLocation(location.name ?? 'Unknown');
+    await visitsPage.verifyVisitPresent(resourceHandler.appointment.id!);
   });
 });
 
