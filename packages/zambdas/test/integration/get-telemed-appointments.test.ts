@@ -175,6 +175,7 @@ describe('get-telemed-appointments integration tests', () => {
 
     const updatedAppt = await oystehr.fhir.update({
       ...addProcessIdMetaTagToResource(createAppointmentResponse.resources.appointment, processId),
+      status: 'arrived',
     });
 
     console.log('  APPOINTMENT UPDATED with processId meta tag');
