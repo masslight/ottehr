@@ -25,9 +25,9 @@ import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as path from 'path';
+import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils';
 
 const PAGE_SIZE = 200;
-const FRIENDLY_PATIENT_ID_SYSTEM_BASE = 'https://identifiers.fhir.oystehr.com/friendly-patient-id';
 
 function loadEnvFile(envName: string): void {
   const filePath = path.resolve(process.cwd(), 'packages/zambdas/.env', `${envName}.json`);

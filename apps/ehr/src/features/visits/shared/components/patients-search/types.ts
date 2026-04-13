@@ -1,3 +1,5 @@
+import type { Patient } from 'fhir/r4b';
+
 export type SortField = 'name' | 'dob';
 export type SortOrder = 'asc' | 'desc';
 
@@ -49,6 +51,8 @@ export interface SearchResultPaginationInfo {
 
 export interface SearchResultParsedPatient {
   id: string;
+  /** From FHIR Patient.identifier; used for friendly PID display. */
+  identifier?: Patient['identifier'];
   pid?: string;
   name: string;
   birthDate?: string;

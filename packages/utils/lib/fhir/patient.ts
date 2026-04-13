@@ -36,6 +36,7 @@ import {
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
   filterResources,
+  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
   getAllPractitionerCredentials,
   getCommunicationsAndSenders,
   getUniquePhonesNumbers,
@@ -835,3 +836,8 @@ export const mapGenderToLabel: { [name in Exclude<Patient['gender'], undefined>]
   other: 'Intersex',
   unknown: 'Unknown',
 };
+
+export function getFriendlyPatientId(patient: Patient, projectId: string): string | undefined {
+  const system = `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/${projectId}`;
+  return patient.identifier?.find((ident) => ident.system === system)?.value;
+}
