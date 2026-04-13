@@ -41,6 +41,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
 
+  // TODO: Once billable follow-up visits are available (with their own Appointment and full visit workflow),
+  // ensure this report includes them as independent visits on their follow-up date.
+  // Currently, follow-up encounters without their own Appointment are excluded from reports.
+
   console.log('Searching for appointments in date range:', dateRange);
 
   // Search for appointments within the date range
