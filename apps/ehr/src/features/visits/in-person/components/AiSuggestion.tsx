@@ -16,6 +16,8 @@ import {
 } from '@mui/material';
 import { DocumentReference } from 'fhir/r4b';
 import React, { useCallback, useMemo, useState } from 'react';
+import { icd10Search } from 'src/api/api';
+import { HospitalizationOptions } from 'src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
 import { AiSectionHeader } from 'src/features/visits/shared/components/AiSection';
 import { getSource } from 'src/features/visits/shared/components/OttehrAi';
 import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
@@ -23,7 +25,10 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AiObservationField,
   AllergyDTO,
+  CPTCodeDTO,
   GetChartDataResponse,
+  HospitalizationDTO,
+  MedicalConditionDTO,
   MedicationDTO,
   ObservationTextFieldDTO,
   ProcedureSuggestion,
@@ -31,11 +36,45 @@ import {
 
 interface SearchResult {
   id?: number;
+  code?: string;
   name: string;
   strength?: string;
 }
 
-type HighlightFieldType = 'medications' | 'allergies' | null;
+const SURGICAL_HISTORY_OPTIONS: CPTCodeDTO[] = [
+  { display: 'Adenoidectomy', code: '42830' },
+  { display: 'Appendectomy', code: '44950' },
+  { display: 'C-section', code: '59510' },
+  { display: 'Circumcision', code: '54150' },
+  { display: 'Cleft Lip/Palate Repair', code: '42200' },
+  { display: 'Cyst removed', code: '97139' },
+  { display: 'Dental/Oral Surgery', code: '41899' },
+  { display: 'Ear tube placement', code: '69436' },
+  { display: 'Elbow/Hand/Arm Surgery', code: '24999' },
+  { display: 'Feeding tube', code: '43246' },
+  { display: 'Foot/Ankle Surgery', code: '27899' },
+  { display: 'Frenotomy', code: '41010' },
+  { display: 'Gallbladder removal', code: '47600' },
+  { display: 'Heart/Cardiac surgery', code: '33999' },
+  { display: 'Hemangioma', code: '17106' },
+  { display: 'Hernia Repair', code: '49617' },
+  { display: 'Hydrocele Repair', code: '55060' },
+  { display: 'Hypospadias repair', code: '53450' },
+  { display: 'Kidney surgery', code: '50540' },
+  { display: 'Knee Surgery', code: '29850' },
+  { display: 'Orchiectomy (Testicle Removal)', code: '54520' },
+  { display: 'Other Eye surgery', code: '65799' },
+  { display: 'Pyloromyotomy', code: '67599' },
+  { display: 'Sinus surgery', code: '43520' },
+  { display: 'Splenectomy', code: '31299' },
+  { display: 'Tear Duct Eye surgery', code: '38100' },
+  { display: 'Tonsillectomy and adenoidectomy', code: '68899' },
+  { display: 'Undescended Testicle Repair', code: '42820' },
+  { display: 'Ventriculoperitoneal shunt placement', code: '54640' },
+  { display: 'Wisdom teeth removal', code: '75809' },
+];
+
+type HighlightFieldType = 'medications' | 'allergies' | 'conditions' | 'surgicalHistory' | 'episodeOfCare' | null;
 
 export interface AiSuggestionProps {
   title: string;
@@ -57,10 +96,15 @@ export default function AiSuggestion({
   const { oystehr } = useApiClients();
   const theme = useTheme();
 
+  const { oystehrZambda } = useApiClients();
+
   const highlightFieldType: HighlightFieldType = useMemo(() => {
     const field = content?.[0]?.field;
     if (field === AiObservationField.MedicationsHistory || field === AiObservationField.eRX) return 'medications';
     if (field === AiObservationField.Allergies) return 'allergies';
+    if (field === AiObservationField.PastMedicalHistory) return 'conditions';
+    if (field === AiObservationField.PastSurgicalHistory) return 'surgicalHistory';
+    if (field === AiObservationField.HospitalizationsHistory) return 'episodeOfCare';
     return null;
   }, [content]);
 
@@ -71,6 +115,9 @@ export default function AiSuggestion({
   });
 
   const { onSubmit: addAllergy } = useChartDataArrayValue('allergies');
+  const { onSubmit: addCondition } = useChartDataArrayValue('conditions');
+  const { onSubmit: addSurgicalHistory } = useChartDataArrayValue('surgicalHistory', undefined, {});
+  const { onSubmit: addHospitalization } = useChartDataArrayValue('episodeOfCare', undefined, {});
 
   function getDocumentReferenceSource(
     observation: ObservationTextFieldDTO,
@@ -102,14 +149,23 @@ export default function AiSuggestion({
         setSearchLoading(true);
         setSearchResults([]);
         try {
-          if (oystehr) {
-            if (fieldType === 'medications') {
-              const results = await oystehr.erx.searchMedications({ name: item });
-              setSearchResults(results);
-            } else if (fieldType === 'allergies') {
-              const results = await oystehr.erx.searchAllergens({ name: item });
-              setSearchResults(results);
-            }
+          if (fieldType === 'medications' && oystehr) {
+            const results = await oystehr.erx.searchMedications({ name: item });
+            setSearchResults(results);
+          } else if (fieldType === 'allergies' && oystehr) {
+            const results = await oystehr.erx.searchAllergens({ name: item });
+            setSearchResults(results);
+          } else if (fieldType === 'conditions' && oystehrZambda) {
+            const response = await icd10Search(oystehrZambda, { search: item });
+            setSearchResults((response.codes || []).map((c) => ({ name: c.display, code: c.code })));
+          } else if (fieldType === 'surgicalHistory') {
+            const term = item.toLowerCase();
+            const matches = SURGICAL_HISTORY_OPTIONS.filter((o) => o.display.toLowerCase().includes(term));
+            setSearchResults(matches.map((m) => ({ name: m.display, code: m.code })));
+          } else if (fieldType === 'episodeOfCare') {
+            const term = item.toLowerCase();
+            const matches = HospitalizationOptions.filter((o) => o.display.toLowerCase().includes(term));
+            setSearchResults(matches.map((m) => ({ name: m.display, code: m.code })));
           }
         } catch (err) {
           console.error('Search failed:', err);
@@ -151,6 +207,23 @@ export default function AiSuggestion({
               current: true,
               lastUpdated: new Date().toISOString(),
             } as AllergyDTO);
+          } else if (fieldType === 'conditions') {
+            await addCondition({
+              code: result.code,
+              display: result.name,
+              current: true,
+              lastUpdated: new Date().toISOString(),
+            } as MedicalConditionDTO);
+          } else if (fieldType === 'surgicalHistory') {
+            await addSurgicalHistory({
+              code: result.code,
+              display: result.name,
+            } as CPTCodeDTO);
+          } else if (fieldType === 'episodeOfCare') {
+            await addHospitalization({
+              code: result.code,
+              display: result.name,
+            } as HospitalizationDTO);
           }
         } catch (err) {
           console.error('Failed to add item:', err);
