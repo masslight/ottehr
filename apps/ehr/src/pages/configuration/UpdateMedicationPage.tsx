@@ -1,6 +1,7 @@
 import { LoadingButton } from '@mui/lab';
 import { Autocomplete, debounce, Grid, Paper, TextField, Typography } from '@mui/material';
 import { Medication } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
@@ -136,8 +137,10 @@ export default function UpdateMedicationPage(): ReactElement {
         cptCodes: finalCptCodes,
         hcpcsCodes: finalHcpcsCodes,
       });
+      enqueueSnackbar('Medication updated successfully', { variant: 'success' });
     } catch (error) {
       console.log('Error updating medication', error);
+      enqueueSnackbar('Failed to update medication', { variant: 'error' });
     }
     setLoading(false);
   }
@@ -154,8 +157,14 @@ export default function UpdateMedicationPage(): ReactElement {
         status,
       });
       setStatus(medicationTemp.status || '');
+      enqueueSnackbar(status === 'active' ? 'Medication activated successfully' : 'Medication removed successfully', {
+        variant: 'success',
+      });
     } catch (error) {
       console.log('Error updating medication', error);
+      enqueueSnackbar(status === 'active' ? 'Failed to activate medication' : 'Failed to remove medication', {
+        variant: 'error',
+      });
     }
     setLoading(false);
   }
