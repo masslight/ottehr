@@ -125,21 +125,40 @@ function buildLineItems(
   const items: LineItem[] = [];
 
   for (const cpt of allCodes) {
+    const cptModifier = cpt.modifier?.[0]?.code;
+    let fallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
+
     for (const pg of feeSchedule.propertyGroup) {
       const pc = pg.priceComponent?.[0];
       if (!pc) continue;
       const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
       if (!fsCoding || fsCoding.code !== cpt.code) continue;
       const fsModifier = pc.extension?.find((ext) => ext.url === CPT_MODIFIER_EXTENSION_URL)?.valueCode;
-      const cptModifier = cpt.modifier?.[0]?.code;
-      if ((fsModifier || '') !== (cptModifier || '')) continue;
+      if ((fsModifier || '') === (cptModifier || '')) {
+        // Exact code + modifier match — use it immediately
+        items.push({
+          code: cpt.code,
+          modifier: cptModifier,
+          description: cpt.display || fsCoding.display || '',
+          amount: pc.amount?.value ?? 0,
+        });
+        fallbackPg = undefined;
+        break;
+      }
+      if (!fallbackPg) fallbackPg = pg;
+    }
+
+    // No exact match found — fall back to first entry with matching code
+    if (fallbackPg) {
+      const pc = fallbackPg.priceComponent![0];
+      const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
+      const fsModifier = pc.extension?.find((ext) => ext.url === CPT_MODIFIER_EXTENSION_URL)?.valueCode;
       items.push({
         code: cpt.code,
-        modifier: cptModifier,
-        description: cpt.display || fsCoding.display || '',
+        modifier: fsModifier || cptModifier,
+        description: cpt.display || fsCoding?.display || '',
         amount: pc.amount?.value ?? 0,
       });
-      break;
     }
   }
 
