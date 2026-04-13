@@ -32,6 +32,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
+import { TrackingBoardTableButton } from 'src/features/visits/telemed/components/tracking-board/TrackingBoardTableButton';
+import { getTelemedAppointmentUrl } from 'src/features/visits/telemed/utils/routing';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
@@ -40,6 +42,7 @@ import {
   getDurationOfStatus,
   getInPersonQuickTexts,
   getPatchBinary,
+  getTelemedVisitStatus,
   getVisitTotalTime,
   GetVitalsResponseData,
   InPersonAppointmentInformation,
@@ -77,7 +80,6 @@ const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 interface AppointmentTableRowProps {
   appointment: InPersonAppointmentInformation;
   location?: LocationWithWalkinSchedule;
-  actionButtons: boolean;
   now: DateTime;
   tab: ApptTab;
   updateAppointments: () => void;
@@ -170,7 +172,6 @@ const getIsLongWaitTime = (
 export default function AppointmentTableRow({
   appointment,
   location,
-  actionButtons,
   now,
   tab,
   updateAppointments,
@@ -581,7 +582,10 @@ export default function AppointmentTableRow({
   };
 
   const renderStartIntakeButton = (): ReactElement | undefined => {
-    if (appointment.status === 'arrived' || appointment.status === 'ready' || appointment.status === 'intake') {
+    if (
+      !isVirtual(appointment) &&
+      (appointment.status === 'arrived' || appointment.status === 'ready' || appointment.status === 'intake')
+    ) {
       return (
         <GoToButton
           text="Start Intake"
@@ -596,10 +600,37 @@ export default function AppointmentTableRow({
     return undefined;
   };
 
+  const renderAssignMeButton = (): ReactElement | undefined => {
+    const location = appointment.location;
+    if (isVirtual(appointment) && location?.id) {
+      return (
+        <TrackingBoardTableButton
+          appointment={{
+            ...appointment,
+            telemedStatus: getTelemedVisitStatus(encounter.status, appointment.status) ?? 'ready',
+            locationVirtual: {
+              reference: `Location/${location.id}`,
+              name: location.name,
+              state: location.address?.state,
+              resourceType: 'Location',
+              id: location.id,
+              extension: location.extension,
+            },
+          }}
+        />
+      );
+    }
+    return undefined;
+  };
+
   const handleProgressNoteButton = async (): Promise<void> => {
     setProgressNoteButtonLoading(true);
     try {
-      navigate(`/in-person/${appointment.id}/${ROUTER_PATH.REVIEW_AND_SIGN}`);
+      if (isVirtual(appointment)) {
+        navigate(getTelemedAppointmentUrl(appointment.id));
+      } else {
+        navigate(`/in-person/${appointment.id}/${ROUTER_PATH.REVIEW_AND_SIGN}`);
+      }
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
@@ -609,11 +640,13 @@ export default function AppointmentTableRow({
 
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
-      appointment.status === 'ready for provider' ||
-      appointment.status === 'provider' ||
-      appointment.status === 'awaiting supervisor approval' ||
-      appointment.status === 'completed' ||
-      appointment.status === 'discharged'
+      (!isVirtual(appointment) &&
+        (appointment.status === 'ready for provider' ||
+          appointment.status === 'provider' ||
+          appointment.status === 'awaiting supervisor approval' ||
+          appointment.status === 'completed' ||
+          appointment.status === 'discharged')) ||
+      isVirtual(appointment)
     ) {
       return (
         <GoToButton
@@ -728,6 +761,28 @@ export default function AppointmentTableRow({
     return undefined;
   };
 
+  const renderArrivedButton = (): ReactElement | undefined => {
+    if (tab === 'prebooked' && !isVirtual(appointment)) {
+      return (
+        <LoadingButton
+          data-testid={dataTestIds.dashboard.arrivedButton}
+          onClick={handleArrivedClick}
+          loading={arrivedStatusSaving}
+          variant="contained"
+          sx={{
+            borderRadius: 8,
+            textTransform: 'none',
+            fontSize: '15px',
+            fontWeight: 500,
+          }}
+        >
+          Arrived
+        </LoadingButton>
+      );
+    }
+    return undefined;
+  };
+
   // there are two different tooltips that are show on the tracking board depending which tab/section you are on
   // 1. visit components on prebooked, in-office/waiting and cancelled
   // 2. orders on in-office/in-exam and discharged
@@ -786,8 +841,11 @@ export default function AppointmentTableRow({
         )}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }} data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}>
-        <Typography variant="body2">In Person {serviceCategory}</Typography>
-        <Typography variant="body2">{appointment.location}</Typography>
+        <Typography variant="body2">
+          {isVirtual(appointment) ? 'Virtual' : 'In Person'}
+          {serviceCategory}
+        </Typography>
+        <Typography variant="body2">{appointment.location?.name ?? ''}</Typography>
         <Box mt={0.5}>
           <InPersonAppointmentStatusChip status={appointment.status} />
         </Box>
@@ -987,7 +1045,7 @@ export default function AppointmentTableRow({
         )}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
-        <Stack direction={'row'} spacing={1}>
+        <Stack direction={'row'} spacing={1} alignItems="center">
           <GoToButton
             text="Visit Details"
             onClick={() => navigate(`/visit/${appointment.id}`)}
@@ -995,30 +1053,14 @@ export default function AppointmentTableRow({
           >
             <MedicalInformationIcon />
           </GoToButton>
+          {renderArrivedButton()}
           {renderStartIntakeButton()}
           {renderProgressNoteButton()}
           {renderDischargeButton()}
+          {renderAssignMeButton()}
           {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && renderSupervisorApproval()}
         </Stack>
       </TableCell>
-      {actionButtons && (
-        <TableCell sx={{ verticalAlign: 'center' }}>
-          <LoadingButton
-            data-testid={dataTestIds.dashboard.arrivedButton}
-            onClick={handleArrivedClick}
-            loading={arrivedStatusSaving}
-            variant="contained"
-            sx={{
-              borderRadius: 8,
-              textTransform: 'none',
-              fontSize: '15px',
-              fontWeight: 500,
-            }}
-          >
-            Arrived
-          </LoadingButton>
-        </TableCell>
-      )}
       {chatModalOpen && (
         <ChatModal
           appointment={appointment}
@@ -1030,4 +1072,8 @@ export default function AppointmentTableRow({
       )}
     </TableRow>
   );
+}
+
+function isVirtual(appointment: InPersonAppointmentInformation): boolean {
+  return appointment.appointmentAttendanceType === 'virtual';
 }
