@@ -1,12 +1,12 @@
-import { AUTH_TOKEN, DEMO_USERS as _demoUsers, PROJECT_ID } from './invite.config';
+import { E2E_USERS as _e2eUsers, OYSTEHR_AUTH_TOKEN, PROJECT_ID } from './setup.config';
 import { DemoUser } from './types';
 import { buildConfig, getApplicationId, getRoleIds, sendUserInvite, setPasswordWithBrowser } from './utils';
 
-const config = buildConfig(AUTH_TOKEN, PROJECT_ID);
-const DEMO_USERS: DemoUser[] = _demoUsers;
+const config = buildConfig(OYSTEHR_AUTH_TOKEN, PROJECT_ID);
+const E2E_USERS: DemoUser[] = _e2eUsers;
 
 async function main(): Promise<void> {
-  const user = DEMO_USERS[0];
+  const user = E2E_USERS[0];
 
   const applicationId = await getApplicationId(config);
 
@@ -39,7 +39,7 @@ async function main(): Promise<void> {
 
   await setPasswordWithBrowser(invitationUrl, user.password);
 
-  console.log(`   You can now log in with: ${user.email} / ${user.password}`);
+  console.log(`   You can now log in with: ${user.email}`);
 }
 
 main().catch((err) => {
