@@ -90,14 +90,13 @@ function MedicationsTable({
   // Filter the medications based on the search text, then sort alphabetically
   const filteredMedications: Medication[] = useMemo(
     () =>
-      medications
-        ?.filter(
-          (medication: Medication) => getMedicationName(medication)?.toLowerCase().includes(searchText.toLowerCase())
+      (medications ?? [])
+        .filter((medication: Medication) =>
+          (getMedicationName(medication) ?? '').toLowerCase().includes(searchText.toLowerCase())
         )
-        .sort(
-          (a, b) =>
-            getMedicationName(a)?.localeCompare(getMedicationName(b) || '', undefined, { sensitivity: 'base' }) || 0
-        ) || [],
+        .sort((a, b) =>
+          (getMedicationName(a) ?? '').localeCompare(getMedicationName(b) ?? '', undefined, { sensitivity: 'base' })
+        ),
     [medications, searchText]
   );
 
