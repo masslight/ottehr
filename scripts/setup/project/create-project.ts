@@ -4,43 +4,45 @@ import { OYSTEHR_AUTH_TOKEN, PROJECT_ENV, PROJECT_NAME, SENDGRID_AUTH_TOKEN } fr
 
 const OTTEHR_ROOT = resolve(new URL('.', import.meta.url).pathname, '../../../');
 
-if (!OYSTEHR_AUTH_TOKEN) {
-  console.error('❌ OYSTEHR_AUTH_TOKEN is required in setup.config.ts');
-  process.exit(1);
-}
-if (!PROJECT_NAME) {
-  console.error('❌ PROJECT_NAME is required in setup.config.ts');
-  process.exit(1);
-}
+export type ProjectEnv = 'local' | 'staging' | 'production';
 
-const envMap = {
+export const ENV_MAP = {
   local: { tfvars: 'local.tfvars', zambdaEnv: 'local.json', label: 'Local', sandbox: true },
   staging: { tfvars: 'staging.tfvars', zambdaEnv: 'staging.json', label: 'Staging', sandbox: true },
   production: { tfvars: 'production.tfvars', zambdaEnv: 'production.json', label: 'Production', sandbox: false },
 } as const;
 
-const envCfg = envMap[PROJECT_ENV];
-if (!envCfg) {
-  console.error(`❌ PROJECT_ENV must be one of: local, staging, production (got "${PROJECT_ENV}")`);
-  process.exit(1);
+export interface CreateProjectOptions {
+  projectName: string;
+  env: ProjectEnv;
+  oystehrToken: string;
+  sendgridToken?: string;
+  existingProjectId?: string;
 }
 
-const FULL_PROJECT_NAME = `${PROJECT_NAME} ${envCfg.label}`;
-const authHeaders = { authorization: `Bearer ${OYSTEHR_AUTH_TOKEN}` };
+export interface CreateProjectResult {
+  projectId: string;
+  clientId: string;
+  clientSecret: string;
+  sendgridApiKey?: string;
+}
 
-async function req<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      ...authHeaders,
-      ...(init?.body ? { 'content-type': 'application/json' } : {}),
-      ...(init?.headers as Record<string, string> | undefined),
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`${init?.method || 'GET'} ${url} failed (${res.status}): ${await res.text()}`);
-  }
-  return res.json() as Promise<T>;
+function buildReq(token: string) {
+  const authHeaders = { authorization: `Bearer ${token}` };
+  return async function req<T>(url: string, init?: RequestInit): Promise<T> {
+    const res = await fetch(url, {
+      ...init,
+      headers: {
+        ...authHeaders,
+        ...(init?.body ? { 'content-type': 'application/json' } : {}),
+        ...(init?.headers as Record<string, string> | undefined),
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`${init?.method || 'GET'} ${url} failed (${res.status}): ${await res.text()}`);
+    }
+    return res.json() as Promise<T>;
+  };
 }
 
 function replaceTfvar(content: string, key: string, value: string): string {
@@ -51,18 +53,31 @@ function replaceTfvar(content: string, key: string, value: string): string {
   return content.replace(re, `$1"${value}"`);
 }
 
-async function main(): Promise<void> {
-  const explicitProjectId = process.env.PROJECT_ID || process.argv[2];
+export async function createProject(opts: CreateProjectOptions): Promise<CreateProjectResult> {
+  const envCfg = ENV_MAP[opts.env];
+  if (!envCfg) {
+    throw new Error(`PROJECT_ENV must be one of: local, staging, production (got "${opts.env}")`);
+  }
+  if (!opts.oystehrToken) {
+    throw new Error('OYSTEHR_AUTH_TOKEN is required');
+  }
+  if (!opts.projectName) {
+    throw new Error('PROJECT_NAME is required');
+  }
+
+  const fullProjectName = `${opts.projectName} ${envCfg.label}`;
+  const req = buildReq(opts.oystehrToken);
+
   let projectId: string;
-  if (explicitProjectId) {
-    projectId = explicitProjectId;
+  if (opts.existingProjectId) {
+    projectId = opts.existingProjectId;
     console.log(`✅ Using provided project_id=${projectId}`);
   } else {
-    console.log(`🔄 Creating project "${FULL_PROJECT_NAME}" (sandbox=${envCfg.sandbox})...`);
+    console.log(`🔄 Creating project "${fullProjectName}" (sandbox=${envCfg.sandbox})...`);
     const project = await req<{ id: string }>('https://platform-api.zapehr.com/v1/project', {
       method: 'POST',
       body: JSON.stringify({
-        projectName: FULL_PROJECT_NAME,
+        projectName: fullProjectName,
         fhirVersion: 'r4',
         sandbox: envCfg.sandbox,
       }),
@@ -75,7 +90,7 @@ async function main(): Promise<void> {
   const m2ms = await req<{ id: string; clientId: string; name: string }[]>('https://project-api.zapehr.com/v1/m2m', {
     headers: { 'x-oystehr-project-id': projectId },
   });
-  if (!m2ms.length) throw new Error('No M2M clients returned for new project');
+  if (!m2ms.length) throw new Error('No M2M clients returned for project');
   const m2m = m2ms[0];
   console.log(`✅ M2M client: ${m2m.name} (${m2m.clientId})`);
 
@@ -87,18 +102,17 @@ async function main(): Promise<void> {
   });
   console.log(`✅ Secret rotated`);
 
-  // Create SendGrid API key (optional)
   let sendgridApiKey: string | undefined;
-  if (!SENDGRID_AUTH_TOKEN) {
-    console.error('⚠️  SENDGRID_AUTH_TOKEN not set in setup.config.ts — skipping SendGrid API key creation.');
+  if (!opts.sendgridToken) {
+    console.error('⚠️  SENDGRID_AUTH_TOKEN not set — skipping SendGrid API key creation.');
     console.error('   You will need to create the SendGrid API key manually and put it into the env files.');
   } else {
-    const sendgridKeyName = `${PROJECT_NAME.trim().replace(/\s+/g, '-')}-${PROJECT_ENV}`;
+    const sendgridKeyName = `${opts.projectName.trim().replace(/\s+/g, '-')}-${opts.env}`;
     console.log(`🔄 Creating SendGrid API key "${sendgridKeyName}"...`);
     const sgRes = await fetch('https://api.sendgrid.com/v3/api_keys', {
       method: 'POST',
       headers: {
-        authorization: `token ${SENDGRID_AUTH_TOKEN}`,
+        authorization: `token ${opts.sendgridToken}`,
         'content-type': 'application/json',
       },
       body: JSON.stringify({ scopes: ['mail.send'], name: sendgridKeyName }),
@@ -132,16 +146,24 @@ async function main(): Promise<void> {
   writeFileSync(zambdaEnvPath, JSON.stringify(zambdaEnv, null, 2) + '\n');
   console.log(`✅ Updated ${zambdaEnvPath}`);
 
-  console.log('\n🎉 Done!');
-  console.log(`   project_id:    ${projectId}`);
-  console.log(`   client_id:     ${m2m.clientId}`);
-  console.log(`   client_secret: ${secret}`);
-  if (sendgridApiKey) {
-    console.log(`   sendgrid_key:  ${sendgridApiKey}`);
-  }
+  return { projectId, clientId: m2m.clientId, clientSecret: secret, sendgridApiKey };
 }
 
-main().catch((err) => {
-  console.error('❌ Error:', err.message || err);
-  process.exit(1);
-});
+// CLI entry — only runs when invoked directly
+const isCli = import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('create-project.ts');
+if (isCli) {
+  const result = await createProject({
+    projectName: PROJECT_NAME,
+    env: PROJECT_ENV,
+    oystehrToken: OYSTEHR_AUTH_TOKEN,
+    sendgridToken: SENDGRID_AUTH_TOKEN,
+    existingProjectId: process.env.PROJECT_ID || process.argv[2],
+  });
+  console.log('\n🎉 Done!');
+  console.log(`   project_id:    ${result.projectId}`);
+  console.log(`   client_id:     ${result.clientId}`);
+  console.log(`   client_secret: ${result.clientSecret}`);
+  if (result.sendgridApiKey) {
+    console.log(`   sendgrid_key:  ${result.sendgridApiKey}`);
+  }
+}

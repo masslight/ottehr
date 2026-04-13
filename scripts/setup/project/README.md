@@ -43,6 +43,8 @@ Valid role keywords: `staff`, `provider`, `manager`, `admin`, `customer-support`
 npm run create:project          # Create a new Oystehr project + M2M client + SendGrid key
 npm run create:project -- <id>  # Reuse an existing project_id (skip project creation,
                                 # still rotates M2M secret + creates SendGrid key)
+npm run setup:all-envs          # Provision local + staging + production projects and
+                                # invite demo / e2e / dev users for each (demo skipped on prod)
 npm run invite:demo             # Invite demo user + set password via browser
 npm run invite:e2e              # Invite E2E user + set password via browser
 npm run invite:devs             # Invite all DEVELOPERS (full platform access, no roles)
@@ -112,3 +114,23 @@ client_secret = "<rotated secret>"
 
 `SENDGRID_API_KEY` / `SENDGRID_SEND_EMAIL_API_KEY` are only written if the
 SendGrid step ran. Other keys in these files are preserved as-is.
+
+### `setup:all-envs`
+
+Orchestrator that provisions all three environments (`local`, `staging`,
+`production`) end-to-end from a single `setup.config.ts`. For each env it:
+
+1. Runs the full `create:project` flow (create project named
+   `<PROJECT_NAME> <Local|Staging|Production>`, rotate M2M secret, create
+   SendGrid key, write tfvars + zambda env file).
+2. Invites the **demo user** (`DEMO_USERS[0]`) and walks through Auth0 in a
+   browser to set its password — **skipped for `production`**.
+3. Invites the **E2E user** (`E2E_USERS[0]`) and sets its password in a browser.
+4. Invites all **developers** from `DEVELOPERS` (full platform access).
+
+Uses `OYSTEHR_AUTH_TOKEN` / `SENDGRID_AUTH_TOKEN` / `PROJECT_NAME` from
+`setup.config.ts`. `PROJECT_ENV` is ignored — all three envs are processed in
+order. The token must remain valid for the entire run; if it expires mid-way,
+re-paste a fresh `OYSTEHR_AUTH_TOKEN` and rerun (already-created projects can
+be skipped per-env by editing the script or running `create:project -- <id>`
+followed by the relevant `invite:*` commands).
