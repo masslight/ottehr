@@ -4,21 +4,18 @@ import { DateTime } from 'luxon';
 import {
   appointmentTypeForAppointment,
   getInPersonVisitStatus,
-  getSecret,
   getVisitStatusHistory,
   isFollowupEncounter,
   isInPersonAppointment,
   LocationKpiMetrics,
   OTTEHR_MODULE,
   PracticeKpisReportZambdaOutput,
-  SecretsKeys,
   VisitStatusHistoryEntry,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   fetchAllPages,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -262,357 +259,352 @@ function calculateAverageAndMedian(values: number[]): { average: number | null; 
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  let validatedParameters;
-  try {
-    validatedParameters = validateRequestParameters(input);
-    const { dateRange } = validatedParameters;
+  const validatedParameters = validateRequestParameters(input);
+  const { dateRange } = validatedParameters;
 
-    // Get M2M token for FHIR access
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  // Get M2M token for FHIR access
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
 
-    console.log('Searching for appointments in date range:', dateRange);
+  console.log('Searching for appointments in date range:', dateRange);
 
-    // First, fetch all locations
-    console.log('Fetching all locations...');
-    let allLocations: Location[] = [];
-    await fetchAllPages(async (offset, count) => {
-      console.log(`Fetching locations offset=${offset}, count=${count}`);
-      const locationSearchBundle = await oystehr.fhir.search<Location>({
-        resourceType: 'Location',
-        params: [
-          { name: '_count', value: count.toString() },
-          { name: '_offset', value: offset.toString() },
-        ],
-      });
-      const locationResources = locationSearchBundle.unbundle();
-      allLocations = allLocations.concat(locationResources);
-      console.log(`Fetched ${locationResources.length} more locations (total: ${allLocations.length})`);
-      return locationSearchBundle;
-    }, 1000);
+  // First, fetch all locations
+  console.log('Fetching all locations...');
+  let allLocations: Location[] = [];
+  await fetchAllPages(async (offset, count) => {
+    console.log(`Fetching locations offset=${offset}, count=${count}`);
+    const locationSearchBundle = await oystehr.fhir.search<Location>({
+      resourceType: 'Location',
+      params: [
+        { name: '_count', value: count.toString() },
+        { name: '_offset', value: offset.toString() },
+      ],
+    });
+    const locationResources = locationSearchBundle.unbundle();
+    allLocations = allLocations.concat(locationResources);
+    console.log(`Fetched ${locationResources.length} more locations (total: ${allLocations.length})`);
+    return locationSearchBundle;
+  }, 1000);
 
-    console.log(`Total locations found: ${allLocations.length}`);
+  console.log(`Total locations found: ${allLocations.length}`);
 
-    // Now fetch appointments with encounters and locations
-    let allResources: (Appointment | Location | Encounter)[] = [];
+  // Now fetch appointments with encounters and locations
+  let allResources: (Appointment | Location | Encounter)[] = [];
 
-    await fetchAllPages(async (offset, count) => {
-      console.log(`Fetching appointments offset = ${offset}, count = ${count}`);
-      const searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter>({
-        resourceType: 'Appointment',
-        params: [
-          { name: 'date', value: `ge${dateRange.start}` },
-          { name: 'date', value: `le${dateRange.end}` },
-          { name: '_tag', value: OTTEHR_MODULE.IP }, // Only in-person appointments
-          { name: '_include', value: 'Appointment:location' },
-          { name: '_revinclude', value: 'Encounter:appointment' },
-          {
-            name: '_elements',
-            value: [
-              'id',
-              'status',
-              'participant',
-              'appointmentType',
-              'start',
-              'Location.id',
-              'Location.name',
-              'Encounter.id',
-              'Encounter.status',
-              'Encounter.appointment',
-              'Encounter.participant',
-              'Encounter.statusHistory',
-              'Encounter.extension',
-            ].join(','),
-          },
-          { name: '_count', value: count.toString() },
-          { name: '_offset', value: offset.toString() },
-        ],
-      });
-      const pageResources = searchBundle.unbundle();
-      allResources = allResources.concat(pageResources);
-      const pageAppointmentsCount = pageResources.filter(
-        (resource): resource is Appointment => resource.resourceType === 'Appointment'
-      ).length;
-      console.log(`Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`);
-      return searchBundle;
-    }, 1000);
-
-    // Separate resources by type
-    const appointments = allResources.filter(
+  await fetchAllPages(async (offset, count) => {
+    console.log(`Fetching appointments offset = ${offset}, count = ${count}`);
+    const searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter>({
+      resourceType: 'Appointment',
+      params: [
+        { name: 'date', value: `ge${dateRange.start}` },
+        { name: 'date', value: `le${dateRange.end}` },
+        { name: '_tag', value: OTTEHR_MODULE.IP }, // Only in-person appointments
+        { name: '_include', value: 'Appointment:location' },
+        { name: '_revinclude', value: 'Encounter:appointment' },
+        {
+          name: '_elements',
+          value: [
+            'id',
+            'status',
+            'participant',
+            'appointmentType',
+            'start',
+            'Location.id',
+            'Location.name',
+            'Encounter.id',
+            'Encounter.status',
+            'Encounter.appointment',
+            'Encounter.participant',
+            'Encounter.statusHistory',
+            'Encounter.extension',
+          ].join(','),
+        },
+        { name: '_count', value: count.toString() },
+        { name: '_offset', value: offset.toString() },
+      ],
+    });
+    const pageResources = searchBundle.unbundle();
+    allResources = allResources.concat(pageResources);
+    const pageAppointmentsCount = pageResources.filter(
       (resource): resource is Appointment => resource.resourceType === 'Appointment'
-    );
-    const encounters = allResources.filter(
-      (resource): resource is Encounter => resource.resourceType === 'Encounter' && !isFollowupEncounter(resource)
-    );
+    ).length;
+    console.log(`Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`);
+    return searchBundle;
+  }, 1000);
 
-    console.log(
-      `Total resources found: ${allResources.length} (${appointments.length} appointments, ${encounters.length} encounters)`
-    );
+  // Separate resources by type
+  const appointments = allResources.filter(
+    (resource): resource is Appointment => resource.resourceType === 'Appointment'
+  );
+  const encounters = allResources.filter(
+    (resource): resource is Encounter => resource.resourceType === 'Encounter' && !isFollowupEncounter(resource)
+  );
 
-    // Create encounter map for quick lookups
-    const encounterMap = new Map<string, Encounter>();
-    encounters.forEach((encounter) => {
-      const appointmentRef = encounter.appointment?.[0]?.reference;
-      if (appointmentRef && encounter.id) {
-        encounterMap.set(appointmentRef, encounter);
-      }
-    });
+  console.log(
+    `Total resources found: ${allResources.length} (${appointments.length} appointments, ${encounters.length} encounters)`
+  );
 
-    // Filter for discharged in-person visits only
-    const dischargedStatuses = ['discharged', 'awaiting supervisor approval', 'completed'];
+  // Create encounter map for quick lookups
+  const encounterMap = new Map<string, Encounter>();
+  encounters.forEach((encounter) => {
+    const appointmentRef = encounter.appointment?.[0]?.reference;
+    if (appointmentRef && encounter.id) {
+      encounterMap.set(appointmentRef, encounter);
+    }
+  });
 
-    const dischargedAppointments = appointments.filter((appointment) => {
-      if (!appointment.id) return false;
+  // Filter for discharged in-person visits only
+  const dischargedStatuses = ['discharged', 'awaiting supervisor approval', 'completed'];
 
-      // Verify it's in-person
-      if (!isInPersonAppointment(appointment)) return false;
+  const dischargedAppointments = appointments.filter((appointment) => {
+    if (!appointment.id) return false;
 
+    // Verify it's in-person
+    if (!isInPersonAppointment(appointment)) return false;
+
+    const encounter = encounterMap.get(`Appointment/${appointment.id}`);
+    if (!encounter) return false;
+
+    const visitStatus = getInPersonVisitStatus(appointment, encounter, true); // Enable supervisor approval flag
+    return dischargedStatuses.includes(visitStatus);
+  });
+
+  console.log(
+    `Filtered to ${dischargedAppointments.length} discharged in-person visits out of ${appointments.length} total appointments`
+  );
+
+  // Calculate metrics per location
+  const locationMetricsMap = new Map<
+    string,
+    {
+      locationId: string;
+      arrivedDurations: number[];
+      arrivedToDischargedDurations: number[];
+      arrivedToIntakeDurations: number[];
+      readyToIntakeDurations: number[];
+      intakeToProviderDurations: number[];
+      arrivedToProviderDurations: number[];
+      providerToDischargedDurations: number[];
+      preBookedCount: number;
+      walkInCount: number;
+      onTimeCount: number;
+    }
+  >();
+
+  dischargedAppointments.forEach((appointment) => {
+    // Get location from appointment
+    const participantWithLocation = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'));
+
+    let locationId = 'unknown';
+    let locationName = 'Unknown Location';
+
+    if (participantWithLocation?.actor?.reference) {
+      locationId = participantWithLocation.actor.reference.replace('Location/', '');
+      const location = allLocations.find((loc) => loc.id === locationId);
+      locationName = location?.name || 'Unknown Location';
+    }
+
+    // Get encounter and calculate metrics
+    if (appointment.id) {
       const encounter = encounterMap.get(`Appointment/${appointment.id}`);
-      if (!encounter) return false;
+      if (encounter) {
+        const statusHistory = getVisitStatusHistory(encounter);
+        const arrivedDuration = getArrivedDuration(statusHistory);
+        const arrivedToDischargedDuration = getArrivedToDischargedDuration(statusHistory);
+        const arrivedToIntake = getArrivedToIntake(statusHistory);
+        const readyToIntake = getReadyToIntake(statusHistory);
+        const intakeToProvider = getIntakeToProvider(statusHistory);
+        const arrivedToProvider = getArrivedToProvider(statusHistory);
+        const providerToDischargedDuration = getProviderToDischargedDuration(statusHistory);
 
-      const visitStatus = getInPersonVisitStatus(appointment, encounter, true); // Enable supervisor approval flag
-      return dischargedStatuses.includes(visitStatus);
-    });
-
-    console.log(
-      `Filtered to ${dischargedAppointments.length} discharged in-person visits out of ${appointments.length} total appointments`
-    );
-
-    // Calculate metrics per location
-    const locationMetricsMap = new Map<
-      string,
-      {
-        locationId: string;
-        arrivedDurations: number[];
-        arrivedToDischargedDurations: number[];
-        arrivedToIntakeDurations: number[];
-        readyToIntakeDurations: number[];
-        intakeToProviderDurations: number[];
-        arrivedToProviderDurations: number[];
-        providerToDischargedDurations: number[];
-        preBookedCount: number;
-        walkInCount: number;
-        onTimeCount: number;
-      }
-    >();
-
-    dischargedAppointments.forEach((appointment) => {
-      // Get location from appointment
-      const participantWithLocation = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'));
-
-      let locationId = 'unknown';
-      let locationName = 'Unknown Location';
-
-      if (participantWithLocation?.actor?.reference) {
-        locationId = participantWithLocation.actor.reference.replace('Location/', '');
-        const location = allLocations.find((loc) => loc.id === locationId);
-        locationName = location?.name || 'Unknown Location';
-      }
-
-      // Get encounter and calculate metrics
-      if (appointment.id) {
-        const encounter = encounterMap.get(`Appointment/${appointment.id}`);
-        if (encounter) {
-          const statusHistory = getVisitStatusHistory(encounter);
-          const arrivedDuration = getArrivedDuration(statusHistory);
-          const arrivedToDischargedDuration = getArrivedToDischargedDuration(statusHistory);
-          const arrivedToIntake = getArrivedToIntake(statusHistory);
-          const readyToIntake = getReadyToIntake(statusHistory);
-          const intakeToProvider = getIntakeToProvider(statusHistory);
-          const arrivedToProvider = getArrivedToProvider(statusHistory);
-          const providerToDischargedDuration = getProviderToDischargedDuration(statusHistory);
-
-          // Check if this is a pre-booked appointment and if they arrived on time
-          const appointmentType = appointmentTypeForAppointment(appointment);
-          const isPreBooked = appointmentType === 'pre-booked';
-          let arrivedOnTime = false;
-          if (isPreBooked && appointment.start) {
-            const arrivedEntry = statusHistory.findLast((entry) => entry.status === 'arrived');
-            if (arrivedEntry?.period.start) {
-              const appointmentTime = DateTime.fromISO(appointment.start);
-              const arrivedTime = DateTime.fromISO(arrivedEntry.period.start);
-              arrivedOnTime = arrivedTime <= appointmentTime;
-            }
-          }
-
-          if (
-            arrivedDuration !== null ||
-            arrivedToDischargedDuration !== null ||
-            arrivedToIntake !== null ||
-            readyToIntake !== null ||
-            intakeToProvider !== null ||
-            arrivedToProvider !== null ||
-            providerToDischargedDuration !== null
-          ) {
-            const currentData = locationMetricsMap.get(locationName) || {
-              locationId,
-              arrivedDurations: [],
-              arrivedToDischargedDurations: [],
-              arrivedToIntakeDurations: [],
-              readyToIntakeDurations: [],
-              intakeToProviderDurations: [],
-              arrivedToProviderDurations: [],
-              providerToDischargedDurations: [],
-              preBookedCount: 0,
-              walkInCount: 0,
-              onTimeCount: 0,
-            };
-
-            if (arrivedDuration !== null) {
-              currentData.arrivedDurations.push(arrivedDuration);
-            }
-            if (arrivedToDischargedDuration !== null) {
-              currentData.arrivedToDischargedDurations.push(arrivedToDischargedDuration);
-            }
-            if (arrivedToIntake !== null) {
-              currentData.arrivedToIntakeDurations.push(arrivedToIntake);
-            }
-            if (readyToIntake !== null) {
-              currentData.readyToIntakeDurations.push(readyToIntake);
-            }
-            if (intakeToProvider !== null) {
-              currentData.intakeToProviderDurations.push(intakeToProvider);
-            }
-            if (arrivedToProvider !== null) {
-              currentData.arrivedToProviderDurations.push(arrivedToProvider);
-            }
-            if (providerToDischargedDuration !== null) {
-              currentData.providerToDischargedDurations.push(providerToDischargedDuration);
-            }
-
-            // Track on-time arrivals for pre-booked appointments
-            if (isPreBooked) {
-              currentData.preBookedCount++;
-              if (arrivedOnTime) {
-                currentData.onTimeCount++;
-              }
-            } else if (appointmentType === 'walk-in') {
-              currentData.walkInCount++;
-            }
-
-            locationMetricsMap.set(locationName, currentData);
+        // Check if this is a pre-booked appointment and if they arrived on time
+        const appointmentType = appointmentTypeForAppointment(appointment);
+        const isPreBooked = appointmentType === 'pre-booked';
+        let arrivedOnTime = false;
+        if (isPreBooked && appointment.start) {
+          const arrivedEntry = statusHistory.findLast((entry) => entry.status === 'arrived');
+          if (arrivedEntry?.period.start) {
+            const appointmentTime = DateTime.fromISO(appointment.start);
+            const arrivedTime = DateTime.fromISO(arrivedEntry.period.start);
+            arrivedOnTime = arrivedTime <= appointmentTime;
           }
         }
-      }
-    });
 
-    // Build location metrics array with all locations
-    const locationMetrics: LocationKpiMetrics[] = allLocations
-      .flatMap((location) => {
-        const locationName = location.name || 'Unknown Location';
-        const locationId = location.id || 'unknown';
-        const metricsData = locationMetricsMap.get(locationName);
-
-        if (metricsData && metricsData.arrivedDurations.length > 0) {
-          // Calculate arrived to ready average and median
-          const { average: arrivedAverage, median: arrivedMedian } = calculateAverageAndMedian(
-            metricsData.arrivedDurations
-          );
-
-          // Calculate arrived to discharged average and median
-          const { average: arrivedToDischargedAverage, median: arrivedToDischargedMedian } = calculateAverageAndMedian(
-            metricsData.arrivedToDischargedDurations
-          );
-
-          // Calculate arrived to intake average and median
-          const { average: arrivedToIntakeAverage, median: arrivedToIntakeMedian } = calculateAverageAndMedian(
-            metricsData.arrivedToIntakeDurations
-          );
-
-          // Calculate ready to intake average and median
-          const { average: readyToIntakeAverage, median: readyToIntakeMedian } = calculateAverageAndMedian(
-            metricsData.readyToIntakeDurations
-          );
-
-          // Calculate intake to provider average and median
-          const { average: intakeToProviderAverage, median: intakeToProviderMedian } = calculateAverageAndMedian(
-            metricsData.intakeToProviderDurations
-          );
-
-          // Calculate arrived to provider average and median
-          const { average: arrivedToProviderAverage, median: arrivedToProviderMedian } = calculateAverageAndMedian(
-            metricsData.arrivedToProviderDurations
-          );
-
-          // Calculate percentage of visits with arrived to provider < 15 minutes
-          let arrivedToProviderUnder15Percent: number | null = null;
-          if (metricsData.arrivedToProviderDurations.length > 0) {
-            const under15Count = metricsData.arrivedToProviderDurations.filter((duration) => duration < 15).length;
-            arrivedToProviderUnder15Percent =
-              Math.round((under15Count / metricsData.arrivedToProviderDurations.length) * 10000) / 100;
-          }
-
-          // Calculate percentage of visits with arrived to provider < 45 minutes
-          let arrivedToProviderUnder45Percent: number | null = null;
-          if (metricsData.arrivedToProviderDurations.length > 0) {
-            const under45Count = metricsData.arrivedToProviderDurations.filter((duration) => duration < 45).length;
-            arrivedToProviderUnder45Percent =
-              Math.round((under45Count / metricsData.arrivedToProviderDurations.length) * 10000) / 100;
-          }
-
-          // Calculate provider to discharged average and median
-          const { average: providerToDischargedAverage, median: providerToDischargedMedian } =
-            calculateAverageAndMedian(metricsData.providerToDischargedDurations);
-
-          // Calculate on-time percentage for pre-booked appointments
-          let onTimePercent: number | null = null;
-          if (metricsData.preBookedCount > 0) {
-            onTimePercent = Math.round((metricsData.onTimeCount / metricsData.preBookedCount) * 10000) / 100;
-          }
-
-          // Calculate book ahead and walk-in percentages
-          const totalVisits = metricsData.arrivedDurations.length;
-          const bookAheadPercent =
-            totalVisits > 0 ? Math.round((metricsData.preBookedCount / totalVisits) * 10000) / 100 : null;
-          const walkInPercent =
-            totalVisits > 0 ? Math.round((metricsData.walkInCount / totalVisits) * 10000) / 100 : null;
-
-          return {
-            locationName,
+        if (
+          arrivedDuration !== null ||
+          arrivedToDischargedDuration !== null ||
+          arrivedToIntake !== null ||
+          readyToIntake !== null ||
+          intakeToProvider !== null ||
+          arrivedToProvider !== null ||
+          providerToDischargedDuration !== null
+        ) {
+          const currentData = locationMetricsMap.get(locationName) || {
             locationId,
-            arrivedToReadyAverage: arrivedAverage,
-            arrivedToReadyMedian: arrivedMedian,
-            arrivedToDischargedAverage,
-            arrivedToDischargedMedian,
-            arrivedToIntakeAverage,
-            arrivedToIntakeMedian,
-            readyToIntakeAverage,
-            readyToIntakeMedian,
-            intakeToProviderAverage,
-            intakeToProviderMedian,
-            arrivedToProviderAverage,
-            arrivedToProviderMedian,
-            arrivedToProviderUnder15Percent,
-            arrivedToProviderUnder45Percent,
-            providerToDischargedAverage,
-            providerToDischargedMedian,
-            onTimePercent,
-            bookAheadPercent,
-            walkInPercent,
-            visitCount: metricsData.arrivedDurations.length,
+            arrivedDurations: [],
+            arrivedToDischargedDurations: [],
+            arrivedToIntakeDurations: [],
+            readyToIntakeDurations: [],
+            intakeToProviderDurations: [],
+            arrivedToProviderDurations: [],
+            providerToDischargedDurations: [],
+            preBookedCount: 0,
+            walkInCount: 0,
+            onTimeCount: 0,
           };
-        } else {
-          // Location has no discharged visits
-          return [];
+
+          if (arrivedDuration !== null) {
+            currentData.arrivedDurations.push(arrivedDuration);
+          }
+          if (arrivedToDischargedDuration !== null) {
+            currentData.arrivedToDischargedDurations.push(arrivedToDischargedDuration);
+          }
+          if (arrivedToIntake !== null) {
+            currentData.arrivedToIntakeDurations.push(arrivedToIntake);
+          }
+          if (readyToIntake !== null) {
+            currentData.readyToIntakeDurations.push(readyToIntake);
+          }
+          if (intakeToProvider !== null) {
+            currentData.intakeToProviderDurations.push(intakeToProvider);
+          }
+          if (arrivedToProvider !== null) {
+            currentData.arrivedToProviderDurations.push(arrivedToProvider);
+          }
+          if (providerToDischargedDuration !== null) {
+            currentData.providerToDischargedDurations.push(providerToDischargedDuration);
+          }
+
+          // Track on-time arrivals for pre-booked appointments
+          if (isPreBooked) {
+            currentData.preBookedCount++;
+            if (arrivedOnTime) {
+              currentData.onTimeCount++;
+            }
+          } else if (appointmentType === 'walk-in') {
+            currentData.walkInCount++;
+          }
+
+          locationMetricsMap.set(locationName, currentData);
         }
-      })
-      .filter((metrics) => metrics.visitCount > 0)
-      .sort((a, b) => a.locationName.localeCompare(b.locationName));
+      }
+    }
+  });
 
-    const totalVisits = locationMetrics.map((metrics) => metrics.visitCount).reduce((prev, curr) => prev + curr, 0);
+  // Build location metrics array with all locations
+  const locationMetrics: LocationKpiMetrics[] = allLocations
+    .flatMap((location) => {
+      const locationName = location.name || 'Unknown Location';
+      const locationId = location.id || 'unknown';
+      const metricsData = locationMetricsMap.get(locationName);
 
-    const response: PracticeKpisReportZambdaOutput = {
-      message: `Found ${totalVisits} discharged in-person visits across ${locationMetrics.length} locations`,
-      locations: locationMetrics,
-      dateRange,
-    };
+      if (metricsData && metricsData.arrivedDurations.length > 0) {
+        // Calculate arrived to ready average and median
+        const { average: arrivedAverage, median: arrivedMedian } = calculateAverageAndMedian(
+          metricsData.arrivedDurations
+        );
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+        // Calculate arrived to discharged average and median
+        const { average: arrivedToDischargedAverage, median: arrivedToDischargedMedian } = calculateAverageAndMedian(
+          metricsData.arrivedToDischargedDurations
+        );
+
+        // Calculate arrived to intake average and median
+        const { average: arrivedToIntakeAverage, median: arrivedToIntakeMedian } = calculateAverageAndMedian(
+          metricsData.arrivedToIntakeDurations
+        );
+
+        // Calculate ready to intake average and median
+        const { average: readyToIntakeAverage, median: readyToIntakeMedian } = calculateAverageAndMedian(
+          metricsData.readyToIntakeDurations
+        );
+
+        // Calculate intake to provider average and median
+        const { average: intakeToProviderAverage, median: intakeToProviderMedian } = calculateAverageAndMedian(
+          metricsData.intakeToProviderDurations
+        );
+
+        // Calculate arrived to provider average and median
+        const { average: arrivedToProviderAverage, median: arrivedToProviderMedian } = calculateAverageAndMedian(
+          metricsData.arrivedToProviderDurations
+        );
+
+        // Calculate percentage of visits with arrived to provider < 15 minutes
+        let arrivedToProviderUnder15Percent: number | null = null;
+        if (metricsData.arrivedToProviderDurations.length > 0) {
+          const under15Count = metricsData.arrivedToProviderDurations.filter((duration) => duration < 15).length;
+          arrivedToProviderUnder15Percent =
+            Math.round((under15Count / metricsData.arrivedToProviderDurations.length) * 10000) / 100;
+        }
+
+        // Calculate percentage of visits with arrived to provider < 45 minutes
+        let arrivedToProviderUnder45Percent: number | null = null;
+        if (metricsData.arrivedToProviderDurations.length > 0) {
+          const under45Count = metricsData.arrivedToProviderDurations.filter((duration) => duration < 45).length;
+          arrivedToProviderUnder45Percent =
+            Math.round((under45Count / metricsData.arrivedToProviderDurations.length) * 10000) / 100;
+        }
+
+        // Calculate provider to discharged average and median
+        const { average: providerToDischargedAverage, median: providerToDischargedMedian } = calculateAverageAndMedian(
+          metricsData.providerToDischargedDurations
+        );
+
+        // Calculate on-time percentage for pre-booked appointments
+        let onTimePercent: number | null = null;
+        if (metricsData.preBookedCount > 0) {
+          onTimePercent = Math.round((metricsData.onTimeCount / metricsData.preBookedCount) * 10000) / 100;
+        }
+
+        // Calculate book ahead and walk-in percentages
+        const totalVisits = metricsData.arrivedDurations.length;
+        const bookAheadPercent =
+          totalVisits > 0 ? Math.round((metricsData.preBookedCount / totalVisits) * 10000) / 100 : null;
+        const walkInPercent =
+          totalVisits > 0 ? Math.round((metricsData.walkInCount / totalVisits) * 10000) / 100 : null;
+
+        return {
+          locationName,
+          locationId,
+          arrivedToReadyAverage: arrivedAverage,
+          arrivedToReadyMedian: arrivedMedian,
+          arrivedToDischargedAverage,
+          arrivedToDischargedMedian,
+          arrivedToIntakeAverage,
+          arrivedToIntakeMedian,
+          readyToIntakeAverage,
+          readyToIntakeMedian,
+          intakeToProviderAverage,
+          intakeToProviderMedian,
+          arrivedToProviderAverage,
+          arrivedToProviderMedian,
+          arrivedToProviderUnder15Percent,
+          arrivedToProviderUnder45Percent,
+          providerToDischargedAverage,
+          providerToDischargedMedian,
+          onTimePercent,
+          bookAheadPercent,
+          walkInPercent,
+          visitCount: metricsData.arrivedDurations.length,
+        };
+      } else {
+        // Location has no discharged visits
+        return [];
+      }
+    })
+    .filter((metrics) => metrics.visitCount > 0)
+    .sort((a, b) => a.locationName.localeCompare(b.locationName));
+
+  const totalVisits = locationMetrics.map((metrics) => metrics.visitCount).reduce((prev, curr) => prev + curr, 0);
+
+  const response: PracticeKpisReportZambdaOutput = {
+    message: `Found ${totalVisits} discharged in-person visits across ${locationMetrics.length} locations`,
+    locations: locationMetrics,
+    dateRange,
+  };
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });

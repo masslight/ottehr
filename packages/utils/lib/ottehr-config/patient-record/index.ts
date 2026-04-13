@@ -940,7 +940,7 @@ const FormFields: PatientRecordFormFields = {
         dataSource: {
           answerSource: {
             resourceType: 'Organization',
-            query: `type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer`,
+            query: `active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer`,
             prependedIdentifier: '1',
           },
         },

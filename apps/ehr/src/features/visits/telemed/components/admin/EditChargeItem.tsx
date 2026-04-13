@@ -41,7 +41,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { BILLING_URL, CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/App';
+import { BILLING_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
 import {
@@ -66,7 +66,6 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
   const isChargeMaster = mode === 'charge-master';
   const entityLabel = isChargeMaster ? 'Charge Master' : 'Fee Schedule';
   const entityLabelLower = entityLabel.toLowerCase();
-  const baseUrl = isChargeMaster ? CHARGE_MASTERS_URL : FEE_SCHEDULES_URL;
   const queryKey = isChargeMaster ? 'charge-masters' : 'fee-schedules';
   const billingSubTab = isChargeMaster ? 'charge-masters' : 'fee-schedules';
   const entityLabelPlural = isChargeMaster ? 'Charge Masters' : 'Fee Schedules';
@@ -589,7 +588,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                       >
                         Save changes
                       </LoadingButton>
-                      <Link to={baseUrl}>
+                      <Link to={`${BILLING_URL}/${billingSubTab}`}>
                         <Button
                           variant="text"
                           color="primary"

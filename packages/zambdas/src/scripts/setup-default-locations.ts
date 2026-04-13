@@ -17,24 +17,42 @@ import {
   unbundleBatchPostOutput,
   VirtualLocationBody,
 } from 'utils';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - path is correct after copy-secrets.sh runs in CI
+import locationsConfig from '../../../../config/oystehr/locations-and-schedules.json' assert { type: 'json' };
 import { createOystehrClient, getAuth0Token } from '../shared';
 
-const TELEMED_INITIAL_STATES = ['NJ', 'OH'];
+const VIRTUAL_LOCATION_EXTENSION_URL_CHECK = 'https://extensions.fhir.zapehr.com/location-form-pre-release';
+
+function isVirtualLocation(location: any): boolean {
+  return location.extension?.some(
+    (ext: any) => ext.url === VIRTUAL_LOCATION_EXTENSION_URL_CHECK && ext.valueCoding?.code === 'vi'
+  );
+}
+
+const physicalLocations: { state: string; city: string; name: string }[] = [];
+const virtualStates = new Set<string>();
+
+for (const resource of Object.values(locationsConfig.fhirResources) as any[]) {
+  const res = resource.resource as any;
+
+  if (res.resourceType === 'Location' && res.address && res.name) {
+    const { state, city } = res.address;
+    const { name } = res;
+
+    if (isVirtualLocation(res)) {
+      if (state) virtualStates.add(state);
+    } else if (city && state && name) {
+      physicalLocations.push({ state, city, name });
+    }
+  }
+}
+
+const TELEMED_INITIAL_STATES = Array.from(virtualStates);
 
 export const virtualDefaultLocations: { state: string }[] = [...TELEMED_INITIAL_STATES.map((state) => ({ state }))];
 
-export const allPhysicalDefaultLocations: { state: string; city: string; name: string }[] = [
-  {
-    state: 'NY',
-    city: 'New York',
-    name: 'New York',
-  },
-  {
-    state: 'CA',
-    city: 'Los Angeles',
-    name: 'Los Angeles',
-  },
-];
+export const allPhysicalDefaultLocations: { state: string; city: string; name: string }[] = physicalLocations;
 
 export const defaultGroup = 'Visit Followup Group';
 export type PhysicalLocation = (typeof allPhysicalDefaultLocations)[number];

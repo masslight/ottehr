@@ -294,7 +294,7 @@ export type SubmitLabOrderInput = {
 
 export type SubmitLabOrderOutput = {
   orderPdfUrls: string[]; // if any abn was generated its presigned url will also be included
-  failedOrdersByOrderNumber?: string[];
+  failedOrdersByOrderNumber?: { [orderNumber: string]: string };
 };
 
 export type CreateLabCoverageInfo = { coverageName: string; coverageId: string; isPrimary: boolean };

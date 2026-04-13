@@ -270,6 +270,12 @@ export const APPOINTMENT_LOCKED_META_TAG = {
   code: 'APPOINTMENT_LOCKED',
 };
 
+export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM = 'encounter-erx-sync-status';
+export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG = {
+  system: FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM,
+  code: 'ERX_PATIENT_SYNCED',
+};
+
 export const ERX_MEDICATION_META_TAG_CODE = 'erx-medication';
 
 export const FHIR_APPOINTMENT_TYPE_MAP: Record<string, AppointmentType> = {
@@ -741,6 +747,11 @@ export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorn
 export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/global-template-list`;
 export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-in-person`;
 export const GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-telemed`;
+
+/** Builds the full meta.tag system URL from a chart data field name (e.g. 'chief-complaint' → full URL). */
+export const chartDataTagSystem = (fieldName: string): string => `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}`;
+
+export const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
 
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_TYPE = ottehrCodeSystemUrl('task-type');
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE = 'video-chat-waiting-room-notification';

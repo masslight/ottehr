@@ -60,7 +60,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
   const [error, setError] = useState<string | undefined>();
   const [errorDialogOpen, setErrorDialogOpen] = useState<boolean>(false);
   const [manualError, setManualError] = useState<string | undefined>();
-  const [failedOrderNumbers, setFailedOrderNumbers] = useState<string[] | undefined>();
+  const [failedOrderNumbers, setFailedOrderNumbers] = useState<{ [orderNumber: string]: string } | undefined>();
 
   const { pendingLabs, readyLabs } = labOrders.reduce(
     (acc: { pendingLabs: LabOrderListPageDTO[]; readyLabs: LabOrderListPageDTO[] }, lab) => {
@@ -118,9 +118,10 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
     if (!failedOrderNumbers) return;
     const labs: LabOrderListPageDTO[] = labOrders
       .filter(isLabOrder)
-      .filter((order) => order.orderNumber && failedOrderNumbers.includes(order.orderNumber));
+      .filter((order) => order.orderNumber && Object.keys(failedOrderNumbers).includes(order.orderNumber));
     await submitOrders(true, labs);
   };
+
   function isLabOrder(order: LabOrderListPageDTO | ReflexLabDTO): order is LabOrderListPageDTO {
     return !('drCentricResultType' in order);
   }
@@ -131,9 +132,16 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
         <Typography color="error">{`Error manually submitting: ${manualError}`}</Typography>
       ) : (
         <>
-          <Typography color="error">{`Submits failed for the following orders: ${failedOrderNumbers}`}</Typography>
+          <Typography color="error">Submits failed for the following:</Typography>
+
+          {Object.values(failedOrderNumbers ?? {}).map((reason, index) => (
+            <Typography key={index} color="error">
+              {reason}
+            </Typography>
+          ))}
+
           <Typography sx={{ marginTop: 1 }}>
-            {`After clicking confirm you can no longer electronically submit these orders, please confirm this action`}
+            After clicking confirm you can no longer electronically submit these orders, please confirm this action
           </Typography>
         </>
       )}

@@ -6,7 +6,6 @@ import { createOystehrClient, getSecret, HandleAnswerInput, Secrets, SecretsKeys
 import {
   assertDefined,
   getAuth0Token,
-  topLevelCatch,
   validateJsonBody,
   validateString,
   wrapHandler,
@@ -25,45 +24,41 @@ interface Input extends HandleAnswerInput {
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    const { questionnaireResponseId, linkId, answer, secrets } = validateInput(input);
-    const oystehr = await createOystehr(secrets);
-    const questionnaireResponse = await oystehr.fhir.get<QuestionnaireResponse>({
-      resourceType: 'QuestionnaireResponse',
-      id: questionnaireResponseId,
-    });
-    if (questionnaireResponse.status === 'completed') {
-      throw new Error('QuestionnaireResponse is completed.');
-    }
-    questionnaireResponse.item?.push({
-      linkId,
-      answer: [
-        {
-          valueString: answer,
-        },
-      ],
-    });
-    const chatbotInput = createChatbotInput(questionnaireResponse);
-    if (chatbotInput == null || chatbotInput.length === 0) {
-      throw new Error(`Invalid chatbot input "${chatbotInput}"`);
-    }
-    console.log(`chatbotInput: ${JSON.stringify(chatbotInput)}`);
-    const chatbotResponse = (await invokeChatbot(chatbotInput, secrets)).content.toString();
-    (questionnaireResponse.contained?.[0] as Questionnaire).item?.push({
-      linkId: (parseInt(linkId) + 1).toString(),
-      text: chatbotResponse,
-      type: 'text',
-    });
-    if (chatbotResponse.includes(INTERVIEW_COMPLETED)) {
-      questionnaireResponse.status = 'completed';
-    }
-    return {
-      statusCode: 200,
-      body: JSON.stringify(await oystehr.fhir.update(questionnaireResponse)),
-    };
-  } catch (error: any) {
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+  const { questionnaireResponseId, linkId, answer, secrets } = validateInput(input);
+  const oystehr = await createOystehr(secrets);
+  const questionnaireResponse = await oystehr.fhir.get<QuestionnaireResponse>({
+    resourceType: 'QuestionnaireResponse',
+    id: questionnaireResponseId,
+  });
+  if (questionnaireResponse.status === 'completed') {
+    throw new Error('QuestionnaireResponse is completed.');
   }
+  questionnaireResponse.item?.push({
+    linkId,
+    answer: [
+      {
+        valueString: answer,
+      },
+    ],
+  });
+  const chatbotInput = createChatbotInput(questionnaireResponse);
+  if (chatbotInput == null || chatbotInput.length === 0) {
+    throw new Error(`Invalid chatbot input "${chatbotInput}"`);
+  }
+  console.log(`chatbotInput: ${JSON.stringify(chatbotInput)}`);
+  const chatbotResponse = (await invokeChatbot(chatbotInput, secrets)).content.toString();
+  (questionnaireResponse.contained?.[0] as Questionnaire).item?.push({
+    linkId: (parseInt(linkId) + 1).toString(),
+    text: chatbotResponse,
+    type: 'text',
+  });
+  if (chatbotResponse.includes(INTERVIEW_COMPLETED)) {
+    questionnaireResponse.status = 'completed';
+  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(await oystehr.fhir.update(questionnaireResponse)),
+  };
 });
 
 function validateInput(input: ZambdaInput): Input {

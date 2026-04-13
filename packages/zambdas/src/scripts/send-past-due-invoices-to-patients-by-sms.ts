@@ -422,7 +422,7 @@ async function main(): Promise<void> {
   console.log(`   3️⃣  ${collectionsWarningDays}-${writtenOffDays} days past due → Collections warning SMS`);
   console.log(`   4️⃣  ${writtenOffDays}+ days past due → Written off (report only)`);
 
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   // Initialize Stripe
   const stripe = new Stripe(secrets.STRIPE_SECRET_KEY, {

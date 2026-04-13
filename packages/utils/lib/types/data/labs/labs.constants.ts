@@ -212,6 +212,9 @@ export const PROVENANCE_ACTIVITY_CODES = {
   completePstTask: 'COMPLETE PST TASK',
   abnRejected: 'ABN REJECTED',
   deleteOrder: 'DELETE LAB ORDER', // this is a soft delete, resources are marked as cancelled or entered-in-error
+  adminCreate: 'ADMIN CREATE',
+  adminEdit: 'ADMIN EDIT',
+  adminUpdateStatus: 'ADMIN UPDATE STATUS',
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
@@ -223,6 +226,9 @@ export const PROVENANCE_ACTIVITY_DISPLAY = {
   completePstTask: 'complete pst task',
   abnRejected: 'ABN marked rejected',
   deleteOrder: 'Delete lab order and related resources', // this is a soft delete, resources are marked as cancelled or entered-in-error
+  adminCreate: 'admin created a test',
+  adminEdit: 'admin edited a test',
+  adminUpdateStatus: 'admin toggled a test status',
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -266,6 +272,21 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
   deleteOrder: {
     code: PROVENANCE_ACTIVITY_CODES.deleteOrder,
     display: PROVENANCE_ACTIVITY_DISPLAY.deleteOrder,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  adminCreate: {
+    code: PROVENANCE_ACTIVITY_CODES.adminCreate,
+    display: PROVENANCE_ACTIVITY_DISPLAY.adminCreate,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  adminEdit: {
+    code: PROVENANCE_ACTIVITY_CODES.adminEdit,
+    display: PROVENANCE_ACTIVITY_DISPLAY.adminEdit,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  adminUpdateStatus: {
+    code: PROVENANCE_ACTIVITY_CODES.adminUpdateStatus,
+    display: PROVENANCE_ACTIVITY_DISPLAY.adminUpdateStatus,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;
