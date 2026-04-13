@@ -85,17 +85,17 @@ runs:
         terraform workspace select "${{ inputs.environment }}"
         terraform show --json > /tmp/tfstate.json
 
-        mkdir -p "apps/ehr/env"
+        mkdir -p "../apps/ehr/env"
         address="module.ottehr_apps.local_sensitive_file.ehr_env"
         pattern=".values.root_module.child_modules[] | select(.address == \"module.ottehr_apps\") | .resources[] | select(.address == \"$address\") | .values.content"
         jq -r "$pattern" /tmp/tfstate.json > "../apps/ehr/env/.env.${{ inputs.environment }}"
 
-        mkdir -p "apps/intake/env"
+        mkdir -p "../apps/intake/env"
         address="module.ottehr_apps.local_sensitive_file.patient_portal_env"
         pattern=".values.root_module.child_modules[] | select(.address == \"module.ottehr_apps\") | .resources[] | select(.address == \"$address\") | .values.content"
         jq -r "$pattern" /tmp/tfstate.json > "../apps/intake/env/.env.${{ inputs.environment }}"
 
-        mkdir -p "packages/zambdas/.env"
+        mkdir -p "../packages/zambdas/.env"
         address="module.ottehr_apps.local_sensitive_file.zambda_secrets_for_local_server[0]"
         pattern=".values.root_module.child_modules[] | select(.address == \"module.ottehr_apps\") | .resources[] | select(.address == \"$address\") | .values.content"
         jq -r "$pattern" /tmp/tfstate.json > "../packages/zambdas/.env/zambda-secrets-${{ inputs.environment }}.json"

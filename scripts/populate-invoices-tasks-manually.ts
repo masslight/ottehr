@@ -42,9 +42,9 @@ async function main(): Promise<void> {
   // const token = '<a-key-from-ottehr-console-here>';
   const maxCandidPages = 18;
 
-  console.log(`Reading environment variables from packages/zambdas/.env/${environment}.json.`);
+  console.log(`Reading environment variables from config/.env/${environment}.json.`);
   const zambdaEnv: Record<string, string> = JSON.parse(
-    fs.readFileSync(`packages/zambdas/.env/${environment}.json`, 'utf8')
+    fs.readFileSync(`config/.env/${environment}.json`, 'utf8')
   );
   // const oystehr = await createOyst(zambdaEnv, token);
   const candid = await createCandid(zambdaEnv, candidEnv);
