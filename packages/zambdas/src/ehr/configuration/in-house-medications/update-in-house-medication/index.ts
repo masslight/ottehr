@@ -132,6 +132,8 @@ export const performEffect = async (
       patchOperations.push({ op: 'add', path: '/code', value: { coding: newCoding } });
     } else if (medication.code.coding === undefined) {
       patchOperations.push({ op: 'add', path: '/code/coding', value: newCoding });
+    } else if (newCoding.length > 0) {
+      patchOperations.push({ op: 'replace', path: '/code/coding', value: newCoding });
     } else {
       patchOperations.push({ op: 'remove', path: '/code' });
     }
