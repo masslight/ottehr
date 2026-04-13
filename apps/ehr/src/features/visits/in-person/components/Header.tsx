@@ -93,7 +93,8 @@ const PatientInfoWrapper = styled(Box)({
 });
 
 const getPatientWeightFallback = (weight: string | undefined): string | undefined => {
-  return weight?.match(/^\d+(?:\.\d+)?\skg/)?.[0].replace(/\s/, '');
+  const normalizedWeight = weight?.replace(/\s/g, '');
+  return normalizedWeight?.match(/^\d+(?:\.\d+)?kg/)?.[0];
 };
 
 const getDisplayWeight = (
