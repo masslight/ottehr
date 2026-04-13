@@ -124,6 +124,7 @@ export default function AiSuggestion({
           const allResults: SearchResult[] = [];
           const seen = new Set<string>();
 
+          const maxPerTerm = Math.max(5, Math.floor(15 / item.searchTerms.length));
           for (const term of item.searchTerms) {
             let results: SearchResult[] = [];
             if (fieldType === 'medications' && oystehr) {
@@ -138,12 +139,15 @@ export default function AiSuggestion({
             } else if (fieldType === 'episodeOfCare') {
               results = filterStaticOptions(HospitalizationOptions, term);
             }
-            // Deduplicate by name
+            // Take limited results per term, deduplicate by name
+            let added = 0;
             for (const r of results) {
+              if (added >= maxPerTerm) break;
               const key = r.name.toLowerCase();
               if (!seen.has(key)) {
                 seen.add(key);
                 allResults.push(r);
+                added++;
               }
             }
           }
