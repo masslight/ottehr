@@ -157,7 +157,7 @@ async function main(): Promise<void> {
     throw new Error('❌ Environment is required. Usage: npm run script get-rcm-tasks <env>');
   }
 
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   const token = await getAuth0Token(secrets);
 

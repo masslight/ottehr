@@ -444,7 +444,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   const candid = createCandidApiClient(secrets);
 

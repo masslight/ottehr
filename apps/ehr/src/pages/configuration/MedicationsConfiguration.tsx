@@ -26,7 +26,7 @@ import { getInHouseMedications } from 'src/api/api';
 import Loading from 'src/components/Loading';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from 'src/hooks/useEvolveUser';
-import { MEDICATION_IDENTIFIER_NAME_SYSTEM, RoleType } from 'utils';
+import { getMedicationName, MEDICATION_IDENTIFIER_NAME_SYSTEM, RoleType } from 'utils';
 
 export default function MedicationsConfigurationPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -87,15 +87,16 @@ function MedicationsTable({
 }: MedicationsTableProps): ReactElement {
   const theme = useTheme();
 
-  // Filter the medications based on the search text
+  // Filter the medications based on the search text, then sort alphabetically
   const filteredMedications: Medication[] = useMemo(
     () =>
-      medications?.filter((medication: Medication) => {
-        const name = medication.identifier?.find(
-          (identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-        )?.value;
-        return name?.toLowerCase().includes(searchText.toLowerCase());
-      }) || [],
+      (medications ?? [])
+        .filter((medication: Medication) =>
+          (getMedicationName(medication) ?? '').toLowerCase().includes(searchText.toLowerCase())
+        )
+        .sort((a, b) =>
+          (getMedicationName(a) ?? '').localeCompare(getMedicationName(b) ?? '', undefined, { sensitivity: 'base' })
+        ),
     [medications, searchText]
   );
 

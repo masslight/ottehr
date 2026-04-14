@@ -12,7 +12,7 @@ const DEFAULT_TIMEOUT = 40000;
 
 describe('sub-harvest-paperwork-page integration', () => {
   const env = process.env.ENV || 'local';
-  const envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const envConfig = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
   let oystehr: Oystehr;
   let token: string;
   let BASE_QR: QuestionnaireResponse;
