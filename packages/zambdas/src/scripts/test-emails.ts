@@ -143,10 +143,10 @@ const main = async (): Promise<void> => {
   const serviceModeArg = process.argv[4];
   const appointmentID = process.argv[5];
 
-  let envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  let envConfig = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   try {
-    envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+    envConfig = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
   } catch (error) {
     console.error(`Error parsing secrets for ENV '${env}'. Error: ${JSON.stringify(error)}`);
   }

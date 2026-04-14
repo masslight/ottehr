@@ -24,11 +24,11 @@ export class PaymentLocationsPage {
   }
 
   async clickLocationByName(name: string): Promise<void> {
-    await this.page.getByRole('cell', { name, exact: true }).click();
+    await this.page.getByRole('cell', { name, exact: true }).first().click();
   }
 
   async verifyLocationVisible(name: string): Promise<void> {
-    await expect(this.page.getByRole('cell', { name, exact: true })).toBeVisible(DEFAULT_TIMEOUT);
+    await expect(this.page.getByRole('cell', { name, exact: true }).first()).toBeVisible(DEFAULT_TIMEOUT);
   }
 
   async verifyLocationNotVisible(name: string): Promise<void> {
