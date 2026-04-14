@@ -211,7 +211,7 @@ export const ExamCheckboxWithModal: FC<ExamCheckboxWithModalProps> = ({ name, co
           </Typography>
         )}
         <DialogContent sx={{ p: 0 }}>
-          <TableContainer component={Paper} elevation={0} sx={{ BORDER_STYLE }}>
+          <TableContainer component={Paper} elevation={0} sx={{ border: BORDER_STYLE }}>
             <Table
               size="small"
               sx={{

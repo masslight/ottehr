@@ -270,7 +270,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
     examObservations?.forEach((element) => {
       const allExamFields = getAllExamFieldsMetadata(isInPerson);
-      console.log('allExamFields', JSON.stringify(allExamFields));
       const examObservationComments = createExamObservationComments(isInPerson);
 
       const observation = allExamFields.find((observation) => observation.field === element.field);

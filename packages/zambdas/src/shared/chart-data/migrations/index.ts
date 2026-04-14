@@ -177,8 +177,6 @@ export function migrateV0ToV1(observations: ExamObservationDTO[]): MigrationResu
     }
   }
 
-  console.log('results: ', JSON.stringify(result));
-
   return { migrated: true, observations: result };
 }
 

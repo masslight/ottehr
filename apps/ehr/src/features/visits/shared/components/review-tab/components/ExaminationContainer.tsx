@@ -13,11 +13,7 @@ type ExaminationContainerProps = {
 export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
   const { examConfig } = props;
 
-  console.log('check me!', examConfig);
-
   const examObservations = useExamObservationsStore();
-
-  console.log('examObservations', examObservations);
 
   const knownFields = collectKnownExamFields(examConfig);
 

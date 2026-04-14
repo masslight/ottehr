@@ -12,8 +12,6 @@ type ExamReviewGroupProps = {
 export const ExamReviewGroup: FC<ExamReviewGroupProps> = (props) => {
   const { label, items, comment } = props;
 
-  if (label === 'Nose') console.log('items for Nose', items);
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       <Box sx={{ display: 'flex', gap: 2 }}>
