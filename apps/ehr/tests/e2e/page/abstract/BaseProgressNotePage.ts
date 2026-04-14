@@ -36,16 +36,20 @@ export abstract class BaseProgressNotePage {
     const matcher = expect(
       this.#page.getByTestId(dataTestIds.progressNotePage.procedureItem).filter({ hasText: procedureType })
     );
+    const cptPrefix = 'CPT:';
     for (const procedureDetail of procedureDetails) {
-      if (procedureDetail.startsWith('CPT:')) {
+      if (procedureDetail.startsWith(cptPrefix)) {
         // sometimes it's not in order and that flakes the test
-        const [cptPrefix, cptCode1, cptCode2] = procedureDetail.split(':');
+        console.log('>>>this is is it after the split', JSON.stringify(procedureDetail.split(':')));
+        const [cptCode1, cptCode2] = procedureDetail.replace(cptPrefix, '').split('; ');
+        // const [cptPrefix, cptCode1, cptCode2] = procedureDetail.split(':');
         let regex: string;
         if (cptCode2 != null) {
-          regex = `${cptPrefix}: (${cptCode1 + '; ' + cptCode2}|${cptCode2 + '; ' + cptCode1})`;
+          regex = `${cptPrefix} (${cptCode1 + '; ' + cptCode2}|${cptCode2 + '; ' + cptCode1})`;
         } else {
-          regex = `${cptPrefix}: ${cptCode1}`;
+          regex = `${cptPrefix} ${cptCode1}`;
         }
+        console.log('>>> this is the regex', regex);
         await matcher.toContainText(new RegExp(regex));
       } else {
         await matcher.toContainText(procedureDetail);
