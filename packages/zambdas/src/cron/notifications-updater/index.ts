@@ -1,22 +1,11 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  Appointment,
-  Communication,
-  Encounter,
-  EncounterStatusHistory,
-  Location,
-  Patient,
-  Practitioner,
-  Task,
-} from 'fhir/r4b';
+import { Appointment, Communication, Encounter, Location, Patient, Practitioner, Task } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import {
-  AppointmentProviderNotificationTags,
   AppointmentProviderNotificationTypes,
   ERX_TASK,
-  getFullestAvailableName,
   getPatchBinary,
   getPatchOperationForNewMetaTag,
   getProviderNotificationSettingsForPractitioner,
@@ -32,8 +21,6 @@ import {
   Secrets,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TelemedAppointmentStatus,
-  TelemedAppointmentStatusEnum,
-  USER_TIMEZONE_EXTENSION_URL,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
 } from 'utils';
 import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
@@ -142,8 +129,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
   // Going through ready or unsigned visits to create notifications and other update logic
   Object.keys(readyOrUnsignedVisitPackages).forEach((appointmentId) => {
     try {
-      const { appointment, encounter, practitioner, location, communications, patient } =
-        readyOrUnsignedVisitPackages[appointmentId];
+      const { appointment, encounter, practitioner, communications } = readyOrUnsignedVisitPackages[appointmentId];
       if (encounter && appointment) {
         const status: TelemedAppointmentStatus | undefined = getTelemedVisitStatus(
           encounter.status,
@@ -181,146 +167,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
               addNewSMSCommunicationForPractitioner(practitioner, communication, newStatus);
             }
           });
-        }
-        if (status === TelemedAppointmentStatusEnum.ready) {
-          // check the tag presence that indicates that communications for "Patient is waiting" notification already exist
-          const isProcessed = appointment.meta?.tag?.find(
-            (tag) =>
-              tag.system === PROVIDER_NOTIFICATION_TAG_SYSTEM &&
-              tag.code === AppointmentProviderNotificationTags.patient_waiting
-          );
-          if (!isProcessed && location?.address?.state) {
-            // add tag into appointment and add to batch request
-            updateAppointmentRequests.push(
-              getPatchBinary({
-                resourceId: appointment.id!,
-                resourceType: 'Appointment',
-                patchOperations: [
-                  getPatchOperationForNewMetaTag(appointment, {
-                    system: PROVIDER_NOTIFICATION_TAG_SYSTEM,
-                    code: AppointmentProviderNotificationTags.patient_waiting,
-                  }),
-                ],
-              })
-            );
-            for (const provider of Object.values(activeProvidersMap)) {
-              const notificationSettings = getProviderNotificationSettingsForPractitioner(provider);
-
-              // - if practitioner has notifications disabled - we don't create notification at all
-              if (notificationSettings?.telemedNotificationsEnabled) {
-                const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, provider);
-
-                let patientName: string | undefined = 'patient';
-                if (patient) {
-                  patientName = getFullestAvailableName(patient);
-                }
-                let appointmentTime: string | undefined;
-                if (appointment.start) {
-                  const providerTimezone = provider.extension?.find((ext) => ext.url === USER_TIMEZONE_EXTENSION_URL)
-                    ?.valueString;
-                  appointmentTime = DateTime.fromISO(appointment.start)
-                    .setZone(
-                      Intl.supportedValuesOf('timeZone').includes(providerTimezone || '')
-                        ? providerTimezone
-                        : 'America/New_York'
-                    )
-                    .toFormat('h:mm a');
-                }
-                const message =
-                  patientName && appointmentTime
-                    ? `Virtual visit with ${patientName} at ${appointmentTime}`
-                    : 'Virtual visit with patient soon'; // this should never happen
-
-                const request: BatchInputPostRequest<Communication> = {
-                  method: 'POST',
-                  url: '/Communication',
-                  resource: {
-                    resourceType: 'Communication',
-                    category: [
-                      {
-                        coding: [
-                          {
-                            system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-                            code: AppointmentProviderNotificationTypes.patient_waiting,
-                          },
-                        ],
-                      },
-                    ],
-                    sent: DateTime.utc().toISO()!,
-                    // set status to "preparation" for practitioners that should not receive notifications right now
-                    // and "in-progress" to those who should receive it right away
-                    status: status,
-                    encounter: { reference: `Encounter/${encounter.id}` },
-                    recipient: [{ reference: `Practitioner/${provider.id}` }],
-                    payload: [{ contentString: message }],
-                  },
-                };
-                createCommunicationRequests.push(request);
-                addNewSMSCommunicationForPractitioner(provider, request.resource as Communication, status);
-              }
-            }
-          }
-          // todo: go through communications and make sure everything was sent
-        } else if (status === TelemedAppointmentStatusEnum.unsigned && practitioner) {
-          // check that the appointment is more than >12 hours in the "unsigned" status
-          // and that corresponding notifications were sent to providers
-
-          const lastUnsignedStatus = encounter.statusHistory?.reduceRight(
-            (found: EncounterStatusHistory | null, entry) => {
-              if (found === null && entry.status === 'finished') {
-                return entry;
-              }
-              return found;
-            },
-            null
-          );
-
-          const utcNow = DateTime.utc();
-          let isProcessed = true;
-          let tagToLookFor: AppointmentProviderNotificationTags | undefined = undefined;
-          // here we check that the appointment is in the unsigned status for > 12, 24 or 48 hours
-          if (lastUnsignedStatus && !lastUnsignedStatus.period.end) {
-            const unsignedPeriodStart = DateTime.fromISO(lastUnsignedStatus.period.start || utcNow.toISO()!);
-            if (unsignedPeriodStart < utcNow.minus({ hour: 48 })) {
-              tagToLookFor = AppointmentProviderNotificationTags.unsigned_more_than_x_hours_3;
-            } else if (unsignedPeriodStart < utcNow.minus({ hour: 24 })) {
-              tagToLookFor = AppointmentProviderNotificationTags.unsigned_more_than_x_hours_2;
-            } else if (unsignedPeriodStart < utcNow.minus({ hour: 12 })) {
-              tagToLookFor = AppointmentProviderNotificationTags.unsigned_more_than_x_hours_1;
-            }
-          }
-
-          if (tagToLookFor) {
-            isProcessed = Boolean(
-              appointment.meta?.tag?.find(
-                (tag) => tag.system === PROVIDER_NOTIFICATION_TAG_SYSTEM && tag.code === tagToLookFor
-              )
-            );
-            if (!practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!]) {
-              practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!] = [];
-            }
-            practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!].push({
-              pack: readyOrUnsignedVisitPackages[appointmentId],
-              isProcessed: Boolean(isProcessed),
-            });
-
-            if (!isProcessed) {
-              // add tag into appointment that the >x hours unsigned status notification was processed
-              // and add to batch request
-              updateAppointmentRequests.push(
-                getPatchBinary({
-                  resourceId: appointment.id!,
-                  resourceType: 'Appointment',
-                  patchOperations: [
-                    getPatchOperationForNewMetaTag(appointment, {
-                      system: PROVIDER_NOTIFICATION_TAG_SYSTEM,
-                      code: tagToLookFor,
-                    }),
-                  ],
-                })
-              );
-            }
-          }
         }
       }
     } catch (error) {
