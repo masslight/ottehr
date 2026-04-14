@@ -50,7 +50,6 @@ export default function AppointmentTable({
   vitals,
 }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
-  const actionButtons = tab === ApptTab.prebooked ? true : false;
   const [collapseWaiting, setCollapseWaiting] = useState<boolean>(false);
   const [collapseExam, setCollapseExam] = useState<boolean>(false);
 
@@ -144,14 +143,13 @@ export default function AppointmentTable({
                             key={appointment.id}
                             appointment={appointment}
                             location={location}
-                            actionButtons={actionButtons}
                             now={now}
                             updateAppointments={updateAppointments}
                             setEditingComment={setEditingComment}
                             tab={tab}
                             table={'waiting-room'}
                             orders={ordersForAppointment(appointment.id, appointment.encounterId)}
-                          ></AppointmentTableRow>
+                          />
                         );
                       })}
                 </>
@@ -162,14 +160,13 @@ export default function AppointmentTable({
                       key={appointment.id}
                       appointment={appointment}
                       location={location}
-                      actionButtons={actionButtons}
                       now={now}
                       updateAppointments={updateAppointments}
                       setEditingComment={setEditingComment}
                       tab={tab}
                       vitals={vitalsForAppointment(appointment)}
                       orders={ordersForAppointment(appointment.id, appointment.encounterId)}
-                    ></AppointmentTableRow>
+                    />
                   );
                 })
               )}
@@ -218,7 +215,6 @@ export default function AppointmentTable({
                           key={appointment.id}
                           appointment={appointment}
                           location={location}
-                          actionButtons={actionButtons}
                           now={now}
                           vitals={vitalsForAppointment(appointment)}
                           updateAppointments={updateAppointments}
@@ -226,7 +222,7 @@ export default function AppointmentTable({
                           tab={tab}
                           table="in-exam"
                           orders={ordersForAppointment(appointment.id, appointment.encounterId)}
-                        ></AppointmentTableRow>
+                        />
                       );
                     })}
               </TableBody>
