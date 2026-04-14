@@ -6,6 +6,7 @@ import { SlotListItem } from '../../utils';
 export const AppointmentTypeOptions = ['walk-in', 'pre-booked', 'post-telemed'] as const;
 export type AppointmentType = (typeof AppointmentTypeOptions)[number];
 export const AppointmentTypeSchema = z.array(z.enum(AppointmentTypeOptions));
+export type AppointmentAttendanceType = 'in-person' | 'virtual';
 
 export type ReviewAndSignData = {
   signedOnDate?: string;

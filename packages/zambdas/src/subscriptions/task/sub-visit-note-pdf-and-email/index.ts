@@ -96,9 +96,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       task.encounter?.reference?.split('/')[1]
     );
     if (!visitResources) {
-      {
-        throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
-      }
+      throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
     }
 
     const { encounter, patient, appointment, location, listResources } = visitResources;
@@ -146,40 +144,48 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('Chart data received');
     try {
-      let statusMessage: string;
+      // Check if we should skip making visit note visible in patient portal
+      const skipVisitNoteInPatientPortal = isFeatureFlagEnabled(
+        'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG',
+        secrets
+      );
 
-      const createAndSendVisitNoteToPatientPortal = async (): Promise<void> => {
-        const { pdfInfo } = await createProgressNotePdf(
-          {
-            patient,
-            encounter,
-            allChartData: {
-              chartData,
-              additionalChartData,
-              medicationOrders,
-              immunizationOrders,
-            },
-            appointmentPackage: visitResources,
-            questionnaireResponse: visitResources.questionnaireResponse,
+      // Always create the PDF
+      const { pdfInfo } = await createProgressNotePdf(
+        {
+          patient,
+          encounter,
+          allChartData: {
+            chartData,
+            additionalChartData,
+            medicationOrders,
+            immunizationOrders,
           },
-          secrets,
-          oystehrToken
-        );
-        if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
-        console.log(`Creating visit note pdf docRef`);
-        await makeVisitNotePdfDocumentReference(
-          oystehr,
-          pdfInfo,
-          patient.id,
-          appointmentId,
-          encounter.id!,
-          listResources
-        );
+          appointmentPackage: visitResources,
+          questionnaireResponse: visitResources.questionnaireResponse,
+        },
+        secrets,
+        oystehrToken
+      );
+      if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
+      console.log(`Creating visit note pdf docRef`);
+      await makeVisitNotePdfDocumentReference(
+        oystehr,
+        pdfInfo,
+        patient.id,
+        appointmentId,
+        encounter.id!,
+        listResources
+      );
 
-        const emailClient = getEmailClient(secrets);
-        const emailEnabled = emailClient.getFeatureFlag();
+      // Send email unless skipped by feature flag
+      const emailClient = getEmailClient(secrets);
+      const emailEnabled = emailClient.getFeatureFlag();
 
-        if (emailEnabled && !isPDFOnlyTask) {
+      if (emailEnabled && !isPDFOnlyTask) {
+        if (skipVisitNoteInPatientPortal) {
+          console.log('Skipping completion email to patient - visit note patient portal feature flag is enabled');
+        } else {
           const patientEmail = getPatientContactEmail(patient);
           let prettyStartTime = '';
           let locationName = '';
@@ -238,21 +244,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             }
           }
         }
-      };
-
-      // Check if we should skip making visit note available to patient portal
-      const skipSendingVisitNoteToPatientPortal = isFeatureFlagEnabled(
-        'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG',
-        secrets
-      );
-
-      if (skipSendingVisitNoteToPatientPortal) {
-        console.log('Skipping visit note creation and email to patient portal - feature flag is enabled');
-        statusMessage = 'PDF creation and email sending were skipped due to app settings';
-      } else {
-        await createAndSendVisitNoteToPatientPortal();
-        statusMessage = isPDFOnlyTask ? 'PDF created successfully' : 'PDF created and emailed successfully';
       }
+
+      const statusMessage =
+        isPDFOnlyTask || skipVisitNoteInPatientPortal
+          ? 'PDF created successfully'
+          : 'PDF created and emailed successfully';
 
       // update task status and status reason
       console.log('making patch request to update task status');

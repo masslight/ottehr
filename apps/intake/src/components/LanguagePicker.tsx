@@ -1,8 +1,7 @@
 import LanguageIcon from '@mui/icons-material/Language';
 import { Popover, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
-import mixpanel from 'mixpanel-browser';
-import { FC, MouseEvent, useContext, useEffect, useState } from 'react';
+import { FC, MouseEvent, useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IntakeThemeContext } from '../contexts';
 import { languages } from '../lib/i18n';
@@ -11,18 +10,6 @@ export const LanguagePicker: FC = () => {
   const theme = useTheme();
   const { i18n } = useTranslation();
   const { otherColors } = useContext(IntakeThemeContext);
-
-  useEffect(() => {
-    // Not having a unique id uses the default $distinct_id prop
-    mixpanel.identify();
-  }, []);
-
-  // Every time the language changes, update it in MixPanel
-  useEffect(() => {
-    mixpanel.people.set({
-      Language: i18n.language,
-    });
-  }, [i18n.language]);
 
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [anchorText, setAnchorText] = useState<string>(languages['en'].nativeName);

@@ -2,15 +2,19 @@
 
 ## Feature Flags
 
-The Ottehr EHR uses feature flags to control the display of certain features. Application environment variables are stored in [`src/constants/feature-flags.ts`](/apps/ehr/src/constants/feature-flags.ts). This configuration shows which feature flags are currently used in the application and what they are called. For example:
+The Ottehr EHR uses feature flags to control the display of certain features. Flag values are defined centrally in [`packages/utils/lib/ottehr-config/feature-flags/index.ts`](/packages/utils/lib/ottehr-config/feature-flags/index.ts) and validated against the schema in [`packages/config-types/config/feature-flags.ts`](/packages/config-types/config/feature-flags.ts). The EHR consumes them via [`src/constants/feature-flags.ts`](/apps/ehr/src/constants/feature-flags.ts), which re-exports the shared config as the app-level `FEATURE_FLAGS` object. For example:
 
-```
+```ts
+import { FEATURE_FLAGS_CONFIG } from 'utils';
+
 export const FEATURE_FLAGS = {
-  LAB_ORDERS_ENABLED: import.meta.env.VITE_APP_IS_LAB_ORDERS_ENABLED_FEATURE_FLAG === 'true',
-  IN_HOUSE_LABS_ENABLED: import.meta.env.VITE_APP_IS_IN_HOUSE_LABS_ENABLED_FEATURE_FLAG === 'true',
-  NURSING_ORDERS_ENABLED: import.meta.env.VITE_APP_IS_NURSING_ORDERS_ENABLED_FEATURE_FLAG === 'true',
+  LAB_ORDERS_ENABLED: FEATURE_FLAGS_CONFIG.labOrdersEnabled,
+  IN_HOUSE_LABS_ENABLED: FEATURE_FLAGS_CONFIG.inHouseLabsEnabled,
+  NURSING_ORDERS_ENABLED: FEATURE_FLAGS_CONFIG.nursingOrdersEnabled,
 };
 ```
+
+To add or modify a flag, update the Zod schema in `config-types` and the default values in the `utils` feature-flags module.
 
 ## Label Printing
 

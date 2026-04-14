@@ -10,7 +10,7 @@ import {
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
-import { getMedications, getPresignedURLs } from './helpers';
+import { getMedications, getPatientPortalPresignedURLs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -71,7 +71,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   try {
     console.log(`getting presigned urls for document references files at ${appointmentId}`);
-    const { presignedUrls, reviewedLabResultsUrls } = await getPresignedURLs(oystehr, oystehrToken, encounter?.id);
+    const { presignedUrls, reviewedLabResultsUrls } = await getPatientPortalPresignedURLs(
+      oystehr,
+      oystehrToken,
+      encounter?.id,
+      secrets
+    );
     documents = presignedUrls;
     reviewedLabResults = reviewedLabResultsUrls;
   } catch (error) {
@@ -106,7 +111,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           let followupDocuments = {};
           try {
             if (followupEncounter.id) {
-              const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, followupEncounter.id);
+              const { presignedUrls } = await getPatientPortalPresignedURLs(
+                oystehr,
+                oystehrToken,
+                followupEncounter.id,
+                secrets
+              );
               followupDocuments = presignedUrls;
             }
           } catch (error) {

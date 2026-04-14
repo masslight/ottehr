@@ -21,37 +21,32 @@ export type NavbarItems = {
 };
 
 const administratorNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
-  Virtual: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Admin: { urls: ['/admin'] },
 };
 
 const managerNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
-  Virtual: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Admin: { urls: ['/admin'] },
   Tasks: { urls: ['/tasks'] },
 };
 
 const staffNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
-  Virtual: { urls: ['/telemed/appointments'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Tasks: { urls: ['/tasks'] },
 };
 
 const providerNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
-  Virtual: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Tasks: { urls: ['/tasks'] },
 };
 
 const customerSupportNavbarItems: NavbarItems = {
-  'In Person': { urls: ['/visits', '/visit'] },
-  Virtual: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+  'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Admin: { urls: ['/admin'] },
 };

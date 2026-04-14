@@ -275,7 +275,7 @@ export class BookingFlowHelpers {
     // Virtual walk-in flows proceed to location selection
     // Prebook flows load the time slot page immediately after category selection
     if (visitType === 'walk-in' && serviceMode === 'in-person') {
-      await this.clickContinueButtonIfPresent(page, 'on walk-in landing page');
+      await this.clickContinueButtonIfPresent(page, 'on walk-in landing page', 15000);
     }
   }
 
