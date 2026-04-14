@@ -37,8 +37,8 @@ export const performEffect = async (
   name: string,
   ndc: string | undefined,
   medispanID: string,
-  cptCodes?: string[],
-  hcpcsCodes?: string[]
+  cptCodes?: { code: string; display: string }[],
+  hcpcsCodes?: { code: string; display: string }[]
 ): Promise<Medication> => {
   const coding = [];
   if (ndc) {
@@ -48,11 +48,11 @@ export const performEffect = async (
     system: MEDICATION_DISPENSABLE_DRUG_ID,
     code: medispanID,
   });
-  for (const code of cptCodes ?? []) {
-    coding.push({ system: CODE_SYSTEM_CPT, code });
+  for (const { code, display } of cptCodes ?? []) {
+    coding.push({ system: CODE_SYSTEM_CPT, code, display });
   }
-  for (const code of hcpcsCodes ?? []) {
-    coding.push({ system: CODE_SYSTEM_HCPCS, code });
+  for (const { code, display } of hcpcsCodes ?? []) {
+    coding.push({ system: CODE_SYSTEM_HCPCS, code, display });
   }
   const medication = await oystehr.fhir.create<Medication>({
     resourceType: 'Medication',
