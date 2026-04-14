@@ -99,7 +99,17 @@ export const MIGRATION_V1_FIELD_MAP: Record<string, { parent: string; groupLabel
   'cw-lyme-ecm': { parent: 'common-skin-findings', groupLabel: 'Rashes & Eruptions', label: 'Erythema migrans' },
 
   // Skin - old rash parent (was multi-select parent)
-  rash: { parent: 'common-skin-findings', groupLabel: '', label: 'Rash' }, // todo sarah fix this
+  rash: { parent: 'common-skin-findings', groupLabel: 'Rashes & Eruptions', label: 'Rash' },
+};
+
+const PARENT_FIELD_TO_LABEL_MAP: Record<string, string> = {
+  'common-skin-findings': 'Common skin findings',
+  tender: 'Tender',
+  retractions: 'Retractions',
+  'breath-sounds': 'Decreased breath sounds',
+  wheezing: 'Wheezing',
+  crackles: 'Crackles',
+  'murmur-grade': 'Murmur grade',
 };
 
 export interface MigrationResult {
@@ -160,11 +170,14 @@ export function migrateV0ToV1(observations: ExamObservationDTO[]): MigrationResu
       // Create new parent observation
       result.push({
         field: parentField,
+        label: PARENT_FIELD_TO_LABEL_MAP[parentField] ?? parentField,
         value: true,
         components: group.components,
       });
     }
   }
+
+  console.log('results: ', JSON.stringify(result));
 
   return { migrated: true, observations: result };
 }
@@ -225,6 +238,7 @@ export async function runExamMigrations(
       for (const obs of result) {
         // Only persist observations that were part of migration (have components from migrated data)
         if (obs.components && obs.components.length > 0) {
+          console.log('Obs to be migrated', JSON.stringify(obs));
           const fhirObs = makeExamObservationResource(encounterId, patientId, obs, undefined, obs.label || obs.field);
           if (obs.resourceId) {
             requests.push({ method: 'PUT', url: `/Observation/${obs.resourceId}`, resource: fhirObs });
