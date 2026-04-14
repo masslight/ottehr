@@ -1,7 +1,18 @@
 import AddIcon from '@mui/icons-material/Add';
 import DoneIcon from '@mui/icons-material/Done';
 import SchoolIcon from '@mui/icons-material/School';
-import { Box, CircularProgress, TextField, Tooltip, Typography } from '@mui/material';
+import {
+  Box,
+  Checkbox,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { BRANDING_CONFIG, CommunicationDTO } from 'utils';
@@ -26,11 +37,14 @@ export const PatientInstructionsCard: FC = () => {
   const { mutate: deleteChartData } = useDeleteChartData();
   const isLoading = isSavePatientInstructionLoading || isSaveChartDataLoading;
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const [educationModalOpen, setEducationModalOpen] = useState(false);
+  const [selectedDiagnoses, setSelectedDiagnoses] = useState<Set<string>>(new Set());
   const {
-    generate: generateEducation,
+    generateForDiagnoses,
     isLoading: isEducationLoading,
     error: educationError,
-    primaryDiagnosis,
+    progress: educationProgress,
+    allDiagnoses,
   } = usePatientEducation();
   const { chartData, setPartialChartData } = useChartData();
   const instructions = chartData?.instructions || [];
@@ -158,27 +172,21 @@ export const PatientInstructionsCard: FC = () => {
                 <RoundedButton onClick={() => setDefaultTemplatesOpen(true)}>
                   {BRANDING_CONFIG.projectName} Templates
                 </RoundedButton>
-                <Tooltip
-                  title={
-                    primaryDiagnosis
-                      ? `Generate for: ${primaryDiagnosis.code} - ${primaryDiagnosis.display}`
-                      : 'No primary diagnosis set'
-                  }
+                <RoundedButton
+                  onClick={() => {
+                    // Pre-select all diagnoses
+                    setSelectedDiagnoses(new Set(allDiagnoses.map((d) => d.code)));
+                    setEducationModalOpen(true);
+                  }}
+                  disabled={allDiagnoses.length === 0 || isEducationLoading}
+                  startIcon={isEducationLoading ? <CircularProgress size={16} /> : <SchoolIcon />}
                 >
-                  <span>
-                    <RoundedButton
-                      onClick={generateEducation}
-                      disabled={!primaryDiagnosis || isEducationLoading}
-                      startIcon={isEducationLoading ? <CircularProgress size={16} /> : <SchoolIcon />}
-                    >
-                      Patient Education
-                    </RoundedButton>
-                  </span>
-                </Tooltip>
+                  Patient Education
+                </RoundedButton>
               </Box>
-              {educationError && (
-                <Typography color="error" variant="body2">
-                  {educationError}
+              {(educationError || educationProgress) && (
+                <Typography color={educationError ? 'error' : 'text.secondary'} variant="body2">
+                  {educationError || educationProgress}
                 </Typography>
               )}
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -248,6 +256,84 @@ export const PatientInstructionsCard: FC = () => {
           }}
         />
       )}
+
+      <Dialog
+        open={educationModalOpen}
+        onClose={() => !isEducationLoading && setEducationModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Generate Patient Education Materials</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Select the diagnoses to include in the patient education document.
+          </Typography>
+          {allDiagnoses.length === 0 ? (
+            <Typography color="text.secondary">
+              No diagnoses on this visit. Add diagnoses in the Assessment tab first.
+            </Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {allDiagnoses.map((diagnosis) => (
+                <FormControlLabel
+                  key={diagnosis.code}
+                  control={
+                    <Checkbox
+                      checked={selectedDiagnoses.has(diagnosis.code)}
+                      onChange={(e) => {
+                        setSelectedDiagnoses((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(diagnosis.code);
+                          else next.delete(diagnosis.code);
+                          return next;
+                        });
+                      }}
+                      disabled={isEducationLoading}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2">
+                      <strong>{diagnosis.code}</strong> — {diagnosis.display}
+                      {diagnosis.isPrimary && (
+                        <Typography component="span" variant="caption" color="primary" sx={{ ml: 1 }}>
+                          (Primary)
+                        </Typography>
+                      )}
+                    </Typography>
+                  }
+                />
+              ))}
+            </Box>
+          )}
+          {educationProgress && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+              <CircularProgress size={16} />
+              <Typography variant="body2" color="text.secondary">
+                {educationProgress}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <RoundedButton onClick={() => setEducationModalOpen(false)} disabled={isEducationLoading}>
+            Cancel
+          </RoundedButton>
+          <RoundedButton
+            variant="contained"
+            onClick={async () => {
+              const selected = allDiagnoses.filter((d) => selectedDiagnoses.has(d.code));
+              await generateForDiagnoses(selected);
+              if (!educationError) {
+                setEducationModalOpen(false);
+              }
+            }}
+            disabled={selectedDiagnoses.size === 0 || isEducationLoading}
+            startIcon={isEducationLoading ? <CircularProgress size={16} /> : <SchoolIcon />}
+          >
+            Generate ({selectedDiagnoses.size})
+          </RoundedButton>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };

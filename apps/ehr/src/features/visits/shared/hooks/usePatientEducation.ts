@@ -22,7 +22,96 @@ function wrapText(text: string, fontSize: number, maxWidth: number): string[] {
   return lines;
 }
 
-async function generatePdf(content: string, icdCode: string, icdDescription: string): Promise<Uint8Array> {
+export interface DiagnosisOption {
+  code: string;
+  display: string;
+  isPrimary: boolean;
+}
+
+export interface UsePatientEducationResult {
+  generateForDiagnoses: (diagnoses: DiagnosisOption[]) => Promise<void>;
+  isLoading: boolean;
+  error: string | null;
+  progress: string | null;
+  allDiagnoses: DiagnosisOption[];
+}
+
+export function usePatientEducation(): UsePatientEducationResult {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
+  const { chartData } = useChartData();
+  const apiClient = useOystehrAPIClient();
+
+  const allDiagnoses: DiagnosisOption[] = (chartData?.diagnosis ?? []).map((d) => ({
+    code: d.code,
+    display: d.display,
+    isPrimary: d.isPrimary,
+  }));
+
+  const generateForDiagnoses = async (selectedDiagnoses: DiagnosisOption[]): Promise<void> => {
+    if (selectedDiagnoses.length === 0) {
+      setError('No diagnoses selected.');
+      return;
+    }
+    if (!apiClient) {
+      setError('API client not available.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setProgress(null);
+
+    try {
+      // Generate content for each selected diagnosis
+      const sections: { content: string; icdCode: string; icdDescription: string }[] = [];
+
+      for (let i = 0; i < selectedDiagnoses.length; i++) {
+        const diagnosis = selectedDiagnoses[i];
+        setProgress(`Generating ${i + 1} of ${selectedDiagnoses.length}: ${diagnosis.display}...`);
+
+        const result = await apiClient.generatePatientEducation({
+          icdCode: diagnosis.code,
+          icdDescription: diagnosis.display,
+        });
+
+        if (result.content) {
+          sections.push({
+            content: result.content,
+            icdCode: diagnosis.code,
+            icdDescription: diagnosis.display,
+          });
+        }
+      }
+
+      if (sections.length === 0) {
+        setError('No content was generated for any of the selected diagnoses.');
+        return;
+      }
+
+      // Generate a single combined PDF
+      setProgress('Building PDF...');
+      const pdfBytes = await generateCombinedPdf(sections);
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(message);
+      console.error('Patient education generation failed:', err);
+    } finally {
+      setIsLoading(false);
+      setProgress(null);
+    }
+  };
+
+  return { generateForDiagnoses, isLoading, error, progress, allDiagnoses };
+}
+
+async function generateCombinedPdf(
+  sections: { content: string; icdCode: string; icdDescription: string }[]
+): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const timesRoman = await pdfDoc.embedFont(StandardFonts.TimesRoman);
   const timesRomanBold = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
@@ -36,132 +125,76 @@ async function generatePdf(content: string, icdCode: string, icdDescription: str
   const titleFontSize = 18;
   const lineHeight = bodyFontSize * 1.4;
 
-  let page = pdfDoc.addPage([pageWidth, pageHeight]);
-  let y = pageHeight - margin;
+  for (const section of sections) {
+    // Each diagnosis starts on a new page
+    let page = pdfDoc.addPage([pageWidth, pageHeight]);
+    let y = pageHeight - margin;
 
-  // Title
-  const title = `Patient Education: ${icdDescription}`;
-  const titleLines = wrapText(title, titleFontSize, maxWidth);
-  for (const line of titleLines) {
-    page.drawText(line, { x: margin, y, size: titleFontSize, font: timesRomanBold, color: rgb(0.1, 0.1, 0.4) });
-    y -= titleFontSize * 1.5;
-  }
-
-  // ICD code subtitle
-  page.drawText(`ICD-10: ${icdCode}`, { x: margin, y, size: 10, font: timesRoman, color: rgb(0.4, 0.4, 0.4) });
-  y -= 25;
-
-  // Body content
-  const paragraphs = content.split('\n');
-  for (const paragraph of paragraphs) {
-    const trimmed = paragraph.trim();
-    if (!trimmed) {
-      y -= lineHeight * 0.5;
-      continue;
+    // Title
+    const title = `Patient Education: ${section.icdDescription}`;
+    const titleLines = wrapText(title, titleFontSize, maxWidth);
+    for (const line of titleLines) {
+      page.drawText(line, { x: margin, y, size: titleFontSize, font: timesRomanBold, color: rgb(0.1, 0.1, 0.4) });
+      y -= titleFontSize * 1.5;
     }
 
-    const isHeader =
-      /^#{1,3}\s/.test(trimmed) || /^[A-Z][A-Z\s/()-]+:?$/.test(trimmed) || /^\d+\.\s+[A-Z]/.test(trimmed);
-    const cleanText = trimmed.replace(/^#{1,3}\s*/, '').replace(/\*\*/g, '');
+    // ICD code subtitle
+    page.drawText(`ICD-10: ${section.icdCode}`, {
+      x: margin,
+      y,
+      size: 10,
+      font: timesRoman,
+      color: rgb(0.4, 0.4, 0.4),
+    });
+    y -= 25;
 
-    const font = isHeader ? timesRomanBold : timesRoman;
-    const fontSize = isHeader ? headerFontSize : bodyFontSize;
-    const currentLineHeight = isHeader ? fontSize * 1.8 : lineHeight;
-
-    if (isHeader) y -= 5;
-
-    const lines = wrapText(cleanText, fontSize, maxWidth);
-    for (const line of lines) {
-      if (y < margin + 30) {
-        page = pdfDoc.addPage([pageWidth, pageHeight]);
-        y = pageHeight - margin;
+    // Body content
+    const paragraphs = section.content.split('\n');
+    for (const paragraph of paragraphs) {
+      const trimmed = paragraph.trim();
+      if (!trimmed) {
+        y -= lineHeight * 0.5;
+        continue;
       }
-      page.drawText(line, { x: margin, y, size: fontSize, font, color: rgb(0, 0, 0) });
-      y -= currentLineHeight;
+
+      const isHeader =
+        /^#{1,3}\s/.test(trimmed) || /^[A-Z][A-Z\s/()-]+:?$/.test(trimmed) || /^\d+\.\s+[A-Z]/.test(trimmed);
+      const cleanText = trimmed.replace(/^#{1,3}\s*/, '').replace(/\*\*/g, '');
+
+      const font = isHeader ? timesRomanBold : timesRoman;
+      const fontSize = isHeader ? headerFontSize : bodyFontSize;
+      const currentLineHeight = isHeader ? fontSize * 1.8 : lineHeight;
+
+      if (isHeader) y -= 5;
+
+      const lines = wrapText(cleanText, fontSize, maxWidth);
+      for (const line of lines) {
+        if (y < margin + 30) {
+          page = pdfDoc.addPage([pageWidth, pageHeight]);
+          y = pageHeight - margin;
+        }
+        page.drawText(line, { x: margin, y, size: fontSize, font, color: rgb(0, 0, 0) });
+        y -= currentLineHeight;
+      }
     }
   }
 
-  // Footer
-  if (y < margin + 50) {
-    page = pdfDoc.addPage([pageWidth, pageHeight]);
-    y = pageHeight - margin;
-  }
-  y -= 20;
-  page.drawText('Source: MedlinePlus (U.S. National Library of Medicine)', {
+  // Footer on last page
+  const lastPage = pdfDoc.getPages()[pdfDoc.getPageCount() - 1];
+  lastPage.drawText('Source: MedlinePlus (U.S. National Library of Medicine)', {
     x: margin,
-    y,
+    y: margin,
     size: 9,
     font: timesRoman,
     color: rgb(0.4, 0.4, 0.4),
   });
-  y -= 14;
-  page.drawText(`Generated: ${new Date().toLocaleDateString()}`, {
+  lastPage.drawText(`Generated: ${new Date().toLocaleDateString()}`, {
     x: margin,
-    y,
+    y: margin - 14,
     size: 9,
     font: timesRoman,
     color: rgb(0.4, 0.4, 0.4),
   });
 
   return pdfDoc.save();
-}
-
-export interface UsePatientEducationResult {
-  generate: () => Promise<void>;
-  isLoading: boolean;
-  error: string | null;
-  primaryDiagnosis: { code: string; display: string } | null;
-}
-
-export function usePatientEducation(): UsePatientEducationResult {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { chartData } = useChartData();
-  const apiClient = useOystehrAPIClient();
-
-  const diagnoses = chartData?.diagnosis ?? [];
-  const primary = diagnoses.find((d) => d.isPrimary) ?? null;
-  const primaryDiagnosis = primary ? { code: primary.code, display: primary.display } : null;
-
-  const generate = async (): Promise<void> => {
-    if (!primaryDiagnosis) {
-      setError('No primary diagnosis found. Please add a diagnosis in the Assessment tab first.');
-      return;
-    }
-    if (!apiClient) {
-      setError('API client not available.');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Call zambda which fetches MedlinePlus + calls Gemini server-side
-      const result = await apiClient.generatePatientEducation({
-        icdCode: primaryDiagnosis.code,
-        icdDescription: primaryDiagnosis.display,
-      });
-
-      if (!result.content) {
-        setError(result.error ?? 'No content generated.');
-        setIsLoading(false);
-        return;
-      }
-
-      // Generate PDF client-side from the AI content
-      const pdfBytes = await generatePdf(result.content, primaryDiagnosis.code, primaryDiagnosis.display);
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'An unknown error occurred';
-      setError(message);
-      console.error('Patient education generation failed:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return { generate, isLoading, error, primaryDiagnosis };
 }
