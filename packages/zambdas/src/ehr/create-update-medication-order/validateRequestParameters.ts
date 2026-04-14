@@ -1,4 +1,4 @@
-import { MedicationInteractions, UpdateMedicationOrderInput } from 'utils';
+import { INVALID_INPUT_ERROR, MedicationInteractions, MISSING_REQUEST_BODY, UpdateMedicationOrderInput } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
@@ -7,24 +7,26 @@ export function validateRequestParameters(
   console.group('validateRequestParameters');
 
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { orderId, newStatus, orderData, interactions } = JSON.parse(input.body);
 
   if (newStatus) {
     if (newStatus === 'administered' && !orderData) {
-      throw new Error(`With status 'administered' order data should be provided.`);
+      throw INVALID_INPUT_ERROR(`With status 'administered' order data should be provided.`);
     }
     if (newStatus === 'pending') {
-      throw new Error('Cannot change status back to pending.');
+      throw INVALID_INPUT_ERROR('Cannot change status back to pending.');
     }
     if (orderId && newStatus !== 'administered' && newStatus !== 'cancelled' && !orderData?.reason) {
-      throw new Error(`Reason should be provided if you changing status to anything except 'administered'`);
+      throw INVALID_INPUT_ERROR(`Reason should be provided if you changing status to anything except 'administered'`);
     }
     if (newStatus === 'administered') {
       if (!orderData.effectiveDateTime)
-        throw new Error('On status change to "administered" effectiveDateTime field should be present in zambda input');
+        throw INVALID_INPUT_ERROR(
+          'On status change to "administered" effectiveDateTime field should be present in zambda input'
+        );
     }
 
     const missedFields: string[] = [];
@@ -36,7 +38,7 @@ export function validateRequestParameters(
       if (!orderData.dose) missedFields.push('dose');
       if (!orderData.route) missedFields.push('route');
     }
-    if (missedFields.length > 0) throw new Error(`Missing fields in orderData: ${missedFields.join(', ')}`);
+    if (missedFields.length > 0) throw INVALID_INPUT_ERROR(`Missing fields in orderData: ${missedFields.join(', ')}`);
   }
 
   validateInteractions(interactions);
@@ -66,6 +68,6 @@ function validateInteractions(interactions?: MedicationInteractions): void {
     }
   });
   if (missingOverrideReason.length > 0) {
-    throw new Error(`overrideReason is missing for ${missingOverrideReason.join(', ')}`);
+    throw INVALID_INPUT_ERROR(`overrideReason is missing for ${missingOverrideReason.join(', ')}`);
   }
 }
