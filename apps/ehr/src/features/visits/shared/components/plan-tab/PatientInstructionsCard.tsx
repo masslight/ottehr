@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import DoneIcon from '@mui/icons-material/Done';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SchoolIcon from '@mui/icons-material/School';
 import {
   Box,
@@ -10,18 +11,20 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  Link,
   TextField,
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useState } from 'react';
-import { BRANDING_CONFIG, CommunicationDTO } from 'utils';
+import { FC, useCallback, useState } from 'react';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { BRANDING_CONFIG, CommunicationDTO, getPresignedURL } from 'utils';
 import { AccordionCard } from '../../../../../components/AccordionCard';
 import { ActionsList } from '../../../../../components/ActionsList';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
-import { usePatientEducation } from '../../hooks/usePatientEducation';
+import { getEducationBlobUrl, usePatientEducation } from '../../hooks/usePatientEducation';
 import { useSavePatientInstruction } from '../../stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 import { PatientInstructionsTemplatesDialog } from './components/PatientInstructionsTemplatesDialog';
@@ -48,6 +51,37 @@ export const PatientInstructionsCard: FC = () => {
   } = usePatientEducation();
   const { chartData, setPartialChartData } = useChartData();
   const instructions = chartData?.instructions || [];
+  const { oystehr } = useApiClients();
+
+  const openEducationPdf = useCallback(
+    async (docRefId: string) => {
+      // Try session-local blob URL first
+      const blobUrl = getEducationBlobUrl(docRefId);
+      if (blobUrl) {
+        window.open(blobUrl, '_blank');
+        return;
+      }
+      // Otherwise fetch from server
+      if (!oystehr) return;
+      try {
+        const docRef = await oystehr.fhir.read<import('fhir/r4b').DocumentReference>({
+          resourceType: 'DocumentReference',
+          id: docRefId,
+        });
+        const z3Url = docRef.content?.[0]?.attachment?.url;
+        if (!z3Url) {
+          enqueueSnackbar('Could not find PDF attachment.', { variant: 'error' });
+          return;
+        }
+        const presignedUrl = await getPresignedURL(z3Url, oystehr.config.accessToken);
+        window.open(presignedUrl, '_blank');
+      } catch (err) {
+        console.error('Failed to open education PDF:', err);
+        enqueueSnackbar('Failed to open education PDF.', { variant: 'error' });
+      }
+    },
+    [oystehr]
+  );
 
   const onAddAndSave = (): void => {
     savePatientInstruction(
@@ -214,8 +248,23 @@ export const PatientInstructionsCard: FC = () => {
               getKey={(value, index) => value.resourceId || index}
               renderItem={(value) => (
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                  {value.title && <Typography fontWeight={600}>{value.title}</Typography>}
-                  {value.text && <Typography style={{ whiteSpace: 'pre-line' }}>{value.text}</Typography>}
+                  {value.educationDocRefId ? (
+                    <Link
+                      component="button"
+                      onClick={() => openEducationPdf(value.educationDocRefId!)}
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, textAlign: 'left' }}
+                    >
+                      <PictureAsPdfIcon fontSize="small" color="error" />
+                      <Typography fontWeight={600} color="primary">
+                        {value.title || 'Patient Education'}
+                      </Typography>
+                    </Link>
+                  ) : (
+                    <>
+                      {value.title && <Typography fontWeight={600}>{value.title}</Typography>}
+                      {value.text && <Typography style={{ whiteSpace: 'pre-line' }}>{value.text}</Typography>}
+                    </>
+                  )}
                 </Box>
               )}
               renderActions={

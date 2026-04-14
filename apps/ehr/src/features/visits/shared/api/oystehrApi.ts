@@ -95,6 +95,7 @@ enum ZambdaNames {
   'inhouse lab resource search' = 'inhouse lab resource search',
   'make medication history pdf' = 'make medication history pdf',
   'generate patient education' = 'generate patient education',
+  'save patient education pdf' = 'save patient education pdf',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
@@ -131,6 +132,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'inhouse lab resource search': false,
   'make medication history pdf': false,
   'generate patient education': false,
+  'save patient education pdf': false,
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
@@ -172,6 +174,7 @@ export const getOystehrTelemedAPI = (
   getCreateInHouseLabOrderResources: typeof getCreateInHouseLabOrderResources;
   makeMedicationHistoryPdf: typeof makeMedicationHistoryPdf;
   generatePatientEducation: typeof generatePatientEducation;
+  savePatientEducationPdf: typeof savePatientEducationPdf;
 } => {
   const {
     getTelemedAppointmentsZambdaID,
@@ -207,6 +210,7 @@ export const getOystehrTelemedAPI = (
     inhouseLabResourceSearchID,
     makeMedicationHistoryPdfID,
     generatePatientEducationZambdaID,
+    savePatientEducationPdfZambdaID,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
@@ -243,6 +247,7 @@ export const getOystehrTelemedAPI = (
     'inhouse lab resource search': inhouseLabResourceSearchID,
     'make medication history pdf': makeMedicationHistoryPdfID,
     'generate patient education': generatePatientEducationZambdaID,
+    'save patient education pdf': savePatientEducationPdfZambdaID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
@@ -427,11 +432,21 @@ export const getOystehrTelemedAPI = (
   }): Promise<{
     content: string | null;
     error?: string;
+    patientTitle?: string;
     icdCode: string;
     icdDescription: string;
     links?: { title: string; url: string }[];
   }> => {
     return await makeZapRequest('generate patient education', parameters);
+  };
+
+  const savePatientEducationPdf = async (parameters: {
+    encounterId: string;
+    patientId: string;
+    pdfBase64: string;
+    title: string;
+  }): Promise<{ documentReferenceId: string }> => {
+    return await makeZapRequest('save patient education pdf', parameters);
   };
 
   return {
@@ -468,5 +483,6 @@ export const getOystehrTelemedAPI = (
     getCreateInHouseLabOrderResources,
     makeMedicationHistoryPdf,
     generatePatientEducation,
+    savePatientEducationPdf,
   };
 };

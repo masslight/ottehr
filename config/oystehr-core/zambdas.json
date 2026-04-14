@@ -1068,6 +1068,13 @@
       "src": "src/ehr/generate-patient-education/index",
       "zip": ".dist/zips/generate-patient-education.zip"
     },
+    "SAVE-PATIENT-EDUCATION-PDF": {
+      "name": "save-patient-education-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-patient-education-pdf/index",
+      "zip": ".dist/zips/save-patient-education-pdf.zip"
+    },
     "AI-INTERVIEW-SUMMARY": {
       "name": "ai-interview-summary",
       "type": "subscription",
