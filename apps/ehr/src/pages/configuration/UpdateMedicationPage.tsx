@@ -42,7 +42,7 @@ export default function UpdateMedicationPage(): ReactElement {
   const [debouncedHcpcsSearch, setDebouncedHcpcsSearch] = useState('');
 
   const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
-  const medicationOptions: Medication[] = (data ?? []).map((option) => ({
+  const medicationOptions: Medication[] = (data?.filter((option) => !option.isObsolete) ?? []).map((option) => ({
     resourceType: 'Medication',
     identifier: [
       {
@@ -52,7 +52,7 @@ export default function UpdateMedicationPage(): ReactElement {
     ],
     code: {
       coding: [
-        { system: MEDICATION_DISPENSABLE_DRUG_ID, code: option.routedDoseFormDrugId.toString() },
+        { system: MEDICATION_DISPENSABLE_DRUG_ID, code: option.id.toString() },
         ...(option.ndc ? [{ system: CODE_SYSTEM_NDC, code: option.ndc }] : []),
       ],
     },
@@ -99,7 +99,7 @@ export default function UpdateMedicationPage(): ReactElement {
       const medicationsTemp = await getInHouseMedications(oystehrZambda);
       const medicationTemp = medicationsTemp.find((temp) => temp.id === medicationId);
       setMedication(medicationTemp ?? null);
-      setStatus(medicationTemp?.status || '');
+      setStatus(medicationTemp?.status ? medicationTemp.status : 'active');
       setCptCodes(
         (medicationTemp?.code?.coding ?? [])
           .filter((c) => c.system === CODE_SYSTEM_CPT)
@@ -187,6 +187,7 @@ export default function UpdateMedicationPage(): ReactElement {
                   fullWidth
                   isOptionEqualToValue={(option, value) => getMedispanId(option) === getMedispanId(value)}
                   loading={isSearching}
+                  disableClearable
                   disablePortal
                   noOptionsText={
                     debouncedSearchTerm && debouncedSearchTerm.length > 2 && medicationOptions.length === 0
@@ -196,7 +197,12 @@ export default function UpdateMedicationPage(): ReactElement {
                   options={medicationOptions}
                   onChange={(_e, value) => setMedication(value)}
                   renderInput={(params) => (
-                    <TextField {...params} label="Name" onChange={(e) => debouncedHandleInputChange(e.target.value)} />
+                    <TextField
+                      {...params}
+                      label="Name"
+                      required
+                      onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                    />
                   )}
                 />
               </Grid>

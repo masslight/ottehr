@@ -25,9 +25,10 @@ export default function AdminInHouseLabDetails(): ReactElement {
   const currentUser = useEvolveUser();
   const currentUserId = currentUser?.id ?? '';
 
-  const { mutateAsync: updateInHouseLabMutateAsync, isPending: isSubmitting } = useAdminUpdateInHouseLab(
-    activityDefinitionId ?? ''
-  );
+  const [editButtonLoading, setEditButtonLoading] = useState(false);
+  const [statusButtonLoading, setStatusButtonLoading] = useState(false);
+
+  const { mutateAsync: updateInHouseLabMutateAsync } = useAdminUpdateInHouseLab(activityDefinitionId ?? '');
   const {
     data: existingData,
     isPending,
@@ -55,6 +56,7 @@ export default function AdminInHouseLabDetails(): ReactElement {
     async (formData: AdminInHouseLabItemDefinition) => {
       console.log('submitted formData', formData);
       if (!existingData) return;
+      setEditButtonLoading(true);
 
       try {
         const result = await updateInHouseLabMutateAsync({
@@ -79,6 +81,8 @@ export default function AdminInHouseLabDetails(): ReactElement {
       } catch (err: unknown) {
         console.error('edit in house lab failed', err);
         setSubmitError(err as OystehrSdkError | APIError);
+      } finally {
+        setEditButtonLoading(false);
       }
     },
     [updateInHouseLabMutateAsync, navigate, currentUserId, existingData]
@@ -86,6 +90,7 @@ export default function AdminInHouseLabDetails(): ReactElement {
 
   const onUpdateStatusSubmit = useCallback(async () => {
     if (!existingData) return;
+    setStatusButtonLoading(true);
 
     try {
       const result = await updateInHouseLabMutateAsync({
@@ -103,6 +108,8 @@ export default function AdminInHouseLabDetails(): ReactElement {
     } catch (err: unknown) {
       console.error('toggle status in house lab failed', err);
       setSubmitError(err as OystehrSdkError | APIError);
+    } finally {
+      setStatusButtonLoading(false);
     }
   }, [updateInHouseLabMutateAsync, existingData, currentUserId]);
 
@@ -133,7 +140,7 @@ export default function AdminInHouseLabDetails(): ReactElement {
                   defaultValues={dataToRender}
                   formMode="edit"
                   onSubmit={onEditSubmit}
-                  isSubmitting={isSubmitting}
+                  isSubmitting={editButtonLoading}
                   submitError={submitError}
                   disableEdits={disableEdits}
                   disableEditsMessage={disableEditsMessage}
@@ -148,7 +155,7 @@ export default function AdminInHouseLabDetails(): ReactElement {
               <ToggleStatusSection
                 testItemStatus={existingData?.activityDefinitionStatus}
                 onSubmit={onUpdateStatusSubmit}
-                isSubmitting={isSubmitting}
+                isSubmitting={statusButtonLoading}
                 submitError={submitError}
                 disableEdits={disableEdits}
                 disableEditsMessage={disableEditsMessage}

@@ -66,3 +66,15 @@ export const RETURNING_PATIENT_META_TAG = (): Coding => ({
   system: PATIENT_INFO_META_DATA_SYSTEM,
   code: PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
 });
+
+// ---------------------------------------------------------------------------
+// Invoice configuration defaults
+// ---------------------------------------------------------------------------
+
+export const DEFAULT_INVOICE_SMS_TEMPLATE =
+  "Thank you, {{patient-full-name}}, for visiting {{clinic}} at {{location}} on {{visit-date}}! You have a balance due of {{amount}}.\n\n\ud83d\udcb3 If we have your card on file, it will be billed on {{due-date}}, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before due date: {{invoice-link}}";
+
+export const DEFAULT_INVOICE_MEMO_TEMPLATE =
+  "Thank you, {{patient-full-name}}, for visiting {{clinic}} at {{location}} on {{visit-date}}! You have a balance due of {{amount}}.\n\n\ud83d\udcb3 If we have your card on file, it will be billed on {{due-date}}, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before the due date. For more details about the visit, please, visit your patient portal, {{patient-portal-link}}";
+
+export const DEFAULT_INVOICE_DUE_DAYS = 7;
