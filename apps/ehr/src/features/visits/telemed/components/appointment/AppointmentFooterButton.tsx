@@ -123,7 +123,7 @@ export const AppointmentFooterButton: FC = () => {
   const onUnassign = async (): Promise<void> => {
     await changeStatus(TelemedAppointmentStatusEnum.ready, true);
     await unassignWaitingRoomTasksFromProvider(oystehr, appointment?.id, unassignTask);
-    navigate('/telemed/appointments');
+    navigate('/visits');
   };
 
   const changeStatus = async (newStatus: TelemedAppointmentStatus, invalidate?: boolean): Promise<void> => {
