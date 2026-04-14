@@ -49,7 +49,6 @@ export const UpdateInvoiceTaskZambdaInputSchema = z.object({
   taskId: z.string().uuid(),
   status: z.string(),
   invoiceTaskInput: InvoiceTaskInputSchema.optional(),
-  userTimezone: z.string(),
 });
 export type UpdateInvoiceTaskZambdaInput = z.infer<typeof UpdateInvoiceTaskZambdaInputSchema>;
 

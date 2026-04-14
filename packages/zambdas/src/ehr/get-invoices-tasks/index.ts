@@ -243,7 +243,11 @@ async function getFhirResourcesGrouped(
   });
   const resources = bundle.unbundle() as Resource[];
   const tasks = resources.filter((r) => r.resourceType === 'Task') as FhirTask[];
-  console.log('Tasks found: ', tasks.length);
+
+  console.log(
+    `Tasks found: ${tasks.length} (page: ${page}, status: ${status}, patientId: ${patientId}, hideZeroBalance: ${hideZeroBalance})`
+  );
+
   const resultGroups: TaskGroup[] = [];
 
   tasks.forEach((task) => {
@@ -308,7 +312,14 @@ async function getFhirResourcesGrouped(
     });
   });
 
-  console.log('Tasks groups created: ', resultGroups.length);
+  console.log(
+    `Task groups built: ${resultGroups.length} of ${tasks.length} tasks on this page (bundle.total: ${bundle.total})`
+  );
+
+  if (resultGroups.length < tasks.length) {
+    console.warn(`${tasks.length - resultGroups.length} task(s) dropped due to missing encounter or patient in bundle`);
+  }
+
   return { taskGroups: resultGroups, bundleTotal: bundle.total ?? resultGroups.length };
 }
 

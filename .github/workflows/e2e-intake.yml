@@ -248,12 +248,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
+      - name: Resolve secrets branch
+        id: resolve-secrets
+        uses: ./.github/actions/resolve-secrets-branch
+        with:
+          core-branch: ${{ github.head_ref || github.ref_name }}
+          secrets-repository: ${{ env.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          token: ${{ github.token }}
+
       - name: Check out secrets repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
-          ref: develop
+          ref: ${{ steps.resolve-secrets.outputs.branch }}
           path: "secrets"
 
       - name: Install dependencies
@@ -380,12 +389,21 @@ jobs:
           restore-keys: ${{ needs.check-changes.outputs.user-json-cache-restore-keys }}
           fail-on-cache-miss: ${{ needs.intake-login.result == 'success' }}
 
+      - name: Resolve secrets branch
+        id: resolve-secrets
+        uses: ./.github/actions/resolve-secrets-branch
+        with:
+          core-branch: ${{ github.head_ref || github.ref_name }}
+          secrets-repository: ${{ env.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          token: ${{ github.token }}
+
       - name: Check out secrets repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
-          ref: develop
+          ref: ${{ steps.resolve-secrets.outputs.branch }}
           path: "secrets"
 
       - name: Populate and validate secrets

@@ -102,7 +102,7 @@ export const AppointmentFooterButton: FC = () => {
   };
 
   const onUnassign = async (): Promise<void> => {
-    await changeStatus(TelemedAppointmentStatusEnum.ready);
+    await changeStatus(TelemedAppointmentStatusEnum.ready, true);
     await unassignWaitingRoomTasksFromProvider(oystehr, appointment?.id, unassignTask);
     navigate('/telemed/appointments');
   };

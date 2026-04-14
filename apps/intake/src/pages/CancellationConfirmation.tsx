@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
-import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { PhoneNumberMessage, useVisitContext } from './ThankYou';
 
 const CancellationConfirmation = (): JSX.Element => {
@@ -14,16 +13,6 @@ const CancellationConfirmation = (): JSX.Element => {
   const selectedLocation = useMemo(() => {
     return appointmentData?.appointment?.location;
   }, [appointmentData?.appointment?.location]);
-  const visitType = useMemo(() => {
-    return appointmentData?.appointment?.visitType;
-  }, [appointmentData?.appointment?.visitType]);
-
-  useTrackMixpanelEvents({
-    eventName: 'Cancellation Confirmation',
-    visitType: visitType,
-    bookingCity: selectedLocation?.address?.city,
-    bookingState: selectedLocation?.address?.state,
-  });
 
   useEffect(() => {
     window.history.pushState(null, document.title, window.location.href);

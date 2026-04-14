@@ -6,13 +6,17 @@ import { useParams } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import Loading from 'src/components/Loading';
-import { useGetMedicationsSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import {
+  useGetCPTHCPCSSearch,
+  useGetMedicationsSearch,
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
 import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_NDC,
+  CPTCodeDTO,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
 } from 'utils';
@@ -30,15 +34,15 @@ export default function UpdateMedicationPage(): ReactElement {
   const medicationId = useParams()['medication-id'];
   const [loading, setLoading] = useState<boolean>(false);
   const [medication, setMedication] = useState<Medication | null>(null);
-  const [cptCodes, setCptCodes] = useState<string[]>([]);
-  const [cptInputValue, setCptInputValue] = useState('');
-  const [hcpcsCodes, setHcpcsCodes] = useState<string[]>([]);
-  const [hcpcsInputValue, setHcpcsInputValue] = useState('');
+  const [cptCodes, setCptCodes] = useState<CPTCodeDTO[]>([]);
+  const [hcpcsCodes, setHcpcsCodes] = useState<CPTCodeDTO[]>([]);
   const [status, setStatus] = useState<string>('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [debouncedCptSearch, setDebouncedCptSearch] = useState('');
+  const [debouncedHcpcsSearch, setDebouncedHcpcsSearch] = useState('');
 
   const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
-  const medicationOptions: Medication[] = (data ?? []).map((option) => ({
+  const medicationOptions: Medication[] = (data?.filter((option) => !option.isObsolete) ?? []).map((option) => ({
     resourceType: 'Medication',
     identifier: [
       {
@@ -48,11 +52,22 @@ export default function UpdateMedicationPage(): ReactElement {
     ],
     code: {
       coding: [
-        { system: MEDICATION_DISPENSABLE_DRUG_ID, code: option.routedDoseFormDrugId.toString() },
+        { system: MEDICATION_DISPENSABLE_DRUG_ID, code: option.id.toString() },
         ...(option.ndc ? [{ system: CODE_SYSTEM_NDC, code: option.ndc }] : []),
       ],
     },
   }));
+
+  const { isFetching: isCptSearching, data: cptData } = useGetCPTHCPCSSearch({
+    search: debouncedCptSearch,
+    type: 'cpt',
+  });
+  const { isFetching: isHcpcsSearching, data: hcpcsData } = useGetCPTHCPCSSearch({
+    search: debouncedHcpcsSearch,
+    type: 'hcpcs',
+  });
+  const cptOptions = (cptData as { codes?: CPTCodeDTO[] })?.codes ?? [];
+  const hcpcsOptions = (hcpcsData as { codes?: CPTCodeDTO[] })?.codes ?? [];
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedHandleInputChange = useCallback(
@@ -64,6 +79,18 @@ export default function UpdateMedicationPage(): ReactElement {
     []
   );
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedHandleCptInputChange = useCallback(
+    debounce((value: string) => setDebouncedCptSearch(value), 800),
+    []
+  );
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedHandleHcpcsInputChange = useCallback(
+    debounce((value: string) => setDebouncedHcpcsSearch(value), 800),
+    []
+  );
+
   useEffect(() => {
     async function fetchMedication(): Promise<void> {
       if (!oystehrZambda) {
@@ -72,13 +99,17 @@ export default function UpdateMedicationPage(): ReactElement {
       const medicationsTemp = await getInHouseMedications(oystehrZambda);
       const medicationTemp = medicationsTemp.find((temp) => temp.id === medicationId);
       setMedication(medicationTemp ?? null);
+      setStatus(medicationTemp?.status ? medicationTemp.status : 'active');
       setCptCodes(
-        (medicationTemp?.code?.coding ?? []).filter((c) => c.system === CODE_SYSTEM_CPT).map((c) => c.code ?? '')
+        (medicationTemp?.code?.coding ?? [])
+          .filter((c) => c.system === CODE_SYSTEM_CPT)
+          .map((c) => ({ code: c.code ?? '', display: c.display ?? '' }))
       );
       setHcpcsCodes(
-        (medicationTemp?.code?.coding ?? []).filter((c) => c.system === CODE_SYSTEM_HCPCS).map((c) => c.code ?? '')
+        (medicationTemp?.code?.coding ?? [])
+          .filter((c) => c.system === CODE_SYSTEM_HCPCS)
+          .map((c) => ({ code: c.code ?? '', display: c.display ?? '' }))
       );
-      setStatus(medicationTemp?.status || '');
     }
     fetchMedication().catch((error) => console.log('Error fetching medications', error));
   }, [medicationId, oystehrZambda]);
@@ -93,8 +124,8 @@ export default function UpdateMedicationPage(): ReactElement {
     const name = medication ? getMedicationName(medication) : '';
     const ndc = medication?.code?.coding?.find((c) => c.system === CODE_SYSTEM_NDC)?.code;
     const medispanID = medication ? getMedispanId(medication) : undefined;
-    const finalCptCodes = [...cptCodes, ...(cptInputValue.trim() ? [cptInputValue.trim()] : [])];
-    const finalHcpcsCodes = [...hcpcsCodes, ...(hcpcsInputValue.trim() ? [hcpcsInputValue.trim()] : [])];
+    const finalCptCodes = cptCodes.map(({ code, display }) => ({ code, display }));
+    const finalHcpcsCodes = hcpcsCodes.map(({ code, display }) => ({ code, display }));
 
     try {
       await updateInHouseMedication(oystehrZambda, {
@@ -156,6 +187,7 @@ export default function UpdateMedicationPage(): ReactElement {
                   fullWidth
                   isOptionEqualToValue={(option, value) => getMedispanId(option) === getMedispanId(value)}
                   loading={isSearching}
+                  disableClearable
                   disablePortal
                   noOptionsText={
                     debouncedSearchTerm && debouncedSearchTerm.length > 2 && medicationOptions.length === 0
@@ -165,7 +197,12 @@ export default function UpdateMedicationPage(): ReactElement {
                   options={medicationOptions}
                   onChange={(_e, value) => setMedication(value)}
                   renderInput={(params) => (
-                    <TextField {...params} label="Name" onChange={(e) => debouncedHandleInputChange(e.target.value)} />
+                    <TextField
+                      {...params}
+                      label="Name"
+                      required
+                      onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                    />
                   )}
                 />
               </Grid>
@@ -173,12 +210,16 @@ export default function UpdateMedicationPage(): ReactElement {
               <Grid item xs={6}>
                 <Autocomplete
                   multiple
-                  freeSolo
-                  options={[]}
+                  options={cptOptions}
                   value={cptCodes}
-                  inputValue={cptInputValue}
+                  loading={isCptSearching}
+                  getOptionLabel={(option) => (option.display ? `${option.code} ${option.display}` : option.code)}
+                  isOptionEqualToValue={(option, value) => option.code === value.code}
                   onChange={(_e, value) => setCptCodes(value)}
-                  onInputChange={(_e, value) => setCptInputValue(value)}
+                  onInputChange={(_e, value) => debouncedHandleCptInputChange(value)}
+                  noOptionsText={
+                    debouncedCptSearch ? 'Nothing found for this search criteria' : 'Start typing to load results'
+                  }
                   renderInput={(params) => <TextField {...params} label="CPT" />}
                 />
               </Grid>
@@ -186,12 +227,16 @@ export default function UpdateMedicationPage(): ReactElement {
               <Grid item xs={6}>
                 <Autocomplete
                   multiple
-                  freeSolo
-                  options={[]}
+                  options={hcpcsOptions}
                   value={hcpcsCodes}
-                  inputValue={hcpcsInputValue}
+                  loading={isHcpcsSearching}
+                  getOptionLabel={(option) => (option.display ? `${option.code} ${option.display}` : option.code)}
+                  isOptionEqualToValue={(option, value) => option.code === value.code}
                   onChange={(_e, value) => setHcpcsCodes(value)}
-                  onInputChange={(_e, value) => setHcpcsInputValue(value)}
+                  onInputChange={(_e, value) => debouncedHandleHcpcsInputChange(value)}
+                  noOptionsText={
+                    debouncedHcpcsSearch ? 'Nothing found for this search criteria' : 'Start typing to load results'
+                  }
                   renderInput={(params) => <TextField {...params} label="HCPCS" />}
                 />
               </Grid>
