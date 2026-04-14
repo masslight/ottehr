@@ -1194,8 +1194,12 @@ export function makeObservationDTO(observation: Observation): null | Observation
       ?.map((raw) => {
         try {
           const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object' && parsed.display) {
-            return { display: parsed.display, searchTerms: parsed.searchTerms || [parsed.display] };
+          if (parsed && typeof parsed === 'object' && typeof parsed.display === 'string') {
+            const searchTerms =
+              Array.isArray(parsed.searchTerms) && parsed.searchTerms.every((t: unknown) => typeof t === 'string')
+                ? parsed.searchTerms
+                : [parsed.display];
+            return { display: parsed.display, searchTerms };
           }
         } catch {
           // Not JSON — legacy plain string item, wrap it

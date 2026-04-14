@@ -227,7 +227,11 @@ const HighlightedText = memo(function HighlightedText({
               )}
               <List dense disablePadding>
                 {searchResults.slice(0, 15).map((result, idx) => (
-                  <ListItemButton key={idx} sx={{ borderRadius: 1 }} onClick={() => handleSelectResult(result)}>
+                  <ListItemButton
+                    key={`${result.name}-${result.code || result.id || idx}`}
+                    sx={{ borderRadius: 1 }}
+                    onClick={() => handleSelectResult(result)}
+                  >
                     <ListItemText
                       primary={result.name}
                       secondary={result.strength || undefined}
@@ -294,10 +298,12 @@ export default function AiSuggestion({
       const allResults: SearchResult[] = [];
       const seen = new Set<string>();
 
-      const termsToSearch =
+      const preferredTerms =
         fieldType === 'surgicalHistory' || fieldType === 'episodeOfCare'
           ? [item.display, ...item.searchTerms.filter((t) => t.toLowerCase() !== item.display.toLowerCase())]
           : item.searchTerms;
+      const termsToSearch = preferredTerms.length > 0 ? preferredTerms : item.display ? [item.display] : [];
+      if (termsToSearch.length === 0) return [];
       const maxPerTerm = Math.max(5, Math.floor(15 / termsToSearch.length));
 
       for (const term of termsToSearch) {

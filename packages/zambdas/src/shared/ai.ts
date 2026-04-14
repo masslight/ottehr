@@ -404,7 +404,10 @@ function createObservations(
       const rawItems = aiResponse[key + 'Items'];
       const items =
         FIELDS_WITH_ITEMS.has(key) && Array.isArray(rawItems)
-          ? rawItems.map((item: any) => (typeof item === 'string' ? item : JSON.stringify(item)))
+          ? rawItems
+              .filter((item: any) => item != null && item !== '')
+              .map((item: any) => (typeof item === 'string' ? item.trim() : JSON.stringify(item)))
+              .filter(Boolean)
           : undefined;
       return [
         saveResourceRequest(
