@@ -164,6 +164,7 @@ async function migrate(): Promise<void> {
           { name: '_offset', value: offset },
           { name: '_total', value: 'accurate' },
           { name: 'identifier:not', value: `${friendlyIdSystem}|` },
+          { name: '_sort', value: '_lastUpdated' },
         ],
       });
       const patients = page.unbundle();

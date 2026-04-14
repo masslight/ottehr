@@ -1,5 +1,5 @@
-import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils';
 import { SearchOptionsFilters } from '../types';
+import { getFriendlyPatientIdSystem } from './getFriendlyPatientIdSystem';
 
 /**
  * Generates all possible formatting variants for US phone numbers (+1)
@@ -88,9 +88,8 @@ export const buildSearchQuery = (filter: Partial<SearchOptionsFilters>): string 
   if (filter.pid) {
     const friendlyValue = filter.pid.trim();
     if (friendlyValue) {
-      const projectId = import.meta.env.VITE_APP_PROJECT_ID;
-      if (projectId) {
-        const system = `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/${projectId}`;
+      const system = getFriendlyPatientIdSystem();
+      if (system) {
         params.push(`identifier=${encodeURIComponent(`${system}|${friendlyValue}`)}`);
       }
     }
