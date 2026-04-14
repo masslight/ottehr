@@ -4,7 +4,7 @@ import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ExtendedMedicationDataForResponse } from 'utils';
+import { APIError, ExtendedMedicationDataForResponse, isApiError } from 'utils';
 import { CustomDialog } from '../../../../../../components/dialogs/CustomDialog';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { getEditOrderUrl } from '../../../routing/helpers';
@@ -53,8 +53,12 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
     try {
       await deleteMedication(medication.id);
       setIsDeleteDialogOpen(false);
-    } catch {
-      setError('An error occurred while deleting the medication. Please try again.');
+    } catch (error) {
+      let errorMessage = 'An error occurred while deleting the medication. Please try again.';
+      if (isApiError(error)) {
+        errorMessage = (error as APIError).message;
+      }
+      setError(errorMessage);
     }
     setIsDeleting(false);
   };
