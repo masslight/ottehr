@@ -51,11 +51,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
   const createCommunicationRequests: BatchInputPostRequest<Communication>[] = [];
   const updateCommunicationRequests: BatchInputRequest<Communication>[] = [];
-  const updateAppointmentRequests: BatchInputRequest<Appointment>[] = [];
-
-  const practitionerUnsignedTooLongAppointmentPackagesMap: {
-    [key: string]: { pack: ResourcePackage; isProcessed: boolean }[];
-  } = {};
 
   function addNewSMSCommunicationForPractitioner(
     practitioner: Practitioner,
@@ -269,93 +264,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     }
   });
 
-  console.log(`Too long unsigned appointments: ${JSON.stringify(practitionerUnsignedTooLongAppointmentPackagesMap)}`);
-  Object.keys(practitionerUnsignedTooLongAppointmentPackagesMap).forEach((practitionerId) => {
-    const unsignedPractitionerAppointments = practitionerUnsignedTooLongAppointmentPackagesMap[practitionerId];
-    let hasUnprocessed = false;
-    let practitionerResource: Practitioner | undefined = undefined;
-    let encounterResource: Encounter | undefined = undefined;
-    for (const appt of unsignedPractitionerAppointments) {
-      const { pack, isProcessed } = appt;
-      const { practitioner, encounter } = pack;
-      if (!practitionerResource && practitioner) {
-        practitionerResource = practitioner;
-      }
-      if (!encounterResource && encounter) {
-        encounterResource = encounter;
-      }
-      if (!isProcessed) {
-        hasUnprocessed = true;
-      }
-    }
-
-    if (hasUnprocessed && checkPractitionerResourceDefined(practitionerResource)) {
-      // create notification for practitioner that was assigned to this visit
-      const notificationSettings = getProviderNotificationSettingsForPractitioner(practitionerResource);
-      // rules of status described above
-      if (notificationSettings?.telemedNotificationsEnabled) {
-        const unsignedChartsMessage = (length: number): string =>
-          `You have ${length} unsigned charts on Ottehr. Please complete and sign ASAP. Thanks!`;
-
-        const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitionerResource);
-        const request: BatchInputPostRequest<Communication> = {
-          method: 'POST',
-          url: '/Communication',
-          resource: {
-            resourceType: 'Communication',
-            category: [
-              {
-                coding: [
-                  {
-                    system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-                    code: AppointmentProviderNotificationTypes.unsigned_charts,
-                  },
-                ],
-              },
-            ],
-            sent: DateTime.utc().toISO()!,
-            // set status to "preparation" for practitioners that should not receive notifications right now
-            // and "in-progress" to those who should receive it right away
-            status: status,
-            encounter: encounterResource
-              ? {
-                  reference: `Encounter/${encounterResource.id}`,
-                }
-              : undefined,
-            recipient: [{ reference: `Practitioner/${practitionerResource.id}` }],
-            payload: [
-              {
-                contentString: unsignedChartsMessage(unsignedPractitionerAppointments.length),
-              },
-            ],
-          },
-        };
-
-        createCommunicationRequests.push(request);
-        if (
-          status === 'completed' ||
-          (status === 'in-progress' && notificationSettings.method === ProviderNotificationMethod['phone and computer'])
-        ) {
-          // not to send multiple notifications of the same "Unsigned charts" type by sms one by one - check if theres any and update
-          const existingUnsignedNotificationPending = sendSMSPractitionerCommunications[
-            practitionerResource.id!
-          ]?.communications.find(
-            (comm) =>
-              comm.category?.[0].coding?.[0].system === PROVIDER_NOTIFICATION_TYPE_SYSTEM &&
-              comm.category?.[0].coding?.[0].code === AppointmentProviderNotificationTypes.unsigned_charts
-          );
-          if (existingUnsignedNotificationPending?.payload?.[0]) {
-            existingUnsignedNotificationPending.payload[0].contentString = unsignedChartsMessage(
-              unsignedPractitionerAppointments.length
-            );
-          } else {
-            addOrUpdateSMSPractitionerCommunications(request.resource as Communication, practitionerResource);
-          }
-        }
-      }
-    }
-  });
-
   // here we need to send SMS to practitioners that are not busy and has some unprocessed communications
   const sendSMSRequests: Promise<unknown>[] = [];
   Object.keys(sendSMSPractitionerCommunications).forEach((id) => {
@@ -387,24 +295,17 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     }
   });
 
-  console.log(`Update appointment requests: ${JSON.stringify(updateAppointmentRequests)}`);
   console.log(`Create communications requests: ${JSON.stringify(createCommunicationRequests)}`);
 
   const requests: Promise<unknown>[] = [];
   if (
-    updateAppointmentRequests.length > 0 ||
     createCommunicationRequests.length > 0 ||
     updateCommunicationRequests.length > 0 ||
     updateTaskRequests.length > 0
   ) {
     requests.push(
       oystehr.fhir.transaction<Appointment | Communication | Task>({
-        requests: [
-          ...updateAppointmentRequests,
-          ...createCommunicationRequests,
-          ...updateCommunicationRequests,
-          ...updateTaskRequests,
-        ],
+        requests: [...createCommunicationRequests, ...updateCommunicationRequests, ...updateTaskRequests],
       })
     );
   }
@@ -418,10 +319,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     body: 'Successfully processed provider notifications',
   };
 });
-
-function checkPractitionerResourceDefined(resource: Practitioner | undefined | never): resource is Practitioner {
-  return resource !== undefined;
-}
 
 interface ResourcePackage {
   appointment?: Appointment;
