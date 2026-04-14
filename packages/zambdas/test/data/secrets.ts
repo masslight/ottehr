@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const env = process.env.ENV || 'local';
-const envFilePath = path.resolve(__dirname, '../../.env', `${env}.json`);
+const envFilePath = path.resolve(__dirname, '../../../../config/.env', `${env}.json`);
 const envConfig = JSON.parse(fs.readFileSync(envFilePath, 'utf8'));
 
 export const SECRETS = {

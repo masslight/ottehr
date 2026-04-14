@@ -164,8 +164,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     : [];
 
   const hasFailures = Object.keys(failedBundledOrders).length > 0;
-  const failedOrdersByOrderNumber = hasFailures
-    ? Object.keys(failedBundledOrders).map((orderNumber) => orderNumber)
+  const failedOrdersByOrderNumber: { [orderNumber: string]: string } | undefined = hasFailures
+    ? Object.fromEntries(Object.keys(failedBundledOrders).map((orderNumber) => [orderNumber, '']))
     : undefined;
 
   const responseBody: SubmitLabOrderOutput = { orderPdfUrls, failedOrdersByOrderNumber };

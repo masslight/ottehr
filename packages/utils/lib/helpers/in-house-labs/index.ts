@@ -617,3 +617,7 @@ export const activityDefinitionIsReflexTest = (activityDefinition: ActivityDefin
 
   return isReflex;
 };
+
+export const repeatTestErrorMessage = (testName: string): string => {
+  return `You cannot run '${testName}' as repeat. No initial tests could be found for this encounter. Ask an admin if the version of the test you are trying to run has changed, or re-run the test not as repeat.`;
+};

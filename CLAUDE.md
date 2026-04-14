@@ -147,7 +147,7 @@ Canonical FHIR resources (referenced by URL + version) must be versioned using `
 
 ## EHR Feature Flags
 
-Feature flags are environment variables checked at `apps/ehr/src/constants/feature-flags.ts`. They are prefixed `VITE_APP_IS_*_FEATURE_FLAG`.
+Feature flags are defined in `packages/utils/lib/ottehr-config/feature-flags/index.ts` and validated against the Zod schema in `packages/config-types/config/feature-flags.ts`. The EHR re-exports them at `apps/ehr/src/constants/feature-flags.ts`.
 
 ## Testing Conventions
 
