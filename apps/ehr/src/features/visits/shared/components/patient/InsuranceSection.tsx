@@ -44,7 +44,7 @@ export const InsuranceSection: FC<{
           coverage.resource,
           accountData?.coverageChecks ?? []
         )}
-        removeInProgress={removeCoverage.isLoading}
+        removeInProgress={removeCoverage.isPending}
         handleRemoveClick={
           coverage.resource.id !== undefined ? () => onRemoveCoverage(coverage.resource.id!) : undefined
         }
