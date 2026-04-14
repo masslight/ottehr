@@ -76,7 +76,7 @@ export default function InHouseMedicationQuickPickDetailPage(): ReactElement {
 
         <Section title="Administration Details">
           <Row label="Lot Number">
-            <ValueDisplay value={quickPick.lot} />
+            <ValueDisplay value={quickPick.lotNumber} />
           </Row>
           <Row label="Expiration Date">
             <ValueDisplay value={quickPick.expDate} />
