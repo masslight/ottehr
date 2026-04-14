@@ -779,14 +779,15 @@ export default function ProceduresNew(): ReactElement {
           const selected = selectOptions?.procedureTypes.find(
             (procedureType) => procedureType.name === values.procedureType
           );
-          const existing = state.cptCodes ?? [];
-          if (selected?.cpt && !existing.some((c) => c.code === selected.cpt!.code)) {
-            existing.push({ code: selected.cpt.code, display: selected.cpt.display });
+          // don't remove applied codes on changes
+          const appliedCodes = state.cptCodes ?? [];
+          if (selected?.cpt && !appliedCodes.some((c) => c.code === selected.cpt!.code)) {
+            appliedCodes.push({ code: selected.cpt.code, display: selected.cpt.display });
           }
-          if (selected?.hcpcs && !existing.some((c) => c.code === selected.hcpcs!.code)) {
-            existing.push({ code: selected.hcpcs.code, display: selected.hcpcs.display });
+          if (selected?.hcpcs && !appliedCodes.some((c) => c.code === selected.hcpcs!.code)) {
+            appliedCodes.push({ code: selected.hcpcs.code, display: selected.hcpcs.display });
           }
-          state.cptCodes = existing;
+          state.cptCodes = appliedCodes;
 
           if (selected) {
             Object.entries(PROCEDURES_CONFIG.prepopulation[selected.code] ?? []).forEach(([field, value]) => {

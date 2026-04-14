@@ -61,6 +61,9 @@ export function AutocompleteInput<Value>({
             <Autocomplete<Value, false, false, boolean>
               value={field.value ?? null}
               options={optionsToUse}
+              // MUI types getOptionKey/getOptionLabel as (option: Value | string) => ... when FreeSolo
+              // is boolean rather than false, but our props already enforce the correct type for callers.
+              // The as any casts are safe here
               getOptionKey={getOptionKey as any}
               noOptionsText={noOptionsText}
               getOptionLabel={getOptionLabel as any}
