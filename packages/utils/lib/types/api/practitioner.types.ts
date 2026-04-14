@@ -315,16 +315,8 @@ export const PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL = `${FHIR_BASE_URL}/r4/prov
 export const PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL = `${FHIR_BASE_URL}/r4/provider-notifications-enabled-telemed`;
 
 export const PROVIDER_NOTIFICATION_TAG_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-tag`;
-export enum AppointmentProviderNotificationTags {
-  patient_waiting = 'patient waiting',
-  unsigned_more_than_x_hours_1 = 'unsigned more than x hours 1',
-  unsigned_more_than_x_hours_2 = 'unsigned more than x hours 2',
-  unsigned_more_than_x_hours_3 = 'unsigned more than x hours 3',
-}
-
 export const PROVIDER_NOTIFICATION_TYPE_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-type`;
 export enum AppointmentProviderNotificationTypes {
-  patient_waiting = 'patient-waiting',
   unsigned_charts = 'unsigned-charts',
   task_assigned = 'task-assigned',
 }
