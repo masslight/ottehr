@@ -136,8 +136,8 @@ export function extractObservationsFromExamComponents(
 
         let abnormalContained = false;
 
-        const grouped = groupComponents(observation.components, (isAbnormal) => {
-          if (isAbnormal) abnormalContained = true;
+        const grouped = groupComponents(observation.components, (isAbnormal: boolean | undefined) => {
+          if (isAbnormal || isAbnormal === undefined) abnormalContained = true;
         });
 
         const consolidatedLabel = formatGroupedComponents(grouped);
@@ -198,7 +198,7 @@ export function collectKnownExamFields(examConfig: ExamItemConfig): Set<string> 
 // helpers for formatting labels for checkbox-with-modal
 function groupComponents(
   components: ExamObservationComponentDTO[],
-  onAbnormal: (abnormal: boolean) => void
+  onAbnormal: (abnormal: boolean | undefined) => void
 ): Map<string | null, Map<string, string[]>> {
   const result = new Map<string | null, Map<string, string[]>>();
 
@@ -220,7 +220,7 @@ function groupComponents(
 
       groupMap.get(groupKey)!.push(c.label);
 
-      onAbnormal(!!c.abnormal);
+      onAbnormal(c.abnormal);
     });
 
   return result;
