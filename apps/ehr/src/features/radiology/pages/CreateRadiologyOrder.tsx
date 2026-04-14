@@ -27,8 +27,8 @@ import {
 } from '@mui/material';
 import { ClearIcon } from '@mui/x-date-pickers';
 import { enqueueSnackbar } from 'notistack';
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
@@ -279,6 +279,17 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     });
   };
 
+  const [consentExists, setConsentExists] = useState(false);
+
+  useEffect(() => {
+    fetch('/consent_radiology.pdf', { method: 'HEAD' })
+      .then((res) => {
+        const contentType = res.headers.get('content-type');
+        setConsentExists(res.ok && (contentType?.includes('application/pdf') ?? false));
+      })
+      .catch(() => setConsentExists(false));
+  }, []);
+
   return (
     <DetailPageContainer>
       <WithRadiologyBreadcrumbs sectionName="Order Radiology">
@@ -450,7 +461,20 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                 <Grid item xs={12}>
                   <Box style={{ display: 'flex', alignItems: 'center' }}>
                     <Checkbox checked={consentObtained} onChange={() => setConsentObtained(!consentObtained)} />
-                    <Typography>I have obtained the consent for X-ray</Typography>
+                    <Typography>
+                      I have obtained the{' '}
+                      {consentExists ? (
+                        <Link
+                          target="_blank"
+                          to={`/consent_radiology.pdf`}
+                          style={{ color: theme.palette.primary.main }}
+                        >
+                          consent for X-ray
+                        </Link>
+                      ) : (
+                        'consent for X-ray'
+                      )}
+                    </Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={12}>
