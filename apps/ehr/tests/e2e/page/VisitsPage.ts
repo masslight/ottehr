@@ -58,6 +58,16 @@ export class VisitsPage {
     await arrivedButton.click();
   }
 
+  async clickAssignButton(appointmentId: string): Promise<void> {
+    const arrivedButton = this.#page
+      .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
+      .getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton);
+    // Wait for button to be visible and enabled before clicking
+    await arrivedButton.waitFor({ state: 'visible', timeout: 60000 });
+    await expect(arrivedButton).toBeEnabled({ timeout: 5000 });
+    await arrivedButton.click();
+  }
+
   async clickOnPatientName(appointmentId: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))

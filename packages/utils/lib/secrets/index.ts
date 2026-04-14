@@ -20,10 +20,12 @@ export type BackendFeatureFlags = 'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHE
 /**
  * Check if a feature flag is enabled.
  * The backend and frontend feature flags have a single source of truth - zambda env files.
- * Returns true only if the value is exactly 'true', false otherwise.
+ * FeatureFlags accepts both the string "true" and the boolean true
  */
 export const isFeatureFlagEnabled = (flagKey: BackendFeatureFlags, secrets: Secrets | null): boolean => {
-  return getOptionalSecret(flagKey, secrets) === 'true';
+  const positiveOptions = ['true', true];
+  const flagValue = getOptionalSecret(flagKey, secrets) as string | boolean;
+  return positiveOptions.includes(flagValue);
 };
 
 export enum SecretsKeys {

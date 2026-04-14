@@ -351,7 +351,7 @@ export const makeEncounterBaseSearchParams = (): SearchParam[] => [
   { name: '_sort', value: '-date' },
   { name: '_include', value: 'Encounter:appointment' },
   { name: '_include', value: 'Encounter:participant' },
-  { name: 'appointment._tag', value: OTTEHR_MODULE.IP },
+  { name: 'appointment._tag', value: [OTTEHR_MODULE.IP, OTTEHR_MODULE.TM].join(',') },
   { name: 'status:not', value: 'planned' },
   { name: 'status:not', value: 'finished' },
   { name: 'status:not', value: 'cancelled' },
@@ -364,7 +364,7 @@ export const makeEncounterSearchParams = async ({
   oystehr,
 }: {
   resourceId: string;
-  resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
+  resourceType: 'Location' | 'Practitioner';
   cacheKey: string;
   oystehr: Oystehr;
 }): Promise<SearchParam[] | null> => {
@@ -385,9 +385,6 @@ export const makeEncounterSearchParams = async ({
       ...(cachedEncounterIds ? [{ name: '_id', value: cachedEncounterIds }] : []),
       ...(resourceType === 'Location' ? [{ name: 'appointment.location', value: `Location/${resourceId}` }] : []),
       ...(resourceType === 'Practitioner' ? [{ name: 'appointment.actor', value: `Practitioner/${resourceId}` }] : []),
-      ...(resourceType === 'HealthcareService'
-        ? [{ name: 'appointment.actor', value: `HealthcareService/${resourceId}` }]
-        : []),
     ];
   }
 

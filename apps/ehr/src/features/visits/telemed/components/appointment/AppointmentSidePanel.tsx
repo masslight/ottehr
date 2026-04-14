@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import CancelVisitDialog from 'src/components/CancelVisitDialog';
 import { EditPatientDialog } from 'src/components/dialogs';
 import { RoundedButton } from 'src/components/RoundedButton';
@@ -72,6 +72,7 @@ enum Gender {
 export const AppointmentSidePanel: FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { id: appointmentIdFromUrl } = useParams();
   const {
     resources: { encounter: encounterValues },
     appointment,
@@ -147,7 +148,7 @@ export const AppointmentSidePanel: FC = () => {
   const { data: appointments, isFetching } = useGetTelemedAppointments(
     {
       apiClient,
-      appointmentId: appointment?.id,
+      appointmentId: appointmentIdFromUrl,
       patientFilter: 'all-patients',
       statusesFilter: TelemedCallStatusesArr,
     },

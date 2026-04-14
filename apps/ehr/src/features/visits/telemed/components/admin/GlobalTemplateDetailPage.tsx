@@ -4,10 +4,8 @@ import {
   Box,
   Card,
   CardContent,
-  Checkbox,
   Chip,
   CircularProgress,
-  FormControlLabel,
   IconButton,
   Stack,
   Table,
@@ -206,38 +204,6 @@ export default function GlobalTemplateDetailPage(): ReactElement {
             {sections.rosNote ? renderMarkdown(sections.rosNote) : <NotIncluded />}
           </SectionCard>
 
-          {/* Condition Related To */}
-          <SectionCard title="Patient's Condition Related To">
-            {sections.accident ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                <FormControlLabel
-                  control={<Checkbox checked={sections.accident.autoAccident} disabled size="small" />}
-                  label={<Typography variant="body2">Auto Accident</Typography>}
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={sections.accident.employment} disabled size="small" />}
-                  label={<Typography variant="body2">Employment</Typography>}
-                />
-                <FormControlLabel
-                  control={<Checkbox checked={sections.accident.otherAccident} disabled size="small" />}
-                  label={<Typography variant="body2">Other Accident</Typography>}
-                />
-                {sections.accident.date && (
-                  <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
-                    Date: {sections.accident.date}
-                  </Typography>
-                )}
-                {sections.accident.state && (
-                  <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
-                    State: {sections.accident.state}
-                  </Typography>
-                )}
-              </Box>
-            ) : (
-              <NotIncluded />
-            )}
-          </SectionCard>
-
           {/* Exam Findings */}
           <SectionCard title="Exam Findings">
             {sections.examFindings.length > 0 ? (
@@ -297,7 +263,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Code</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', width: 120 }}>Code</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
                     </TableRow>
                   </TableHead>
@@ -323,7 +289,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Code</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', width: 120 }}>Code</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
                     </TableRow>
                   </TableHead>
@@ -349,7 +315,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Code</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', width: 120 }}>Code</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
                     </TableRow>
                   </TableHead>
@@ -368,10 +334,21 @@ export default function GlobalTemplateDetailPage(): ReactElement {
 
           {/* Patient Instructions */}
           <SectionCard title="Patient Instructions">
-            {sections.patientInstructions ? (
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                {sections.patientInstructions}
-              </Typography>
+            {sections.patientInstructions.length > 0 ? (
+              <Stack spacing={2}>
+                {sections.patientInstructions.map((instruction, index) => (
+                  <Box key={index}>
+                    {instruction.title && (
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                        {instruction.title}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {instruction.text}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
             ) : (
               <NotIncluded />
             )}

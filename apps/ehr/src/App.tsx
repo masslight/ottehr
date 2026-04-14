@@ -1,12 +1,11 @@
 import { TabContext } from '@mui/lab';
 import { CssBaseline } from '@mui/material';
-// import Alert from '@mui/material/Alert';
 import { LicenseInfo } from '@mui/x-data-grid-pro';
 import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { RoleType, setupSentry } from 'utils';
+import { parseCommaSeparatedTags, RoleType, setupSentry } from 'utils';
 import Banner from './components/Banner';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -65,19 +64,15 @@ import VisitDetailsPage from './pages/VisitDetailsPage';
 import { Claim, Claims } from './rcm';
 import { useNavStore } from './state/nav.store';
 
-const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV } = import.meta.env;
+const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_TAGS } = import.meta.env;
 
 setupSentry({
   dsn: VITE_APP_SENTRY_DSN,
   environment: VITE_APP_SENTRY_ENV,
+  tags: parseCommaSeparatedTags(VITE_APP_SENTRY_TAGS),
 });
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
-
-const TelemedTrackingBoardPageLazy = lazy(async () => {
-  const TrackingBoardPage = await import('./features/visits/telemed/pages/TrackingBoardPage');
-  return { default: TrackingBoardPage.TrackingBoardPage };
-});
 
 const TelemedAppointmentPageLazy = lazy(async () => {
   const TelemedAppointmentPage = await import('./features/visits/telemed/pages/AppointmentPage');
@@ -250,14 +245,6 @@ function App(): ReactElement {
                   <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
                   {/** telemed */}
                   <Route
-                    path="/telemed/appointments"
-                    element={
-                      <Suspense fallback={<LoadingScreen />}>
-                        <TelemedTrackingBoardPageLazy />
-                      </Suspense>
-                    }
-                  ></Route>
-                  <Route
                     path="/telemed/appointments/:id"
                     element={
                       <Suspense fallback={<LoadingScreen />}>
@@ -297,14 +284,6 @@ function App(): ReactElement {
                   <Route path="/rcm/claims" element={<Claims />} />
                   <Route path="/rcm/claims/:id" element={<Claim />} />
                   {/** telemed */}
-                  <Route
-                    path="/telemed/appointments"
-                    element={
-                      <Suspense fallback={<LoadingScreen />}>
-                        <TelemedTrackingBoardPageLazy />
-                      </Suspense>
-                    }
-                  ></Route>
                   <Route path="/telemed/appointments/:id/visit-details" element={<VisitDetailsPage />} />
                   <Route
                     path="/telemed/appointments/:id"
