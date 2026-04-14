@@ -55,8 +55,7 @@ export const useDisplayFilteredOptions = (
 
     if (allConditionsMet) {
       // Filter by intersection: only include options whose value is in includeValues
-      const includeSet = new Set(filter.includeValues);
-      return options.filter((opt) => includeSet.has(opt.valueString ?? ''));
+      return options.filter((opt) => opt.valueString != null && filter.includeValues.includes(opt.valueString));
     }
   }
 
