@@ -109,7 +109,7 @@ const PARENT_FIELD_TO_LABEL_MAP: Record<string, string> = {
   'breath-sounds': 'Decreased breath sounds',
   wheezing: 'Wheezing',
   crackles: 'Crackles',
-  'murmur-grade': 'Murmur grade',
+  'murmur-grade': 'Murmur',
 };
 
 export interface MigrationResult {

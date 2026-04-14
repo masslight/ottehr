@@ -23,8 +23,16 @@ describe('Exam migration V0 to V1', () => {
     });
 
     it('should contain expected legacy heart (murmur) field names', () => {
-      expect(MIGRATION_V1_FIELD_MAP['murmur-i']).toEqual({ parent: 'murmur-grade', label: 'Grade: Grade I' });
-      expect(MIGRATION_V1_FIELD_MAP['murmur-vi']).toEqual({ parent: 'murmur-grade', label: 'Grade: Grade VI' });
+      expect(MIGRATION_V1_FIELD_MAP['murmur-i']).toEqual({
+        parent: 'murmur-grade',
+        groupLabel: 'Grade',
+        label: 'Grade I',
+      });
+      expect(MIGRATION_V1_FIELD_MAP['murmur-vi']).toEqual({
+        parent: 'murmur-grade',
+        groupLabel: 'Grade',
+        label: 'Grade VI',
+      });
     });
 
     it('should contain expected legacy lung field names', () => {
@@ -32,13 +40,25 @@ describe('Exam migration V0 to V1', () => {
       expect(MIGRATION_V1_FIELD_MAP['wheezing-right-lower']).toBeDefined();
       expect(MIGRATION_V1_FIELD_MAP['crackles-left-upper']).toBeDefined();
       expect(MIGRATION_V1_FIELD_MAP['breath-sounds-right-middle']).toBeDefined();
-      expect(MIGRATION_V1_FIELD_MAP['subcostal']).toEqual({ parent: 'retractions', label: 'Type: Subcostal' });
-      expect(MIGRATION_V1_FIELD_MAP['intercostal']).toEqual({ parent: 'retractions', label: 'Type: Intercostal' });
+      expect(MIGRATION_V1_FIELD_MAP['subcostal']).toEqual({
+        parent: 'retractions',
+        groupLabel: 'Type',
+        label: 'Subcostal',
+      });
+      expect(MIGRATION_V1_FIELD_MAP['intercostal']).toEqual({
+        parent: 'retractions',
+        groupLabel: 'Type',
+        label: 'Intercostal',
+      });
     });
 
     it('should contain expected legacy abdomen field names', () => {
-      expect(MIGRATION_V1_FIELD_MAP['diffusely']).toEqual({ parent: 'tender', label: 'Location: Diffusely' });
-      expect(MIGRATION_V1_FIELD_MAP['ruq']).toEqual({ parent: 'tender', label: 'Location: RUQ' });
+      expect(MIGRATION_V1_FIELD_MAP['diffusely']).toEqual({
+        parent: 'tender',
+        groupLabel: 'Location',
+        label: 'Diffusely',
+      });
+      expect(MIGRATION_V1_FIELD_MAP['ruq']).toEqual({ parent: 'tender', groupLabel: 'Location', label: 'RUQ' });
       expect(MIGRATION_V1_FIELD_MAP['rlq']).toBeDefined();
       expect(MIGRATION_V1_FIELD_MAP['luq']).toBeDefined();
       expect(MIGRATION_V1_FIELD_MAP['r-cva']).toBeDefined();
@@ -126,8 +146,8 @@ describe('Exam migration V0 to V1', () => {
       expect(parent).toBeDefined();
 
       const labels = parent!.components!.map((c) => c.label);
-      expect(labels).toContain('Type: Subcostal');
-      expect(labels).toContain('Type: Intercostal');
+      expect(labels).toContain('Subcostal');
+      expect(labels).toContain('Intercostal');
     });
   });
 
@@ -173,63 +193,62 @@ describe('Exam migration V0 to V1', () => {
     });
   });
 
-  // todo sarah
-  // describe('migrateV0ToV1 is idempotent', () => {
-  //   it('should not modify already-migrated data (parent with components)', () => {
-  //     const alreadyMigrated: ExamObservationDTO[] = [
-  //       {
-  //         field: 'common-skin-findings',
-  //         value: true,
-  //         components: [
-  //           { code: 'cw-viral-exam', label: 'Rashes & Eruptions: Viral exanthem', value: true },
-  //           { code: 'cw-urticaria', label: 'Rashes & Eruptions: Urticaria', value: true },
-  //         ],
-  //       },
-  //     ];
+  describe('migrateV0ToV1 is idempotent', () => {
+    it('should not modify already-migrated data (parent with components)', () => {
+      const alreadyMigrated: ExamObservationDTO[] = [
+        {
+          field: 'common-skin-findings',
+          value: true,
+          components: [
+            { code: 'cw-viral-exam', groupLabel: 'Rashes & Eruptions', label: 'Viral exanthem', value: true },
+            { code: 'cw-urticaria', groupLabel: 'Rashes & Eruptions', label: 'Urticaria', value: true },
+          ],
+        },
+      ];
 
-  //     const result = migrateV0ToV1(alreadyMigrated);
+      const result = migrateV0ToV1(alreadyMigrated);
 
-  //     expect(result.migrated).toBe(false);
-  //     expect(result.observations).toEqual(alreadyMigrated);
-  //   });
+      expect(result.migrated).toBe(false);
+      expect(result.observations).toEqual(alreadyMigrated);
+    });
 
-  //   it('should not modify data that was previously migrated with additional unmapped fields', () => {
-  //     const alreadyMigrated: ExamObservationDTO[] = [
-  //       {
-  //         field: 'murmur-grade',
-  //         value: true,
-  //         components: [{ code: 'murmur-i', label: 'Grade: Grade I', value: true }],
-  //       },
-  //       { field: 'some-other-finding', value: true },
-  //     ];
+    it('should not modify data that was previously migrated with additional unmapped fields', () => {
+      const alreadyMigrated: ExamObservationDTO[] = [
+        {
+          field: 'murmur-grade',
+          value: true,
+          components: [{ code: 'murmur-i', groupLabel: 'Grade', label: 'Grade I', value: true }],
+        },
+        { field: 'some-other-finding', value: true },
+      ];
 
-  //     const result = migrateV0ToV1(alreadyMigrated);
+      const result = migrateV0ToV1(alreadyMigrated);
 
-  //     expect(result.migrated).toBe(false);
-  //     expect(result.observations).toEqual(alreadyMigrated);
-  //   });
+      expect(result.migrated).toBe(false);
+      expect(result.observations).toEqual(alreadyMigrated);
+    });
 
-  //   it('should merge into existing parent if standalone and parent both exist', () => {
-  //     // Edge case: an observation with a mapped field AND the parent already exists
-  //     const observations: ExamObservationDTO[] = [
-  //       {
-  //         field: 'retractions',
-  //         value: true,
-  //         components: [{ code: 'subcostal', label: 'Type: Subcostal', value: true }],
-  //       },
-  //       { field: 'intercostal', value: true },
-  //     ];
+    it('should merge into existing parent if standalone and parent both exist', () => {
+      // Edge case: an observation with a mapped field AND the parent already exists
+      const observations: ExamObservationDTO[] = [
+        {
+          field: 'retractions',
+          value: true,
+          components: [{ code: 'subcostal', groupLabel: 'Type', label: 'Subcostal', value: true }],
+        },
+        { field: 'intercostal', value: true },
+      ];
 
-  //     const result = migrateV0ToV1(observations);
+      const result = migrateV0ToV1(observations);
 
-  //     expect(result.migrated).toBe(true);
-  //     const parent = result.observations.find((o) => o.field === 'retractions');
-  //     expect(parent).toBeDefined();
-  //     expect(parent!.components).toHaveLength(2);
+      expect(result.migrated).toBe(true);
+      const parent = result.observations.find((o) => o.field === 'retractions');
+      expect(parent).toBeDefined();
+      expect(parent!.components).toHaveLength(2);
 
-  //     const codes = parent!.components!.map((c) => c.code);
-  //     expect(codes).toContain('subcostal');
-  //     expect(codes).toContain('intercostal');
-  //   });
-  // });
+      const codes = parent!.components!.map((c) => c.code);
+      expect(codes).toContain('subcostal');
+      expect(codes).toContain('intercostal');
+    });
+  });
 });
