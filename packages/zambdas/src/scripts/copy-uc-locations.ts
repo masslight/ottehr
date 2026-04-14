@@ -335,8 +335,8 @@ const main = async (): Promise<void> => {
   const toEnv = process.argv[3] ?? 'testing';
   const dryRun = process.argv[4] ?? 'false';
 
-  const fromSecrets = JSON.parse(fs.readFileSync(`.env/${fromEnv}.json`, 'utf8'));
-  const toSecrets = JSON.parse(fs.readFileSync(`.env/${toEnv}.json`, 'utf8'));
+  const fromSecrets = JSON.parse(fs.readFileSync(`../../config/.env/${fromEnv}.json`, 'utf8'));
+  const toSecrets = JSON.parse(fs.readFileSync(`../../config/.env/${toEnv}.json`, 'utf8'));
   const isDryRun = dryRun === 'dry';
   await copyLocations(fromSecrets, toSecrets, isDryRun);
 };
