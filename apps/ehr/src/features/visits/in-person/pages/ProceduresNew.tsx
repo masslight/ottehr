@@ -780,7 +780,7 @@ export default function ProceduresNew(): ReactElement {
             (procedureType) => procedureType.name === values.procedureType
           );
           // don't remove applied codes on changes
-          const appliedCodes = state.cptCodes ?? [];
+          const appliedCodes = [...(state.cptCodes ?? [])];
           if (selected?.cpt && !appliedCodes.some((c) => c.code === selected.cpt!.code)) {
             appliedCodes.push({ code: selected.cpt.code, display: selected.cpt.display });
           }

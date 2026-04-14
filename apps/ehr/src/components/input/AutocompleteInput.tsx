@@ -47,8 +47,11 @@ export function AutocompleteInput<Value>({
       control={control}
       rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false, validate: validate }}
       render={({ field, fieldState: { error } }) => {
-        const optionsToUse = options ?? [];
+        const optionsToUse = [...(options ?? [])];
+
+        // freeSolo updates field.value on each keystroke, and it doesn't need the typed value to be added to options
         if (
+          !freeSolo &&
           field.value &&
           !options?.find((option) =>
             isOptionEqualToValue ? isOptionEqualToValue(option, field.value) : option === field.value
