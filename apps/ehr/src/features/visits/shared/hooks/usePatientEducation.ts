@@ -320,7 +320,7 @@ async function generateCombinedPdf(
             borderColor: WARNING_BORDER,
             borderWidth: 1,
           });
-          page.drawText('⚠', { x: margin + 6, y: y, size: 12, font: helvetica, color: WARNING_BORDER });
+          page.drawText('!', { x: margin + 9, y: y - 1, size: 14, font: helveticaBold, color: WARNING_BORDER });
         }
 
         const textX = inWarningBox ? margin + 22 : margin;
