@@ -65,7 +65,7 @@ export function usePatientEducation(): UsePatientEducationResult {
 
     try {
       // Generate content for each selected diagnosis
-      const sections: { content: string; icdCode: string; icdDescription: string }[] = [];
+      const sections: { content: string; patientTitle: string; icdCode: string; icdDescription: string }[] = [];
 
       for (let i = 0; i < selectedDiagnoses.length; i++) {
         const diagnosis = selectedDiagnoses[i];
@@ -79,6 +79,7 @@ export function usePatientEducation(): UsePatientEducationResult {
         if (result.content) {
           sections.push({
             content: result.content,
+            patientTitle: result.patientTitle || diagnosis.display,
             icdCode: diagnosis.code,
             icdDescription: diagnosis.display,
           });
@@ -110,7 +111,7 @@ export function usePatientEducation(): UsePatientEducationResult {
 }
 
 async function generateCombinedPdf(
-  sections: { content: string; icdCode: string; icdDescription: string }[]
+  sections: { content: string; patientTitle: string; icdCode: string; icdDescription: string }[]
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const timesRoman = await pdfDoc.embedFont(StandardFonts.TimesRoman);
@@ -130,16 +131,15 @@ async function generateCombinedPdf(
     let page = pdfDoc.addPage([pageWidth, pageHeight]);
     let y = pageHeight - margin;
 
-    // Title
-    const title = `Patient Education: ${section.icdDescription}`;
-    const titleLines = wrapText(title, titleFontSize, maxWidth);
+    // Patient-friendly title
+    const titleLines = wrapText(section.patientTitle, titleFontSize, maxWidth);
     for (const line of titleLines) {
       page.drawText(line, { x: margin, y, size: titleFontSize, font: timesRomanBold, color: rgb(0.1, 0.1, 0.4) });
       y -= titleFontSize * 1.5;
     }
 
-    // ICD code subtitle
-    page.drawText(`ICD-10: ${section.icdCode}`, {
+    // ICD code and clinical description subtitle
+    page.drawText(`${section.icdCode} — ${section.icdDescription}`, {
       x: margin,
       y,
       size: 10,

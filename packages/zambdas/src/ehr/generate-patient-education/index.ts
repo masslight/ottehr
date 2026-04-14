@@ -59,22 +59,39 @@ export const index = wrapHandler(
 Links:
 ${linksText}
 
-Please generate clear, patient-friendly education materials that include:
-1. A brief overview of the condition
-2. Common symptoms
-3. When to seek urgent/emergency care
-4. Home care instructions
-5. Follow-up recommendations
-6. References to the MedlinePlus resources provided
+Return your response as JSON with two fields:
+1. "title": A patient-friendly title for this condition, written in the style of MedlinePlus or Mayo Clinic article titles (e.g., "Understanding Your Ear Infection" instead of "Acute Otitis Media", or "Caring for Your Wound" instead of "Open wound of unspecified lower leg"). The title should be approachable and avoid clinical jargon.
+2. "content": The education materials as plain text with clear section headers using markdown ## for headers. Do not use bullet points with asterisks, use plain dashes instead.
 
-Format the output as plain text with clear section headers using markdown ## for headers. Do not use bullet points with asterisks, use plain dashes instead.`;
+The content should include:
+- A brief overview of the condition
+- Common symptoms
+- When to seek urgent/emergency care
+- Home care instructions
+- Follow-up recommendations
+- References to the MedlinePlus resources provided
 
-    const content = await invokeChatbotVertexAI([{ text: prompt }], secrets);
+Return ONLY the JSON object, no markdown code fences.`;
+
+    const responseText = await invokeChatbotVertexAI([{ text: prompt }], secrets);
+
+    let content: string;
+    let patientTitle: string;
+    try {
+      const parsed = JSON.parse(responseText);
+      content = parsed.content || responseText;
+      patientTitle = parsed.title || icdDescription;
+    } catch {
+      // If AI didn't return valid JSON, use the raw text as content
+      content = responseText;
+      patientTitle = icdDescription;
+    }
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         content,
+        patientTitle,
         icdCode,
         icdDescription,
         links,
