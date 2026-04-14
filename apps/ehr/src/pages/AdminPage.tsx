@@ -115,9 +115,6 @@ export function AdminPage(): JSX.Element {
           <TabPanel value={PageTab.providers} sx={{ padding: 0 }}>
             <EmployeesPage employeeType={EmployeeTypes.providers} />
           </TabPanel>
-          <TabPanel value={PageTab['global-templates']} sx={{ padding: 0 }}>
-            <GlobalTemplatesAdminPage />
-          </TabPanel>
           <TabPanel value={PageTab.medications} sx={{ padding: 0 }}>
             <MedicationsConfigurationPage />
           </TabPanel>
