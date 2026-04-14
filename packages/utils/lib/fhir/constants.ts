@@ -218,6 +218,20 @@ export const FHIR_EXTENSION = {
       url: `${FHIR_HL7_ORG_VALUE_SET_BASE_URL}/relatedperson-relationshiptype`,
     },
   },
+  Observation: {
+    examComponentLabel: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-label`,
+    },
+    examComponentGroupLabel: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-group-label`,
+    },
+    examComponentColumnLabel: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-column-label`,
+    },
+    examComponentAbnormal: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-abnormal`,
+    },
+  },
 } as const;
 
 export type FHIR_EXTENSION_TYPE = typeof FHIR_EXTENSION;

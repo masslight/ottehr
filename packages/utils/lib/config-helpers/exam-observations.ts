@@ -166,8 +166,6 @@ export function collectKnownExamFields(examConfig: ExamItemConfig): Set<string> 
     Object.entries(components).forEach(([key, component]) => {
       if (component.type === 'checkbox' || component.type === 'checkbox-with-modal') {
         knownFields.add(key);
-        const baseKey = key.replace(/-[lr]$/, ''); // todo sarah you can probably kill this
-        if (baseKey !== key) knownFields.add(baseKey);
       } else if (component.type === 'text') {
         knownFields.add(key);
       } else if (component.type === 'dropdown') {
@@ -229,14 +227,8 @@ function groupComponents(
 }
 
 function formatGroupedComponents(grouped: Map<string | null, Map<string, string[]>>): string {
-  const columnOrder: Record<string, number> = { L: 0, R: 1 }; // todo sarah this shouldn't be hardcoded
-
   return Array.from(grouped.entries())
-    .sort(([a], [b]) => {
-      const pa = columnOrder[a ?? ''] ?? 99;
-      const pb = columnOrder[b ?? ''] ?? 99;
-      return pa - pb || (a ?? '').localeCompare(b ?? '');
-    })
+    .sort(([a], [b]) => (a ?? '').localeCompare(b ?? '')) // handles L coming before R
     .map(([columnLabel, groupMap]) => {
       const groups = Array.from(groupMap.entries())
         .map(([groupLabel, labels]) => (groupLabel ? `${groupLabel}: ${labels.join(', ')}` : labels.join(', ')))

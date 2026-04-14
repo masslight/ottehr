@@ -562,13 +562,13 @@ export function makeExamObservationResource(
         code: { text: c.code },
         valueBoolean: c.value,
         extension: [
-          { url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-label`, valueString: c.label },
-          { url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-group-label`, valueString: c.groupLabel },
+          { url: FHIR_EXTENSION.Observation.examComponentLabel.url, valueString: c.label },
+          { url: FHIR_EXTENSION.Observation.examComponentGroupLabel.url, valueString: c.groupLabel },
           ...(c.columnLabel
-            ? [{ url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-column-label`, valueString: c.columnLabel }]
+            ? [{ url: FHIR_EXTENSION.Observation.examComponentColumnLabel.url, valueString: c.columnLabel }]
             : []),
           ...(c.abnormal !== undefined
-            ? [{ url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-abnormal`, valueBoolean: c.abnormal }]
+            ? [{ url: FHIR_EXTENSION.Observation.examComponentAbnormal.url, valueBoolean: c.abnormal }]
             : []),
         ],
       }));
@@ -586,21 +586,19 @@ export function makeExamObservationDTO(observation: Observation): ExamObservatio
     value: observation.valueBoolean,
   };
 
-  // todo sarah this is what you have been searching for!
   if (observation.component && observation.component.length > 0) {
     dto.components = observation.component.map((c) => {
-      // todo sarah make "exam-component-label" a const
-      const abnormalExt = c.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/exam-component-abnormal`);
+      const abnormalExt = c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentAbnormal.url);
       return {
         code: c.code?.text || 'unknown',
         label:
-          c.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/exam-component-label`)?.valueString ||
+          c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentLabel.url)?.valueString ||
           c.code?.text ||
           'unknown',
         groupLabel:
-          c.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/exam-component-group-label`)?.valueString ||
+          c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentGroupLabel.url)?.valueString ||
           'unknown',
-        columnLabel: c.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/exam-component-column-label`)
+        columnLabel: c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentColumnLabel.url)
           ?.valueString,
         value: c.valueBoolean ?? false,
         abnormal: abnormalExt?.valueBoolean,
