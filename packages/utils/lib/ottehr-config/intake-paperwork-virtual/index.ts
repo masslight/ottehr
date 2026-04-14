@@ -779,6 +779,7 @@ function buildFormFields(
             },
           ],
         },
+        // CW TODO: this logic must change maybe
         insuranceCarrier: {
           key: 'insurance-carrier',
           label: 'Insurance carrier',
@@ -1198,6 +1199,7 @@ function buildFormFields(
               text: 'Secondary insurance details',
               type: 'display',
             },
+            // CW TODO: this logic must change maybe
             insuranceCarrier: {
               key: 'insurance-carrier-2',
               label: 'Insurance carrier',

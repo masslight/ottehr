@@ -1,12 +1,6 @@
 import { Operation } from 'fast-json-patch';
 import { Coverage, Organization, Patient, RelatedPerson } from 'fhir/r4b';
-import {
-  eligibilityRequirementKeys,
-  getPayerId,
-  InsurancePlanDTO,
-  InsurancePlanRequirementKeyBooleans,
-  InsurancePlanRequirementKeys,
-} from 'utils';
+import { eligibilityRequirementKeys, getPayerId, InsurancePlanDTO, InsurancePlanRequirementKeyBooleans } from 'utils';
 import { create } from 'zustand';
 
 export interface Insurance {
@@ -60,7 +54,7 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
 }));
 
 export const createInsurancePlanDto = (organization: Organization): InsurancePlanDTO => {
-  const { id, name, partOf, extension } = organization;
+  const { id, name, partOf } = organization;
 
   if (!id || !name) {
     throw new Error('Insurance is missing id, name or owning organization.');
@@ -81,12 +75,6 @@ export const createInsurancePlanDto = (organization: Organization): InsurancePla
       eligibilityRequirementKeys.map((key) => [key, false])
     ) as InsurancePlanRequirementKeyBooleans),
   };
-
-  extension
-    ?.find((extension) => extension.url === 'https://extensions.fhir.zapehr.com/insurance-requirements')
-    ?.extension?.forEach((requirement) => {
-      insurancePlanDto[requirement.url as InsurancePlanRequirementKeys] = requirement.valueBoolean || false;
-    });
 
   return insurancePlanDto;
 };

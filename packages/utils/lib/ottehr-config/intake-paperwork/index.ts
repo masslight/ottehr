@@ -512,6 +512,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           ],
           disabledDisplay: 'hidden',
         },
+        // CW TODO: this logic must change
         insuranceCarrier: {
           key: 'insurance-carrier',
           label: 'Insurance carrier',
@@ -930,6 +931,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               text: 'Secondary insurance details',
               type: 'display',
             },
+            // CW TODO: this logic must change
             insuranceCarrier: {
               key: 'insurance-carrier-2',
               label: 'Insurance carrier',

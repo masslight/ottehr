@@ -171,6 +171,7 @@ export type AnswerOptionSource = z.infer<typeof AnswerOptionSourceSchema>;
  */
 export const AnswerLoadingOptionsSchema = z.object({
   strategy: z.enum(['prefetch', 'dynamic']),
+  // CW TODO: maybe need a `nested` attribute to control re-querying
   answerSource: AnswerOptionSourceSchema.optional(),
 });
 

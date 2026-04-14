@@ -16,7 +16,6 @@ import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../config-helpers/shared-
 import {
   allLicensesForPractitioner,
   CANDID_PLAN_TYPE_SYSTEM,
-  FHIR_IDENTIFIER_SYSTEM,
   getCoding,
   getFullName,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
@@ -1548,8 +1547,7 @@ export const checkResourceHasSlug = (resource: ScheduleOwnerFhirResource, slug: 
 
 export const getPayerId = (org: Organization | undefined): string | undefined => {
   const payerId = org?.identifier?.find(
-    (identifier) =>
-      identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
+    (identifier) => identifier.system === 'https://identifiers.fhir.oystehr.com/rcm-payer-id'
   )?.value;
   return payerId;
 };

@@ -1,6 +1,6 @@
 import { Box, SxProps, Typography, useTheme } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { BundleEntry, Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -113,11 +113,7 @@ const makePrepopulatedCoveragesFormDefaults = ({
   return makeFormDefaults(prepopulatedItems);
 };
 
-const transformInsurancePlans = (bundleEntries: BundleEntry[]): InsurancePlanDTO[] => {
-  const organizations = bundleEntries
-    .filter((bundleEntry) => bundleEntry.resource?.resourceType === 'Organization')
-    .map((bundleEntry) => bundleEntry.resource as Organization);
-
+const transformInsurancePlans = (organizations: Organization[]): InsurancePlanDTO[] => {
   const transformedPlans = organizations
     .map((organization) => {
       try {
@@ -375,9 +371,8 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   useGetInsurancePlans((data) => {
     if (!data) return;
 
-    const bundleEntries = data.entry;
-    if (bundleEntries) {
-      const uniquePlans = transformInsurancePlans(bundleEntries);
+    if (data) {
+      const uniquePlans = transformInsurancePlans(data);
       setInsurancePlans(uniquePlans);
     }
   });

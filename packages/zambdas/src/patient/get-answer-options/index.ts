@@ -54,6 +54,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<QuestionnaireItemAnswerOption[]> => {
   const { type } = input;
   if (type === 'query') {
+    // CW TODO: THIS IS THE PLACE FOR QUERY -- need a `nested` attribute to control nested querying
     const { resourceType, query, prependedIdentifier } = input.answerSource;
     const paramsObject = new URLSearchParams(query);
     let offset = 0;
@@ -156,6 +157,7 @@ const formatQueryResult = (
   throw ANSWER_OPTION_FROM_RESOURCE_UNDEFINED(resourceType);
 };
 
+// CW TODO: likely need a `nested` attribute to control re-querying
 type QueryInput = { answerSource: AnswerOptionSource; type: 'query' };
 type CanonicalInput = { type: 'canonical'; url: string; version: string };
 type EffectInput = QueryInput | CanonicalInput;
@@ -164,6 +166,7 @@ const validateInput = (input: ZambdaInput): EffectInput => {
   if (!body) {
     throw MISSING_REQUEST_BODY;
   }
+  // CW TODO: likely need a `nested` attribute to control re-querying
   const { answerSource, valueSet } = JSON.parse(body);
   if (answerSource) {
     const { resourceType, query } = answerSource;

@@ -121,6 +121,7 @@ const createAnswerLoadingOptionsExtension = (
         valueString: 'dynamic',
       },
       {
+        // CW TODO: likely need a `nested` attribute to control re-querying
         url: 'https://fhir.zapehr.com/r4/StructureDefinitions/source',
         valueExpression: {
           language: 'application/x-fhir-query',

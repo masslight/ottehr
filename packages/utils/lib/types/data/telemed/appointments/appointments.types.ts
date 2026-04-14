@@ -31,6 +31,7 @@ export interface GetVisitDetailsRequest {
 }
 
 export interface GetAnswerOptionsRequest {
+  // CW TODO: likely need a `nested` attribute to control re-querying
   answerSource?: AnswerOptionSource;
   valueSet?: string;
 }

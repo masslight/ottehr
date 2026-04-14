@@ -1,18 +1,10 @@
-import { BundleEntry } from '@oystehr/sdk';
+import { RcmListPayersResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
-import { Bundle, FhirResource, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
+import { FhirResource, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import {
-  getFirstName,
-  getLastName,
-  ORG_TYPE_CODE_SYSTEM,
-  ORG_TYPE_PAYER_CODE,
-  PromiseReturnType,
-  RemoveCoverageZambdaInput,
-  useSuccessQuery,
-} from 'utils';
+import { getFirstName, getLastName, PromiseReturnType, RemoveCoverageZambdaInput, useSuccessQuery } from 'utils';
 import { OystehrTelemedAPIClient } from '../features/visits/shared/api/oystehrApi';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { useApiClients } from './useAppClients';
@@ -244,47 +236,26 @@ export const useUpdatePatientAccount = (
 };
 
 export const useGetInsurancePlans = (
-  onSuccess: (data: Bundle<Organization> | null) => void
-): UseQueryResult<Bundle<Organization>, Error> => {
+  onSuccess: (data: Organization[] | null) => void
+): UseQueryResult<Organization[], Error> => {
   const { oystehr } = useApiClients();
 
-  const fetchAllInsurancePlans = async (): Promise<Bundle<Organization>> => {
+  const fetchAllInsurancePlans = async (): Promise<Organization[]> => {
     if (!oystehr) {
       throw new Error('FHIR client not defined');
     }
 
-    const searchParams = [
-      { name: 'type', value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}` },
-      { name: '_count', value: '1000' },
-    ];
-
-    let offset = 0;
-    let allEntries: BundleEntry<Organization>[] = [];
-
-    let bundle = await oystehr.fhir.search<Organization>({
-      resourceType: 'Organization',
-      params: [...searchParams, { name: '_offset', value: offset }],
-    });
-
-    allEntries = allEntries.concat(bundle.entry || []);
-    const serverTotal = bundle.total;
-
-    while (bundle.link?.find((link) => link.relation === 'next')) {
-      offset += 1000;
-
-      bundle = await oystehr.fhir.search<Organization>({
-        resourceType: 'Organization',
-        params: [...searchParams.filter((param) => param.name !== '_offset'), { name: '_offset', value: offset }],
-      });
-
-      allEntries = allEntries.concat(bundle.entry || []);
+    const payers = [];
+    let hasMore = true;
+    let nextCursor: string | null = null;
+    while (hasMore) {
+      const result: RcmListPayersResponse = await oystehr.rcm.listPayers({ cursor: nextCursor ?? undefined });
+      payers.push(...result.data);
+      nextCursor = result.metadata.nextCursor;
+      hasMore = !!nextCursor;
     }
 
-    return {
-      ...bundle,
-      entry: allEntries,
-      total: serverTotal !== undefined ? serverTotal : allEntries.length,
-    };
+    return payers;
   };
 
   const queryResult = useQuery({

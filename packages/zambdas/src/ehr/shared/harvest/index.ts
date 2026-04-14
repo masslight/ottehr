@@ -1621,6 +1621,7 @@ export async function searchInsuranceInformation(
   if (orgIds.length === 0) {
     return [];
   }
+  // CW TODO: this needs to use oystehr payer lookup
   const searchResults = await oystehr.fhir.search<Organization>({
     resourceType: 'Organization',
     params: [
@@ -3876,10 +3877,6 @@ export const getAccountAndCoverageResourcesForPatient = async (
           name: '_include:iterate',
           value: 'Coverage:subscriber',
         },
-        {
-          name: '_include:iterate',
-          value: 'Coverage:payor',
-        },
       ],
     })
   ).unbundle();
@@ -3902,9 +3899,19 @@ export const getAccountAndCoverageResourcesForPatient = async (
     throw PATIENT_NOT_FOUND_ERROR;
   }
 
+  const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
+  const insuranceRefUrls = coverageResources
+    .flatMap((cov) =>
+      cov.payor.map((ref) => (ref.reference?.startsWith('https://rcm-api.zapehr.com') ? ref.reference : undefined))
+    )
+    .filter<string>((refUrl): refUrl is string => !!refUrl);
+  const insuranceOrgs: Organization[] = await Promise.all(
+    insuranceRefUrls.map(async (url) => await oystehr.rcm.getPayerByUrl({ url }))
+  );
+
   return getCoverageUpdateResourcesFromUnbundled({
     patient: patientResource,
-    resources: [...resources],
+    resources: [...resources, ...insuranceOrgs],
   });
 };
 

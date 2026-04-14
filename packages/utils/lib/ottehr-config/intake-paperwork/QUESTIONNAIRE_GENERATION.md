@@ -326,6 +326,7 @@ Load options from an API:
   label: 'Preferred location',
   type: 'reference',
   dataSource: {
+    // CW TODO: likely need a `nested` attribute to control re-querying
     answerSource: {
       resourceType: 'Location',
       query: 'status=active&_tag=urgent-care'

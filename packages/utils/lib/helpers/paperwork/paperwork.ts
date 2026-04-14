@@ -273,6 +273,7 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
         const [resourceType, query] = expression.split('?');
         if (resourceType && query) {
           option.answerSource = {
+            // CW TODO: likely need nested querying
             resourceType: resourceType as FhirResource['resourceType'],
             query,
           };

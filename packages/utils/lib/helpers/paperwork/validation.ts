@@ -223,6 +223,7 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
       }
       schemaTemp = schema;
     } else {
+      // CW TODO: likely need nested querying, random Yup reference
       // const { query, resourceType } = answerSource;
       let referenceSchema = Yup.object({
         valueReference: makeReferenceValueSchema(required),

@@ -28,6 +28,7 @@ export type DynamicPopulation = z.infer<typeof DynamicPopulationSchema>;
  */
 export const ReferenceDataSourceSchema = z
   .object({
+    // CW TODO: likely need a `nested` attribute to control re-querying
     answerSource: AnswerOptionSourceSchema.optional(),
     valueSet: z.string().optional(),
   })
