@@ -10,6 +10,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControlLabel,
   Link,
   TextField,
@@ -24,7 +25,7 @@ import { ActionsList } from '../../../../../components/ActionsList';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
-import { getEducationBlobUrl, usePatientEducation } from '../../hooks/usePatientEducation';
+import { EducationSection, getEducationBlobUrl, usePatientEducation } from '../../hooks/usePatientEducation';
 import { useSavePatientInstruction } from '../../stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 import { PatientInstructionsTemplatesDialog } from './components/PatientInstructionsTemplatesDialog';
@@ -43,12 +44,18 @@ export const PatientInstructionsCard: FC = () => {
   const [educationModalOpen, setEducationModalOpen] = useState(false);
   const [selectedDiagnoses, setSelectedDiagnoses] = useState<Set<string>>(new Set());
   const {
+    prefetchAllDiagnoses,
     generateForDiagnoses,
+    saveFromSections,
+    generatedSections,
+    clearGeneratedSections,
     isLoading: isEducationLoading,
+    isSaving: isEducationSaving,
     error: educationError,
     progress: educationProgress,
     allDiagnoses,
   } = usePatientEducation();
+  const [editableSections, setEditableSections] = useState<EducationSection[]>([]);
   const { chartData, setPartialChartData } = useChartData();
   const instructions = chartData?.instructions || [];
   const { oystehr } = useApiClients();
@@ -208,8 +215,9 @@ export const PatientInstructionsCard: FC = () => {
                 </RoundedButton>
                 <RoundedButton
                   onClick={() => {
-                    // Pre-select all diagnoses
+                    // Pre-select all diagnoses and start prefetching content
                     setSelectedDiagnoses(new Set(allDiagnoses.map((d) => d.code)));
+                    prefetchAllDiagnoses();
                     setEducationModalOpen(true);
                   }}
                   disabled={allDiagnoses.length === 0 || isEducationLoading}
@@ -306,8 +314,9 @@ export const PatientInstructionsCard: FC = () => {
         />
       )}
 
+      {/* Diagnosis selection dialog */}
       <Dialog
-        open={educationModalOpen}
+        open={educationModalOpen && !generatedSections}
         onClose={() => !isEducationLoading && setEducationModalOpen(false)}
         maxWidth="sm"
         fullWidth
@@ -372,14 +381,106 @@ export const PatientInstructionsCard: FC = () => {
             onClick={async () => {
               const selected = allDiagnoses.filter((d) => selectedDiagnoses.has(d.code));
               await generateForDiagnoses(selected);
-              if (!educationError) {
-                setEducationModalOpen(false);
-              }
             }}
             disabled={selectedDiagnoses.size === 0 || isEducationLoading}
             startIcon={isEducationLoading ? <CircularProgress size={16} /> : <SchoolIcon />}
           >
             Generate ({selectedDiagnoses.size})
+          </RoundedButton>
+        </DialogActions>
+      </Dialog>
+
+      {/* Review/edit dialog — shown after AI generates content */}
+      <Dialog
+        open={!!generatedSections}
+        onClose={() => !isEducationSaving && clearGeneratedSections()}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Review Patient Education Materials</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Review and edit the content below. Use markdown formatting: ## for section headers, - for bullet points.
+          </Typography>
+          {(editableSections.length > 0 ? editableSections : generatedSections ?? []).map((section, idx) => (
+            <Box key={section.icdCode} sx={{ mb: idx < (generatedSections?.length ?? 1) - 1 ? 3 : 0 }}>
+              <TextField
+                label="Title"
+                value={section.patientTitle}
+                onChange={(e) => {
+                  setEditableSections((prev) => {
+                    const sections = prev.length > 0 ? [...prev] : [...(generatedSections ?? [])];
+                    sections[idx] = { ...sections[idx], patientTitle: e.target.value };
+                    return sections;
+                  });
+                }}
+                fullWidth
+                size="small"
+                sx={{ mb: 1 }}
+                disabled={isEducationSaving}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                {section.icdCode} — {section.icdDescription}
+              </Typography>
+              <TextField
+                value={section.content}
+                onChange={(e) => {
+                  setEditableSections((prev) => {
+                    const sections = prev.length > 0 ? [...prev] : [...(generatedSections ?? [])];
+                    sections[idx] = { ...sections[idx], content: e.target.value };
+                    return sections;
+                  });
+                }}
+                fullWidth
+                multiline
+                minRows={10}
+                maxRows={20}
+                disabled={isEducationSaving}
+                sx={{ '& .MuiInputBase-root': { fontFamily: 'monospace', fontSize: 13 } }}
+              />
+              {idx < (generatedSections?.length ?? 1) - 1 && <Divider sx={{ mt: 2 }} />}
+            </Box>
+          ))}
+          {educationError && (
+            <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+              {educationError}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <RoundedButton
+            onClick={() => {
+              clearGeneratedSections();
+              setEditableSections([]);
+              setEducationModalOpen(false);
+            }}
+            disabled={isEducationSaving}
+          >
+            Cancel
+          </RoundedButton>
+          <RoundedButton
+            onClick={() => {
+              setEditableSections([]);
+              clearGeneratedSections();
+            }}
+            disabled={isEducationSaving}
+          >
+            Back
+          </RoundedButton>
+          <RoundedButton
+            variant="contained"
+            onClick={async () => {
+              const sections = editableSections.length > 0 ? editableSections : generatedSections ?? [];
+              await saveFromSections(sections);
+              if (!educationError) {
+                setEditableSections([]);
+                setEducationModalOpen(false);
+              }
+            }}
+            disabled={isEducationSaving}
+            startIcon={isEducationSaving ? <CircularProgress size={16} /> : <PictureAsPdfIcon />}
+          >
+            Create PDF
           </RoundedButton>
         </DialogActions>
       </Dialog>

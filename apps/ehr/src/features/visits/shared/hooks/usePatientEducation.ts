@@ -1,5 +1,5 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { CommunicationDTO } from 'utils';
 import { useAppointmentData, useChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
@@ -36,9 +36,21 @@ export function getEducationBlobUrl(docRefId: string): string | undefined {
   return educationBlobUrls.get(docRefId);
 }
 
+export interface EducationSection {
+  content: string;
+  patientTitle: string;
+  icdCode: string;
+  icdDescription: string;
+}
+
 export interface UsePatientEducationResult {
+  prefetchAllDiagnoses: () => void;
   generateForDiagnoses: (diagnoses: DiagnosisOption[]) => Promise<void>;
+  saveFromSections: (sections: EducationSection[]) => Promise<void>;
+  generatedSections: EducationSection[] | null;
+  clearGeneratedSections: () => void;
   isLoading: boolean;
+  isSaving: boolean;
   error: string | null;
   progress: string | null;
   allDiagnoses: DiagnosisOption[];
@@ -46,8 +58,10 @@ export interface UsePatientEducationResult {
 
 export function usePatientEducation(): UsePatientEducationResult {
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
+  const [generatedSections, setGeneratedSections] = useState<EducationSection[] | null>(null);
   const { chartData, setPartialChartData } = useChartData();
   const { encounter, patient } = useAppointmentData();
   const { mutateAsync: saveChartData } = useSaveChartData();
@@ -59,6 +73,43 @@ export function usePatientEducation(): UsePatientEducationResult {
     isPrimary: d.isPrimary,
   }));
 
+  const clearGeneratedSections = useCallback(() => {
+    setGeneratedSections(null);
+    setError(null);
+  }, []);
+
+  // Prefetch cache: fires off requests for all diagnoses as soon as the modal opens
+  const prefetchCacheRef = useRef<Map<string, Promise<EducationSection | null>>>(new Map());
+
+  const prefetchAllDiagnoses = useCallback(() => {
+    if (!apiClient) return;
+    for (const diagnosis of allDiagnoses) {
+      if (prefetchCacheRef.current.has(diagnosis.code)) continue;
+      const promise = apiClient
+        .generatePatientEducation({
+          icdCode: diagnosis.code,
+          icdDescription: diagnosis.display,
+        })
+        .then((result): EducationSection | null =>
+          result.content
+            ? {
+                content: result.content,
+                patientTitle: result.patientTitle || diagnosis.display,
+                icdCode: diagnosis.code,
+                icdDescription: diagnosis.display,
+              }
+            : null
+        )
+        .catch((err) => {
+          console.error(`Prefetch failed for ${diagnosis.code}:`, err);
+          prefetchCacheRef.current.delete(diagnosis.code);
+          return null;
+        });
+      prefetchCacheRef.current.set(diagnosis.code, promise);
+    }
+  }, [apiClient, allDiagnoses]);
+
+  // Phase 1: Collect results from prefetch cache for selected diagnoses
   const generateForDiagnoses = useCallback(
     async (selectedDiagnoses: DiagnosisOption[]): Promise<void> => {
       if (selectedDiagnoses.length === 0) {
@@ -73,27 +124,38 @@ export function usePatientEducation(): UsePatientEducationResult {
       setIsLoading(true);
       setError(null);
       setProgress(null);
+      setGeneratedSections(null);
 
       try {
-        // Generate content for each selected diagnosis
-        const sections: { content: string; patientTitle: string; icdCode: string; icdDescription: string }[] = [];
+        const sections: EducationSection[] = [];
 
         for (let i = 0; i < selectedDiagnoses.length; i++) {
           const diagnosis = selectedDiagnoses[i];
-          setProgress(`Generating ${i + 1} of ${selectedDiagnoses.length}: ${diagnosis.display}...`);
+          setProgress(`Loading ${i + 1} of ${selectedDiagnoses.length}: ${diagnosis.display}...`);
 
-          const result = await apiClient.generatePatientEducation({
-            icdCode: diagnosis.code,
-            icdDescription: diagnosis.display,
-          });
+          // Use prefetched result if available, otherwise fetch now
+          let sectionPromise = prefetchCacheRef.current.get(diagnosis.code);
+          if (!sectionPromise) {
+            sectionPromise = apiClient
+              .generatePatientEducation({
+                icdCode: diagnosis.code,
+                icdDescription: diagnosis.display,
+              })
+              .then((result): EducationSection | null =>
+                result.content
+                  ? {
+                      content: result.content,
+                      patientTitle: result.patientTitle || diagnosis.display,
+                      icdCode: diagnosis.code,
+                      icdDescription: diagnosis.display,
+                    }
+                  : null
+              );
+          }
 
-          if (result.content) {
-            sections.push({
-              content: result.content,
-              patientTitle: result.patientTitle || diagnosis.display,
-              icdCode: diagnosis.code,
-              icdDescription: diagnosis.display,
-            });
+          const section = await sectionPromise;
+          if (section) {
+            sections.push(section);
           }
         }
 
@@ -102,16 +164,35 @@ export function usePatientEducation(): UsePatientEducationResult {
           return;
         }
 
-        // Generate a single combined PDF
-        setProgress('Building PDF...');
-        const pdfBytes = await generateCombinedPdf(sections);
+        setGeneratedSections(sections);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'An unknown error occurred';
+        setError(message);
+        console.error('Patient education generation failed:', err);
+      } finally {
+        setIsLoading(false);
+        setProgress(null);
+      }
+    },
+    [apiClient]
+  );
 
-        // Create blob URL for session-local viewing
+  // Phase 2: Build PDF from (possibly edited) sections, upload, and save as instruction
+  const saveFromSections = useCallback(
+    async (sections: EducationSection[]): Promise<void> => {
+      if (!apiClient) {
+        setError('API client not available.');
+        return;
+      }
+
+      setIsSaving(true);
+      setError(null);
+
+      try {
+        const pdfBytes = await generateCombinedPdf(sections);
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const blobUrl = URL.createObjectURL(blob);
 
-        // Upload PDF to server and save as patient instruction
-        setProgress('Saving...');
         const pdfBase64 = btoa(
           Array.from(pdfBytes)
             .map((b) => String.fromCharCode(b))
@@ -126,17 +207,14 @@ export function usePatientEducation(): UsePatientEducationResult {
           title,
         });
 
-        // Store blob URL for this session
         educationBlobUrls.set(documentReferenceId, blobUrl);
 
-        // Save as a patient instruction linked to the DocumentReference
         const instructions = chartData?.instructions || [];
         const newInstruction: CommunicationDTO = {
           title,
           educationDocRefId: documentReferenceId,
         };
 
-        // Optimistic update
         const localInstructions = [...instructions, newInstruction];
         setPartialChartData({ instructions: localInstructions });
 
@@ -158,23 +236,35 @@ export function usePatientEducation(): UsePatientEducationResult {
             },
           }
         );
+
+        setGeneratedSections(null);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'An unknown error occurred';
         setError(message);
-        console.error('Patient education generation failed:', err);
+        console.error('Patient education save failed:', err);
       } finally {
-        setIsLoading(false);
-        setProgress(null);
+        setIsSaving(false);
       }
     },
     [apiClient, chartData?.instructions, encounter, patient, saveChartData, setPartialChartData]
   );
 
-  return { generateForDiagnoses, isLoading, error, progress, allDiagnoses };
+  return {
+    prefetchAllDiagnoses,
+    generateForDiagnoses,
+    saveFromSections,
+    generatedSections,
+    clearGeneratedSections,
+    isLoading,
+    isSaving,
+    error,
+    progress,
+    allDiagnoses,
+  };
 }
 
 // Color constants
-const BRAND_BLUE = rgb(0.13, 0.35, 0.6); // #214F99
+const BRAND_BLUE = rgb(0.06, 0.2, 0.49); // #0F347C
 const BRAND_LIGHT_BLUE = rgb(0.88, 0.93, 0.98); // #E0EDFA
 const ACCENT_ORANGE = rgb(0.9, 0.45, 0.1);
 const TEXT_DARK = rgb(0.15, 0.15, 0.15);
@@ -197,7 +287,7 @@ async function generateCombinedPdf(
   const maxWidth = pageWidth - margin * 2;
   const bodyFontSize = 10.5;
   const sectionHeaderFontSize = 13;
-  const titleFontSize = 20;
+  const titleFontSize = 24;
   const lineHeight = bodyFontSize * 1.55;
   const sectionHeaderLineHeight = sectionHeaderFontSize * 2;
 
