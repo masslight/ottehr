@@ -126,21 +126,6 @@ export function getAllExamFieldsMetadata(isInPersonAppointment?: boolean): (Exam
           code: component.code,
           bodySite: component.bodySite,
         });
-        // For L/R paired modal-exams, also register the base key (without -l/-r suffix)
-        // so the parent checkbox can save a non-lateralized observation
-        if (fieldName.endsWith('-l')) {
-          const baseKey = fieldName.replace(/-l$/, '');
-          const baseLabel = component.label.replace(/\s+L$/, '');
-          if (!observations.some((o) => o.field === baseKey)) {
-            observations.push({
-              field: baseKey,
-              value: false,
-              label: baseLabel,
-              code: component.code,
-              bodySite: component.bodySite,
-            });
-          }
-        }
       }
     });
   };

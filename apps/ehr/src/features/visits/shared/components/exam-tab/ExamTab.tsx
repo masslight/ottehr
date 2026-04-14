@@ -16,6 +16,7 @@ export const ExamTab: FC = () => {
   const hasInitialData = useExamObservationsInitializationStore((state) => state.hasInitialData);
 
   const config = examConfig[isInPerson ? 'inPerson' : 'telemed'].default.components;
+  console.log('config', config);
   const unmatchedFields = useUnmatchedExamFields(config);
 
   return (

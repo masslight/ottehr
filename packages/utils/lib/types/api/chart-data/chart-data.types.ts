@@ -199,6 +199,8 @@ export interface ExamObservationComponentDTO {
   code: string;
   label: string;
   value: boolean;
+  groupLabel: string;
+  columnLabel?: string;
   abnormal?: boolean;
 }
 

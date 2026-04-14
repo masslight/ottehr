@@ -270,6 +270,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
     examObservations?.forEach((element) => {
       const allExamFields = getAllExamFieldsMetadata(isInPerson);
+      console.log('allExamFields', JSON.stringify(allExamFields));
       const examObservationComments = createExamObservationComments(isInPerson);
 
       const observation = allExamFields.find((observation) => observation.field === element.field);
@@ -533,7 +534,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       statusCode: 200,
     };
   } catch (error) {
-    console.log(JSON.stringify(error, null, 2));
+    console.log('IM THE ERROR', error, JSON.stringify(error, null, 2));
     return {
       body: JSON.stringify({ message: 'Error saving encounter data...' }),
       statusCode: 500,

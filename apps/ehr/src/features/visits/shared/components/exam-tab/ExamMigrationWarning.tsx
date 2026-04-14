@@ -29,7 +29,6 @@ export const ExamMigrationWarning: FC<ExamMigrationWarningProps> = ({ unmatchedF
       await migrateExamData(oystehrZambda, { encounterId: resources.encounter.id });
       enqueueSnackbar('Exam data migrated successfully', { variant: 'success' });
       // Refresh chart data to reflect migrated observations
-      await queryClient.invalidateQueries({ queryKey: ['telemed-appointment'] });
       await queryClient.invalidateQueries({ queryKey: ['chart-data'] });
     } catch (error) {
       console.error('Migration failed:', error);

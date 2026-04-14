@@ -11,13 +11,12 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import type { ExamCardCheckboxWithModalComponent, ExamCardComponent, ExamItemConfig } from 'config-types';
+import type { ExamCardComponent, ExamItemConfig } from 'config-types';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ControlledCheckboxSelect } from './ControlledCheckboxSelect';
 import { ControlledExamCheckbox } from './ControlledExamCheckbox';
 import { ControlledExamCheckboxDropdown } from './ControlledExamCheckboxDropdown';
-import { ExamCheckboxWithLeftRightModal } from './ExamCheckboxWithLeftRightModal';
 import { ExamCheckboxWithModal } from './ExamCheckboxWithModal';
 import { ExamCommentField } from './ExamCommentField';
 import { ExamForm } from './ExamForm';
@@ -137,41 +136,6 @@ const ExamTableCellComponent: FC<{
             </Box>
           );
           i = j;
-        } else {
-          result.push(renderSingleElement(currentKey, currentElement));
-          i++;
-        }
-      } else if (currentElement.type === 'checkbox-with-modal') {
-        // Pair consecutive checkbox-with-modal items into two-column rows when they form L/R pairs
-        const nextKey = elementKeys[i + 1];
-        const nextElement = nextKey ? elements[nextKey] : undefined;
-        // todo sarah theres probably a better way to discern if its a left/right pair
-        const isLRPair =
-          nextElement?.type === 'checkbox-with-modal' &&
-          ((currentKey.endsWith('-l') && nextKey.endsWith('-r')) ||
-            (currentKey.endsWith('-r') && nextKey.endsWith('-l')));
-        if (isLRPair) {
-          const leftKey = currentKey.endsWith('-l') ? currentKey : nextKey;
-          const rightKey = currentKey.endsWith('-r') ? currentKey : nextKey;
-          const leftElem = elements[leftKey] as ExamCardCheckboxWithModalComponent;
-          const rightElem = elements[rightKey] as ExamCardCheckboxWithModalComponent;
-          // Derive label from the left config, stripping the " L" suffix
-          const baseLabel = leftElem.label.replace(/\s+L$/, '');
-
-          result.push(
-            <Box key={`modal-combined-${i}`} data-testid={`exam-component-paired-modal-${leftKey.replace(/-l$/, '')}`}>
-              <ExamCheckboxWithLeftRightModal
-                label={baseLabel}
-                baseName={leftKey.replace(/-l$/, '')}
-                leftName={leftKey}
-                rightName={rightKey}
-                leftConfig={leftElem}
-                rightConfig={rightElem}
-                abnormal={abnormal}
-              />
-            </Box>
-          );
-          i += 2;
         } else {
           result.push(renderSingleElement(currentKey, currentElement));
           i++;

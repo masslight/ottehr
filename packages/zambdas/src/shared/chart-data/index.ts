@@ -563,6 +563,10 @@ export function makeExamObservationResource(
         valueBoolean: c.value,
         extension: [
           { url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-label`, valueString: c.label },
+          { url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-group-label`, valueString: c.groupLabel },
+          ...(c.columnLabel
+            ? [{ url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-column-label`, valueString: c.columnLabel }]
+            : []),
           ...(c.abnormal !== undefined
             ? [{ url: `${PRIVATE_EXTENSION_BASE_URL}/exam-component-abnormal`, valueBoolean: c.abnormal }]
             : []),
@@ -582,8 +586,10 @@ export function makeExamObservationDTO(observation: Observation): ExamObservatio
     value: observation.valueBoolean,
   };
 
+  // todo sarah this is what you have been searching for!
   if (observation.component && observation.component.length > 0) {
     dto.components = observation.component.map((c) => {
+      // todo sarah make "exam-component-label" a const
       const abnormalExt = c.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/exam-component-abnormal`);
       return {
         code: c.code?.text || 'unknown',
@@ -591,6 +597,11 @@ export function makeExamObservationDTO(observation: Observation): ExamObservatio
           c.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/exam-component-label`)?.valueString ||
           c.code?.text ||
           'unknown',
+        groupLabel:
+          c.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/exam-component-group-label`)?.valueString ||
+          'unknown',
+        columnLabel: c.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/exam-component-column-label`)
+          ?.valueString,
         value: c.valueBoolean ?? false,
         abnormal: abnormalExt?.valueBoolean,
       };

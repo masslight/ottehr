@@ -164,23 +164,21 @@ export interface ExamModalOptionGroup {
   label: string;
   options: Record<string, ExamModalCheckboxOption>;
 }
-
-/**
- * Section within a modal (e.g., Inspection, Palpation)
- */
-export interface ExamModalSection {
-  label: string;
+export interface ExamModalOptionColumn {
+  header?: string;
+  headerAbbreviation?: string;
   groups: Record<string, ExamModalOptionGroup>;
 }
+export interface ExamModalWithColumnsSection {
+  label: string;
+  columns: Record<string, ExamModalOptionColumn>;
+}
 
-/**
- * Checkbox that opens a dialog with grouped checkboxes
- */
 export interface ExamCardCheckboxWithModalComponent extends ExamComponentWithCode {
   label: string;
   defaultValue: boolean;
   type: 'checkbox-with-modal';
-  modal: Record<string, ExamModalSection>;
+  modal: Record<string, ExamModalWithColumnsSection>;
 }
 
 /**
@@ -385,17 +383,18 @@ export const ExamModalOptionGroupSchema: z.ZodType<ExamModalOptionGroup, z.ZodTy
   options: z.record(z.string(), ExamModalCheckboxOptionSchema),
 });
 
-/**
- * Schema for exam modal section
- */
-export const ExamModalSectionSchema: z.ZodType<ExamModalSection, z.ZodTypeDef, unknown> = z.object({
-  label: z.string().min(1, 'Label is required'),
+export const ExamModalOptionColumnSchema: z.ZodType<ExamModalOptionColumn, z.ZodTypeDef, unknown> = z.object({
+  header: z.string().optional(),
+  headerAbbreviation: z.string().optional(),
   groups: z.record(z.string(), ExamModalOptionGroupSchema),
 });
 
-/**
- * Schema for checkbox with a modal exam component
- */
+export const ExamModalWithColumnsSectionSchema: z.ZodType<ExamModalWithColumnsSection, z.ZodTypeDef, unknown> =
+  z.object({
+    label: z.string().min(1, 'Label is required'),
+    columns: z.record(z.string(), ExamModalOptionColumnSchema),
+  });
+
 export const ExamCardCheckboxWithModalComponentSchema: z.ZodType<
   ExamCardCheckboxWithModalComponent,
   z.ZodTypeDef,
@@ -404,7 +403,7 @@ export const ExamCardCheckboxWithModalComponentSchema: z.ZodType<
   label: z.string().min(1, 'Label is required'),
   defaultValue: z.boolean(),
   type: z.literal('checkbox-with-modal'),
-  modal: z.record(z.string(), ExamModalSectionSchema),
+  modal: z.record(z.string(), ExamModalWithColumnsSectionSchema),
   code: ExamCodeableConceptSchema.optional(),
   bodySite: ExamCodeableConceptSchema.optional(),
 });

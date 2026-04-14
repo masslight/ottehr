@@ -1,6 +1,6 @@
 import type { ExamCardComponent, ExamItemConfig } from 'config-types';
 import { isDropdownComponent, isMultiSelectComponent } from '../ottehr-config/examination/examination.schema';
-import type { ExamObservationDTO } from '../types/api/chart-data/chart-data.types';
+import type { ExamObservationComponentDTO, ExamObservationDTO } from '../types/api/chart-data/chart-data.types';
 
 export interface ExamObservationItem {
   field: string;
@@ -122,108 +122,32 @@ export function extractObservationsFromExamComponents(
       }
 
       case 'checkbox-with-modal': {
-        // Check if this is part of an L/R pair by looking for base observation
-        const baseKey = fieldName.replace(/-[lr]$/, '');
-        const isLeftKey = fieldName.endsWith('-l');
-        const isRightKey = fieldName.endsWith('-r');
-        const isPairedKey = isLeftKey || isRightKey;
-
-        if (isPairedKey && isRightKey) {
-          // Skip right key — it's handled when processing the left key
-          break;
-        }
-
-        if (isPairedKey && isLeftKey) {
-          const rightKey = baseKey + '-r';
-          const baseLabel = component.label.replace(/\s+L$/, '');
-          const baseObservation = examObservations[baseKey];
-          const leftObservation = examObservations[fieldName];
-          const rightObservation = examObservations[rightKey];
-
-          // Generic parent observation (no laterality)
-          if (baseObservation?.value === true && !leftObservation?.value && !rightObservation?.value) {
-            items.push({
-              field: baseKey,
-              label: baseLabel,
-              abnormal: section === 'abnormal',
-            });
-            break;
-          }
-
-          const leftComponents = leftObservation?.components?.filter((c) => c.value) ?? [];
-          const rightComponents = rightObservation?.components?.filter((c) => c.value) ?? [];
-
-          if (leftComponents.length > 0 || rightComponents.length > 0) {
-            const consolidateSide = (components: typeof leftComponents): string => {
-              const grouped = new Map<string, string[]>();
-              components.forEach((c) => {
-                const colonIdx = c.label.indexOf(': ');
-                if (colonIdx > 0) {
-                  const group = c.label.substring(0, colonIdx);
-                  const item = c.label.substring(colonIdx + 2);
-                  const existing = grouped.get(group);
-                  if (existing) existing.push(item);
-                  else grouped.set(group, [item]);
-                } else {
-                  const existing = grouped.get('');
-                  if (existing) existing.push(c.label);
-                  else grouped.set('', [c.label]);
-                }
-              });
-              return Array.from(grouped.entries())
-                .map(([group, groupItems]) => (group ? `${group}: ${groupItems.join(', ')}` : groupItems.join(', ')))
-                .join('; ');
-            };
-            const parts: string[] = [];
-            if (leftComponents.length > 0) {
-              parts.push(`L: ${consolidateSide(leftComponents)}`);
-            }
-            if (rightComponents.length > 0) {
-              parts.push(`R: ${consolidateSide(rightComponents)}`);
-            }
-            const hasAnyAbnormal = [...leftComponents, ...rightComponents].some((c) => c.abnormal !== false);
-            items.push({
-              field: baseKey,
-              label: `${baseLabel} ${parts.join(', ')}`,
-              abnormal: hasAnyAbnormal,
-            });
-          } else {
-            // Parent checked with no sub-items on either side
-            if (leftObservation?.value === true || rightObservation?.value === true) {
-              const sideParts: string[] = [];
-              if (leftObservation?.value) sideParts.push('L');
-              if (rightObservation?.value) sideParts.push('R');
-              items.push({
-                field: baseKey,
-                label: `${baseLabel} ${sideParts.join(', ')}`,
-                abnormal: section === 'abnormal',
-              });
-            }
-          }
-          break;
-        }
-
-        // Non-paired modal-exam (e.g., Common skin findings)
         const observation = examObservations[fieldName];
-        if (observation && observation.value === true) {
-          if (observation.components && observation.components.length > 0) {
-            observation.components
-              .filter((c) => c.value)
-              .forEach((c) => {
-                items.push({
-                  field: `${fieldName}:${c.code}`,
-                  label: `${component.label}: ${c.label}`,
-                  abnormal: c.abnormal ?? section === 'abnormal',
-                });
-              });
-          } else {
-            items.push({
-              field: fieldName,
-              label: component.label,
-              abnormal: section === 'abnormal',
-            });
-          }
+        if (!observation || observation.value !== true) break;
+
+        if (!observation.components?.length) {
+          items.push({
+            field: fieldName,
+            label: component.label,
+            abnormal: section === 'abnormal',
+          });
+          break;
         }
+
+        let abnormalContained = false;
+
+        const grouped = groupComponents(observation.components, (isAbnormal) => {
+          if (isAbnormal) abnormalContained = true;
+        });
+
+        const consolidatedLabel = formatGroupedComponents(grouped);
+
+        items.push({
+          field: fieldName,
+          label: `${observation.label}: ${consolidatedLabel}`,
+          abnormal: abnormalContained,
+        });
+
         break;
       }
 
@@ -242,7 +166,7 @@ export function collectKnownExamFields(examConfig: ExamItemConfig): Set<string> 
     Object.entries(components).forEach(([key, component]) => {
       if (component.type === 'checkbox' || component.type === 'checkbox-with-modal') {
         knownFields.add(key);
-        const baseKey = key.replace(/-[lr]$/, '');
+        const baseKey = key.replace(/-[lr]$/, ''); // todo sarah you can probably kill this
         if (baseKey !== key) knownFields.add(baseKey);
       } else if (component.type === 'text') {
         knownFields.add(key);
@@ -271,4 +195,54 @@ export function collectKnownExamFields(examConfig: ExamItemConfig): Set<string> 
   });
 
   return knownFields;
+}
+
+// helpers for formatting labels for checkbox-with-modal
+function groupComponents(
+  components: ExamObservationComponentDTO[],
+  onAbnormal: (abnormal: boolean) => void
+): Map<string | null, Map<string, string[]>> {
+  const result = new Map<string | null, Map<string, string[]>>();
+
+  components
+    .filter((c) => c.value)
+    .forEach((c) => {
+      const columnKey = c.columnLabel || null;
+      const groupKey = c.groupLabel || '';
+
+      if (!result.has(columnKey)) {
+        result.set(columnKey, new Map());
+      }
+
+      const groupMap = result.get(columnKey)!;
+
+      if (!groupMap.has(groupKey)) {
+        groupMap.set(groupKey, []);
+      }
+
+      groupMap.get(groupKey)!.push(c.label);
+
+      onAbnormal(!!c.abnormal);
+    });
+
+  return result;
+}
+
+function formatGroupedComponents(grouped: Map<string | null, Map<string, string[]>>): string {
+  const columnOrder: Record<string, number> = { L: 0, R: 1 }; // todo sarah this shouldn't be hardcoded
+
+  return Array.from(grouped.entries())
+    .sort(([a], [b]) => {
+      const pa = columnOrder[a ?? ''] ?? 99;
+      const pb = columnOrder[b ?? ''] ?? 99;
+      return pa - pb || (a ?? '').localeCompare(b ?? '');
+    })
+    .map(([columnLabel, groupMap]) => {
+      const groups = Array.from(groupMap.entries())
+        .map(([groupLabel, labels]) => (groupLabel ? `${groupLabel}: ${labels.join(', ')}` : labels.join(', ')))
+        .join('; ');
+
+      return columnLabel ? `${columnLabel}: ${groups}` : groups;
+    })
+    .join('; ');
 }

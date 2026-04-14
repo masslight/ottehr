@@ -13,16 +13,23 @@ import {
   TableBody,
   TableCell,
   TableContainer,
+  TableHead,
   TableRow,
   Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
-import type { ExamCardCheckboxWithModalComponent } from 'config-types';
+import { ExamCardCheckboxWithModalComponent } from 'config-types/config/examination';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import { ExamObservationComponentDTO } from 'utils';
-import { BORDER_STYLE, buildAbnormalMap, buildAllOptions, buildDescriptionMap } from './exam-modal-helpers';
+import {
+  BORDER_STYLE,
+  buildAbnormalMap,
+  buildAllOptionsNew,
+  buildColumnMap,
+  buildDescriptionMap,
+} from './exam-modal-helpers';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
 type ExamCheckboxWithModalProps = {
@@ -39,9 +46,10 @@ export const ExamCheckboxWithModal: FC<ExamCheckboxWithModalProps> = ({ name, co
   // Local draft of components while modal is open — avoids saving on every click
   const [draftComponents, setDraftComponents] = useState<ExamObservationComponentDTO[] | null>(null);
 
-  const allOptions = useMemo(() => buildAllOptions(config), [config]);
+  const allOptions = useMemo(() => buildAllOptionsNew(config), [config]);
 
   // Build lookups from config
+  const columns = useMemo(() => buildColumnMap(allOptions), [allOptions]);
   const descriptionMap = useMemo(() => buildDescriptionMap(allOptions), [allOptions]);
   const abnormalMap = useMemo(() => buildAbnormalMap(allOptions), [allOptions]);
 
@@ -59,7 +67,7 @@ export const ExamCheckboxWithModal: FC<ExamCheckboxWithModalProps> = ({ name, co
   const isChecked = field.value === true || hasAnySubSelected;
 
   const toggleComponent = useCallback(
-    (optionKey: string, label: string, checked: boolean) => {
+    (optionKey: string, columnLabel: string | undefined, groupLabel: string, label: string, checked: boolean) => {
       const desc = descriptionMap[optionKey];
       const fullLabel = desc ?? label;
       const isAbnormal = abnormalMap[optionKey] ?? true;
@@ -69,10 +77,15 @@ export const ExamCheckboxWithModal: FC<ExamCheckboxWithModalProps> = ({ name, co
           const existing = current.find((c) => c.code === optionKey);
           if (existing) {
             return current.map((c) =>
-              c.code === optionKey ? { ...c, value: true, label: fullLabel, abnormal: isAbnormal } : c
+              c.code === optionKey
+                ? { ...c, value: true, groupLabel, label: fullLabel, abnormal: isAbnormal, columnLabel }
+                : c
             );
           }
-          return [...current, { code: optionKey, label: fullLabel, value: true, abnormal: isAbnormal }];
+          return [
+            ...current,
+            { code: optionKey, groupLabel, label: fullLabel, value: true, abnormal: isAbnormal, columnLabel },
+          ];
         }
         return current.filter((c) => c.code !== optionKey);
       });
@@ -139,13 +152,28 @@ export const ExamCheckboxWithModal: FC<ExamCheckboxWithModalProps> = ({ name, co
         </IconButton>
       </Box>
 
-      {allOptions.map(({ key, groupLabel, label, description, abnormal: optAbnormal }) => {
-        if (!componentMap[key]) return null;
-        const isAbn = optAbnormal ?? true;
-        const displayText = description ?? `${groupLabel}: ${label}`;
-        return (
+      {Object.entries(columns).map(([header, allOptions]) => {
+        const selected = allOptions.filter(({ key }) => componentMap[key]);
+        if (selected.length === 0) return null;
+
+        const grouped = new Map<string, { groupLabel: string; labels: string[]; abnormal: boolean }>();
+        selected.forEach(({ groupLabel, label: optLabel, headerAbbreviation, description, abnormal: optAbn }) => {
+          const displayText = description ?? optLabel;
+          const fullGroupLabel = `${headerAbbreviation ? `${headerAbbreviation}: ` : ''}${groupLabel}`;
+          const fullGroupKey = `${headerAbbreviation ? `${headerAbbreviation}-` : ''}${groupLabel}`;
+          const existing = grouped.get(fullGroupKey);
+          const isAbn = optAbn ?? true;
+          if (existing) {
+            existing.labels.push(displayText);
+            if (isAbn) existing.abnormal = true;
+          } else {
+            grouped.set(fullGroupKey, { groupLabel: fullGroupLabel, labels: [displayText], abnormal: isAbn });
+          }
+        });
+
+        return Array.from(grouped.entries()).map(([groupKey, { groupLabel, labels, abnormal: isAbn }]) => (
           <Typography
-            key={key}
+            key={`${header}-${groupKey}`}
             variant="body2"
             sx={{
               pl: 3,
@@ -154,12 +182,12 @@ export const ExamCheckboxWithModal: FC<ExamCheckboxWithModalProps> = ({ name, co
               fontWeight: isAbn ? 600 : 400,
             }}
           >
-            ✓ {displayText}
+            ✓ {groupLabel}: {labels.join(', ')}
           </Typography>
-        );
+        ));
       })}
 
-      <Dialog open={open} onClose={handleCloseModal} maxWidth="md" fullWidth>
+      <Dialog open={open} onClose={handleCloseModal} maxWidth={Object.keys(columns).length > 1 ? 'lg' : 'md'} fullWidth>
         <DialogTitle
           sx={{
             display: 'flex',
@@ -200,6 +228,33 @@ export const ExamCheckboxWithModal: FC<ExamCheckboxWithModalProps> = ({ name, co
                 },
               }}
             >
+              {Object.values(columns).length > 1 ? (
+                <TableHead>
+                  <TableRow>
+                    <TableCell
+                      sx={{
+                        backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                        fontWeight: 500,
+                        color: theme.palette.primary.dark,
+                        width: '130px',
+                      }}
+                    />
+                    {Object.keys(columns).map((header) => (
+                      <TableCell
+                        key={`modal-column-header-${header}`}
+                        sx={{
+                          backgroundColor: alpha(theme.palette.primary.main, 0.03),
+                          fontWeight: 600,
+                          color: theme.palette.primary.dark,
+                          textAlign: 'center',
+                        }}
+                      >
+                        {header}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+              ) : null}
               <TableBody>
                 {Object.entries(config.modal).map(([sectionKey, section]) => (
                   <TableRow key={sectionKey} sx={{ '& .MuiTableCell-root': { verticalAlign: 'top' } }}>
@@ -214,32 +269,24 @@ export const ExamCheckboxWithModal: FC<ExamCheckboxWithModalProps> = ({ name, co
                     >
                       {section.label}
                     </TableCell>
-                    <TableCell sx={{ py: 1 }}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {Object.entries(section.groups).map(([groupKey, group]) => (
-                          <Box key={groupKey} sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
-                            <Typography
-                              variant="subtitle2"
-                              fontSize={13}
-                              color={theme.palette.primary.dark}
-                              sx={{ mr: 0.5, whiteSpace: 'nowrap' }}
-                            >
-                              {group.label}:
-                            </Typography>
-                            {Object.entries(group.options).map(([optionKey, option]) => {
-                              const optAbnormal = option.abnormal ?? true;
-                              const noteText = option.description ?? option.label;
-                              return (
-                                <Tooltip
-                                  key={optionKey}
-                                  title={noteText}
-                                  placement="top"
-                                  arrow
-                                  slotProps={{
-                                    popper: { modifiers: [{ name: 'offset', options: { offset: [0, -8] } }] },
-                                  }}
-                                >
+                    {Object.entries(section.columns).map(([columnKey, column]) => (
+                      <TableCell key={columnKey} sx={{ py: 1 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          {Object.entries(column.groups).map(([groupKey, group]) => (
+                            <Box key={groupKey} sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
+                              <Typography
+                                variant="subtitle2"
+                                fontSize={13}
+                                color={theme.palette.primary.dark}
+                                sx={{ mr: 0.5, whiteSpace: 'nowrap' }}
+                              >
+                                {group.label}:
+                              </Typography>
+                              {Object.entries(group.options).map(([optionKey, option]) => {
+                                const optAbnormal = option.abnormal ?? true;
+                                const control = (
                                   <FormControlLabel
+                                    key={optionKey}
                                     sx={{ m: 0, mr: 1.5 }}
                                     control={
                                       <Checkbox
@@ -256,13 +303,17 @@ export const ExamCheckboxWithModal: FC<ExamCheckboxWithModalProps> = ({ name, co
                                           p: 0.5,
                                         }}
                                         checked={componentMap[optionKey] ?? false}
-                                        onChange={(e) =>
+                                        onChange={(e) => {
+                                          const columnLabel = column.headerAbbreviation;
+                                          const groupLabel = group.label;
                                           toggleComponent(
                                             optionKey,
-                                            `${group.label}: ${option.label}`,
+                                            columnLabel,
+                                            groupLabel,
+                                            option.label,
                                             e.target.checked
-                                          )
-                                        }
+                                          );
+                                        }}
                                       />
                                     }
                                     label={
@@ -274,13 +325,28 @@ export const ExamCheckboxWithModal: FC<ExamCheckboxWithModalProps> = ({ name, co
                                       </Typography>
                                     }
                                   />
-                                </Tooltip>
-                              );
-                            })}
-                          </Box>
-                        ))}
-                      </Box>
-                    </TableCell>
+                                );
+                                return option.description ? (
+                                  <Tooltip
+                                    key={optionKey}
+                                    title={option.description}
+                                    placement="top"
+                                    arrow
+                                    slotProps={{
+                                      popper: { modifiers: [{ name: 'offset', options: { offset: [0, -8] } }] },
+                                    }}
+                                  >
+                                    {control}
+                                  </Tooltip>
+                                ) : (
+                                  control
+                                );
+                              })}
+                            </Box>
+                          ))}
+                        </Box>
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>

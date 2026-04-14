@@ -24,17 +24,16 @@
  *     cw-paronychia, cw-poison-ivy-contact-dermatitis, cw-tinea-capitis, cw-pityriasis-rosea, cw-lyme-ecm
  */
 
-import { ExamCardCheckboxWithModalComponent } from 'config-types';
 import {
+  ExamCardCheckboxWithModalComponent,
   ExamItemConfig,
   ExamModalCheckboxOption,
+  ExamModalOptionColumn,
   ExamModalOptionGroup,
-  ExamModalSection,
+  ExamModalWithColumnsSection,
 } from 'config-types/config/examination';
 
-// type ModalExamOption = { label: string; defaultValue: boolean; abnormal?: boolean };
-// type ModalExamGroup = { label: string; options: Record<string, ModalExamOption> };
-// type ModalExamSection = { label: string; groups: Record<string, ModalExamGroup> };
+type ColumnConfig = { key: string; header?: string; headerAbbreviation?: string };
 
 const NORMAL_LABELS = new Set([
   'Normal',
@@ -55,6 +54,13 @@ const NORMAL_LABELS = new Set([
   'All non-tender',
 ]);
 
+const LR_COLUMNS: ColumnConfig[] = [
+  { key: 'left', header: 'Left', headerAbbreviation: 'L' },
+  { key: 'right', header: 'Right', headerAbbreviation: 'R' },
+];
+
+const SINGLE_COLUMN: ColumnConfig[] = [{ key: 'single-column' }];
+
 function opt(label: string, defaultValue = false): ExamModalCheckboxOption {
   return { label, defaultValue, abnormal: !NORMAL_LABELS.has(label) };
 }
@@ -64,165 +70,176 @@ type SpecialTestsBuilder = (k: (suffix: string) => string) => Record<string, Exa
 function createExtremityModalExam(
   partKey: string,
   partLabel: string,
+  columns: ColumnConfig[],
   specialTestsBuilder?: SpecialTestsBuilder,
   inspectionPrefixBuilder?: (k: (suffix: string) => string) => Record<string, ExamModalOptionGroup>
 ): ExamCardCheckboxWithModalComponent {
-  const k = (suffix: string): string => `${partKey}-${suffix}`;
-  const prefixGroups = inspectionPrefixBuilder ? inspectionPrefixBuilder(k) : {};
-  const modal: Record<string, ExamModalSection> = {
+  const makeColumnsForSection = (
+    groupsBuilder: (ck: (suffix: string) => string) => Record<string, ExamModalOptionGroup>
+  ): Record<string, ExamModalOptionColumn> =>
+    Object.fromEntries(
+      columns.map(({ key, header, headerAbbreviation }) => {
+        const ck = (suffix: string): string => `${partKey}-${key}-${suffix}`;
+        return [key, { header, headerAbbreviation, groups: groupsBuilder(ck) }];
+      })
+    );
+
+  const modal: Record<string, ExamModalWithColumnsSection> = {
     inspection: {
       label: 'Inspection',
-      groups: {
-        ...prefixGroups,
+      columns: makeColumnsForSection((ck) => ({
+        ...(inspectionPrefixBuilder ? inspectionPrefixBuilder(ck) : {}),
         appearance: {
           label: 'Appearance',
           options: {
-            [k('appearance-normal')]: opt('Normal'),
-            [k('appearance-swelling')]: opt('Swelling'),
-            [k('appearance-deformity')]: opt('Deformity'),
-            [k('appearance-atrophy')]: opt('Atrophy'),
+            [ck('appearance-normal')]: opt('Normal'),
+            [ck('appearance-swelling')]: opt('Swelling'),
+            [ck('appearance-deformity')]: opt('Deformity'),
+            [ck('appearance-atrophy')]: opt('Atrophy'),
           },
         },
         skin: {
           label: 'Skin',
           options: {
-            [k('skin-normal')]: opt('Normal'),
-            [k('skin-erythema')]: opt('Erythema'),
-            [k('skin-ecchymosis')]: opt('Ecchymosis'),
-            [k('skin-wound')]: opt('Wound'),
+            [ck('skin-normal')]: opt('Normal'),
+            [ck('skin-erythema')]: opt('Erythema'),
+            [ck('skin-ecchymosis')]: opt('Ecchymosis'),
+            [ck('skin-wound')]: opt('Wound'),
           },
         },
         alignment: {
           label: 'Alignment',
           options: {
-            [k('alignment-normal')]: opt('Normal'),
-            [k('alignment-angulation')]: opt('Angulation'),
-            [k('alignment-shortening')]: opt('Shortening'),
+            [ck('alignment-normal')]: opt('Normal'),
+            [ck('alignment-angulation')]: opt('Angulation'),
+            [ck('alignment-shortening')]: opt('Shortening'),
           },
         },
         'cast-splint': {
           label: 'Cast/splint',
           options: {
-            [k('cast-not-present')]: opt('Not present'),
-            [k('cast-splint-in-place')]: opt('Splint in place'),
-            [k('cast-cast-in-place')]: opt('Cast in place'),
+            [ck('cast-not-present')]: opt('Not present'),
+            [ck('cast-splint-in-place')]: opt('Splint in place'),
+            [ck('cast-cast-in-place')]: opt('Cast in place'),
           },
         },
-      },
+      })),
     },
     palpation: {
       label: 'Palpation',
-      groups: {
+      columns: makeColumnsForSection((ck) => ({
         tenderness: {
           label: 'Tenderness',
           options: {
-            [k('tenderness-none')]: opt('None'),
-            [k('tenderness-bony')]: opt('Bony'),
-            [k('tenderness-joint')]: opt('Joint'),
-            [k('tenderness-soft-tissue')]: opt('Soft tissue'),
+            [ck('tenderness-none')]: opt('None'),
+            [ck('tenderness-bony')]: opt('Bony'),
+            [ck('tenderness-joint')]: opt('Joint'),
+            [ck('tenderness-soft-tissue')]: opt('Soft tissue'),
           },
         },
         crepitus: {
           label: 'Crepitus',
           options: {
-            [k('crepitus-absent')]: opt('Absent'),
-            [k('crepitus-present')]: opt('Present'),
+            [ck('crepitus-absent')]: opt('Absent'),
+            [ck('crepitus-present')]: opt('Present'),
           },
         },
         temperature: {
           label: 'Temperature',
           options: {
-            [k('temperature-normal')]: opt('Normal'),
-            [k('temperature-warm')]: opt('Warm'),
-            [k('temperature-cool')]: opt('Cool'),
+            [ck('temperature-normal')]: opt('Normal'),
+            [ck('temperature-warm')]: opt('Warm'),
+            [ck('temperature-cool')]: opt('Cool'),
           },
         },
         edema: {
           label: 'Edema',
           options: {
-            [k('edema-none')]: opt('None'),
-            [k('edema-pitting')]: opt('Pitting'),
-            [k('edema-non-pitting')]: opt('Non-pitting'),
+            [ck('edema-none')]: opt('None'),
+            [ck('edema-pitting')]: opt('Pitting'),
+            [ck('edema-non-pitting')]: opt('Non-pitting'),
           },
         },
-      },
+      })),
     },
     'range-of-motion': {
       label: 'Range of Motion',
-      groups: {
+      columns: makeColumnsForSection((ck) => ({
         'active-rom': {
           label: 'Active ROM',
           options: {
-            [k('active-rom-full')]: opt('Full'),
-            [k('active-rom-limited')]: opt('Limited'),
-            [k('active-rom-unable')]: opt('Unable'),
+            [ck('active-rom-full')]: opt('Full'),
+            [ck('active-rom-limited')]: opt('Limited'),
+            [ck('active-rom-unable')]: opt('Unable'),
           },
         },
         'passive-rom': {
           label: 'Passive ROM',
           options: {
-            [k('passive-rom-full')]: opt('Full'),
-            [k('passive-rom-limited')]: opt('Limited'),
-            [k('passive-rom-painful-arc')]: opt('Painful arc'),
+            [ck('passive-rom-full')]: opt('Full'),
+            [ck('passive-rom-limited')]: opt('Limited'),
+            [ck('passive-rom-painful-arc')]: opt('Painful arc'),
           },
         },
         'pain-with-motion': {
           label: 'Pain with motion',
           options: {
-            [k('pain-motion-none')]: opt('None'),
-            [k('pain-motion-active-only')]: opt('Active only'),
-            [k('pain-motion-passive-only')]: opt('Passive only'),
-            [k('pain-motion-both')]: opt('Both'),
+            [ck('pain-motion-none')]: opt('None'),
+            [ck('pain-motion-active-only')]: opt('Active only'),
+            [ck('pain-motion-passive-only')]: opt('Passive only'),
+            [ck('pain-motion-both')]: opt('Both'),
           },
         },
-      },
+      })),
     },
     neurovascular: {
       label: 'Neurovascular',
-      groups: {
+      columns: makeColumnsForSection((ck) => ({
         pulses: {
           label: 'Pulses',
           options: {
-            [k('pulses-2-plus-normal')]: opt('2+ normal'),
-            [k('pulses-1-plus-diminished')]: opt('1+ diminished'),
-            [k('pulses-absent')]: opt('Absent'),
+            [ck('pulses-2-plus-normal')]: opt('2+ normal'),
+            [ck('pulses-1-plus-diminished')]: opt('1+ diminished'),
+            [ck('pulses-absent')]: opt('Absent'),
           },
         },
         'cap-refill': {
           label: 'Cap refill',
           options: {
-            [k('cap-refill-less-2s')]: opt('<2s'),
-            [k('cap-refill-2-3s')]: opt('2\u20133s'),
-            [k('cap-refill-greater-3s')]: opt('>3s'),
+            [ck('cap-refill-less-2s')]: opt('<2s'),
+            [ck('cap-refill-2-3s')]: opt('2\u20133s'),
+            [ck('cap-refill-greater-3s')]: opt('>3s'),
           },
         },
         sensation: {
           label: 'Sensation',
           options: {
-            [k('sensation-intact')]: opt('Intact'),
-            [k('sensation-decreased')]: opt('Decreased'),
-            [k('sensation-absent')]: opt('Absent'),
-            [k('sensation-paresthesia')]: opt('Paresthesia'),
+            [ck('sensation-intact')]: opt('Intact'),
+            [ck('sensation-decreased')]: opt('Decreased'),
+            [ck('sensation-absent')]: opt('Absent'),
+            [ck('sensation-paresthesia')]: opt('Paresthesia'),
           },
         },
         'motor-strength': {
           label: 'Motor strength',
           options: {
-            [k('motor-5-5')]: opt('5/5'),
-            [k('motor-4-5')]: opt('4/5'),
-            [k('motor-3-5')]: opt('3/5'),
-            [k('motor-lte-2-5')]: opt('\u22642/5'),
+            [ck('motor-5-5')]: opt('5/5'),
+            [ck('motor-4-5')]: opt('4/5'),
+            [ck('motor-3-5')]: opt('3/5'),
+            [ck('motor-lte-2-5')]: opt('\u22642/5'),
           },
         },
-      },
+      })),
     },
   };
+
   if (specialTestsBuilder) {
     modal['special-tests'] = {
       label: 'Special Tests',
-      groups: specialTestsBuilder(k),
+      columns: makeColumnsForSection((ck) => specialTestsBuilder(ck)),
     };
   }
+
   return {
     label: partLabel,
     defaultValue: false,
@@ -696,8 +713,21 @@ const footToeSpecialTests: SpecialTestsBuilder = (k) => ({
   },
 });
 
-function createLymphNodeModalExam(nodeKey: string, nodeLabel: string): ExamCardCheckboxWithModalComponent {
-  const k = (suffix: string): string => `${nodeKey}-${suffix}`;
+function createLymphNodeModalExam(
+  nodeKey: string,
+  nodeLabel: string,
+  columns: ColumnConfig[]
+): ExamCardCheckboxWithModalComponent {
+  const makeColumnsForSection = (
+    groupsBuilder: (ck: (suffix: string) => string) => Record<string, ExamModalOptionGroup>
+  ): Record<string, ExamModalOptionColumn> =>
+    Object.fromEntries(
+      columns.map(({ key, header, headerAbbreviation }) => {
+        const ck = (suffix: string): string => `${nodeKey}-${key}-${suffix}`;
+        return [key, { header, headerAbbreviation, groups: groupsBuilder(ck) }];
+      })
+    );
+
   return {
     label: nodeLabel,
     defaultValue: false,
@@ -705,72 +735,62 @@ function createLymphNodeModalExam(nodeKey: string, nodeLabel: string): ExamCardC
     modal: {
       status: {
         label: 'Status',
-        groups: {
+        columns: makeColumnsForSection((ck) => ({
           status: {
             label: 'Status',
             options: {
-              [k('normal')]: opt('Normal'),
-              [k('enlarged')]: opt('Enlarged'),
-              [k('tender')]: opt('Tender'),
+              [ck('normal')]: opt('Normal'),
+              [ck('enlarged')]: opt('Enlarged'),
+              [ck('tender')]: opt('Tender'),
             },
           },
-        },
+        })),
       },
       'node-characteristics': {
         label: 'Node Characteristics',
-        groups: {
+        columns: makeColumnsForSection((ck) => ({
           size: {
             label: 'Size',
             options: {
-              [k('size-lt-1cm')]: opt('<1cm'),
-              [k('size-1-2cm')]: opt('1\u20132cm'),
-              [k('size-gt-2cm')]: opt('>2cm'),
+              [ck('size-lt-1cm')]: opt('<1cm'),
+              [ck('size-1-2cm')]: opt('1\u20132cm'),
+              [ck('size-gt-2cm')]: opt('>2cm'),
             },
           },
           texture: {
             label: 'Texture',
             options: {
-              [k('texture-soft')]: opt('Soft'),
-              [k('texture-firm')]: opt('Firm'),
-              [k('texture-hard')]: opt('Hard'),
-              [k('texture-matted')]: opt('Matted'),
+              [ck('texture-soft')]: opt('Soft'),
+              [ck('texture-firm')]: opt('Firm'),
+              [ck('texture-hard')]: opt('Hard'),
+              [ck('texture-matted')]: opt('Matted'),
             },
           },
           mobility: {
             label: 'Mobility',
             options: {
-              [k('mobility-mobile')]: opt('Mobile'),
-              [k('mobility-fixed')]: opt('Fixed'),
+              [ck('mobility-mobile')]: opt('Mobile'),
+              [ck('mobility-fixed')]: opt('Fixed'),
             },
           },
           tenderness: {
             label: 'Tenderness',
             options: {
-              [k('char-tender')]: opt('Tender'),
-              [k('char-non-tender')]: opt('Non-tender'),
+              [ck('char-tender')]: opt('Tender'),
+              [ck('char-non-tender')]: opt('Non-tender'),
             },
           },
           'overlying-skin': {
             label: 'Overlying skin',
             options: {
-              [k('skin-normal')]: opt('Normal'),
-              [k('skin-erythema')]: opt('Erythema'),
-              [k('skin-fluctuant')]: opt('Fluctuant'),
+              [ck('skin-normal')]: opt('Normal'),
+              [ck('skin-erythema')]: opt('Erythema'),
+              [ck('skin-fluctuant')]: opt('Fluctuant'),
             },
           },
-        },
+        })),
       },
     },
-  };
-}
-
-function createLymphNodePair(
-  baseName: string,
-  baseLabel: string
-): Record<string, ReturnType<typeof createLymphNodeModalExam>> {
-  return {
-    [`lymph-${baseName}-l`]: createLymphNodeModalExam(`lymph-${baseName}-l`, `${baseLabel} L`),
-    [`lymph-${baseName}-r`]: createLymphNodeModalExam(`lymph-${baseName}-r`, `${baseLabel} R`),
   };
 }
 
@@ -976,156 +996,160 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             'external-nose': {
               label: 'External Nose',
-              groups: {
-                appearance: {
-                  label: 'Appearance',
-                  options: {
-                    'ext-nose-normal': opt('Normal'),
-                    'ext-nose-erythema': opt('Erythema'),
-                    'ext-nose-swelling': opt('Swelling'),
-                    'ext-nose-deformity': opt('Deformity'),
-                  },
-                },
-                tenderness: {
-                  label: 'Tenderness',
-                  options: {
-                    'ext-nose-tenderness-none': opt('None'),
-                    'ext-nose-tenderness-dorsum': opt('Dorsum'),
-                    'ext-nose-tenderness-tip': opt('Tip'),
-                    'ext-nose-tenderness-ala': opt('Ala'),
-                  },
-                },
-                crepitus: {
-                  label: 'Crepitus',
-                  options: {
-                    'ext-nose-crepitus-absent': opt('Absent'),
-                    'ext-nose-crepitus-present': opt('Present'),
-                  },
-                },
-              },
-            },
-          },
-        },
-        'anterior-rhinoscopy-l': {
-          label: 'Anterior rhinoscopy L',
-          defaultValue: false,
-          type: 'checkbox-with-modal' as const,
-          modal: {
-            rhinoscopy: {
-              label: 'Anterior Rhinoscopy',
-              groups: {
-                patency: {
-                  label: 'Patency',
-                  options: {
-                    'rhinoscopy-l-patent': opt('Patent'),
-                    'rhinoscopy-l-partial': opt('Partial'),
-                    'rhinoscopy-l-obstructed': opt('Obstructed'),
-                  },
-                },
-                mucosa: {
-                  label: 'Mucosa',
-                  options: {
-                    'rhinoscopy-l-mucosa-normal': opt('Normal'),
-                    'rhinoscopy-l-mucosa-pale-boggy': opt('Pale/boggy'),
-                    'rhinoscopy-l-mucosa-erythematous': opt('Erythematous'),
-                  },
-                },
-                'inf-turbinate': {
-                  label: 'Inf. turbinate',
-                  options: {
-                    'rhinoscopy-l-turbinate-normal': opt('Normal'),
-                    'rhinoscopy-l-turbinate-hypertrophied': opt('Hypertrophied'),
-                  },
-                },
-                septum: {
-                  label: 'Septum',
-                  options: {
-                    'rhinoscopy-l-septum-midline': opt('Midline'),
-                    'rhinoscopy-l-septum-no-hematoma': opt('No Hematoma'),
-                    'rhinoscopy-l-septum-dev-r': opt('Dev R'),
-                    'rhinoscopy-l-septum-dev-l': opt('Dev L'),
-                    'rhinoscopy-l-septum-hematoma': opt('Hematoma'),
-                  },
-                },
-                discharge: {
-                  label: 'Discharge',
-                  options: {
-                    'rhinoscopy-l-discharge-none': opt('None'),
-                    'rhinoscopy-l-discharge-clear': opt('Clear'),
-                    'rhinoscopy-l-discharge-mucopurulent': opt('Mucopurulent'),
-                    'rhinoscopy-l-discharge-bloody': opt('Bloody'),
-                  },
-                },
-                'polyps-fb': {
-                  label: 'Polyps/FB',
-                  options: {
-                    'rhinoscopy-l-polyps-none': opt('None'),
-                    'rhinoscopy-l-polyps-polyps': opt('Polyps'),
-                    'rhinoscopy-l-fb-r': opt('FB \u2014 R'),
-                    'rhinoscopy-l-fb-l': opt('FB \u2014 L'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    appearance: {
+                      label: 'Appearance',
+                      options: {
+                        'ext-nose-normal': opt('Normal'),
+                        'ext-nose-erythema': opt('Erythema'),
+                        'ext-nose-swelling': opt('Swelling'),
+                        'ext-nose-deformity': opt('Deformity'),
+                      },
+                    },
+                    tenderness: {
+                      label: 'Tenderness',
+                      options: {
+                        'ext-nose-tenderness-none': opt('None'),
+                        'ext-nose-tenderness-dorsum': opt('Dorsum'),
+                        'ext-nose-tenderness-tip': opt('Tip'),
+                        'ext-nose-tenderness-ala': opt('Ala'),
+                      },
+                    },
+                    crepitus: {
+                      label: 'Crepitus',
+                      options: {
+                        'ext-nose-crepitus-absent': opt('Absent'),
+                        'ext-nose-crepitus-present': opt('Present'),
+                      },
+                    },
                   },
                 },
               },
             },
           },
         },
-        'anterior-rhinoscopy-r': {
-          label: 'Anterior rhinoscopy R',
+        'anterior-rhinoscopy': {
+          label: 'Anterior rhinoscopy',
           defaultValue: false,
           type: 'checkbox-with-modal' as const,
           modal: {
             rhinoscopy: {
               label: 'Anterior Rhinoscopy',
-              groups: {
-                patency: {
-                  label: 'Patency',
-                  options: {
-                    'rhinoscopy-r-patent': opt('Patent'),
-                    'rhinoscopy-r-partial': opt('Partial'),
-                    'rhinoscopy-r-obstructed': opt('Obstructed'),
+              columns: {
+                left: {
+                  header: 'Left',
+                  headerAbbreviation: 'L',
+                  groups: {
+                    patency: {
+                      label: 'Patency',
+                      options: {
+                        'rhinoscopy-l-patent': opt('Patent'),
+                        'rhinoscopy-l-partial': opt('Partial'),
+                        'rhinoscopy-l-obstructed': opt('Obstructed'),
+                      },
+                    },
+                    mucosa: {
+                      label: 'Mucosa',
+                      options: {
+                        'rhinoscopy-l-mucosa-normal': opt('Normal'),
+                        'rhinoscopy-l-mucosa-pale-boggy': opt('Pale/boggy'),
+                        'rhinoscopy-l-mucosa-erythematous': opt('Erythematous'),
+                      },
+                    },
+                    'inf-turbinate': {
+                      label: 'Inf. turbinate',
+                      options: {
+                        'rhinoscopy-l-turbinate-normal': opt('Normal'),
+                        'rhinoscopy-l-turbinate-hypertrophied': opt('Hypertrophied'),
+                      },
+                    },
+                    septum: {
+                      label: 'Septum',
+                      options: {
+                        'rhinoscopy-l-septum-midline': opt('Midline'),
+                        'rhinoscopy-l-septum-no-hematoma': opt('No Hematoma'),
+                        'rhinoscopy-l-septum-dev-r': opt('Dev R'),
+                        'rhinoscopy-l-septum-dev-l': opt('Dev L'),
+                        'rhinoscopy-l-septum-hematoma': opt('Hematoma'),
+                      },
+                    },
+                    discharge: {
+                      label: 'Discharge',
+                      options: {
+                        'rhinoscopy-l-discharge-none': opt('None'),
+                        'rhinoscopy-l-discharge-clear': opt('Clear'),
+                        'rhinoscopy-l-discharge-mucopurulent': opt('Mucopurulent'),
+                        'rhinoscopy-l-discharge-bloody': opt('Bloody'),
+                      },
+                    },
+                    'polyps-fb': {
+                      label: 'Polyps/FB',
+                      options: {
+                        'rhinoscopy-l-polyps-none': opt('None'),
+                        'rhinoscopy-l-polyps-polyps': opt('Polyps'),
+                        'rhinoscopy-l-fb-r': opt('FB \u2014 R'),
+                        'rhinoscopy-l-fb-l': opt('FB \u2014 L'),
+                      },
+                    },
                   },
                 },
-                mucosa: {
-                  label: 'Mucosa',
-                  options: {
-                    'rhinoscopy-r-mucosa-normal': opt('Normal'),
-                    'rhinoscopy-r-mucosa-pale-boggy': opt('Pale/boggy'),
-                    'rhinoscopy-r-mucosa-erythematous': opt('Erythematous'),
-                  },
-                },
-                'inf-turbinate': {
-                  label: 'Inf. turbinate',
-                  options: {
-                    'rhinoscopy-r-turbinate-normal': opt('Normal'),
-                    'rhinoscopy-r-turbinate-hypertrophied': opt('Hypertrophied'),
-                  },
-                },
-                septum: {
-                  label: 'Septum',
-                  options: {
-                    'rhinoscopy-r-septum-midline': opt('Midline'),
-                    'rhinoscopy-r-septum-no-hematoma': opt('No Hematoma'),
-                    'rhinoscopy-r-septum-dev-r': opt('Dev R'),
-                    'rhinoscopy-r-septum-dev-l': opt('Dev L'),
-                    'rhinoscopy-r-septum-hematoma': opt('Hematoma'),
-                  },
-                },
-                discharge: {
-                  label: 'Discharge',
-                  options: {
-                    'rhinoscopy-r-discharge-none': opt('None'),
-                    'rhinoscopy-r-discharge-clear': opt('Clear'),
-                    'rhinoscopy-r-discharge-mucopurulent': opt('Mucopurulent'),
-                    'rhinoscopy-r-discharge-bloody': opt('Bloody'),
-                  },
-                },
-                'polyps-fb': {
-                  label: 'Polyps/FB',
-                  options: {
-                    'rhinoscopy-r-polyps-none': opt('None'),
-                    'rhinoscopy-r-polyps-polyps': opt('Polyps'),
-                    'rhinoscopy-r-fb-r': opt('FB \u2014 R'),
-                    'rhinoscopy-r-fb-l': opt('FB \u2014 L'),
+                right: {
+                  header: 'Right',
+                  headerAbbreviation: 'R',
+                  groups: {
+                    patency: {
+                      label: 'Patency',
+                      options: {
+                        'rhinoscopy-r-patent': opt('Patent'),
+                        'rhinoscopy-r-partial': opt('Partial'),
+                        'rhinoscopy-r-obstructed': opt('Obstructed'),
+                      },
+                    },
+                    mucosa: {
+                      label: 'Mucosa',
+                      options: {
+                        'rhinoscopy-r-mucosa-normal': opt('Normal'),
+                        'rhinoscopy-r-mucosa-pale-boggy': opt('Pale/boggy'),
+                        'rhinoscopy-r-mucosa-erythematous': opt('Erythematous'),
+                      },
+                    },
+                    'inf-turbinate': {
+                      label: 'Inf. turbinate',
+                      options: {
+                        'rhinoscopy-r-turbinate-normal': opt('Normal'),
+                        'rhinoscopy-r-turbinate-hypertrophied': opt('Hypertrophied'),
+                      },
+                    },
+                    septum: {
+                      label: 'Septum',
+                      options: {
+                        'rhinoscopy-r-septum-midline': opt('Midline'),
+                        'rhinoscopy-r-septum-no-hematoma': opt('No Hematoma'),
+                        'rhinoscopy-r-septum-dev-r': opt('Dev R'),
+                        'rhinoscopy-r-septum-dev-l': opt('Dev L'),
+                        'rhinoscopy-r-septum-hematoma': opt('Hematoma'),
+                      },
+                    },
+                    discharge: {
+                      label: 'Discharge',
+                      options: {
+                        'rhinoscopy-r-discharge-none': opt('None'),
+                        'rhinoscopy-r-discharge-clear': opt('Clear'),
+                        'rhinoscopy-r-discharge-mucopurulent': opt('Mucopurulent'),
+                        'rhinoscopy-r-discharge-bloody': opt('Bloody'),
+                      },
+                    },
+                    'polyps-fb': {
+                      label: 'Polyps/FB',
+                      options: {
+                        'rhinoscopy-r-polyps-none': opt('None'),
+                        'rhinoscopy-r-polyps-polyps': opt('Polyps'),
+                        'rhinoscopy-r-fb-r': opt('FB \u2014 R'),
+                        'rhinoscopy-r-fb-l': opt('FB \u2014 L'),
+                      },
+                    },
                   },
                 },
               },
@@ -1139,28 +1163,32 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             epistaxis: {
               label: 'Epistaxis',
-              groups: {
-                location: {
-                  label: 'Location',
-                  options: {
-                    'epistaxis-not-present': opt('Not present'),
-                    'epistaxis-anterior': opt('Anterior'),
-                    'epistaxis-posterior': opt('Posterior'),
-                  },
-                },
-                source: {
-                  label: 'Source',
-                  options: {
-                    'epistaxis-source-kiesselbach': opt('Kiesselbach'),
-                    'epistaxis-source-other': opt('Other'),
-                  },
-                },
-                volume: {
-                  label: 'Volume',
-                  options: {
-                    'epistaxis-volume-scant': opt('Scant'),
-                    'epistaxis-volume-moderate': opt('Moderate'),
-                    'epistaxis-volume-large': opt('Large'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    location: {
+                      label: 'Location',
+                      options: {
+                        'epistaxis-not-present': opt('Not present'),
+                        'epistaxis-anterior': opt('Anterior'),
+                        'epistaxis-posterior': opt('Posterior'),
+                      },
+                    },
+                    source: {
+                      label: 'Source',
+                      options: {
+                        'epistaxis-source-kiesselbach': opt('Kiesselbach'),
+                        'epistaxis-source-other': opt('Other'),
+                      },
+                    },
+                    volume: {
+                      label: 'Volume',
+                      options: {
+                        'epistaxis-volume-scant': opt('Scant'),
+                        'epistaxis-volume-moderate': opt('Moderate'),
+                        'epistaxis-volume-large': opt('Large'),
+                      },
+                    },
                   },
                 },
               },
@@ -1174,25 +1202,29 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             'sinus-tenderness': {
               label: 'Sinus Tenderness',
-              groups: {
-                general: {
-                  label: 'General',
-                  options: {
-                    'sinus-all-non-tender': opt('All non-tender'),
-                  },
-                },
-                frontal: {
-                  label: 'Frontal',
-                  options: {
-                    'sinus-frontal-r': opt('Right'),
-                    'sinus-frontal-l': opt('Left'),
-                  },
-                },
-                maxillary: {
-                  label: 'Maxillary',
-                  options: {
-                    'sinus-maxillary-r': opt('Right'),
-                    'sinus-maxillary-l': opt('Left'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    general: {
+                      label: 'General',
+                      options: {
+                        'sinus-all-non-tender': opt('All non-tender'),
+                      },
+                    },
+                    frontal: {
+                      label: 'Frontal',
+                      options: {
+                        'sinus-frontal-r': opt('Right'),
+                        'sinus-frontal-l': opt('Left'),
+                      },
+                    },
+                    maxillary: {
+                      label: 'Maxillary',
+                      options: {
+                        'sinus-maxillary-r': opt('Right'),
+                        'sinus-maxillary-l': opt('Left'),
+                      },
+                    },
                   },
                 },
               },
@@ -1274,13 +1306,17 @@ export const InPersonExamConfig: ExamItemConfig = {
         },
       },
       abnormal: {
-        ...createLymphNodePair('anterior-cervical', 'Anterior cervical'),
-        ...createLymphNodePair('posterior-cervical', 'Posterior cervicalllll'),
-        ...createLymphNodePair('submandibular', 'Submandibular'),
-        ...createLymphNodePair('supraclavicular', 'Supraclavicular'),
-        'lymph-submental': createLymphNodeModalExam('lymph-submental', 'Submental'),
-        ...createLymphNodePair('axillary', 'Axillary'),
-        ...createLymphNodePair('inguinal', 'Inguinal'),
+        'lymph-anterior-cervical': createLymphNodeModalExam('lymph-anterior-cervical', 'Anterior cervical', LR_COLUMNS),
+        'lymph-posterior-cervical': createLymphNodeModalExam(
+          'lymph-posterior-cervical',
+          'Posterior cervical',
+          LR_COLUMNS
+        ),
+        'lymph-submandibular': createLymphNodeModalExam('lymph-submandibular', 'Submandibular', LR_COLUMNS),
+        'lymph-supraclavicular': createLymphNodeModalExam('lymph-supraclavicular', 'Supraclavicular', LR_COLUMNS),
+        'lymph-submental': createLymphNodeModalExam('lymph-submental', 'Submental', SINGLE_COLUMN),
+        'lymph-axillary': createLymphNodeModalExam('lymph-axillary', 'Axillary', LR_COLUMNS),
+        'lymph-inguinal': createLymphNodeModalExam('lymph-inguinal', 'Inguinal', LR_COLUMNS),
       },
       comment: { 'lymph-comment': { label: 'Lymph comment', type: 'text' } },
     },
@@ -1300,158 +1336,162 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             'adult-findings': {
               label: 'Common Findings',
-              groups: {
-                rashes: {
-                  label: 'Rashes & Eruptions',
-                  options: {
-                    'skin-contact-dermatitis': {
-                      label: 'Contact dermatitis',
-                      defaultValue: false,
-                      description:
-                        'well-demarcated erythematous plaque with vesicles and weeping in a geometric distribution corresponding to irritant or allergen exposure',
+              columns: {
+                'single-column': {
+                  groups: {
+                    rashes: {
+                      label: 'Rashes & Eruptions',
+                      options: {
+                        'skin-contact-dermatitis': {
+                          label: 'Contact dermatitis',
+                          defaultValue: false,
+                          description:
+                            'well-demarcated erythematous plaque with vesicles and weeping in a geometric distribution corresponding to irritant or allergen exposure',
+                        },
+                        'skin-tinea': {
+                          label: 'Tinea',
+                          defaultValue: false,
+                          description: 'annular scaly plaque with central clearing and a raised, well-defined border',
+                        },
+                        'skin-herpes-zoster': {
+                          label: 'Herpes zoster',
+                          defaultValue: false,
+                          description:
+                            'unilateral grouped vesicles on an erythematous base in a dermatomal distribution, not crossing the midline',
+                        },
+                        'skin-impetigo': {
+                          label: 'Impetigo',
+                          defaultValue: false,
+                          description: 'erythematous-based, honey-crusted, non-tender lesions',
+                        },
+                        'skin-cellulitis': {
+                          label: 'Cellulitis',
+                          defaultValue: false,
+                          description:
+                            'poorly demarcated, warm, erythematous, tender plaque without a defined edge with regional lymphadenopathy',
+                        },
+                        'skin-urticaria': {
+                          label: 'Urticaria',
+                          defaultValue: false,
+                          description: 'discrete, papular islands with surrounding erythema',
+                        },
+                        'skin-eczema': {
+                          label: 'Eczema (atopic dermatitis)',
+                          defaultValue: false,
+                          description: 'dry, scaly patches of skin with underlying erythema',
+                        },
+                        'skin-psoriasis': {
+                          label: 'Psoriasis',
+                          defaultValue: false,
+                          description:
+                            'well-demarcated, thick, silvery-scaled erythematous plaques on extensor surfaces with pinpoint bleeding on scale removal (Auspitz sign)',
+                        },
+                        'skin-herpes-simplex': {
+                          label: 'Herpes simplex',
+                          defaultValue: false,
+                          description:
+                            'grouped vesicles on an erythematous base at a consistent anatomic site with perilesional edema',
+                        },
+                        'skin-scabies': {
+                          label: 'Scabies',
+                          defaultValue: false,
+                          description:
+                            'pruritic papules and excoriations with threadlike burrows in web spaces, wrists, belt line, and genitalia, worse at night',
+                        },
+                        'skin-drug-reaction': {
+                          label: 'Drug reaction (morbilliform)',
+                          defaultValue: false,
+                          description:
+                            'diffuse symmetric blanching maculopapular eruption originating on the trunk and spreading centrifugally',
+                        },
+                        'skin-pityriasis-rosea': {
+                          label: 'Pityriasis rosea',
+                          defaultValue: false,
+                          description:
+                            'herald patch with a subsequent diffuse symmetric eruption of oval salmon-colored plaques along skin cleavage lines in a Christmas tree pattern on the back',
+                        },
+                        'skin-rosacea': {
+                          label: 'Rosacea',
+                          defaultValue: false,
+                          description:
+                            'central facial erythema with telangiectasias, papules, and pustules on the cheeks, nose, and chin without comedones',
+                        },
+                        'skin-seborrheic-dermatitis': {
+                          label: 'Seborrheic dermatitis',
+                          defaultValue: false,
+                          description:
+                            'greasy, yellowish, poorly demarcated scaly plaques on the scalp, nasolabial folds, eyebrows, and central chest',
+                        },
+                        'skin-acne': {
+                          label: 'Acne vulgaris',
+                          defaultValue: false,
+                          description:
+                            'open and closed comedones, erythematous papules and pustules on the face, chest, and back with nodular and cystic lesions',
+                        },
+                        'skin-sunburn': {
+                          label: 'Sunburn',
+                          defaultValue: false,
+                          description:
+                            'diffuse, tender, warm erythema in a sun-exposed distribution with vesiculation and edema',
+                        },
+                        'skin-tinea-versicolor': {
+                          label: 'Tinea versicolor',
+                          defaultValue: false,
+                          description:
+                            'hypopigmented and hyperpigmented finely scaled macules and patches on the upper trunk and shoulders',
+                        },
+                        'skin-viral-exanthem': {
+                          label: 'Viral exanthem',
+                          defaultValue: false,
+                          description: 'erythematous, macular rash over trunk>extremities',
+                        },
+                        'skin-fixed-drug-eruption': {
+                          label: 'Fixed drug eruption',
+                          defaultValue: false,
+                          description:
+                            'sharply demarcated dusky-red to violaceous round plaque at a consistent anatomic site with post-inflammatory hyperpigmentation at the border',
+                        },
+                        'skin-purpura-petechiae': {
+                          label: 'Purpura / petechiae',
+                          defaultValue: false,
+                          description:
+                            'non-blanching red to purple macules, petechiae <3mm and purpura >3mm, representing extravasated red cells',
+                        },
+                        'skin-erythema-migrans': {
+                          label: 'Erythema migrans',
+                          defaultValue: false,
+                          description:
+                            'expanding erythematous annular plaque with central clearing at the site of tick bite',
+                        },
+                        'skin-insect-bites': {
+                          label: 'Insect bites',
+                          defaultValue: false,
+                          description: 'erythematous-based papules/plaques with central punctate marks',
+                        },
+                      },
                     },
-                    'skin-tinea': {
-                      label: 'Tinea',
-                      defaultValue: false,
-                      description: 'annular scaly plaque with central clearing and a raised, well-defined border',
-                    },
-                    'skin-herpes-zoster': {
-                      label: 'Herpes zoster',
-                      defaultValue: false,
-                      description:
-                        'unilateral grouped vesicles on an erythematous base in a dermatomal distribution, not crossing the midline',
-                    },
-                    'skin-impetigo': {
-                      label: 'Impetigo',
-                      defaultValue: false,
-                      description: 'erythematous-based, honey-crusted, non-tender lesions',
-                    },
-                    'skin-cellulitis': {
-                      label: 'Cellulitis',
-                      defaultValue: false,
-                      description:
-                        'poorly demarcated, warm, erythematous, tender plaque without a defined edge with regional lymphadenopathy',
-                    },
-                    'skin-urticaria': {
-                      label: 'Urticaria',
-                      defaultValue: false,
-                      description: 'discrete, papular islands with surrounding erythema',
-                    },
-                    'skin-eczema': {
-                      label: 'Eczema (atopic dermatitis)',
-                      defaultValue: false,
-                      description: 'dry, scaly patches of skin with underlying erythema',
-                    },
-                    'skin-psoriasis': {
-                      label: 'Psoriasis',
-                      defaultValue: false,
-                      description:
-                        'well-demarcated, thick, silvery-scaled erythematous plaques on extensor surfaces with pinpoint bleeding on scale removal (Auspitz sign)',
-                    },
-                    'skin-herpes-simplex': {
-                      label: 'Herpes simplex',
-                      defaultValue: false,
-                      description:
-                        'grouped vesicles on an erythematous base at a consistent anatomic site with perilesional edema',
-                    },
-                    'skin-scabies': {
-                      label: 'Scabies',
-                      defaultValue: false,
-                      description:
-                        'pruritic papules and excoriations with threadlike burrows in web spaces, wrists, belt line, and genitalia, worse at night',
-                    },
-                    'skin-drug-reaction': {
-                      label: 'Drug reaction (morbilliform)',
-                      defaultValue: false,
-                      description:
-                        'diffuse symmetric blanching maculopapular eruption originating on the trunk and spreading centrifugally',
-                    },
-                    'skin-pityriasis-rosea': {
-                      label: 'Pityriasis rosea',
-                      defaultValue: false,
-                      description:
-                        'herald patch with a subsequent diffuse symmetric eruption of oval salmon-colored plaques along skin cleavage lines in a Christmas tree pattern on the back',
-                    },
-                    'skin-rosacea': {
-                      label: 'Rosacea',
-                      defaultValue: false,
-                      description:
-                        'central facial erythema with telangiectasias, papules, and pustules on the cheeks, nose, and chin without comedones',
-                    },
-                    'skin-seborrheic-dermatitis': {
-                      label: 'Seborrheic dermatitis',
-                      defaultValue: false,
-                      description:
-                        'greasy, yellowish, poorly demarcated scaly plaques on the scalp, nasolabial folds, eyebrows, and central chest',
-                    },
-                    'skin-acne': {
-                      label: 'Acne vulgaris',
-                      defaultValue: false,
-                      description:
-                        'open and closed comedones, erythematous papules and pustules on the face, chest, and back with nodular and cystic lesions',
-                    },
-                    'skin-sunburn': {
-                      label: 'Sunburn',
-                      defaultValue: false,
-                      description:
-                        'diffuse, tender, warm erythema in a sun-exposed distribution with vesiculation and edema',
-                    },
-                    'skin-tinea-versicolor': {
-                      label: 'Tinea versicolor',
-                      defaultValue: false,
-                      description:
-                        'hypopigmented and hyperpigmented finely scaled macules and patches on the upper trunk and shoulders',
-                    },
-                    'skin-viral-exanthem': {
-                      label: 'Viral exanthem',
-                      defaultValue: false,
-                      description: 'erythematous, macular rash over trunk>extremities',
-                    },
-                    'skin-fixed-drug-eruption': {
-                      label: 'Fixed drug eruption',
-                      defaultValue: false,
-                      description:
-                        'sharply demarcated dusky-red to violaceous round plaque at a consistent anatomic site with post-inflammatory hyperpigmentation at the border',
-                    },
-                    'skin-purpura-petechiae': {
-                      label: 'Purpura / petechiae',
-                      defaultValue: false,
-                      description:
-                        'non-blanching red to purple macules, petechiae <3mm and purpura >3mm, representing extravasated red cells',
-                    },
-                    'skin-erythema-migrans': {
-                      label: 'Erythema migrans',
-                      defaultValue: false,
-                      description:
-                        'expanding erythematous annular plaque with central clearing at the site of tick bite',
-                    },
-                    'skin-insect-bites': {
-                      label: 'Insect bites',
-                      defaultValue: false,
-                      description: 'erythematous-based papules/plaques with central punctate marks',
-                    },
-                  },
-                },
-                'lesions-masses': {
-                  label: 'Lesions & Masses',
-                  options: {
-                    'skin-sebaceous-cyst': {
-                      label: 'Sebaceous cyst',
-                      defaultValue: false,
-                      description:
-                        'flesh-colored, mobile, dome-shaped nodule with a central punctum, non-tender without surrounding erythema or induration',
-                    },
-                    'skin-folliculitis': {
-                      label: 'Folliculitis',
-                      defaultValue: false,
-                      description:
-                        'erythematous papules and pustules centered on hair follicles without confluence or fluctuance',
-                    },
-                    'skin-furuncle-carbuncle': {
-                      label: 'Furuncle / carbuncle',
-                      defaultValue: false,
-                      description:
-                        'deep, fluctuant, tender erythematous nodule (furuncle) or confluent cluster of infected follicles with multiple draining points (carbuncle)',
+                    'lesions-masses': {
+                      label: 'Lesions & Masses',
+                      options: {
+                        'skin-sebaceous-cyst': {
+                          label: 'Sebaceous cyst',
+                          defaultValue: false,
+                          description:
+                            'flesh-colored, mobile, dome-shaped nodule with a central punctum, non-tender without surrounding erythema or induration',
+                        },
+                        'skin-folliculitis': {
+                          label: 'Folliculitis',
+                          defaultValue: false,
+                          description:
+                            'erythematous papules and pustules centered on hair follicles without confluence or fluctuance',
+                        },
+                        'skin-furuncle-carbuncle': {
+                          label: 'Furuncle / carbuncle',
+                          defaultValue: false,
+                          description:
+                            'deep, fluctuant, tender erythematous nodule (furuncle) or confluent cluster of infected follicles with multiple draining points (carbuncle)',
+                        },
+                      },
                     },
                   },
                 },
@@ -1459,47 +1499,52 @@ export const InPersonExamConfig: ExamItemConfig = {
             },
             'pediatric-findings': {
               label: 'Pediatric',
-              groups: {
-                'pediatric-rashes': {
-                  label: 'Pediatric-Specific',
-                  options: {
-                    'skin-coxsackievirus': {
-                      label: 'Coxsackievirus (hand-foot-mouth)',
-                      defaultValue: false,
-                      description: '2-3 mm erythematous papules worse on hands and feet, including palms and soles',
-                    },
-                    'skin-irritant-diaper-rash': {
-                      label: 'Irritant diaper rash',
-                      defaultValue: false,
-                      description:
-                        'erythematous macular rash in diaper area that spares creases with no satellite lesions',
-                    },
-                    'skin-fifths-disease': {
-                      label: "Fifth's disease",
-                      defaultValue: false,
-                      description:
-                        'diffuse, erythematous, maculopapular rash and erythematous cheeks sparing nasolabial folds',
-                    },
-                    'skin-molluscum': {
-                      label: 'Molluscum contagiosum',
-                      defaultValue: false,
-                      description:
-                        'discrete, flesh-colored, dome-shaped papules with central umbilication, 2\u20135mm, in clustered distribution',
-                    },
-                    'skin-paronychia': {
-                      label: 'Paronychia',
-                      defaultValue: false,
-                      description: 'tender erythema along edge of nail with no lymphatic streaking',
-                    },
-                    'skin-poison-ivy': {
-                      label: 'Poison ivy contact dermatitis',
-                      defaultValue: false,
-                      description: 'linear patches and clusters of erythematous-based vesicles, some dry, no burrows',
-                    },
-                    'skin-tinea-capitis': {
-                      label: 'Tinea capitis',
-                      defaultValue: false,
-                      description: 'flat area of broken hair shafts and overlying scale',
+              columns: {
+                'single-column': {
+                  groups: {
+                    'pediatric-rashes': {
+                      label: 'Pediatric-Specific',
+                      options: {
+                        'skin-coxsackievirus': {
+                          label: 'Coxsackievirus (hand-foot-mouth)',
+                          defaultValue: false,
+                          description: '2-3 mm erythematous papules worse on hands and feet, including palms and soles',
+                        },
+                        'skin-irritant-diaper-rash': {
+                          label: 'Irritant diaper rash',
+                          defaultValue: false,
+                          description:
+                            'erythematous macular rash in diaper area that spares creases with no satellite lesions',
+                        },
+                        'skin-fifths-disease': {
+                          label: "Fifth's disease",
+                          defaultValue: false,
+                          description:
+                            'diffuse, erythematous, maculopapular rash and erythematous cheeks sparing nasolabial folds',
+                        },
+                        'skin-molluscum': {
+                          label: 'Molluscum contagiosum',
+                          defaultValue: false,
+                          description:
+                            'discrete, flesh-colored, dome-shaped papules with central umbilication, 2\u20135mm, in clustered distribution',
+                        },
+                        'skin-paronychia': {
+                          label: 'Paronychia',
+                          defaultValue: false,
+                          description: 'tender erythema along edge of nail with no lymphatic streaking',
+                        },
+                        'skin-poison-ivy': {
+                          label: 'Poison ivy contact dermatitis',
+                          defaultValue: false,
+                          description:
+                            'linear patches and clusters of erythematous-based vesicles, some dry, no burrows',
+                        },
+                        'skin-tinea-capitis': {
+                          label: 'Tinea capitis',
+                          defaultValue: false,
+                          description: 'flat area of broken hair shafts and overlying scale',
+                        },
+                      },
                     },
                   },
                 },
@@ -1514,49 +1559,53 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             location: {
               label: 'Location(s)',
-              groups: {
-                'head-neck': {
-                  label: 'Head & Neck',
-                  options: {
-                    'skin-loc-scalp': opt('Scalp'),
-                    'skin-loc-face': opt('Face'),
-                    'skin-loc-ears': opt('Ears'),
-                    'skin-loc-lips-perioral': opt('Lips/perioral'),
-                    'skin-loc-neck': opt('Neck'),
-                    'skin-loc-mucous-membranes': opt('Mucous membranes'),
-                  },
-                },
-                trunk: {
-                  label: 'Trunk',
-                  options: {
-                    'skin-loc-chest': opt('Chest'),
-                    'skin-loc-abdomen': opt('Abdomen'),
-                    'skin-loc-back': opt('Back'),
-                    'skin-loc-flank': opt('Flank'),
-                    'skin-loc-groin': opt('Groin'),
-                    'skin-loc-genitalia': opt('Genitalia'),
-                  },
-                },
-                'upper-extremity': {
-                  label: 'Upper Extremity',
-                  options: {
-                    'skin-loc-shoulder': opt('Shoulder'),
-                    'skin-loc-upper-arm': opt('Upper arm'),
-                    'skin-loc-elbow': opt('Elbow'),
-                    'skin-loc-forearm': opt('Forearm'),
-                    'skin-loc-wrist': opt('Wrist'),
-                    'skin-loc-hand-fingers': opt('Hand/fingers'),
-                  },
-                },
-                'lower-extremity': {
-                  label: 'Lower Extremity',
-                  options: {
-                    'skin-loc-hip-buttock': opt('Hip/buttock'),
-                    'skin-loc-thigh': opt('Thigh'),
-                    'skin-loc-knee': opt('Knee'),
-                    'skin-loc-lower-leg': opt('Lower leg'),
-                    'skin-loc-ankle': opt('Ankle'),
-                    'skin-loc-foot-toes': opt('Foot/toes'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    'head-neck': {
+                      label: 'Head & Neck',
+                      options: {
+                        'skin-loc-scalp': opt('Scalp'),
+                        'skin-loc-face': opt('Face'),
+                        'skin-loc-ears': opt('Ears'),
+                        'skin-loc-lips-perioral': opt('Lips/perioral'),
+                        'skin-loc-neck': opt('Neck'),
+                        'skin-loc-mucous-membranes': opt('Mucous membranes'),
+                      },
+                    },
+                    trunk: {
+                      label: 'Trunk',
+                      options: {
+                        'skin-loc-chest': opt('Chest'),
+                        'skin-loc-abdomen': opt('Abdomen'),
+                        'skin-loc-back': opt('Back'),
+                        'skin-loc-flank': opt('Flank'),
+                        'skin-loc-groin': opt('Groin'),
+                        'skin-loc-genitalia': opt('Genitalia'),
+                      },
+                    },
+                    'upper-extremity': {
+                      label: 'Upper Extremity',
+                      options: {
+                        'skin-loc-shoulder': opt('Shoulder'),
+                        'skin-loc-upper-arm': opt('Upper arm'),
+                        'skin-loc-elbow': opt('Elbow'),
+                        'skin-loc-forearm': opt('Forearm'),
+                        'skin-loc-wrist': opt('Wrist'),
+                        'skin-loc-hand-fingers': opt('Hand/fingers'),
+                      },
+                    },
+                    'lower-extremity': {
+                      label: 'Lower Extremity',
+                      options: {
+                        'skin-loc-hip-buttock': opt('Hip/buttock'),
+                        'skin-loc-thigh': opt('Thigh'),
+                        'skin-loc-knee': opt('Knee'),
+                        'skin-loc-lower-leg': opt('Lower leg'),
+                        'skin-loc-ankle': opt('Ankle'),
+                        'skin-loc-foot-toes': opt('Foot/toes'),
+                      },
+                    },
                   },
                 },
               },
@@ -1570,64 +1619,68 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             characteristics: {
               label: 'Lesion Characteristics',
-              groups: {
-                type: {
-                  label: 'Type',
-                  options: {
-                    'skin-lesion-macule': opt('Macule'),
-                    'skin-lesion-patch': opt('Patch'),
-                    'skin-lesion-papule': opt('Papule'),
-                    'skin-lesion-plaque': opt('Plaque'),
-                    'skin-lesion-vesicle': opt('Vesicle'),
-                    'skin-lesion-bulla': opt('Bulla'),
-                    'skin-lesion-pustule': opt('Pustule'),
-                    'skin-lesion-nodule': opt('Nodule'),
-                    'skin-lesion-wheal': opt('Wheal'),
-                    'skin-lesion-ulcer': opt('Ulcer'),
-                  },
-                },
-                color: {
-                  label: 'Color',
-                  options: {
-                    'skin-lesion-erythematous': opt('Erythematous'),
-                    'skin-lesion-violaceous': opt('Violaceous'),
-                    'skin-lesion-brown': opt('Brown'),
-                    'skin-lesion-hypopigmented': opt('Hypopigmented'),
-                    'skin-lesion-hyperpigmented': opt('Hyperpigmented'),
-                    'skin-lesion-yellow': opt('Yellow'),
-                    'skin-lesion-black': opt('Black'),
-                  },
-                },
-                border: {
-                  label: 'Border',
-                  options: {
-                    'skin-lesion-well-defined': opt('Well-defined'),
-                    'skin-lesion-ill-defined': opt('Ill-defined'),
-                    'skin-lesion-irregular': opt('Irregular'),
-                  },
-                },
-                surface: {
-                  label: 'Surface',
-                  options: {
-                    'skin-lesion-smooth': opt('Smooth'),
-                    'skin-lesion-scaly': opt('Scaly'),
-                    'skin-lesion-crusted': opt('Crusted'),
-                    'skin-lesion-macerated': opt('Macerated'),
-                  },
-                },
-                size: {
-                  label: 'Size',
-                  options: {
-                    'skin-lesion-lt-1cm': opt('<1cm'),
-                    'skin-lesion-1-5cm': opt('1\u20135cm'),
-                    'skin-lesion-gt-5cm': opt('>5cm'),
-                  },
-                },
-                blanching: {
-                  label: 'Blanching',
-                  options: {
-                    'skin-lesion-blanching-yes': opt('Yes'),
-                    'skin-lesion-blanching-no': opt('No'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    type: {
+                      label: 'Type',
+                      options: {
+                        'skin-lesion-macule': opt('Macule'),
+                        'skin-lesion-patch': opt('Patch'),
+                        'skin-lesion-papule': opt('Papule'),
+                        'skin-lesion-plaque': opt('Plaque'),
+                        'skin-lesion-vesicle': opt('Vesicle'),
+                        'skin-lesion-bulla': opt('Bulla'),
+                        'skin-lesion-pustule': opt('Pustule'),
+                        'skin-lesion-nodule': opt('Nodule'),
+                        'skin-lesion-wheal': opt('Wheal'),
+                        'skin-lesion-ulcer': opt('Ulcer'),
+                      },
+                    },
+                    color: {
+                      label: 'Color',
+                      options: {
+                        'skin-lesion-erythematous': opt('Erythematous'),
+                        'skin-lesion-violaceous': opt('Violaceous'),
+                        'skin-lesion-brown': opt('Brown'),
+                        'skin-lesion-hypopigmented': opt('Hypopigmented'),
+                        'skin-lesion-hyperpigmented': opt('Hyperpigmented'),
+                        'skin-lesion-yellow': opt('Yellow'),
+                        'skin-lesion-black': opt('Black'),
+                      },
+                    },
+                    border: {
+                      label: 'Border',
+                      options: {
+                        'skin-lesion-well-defined': opt('Well-defined'),
+                        'skin-lesion-ill-defined': opt('Ill-defined'),
+                        'skin-lesion-irregular': opt('Irregular'),
+                      },
+                    },
+                    surface: {
+                      label: 'Surface',
+                      options: {
+                        'skin-lesion-smooth': opt('Smooth'),
+                        'skin-lesion-scaly': opt('Scaly'),
+                        'skin-lesion-crusted': opt('Crusted'),
+                        'skin-lesion-macerated': opt('Macerated'),
+                      },
+                    },
+                    size: {
+                      label: 'Size',
+                      options: {
+                        'skin-lesion-lt-1cm': opt('<1cm'),
+                        'skin-lesion-1-5cm': opt('1\u20135cm'),
+                        'skin-lesion-gt-5cm': opt('>5cm'),
+                      },
+                    },
+                    blanching: {
+                      label: 'Blanching',
+                      options: {
+                        'skin-lesion-blanching-yes': opt('Yes'),
+                        'skin-lesion-blanching-no': opt('No'),
+                      },
+                    },
                   },
                 },
               },
@@ -1641,49 +1694,53 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             wound: {
               label: 'Wound / Laceration',
-              groups: {
-                presence: {
-                  label: 'Presence',
-                  options: {
-                    'skin-wound-not-present': opt('Not present'),
-                  },
-                },
-                depth: {
-                  label: 'Depth',
-                  options: {
-                    'skin-wound-superficial': opt('Superficial'),
-                    'skin-wound-subcutaneous': opt('Subcutaneous'),
-                    'skin-wound-deep-fascial': opt('Deep/fascial'),
-                  },
-                },
-                edges: {
-                  label: 'Edges',
-                  options: {
-                    'skin-wound-edges-clean': opt('Clean'),
-                    'skin-wound-edges-jagged': opt('Jagged'),
-                    'skin-wound-edges-avulsion': opt('Avulsion'),
-                  },
-                },
-                contamination: {
-                  label: 'Contamination',
-                  options: {
-                    'skin-wound-contam-none': opt('None'),
-                    'skin-wound-contam-mild': opt('Mild'),
-                    'skin-wound-contam-heavy': opt('Heavy'),
-                  },
-                },
-                'neurovascular-distal': {
-                  label: 'Neurovascular distal',
-                  options: {
-                    'skin-wound-nv-intact': opt('Intact'),
-                    'skin-wound-nv-compromised': opt('Compromised'),
-                  },
-                },
-                'tendon-bone': {
-                  label: 'Tendon/bone visible',
-                  options: {
-                    'skin-wound-tendon-no': opt('No'),
-                    'skin-wound-tendon-yes': opt('Yes'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    presence: {
+                      label: 'Presence',
+                      options: {
+                        'skin-wound-not-present': opt('Not present'),
+                      },
+                    },
+                    depth: {
+                      label: 'Depth',
+                      options: {
+                        'skin-wound-superficial': opt('Superficial'),
+                        'skin-wound-subcutaneous': opt('Subcutaneous'),
+                        'skin-wound-deep-fascial': opt('Deep/fascial'),
+                      },
+                    },
+                    edges: {
+                      label: 'Edges',
+                      options: {
+                        'skin-wound-edges-clean': opt('Clean'),
+                        'skin-wound-edges-jagged': opt('Jagged'),
+                        'skin-wound-edges-avulsion': opt('Avulsion'),
+                      },
+                    },
+                    contamination: {
+                      label: 'Contamination',
+                      options: {
+                        'skin-wound-contam-none': opt('None'),
+                        'skin-wound-contam-mild': opt('Mild'),
+                        'skin-wound-contam-heavy': opt('Heavy'),
+                      },
+                    },
+                    'neurovascular-distal': {
+                      label: 'Neurovascular distal',
+                      options: {
+                        'skin-wound-nv-intact': opt('Intact'),
+                        'skin-wound-nv-compromised': opt('Compromised'),
+                      },
+                    },
+                    'tendon-bone': {
+                      label: 'Tendon/bone visible',
+                      options: {
+                        'skin-wound-tendon-no': opt('No'),
+                        'skin-wound-tendon-yes': opt('Yes'),
+                      },
+                    },
                   },
                 },
               },
@@ -1697,39 +1754,43 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             abscess: {
               label: 'Abscess / Cellulitis',
-              groups: {
-                presence: {
-                  label: 'Presence',
-                  options: {
-                    'skin-abscess-not-present': opt('Not present'),
-                  },
-                },
-                abscess: {
-                  label: 'Abscess',
-                  options: {
-                    'skin-abscess-fluctuant': opt('Fluctuant'),
-                    'skin-abscess-non-fluctuant': opt('Non-fluctuant'),
-                  },
-                },
-                cellulitis: {
-                  label: 'Cellulitis',
-                  options: {
-                    'skin-cellulitis-absent': opt('Absent'),
-                    'skin-cellulitis-present': opt('Present'),
-                  },
-                },
-                'borders-marked': {
-                  label: 'Borders marked',
-                  options: {
-                    'skin-cellulitis-borders-no': opt('No'),
-                    'skin-cellulitis-borders-yes': opt('Yes'),
-                  },
-                },
-                streaking: {
-                  label: 'Streaking',
-                  options: {
-                    'skin-streaking-absent': opt('Absent'),
-                    'skin-streaking-present': opt('Present'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    presence: {
+                      label: 'Presence',
+                      options: {
+                        'skin-abscess-not-present': opt('Not present'),
+                      },
+                    },
+                    abscess: {
+                      label: 'Abscess',
+                      options: {
+                        'skin-abscess-fluctuant': opt('Fluctuant'),
+                        'skin-abscess-non-fluctuant': opt('Non-fluctuant'),
+                      },
+                    },
+                    cellulitis: {
+                      label: 'Cellulitis',
+                      options: {
+                        'skin-cellulitis-absent': opt('Absent'),
+                        'skin-cellulitis-present': opt('Present'),
+                      },
+                    },
+                    'borders-marked': {
+                      label: 'Borders marked',
+                      options: {
+                        'skin-cellulitis-borders-no': opt('No'),
+                        'skin-cellulitis-borders-yes': opt('Yes'),
+                      },
+                    },
+                    streaking: {
+                      label: 'Streaking',
+                      options: {
+                        'skin-streaking-absent': opt('Absent'),
+                        'skin-streaking-present': opt('Present'),
+                      },
+                    },
                   },
                 },
               },
@@ -1743,28 +1804,32 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             burn: {
               label: 'Burn',
-              groups: {
-                presence: {
-                  label: 'Presence',
-                  options: {
-                    'skin-burn-not-present': opt('Not present'),
-                  },
-                },
-                degree: {
-                  label: 'Degree',
-                  options: {
-                    'skin-burn-superficial-1st': opt('Superficial (1st)'),
-                    'skin-burn-partial-2nd': opt('Partial thickness (2nd)'),
-                    'skin-burn-full-3rd': opt('Full thickness (3rd)'),
-                  },
-                },
-                tbsa: {
-                  label: 'TBSA estimate',
-                  options: {
-                    'skin-burn-tbsa-lt-1': opt('<1%'),
-                    'skin-burn-tbsa-1-5': opt('1\u20135%'),
-                    'skin-burn-tbsa-6-10': opt('6\u201310%'),
-                    'skin-burn-tbsa-gt-10': opt('>10%'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    presence: {
+                      label: 'Presence',
+                      options: {
+                        'skin-burn-not-present': opt('Not present'),
+                      },
+                    },
+                    degree: {
+                      label: 'Degree',
+                      options: {
+                        'skin-burn-superficial-1st': opt('Superficial (1st)'),
+                        'skin-burn-partial-2nd': opt('Partial thickness (2nd)'),
+                        'skin-burn-full-3rd': opt('Full thickness (3rd)'),
+                      },
+                    },
+                    tbsa: {
+                      label: 'TBSA estimate',
+                      options: {
+                        'skin-burn-tbsa-lt-1': opt('<1%'),
+                        'skin-burn-tbsa-1-5': opt('1\u20135%'),
+                        'skin-burn-tbsa-6-10': opt('6\u201310%'),
+                        'skin-burn-tbsa-gt-10': opt('>10%'),
+                      },
+                    },
                   },
                 },
               },
@@ -1778,53 +1843,57 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             bite: {
               label: 'Bite / Sting',
-              groups: {
-                presence: {
-                  label: 'Presence',
-                  options: {
-                    'skin-bite-not-present': opt('Not present'),
-                  },
-                },
-                source: {
-                  label: 'Source',
-                  options: {
-                    'skin-bite-human': opt('Human'),
-                    'skin-bite-dog': opt('Dog'),
-                    'skin-bite-cat': opt('Cat'),
-                    'skin-bite-spider': opt('Spider'),
-                    'skin-bite-insect': opt('Insect'),
-                    'skin-bite-unknown': opt('Unknown'),
-                  },
-                },
-                'wound-type': {
-                  label: 'Wound type',
-                  options: {
-                    'skin-bite-puncture': opt('Puncture'),
-                    'skin-bite-laceration': opt('Laceration'),
-                    'skin-bite-crush': opt('Crush'),
-                  },
-                },
-                'signs-of-infection': {
-                  label: 'Signs of infection',
-                  options: {
-                    'skin-bite-infection-none': opt('None'),
-                    'skin-bite-infection-early': opt('Early'),
-                    'skin-bite-infection-established': opt('Established'),
-                  },
-                },
-                'tick-attached': {
-                  label: 'Tick attached',
-                  options: {
-                    'skin-bite-tick-no': opt('No'),
-                    'skin-bite-tick-yes-removed': opt('Yes \u2014 removal performed'),
-                    'skin-bite-tick-yes-not-removed': opt('Yes \u2014 not removed'),
-                  },
-                },
-                'bullseye-rash': {
-                  label: 'Bullseye rash',
-                  options: {
-                    'skin-bite-bullseye-absent': opt('Absent'),
-                    'skin-bite-bullseye-present': opt('Present'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    presence: {
+                      label: 'Presence',
+                      options: {
+                        'skin-bite-not-present': opt('Not present'),
+                      },
+                    },
+                    source: {
+                      label: 'Source',
+                      options: {
+                        'skin-bite-human': opt('Human'),
+                        'skin-bite-dog': opt('Dog'),
+                        'skin-bite-cat': opt('Cat'),
+                        'skin-bite-spider': opt('Spider'),
+                        'skin-bite-insect': opt('Insect'),
+                        'skin-bite-unknown': opt('Unknown'),
+                      },
+                    },
+                    'wound-type': {
+                      label: 'Wound type',
+                      options: {
+                        'skin-bite-puncture': opt('Puncture'),
+                        'skin-bite-laceration': opt('Laceration'),
+                        'skin-bite-crush': opt('Crush'),
+                      },
+                    },
+                    'signs-of-infection': {
+                      label: 'Signs of infection',
+                      options: {
+                        'skin-bite-infection-none': opt('None'),
+                        'skin-bite-infection-early': opt('Early'),
+                        'skin-bite-infection-established': opt('Established'),
+                      },
+                    },
+                    'tick-attached': {
+                      label: 'Tick attached',
+                      options: {
+                        'skin-bite-tick-no': opt('No'),
+                        'skin-bite-tick-yes-removed': opt('Yes \u2014 removal performed'),
+                        'skin-bite-tick-yes-not-removed': opt('Yes \u2014 not removed'),
+                      },
+                    },
+                    'bullseye-rash': {
+                      label: 'Bullseye rash',
+                      options: {
+                        'skin-bite-bullseye-absent': opt('Absent'),
+                        'skin-bite-bullseye-present': opt('Present'),
+                      },
+                    },
                   },
                 },
               },
@@ -1838,14 +1907,18 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             associated: {
               label: 'Associated Findings',
-              groups: {
-                findings: {
-                  label: 'Findings',
-                  options: {
-                    'skin-assoc-none': opt('None'),
-                    'skin-assoc-angioedema': opt('Angioedema'),
-                    'skin-assoc-desquamation': opt('Desquamation'),
-                    'skin-assoc-nikolsky': opt('Nikolsky sign'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    findings: {
+                      label: 'Findings',
+                      options: {
+                        'skin-assoc-none': opt('None'),
+                        'skin-assoc-angioedema': opt('Angioedema'),
+                        'skin-assoc-desquamation': opt('Desquamation'),
+                        'skin-assoc-nikolsky': opt('Nikolsky sign'),
+                      },
+                    },
                   },
                 },
               },
@@ -1859,26 +1932,30 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             distribution: {
               label: 'Distribution Pattern',
-              groups: {
-                pattern: {
-                  label: 'Pattern',
-                  options: {
-                    'skin-dist-dermatomal': opt('Dermatomal'),
-                    'skin-dist-flexural': opt('Flexural'),
-                    'skin-dist-extensor': opt('Extensor'),
-                    'skin-dist-sun-exposed': opt('Sun-exposed'),
-                    'skin-dist-intertriginous': opt('Intertriginous'),
-                    'skin-dist-palms-soles': opt('Palms/soles'),
-                    'skin-dist-mucous-membranes': opt('Mucous membranes involved'),
-                  },
-                },
-                side: {
-                  label: 'Side',
-                  options: {
-                    'skin-side-r': opt('R'),
-                    'skin-side-l': opt('L'),
-                    'skin-side-bilateral': opt('Bilateral'),
-                    'skin-side-midline': opt('Midline'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    pattern: {
+                      label: 'Pattern',
+                      options: {
+                        'skin-dist-dermatomal': opt('Dermatomal'),
+                        'skin-dist-flexural': opt('Flexural'),
+                        'skin-dist-extensor': opt('Extensor'),
+                        'skin-dist-sun-exposed': opt('Sun-exposed'),
+                        'skin-dist-intertriginous': opt('Intertriginous'),
+                        'skin-dist-palms-soles': opt('Palms/soles'),
+                        'skin-dist-mucous-membranes': opt('Mucous membranes involved'),
+                      },
+                    },
+                    side: {
+                      label: 'Side',
+                      options: {
+                        'skin-side-r': opt('R'),
+                        'skin-side-l': opt('L'),
+                        'skin-side-bilateral': opt('Bilateral'),
+                        'skin-side-midline': opt('Midline'),
+                      },
+                    },
                   },
                 },
               },
@@ -1918,16 +1995,20 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             murmur: {
               label: 'Murmur',
-              groups: {
-                grade: {
-                  label: 'Grade',
-                  options: {
-                    'murmur-i': opt('Grade I'),
-                    'murmur-ii': opt('Grade II'),
-                    'murmur-iii': opt('Grade III'),
-                    'murmur-iv': opt('Grade IV'),
-                    'murmur-v': opt('Grade V'),
-                    'murmur-vi': opt('Grade VI'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    grade: {
+                      label: 'Grade',
+                      options: {
+                        'murmur-i': opt('Grade I'),
+                        'murmur-ii': opt('Grade II'),
+                        'murmur-iii': opt('Grade III'),
+                        'murmur-iv': opt('Grade IV'),
+                        'murmur-v': opt('Grade V'),
+                        'murmur-vi': opt('Grade VI'),
+                      },
+                    },
                   },
                 },
               },
@@ -2032,15 +2113,19 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             wheezing: {
               label: 'Wheezing',
-              groups: {
-                location: {
-                  label: 'Location',
-                  options: {
-                    'wheezing-left-upper': opt('Left upper'),
-                    'wheezing-left-lower': opt('Left lower'),
-                    'wheezing-right-upper': opt('Right upper'),
-                    'wheezing-right-middle': opt('Right middle'),
-                    'wheezing-right-lower': opt('Right lower'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    location: {
+                      label: 'Location',
+                      options: {
+                        'wheezing-left-upper': opt('Left upper'),
+                        'wheezing-left-lower': opt('Left lower'),
+                        'wheezing-right-upper': opt('Right upper'),
+                        'wheezing-right-middle': opt('Right middle'),
+                        'wheezing-right-lower': opt('Right lower'),
+                      },
+                    },
                   },
                 },
               },
@@ -2054,15 +2139,19 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             crackles: {
               label: 'Crackles',
-              groups: {
-                location: {
-                  label: 'Location',
-                  options: {
-                    'crackles-left-upper': opt('Left upper'),
-                    'crackles-left-lower': opt('Left lower'),
-                    'crackles-right-upper': opt('Right upper'),
-                    'crackles-right-middle': opt('Right middle'),
-                    'crackles-right-lower': opt('Right lower'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    location: {
+                      label: 'Location',
+                      options: {
+                        'crackles-left-upper': opt('Left upper'),
+                        'crackles-left-lower': opt('Left lower'),
+                        'crackles-right-upper': opt('Right upper'),
+                        'crackles-right-middle': opt('Right middle'),
+                        'crackles-right-lower': opt('Right lower'),
+                      },
+                    },
                   },
                 },
               },
@@ -2076,15 +2165,19 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             'breath-sounds': {
               label: 'Decreased Breath Sounds',
-              groups: {
-                location: {
-                  label: 'Location',
-                  options: {
-                    'breath-sounds-left-upper': opt('Left upper'),
-                    'breath-sounds-left-lower': opt('Left lower'),
-                    'breath-sounds-right-upper': opt('Right upper'),
-                    'breath-sounds-right-middle': opt('Right middle'),
-                    'breath-sounds-right-lower': opt('Right lower'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    location: {
+                      label: 'Location',
+                      options: {
+                        'breath-sounds-left-upper': opt('Left upper'),
+                        'breath-sounds-left-lower': opt('Left lower'),
+                        'breath-sounds-right-upper': opt('Right upper'),
+                        'breath-sounds-right-middle': opt('Right middle'),
+                        'breath-sounds-right-lower': opt('Right lower'),
+                      },
+                    },
                   },
                 },
               },
@@ -2098,13 +2191,17 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             retractions: {
               label: 'Retractions',
-              groups: {
-                type: {
-                  label: 'Type',
-                  options: {
-                    subcostal: opt('Subcostal'),
-                    suprasternal: opt('Suprasternal'),
-                    intercostal: opt('Intercostal'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    type: {
+                      label: 'Type',
+                      options: {
+                        subcostal: opt('Subcostal'),
+                        suprasternal: opt('Suprasternal'),
+                        intercostal: opt('Intercostal'),
+                      },
+                    },
                   },
                 },
               },
@@ -2167,17 +2264,21 @@ export const InPersonExamConfig: ExamItemConfig = {
           modal: {
             tender: {
               label: 'Tender',
-              groups: {
-                location: {
-                  label: 'Location',
-                  options: {
-                    diffusely: opt('Diffusely'),
-                    ruq: opt('RUQ'),
-                    rlq: opt('RLQ'),
-                    luq: opt('LUQ'),
-                    llq: opt('LLQ'),
-                    'r-cva': opt('R CVA'),
-                    'l-cva': opt('L CVA'),
+              columns: {
+                'single-column': {
+                  groups: {
+                    location: {
+                      label: 'Location',
+                      options: {
+                        diffusely: opt('Diffusely'),
+                        ruq: opt('RUQ'),
+                        rlq: opt('RLQ'),
+                        luq: opt('LUQ'),
+                        llq: opt('LLQ'),
+                        'r-cva': opt('R CVA'),
+                        'l-cva': opt('L CVA'),
+                      },
+                    },
                   },
                 },
               },
@@ -2346,22 +2447,14 @@ export const InPersonExamConfig: ExamItemConfig = {
           type: 'checkbox',
           legacy: true,
         },
-        'shoulder-l': createExtremityModalExam('shoulder-l', 'Shoulder L', shoulderSpecialTests),
-        'shoulder-r': createExtremityModalExam('shoulder-r', 'Shoulder R', shoulderSpecialTests),
-        'elbow-l': createExtremityModalExam('elbow-l', 'Elbow L', elbowSpecialTests),
-        'elbow-r': createExtremityModalExam('elbow-r', 'Elbow R', elbowSpecialTests),
-        'hand-wrist-l': createExtremityModalExam('hand-wrist-l', 'Hand/Wrist L', handWristSpecialTests),
-        'hand-wrist-r': createExtremityModalExam('hand-wrist-r', 'Hand/Wrist R', handWristSpecialTests),
-        'fingers-l': createExtremityModalExam('fingers-l', 'Fingers L', fingerSpecialTests, fingerInspectionPrefix),
-        'fingers-r': createExtremityModalExam('fingers-r', 'Fingers R', fingerSpecialTests, fingerInspectionPrefix),
-        'hip-l': createExtremityModalExam('hip-l', 'Hip L', hipSpecialTests),
-        'hip-r': createExtremityModalExam('hip-r', 'Hip R', hipSpecialTests),
-        'knee-l': createExtremityModalExam('knee-l', 'Knee L', kneeSpecialTests),
-        'knee-r': createExtremityModalExam('knee-r', 'Knee R', kneeSpecialTests),
-        'ankle-l': createExtremityModalExam('ankle-l', 'Ankle L', ankleSpecialTests),
-        'ankle-r': createExtremityModalExam('ankle-r', 'Ankle R', ankleSpecialTests),
-        'foot-toes-l': createExtremityModalExam('foot-toes-l', 'Foot/toes L', footToeSpecialTests),
-        'foot-toes-r': createExtremityModalExam('foot-toes-r', 'Foot/toes R', footToeSpecialTests),
+        shoulder: createExtremityModalExam('shoulder', 'Shoulder', LR_COLUMNS, shoulderSpecialTests),
+        elbow: createExtremityModalExam('elbow', 'Elbow', LR_COLUMNS, elbowSpecialTests),
+        'hand-wrist': createExtremityModalExam('hand-wrist', 'Hand/Wrist', LR_COLUMNS, handWristSpecialTests),
+        fingers: createExtremityModalExam('fingers', 'Fingers', LR_COLUMNS, fingerSpecialTests, fingerInspectionPrefix),
+        hip: createExtremityModalExam('hip', 'Hip', LR_COLUMNS, hipSpecialTests),
+        knee: createExtremityModalExam('knee', 'Knee', LR_COLUMNS, kneeSpecialTests),
+        ankle: createExtremityModalExam('ankle', 'Ankle', LR_COLUMNS, ankleSpecialTests),
+        'foot-toes': createExtremityModalExam('foot-toes', 'Foot/toes', LR_COLUMNS, footToeSpecialTests),
       },
       comment: { 'extremities-comment': { label: 'Extremities comment', type: 'text' } },
     },
