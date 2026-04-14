@@ -33,6 +33,7 @@ import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { TrackingBoardTableButton } from 'src/features/visits/telemed/components/tracking-board/TrackingBoardTableButton';
+import { getTelemedQuickTexts } from 'src/features/visits/telemed/utils/appointments';
 import { getTelemedAppointmentUrl } from 'src/features/visits/telemed/utils/routing';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
@@ -42,6 +43,7 @@ import {
   getDurationOfStatus,
   getInPersonQuickTexts,
   getPatchBinary,
+  getSupportPhoneFor,
   getTelemedVisitStatus,
   getVisitTotalTime,
   GetVitalsResponseData,
@@ -516,15 +518,17 @@ export default function AppointmentTableRow({
     </>
   );
 
-  const quickTexts = getInPersonQuickTexts({
-    patientAppUrl: VITE_APP_PATIENT_APP_URL,
-    patientName: appointment.patient.firstName,
-    visitId: appointment.id,
-    locationName: location?.name,
-    start,
-    appointmentType: appointment.appointmentType,
-    officePhone: officePhoneNumber,
-  });
+  const quickTexts = isVirtual(appointment)
+    ? getTelemedQuickTexts(getSupportPhoneFor(location?.name) || '')
+    : getInPersonQuickTexts({
+        patientAppUrl: VITE_APP_PATIENT_APP_URL,
+        patientName: appointment.patient.firstName,
+        visitId: appointment.id,
+        locationName: location?.name,
+        start,
+        appointmentType: appointment.appointmentType,
+        officePhone: officePhoneNumber,
+      });
 
   const onCloseChat = useCallback(() => {
     setChatModalOpen(false);
