@@ -126,7 +126,8 @@ function buildLineItems(
 
   for (const cpt of allCodes) {
     const cptModifier = cpt.modifier?.[0]?.code;
-    let fallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
+    let noModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
+    let anyModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
 
     for (const pg of feeSchedule.propertyGroup) {
       const pc = pg.priceComponent?.[0];
@@ -142,20 +143,24 @@ function buildLineItems(
           description: cpt.display || fsCoding.display || '',
           amount: pc.amount?.value ?? 0,
         });
-        fallbackPg = undefined;
+        noModifierFallbackPg = undefined;
+        anyModifierFallbackPg = undefined;
         break;
       }
-      if (!fallbackPg) fallbackPg = pg;
+      // Code matches but modifier doesn't — prefer no-modifier entry as fallback
+      if (!fsModifier && !noModifierFallbackPg) noModifierFallbackPg = pg;
+      else if (fsModifier && !anyModifierFallbackPg) anyModifierFallbackPg = pg;
     }
+
+    const fallbackPg = noModifierFallbackPg ?? anyModifierFallbackPg;
 
     // No exact match found — fall back to first entry with matching code
     if (fallbackPg) {
       const pc = fallbackPg.priceComponent![0];
       const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
-      const fsModifier = pc.extension?.find((ext) => ext.url === CPT_MODIFIER_EXTENSION_URL)?.valueCode;
       items.push({
         code: cpt.code,
-        modifier: fsModifier || cptModifier,
+        modifier: cptModifier,
         description: cpt.display || fsCoding?.display || '',
         amount: pc.amount?.value ?? 0,
       });
