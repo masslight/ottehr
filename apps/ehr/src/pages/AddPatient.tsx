@@ -278,7 +278,7 @@ export default function AddPatient(): JSX.Element {
 
           {/* form content */}
           <Paper>
-            <form onSubmit={(e) => handleFormSubmit(e)}>
+            <form noValidate onSubmit={(e) => handleFormSubmit(e)}>
               <Stack spacing={2} padding={4}>
                 <FormControl fullWidth>
                   <InputLabel id="visit-type-label">Visit type *</InputLabel>
@@ -336,8 +336,8 @@ export default function AddPatient(): JSX.Element {
                     visitType === VisitType.InPersonWalkIn ||
                     visitType === VisitType.InPersonPreBook ||
                     visitType === VisitType.InPersonPostTelemed
-                      ? LocationType.IN_PERSON
-                      : LocationType.VIRTUAL
+                      ? [LocationType.IN_PERSON]
+                      : [LocationType.VIRTUAL]
                   }
                 />
 

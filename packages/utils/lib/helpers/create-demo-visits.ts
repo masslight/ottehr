@@ -214,6 +214,10 @@ export type GetPaperworkAnswers = ({
   appointmentId: string;
 }) => Promise<QuestionnaireResponseItem[]>;
 
+export type SampleAppointmentResponse = CreateAppointmentResponse & {
+  selectedLocation: Location;
+};
+
 export const createSampleAppointments = async ({
   oystehr,
   authToken,
@@ -244,7 +248,7 @@ export const createSampleAppointments = async ({
   serviceCategory?: ServiceCategoryCode;
   appointmentMetadata?: Appointment['meta'];
   skipPaperwork?: boolean;
-}): Promise<CreateAppointmentResponse> => {
+}): Promise<SampleAppointmentResponse> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
   }
@@ -258,7 +262,7 @@ export const createSampleAppointments = async ({
     const numberOfAppointments = demoData?.numberOfAppointments || 10;
 
     // Run all appointment creations in parallel
-    const appointmentPromises: Promise<CreateAppointmentResponse | null>[] = Array.from(
+    const appointmentPromises: Promise<SampleAppointmentResponse | null>[] = Array.from(
       { length: numberOfAppointments },
       async (_, i) => {
         try {
@@ -361,7 +365,7 @@ export const createSampleAppointments = async ({
             });
           }
 
-          return typedAppointment;
+          return { ...typedAppointment, selectedLocation: randomPatientInfo.selectedLocation };
         } catch (error) {
           console.error(`Error processing appointment ${i + 1}:`, JSON.stringify(error));
           throw error;
@@ -376,7 +380,7 @@ export const createSampleAppointments = async ({
     const successfulAppointments = results.filter((data) => data != null);
 
     if (successfulAppointments.length > 0) {
-      return successfulAppointments[0] as CreateAppointmentResponse; // Return the first successful appointment
+      return successfulAppointments[0]; // Return the first successful appointment
     }
 
     throw new Error(`All appointment creation attempts failed.`);
@@ -466,6 +470,8 @@ const processPaperwork = async (
   }
 };
 
+type SampleAppointmentInputParams = CreateAppointmentInputParams & { selectedLocation: Location };
+
 const generateRandomPatientInfo = async (
   oystehr: Oystehr,
   zambdaUrl: string,
@@ -477,7 +483,7 @@ const generateRandomPatientInfo = async (
   selectedLocationId?: string,
   locationState?: string,
   serviceCategory?: ServiceCategoryCode
-): Promise<CreateAppointmentInputParams> => {
+): Promise<SampleAppointmentInputParams> => {
   const {
     firstNames = DEFAULT_FIRST_NAMES,
     lastNames = DEFAULT_LAST_NAMES,
@@ -616,6 +622,7 @@ const generateRandomPatientInfo = async (
       unconfirmedDateOfBirth: randomDateOfBirth,
       slotId: persistedSlot.id!,
       language: 'en',
+      selectedLocation: selectedLocation!,
       locationState,
     };
   }
@@ -623,6 +630,7 @@ const generateRandomPatientInfo = async (
   return {
     patient: patientData,
     slotId: persistedSlot.id!,
+    selectedLocation: selectedLocation!,
     language: 'en',
   };
 };

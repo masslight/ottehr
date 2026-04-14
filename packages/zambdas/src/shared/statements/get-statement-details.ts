@@ -26,6 +26,7 @@ import {
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { getDefaultBillingProviderResource } from '../../patient/get-eligibility/validation';
 import { getCandidEncounterIdFromEncounter } from '../candid';
+import { resolveTimezone } from '../helpers';
 import { getLogoBase64 } from './get-logo-base64';
 
 export type StatementType = 'standard' | 'past-due' | 'final-notice';
@@ -35,6 +36,7 @@ interface StatementResources {
   encounter: Encounter;
   patient: Patient;
   location: Location | undefined;
+  schedule: Schedule | undefined;
 }
 
 interface StatementInsuranceDetails {
@@ -62,7 +64,6 @@ interface StatementLineDetails {
 interface GetStatementDetailsInput {
   encounterId: string;
   statementType: StatementType;
-  userTimezone?: string;
   secrets: Secrets;
   oystehr: Oystehr;
 }
@@ -90,6 +91,10 @@ const getResources = async (encounterId: string, oystehr: Oystehr): Promise<Stat
           name: '_include:iterate',
           value: 'Appointment:location',
         },
+        {
+          name: '_revinclude:iterate',
+          value: 'Schedule:actor:Location',
+        },
       ],
     })
   ).unbundle();
@@ -104,12 +109,18 @@ const getResources = async (encounterId: string, oystehr: Oystehr): Promise<Stat
   if (!patient) throw new Error('Patient not found');
 
   const location = items.find((item: Resource) => item.resourceType === 'Location') as Location | undefined;
+  const schedule = location?.id
+    ? (items.filter((item: Resource) => item.resourceType === 'Schedule') as Schedule[]).find(
+        (s) => s.actor?.some((a) => a.reference === `Location/${location.id}`)
+      )
+    : undefined;
 
   return {
     appointment,
     encounter,
     patient,
     location,
+    schedule,
   };
 };
 
@@ -308,16 +319,16 @@ function createStatementDetails(
   const pastDue = statementType === 'past-due' || statementType === 'final-notice';
   const finalNotice = statementType === 'final-notice';
   const logoBase64 = getLogoBase64();
-  const { patient, location, appointment } = resources;
+  const { patient, location, schedule, appointment } = resources;
   const statementNumber = appointment.id ?? 'unknown';
   const patientName = patient.name?.[0];
   const guarantorName = guarantorResource.name?.[0];
   const guarantorAddress = guarantorResource.address?.[0];
-  console.log('Timezone for test: ', JSON.stringify(input.userTimezone));
-  const { date: visitDate = '', time: visitTime = '' } = formatDateToMDYWithTime(
-    appointment?.start,
-    input.userTimezone ?? 'America/New_York'
-  ) ?? { date: '', time: '' };
+  const timezone = resolveTimezone(schedule, location);
+  const { date: visitDate = '', time: visitTime = '' } = formatDateToMDYWithTime(appointment?.start, timezone) ?? {
+    date: '',
+    time: '',
+  };
 
   const today = DateTime.now();
   const patientFirstName = patientName?.given?.[0] ?? '';

@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.31.0",
+  "version": "1.32.0",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -87,6 +87,7 @@
     "@types/xml2js": "^0.4.14",
     "archiver": "^7.0.1",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.0",
     "esbuild": "^0.25.1",
     "esbuild-plugin-copy": "^2.1.1",
     "express": "^4.21.2",

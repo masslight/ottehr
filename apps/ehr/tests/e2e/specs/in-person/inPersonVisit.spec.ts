@@ -14,6 +14,8 @@ import {
   getPatientDetailsStepAnswers,
   getPaymentOptionInsuranceAnswers,
   getResponsiblePartyStepAnswers,
+  hasAttorneyInformationPage,
+  hasEmployerInformationPage,
   INSURANCE_PLAN_PAYER_META_TAG_CODE,
   isoToDateObject,
 } from 'utils';
@@ -116,9 +118,9 @@ test.describe('In-person visit', async () => {
           insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
         }),
         getResponsiblePartyStepAnswers({}),
-        getEmployerInformationStepAnswers({}),
+        ...(hasEmployerInformationPage() ? [getEmployerInformationStepAnswers({})] : []),
         getEmergencyContactStepAnswers({}),
-        getAttorneyInformationStepAnswers({}),
+        ...(hasAttorneyInformationPage() ? [getAttorneyInformationStepAnswers({})] : []),
         getConsentStepAnswers({}),
       ];
     });
@@ -266,7 +268,7 @@ test.describe('In-person visit', async () => {
           insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
         }),
         getResponsiblePartyStepAnswers({}),
-        getEmployerInformationStepAnswers({}),
+        ...(hasEmployerInformationPage() ? [getEmployerInformationStepAnswers({})] : []),
         getEmergencyContactStepAnswers({}),
         getConsentStepAnswers({}),
       ];

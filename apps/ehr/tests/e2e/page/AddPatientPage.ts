@@ -129,8 +129,16 @@ export class AddPatientPage {
   }
 
   async selectServiceCategory(serviceCategory: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown).click();
-    await this.#page.getByText(serviceCategory).click();
+    const dropdown = this.#page.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
+    const isDisabled = await dropdown.evaluate(
+      (el) => el.getAttribute('aria-disabled') === 'true' || el.classList.contains('Mui-disabled')
+    );
+    if (isDisabled) {
+      await expect(dropdown).toContainText(serviceCategory);
+    } else {
+      await dropdown.click();
+      await this.#page.getByText(serviceCategory).click();
+    }
   }
 }
 

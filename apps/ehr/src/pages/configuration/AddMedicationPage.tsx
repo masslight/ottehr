@@ -28,7 +28,7 @@ export default function AddMedicationPage(): ReactElement {
   const navigate = useNavigate();
 
   const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
-  const medSearchOptions = data || [];
+  const medSearchOptions = data?.filter((option) => !option.isObsolete) || [];
 
   const { isFetching: isCptSearching, data: cptData } = useGetCPTHCPCSSearch({
     search: debouncedCptSearch,
@@ -72,7 +72,7 @@ export default function AddMedicationPage(): ReactElement {
 
     const name = `${selectedMedication.name}${selectedMedication.strength ? ` (${selectedMedication.strength})` : ''}`;
     const ndc = selectedMedication.ndc ?? undefined;
-    const medispanID = selectedMedication.routedDoseFormDrugId.toString();
+    const medispanID = selectedMedication.id.toString();
     const finalCptCodes = cptCodes.map(({ code, display }) => ({ code, display }));
     const finalHcpcsCodes = hcpcsCodes.map(({ code, display }) => ({ code, display }));
 
