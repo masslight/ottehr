@@ -1,4 +1,4 @@
-import { InfoOutlined } from '@mui/icons-material';
+import { AddCircleOutline, CheckCircle, InfoOutlined } from '@mui/icons-material';
 import {
   Box,
   Checkbox,
@@ -15,7 +15,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { DocumentReference } from 'fhir/r4b';
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { icd10Search } from 'src/api/api';
 import { HospitalizationOptions } from 'src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
 import { AiSectionHeader } from 'src/features/visits/shared/components/AiSection';
@@ -56,8 +56,16 @@ interface HighlightedTextProps {
   text: string;
   items?: AiSuggestionItem[];
   fieldType: HighlightFieldType;
-  onAddResult: (fieldType: HighlightFieldType, result: SearchResult, dosageUnconfirmed: boolean) => Promise<void>;
+  onAddResult: (
+    fieldType: HighlightFieldType,
+    result: SearchResult,
+    dosageUnconfirmed: boolean,
+    itemDisplay?: string
+  ) => Promise<void>;
   onSearch: (fieldType: HighlightFieldType, item: AiSuggestionItem) => Promise<SearchResult[]>;
+  searchCache?: Map<string, SearchResult[]>;
+  emptySearchItems?: Set<string>;
+  addedItems?: Set<string>;
 }
 
 const HighlightedText = memo(function HighlightedText({
@@ -66,6 +74,9 @@ const HighlightedText = memo(function HighlightedText({
   fieldType,
   onAddResult,
   onSearch,
+  searchCache,
+  emptySearchItems,
+  addedItems,
 }: HighlightedTextProps): React.ReactElement {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -78,6 +89,15 @@ const HighlightedText = memo(function HighlightedText({
       if (!fieldType) return;
       setAnchorEl(event.currentTarget);
       setActiveItem(item.display);
+
+      // Use cached results if available
+      const cached = searchCache?.get(item.display);
+      if (cached) {
+        setSearchResults(cached);
+        setSearchLoading(false);
+        return;
+      }
+
       setSearchLoading(true);
       setSearchResults([]);
       try {
@@ -89,7 +109,7 @@ const HighlightedText = memo(function HighlightedText({
         setSearchLoading(false);
       }
     },
-    [fieldType, onSearch]
+    [fieldType, onSearch, searchCache]
   );
 
   const handleClose = useCallback(() => {
@@ -102,14 +122,20 @@ const HighlightedText = memo(function HighlightedText({
   const handleSelectResult = useCallback(
     async (result: SearchResult) => {
       if (fieldType) {
-        await onAddResult(fieldType, result, dosageUnconfirmed);
+        await onAddResult(fieldType, result, dosageUnconfirmed, activeItem || undefined);
       }
       handleClose();
     },
-    [fieldType, dosageUnconfirmed, handleClose, onAddResult]
+    [fieldType, dosageUnconfirmed, handleClose, onAddResult, activeItem]
   );
 
-  if (!items || items.length === 0) {
+  // Filter out items that returned no search results during pre-loading
+  const activeItems = useMemo(
+    () => (items || []).filter((item) => !emptySearchItems || !emptySearchItems.has(item.display)),
+    [items, emptySearchItems]
+  );
+
+  if (activeItems.length === 0) {
     return <>{text}</>;
   }
 
@@ -117,7 +143,7 @@ const HighlightedText = memo(function HighlightedText({
   // If the exact display doesn't match, try searchTerms and common variations as fallbacks.
   const ranges: { start: number; end: number; item: AiSuggestionItem }[] = [];
   const textLower = text.toLowerCase();
-  for (const item of items) {
+  for (const item of activeItems) {
     const candidates = [item.display, ...item.searchTerms, item.display.replace(/([a-z])([A-Z])/g, '$1 $2')];
     let matched = false;
     for (const candidate of candidates) {
@@ -159,26 +185,28 @@ const HighlightedText = memo(function HighlightedText({
     if (cursor < range.start) {
       fragments.push(text.slice(cursor, range.start));
     }
+    const isAdded = addedItems?.has(range.item.display);
     fragments.push(
       <Box
         component="span"
         key={range.start}
         onClick={isClickable ? (e) => handleHighlightClick(e, range.item) : undefined}
         sx={{
-          backgroundColor: 'rgba(25, 118, 210, 0.15)',
+          backgroundColor: isAdded ? 'rgba(76, 175, 80, 0.15)' : 'rgba(25, 118, 210, 0.15)',
           borderRadius: '3px',
           padding: '1px 2px',
           ...(isClickable
             ? {
                 cursor: 'pointer',
                 '&:hover': {
-                  backgroundColor: 'rgba(25, 118, 210, 0.3)',
+                  backgroundColor: isAdded ? 'rgba(76, 175, 80, 0.3)' : 'rgba(25, 118, 210, 0.3)',
                 },
               }
             : {}),
         }}
       >
         {text.slice(range.start, range.end)}
+        {isAdded && <CheckCircle sx={{ fontSize: 12, color: 'success.main', ml: 0.25, verticalAlign: 'middle' }} />}
       </Box>
     );
     cursor = range.end;
@@ -258,6 +286,8 @@ export interface AiSuggestionProps {
   procedureSuggestions?: ProcedureSuggestion[];
   loading?: boolean;
   hideHeader?: boolean;
+  onAppendToNote?: (text: string, resourceId?: string) => void;
+  appendedNoteIds?: Set<string>;
 }
 
 export default function AiSuggestion({
@@ -267,6 +297,8 @@ export default function AiSuggestion({
   procedureSuggestions,
   loading,
   hideHeader,
+  onAppendToNote,
+  appendedNoteIds,
 }: AiSuggestionProps): React.ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
@@ -336,9 +368,71 @@ export default function AiSuggestion({
     [oystehr, oystehrZambda]
   );
 
+  // Pre-load search results for all items across all observations.
+  // Uses refs to avoid re-renders while popover is open (which would destroy the anchor element).
+  // A single state update at the end triggers one re-render to hide items with no results.
+  const searchCacheRef = useRef<Map<string, SearchResult[]>>(new Map());
+  const emptySearchItemsRef = useRef<Set<string>>(new Set());
+  const [preloadComplete, setPreloadComplete] = useState(false);
+  const preloadedRef = useRef<Set<string>>(new Set());
+
+  const searchCache = searchCacheRef.current;
+  const emptySearchItems = preloadComplete ? emptySearchItemsRef.current : undefined;
+
+  useEffect(() => {
+    if (!highlightFieldType || !content) return;
+
+    const allItems: AiSuggestionItem[] = [];
+    for (const obs of content) {
+      if (obs.items) {
+        for (const item of obs.items) {
+          if (!preloadedRef.current.has(item.display)) {
+            allItems.push(item);
+            preloadedRef.current.add(item.display);
+          }
+        }
+      }
+    }
+
+    if (allItems.length === 0) return;
+
+    const preload = async (): Promise<void> => {
+      await Promise.all(
+        allItems.map(async (item) => {
+          try {
+            const results = await handleSearch(highlightFieldType, item);
+            if (results.length > 0) {
+              searchCacheRef.current.set(item.display, results);
+            } else {
+              emptySearchItemsRef.current.add(item.display);
+            }
+          } catch {
+            emptySearchItemsRef.current.add(item.display);
+          }
+        })
+      );
+
+      setPreloadComplete(true);
+    };
+
+    void preload();
+  }, [highlightFieldType, content, handleSearch]);
+
+  // Track which highlighted items have been added to the chart
+  const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
+
   // Stable callback for adding a result to the chart — passed to HighlightedText
   const handleAddResult = useCallback(
-    async (fieldType: HighlightFieldType, result: SearchResult, dosageUnconfirmed: boolean): Promise<void> => {
+    async (
+      fieldType: HighlightFieldType,
+      result: SearchResult,
+      dosageUnconfirmed: boolean,
+      itemDisplay?: string
+    ): Promise<void> => {
+      // Optimistic: show green check immediately
+      if (itemDisplay) {
+        setAddedItems((prev) => new Set(prev).add(itemDisplay));
+      }
       try {
         if (fieldType === 'medications') {
           const strength = result.strength;
@@ -373,6 +467,14 @@ export default function AiSuggestion({
         }
       } catch (err) {
         console.error('Failed to add item:', err);
+        // Rollback on failure
+        if (itemDisplay) {
+          setAddedItems((prev) => {
+            const next = new Set(prev);
+            next.delete(itemDisplay);
+            return next;
+          });
+        }
       }
     },
     [addMedication, addAllergy, addCondition, addSurgicalHistory, addHospitalization]
@@ -427,11 +529,26 @@ export default function AiSuggestion({
               : undefined;
             return (
               <Box sx={{ paddingBottom: '15px' }} key={item.resourceId}>
-                <Typography variant="body2" style={{ color: theme.palette.secondary.light }}>
-                  {documentSource
-                    ? getSource(documentSource, oystehr, chartData?.aiChat?.providers)
-                    : 'source is unknown'}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Typography variant="body2" style={{ color: theme.palette.secondary.light }}>
+                    {documentSource
+                      ? getSource(documentSource, oystehr, chartData?.aiChat?.providers)
+                      : 'source is unknown'}
+                  </Typography>
+                  {onAppendToNote && item.resourceId && appendedNoteIds?.has(item.resourceId) ? (
+                    <CheckCircle sx={{ fontSize: 16, color: 'success.main', ml: 0.25 }} />
+                  ) : onAppendToNote ? (
+                    <Tooltip title="Add to note">
+                      <IconButton
+                        size="small"
+                        onClick={() => onAppendToNote(item.value, item.resourceId)}
+                        sx={{ padding: '2px', color: theme.palette.primary.main }}
+                      >
+                        <AddCircleOutline sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+                  ) : null}
+                </Box>
                 <Typography variant="body1">
                   <HighlightedText
                     text={item.value}
@@ -439,6 +556,9 @@ export default function AiSuggestion({
                     fieldType={highlightFieldType}
                     onSearch={handleSearch}
                     onAddResult={handleAddResult}
+                    searchCache={searchCache}
+                    emptySearchItems={emptySearchItems}
+                    addedItems={addedItems}
                   />
                 </Typography>
               </Box>
