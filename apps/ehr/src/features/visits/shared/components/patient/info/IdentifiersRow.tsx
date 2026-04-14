@@ -14,8 +14,7 @@ type Props = {
 };
 
 export const IdentifiersRow: FC<Props> = ({ patient, loading, showPidPrefix = true }) => {
-  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
-  const friendlyId = patient ? getFriendlyPatientId(patient, projectId) : '';
+  const friendlyId = patient ? getFriendlyPatientId(patient) : '';
 
   return (
     <Box sx={{ display: 'flex', gap: 2 }}>

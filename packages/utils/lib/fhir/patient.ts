@@ -837,7 +837,12 @@ export const mapGenderToLabel: { [name in Exclude<Patient['gender'], undefined>]
   unknown: 'Unknown',
 };
 
-export function getFriendlyPatientId(patient: Patient, projectId: string): string | undefined {
-  const system = `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/${projectId}`;
-  return patient.identifier?.find((ident) => ident.system === system)?.value;
+export function getFriendlyPatientId(patient: Patient): string {
+  const system = getFriendlyPatientIdSystem();
+  return patient.identifier?.find((ident) => ident.system === system)?.value ?? '';
 }
+
+export const getFriendlyPatientIdSystem = (): string | undefined => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  return projectId ? `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/${projectId}` : undefined;
+};

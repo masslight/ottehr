@@ -1,5 +1,5 @@
+import { getFriendlyPatientIdSystem } from 'utils';
 import { SearchOptionsFilters } from '../types';
-import { getFriendlyPatientIdSystem } from './getFriendlyPatientIdSystem';
 
 /**
  * Generates all possible formatting variants for US phone numbers (+1)
