@@ -1,6 +1,6 @@
 import { BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { formatDOB, PATIENT_RECORD_CONFIG } from 'utils';
+import { formatDOB, FRIENDLY_PATIENT_ID_SYSTEM_BASE, PATIENT_RECORD_CONFIG } from 'utils';
 import {
   PATIENT_BIRTH_DATE_SHORT,
   PATIENT_BIRTHDAY,
@@ -107,6 +107,20 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
       email: PATIENT_EMAIL,
+    });
+  });
+
+  test('Search by PID', async ({ page }) => {
+    const system = `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/${process.env.PROJECT_ID}`;
+    const friendlyId = resourceHandler.patient.identifier?.find((ident) => ident.system === system)?.value;
+
+    await page.goto('/patients');
+
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByPid(friendlyId!);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      lastName: PATIENT_LAST_NAME,
     });
   });
 

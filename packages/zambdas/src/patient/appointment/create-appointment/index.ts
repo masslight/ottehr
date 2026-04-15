@@ -292,6 +292,8 @@ export async function createAppointment(
   // New user, new patient, create a conversation and add the participants including M2M Device and RelatedPerson
   // Returning user, new patient, get the user's conversation and add the participant RelatedPerson
   // Returning user, returning patient, get the user's conversation
+  let patientToReturn: Patient = fhirPatient;
+
   if (!patient.id && fhirPatient.id) {
     console.log('New patient');
     if (!verifiedFormattedPhoneNumber) {
@@ -300,10 +302,11 @@ export async function createAppointment(
     // If it is a new patient, create a RelatedPerson resource for the Patient
     // and create a Person resource if there is not one for the account
     // todo: this needs to happen via a transactional with the other must-happen-for-this-request-to-succeed items
-    const [userResource] = await Promise.all([
+    const [userResource, patientWithFriendlyId] = await Promise.all([
       createUserResourcesForPatient(oystehr, fhirPatient.id, verifiedFormattedPhoneNumber),
       oystehr.fhir.generateFriendlyPatientId({ id: fhirPatient.id }).catch((error) => {
         console.error(`Failed to generate friendly patient ID for Patient/${fhirPatient.id}:`, error);
+        return undefined;
       }),
     ]);
     relatedPersonId = userResource?.relatedPerson?.id || '';
@@ -311,6 +314,10 @@ export async function createAppointment(
 
     if (!person.id) {
       throw new Error('Person resource does not have an ID');
+    }
+
+    if (patientWithFriendlyId) {
+      patientToReturn = patientWithFriendlyId as Patient;
     }
   }
 
@@ -339,7 +346,7 @@ export async function createAppointment(
       appointment,
       encounter,
       questionnaire,
-      patient: fhirPatient,
+      patient: patientToReturn,
     },
   };
 }
