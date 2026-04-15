@@ -7,8 +7,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { migrateExamData } from 'src/api/api';
+import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
+import { useExamObservationsStore } from '../../stores/appointment/exam-observations.store';
 
 type ExamMigrationWarningProps = {
   unmatchedFields: string[];
@@ -28,8 +30,17 @@ export const ExamMigrationWarning: FC<ExamMigrationWarningProps> = ({ unmatchedF
     try {
       await migrateExamData(oystehrZambda, { encounterId: resources.encounter.id });
       enqueueSnackbar('Exam data migrated successfully', { variant: 'success' });
-      // Refresh chart data to reflect migrated observations
-      await queryClient.invalidateQueries({ queryKey: ['chart-data'] });
+      // Remove only the unmatched fields from the store without touching hasInitialData
+      const currentState = useExamObservationsStore.getState();
+      const filteredState = Object.fromEntries(
+        Object.entries(currentState).filter(([key]) => !unmatchedFields.includes(key))
+      );
+      useExamObservationsStore.setState(filteredState, true);
+      // Refetch chart data to pull in the newly migrated observations
+      await queryClient.invalidateQueries({
+        queryKey: [CHART_DATA_QUERY_KEY, resources.encounter.id],
+        refetchType: 'active',
+      });
     } catch (error) {
       console.error('Migration failed:', error);
       enqueueSnackbar('Failed to migrate exam data. Please try again.', { variant: 'error' });
