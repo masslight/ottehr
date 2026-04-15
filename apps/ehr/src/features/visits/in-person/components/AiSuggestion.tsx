@@ -384,7 +384,7 @@ export default function AiSuggestion({
 
     const allItems: AiSuggestionItem[] = [];
     for (const obs of content) {
-      if (obs.items) {
+      if ('items' in obs && obs.items) {
         for (const item of obs.items) {
           if (!preloadedRef.current.has(item.display)) {
             allItems.push(item);
@@ -552,7 +552,7 @@ export default function AiSuggestion({
                 <Typography variant="body1">
                   <HighlightedText
                     text={item.value}
-                    items={item.items}
+                    items={'items' in item ? item.items : undefined}
                     fieldType={highlightFieldType}
                     onSearch={handleSearch}
                     onAddResult={handleAddResult}
