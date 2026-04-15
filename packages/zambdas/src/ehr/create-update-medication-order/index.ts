@@ -46,7 +46,6 @@ import {
 } from './fhir-resources-creation';
 import {
   createMedicationCopy,
-  getCptHcpcsCodesToAddToChartData,
   getEncounterIdFromMA,
   getMedicationById,
   practitionerIdFromZambdaInput,
@@ -147,8 +146,8 @@ async function updateOrder(
   console.log('updateOrder');
 
   const currentStatus = mapFhirToOrderStatus(orderResources.medicationAdministration);
-  if (currentStatus !== 'pending' && newStatus)
-    throw INVALID_INPUT_ERROR(`Can't change status if current is not 'pending'. Current status is: ${currentStatus}`);
+  if (currentStatus === 'cancelled' && newStatus)
+    throw INVALID_INPUT_ERROR(`Can't change status of a cancelled order. Current status is: ${currentStatus}`);
   console.log(`Current order status is: ${currentStatus}`);
 
   if (newStatus) validateProviderAccess(orderData, newStatus, orderResources, practitionerIdCalledZambda);
@@ -450,25 +449,38 @@ async function manageAdditionalCptCodesForOrder(
 ): Promise<void> {
   try {
     console.log(`Managing additional CPT codes for order with status: ${medicationStatus}`);
-    const medication = getMedicationFromMA(medicationAdministration);
 
-    if (statusesToCreateAdditionalCptCodes.includes(medicationStatus) && medication) {
-      console.log('Adding additional CPT codes to chart data');
-      const getChartDataInput: GetChartDataRequest = {
-        encounterId,
-      };
+    if (statusesToCreateAdditionalCptCodes.includes(medicationStatus)) {
+      // Read CPT codes from the MedicationAdministration extension — this is the
+      // single source of truth for the order's CPT codes. It includes auto-populated
+      // codes from the Medication resource (inventory defaults) plus any user edits.
+      const cptExt = medicationAdministration.extension?.find(
+        (ext) => ext.url === 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
+      );
+      let orderCptCodes: { code: string; display: string }[] = [];
+      if (cptExt?.valueString) {
+        try {
+          orderCptCodes = JSON.parse(cptExt.valueString) as { code: string; display: string }[];
+        } catch {
+          console.log('Failed to parse CPT codes extension');
+        }
+      }
+
+      if (orderCptCodes.length === 0) {
+        console.log('No CPT codes on this order, skipping chart data update');
+        return;
+      }
+
+      console.log('Adding CPT codes to chart data from order');
       const chartDataResponse = await oystehr.zambda.execute(
-        {
-          id: 'get-chart-data',
-          ...getChartDataInput,
-        },
+        { id: 'get-chart-data', encounterId } as GetChartDataRequest & { id: string },
         { accessToken: userToken }
       );
       const chartData = chooseJson(chartDataResponse) as GetChartDataResponse;
       const chartDataCptCodes = chartData.cptCodes?.map((code) => code.code) ?? [];
-      console.log('Chart data CPT codes: ', JSON.stringify(chartDataCptCodes.join(', ')));
 
-      const codesToAddToChartData = await getCptHcpcsCodesToAddToChartData(oystehr, medication, chartDataCptCodes);
+      const codesToAddToChartData = orderCptCodes.filter((oc) => !chartDataCptCodes.includes(oc.code));
+
       console.log(
         'Codes to add to chart data: ',
         JSON.stringify(codesToAddToChartData.map((coding) => coding.code).join(', '))

@@ -88,6 +88,29 @@ const PERFORMED_BY = ['Healthcare staff', 'Provider', 'Both'];
 const SPECIMEN_SENT = ['Yes', 'No'];
 const DOCUMENTED_BY = ['Provider', 'Healthcare staff'];
 
+// Keys from ProcedureQuickPickData that should be applied to page state when a quick pick is selected.
+// Encounter-specific fields (diagnoses, performerType, consentObtained) and metadata (id, name, procedureType)
+// are intentionally excluded.
+const QUICK_PICK_APPLY_KEYS: (keyof ProcedureQuickPickData)[] = [
+  'cptCodes',
+  'medicationUsed',
+  'bodySite',
+  'otherBodySite',
+  'bodySide',
+  'technique',
+  'suppliesUsed',
+  'otherSuppliesUsed',
+  'procedureDetails',
+  'specimenSent',
+  'complications',
+  'otherComplications',
+  'patientResponse',
+  'postInstructions',
+  'otherPostInstructions',
+  'timeSpent',
+  'documentedBy',
+];
+
 interface PageState {
   consentObtained?: boolean;
   cptCodes?: CPTCodeDTO[];
@@ -474,9 +497,7 @@ export default function ProceduresNew(): ReactElement {
         selectOptions?.procedureTypes?.find((pt) => pt.name === formValues.procedureType)?.code ??
         formValues.procedureType,
       cptCodes: state.cptCodes?.map((c) => ({ code: c.code, display: c.display })),
-      diagnoses: state.diagnoses?.map((d) => ({ code: d.code, display: d.display })),
-      consentObtained: state.consentObtained,
-      performerType: state.performerType,
+      // diagnoses, consentObtained, and performerType excluded — encounter-specific
       medicationUsed: state.medicationUsed,
       bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim(),
       otherBodySite: state.bodySite === OTHER ? state.otherBodySite : undefined,
@@ -823,15 +844,8 @@ export default function ProceduresNew(): ReactElement {
               ?.name ?? quickPick.procedureType,
         });
       }
-      Object.entries(quickPick).forEach(([key, value]) => {
-        if (key !== 'name' && key !== 'procedureType') {
-          (state as any)[key] = value;
-        }
-      });
-      Object.entries(state).forEach(([key, _value]) => {
-        if ((quickPick as any)[key] == null) {
-          (state as any)[key] = undefined;
-        }
+      QUICK_PICK_APPLY_KEYS.forEach((key) => {
+        (state as Record<string, unknown>)[key] = quickPick[key];
       });
     });
   };

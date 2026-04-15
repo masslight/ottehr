@@ -3,9 +3,9 @@ import { DateTime } from 'luxon';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { InHouseMedicationsPage } from '../../page/in-person/InHouseMedicationsPage';
+import { expectInHouseMedicationsPage, InHouseMedicationsPage } from '../../page/in-person/InHouseMedicationsPage';
 import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
-import { expectEditOrderPage, expectOrderMedicationPage } from '../../page/OrderMedicationPage';
+import { expectOrderMedicationPage } from '../../page/OrderMedicationPage';
 
 const PROCESS_ID = `createAndOrderMedication.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
@@ -93,11 +93,9 @@ test('Order the newly created medication for a patient', async () => {
   await orderMedicationPage.editMedicationCard.waitForLoadOrderedBy();
   await orderMedicationPage.editMedicationCard.selectFirstNonEmptyOrderedBy();
   await orderMedicationPage.clickOrderMedicationButton();
-  await orderMedicationPage.editMedicationCard.expectSaved();
 
-  // Navigate back to the MAR and verify the order appears
-  const editOrderPage = await expectEditOrderPage(page);
-  const medicationsPage: InHouseMedicationsPage = await editOrderPage.clickBackButton();
+  // After creating an order, the app navigates directly to the MAR
+  const medicationsPage: InHouseMedicationsPage = await expectInHouseMedicationsPage(page);
 
   await medicationsPage.verifyMedicationPresent({
     medicationName: createdMedicationName!,

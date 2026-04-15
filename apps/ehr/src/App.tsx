@@ -25,8 +25,12 @@ import EditChargeItem from './features/visits/telemed/components/admin/EditCharg
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
 import GlobalTemplateDetailPage from './features/visits/telemed/components/admin/GlobalTemplateDetailPage';
+import ImmunizationQuickPickDetailPage from './features/visits/telemed/components/admin/ImmunizationQuickPickDetailPage';
 import AdminAddInHouseLab from './features/visits/telemed/components/admin/in-house-labs/AdminAddInHouseLab';
 import AdminInHouseLabDetails from './features/visits/telemed/components/admin/in-house-labs/AdminInHouseLabDetails';
+import InHouseMedicationQuickPickDetailPage from './features/visits/telemed/components/admin/InHouseMedicationQuickPickDetailPage';
+import ProcedureQuickPickDetailPage from './features/visits/telemed/components/admin/ProcedureQuickPickDetailPage';
+import RadiologyQuickPickDetailPage from './features/visits/telemed/components/admin/RadiologyQuickPickDetailPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
@@ -227,6 +231,16 @@ function App(): ReactElement {
                   <Route path="/admin" element={<AdminPage />} />
                   <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
+                  <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
+                  <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
+                  <Route
+                    path="/admin/quick-picks/immunization/:quickPickId"
+                    element={<ImmunizationQuickPickDetailPage />}
+                  />
+                  <Route
+                    path="/admin/quick-picks/in-house-medication/:quickPickId"
+                    element={<InHouseMedicationQuickPickDetailPage />}
+                  />
                   <Route path="/admin/employees/add" element={<AddEmployeePage />} />
                   <Route path="/admin/employee/:id" element={<EditEmployeePage />} />
                   <Route path="/admin/schedule/:schedule-type/add" element={<AddSchedulePage />} />
