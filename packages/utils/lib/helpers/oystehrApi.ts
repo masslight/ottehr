@@ -82,12 +82,12 @@ export const apiErrorToThrow = (error: any): APIError => {
  * Extracts the error message from an API error with fallback to default message.
  */
 export const getApiError = ({ error, defaultError }: { error: APIError; defaultError: string }): string => {
-  const err = error as any;
-  if (err?.output?.message) {
-    return err.output.message;
+  // Errors from Oystehr SDK can have nested structure: { output: { message, code } }
+  if ((error as any)?.output?.message) {
+    return (error as any).output.message;
   }
-  if (err?.message) {
-    return err.message;
+  if (error?.message) {
+    return error.message;
   }
   return defaultError;
 };
