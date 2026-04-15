@@ -49,10 +49,6 @@ export const ValueSetsConfigSchema = z.object({
   cancelReasonOptionsInPersonProvider: FormFieldOptionsSchema,
   cancelReasonOptionsVirtualPatient: FormFieldOptionsSchema,
   cancelReasonOptionsVirtualProvider: FormFieldOptionsSchema,
-  reasonForVisitOptions: FormFieldOptionsSchema,
-  reasonForVisitOptionsOccMed: FormFieldOptionsSchema,
-  reasonForVisitOptionsWorkersComp: FormFieldOptionsSchema,
-  reasonForVisitOptionsPreOp: FormFieldOptionsSchema.optional(),
   schoolWorkNoteOptions: FormFieldOptionsSchema,
 
   // Relationships

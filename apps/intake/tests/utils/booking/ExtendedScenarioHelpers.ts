@@ -59,10 +59,10 @@ export async function executeReturningPatientFlow(
   // Handle service category selection if needed
   const categories = scenario.resolvedConfig.serviceCategories;
   if (categories.length > 1) {
-    const category = categories.find((cat) => cat.code === scenario.serviceCategory);
+    const category = categories.find((sc) => sc.category.code === scenario.serviceCategory);
     if (category) {
-      await page.getByRole('button', { name: category.display }).click();
-      console.log(`Selected service category: ${category.display}`);
+      await page.getByRole('button', { name: category.category.display }).click();
+      console.log(`Selected service category: ${category.category.display}`);
     }
   }
 

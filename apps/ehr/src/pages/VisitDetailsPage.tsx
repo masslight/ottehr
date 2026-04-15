@@ -690,7 +690,7 @@ export default function VisitDetailsPage(): ReactElement {
   const appointmentDate = formatDateForDisplay(appointmentStartTime.toISO() || '', locationTimeZone);
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
   const serviceCategoryLabel =
-    BOOKING_CONFIG.serviceCategories.find((category) => category.code === serviceCategory)?.display ??
+    BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategory)?.category.display ??
     serviceCategory ??
     '';
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
@@ -1550,9 +1550,9 @@ export default function VisitDetailsPage(): ReactElement {
                           )
                         }
                       >
-                        {BOOKING_CONFIG.serviceCategories.map((category) => (
-                          <MenuItem key={category.code} value={category.code}>
-                            {category.display}
+                        {BOOKING_CONFIG.serviceCategories.map((sc) => (
+                          <MenuItem key={sc.category.code} value={sc.category.code}>
+                            {sc.category.display}
                           </MenuItem>
                         ))}
                       </Select>

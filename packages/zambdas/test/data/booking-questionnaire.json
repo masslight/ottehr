@@ -338,6 +338,21 @@
             },
             {
               "valueString": "Other"
+            },
+            {
+              "valueString": "Injury"
+            },
+            {
+              "valueString": "Testing"
+            },
+            {
+              "valueString": "Physical"
+            },
+            {
+              "valueString": "New injury"
+            },
+            {
+              "valueString": "Follow-up"
             }
           ],
           "enableWhen": [
@@ -348,8 +363,13 @@
             },
             {
               "question": "appointment-service-category",
-              "operator": "exists",
-              "answerBoolean": false
+              "operator": "=",
+              "answerString": "occupational-medicine"
+            },
+            {
+              "question": "appointment-service-category",
+              "operator": "=",
+              "answerString": "workers-comp"
             }
           ],
           "enableBehavior": "any",
@@ -384,53 +404,6 @@
                 },
                 {
                   "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                  "valueString": "exists"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                  "valueBoolean": false
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "linkId": "reason-for-visit-om",
-          "type": "choice",
-          "text": "Reason for visit",
-          "required": false,
-          "answerOption": [
-            {
-              "valueString": "Injury"
-            },
-            {
-              "valueString": "Testing"
-            },
-            {
-              "valueString": "Physical"
-            }
-          ],
-          "enableWhen": [
-            {
-              "question": "appointment-service-category",
-              "operator": "=",
-              "answerString": "occupational-medicine"
-            }
-          ],
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                  "valueString": "appointment-service-category"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
                   "valueString": "="
                 },
                 {
@@ -438,33 +411,6 @@
                   "valueString": "occupational-medicine"
                 }
               ]
-            }
-          ]
-        },
-        {
-          "linkId": "reason-for-visit-wc",
-          "type": "choice",
-          "text": "Reason for visit",
-          "required": false,
-          "answerOption": [
-            {
-              "valueString": "New injury"
-            },
-            {
-              "valueString": "Follow-up"
-            }
-          ],
-          "enableWhen": [
-            {
-              "question": "appointment-service-category",
-              "operator": "=",
-              "answerString": "workers-comp"
-            }
-          ],
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
             },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -480,6 +426,388 @@
                 {
                   "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
                   "valueString": "workers-comp"
+                }
+              ]
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question",
+                  "valueString": "appointment-service-category"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer",
+                  "valueString": "urgent-care"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question",
+                  "valueString": "appointment-service-mode"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer",
+                  "valueString": "in-person"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Cough and/or congestion"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Throat pain"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Eye concern"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Fever"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Ear pain"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Vomiting and/or diarrhea"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Abdominal (belly) pain"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Rash or skin issue"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Urinary problem"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Breathing problem"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Injury to arm"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Injury to leg"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Injury to head"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Injury (Other)"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Cut to arm or leg"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Cut to face or head"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Removal of sutures/stitches/staples"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Choked or swallowed something"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Allergic reaction to medication or food"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Auto accident"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Other"
+                }
+              ]
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question",
+                  "valueString": "appointment-service-category"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer",
+                  "valueString": "urgent-care"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question",
+                  "valueString": "appointment-service-mode"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer",
+                  "valueString": "virtual"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Cough and/or congestion"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Throat pain"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Eye concern"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Fever"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Ear pain"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Vomiting and/or diarrhea"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Abdominal (belly) pain"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Rash or skin issue"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Urinary problem"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Breathing problem"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Injury to arm"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Injury to leg"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Injury to head"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Injury (Other)"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Cut to arm or leg"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Cut to face or head"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Removal of sutures/stitches/staples"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Choked or swallowed something"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Allergic reaction to medication or food"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Auto accident"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Other"
+                }
+              ]
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question",
+                  "valueString": "appointment-service-category"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer",
+                  "valueString": "occupational-medicine"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question",
+                  "valueString": "appointment-service-mode"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer",
+                  "valueString": "in-person"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Injury"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Testing"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Physical"
+                }
+              ]
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question",
+                  "valueString": "appointment-service-category"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer",
+                  "valueString": "occupational-medicine"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question",
+                  "valueString": "appointment-service-mode"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer",
+                  "valueString": "virtual"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Injury"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Testing"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Physical"
+                }
+              ]
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question",
+                  "valueString": "appointment-service-category"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer",
+                  "valueString": "workers-comp"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question",
+                  "valueString": "appointment-service-mode"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer",
+                  "valueString": "in-person"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "New injury"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Follow-up"
+                }
+              ]
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question",
+                  "valueString": "appointment-service-category"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer",
+                  "valueString": "workers-comp"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-question",
+                  "valueString": "appointment-service-mode"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-answer",
+                  "valueString": "virtual"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "New injury"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter-include",
+                  "valueString": "Follow-up"
                 }
               ]
             }
