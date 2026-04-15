@@ -74,11 +74,6 @@ setupSentry({
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
 
-const TelemedTrackingBoardPageLazy = lazy(async () => {
-  const TrackingBoardPage = await import('./features/visits/telemed/pages/TrackingBoardPage');
-  return { default: TrackingBoardPage.TrackingBoardPage };
-});
-
 const TelemedAppointmentPageLazy = lazy(async () => {
   const TelemedAppointmentPage = await import('./features/visits/telemed/pages/AppointmentPage');
   return { default: TelemedAppointmentPage.AppointmentPage };
@@ -250,14 +245,6 @@ function App(): ReactElement {
                   <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
                   {/** telemed */}
                   <Route
-                    path="/telemed/appointments"
-                    element={
-                      <Suspense fallback={<LoadingScreen />}>
-                        <TelemedTrackingBoardPageLazy />
-                      </Suspense>
-                    }
-                  ></Route>
-                  <Route
                     path="/telemed/appointments/:id"
                     element={
                       <Suspense fallback={<LoadingScreen />}>
@@ -297,14 +284,6 @@ function App(): ReactElement {
                   <Route path="/rcm/claims" element={<Claims />} />
                   <Route path="/rcm/claims/:id" element={<Claim />} />
                   {/** telemed */}
-                  <Route
-                    path="/telemed/appointments"
-                    element={
-                      <Suspense fallback={<LoadingScreen />}>
-                        <TelemedTrackingBoardPageLazy />
-                      </Suspense>
-                    }
-                  ></Route>
                   <Route path="/telemed/appointments/:id/visit-details" element={<VisitDetailsPage />} />
                   <Route
                     path="/telemed/appointments/:id"

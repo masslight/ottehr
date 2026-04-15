@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Location, Schedule, Slot } from 'fhir/r4b';
+import { Appointment, Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   CreateAppointmentInputParams,
@@ -173,8 +173,9 @@ describe('get-telemed-appointments integration tests', () => {
       DateTime.fromISO(endOfTomorrowSlotStart).setZone('UTC').toISO()
     );
 
-    const updatedAppt = await oystehr.fhir.update({
-      ...addProcessIdMetaTagToResource(createAppointmentResponse.resources.appointment, processId),
+    const updatedAppt = await oystehr.fhir.update<Appointment>({
+      ...(addProcessIdMetaTagToResource(createAppointmentResponse.resources.appointment, processId) as Appointment),
+      status: 'arrived',
     });
 
     console.log('  APPOINTMENT UPDATED with processId meta tag');

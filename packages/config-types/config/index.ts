@@ -14,8 +14,22 @@ export type { DisplayTextDef, LinkDef, TextWithLinkComposition } from './display
 export { HomepageOptions } from './homepage-options';
 
 // Booking config types
-export { StrongCodingSchema, BookingOptionSchema, VisitType, BookingConfigSchema } from './booking';
-export type { StrongCoding, BookingOption, CanonicalUrl, BookingConfig } from './booking';
+export {
+  StrongCodingSchema,
+  BookingOptionSchema,
+  VisitType,
+  BookingConfigSchema,
+  ReasonsForVisitByModeSchema,
+  ServiceCategoryConfigSchema,
+} from './booking';
+export type {
+  StrongCoding,
+  BookingOption,
+  CanonicalUrl,
+  BookingConfig,
+  ReasonsForVisitByMode,
+  ServiceCategoryConfig,
+} from './booking';
 
 // Questionnaire types
 export {

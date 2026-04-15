@@ -6,6 +6,7 @@ import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_NDC,
+  getMedicationName,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   UpdateInHouseMedicationInput,
@@ -55,8 +56,7 @@ export const performEffect = async (
   }
   const patchOperations: Operation[] = [];
 
-  const medicationName =
-    medication?.identifier?.find((identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value || '';
+  const medicationName = getMedicationName(medication) || '';
 
   if (name !== undefined && name !== medicationName) {
     const medicationNameIndex = medication.identifier?.findIndex(
@@ -127,11 +127,16 @@ export const performEffect = async (
         .filter((c) => c.system === CODE_SYSTEM_HCPCS)
         .map((c) => ({ code: c.code!, display: c.display ?? '' }))
     ).map(({ code, display }) => ({ system: CODE_SYSTEM_HCPCS, code, display }));
-    patchOperations.push({
-      op: 'replace',
-      path: '/code/coding',
-      value: [...otherCodings, ...resolvedCptCodings, ...resolvedHcpcsCodings],
-    });
+    const newCoding = [...otherCodings, ...resolvedCptCodings, ...resolvedHcpcsCodings];
+    if (medication.code === undefined) {
+      patchOperations.push({ op: 'add', path: '/code', value: { coding: newCoding } });
+    } else if (medication.code.coding === undefined) {
+      patchOperations.push({ op: 'add', path: '/code/coding', value: newCoding });
+    } else if (newCoding.length > 0) {
+      patchOperations.push({ op: 'replace', path: '/code/coding', value: newCoding });
+    } else {
+      patchOperations.push({ op: 'remove', path: '/code' });
+    }
   }
 
   const medicationStatus = medication.status;

@@ -20,7 +20,7 @@ import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
 import DateSearch from '../components/DateSearch';
-import LocationSelect from '../components/LocationSelect';
+import LocationSelect, { LocationType } from '../components/LocationSelect';
 import ProvidersSelect from '../components/ProvidersSelect';
 import { dataTestIds } from '../constants/data-test-ids';
 import { adjustTopForBannerHeight } from '../helpers/misc.helper';
@@ -366,6 +366,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                     updateURL={true}
                     storeLocationInLocalStorage={true}
                     setLocation={setLocationSelected}
+                    locationType={[LocationType.IN_PERSON, LocationType.VIRTUAL]}
                   />
                 </Box>
                 <Autocomplete
@@ -405,9 +406,10 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                   }}
                   style={{ flex: 1 }}
                   value={serviceCategories}
-                  options={BOOKING_CONFIG.serviceCategories.map((category) => category.code)}
+                  options={BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code)}
                   getOptionLabel={(option) =>
-                    BOOKING_CONFIG.serviceCategories.find((category) => category.code === option)?.display ?? 'Unknown'
+                    BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === option)?.category.display ??
+                    'Unknown'
                   }
                   onChange={(event, value) => {
                     if (value) {
