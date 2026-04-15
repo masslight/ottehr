@@ -364,7 +364,7 @@ test.describe('Order Deletion - Happy Path', () => {
 
         // First, wait for ANY medication row to appear in the table (confirms data loaded from backend)
         // Use data-testid pattern to find any medication row - this confirms table rendered and data arrived
-        const anyMedicationRow = page.locator('[data-testid^="mar-table-medication-"]').first();
+        const anyMedicationRow = page.locator('[data-testid^="mar-table-medication-row-"]').first();
         await expect(anyMedicationRow).toBeVisible({ timeout: 30_000 });
 
         // Now verify the specific medication row we just created is visible

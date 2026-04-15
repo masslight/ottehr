@@ -15,6 +15,7 @@ import { DateTime } from 'luxon';
 import {
   chooseJson,
   createCancellationTagOperations,
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   GetChartDataRequest,
   GetChartDataResponse,
   getMedicationFromMA,
@@ -22,6 +23,7 @@ import {
   getMedicationTypeCode,
   getPatchBinary,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
+  INVALID_INPUT_ERROR,
   INVENTORY_MEDICATION_TYPE_CODE,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
@@ -145,7 +147,7 @@ async function updateOrder(
 
   const currentStatus = mapFhirToOrderStatus(orderResources.medicationAdministration);
   if (currentStatus === 'cancelled' && newStatus)
-    throw new Error(`Can't change status of a cancelled order. Current status is: ${currentStatus}`);
+    throw INVALID_INPUT_ERROR(`Can't change status of a cancelled order. Current status is: ${currentStatus}`);
   console.log(`Current order status is: ${currentStatus}`);
 
   if (newStatus) validateProviderAccess(orderData, newStatus, orderResources, practitionerIdCalledZambda);
@@ -188,15 +190,16 @@ async function updateOrder(
     }
 
     if (newStatus === 'administered' || newStatus === 'administered-partly') {
-      if (!newMedicationCopy) throw new Error(`Can't create MedicationStatement for order, no Medication copy.`);
+      if (!newMedicationCopy)
+        throw INVALID_INPUT_ERROR(`Can't create MedicationStatement for order, no Medication copy.`);
 
       const erxDataFromMedication = newMedicationCopy.code?.coding?.find(
         (code) => code.system === MEDICATION_DISPENSABLE_DRUG_ID
       );
 
       if (!erxDataFromMedication)
-        throw new Error(
-          `Can't create MedicationStatement for order, Medication resource don't have coding with ERX data in it`
+        throw INVALID_INPUT_ERROR(
+          `Can't create MedicationStatement for order, Medication resource doesn't have coding with ERX data in it`
         );
 
       const medicationCodeableConcept: CodeableConcept = {
@@ -281,10 +284,10 @@ async function createOrder(
 ): Promise<string | undefined> {
   console.log('createOrder');
 
-  if (!orderData.medicationId) throw new Error('No "medicationId" provided');
+  if (!orderData.medicationId) throw INVALID_INPUT_ERROR('No "medicationId" provided');
   const inventoryMedication = await getMedicationById(oystehr, orderData.medicationId);
   if (inventoryMedication && getMedicationTypeCode(inventoryMedication) !== INVENTORY_MEDICATION_TYPE_CODE) {
-    throw new Error(
+    throw INVALID_INPUT_ERROR(
       `Medication with id ${orderData.medicationId} is not medication inventory item, can't copy that resource`
     );
   }
@@ -292,10 +295,10 @@ async function createOrder(
   console.log(`Created medication copy: ${getMedicationName(medicationCopy)}`);
 
   const routeCoding = searchRouteByCode(orderData.route);
-  if (!routeCoding) throw new Error(`No medication appliance route was found for code: ${orderData.route}`);
+  if (!routeCoding) throw INVALID_INPUT_ERROR(`No medication appliance route was found for code: ${orderData.route}`);
   const locationCoding = orderData.location ? searchMedicationLocation(orderData.location) : undefined;
   if (orderData.location && !locationCoding)
-    throw new Error(`No location found with code provided: ${orderData.location}`);
+    throw INVALID_INPUT_ERROR(`No location found with code provided: ${orderData.location}`);
 
   const medicationRequestToCreate = createMedicationRequest(orderData, interactions, medicationCopy);
   const medicationRequestFullUrl = 'urn:uuid:' + randomUUID();
@@ -411,9 +414,11 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
   const medicationAdministration = resources.find(
     (res) => res.resourceType === 'MedicationAdministration'
   ) as MedicationAdministration;
-  if (!medicationAdministration) throw new Error(`No medicationAdministration was found with id ${orderId}`);
+  if (!medicationAdministration)
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No medicationAdministration was found with id ${orderId}`);
   const patient = resources.find((res) => res.resourceType === 'Patient') as Patient;
-  if (!patient) throw new Error(`No patient was found for medicationAdministration with id ${orderId}`);
+  if (!patient)
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No patient was found for medicationAdministration with id ${orderId}`);
   const medicationStatement = resources.find(
     (res) => res.resourceType === 'MedicationStatement'
   ) as MedicationStatement;

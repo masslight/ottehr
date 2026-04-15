@@ -150,7 +150,7 @@ const complexValidation = async (input: ValidatedInput, oystehr: Oystehr): Promi
   }
 
   const serviceMode = getServiceModeFromSlot(slot);
-  const serviceCategoryCode = getServiceCategoryFromSlot(slot) ?? BOOKING_CONFIG.serviceCategories[0].code;
+  const serviceCategoryCode = getServiceCategoryFromSlot(slot) ?? BOOKING_CONFIG.serviceCategories[0].category.code;
 
   if (!serviceMode) {
     // this indicates something is misconfigured in the slot or schedule

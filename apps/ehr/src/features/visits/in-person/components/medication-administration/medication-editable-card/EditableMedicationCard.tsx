@@ -33,6 +33,7 @@ import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_HCPCS,
   ExtendedMedicationDataForResponse,
+  getApiError,
   getMedicationName,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
   InHouseMedicationQuickPickData,
@@ -162,8 +163,9 @@ export const EditableMedicationCard: React.FC<{
       if (appointmentId) {
         navigate(getInHouseMedicationMARUrl(appointmentId));
       }
-    } catch {
-      enqueueSnackbar('Failed to delete medication. Please try again.', { variant: 'error' });
+    } catch (error) {
+      const errorMessage = getApiError({ error, defaultError: 'Failed to delete medication. Please try again.' });
+      enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       setIsDeleting(false);
     }
@@ -439,7 +441,8 @@ export const EditableMedicationCard: React.FC<{
     } catch (error) {
       console.error('handleConfirmSave error:', error);
       console.error('Request data:', JSON.stringify(medicationUpdateRequestInputRefRef.current, null, 2));
-      enqueueSnackbar('Failed to save medication order', { variant: 'error' });
+      const errorMessage = getApiError({ error, defaultError: 'Failed to save medication. Please try again.' });
+      enqueueSnackbar(errorMessage, { variant: 'error' });
       setIsOrderUpdating(false);
       setIsConfirmSaveModalOpen(false);
       setConfirmationModalConfig(null);

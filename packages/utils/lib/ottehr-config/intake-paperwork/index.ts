@@ -10,18 +10,18 @@ import {
 import { Questionnaire } from 'fhir/r4b';
 import { mergeAndFreezeConfigObjects } from '../../config-helpers/helpers';
 import { buildConsentFormCheckboxItems } from '../../config-helpers/intake-paperwork';
+import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
 import {
-  createQuestionnaireFromConfig,
   HAS_ATTORNEY_OPTION,
   INSURANCE_PAY_OPTION,
   OCC_MED_EMPLOYER_PAY_OPTION,
   OCC_MED_SELF_PAY_OPTION,
   SELF_PAY_OPTION,
-} from '../shared-questionnaire';
-import { VALUE_SETS } from '../value-sets';
+  VALUE_SETS,
+} from '../value-sets';
 
 const hiddenFormSections: string[] = [];
 
@@ -82,8 +82,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
         },
         reasonForVisit: {
           key: 'reason-for-visit',
-          type: 'choice',
-          options: valueSets.reasonForVisitOptions,
+          type: 'string',
         },
       },
       items: {
