@@ -91,7 +91,17 @@ const formatData = ({
   return {
     patient: patientInfo,
     visit,
-    medications: { medications: medicationHistory.map((med) => med.name) },
+    medications: {
+      medications: medicationHistory.map((med) => {
+        const additionalInfo = [
+          med.intakeInfo?.dose,
+          med.intakeInfo?.patientCouldNotConfirmDosage ? 'Patient could not confirm dosage' : null,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        return additionalInfo ? `${med.name} (${additionalInfo})` : med.name;
+      }),
+    },
   };
 };
 
