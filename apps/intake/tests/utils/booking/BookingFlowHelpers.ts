@@ -339,16 +339,11 @@ export class BookingFlowHelpers {
     // Look for "Different family member" button by its test ID
     const addNewPatientButton = page.getByTestId('Different family member');
     try {
-      const radio = addNewPatientButton.locator('input[type="radio"]');
-      const alreadyChecked = await radio.isChecked().catch(() => false);
-
-      if (alreadyChecked) {
-        console.log('"Different family member" already selected, skipping click');
-      } else {
-        await addNewPatientButton.click();
-        await expect(radio).toBeChecked({ timeout: 20000 });
-        console.log('"Different family member" option selected and confirmed');
-      }
+      await addNewPatientButton.click();
+      // Wait for the selection to be visually confirmed - the radio button should be checked
+      // The button contains a radio input that gets checked when selected
+      await expect(addNewPatientButton.locator('input[type="radio"]')).toBeChecked({ timeout: 20000 });
+      console.log('"Different family member" option selected and confirmed');
 
       // After selecting "Different family member", click the Continue button to proceed
       await this.clickContinueButtonIfPresent(page, 'after patient selection');
