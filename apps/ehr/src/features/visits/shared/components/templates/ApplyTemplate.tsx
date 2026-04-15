@@ -75,6 +75,7 @@ export const ApplyTemplate: React.FC = () => {
     id: ADD_NEW_SENTINEL,
     value: ADD_NEW_SENTINEL,
     label: isAdmin ? ADD_OR_UPDATE_LABEL : 'Add Template Requires Admin Role',
+    isCurrentVersion: true,
   };
   const allOptions: TemplateOption[] = [addNewOption, ...templates];
 
