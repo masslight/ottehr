@@ -164,4 +164,36 @@ describe('UpdateMedicationPage', () => {
     expect(callArg.medispanID).toBe('999');
     expect(callArg.ndc).toBe('new-ndc-123');
   });
+
+  it('allows selecting a medication when existing medication has no code', async () => {
+    const user = userEvent.setup();
+    const existingWithoutCode: Medication = {
+      resourceType: 'Medication',
+      id: 'med-no-code',
+      status: 'active',
+      identifier: [{ system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: 'Unknown med' }],
+    };
+    vi.mocked(getInHouseMedications).mockResolvedValue([existingWithoutCode]);
+    vi.mocked(useParams).mockReturnValue({ 'medication-id': 'med-no-code' });
+    vi.mocked(useGetMedicationsSearch).mockReturnValue({
+      isFetching: false,
+      data: [{ id: 777, name: 'Amoxicillin', strength: '250mg', isObsolete: false }],
+    } as any);
+
+    render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Name' })).toHaveValue('Unknown med'));
+
+    const nameInput = screen.getByRole('combobox', { name: 'Name' });
+    await user.click(nameInput);
+    const option = await screen.findByRole('option', { name: /Amoxicillin/i });
+    await user.click(option);
+
+    await user.click(screen.getByRole('button', { name: /^update medication$/i }));
+
+    await waitFor(() => expect(updateInHouseMedication).toHaveBeenCalled());
+    const callArg = vi.mocked(updateInHouseMedication).mock.calls[0][1];
+    expect(callArg.medicationID).toBe('med-no-code');
+    expect(callArg.name).toBe('Amoxicillin (250mg)');
+    expect(callArg.medispanID).toBe('777');
+  });
 });

@@ -35,12 +35,19 @@ function mergeSelectedMedicationIntoExisting(selected: Medication, existing: Med
     (c) => c.system !== CODE_SYSTEM_NDC && c.system !== MEDICATION_DISPENSABLE_DRUG_ID
   );
   const selectedCodings = selected.code?.coding ?? [];
+  const code = {
+    ...(existing.code ?? {}),
+    ...(selected.code ?? {}),
+  };
+  if (existing.code?.coding || selected.code?.coding) {
+    code.coding = [...preservedCodings, ...selectedCodings];
+  }
   return {
     ...existing,
     ...selected,
     id: existing.id,
     identifier: [...preservedIdentifiers, ...selectedIdentifiers],
-    code: { ...existing.code, ...selected.code, coding: [...preservedCodings, ...selectedCodings] },
+    ...(Object.keys(code).length > 0 ? { code } : {}),
   };
 }
 
