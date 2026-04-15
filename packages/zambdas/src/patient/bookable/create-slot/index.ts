@@ -246,6 +246,11 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
         ],
       });
     }
+  } else if (BOOKING_CONFIG.serviceCategories.length === 1) {
+    // Single-category project: default to the only configured service category
+    serviceCategory.push({
+      coding: [{ ...BOOKING_CONFIG.serviceCategories[0].category }],
+    });
   }
   const extension: Slot['extension'] = [];
   if (originalBookingUrl) {

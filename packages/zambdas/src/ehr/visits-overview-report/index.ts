@@ -3,7 +3,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
   AppointmentTypeCount,
-  BOOKING_CONFIG,
   DailyVisitCount,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
@@ -391,11 +390,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     activeAppointments
       .reduce<Map<string, VisitsByTypeCount>>((acc: Map<string, VisitsByTypeCount>, appointment: Appointment) => {
         const location = findLocation(appointment, locations);
-        const serviceCategoryCode = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-        const serviceCategoryName =
-          BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategoryCode)?.category.display ??
-          serviceCategoryCode ??
-          'Unknown';
+        // Use the Coding's own display/code from the resource rather than looking up
+        // BOOKING_CONFIG — this keeps historical reports stable across config changes
+        // (renamed or removed categories) and reflects what was recorded at booking time.
+        // "Unknown" now indicates a genuinely missing SERVICE_CATEGORY_SYSTEM coding.
+        const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
+        const serviceCategoryName = serviceCategoryCoding?.display ?? serviceCategoryCoding?.code ?? 'Unknown';
         const key = location.id + '-' + serviceCategoryName;
         const entry = acc.get(key) ?? {
           locationName: location.name,
