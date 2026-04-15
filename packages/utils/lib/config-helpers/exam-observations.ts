@@ -141,10 +141,11 @@ export function extractObservationsFromExamComponents(
         });
 
         const consolidatedLabel = formatGroupedComponents(grouped);
+        const observationLabel = observation.label ? `${observation.label}: ` : '';
 
         items.push({
           field: fieldName,
-          label: `${observation.label}: ${consolidatedLabel}`,
+          label: `${observationLabel}${consolidatedLabel}`,
           abnormal: abnormalContained,
         });
 
