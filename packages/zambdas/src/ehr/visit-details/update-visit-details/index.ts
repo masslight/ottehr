@@ -13,7 +13,6 @@ import {
   getCriticalUpdateTagOp,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
-  getSecret,
   getUnconfirmedDOBIdx,
   INVALID_INPUT_ERROR,
   INVALID_RESOURCE_ID_ERROR,
@@ -23,18 +22,11 @@ import {
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
   REASON_ADDITIONAL_MAX_CHAR,
   Secrets,
-  SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
   userMe,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { accountMatchesType } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'update-visit-details';
@@ -42,28 +34,22 @@ const ZAMBDA_NAME = 'update-visit-details';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const effectInput = await complexValidation(validatedParameters, oystehr);
-    console.log('effectInput', JSON.stringify(effectInput, null, 2));
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  const effectInput = await complexValidation(validatedParameters, oystehr);
+  console.log('effectInput', JSON.stringify(effectInput, null, 2));
 
-    await performEffect(effectInput, oystehr);
+  await performEffect(effectInput, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({}),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify({}),
+  };
 });
 
 interface EffectInput extends Input {
@@ -546,9 +532,8 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
   if (bookingDetails.serviceCategory && typeof bookingDetails.serviceCategory !== 'string') {
     throw INVALID_INPUT_ERROR('serviceCategory must be a string');
   } else if (bookingDetails.serviceCategory) {
-    serviceCategory = BOOKING_CONFIG.serviceCategories.find(
-      (category: { code: string }) => category.code === bookingDetails.serviceCategory
-    );
+    serviceCategory = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === bookingDetails.serviceCategory)
+      ?.category;
     if (!serviceCategory) {
       throw INVALID_INPUT_ERROR(`serviceCategory, "${bookingDetails.serviceCategory}", is not a valid option`);
     }

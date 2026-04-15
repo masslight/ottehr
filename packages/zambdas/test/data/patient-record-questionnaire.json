@@ -3395,7 +3395,7 @@
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
                 "valueExpression": {
                   "language": "application/x-fhir-query",
-                  "expression": "Organization?type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer"
+                  "expression": "Organization?active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer"
                 }
               }
             ]

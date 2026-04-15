@@ -1,14 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter } from 'fhir/r4b';
-import {
-  FOLLOWUP_TYPES,
-  getSecret,
-  SaveFollowupEncounterZambdaInput,
-  SaveFollowupEncounterZambdaOutput,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { FOLLOWUP_TYPES, SaveFollowupEncounterZambdaInput, SaveFollowupEncounterZambdaOutput, Secrets } from 'utils';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { createEncounterResource, updateEncounterResource } from './helpers';
 
@@ -47,37 +40,32 @@ export function validateRequestParameters(input: ZambdaInput): SaveFollowupEncou
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log(`Input: ${JSON.stringify(input)}`);
-    const { secrets, encounterDetails } = validateRequestParameters(input);
-    console.log('updated encounter details', encounterDetails);
+  console.log(`Input: ${JSON.stringify(input)}`);
+  const { secrets, encounterDetails } = validateRequestParameters(input);
+  console.log('updated encounter details', encounterDetails);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    let encounter: Encounter | undefined;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  let encounter: Encounter | undefined;
 
-    if (encounterDetails.encounterId) {
-      console.log('updating a follow up encounter', encounterDetails.encounterId);
-      encounter = await updateEncounterResource(encounterDetails.encounterId, encounterDetails, oystehr);
-    } else {
-      console.log('creating a followup encounter for patient', encounterDetails.patientId);
-      encounter = await createEncounterResource(encounterDetails, oystehr);
-    }
-
-    if (encounter.id === undefined) {
-      throw new Error('Encounter ID is undefined after creation or update');
-    }
-
-    const response: SaveFollowupEncounterZambdaOutput = {
-      encounterId: encounter.id,
-    };
-
-    return {
-      body: JSON.stringify(response),
-      statusCode: 200,
-    };
-  } catch (error) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('admin-save-followup-encounter', error, ENVIRONMENT);
+  if (encounterDetails.encounterId) {
+    console.log('updating a follow up encounter', encounterDetails.encounterId);
+    encounter = await updateEncounterResource(encounterDetails.encounterId, encounterDetails, oystehr);
+  } else {
+    console.log('creating a followup encounter for patient', encounterDetails.patientId);
+    encounter = await createEncounterResource(encounterDetails, oystehr);
   }
+
+  if (encounter.id === undefined) {
+    throw new Error('Encounter ID is undefined after creation or update');
+  }
+
+  const response: SaveFollowupEncounterZambdaOutput = {
+    encounterId: encounter.id,
+  };
+
+  return {
+    body: JSON.stringify(response),
+    statusCode: 200,
+  };
 });

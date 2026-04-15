@@ -5,7 +5,7 @@ import {
   type QuestionnaireBase,
 } from 'config-types';
 import { Questionnaire } from 'fhir/r4b';
-import { createQuestionnaireFromConfig } from '../shared-questionnaire';
+import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
 
 const insurancePlanTypeOptions = formValueSets.insuranceTypeOptions.map((option) => ({
@@ -940,7 +940,7 @@ const FormFields: PatientRecordFormFields = {
         dataSource: {
           answerSource: {
             resourceType: 'Organization',
-            query: `type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer`,
+            query: `active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer`,
             prependedIdentifier: '1',
           },
         },

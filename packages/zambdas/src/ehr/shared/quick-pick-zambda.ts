@@ -1,20 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult, Handler } from 'aws-lambda';
 import {
-  getSecret,
   QuickPickCreateResponse,
   QuickPickListResponse,
   QuickPickRemoveResponse,
   QuickPickUpdateResponse,
-  SecretsKeys,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import {
   createQuickPick,
   QuickPickCategory,
@@ -30,21 +22,16 @@ function makeHandler(
   effect: (oystehr: Oystehr, input: ZambdaInput) => Promise<unknown>
 ): Handler<ZambdaInput, APIGatewayProxyResult> {
   return wrapHandler(zambdaName, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    try {
-      if (!input.secrets) {
-        throw new Error('No secrets provided in input');
-      }
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-      const oystehr = createOystehrClient(m2mToken, input.secrets);
-      const response = await effect(oystehr, input);
-      return {
-        statusCode: 200,
-        body: JSON.stringify(response),
-      };
-    } catch (error: any) {
-      console.error('Error: ' + error);
-      return topLevelCatch(zambdaName, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+    if (!input.secrets) {
+      throw new Error('No secrets provided in input');
     }
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
+    const oystehr = createOystehrClient(m2mToken, input.secrets);
+    const response = await effect(oystehr, input);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
   });
 }
 

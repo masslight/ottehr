@@ -7,7 +7,7 @@ import {
   CanonicalUrl,
   CreateSlotParams,
   FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
+  getServiceCategoryCodeSchema,
   getTimezone,
   INVALID_INPUT_ERROR,
   isValidUUID,
@@ -16,48 +16,34 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
-  SecretsKeys,
   ServiceCategoryCode,
-  ServiceCategoryCodeSchema,
   ServiceMode,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotServiceCategory,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'create-slot';
 
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const effectInput = await complexValidation(validatedParameters, oystehr);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  const effectInput = await complexValidation(validatedParameters, oystehr);
 
-    const slot = await performEffect(effectInput, oystehr);
+  const slot = await performEffect(effectInput, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(slot),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('create-slot', error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(slot),
+  };
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Slot> => {
@@ -185,9 +171,10 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   let serviceCategoryCode: ServiceCategoryCode | undefined;
 
   if (maybeServiceCategoryCode) {
-    serviceCategoryCode = ServiceCategoryCodeSchema.safeParse(maybeServiceCategoryCode).data;
+    const schema = getServiceCategoryCodeSchema();
+    serviceCategoryCode = schema.safeParse(maybeServiceCategoryCode).data;
     if (!serviceCategoryCode) {
-      throw INVALID_INPUT_ERROR(`"serviceCategoryCode" must be one of ${ServiceCategoryCodeSchema.options.join(', ')}`);
+      throw INVALID_INPUT_ERROR(`"serviceCategoryCode" must be one of ${schema.options.join(', ')}`);
     }
   }
 
@@ -247,12 +234,14 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
       ? [SlotServiceCategory.inPersonServiceMode]
       : [SlotServiceCategory.virtualServiceMode];
   if (serviceCategoryCode) {
-    const serviceCategoryCodeCoding = BOOKING_CONFIG.serviceCategories.find((sc) => sc.code === serviceCategoryCode);
-    if (serviceCategoryCodeCoding) {
+    const serviceCategoryCodeConfig = BOOKING_CONFIG.serviceCategories.find(
+      (sc) => sc.category.code === serviceCategoryCode
+    );
+    if (serviceCategoryCodeConfig) {
       serviceCategory.push({
         coding: [
           {
-            ...serviceCategoryCodeCoding,
+            ...serviceCategoryCodeConfig.category,
           },
         ],
       });

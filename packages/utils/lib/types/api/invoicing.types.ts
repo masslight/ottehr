@@ -56,7 +56,7 @@ export type InvoiceMessagesPlaceholders = {
   'patient-full-name'?: string;
   location?: string;
   'visit-date'?: string;
-  'url-to-patient-portal'?: string;
+  'patient-portal-link'?: string;
   clinic?: string;
   amount?: string;
   'due-date'?: string;

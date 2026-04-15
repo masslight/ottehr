@@ -353,6 +353,7 @@ export interface DispositionDTO {
   type: DispositionType;
   note: string;
   reason?: string;
+  specialty?: string;
   labService?: string[];
   virusTest?: string[];
   followUp?: {
