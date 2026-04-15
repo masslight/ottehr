@@ -2,7 +2,7 @@ import { otherColors } from '@ehrTheme/colors';
 import { WarningAmber } from '@mui/icons-material';
 import { Avatar, Box, Link, Typography } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -10,11 +10,11 @@ import { getAssessmentUrl, getChiefComplaintUrl, getHPIUrl } from 'src/features/
 import { TelemedAppointmentVisitTabs } from 'utils';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
-import { useAppointmentData, useAppTelemedLocalStore, useChartData } from '../../stores/appointment/appointment.store';
+import { useAppTelemedLocalStore, useChartData } from '../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
 
 export const MissingCard: FC = () => {
-  const { appointment } = useAppointmentData();
+  const { id: appointmentIdFromUrl } = useParams();
   const { chartData } = useChartData();
 
   const { data: chartFields, isFetching } = useChartFields({
@@ -79,10 +79,10 @@ export const MissingCard: FC = () => {
   const navigateTo = (target: 'patient-info' | 'chief-complaint' | 'hpi' | 'assessment'): void => {
     if (isInPerson) {
       const inPersonRoutes: Record<'patient-info' | 'chief-complaint' | 'hpi' | 'assessment', string> = {
-        'patient-info': getChiefComplaintUrl(appointment?.id || ''),
-        'chief-complaint': getChiefComplaintUrl(appointment?.id || ''),
-        hpi: getHPIUrl(appointment?.id || ''),
-        assessment: getAssessmentUrl(appointment?.id || ''),
+        'patient-info': getChiefComplaintUrl(appointmentIdFromUrl || ''),
+        'chief-complaint': getChiefComplaintUrl(appointmentIdFromUrl || ''),
+        hpi: getHPIUrl(appointmentIdFromUrl || ''),
+        assessment: getAssessmentUrl(appointmentIdFromUrl || ''),
       };
 
       requestAnimationFrame(() => {

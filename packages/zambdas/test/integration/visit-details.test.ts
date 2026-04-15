@@ -10,11 +10,11 @@ import {
   getAttestedConsentFromEncounter,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitFromAppointment,
+  getReasonForVisitOptionsForServiceCategory,
   getUnconfirmedDOBIdx,
   isValidUUID,
   REASON_ADDITIONAL_MAX_CHAR,
   UpdateVisitDetailsInput,
-  VALUE_SETS,
 } from 'utils';
 import { SERVICE_CATEGORIES_AVAILABLE } from 'utils/lib/ottehr-config/booking';
 import { assert, inject } from 'vitest';
@@ -232,8 +232,8 @@ describe('saving and getting visit details', () => {
     const reasonForVisit = getReasonForVisitFromAppointment(appointment);
     expect(reasonForVisit).toBeUndefined();
 
-    const randomIndex = Math.floor(Math.random() * VALUE_SETS.reasonForVisitOptions.length);
-    const reasonText = VALUE_SETS.reasonForVisitOptions[randomIndex].value;
+    const randomIndex = Math.floor(Math.random() * getReasonForVisitOptionsForServiceCategory('urgent-care').length);
+    const reasonText = getReasonForVisitOptionsForServiceCategory('urgent-care')[randomIndex].value;
 
     await updateVisitDetails({
       appointmentId: appointment.id!,
@@ -269,8 +269,8 @@ describe('saving and getting visit details', () => {
     const reasonForVisit = getReasonForVisitFromAppointment(appointment);
     expect(reasonForVisit).toBeUndefined();
 
-    const randomIndex = Math.floor(Math.random() * VALUE_SETS.reasonForVisitOptions.length);
-    const reasonText = VALUE_SETS.reasonForVisitOptions[randomIndex].value;
+    const randomIndex = Math.floor(Math.random() * getReasonForVisitOptionsForServiceCategory('urgent-care').length);
+    const reasonText = getReasonForVisitOptionsForServiceCategory('urgent-care')[randomIndex].value;
 
     await updateVisitDetails({
       appointmentId: appointment.id!,
@@ -303,8 +303,8 @@ describe('saving and getting visit details', () => {
     expect(newAdditionalDetails).toBeDefined();
     expect(newAdditionalDetails).toEqual('Mom says speech a bit slurred');
 
-    const randomIndex2 = Math.floor(Math.random() * VALUE_SETS.reasonForVisitOptions.length);
-    const reasonText2 = VALUE_SETS.reasonForVisitOptions[randomIndex2].value;
+    const randomIndex2 = Math.floor(Math.random() * getReasonForVisitOptionsForServiceCategory('urgent-care').length);
+    const reasonText2 = getReasonForVisitOptionsForServiceCategory('urgent-care')[randomIndex2].value;
 
     // both main reason for visit and additional details updated when both included
     await updateVisitDetails({
@@ -718,8 +718,8 @@ describe('saving and getting visit details', () => {
     expect(visitDetails.patient).toBeDefined();
     expect(visitDetails.consentIsAttested).toBe(false);
 
-    const randomIndex = Math.floor(Math.random() * VALUE_SETS.reasonForVisitOptions.length);
-    const reasonForVisit = VALUE_SETS.reasonForVisitOptions[randomIndex].value;
+    const randomIndex = Math.floor(Math.random() * getReasonForVisitOptionsForServiceCategory('urgent-care').length);
+    const reasonForVisit = getReasonForVisitOptionsForServiceCategory('urgent-care')[randomIndex].value;
     const guardiansText = 'Aunt Becky';
     const newBirthDate = '2020-05-05';
     const newFirstName = `AllAtOnceFirst${randomUUID().substring(0, 5)}`;
@@ -880,7 +880,7 @@ describe('saving and getting visit details', () => {
         `reasonForVisit "gum in my hair" is not valid for service category "urgent-care"`
       );
     }
-    const availableCodes = SERVICE_CATEGORIES_AVAILABLE.map((c) => c.code);
+    const availableCodes = SERVICE_CATEGORIES_AVAILABLE.map((c) => c.category.code);
 
     if (availableCodes.includes('workers-comp')) {
       try {
@@ -925,8 +925,8 @@ describe('saving and getting visit details', () => {
       patientSex: 'female',
     });
     expect(appointment).toBeDefined();
-    const randomIndex = Math.floor(Math.random() * VALUE_SETS.reasonForVisitOptions.length);
-    const reasonText = VALUE_SETS.reasonForVisitOptions[randomIndex].value;
+    const randomIndex = Math.floor(Math.random() * getReasonForVisitOptionsForServiceCategory('urgent-care').length);
+    const reasonText = getReasonForVisitOptionsForServiceCategory('urgent-care')[randomIndex].value;
     let errorFound = false;
     try {
       await updateVisitDetails({

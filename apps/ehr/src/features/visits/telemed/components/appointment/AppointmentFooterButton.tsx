@@ -10,6 +10,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useAssignTask, useUnassignTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { usePractitionerActions } from 'src/features/visits/shared/hooks/usePractitioner';
 import { useGetMeetingData } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import {
   TELEMED_APPOINTMENT_QUERY_KEY,
@@ -21,7 +22,12 @@ import {
 } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getTelemedVisitStatus, TelemedAppointmentStatus, TelemedAppointmentStatusEnum } from 'utils';
+import {
+  getTelemedVisitStatus,
+  PRACTITIONER_CODINGS,
+  TelemedAppointmentStatus,
+  TelemedAppointmentStatusEnum,
+} from 'utils';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { updateEncounterStatusHistory } from '../../utils/appointments';
 import {
@@ -96,15 +102,28 @@ export const AppointmentFooterButton: FC = () => {
     }
   }, [appointmentAccessibility]);
 
+  const { handleUpdatePractitioner: handleUpdatePractitionerForIntake } = usePractitionerActions(
+    encounter,
+    'start',
+    PRACTITIONER_CODINGS.Admitter
+  );
+  const { handleUpdatePractitioner: handleUpdatePractitionerForProvider } = usePractitionerActions(
+    encounter,
+    'start',
+    PRACTITIONER_CODINGS.Attender
+  );
+
   const onAssignMe = async (): Promise<void> => {
     await changeStatus(TelemedAppointmentStatusEnum['pre-video'], true);
     await assignWaitingRoomTasksToProvider(oystehr, appointment?.id, user, assignTask);
+    await handleUpdatePractitionerForIntake(user!.profileResource!.id!);
+    await handleUpdatePractitionerForProvider(user!.profileResource!.id!);
   };
 
   const onUnassign = async (): Promise<void> => {
     await changeStatus(TelemedAppointmentStatusEnum.ready, true);
     await unassignWaitingRoomTasksFromProvider(oystehr, appointment?.id, unassignTask);
-    navigate('/telemed/appointments');
+    navigate('/visits');
   };
 
   const changeStatus = async (newStatus: TelemedAppointmentStatus, invalidate?: boolean): Promise<void> => {

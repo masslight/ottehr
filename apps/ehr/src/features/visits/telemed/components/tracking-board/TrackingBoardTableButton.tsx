@@ -49,7 +49,7 @@ export const TrackingBoardTableButton: FC<{
   const { mutateAsync: unassignTask } = useUnassignTask();
 
   const goToAppointment = (state?: unknown): void => {
-    navigate(`/telemed/appointments/${appointment.id}`, { state });
+    navigate(`/in-person/${appointment.id}`, { state });
   };
 
   const onAssign = async (): Promise<void> => {
