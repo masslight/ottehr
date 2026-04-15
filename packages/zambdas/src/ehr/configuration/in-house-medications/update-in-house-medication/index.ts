@@ -68,53 +68,32 @@ export const performEffect = async (
       value: name,
     });
   }
-  const medicationNDC = medication?.code?.coding?.find((coding) => coding.system === CODE_SYSTEM_NDC)?.code || '';
-  if (ndc !== undefined && ndc !== medicationNDC) {
-    const ndcIndex = medication.code?.coding?.findIndex((coding) => coding.system === CODE_SYSTEM_NDC);
-    if (ndcIndex !== undefined && ndcIndex >= 0) {
-      patchOperations.push({
-        op: 'replace',
-        path: `/code/coding/${ndcIndex}/code`,
-        value: ndc,
-      });
-    } else {
-      patchOperations.push({
-        op: 'add',
-        path: '/code/coding/-',
-        value: {
-          system: CODE_SYSTEM_NDC,
-          code: ndc,
-        },
-      });
-    }
-  }
-  const medicationMedispanID =
-    medication?.code?.coding?.find((coding) => coding.system === MEDICATION_DISPENSABLE_DRUG_ID)?.code || '';
-  if (medispanID !== undefined && medispanID !== medicationMedispanID) {
-    const medispanIDIndex = medication.code?.coding?.findIndex(
-      (coding) => coding.system === MEDICATION_DISPENSABLE_DRUG_ID
-    );
-    if (medispanIDIndex !== undefined && medispanIDIndex >= 0) {
-      patchOperations.push({
-        op: 'replace',
-        path: `/code/coding/${medispanIDIndex}/code`,
-        value: medispanID,
-      });
-    } else {
-      patchOperations.push({
-        op: 'add',
-        path: '/code/coding/-',
-        value: {
-          system: MEDICATION_DISPENSABLE_DRUG_ID,
-          code: medispanID,
-        },
-      });
-    }
-  }
+  const existingCodings = medication.code?.coding ?? [];
+  const existingNdc = existingCodings.find((c) => c.system === CODE_SYSTEM_NDC)?.code ?? '';
+  const existingMedispanID = existingCodings.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)?.code ?? '';
 
-  if (cptCodes !== undefined || hcpcsCodes !== undefined) {
-    const existingCodings = medication.code?.coding ?? [];
-    const otherCodings = existingCodings.filter((c) => c.system !== CODE_SYSTEM_CPT && c.system !== CODE_SYSTEM_HCPCS);
+  const ndcChanged = ndc !== undefined && ndc !== existingNdc;
+  const medispanChanged = medispanID !== undefined && medispanID !== existingMedispanID;
+  const codesChanged = cptCodes !== undefined || hcpcsCodes !== undefined;
+
+  // Rebuild /code/coding as a single op so we don't rely on /code or /code/coding
+  // already existing on the resource (append-style ops fail otherwise).
+  if (ndcChanged || medispanChanged || codesChanged) {
+    const otherCodings = existingCodings.filter(
+      (c) =>
+        c.system !== CODE_SYSTEM_NDC &&
+        c.system !== MEDICATION_DISPENSABLE_DRUG_ID &&
+        c.system !== CODE_SYSTEM_CPT &&
+        c.system !== CODE_SYSTEM_HCPCS
+    );
+    const hadNdc = existingCodings.some((c) => c.system === CODE_SYSTEM_NDC);
+    const hadMedispan = existingCodings.some((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID);
+    const resolvedNdcCoding =
+      ndcChanged || hadNdc ? [{ system: CODE_SYSTEM_NDC, code: ndcChanged ? ndc! : existingNdc }] : [];
+    const resolvedMedispanCoding =
+      medispanChanged || hadMedispan
+        ? [{ system: MEDICATION_DISPENSABLE_DRUG_ID, code: medispanChanged ? medispanID! : existingMedispanID }]
+        : [];
     const resolvedCptCodings = (
       cptCodes ??
       existingCodings
@@ -127,11 +106,22 @@ export const performEffect = async (
         .filter((c) => c.system === CODE_SYSTEM_HCPCS)
         .map((c) => ({ code: c.code!, display: c.display ?? '' }))
     ).map(({ code, display }) => ({ system: CODE_SYSTEM_HCPCS, code, display }));
-    patchOperations.push({
-      op: 'replace',
-      path: '/code/coding',
-      value: [...otherCodings, ...resolvedCptCodings, ...resolvedHcpcsCodings],
-    });
+    const newCoding = [
+      ...otherCodings,
+      ...resolvedNdcCoding,
+      ...resolvedMedispanCoding,
+      ...resolvedCptCodings,
+      ...resolvedHcpcsCodings,
+    ];
+    if (medication.code === undefined) {
+      patchOperations.push({ op: 'add', path: '/code', value: { coding: newCoding } });
+    } else if (medication.code.coding === undefined) {
+      patchOperations.push({ op: 'add', path: '/code/coding', value: newCoding });
+    } else if (newCoding.length > 0) {
+      patchOperations.push({ op: 'replace', path: '/code/coding', value: newCoding });
+    } else {
+      patchOperations.push({ op: 'remove', path: '/code/coding' });
+    }
   }
 
   const medicationStatus = medication.status;

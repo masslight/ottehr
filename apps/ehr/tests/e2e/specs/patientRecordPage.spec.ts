@@ -29,11 +29,10 @@ import {
   DEMO_VISIT_STREET_ADDRESS,
   DEMO_VISIT_STREET_ADDRESS_OPTIONAL,
   DEMO_VISIT_ZIP,
+  getReasonForVisitOptionsForServiceCategory,
   PATIENT_RECORD_CONFIG,
   unpackFhirResponse,
-  VALUE_SETS,
 } from 'utils';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import {
   PATIENT_BIRTH_DATE_SHORT,
@@ -45,10 +44,10 @@ import {
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
 import { openAddPatientPage } from '../page/AddPatientPage';
-import { AddInsuranceDialog } from '../page/patient-information/AddInsuranceDialog';
 import { expectDialog } from '../page/patient-information/Dialog';
 import {
   expectPatientInformationPage,
+  InsuranceCard,
   openPatientInformationPage,
   PatientInformationPage,
 } from '../page/PatientInformationPage';
@@ -96,7 +95,7 @@ const NEW_PRACTICE_NAME = 'Dental';
 const NEW_PHYSICIAN_ADDRESS = '5th avenue';
 const NEW_PHYSICIAN_MOBILE = '(202) 222-2222';
 const NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD = 'testing gender';
-const NEW_REASON_FOR_VISIT = VALUE_SETS.reasonForVisitOptions[0].value;
+const NEW_REASON_FOR_VISIT = getReasonForVisitOptionsForServiceCategory('urgent-care')[0].value;
 
 // Emergency Contact test data
 const NEW_EMERGENCY_CONTACT_RELATIONSHIP = 'Parent';
@@ -1638,94 +1637,151 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
     const INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2 = 'testing2';
     const INSURANCE_CARRIER_2 = '24585 - ACTIN Care Groups';
 
-    let addInsuranceDialog: AddInsuranceDialog;
+    let inlineInsuranceCard: InsuranceCard;
 
     test('Check validation error is displayed if any required field in Add insurance dialog is missing', async () => {
-      addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
+      inlineInsuranceCard = await patientInformationPage.clickAddInsuranceButton();
 
-      await addInsuranceDialog.enterMemberId(INSURANCE_MEMBER_ID);
-      await addInsuranceDialog.enterPolicyHolderFirstName(INSURANCE_POLICY_HOLDER_FIRST_NAME);
-      await addInsuranceDialog.enterPolicyHolderLastName(INSURANCE_POLICY_HOLDER_LAST_NAME);
-      await addInsuranceDialog.enterDateOfBirthFromAddInsuranceDialog(INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH);
-      await addInsuranceDialog.enterPolicyHolderStreetAddress(INSURANCE_POLICY_HOLDER_ADDRESS);
-      await addInsuranceDialog.enterPolicyHolderCity(INSURANCE_POLICY_HOLDER_CITY);
-      await addInsuranceDialog.enterZipFromAddInsuranceDialog(INSURANCE_POLICY_HOLDER_ZIP);
-      await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
+      await inlineInsuranceCard.enterTextField(insuranceSection.items[0].memberId.key, INSURANCE_MEMBER_ID);
+      await inlineInsuranceCard.enterTextField(
+        insuranceSection.items[0].firstName.key,
+        INSURANCE_POLICY_HOLDER_FIRST_NAME
+      );
+      await inlineInsuranceCard.enterTextField(
+        insuranceSection.items[0].lastName.key,
+        INSURANCE_POLICY_HOLDER_LAST_NAME
+      );
+      await inlineInsuranceCard.enterDateField(
+        insuranceSection.items[0].birthDate.key,
+        INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH
+      );
+      await inlineInsuranceCard.enterTextField(
+        insuranceSection.items[0].streetAddress.key,
+        INSURANCE_POLICY_HOLDER_ADDRESS
+      );
+      await inlineInsuranceCard.enterTextField(insuranceSection.items[0].city.key, INSURANCE_POLICY_HOLDER_CITY);
+      await inlineInsuranceCard.enterTextField(insuranceSection.items[0].zip.key, INSURANCE_POLICY_HOLDER_ZIP);
+      await patientInformationPage.clickSaveChangesButton();
 
-      await addInsuranceDialog.verifyValidationErrorShown(dataTestIds.addInsuranceDialog.insuranceCarrier);
-      await addInsuranceDialog.verifyValidationErrorShown(dataTestIds.addInsuranceDialog.policyHoldersSex);
-      await addInsuranceDialog.verifyValidationErrorShown(dataTestIds.addInsuranceDialog.relationship);
-      await addInsuranceDialog.verifyValidationErrorShown(dataTestIds.addInsuranceDialog.state);
+      await inlineInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].insuranceCarrier.key);
+      await inlineInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].birthSex.key);
+      await inlineInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].relationship.key);
+      await inlineInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].state.key);
 
-      await addInsuranceDialog.selectInsuranceCarrier(INSURANCE_CARRIER);
-      await addInsuranceDialog.selectPolicyHoldersBirthSex(INSURANCE_POLICY_HOLDER_BIRTH_SEX);
-      await addInsuranceDialog.selectPatientsRelationship(INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED);
-      await addInsuranceDialog.selectPolicyHoldersState(INSURANCE_POLICY_HOLDER_STATE);
+      await inlineInsuranceCard.selectInsuranceCarrier(INSURANCE_CARRIER);
+      await inlineInsuranceCard.selectFieldOption(
+        insuranceSection.items[0].birthSex.key,
+        INSURANCE_POLICY_HOLDER_BIRTH_SEX
+      );
+      await inlineInsuranceCard.selectFieldOption(
+        insuranceSection.items[0].relationship.key,
+        INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
+      );
+      await inlineInsuranceCard.selectFieldOption(insuranceSection.items[0].state.key, INSURANCE_POLICY_HOLDER_STATE);
 
-      await addInsuranceDialog.clearMemberId();
-      await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
-      await addInsuranceDialog.verifyValidationErrorShown(dataTestIds.addInsuranceDialog.memberId);
-      await addInsuranceDialog.enterMemberId(INSURANCE_MEMBER_ID);
+      await inlineInsuranceCard.clearField(insuranceSection.items[0].memberId.key);
+      await patientInformationPage.clickSaveChangesButton();
+      await inlineInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].memberId.key);
+      await inlineInsuranceCard.enterTextField(insuranceSection.items[0].memberId.key, INSURANCE_MEMBER_ID);
 
-      await addInsuranceDialog.clearPolicyHolderFirstName();
-      await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
-      await addInsuranceDialog.verifyValidationErrorShown(dataTestIds.addInsuranceDialog.policyHoldersFirstName);
-      await addInsuranceDialog.enterPolicyHolderFirstName(INSURANCE_POLICY_HOLDER_FIRST_NAME);
+      await inlineInsuranceCard.clearField(insuranceSection.items[0].firstName.key);
+      await patientInformationPage.clickSaveChangesButton();
+      await inlineInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].firstName.key);
+      await inlineInsuranceCard.enterTextField(
+        insuranceSection.items[0].firstName.key,
+        INSURANCE_POLICY_HOLDER_FIRST_NAME
+      );
 
-      await addInsuranceDialog.clearPolicyHolderLastName();
-      await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
-      await addInsuranceDialog.verifyValidationErrorShown(dataTestIds.addInsuranceDialog.policyHoldersLastName);
-      await addInsuranceDialog.enterPolicyHolderLastName(INSURANCE_POLICY_HOLDER_LAST_NAME);
+      await inlineInsuranceCard.clearField(insuranceSection.items[0].lastName.key);
+      await patientInformationPage.clickSaveChangesButton();
+      await inlineInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].lastName.key);
+      await inlineInsuranceCard.enterTextField(
+        insuranceSection.items[0].lastName.key,
+        INSURANCE_POLICY_HOLDER_LAST_NAME
+      );
 
-      await addInsuranceDialog.clearDateOfBirthFromAddInsuranceDialog();
-      await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
-      await addInsuranceDialog.verifyValidationErrorShown(dataTestIds.addInsuranceDialog.policyHoldersDateOfBirth);
-      await addInsuranceDialog.enterDateOfBirthFromAddInsuranceDialog(INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH);
+      await inlineInsuranceCard.clearField(insuranceSection.items[0].birthDate.key);
+      await patientInformationPage.clickSaveChangesButton();
+      await inlineInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].birthDate.key);
+      await inlineInsuranceCard.enterDateField(
+        insuranceSection.items[0].birthDate.key,
+        INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH
+      );
 
-      await addInsuranceDialog.clearPolicyHolderStreetAddress();
-      await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
-      await addInsuranceDialog.verifyValidationErrorShown(dataTestIds.addInsuranceDialog.streetAddress);
-      await addInsuranceDialog.enterPolicyHolderStreetAddress(INSURANCE_POLICY_HOLDER_ADDRESS);
+      await inlineInsuranceCard.clearField(insuranceSection.items[0].streetAddress.key);
+      await patientInformationPage.clickSaveChangesButton();
+      await inlineInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].streetAddress.key);
+      await inlineInsuranceCard.enterTextField(
+        insuranceSection.items[0].streetAddress.key,
+        INSURANCE_POLICY_HOLDER_ADDRESS
+      );
 
-      await addInsuranceDialog.clearPolicyHolderCity();
-      await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
-      await addInsuranceDialog.verifyValidationErrorShown(dataTestIds.addInsuranceDialog.city);
-      await addInsuranceDialog.enterPolicyHolderCity(INSURANCE_POLICY_HOLDER_CITY);
+      await inlineInsuranceCard.clearField(insuranceSection.items[0].city.key);
+      await patientInformationPage.clickSaveChangesButton();
+      await inlineInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].city.key);
+      await inlineInsuranceCard.enterTextField(insuranceSection.items[0].city.key, INSURANCE_POLICY_HOLDER_CITY);
 
-      await addInsuranceDialog.clearZipFromAddInsuranceDialog();
-      await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
-      await addInsuranceDialog.verifyValidationErrorShown(dataTestIds.addInsuranceDialog.zip);
+      await inlineInsuranceCard.clearField(insuranceSection.items[0].zip.key);
+      await patientInformationPage.clickSaveChangesButton();
+      await inlineInsuranceCard.verifyValidationErrorShown(insuranceSection.items[0].zip.key);
 
       await test.step('Check validation error is displayed for invalid zip', async () => {
-        await addInsuranceDialog.enterZipFromAddInsuranceDialog('11');
-        await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
-        await addInsuranceDialog.verifyValidationErrorZipFieldFromAddInsurance();
-        await addInsuranceDialog.enterZipFromAddInsuranceDialog('11223344');
-        await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
-        await addInsuranceDialog.verifyValidationErrorZipFieldFromAddInsurance();
+        await inlineInsuranceCard.enterTextField(insuranceSection.items[0].zip.key, '11');
+        await patientInformationPage.clickSaveChangesButton();
+        await inlineInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
+        await inlineInsuranceCard.enterTextField(insuranceSection.items[0].zip.key, '11223344');
+        await patientInformationPage.clickSaveChangesButton();
+        await inlineInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
       });
     });
 
     test('Fill fields and add primary and secondary insurances, verify insurances are saved successfully with correct data. Check validation.', async () => {
-      await addInsuranceDialog.selectInsuranceType('Primary');
-      await addInsuranceDialog.selectPlanType(INSURANCE_PLAN_TYPE);
-      await addInsuranceDialog.enterMemberId(INSURANCE_MEMBER_ID);
-      await addInsuranceDialog.enterPolicyHolderFirstName(INSURANCE_POLICY_HOLDER_FIRST_NAME);
-      await addInsuranceDialog.enterPolicyHolderMiddleName(INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
-      await addInsuranceDialog.enterPolicyHolderLastName(INSURANCE_POLICY_HOLDER_LAST_NAME);
-      await addInsuranceDialog.enterDateOfBirthFromAddInsuranceDialog(INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH);
-      await addInsuranceDialog.enterPolicyHolderStreetAddress(INSURANCE_POLICY_HOLDER_ADDRESS);
-      await addInsuranceDialog.enterPolicyHolderAddressLine2(INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE);
-      await addInsuranceDialog.enterPolicyHolderCity(INSURANCE_POLICY_HOLDER_CITY);
-      await addInsuranceDialog.enterZipFromAddInsuranceDialog(INSURANCE_POLICY_HOLDER_ZIP);
-      await addInsuranceDialog.selectInsuranceCarrier(INSURANCE_CARRIER);
-      await addInsuranceDialog.selectPolicyHoldersBirthSex(INSURANCE_POLICY_HOLDER_BIRTH_SEX);
-      await addInsuranceDialog.selectPatientsRelationship(INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED);
-      await addInsuranceDialog.selectPolicyHoldersState(INSURANCE_POLICY_HOLDER_STATE);
-      await addInsuranceDialog.enterAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
-      await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
+      await inlineInsuranceCard.selectInsuranceType('Primary');
+      await inlineInsuranceCard.selectFieldOption(insuranceSection.items[0].insurancePlanType.key, INSURANCE_PLAN_TYPE);
+      await inlineInsuranceCard.enterTextField(insuranceSection.items[0].memberId.key, INSURANCE_MEMBER_ID);
+      await inlineInsuranceCard.enterTextField(
+        insuranceSection.items[0].firstName.key,
+        INSURANCE_POLICY_HOLDER_FIRST_NAME
+      );
+      await inlineInsuranceCard.enterTextField(
+        insuranceSection.items[0].middleName.key,
+        INSURANCE_POLICY_HOLDER_MIDDLE_NAME
+      );
+      await inlineInsuranceCard.enterTextField(
+        insuranceSection.items[0].lastName.key,
+        INSURANCE_POLICY_HOLDER_LAST_NAME
+      );
+      await inlineInsuranceCard.enterDateField(
+        insuranceSection.items[0].birthDate.key,
+        INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH
+      );
+      await inlineInsuranceCard.enterTextField(
+        insuranceSection.items[0].streetAddress.key,
+        INSURANCE_POLICY_HOLDER_ADDRESS
+      );
+      await inlineInsuranceCard.enterTextField(
+        insuranceSection.items[0].addressLine2.key,
+        INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE
+      );
+      await inlineInsuranceCard.enterTextField(insuranceSection.items[0].city.key, INSURANCE_POLICY_HOLDER_CITY);
+      await inlineInsuranceCard.enterTextField(insuranceSection.items[0].zip.key, INSURANCE_POLICY_HOLDER_ZIP);
+      await inlineInsuranceCard.selectInsuranceCarrier(INSURANCE_CARRIER);
+      await inlineInsuranceCard.selectFieldOption(
+        insuranceSection.items[0].birthSex.key,
+        INSURANCE_POLICY_HOLDER_BIRTH_SEX
+      );
+      await inlineInsuranceCard.selectFieldOption(
+        insuranceSection.items[0].relationship.key,
+        INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
+      );
+      await inlineInsuranceCard.selectFieldOption(insuranceSection.items[0].state.key, INSURANCE_POLICY_HOLDER_STATE);
+      await inlineInsuranceCard.enterTextField(
+        insuranceSection.items[0].additionalInformation.key,
+        INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO
+      );
+      await patientInformationPage.clickSaveChangesButton();
 
-      await patientInformationPage.verifyCoverageAddedSuccessfullyMessageShown();
+      await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
       await patientInformationPage.reloadPatientInformationPage();
       const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
       await primaryInsuranceCard.verifyInsuranceType('Primary');
@@ -1772,26 +1828,56 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
         INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO
       );
 
-      await patientInformationPage.clickAddInsuranceButton();
-      await addInsuranceDialog.verifyTypeField('Secondary', false);
-      await addInsuranceDialog.selectPlanType(INSURANCE_PLAN_TYPE_2);
-      await addInsuranceDialog.enterMemberId(INSURANCE_MEMBER_ID_2);
-      await addInsuranceDialog.enterPolicyHolderFirstName(INSURANCE_POLICY_HOLDER_FIRST_NAME_2);
-      await addInsuranceDialog.enterPolicyHolderMiddleName(INSURANCE_POLICY_HOLDER_MIDDLE_NAME_2);
-      await addInsuranceDialog.enterPolicyHolderLastName(INSURANCE_POLICY_HOLDER_LAST_NAME_2);
-      await addInsuranceDialog.enterDateOfBirthFromAddInsuranceDialog(INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH_2);
-      await addInsuranceDialog.enterPolicyHolderStreetAddress(INSURANCE_POLICY_HOLDER_ADDRESS_2);
-      await addInsuranceDialog.enterPolicyHolderAddressLine2(INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE_2);
-      await addInsuranceDialog.enterPolicyHolderCity(INSURANCE_POLICY_HOLDER_CITY_2);
-      await addInsuranceDialog.enterZipFromAddInsuranceDialog(INSURANCE_POLICY_HOLDER_ZIP_2);
-      await addInsuranceDialog.selectInsuranceCarrier(INSURANCE_CARRIER_2);
-      await addInsuranceDialog.selectPolicyHoldersBirthSex(INSURANCE_POLICY_HOLDER_BIRTH_SEX_2);
-      await addInsuranceDialog.selectPatientsRelationship(INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED_2);
-      await addInsuranceDialog.selectPolicyHoldersState(INSURANCE_POLICY_HOLDER_STATE_2);
-      await addInsuranceDialog.enterAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2);
-      await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
+      const secondaryInlineCard = await patientInformationPage.clickAddInsuranceButton();
+      await secondaryInlineCard.verifyInsuranceType('Secondary');
+      await secondaryInlineCard.selectFieldOption(
+        insuranceSection.items[1].insurancePlanType.key,
+        INSURANCE_PLAN_TYPE_2
+      );
+      await secondaryInlineCard.enterTextField(insuranceSection.items[1].memberId.key, INSURANCE_MEMBER_ID_2);
+      await secondaryInlineCard.enterTextField(
+        insuranceSection.items[1].firstName.key,
+        INSURANCE_POLICY_HOLDER_FIRST_NAME_2
+      );
+      await secondaryInlineCard.enterTextField(
+        insuranceSection.items[1].middleName.key,
+        INSURANCE_POLICY_HOLDER_MIDDLE_NAME_2
+      );
+      await secondaryInlineCard.enterTextField(
+        insuranceSection.items[1].lastName.key,
+        INSURANCE_POLICY_HOLDER_LAST_NAME_2
+      );
+      await secondaryInlineCard.enterDateField(
+        insuranceSection.items[1].birthDate.key,
+        INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH_2
+      );
+      await secondaryInlineCard.enterTextField(
+        insuranceSection.items[1].streetAddress.key,
+        INSURANCE_POLICY_HOLDER_ADDRESS_2
+      );
+      await secondaryInlineCard.enterTextField(
+        insuranceSection.items[1].addressLine2.key,
+        INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE_2
+      );
+      await secondaryInlineCard.enterTextField(insuranceSection.items[1].city.key, INSURANCE_POLICY_HOLDER_CITY_2);
+      await secondaryInlineCard.enterTextField(insuranceSection.items[1].zip.key, INSURANCE_POLICY_HOLDER_ZIP_2);
+      await secondaryInlineCard.selectInsuranceCarrier(INSURANCE_CARRIER_2);
+      await secondaryInlineCard.selectFieldOption(
+        insuranceSection.items[1].birthSex.key,
+        INSURANCE_POLICY_HOLDER_BIRTH_SEX_2
+      );
+      await secondaryInlineCard.selectFieldOption(
+        insuranceSection.items[1].relationship.key,
+        INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED_2
+      );
+      await secondaryInlineCard.selectFieldOption(insuranceSection.items[1].state.key, INSURANCE_POLICY_HOLDER_STATE_2);
+      await secondaryInlineCard.enterTextField(
+        insuranceSection.items[1].additionalInformation.key,
+        INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
+      );
+      await patientInformationPage.clickSaveChangesButton();
 
-      await patientInformationPage.verifyCoverageAddedSuccessfullyMessageShown();
+      await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
       await patientInformationPage.reloadPatientInformationPage();
       const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
       await secondaryInsuranceCard.verifyInsuranceType('Secondary');
@@ -1885,7 +1971,7 @@ test.describe('Patient Record Page tests with zero patient data filled in', { ta
     await page.goto('/patient/' + resourceHandler.patient.id);
     const addPatientPage = await openAddPatientPage(page);
     await addPatientPage.selectVisitType('Walk-in In Person Visit');
-    await addPatientPage.selectServiceCategory(BOOKING_CONFIG.serviceCategories[0].display);
+    await addPatientPage.selectServiceCategory(BOOKING_CONFIG.serviceCategories[0].category.display);
     await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
     await addPatientPage.enterMobilePhone(NEW_PATIENT_MOBILE);
     await addPatientPage.clickSearchForPatientsButton();

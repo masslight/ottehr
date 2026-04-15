@@ -67,7 +67,7 @@ import RadioListInput from './components/RadioListInput';
 import { usePaperworkContext } from './context';
 import { useCreditCardSave } from './hooks/useCreditCardSave';
 import { useAutoFillValues } from './useAutofill';
-import { useFilterAnswersOptions } from './useFilterAnswersOptions';
+import { useDisplayFilteredOptions, useFilterAnswersOptions } from './useFilterAnswersOptions';
 import { getPaperworkFieldId, useFieldError, usePaperworkFormHelpers, useQRState } from './useFormHelpers';
 import { StyledQuestionnaireItem, useStyledItems } from './useStyleItems';
 import { getInputTypeForItem } from './utils';
@@ -606,7 +606,8 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
   } = usePaperworkFormHelpers({ item, renderValue: value, renderOnChange: onChange, fieldId });
 
   const error = useFieldError(fieldId);
-  const answerOptions = useFilterAnswersOptions(item.answerOption ?? []);
+  const displayFilteredOptions = useDisplayFilteredOptions(item.answerDisplayFilters, item.answerOption ?? []);
+  const answerOptions = useFilterAnswersOptions(displayFilteredOptions);
   const colorForButton = unwrappedValue ? theme.palette.destructive.main : theme.palette.primary.main;
   let attachmentType: AttachmentType = 'image';
   if (item.dataType === 'PDF') {
@@ -679,7 +680,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
             freeSolo={item.type === 'open-choice'}
             defaultValue={(defaultValues && pickFirstValueFromAnswerItem(defaultValues[item.linkId])) ?? null}
             required={item.required}
-            options={item.answerOption ?? []}
+            options={answerOptions}
             dynamicAnswerOptions={answerLoadingOptions}
             answerValueSet={item.answerValueSet}
             inputRef={ref}

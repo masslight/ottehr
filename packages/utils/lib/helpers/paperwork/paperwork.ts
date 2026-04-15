@@ -322,6 +322,33 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requiredBooleanValue;
   })?.valueBoolean;
 
+  const answerDisplayFilterExtensions = extension.filter(
+    (ext) => ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerDisplayFilter.extension
+  );
+  const answerDisplayFilters =
+    answerDisplayFilterExtensions.length > 0
+      ? answerDisplayFilterExtensions.map((filterExt) => {
+          const subs = filterExt.extension ?? [];
+          const extKeys = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerDisplayFilter;
+          const questions: string[] = [];
+          const operators: string[] = [];
+          const answers: string[] = [];
+          const includeValues: string[] = [];
+          for (const sub of subs) {
+            if (sub.url === extKeys.question) questions.push(sub.valueString ?? '');
+            else if (sub.url === extKeys.operator) operators.push(sub.valueString ?? '');
+            else if (sub.url === extKeys.answer) answers.push(sub.valueString ?? '');
+            else if (sub.url === extKeys.include) includeValues.push(sub.valueString ?? '');
+          }
+          const conditions = questions.map((q, i) => ({
+            question: q,
+            operator: operators[i] ?? '=',
+            answer: answers[i] ?? '',
+          }));
+          return { conditions, includeValues };
+        })
+      : undefined;
+
   return {
     acceptsMultipleAnswers,
     alwaysFilter,
@@ -343,6 +370,7 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     minRows,
     complexValidation,
     requiredBooleanValue,
+    answerDisplayFilters,
   };
 };
 

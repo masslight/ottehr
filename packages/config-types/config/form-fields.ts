@@ -99,6 +99,20 @@ export const FormFieldsValueTypeBaseSchema = z.object({
   customLinkId: z.string().optional(),
   categoryTag: z.string().optional(),
   alwaysFilter: z.boolean().optional(),
+  answerDisplayFilters: z
+    .array(
+      z.object({
+        conditions: z.array(
+          z.object({
+            question: z.string(),
+            operator: z.string(),
+            answer: z.string(),
+          })
+        ),
+        includeValues: z.array(z.string()),
+      })
+    )
+    .optional(),
 });
 
 /**

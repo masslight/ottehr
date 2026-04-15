@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Patient, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -112,10 +113,20 @@ export async function performEffect(
     return failureResponse;
   }
 
+  const appointmentPatchOperations: Operation[] = [getPatchOperationForNewMetaTag(appointment, notificationSentTag)];
+
+  if (appointment.status === 'booked') {
+    appointmentPatchOperations.push({
+      op: 'replace',
+      path: `/status`,
+      value: 'arrived',
+    });
+  }
+
   await oystehr.fhir.patch({
     resourceType: 'Appointment',
     id: appointment.id,
-    operations: [getPatchOperationForNewMetaTag(appointment, notificationSentTag)],
+    operations: appointmentPatchOperations,
   });
 
   return { taskCreated: true };
