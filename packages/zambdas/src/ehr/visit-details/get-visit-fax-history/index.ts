@@ -8,6 +8,9 @@ import {
   GetVisitFaxHistoryInputValidated,
   GetVisitFaxHistoryInputValidatedSchema,
   GetVisitFaxHistoryOutput,
+  INVALID_INPUT_ERROR,
+  MISSING_AUTH_TOKEN,
+  MISSING_REQUEST_BODY,
   PROVENANCE_FAX_ACTIVITY_CODES,
   PROVENANCE_FAX_SYSTEM,
 } from 'utils';
@@ -94,18 +97,18 @@ const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): 
 
 function validateRequestParameters(input: ZambdaInput): GetVisitFaxHistoryInputValidated {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   if (!input.headers?.Authorization) {
-    throw new Error('Authorization header is required');
+    throw MISSING_AUTH_TOKEN;
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(input.body);
   } catch {
-    throw new Error('Invalid JSON in request body.');
+    throw INVALID_INPUT_ERROR('Invalid JSON in request body.');
   }
 
   try {
@@ -119,7 +122,7 @@ function validateRequestParameters(input: ZambdaInput): GetVisitFaxHistoryInputV
     return validated;
   } catch (err) {
     if (err instanceof ZodError) {
-      throw new Error(`Invalid request parameters: ${formatZodError(err)}`);
+      throw INVALID_INPUT_ERROR(`Invalid request parameters: ${formatZodError(err)}`);
     }
     throw err;
   }
