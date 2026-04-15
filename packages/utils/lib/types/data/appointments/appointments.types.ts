@@ -22,6 +22,7 @@ import {
   TelemedStatusHistoryElement,
 } from '../../../main';
 import {
+  AppointmentAttendanceType,
   AppointmentMessaging,
   AppointmentType,
   FhirAppointmentStatus,
@@ -93,6 +94,7 @@ export interface AppointmentInformation extends AppointmentMessaging {
   visitStatusHistory: VisitStatusHistoryEntry[];
   practitioner?: Practitioner;
   appointmentType?: AppointmentType;
+  appointmentAttendanceType?: AppointmentAttendanceType;
 }
 
 export interface ParticipantInfo {
@@ -128,7 +130,10 @@ export interface InPersonAppointmentInformation
   needsDOBConfirmation?: boolean;
   waitingMinutes?: number;
   serviceCategory?: string;
-  location?: string;
+  location?: Location;
+  isFollowUp?: boolean;
+  parentEncounterId?: string;
+  parentAppointmentId?: string;
 }
 
 export interface TelemedAppointmentInformation extends Omit<AppointmentInformation, 'status' | 'statusHistory'> {

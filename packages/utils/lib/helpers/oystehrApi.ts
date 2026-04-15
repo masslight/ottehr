@@ -78,6 +78,20 @@ export const apiErrorToThrow = (error: any): APIError => {
   }
 };
 
+/**
+ * Extracts the error message from an API error with fallback to default message.
+ */
+export const getApiError = ({ error, defaultError }: { error: any; defaultError: string }): string => {
+  // Errors from Oystehr SDK can have nested structure: { output: { message, code } }
+  if (error?.output?.message) {
+    return error.output.message;
+  }
+  if (error?.message) {
+    return error.message;
+  }
+  return defaultError;
+};
+
 export function NotFoundAppointmentErrorHandler(error: any): void {
   if (error.message === 'Appointment is not found') {
     throw error;
