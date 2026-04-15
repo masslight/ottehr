@@ -282,12 +282,18 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const [consentExists, setConsentExists] = useState(false);
 
   useEffect(() => {
-    fetch('/consent_radiology.pdf', { method: 'HEAD' })
+    const controller = new AbortController();
+    fetch('/consent_radiology.pdf', { method: 'HEAD', signal: controller.signal })
       .then((res) => {
         const contentType = res.headers.get('content-type');
         setConsentExists(res.ok && (contentType?.includes('application/pdf') ?? false));
       })
-      .catch(() => setConsentExists(false));
+      .catch(() => {
+        setConsentExists(false);
+      });
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   return (
@@ -468,6 +474,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                           target="_blank"
                           to={`/consent_radiology.pdf`}
                           style={{ color: theme.palette.primary.main }}
+                          rel="noopener noreferrer"
                         >
                           consent for X-ray
                         </Link>
