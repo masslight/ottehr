@@ -32,7 +32,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
-import { TrackingBoardTableButton } from 'src/features/visits/telemed/components/tracking-board/TrackingBoardTableButton';
 import { getTelemedQuickTexts } from 'src/features/visits/telemed/utils/appointments';
 import { getTelemedAppointmentUrl } from 'src/features/visits/telemed/utils/routing';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
@@ -44,7 +43,6 @@ import {
   getInPersonQuickTexts,
   getPatchBinary,
   getSupportPhoneFor,
-  getTelemedVisitStatus,
   getVisitTotalTime,
   GetVitalsResponseData,
   InPersonAppointmentInformation,
@@ -587,10 +585,7 @@ export default function AppointmentTableRow({
   };
 
   const renderStartIntakeButton = (): ReactElement | undefined => {
-    if (
-      !isVirtual(appointment) &&
-      (appointment.status === 'arrived' || appointment.status === 'ready' || appointment.status === 'intake')
-    ) {
+    if (appointment.status === 'arrived' || appointment.status === 'ready' || appointment.status === 'intake') {
       return (
         <GoToButton
           text="Start Intake"
@@ -600,29 +595,6 @@ export default function AppointmentTableRow({
         >
           <img src={startIntakeIcon} />
         </GoToButton>
-      );
-    }
-    return undefined;
-  };
-
-  const renderAssignMeButton = (): ReactElement | undefined => {
-    const location = appointment.location;
-    if (isVirtual(appointment) && location?.id) {
-      return (
-        <TrackingBoardTableButton
-          appointment={{
-            ...appointment,
-            telemedStatus: getTelemedVisitStatus(encounter.status, appointment.status) ?? 'ready',
-            locationVirtual: {
-              reference: `Location/${location.id}`,
-              name: location.name,
-              state: location.address?.state,
-              resourceType: 'Location',
-              id: location.id,
-              extension: location.extension,
-            },
-          }}
-        />
       );
     }
     return undefined;
@@ -1064,7 +1036,6 @@ export default function AppointmentTableRow({
           {renderStartIntakeButton()}
           {renderProgressNoteButton()}
           {renderDischargeButton()}
-          {renderAssignMeButton()}
           {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && renderSupervisorApproval()}
         </Stack>
       </TableCell>
