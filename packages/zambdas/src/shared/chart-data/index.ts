@@ -432,16 +432,25 @@ export function makeObservationResource(
   // and date fields also have string values.
   const textData = data as ObservationTextFieldDTO;
   if (isObservationTextFieldDTO(data)) {
+    const component =
+      'items' in textData && Array.isArray(textData.items) && textData.items.length > 0
+        ? textData.items.map((item) => ({
+            code: { text: textData.field },
+            valueString: JSON.stringify(item),
+          }))
+        : undefined;
     if ('note' in textData && textData.note) {
       return {
         ...base,
         valueString: textData.value,
         note: [{ text: textData.note }],
+        ...(component ? { component } : {}),
       };
     } else {
       return {
         ...base,
         valueString: textData.value,
+        ...(component ? { component } : {}),
       };
     }
   }
@@ -1224,12 +1233,32 @@ export function makeObservationDTO(observation: Observation): null | Observation
       value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
     } as ObservationDateRangeFieldDTO;
   } else if (typeof observation.valueString === 'string') {
+    const items = observation.component
+      ?.map((c) => {
+        if (typeof c.valueString !== 'string') return undefined;
+        try {
+          const parsed = JSON.parse(c.valueString);
+          if (parsed && typeof parsed === 'object' && typeof parsed.display === 'string') {
+            const searchTerms =
+              Array.isArray(parsed.searchTerms) && parsed.searchTerms.every((t: unknown) => typeof t === 'string')
+                ? parsed.searchTerms
+                : [];
+            return { display: parsed.display, searchTerms };
+          }
+        } catch {
+          // Legacy plain-string component — use as display, leave searchTerms empty
+          // (do not echo the display/prose into searchTerms).
+        }
+        return { display: c.valueString, searchTerms: [] };
+      })
+      .filter((v): v is { display: string; searchTerms: string[] } => v != null);
     return {
       resourceId: observation.id,
       field,
       value: observation.valueString,
       note: observation.note?.[0]?.text,
       derivedFrom: observation.derivedFrom?.[0].reference,
+      ...(items && items.length > 0 ? { items } : {}),
     } as ObservationTextFieldDTO;
   }
 

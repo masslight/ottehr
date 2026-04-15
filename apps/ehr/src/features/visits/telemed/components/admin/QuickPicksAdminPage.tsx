@@ -21,11 +21,20 @@ import {
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { AllergyQuickPickData, MedicalConditionQuickPickData, MedicationHistoryQuickPickData } from 'utils';
+import ImmunizationQuickPicksPage from './ImmunizationQuickPicksPage';
+import InHouseMedicationQuickPicksPage from './InHouseMedicationQuickPicksPage';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
 import QuickPickEditor from './QuickPickEditor';
 import RadiologyQuickPicksPage from './RadiologyQuickPicksPage';
 
-type SubTab = 'procedures' | 'allergies' | 'medical-conditions' | 'medications' | 'radiology';
+type SubTab =
+  | 'procedures'
+  | 'allergies'
+  | 'medical-conditions'
+  | 'medications'
+  | 'radiology'
+  | 'immunizations'
+  | 'in-house-medications';
 
 const AllergenSearchField: React.FC<{
   value: string;
@@ -324,6 +333,8 @@ export default function QuickPicksAdminPage(): ReactElement {
             <Tab label="Medical Conditions" value="medical-conditions" sx={{ textTransform: 'none' }} />
             <Tab label="Medications" value="medications" sx={{ textTransform: 'none' }} />
             <Tab label="Radiology" value="radiology" sx={{ textTransform: 'none' }} />
+            <Tab label="Immunizations" value="immunizations" sx={{ textTransform: 'none' }} />
+            <Tab label="In-House Medications" value="in-house-medications" sx={{ textTransform: 'none' }} />
           </TabList>
         </Box>
 
@@ -417,6 +428,12 @@ export default function QuickPicksAdminPage(): ReactElement {
         </TabPanel>
         <TabPanel value="radiology" sx={{ px: 0 }}>
           <RadiologyQuickPicksPage />
+        </TabPanel>
+        <TabPanel value="immunizations" sx={{ px: 0 }}>
+          <ImmunizationQuickPicksPage />
+        </TabPanel>
+        <TabPanel value="in-house-medications" sx={{ px: 0 }}>
+          <InHouseMedicationQuickPicksPage />
         </TabPanel>
       </TabContext>
     </Box>

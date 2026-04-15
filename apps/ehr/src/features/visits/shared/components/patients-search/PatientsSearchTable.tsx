@@ -16,10 +16,12 @@ import {
   Tabs,
   Typography,
 } from '@mui/material';
+import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { IdentifiersRow } from '../patient/info/IdentifiersRow';
 import { COLUMN_CONFIG, SEARCH_CONFIG } from './constants';
 import { PartialSearchOptionsState, SearchOptionsState, SearchResult, SortField, SortOrder } from './types';
 
@@ -163,7 +165,18 @@ export const PatientsSearchTable: React.FC<{
                     sx={{ cursor: 'pointer' }}
                   >
                     <TableCell data-testid={dataTestIds.patients.patientId} width={COLUMN_CONFIG.pid.width}>
-                      {patient.id}
+                      <Box onClick={(event) => event.stopPropagation()} sx={{ display: 'inline-block' }}>
+                        <IdentifiersRow
+                          patient={
+                            {
+                              resourceType: 'Patient',
+                              id: patient.id,
+                              identifier: patient.identifier,
+                            } as Patient
+                          }
+                          showPidPrefix={false}
+                        />
+                      </Box>
                     </TableCell>
                     <TableCell width={COLUMN_CONFIG.name.width} data-testid={dataTestIds.patients.patientName}>
                       {patient.name}

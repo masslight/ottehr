@@ -133,8 +133,8 @@ test.describe('Immunization Page mutating tests', () => {
       await openImmunizationPage(resourceHandler.appointment.id!, page);
       const marTab = await expectMarTab(page);
       const deleteDialog = await marTab.clickDeleteButton(EDITED_VACCINE.vaccine);
-      await deleteDialog.verifyTitle('Delete vaccine order');
-      await deleteDialog.verifyMessage('Are you sure you want to delete the vaccine order?');
+      await deleteDialog.verifyTitle('Delete immunization order');
+      await deleteDialog.verifyMessage('Are you sure you want to delete the immunization order?');
       await deleteDialog.clickProceedButton();
       await marTab.verifyVaccinePresent({
         ...EDITED_VACCINE,
