@@ -222,11 +222,6 @@ export default function UpdateMedicationPage(): ReactElement {
                   }
                   options={medicationOptions}
                   onChange={(_e, value) => setMedication((prev) => mergeSelectedMedicationIntoExisting(value, prev!))}
-                  onInputChange={(_e, value, reason) => {
-                    if (reason === 'input') {
-                      debouncedHandleInputChange(value);
-                    }
-                  }}
                   renderInput={(params) => (
                     <TextField
                       {...params}
