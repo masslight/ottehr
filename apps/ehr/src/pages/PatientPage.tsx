@@ -84,7 +84,7 @@ export default function PatientPage(): JSX.Element {
             <PatientAvatar id={id} />
 
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <IdentifiersRow id={id} />
+              <IdentifiersRow patient={patient} loading={loading} />
               <FullNameDisplay patient={patient} loading={loading} />
               <Summary patient={patient} loading={loading} />
               <Contacts patient={patient} loading={loading} />

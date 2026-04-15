@@ -45,7 +45,7 @@ export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
       }}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        <IdentifiersRow id={id} loading={false} />
+        <IdentifiersRow patient={patient} loading={loading} />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{ flex: '64px 0 0' }}>
             <PatientAvatar id={id} sx={{ width: 64, height: 64 }} />
