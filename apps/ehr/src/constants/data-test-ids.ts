@@ -130,6 +130,7 @@ export const dataTestIds = {
     searchByLastNameField: 'search-last-name-field',
     searchByGivenNamesField: 'search-given-names-field',
     searchByDateOfBirthField: 'searchByDateOfBirthField',
+    searchByPidField: 'search-pid-field',
     searchByPhoneField: 'search-phone-field',
     searchByAddressField: 'search-by-address',
     searchByEmailField: 'search-by-email-field',

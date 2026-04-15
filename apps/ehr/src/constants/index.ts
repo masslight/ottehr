@@ -97,11 +97,6 @@ export const PatientGuarantorFields = [
   FormFields.patientContactInformation.items.phone.key,
 ];
 
-export const InsurancePriorityFields = [
-  FormFields.insurance.items[0].insurancePriority.key,
-  FormFields.insurance.items[1].insurancePriority.key,
-];
-
 // Generate additional questions from configuration
 // Only include fields that exist in questionnaire (for now, assuming all are boolean)
 // TODO: only boolean fields are supported for now, add support for other field types when needed

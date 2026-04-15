@@ -48,8 +48,11 @@ export function AutocompleteInput<Value>({
       control={control}
       rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false, validate: validate }}
       render={({ field, fieldState: { error } }) => {
-        let optionsToUse = options ?? [];
+        let optionsToUse = [...(options ?? [])];
+
+        // freeSolo updates field.value on each keystroke, and it doesn't need the typed value to be added to options
         if (
+          !freeSolo &&
           field.value &&
           !options?.find((option) =>
             isOptionEqualToValue ? isOptionEqualToValue(option, field.value) : option === field.value
@@ -62,17 +65,18 @@ export function AutocompleteInput<Value>({
             <Autocomplete<Value, false, false, boolean>
               value={field.value ?? null}
               options={optionsToUse}
-              getOptionKey={getOptionKey as ((option: string | Value) => string | number) | undefined}
+              // MUI types getOptionKey/getOptionLabel as (option: Value | string) => ... when FreeSolo
+              // is boolean rather than false, but our props already enforce the correct type for callers.
+              // The as any casts are safe here
+              getOptionKey={getOptionKey as any}
               noOptionsText={noOptionsText}
-              getOptionLabel={getOptionLabel as ((option: string | Value) => string) | undefined}
-              isOptionEqualToValue={
-                isOptionEqualToValue as ((option: string | Value, value: string | Value) => boolean) | undefined
-              }
+              getOptionLabel={getOptionLabel as any}
+              isOptionEqualToValue={isOptionEqualToValue as any}
               freeSolo={freeSolo}
-              onChange={(_e, option) => field.onChange(option ?? null)}
+              onChange={(_e, option: any) => field.onChange(option ?? null)}
               {...(freeSolo
                 ? {
-                    onInputChange: (_e: React.SyntheticEvent, newValue: string, reason: string) => {
+                    onInputChange: (_e: any, newValue: string, reason: string) => {
                       if (reason === 'input') {
                         field.onChange(newValue || null);
                       }

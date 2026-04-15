@@ -199,7 +199,11 @@ function formatMoney(cents: number | undefined): string {
   return `$${((cents ?? 0) / 100).toFixed(2)}`;
 }
 
-async function getServiceLines(encounter: Encounter, secrets: Secrets): Promise<StatementLineDetails> {
+async function getServiceLines(
+  encounter: Encounter,
+  secrets: Secrets,
+  oystehr: Oystehr
+): Promise<StatementLineDetails> {
   const encounterId = encounter.id;
   if (!encounterId) {
     throw new Error('Encounter id is missing');
@@ -239,7 +243,7 @@ async function getServiceLines(encounter: Encounter, secrets: Secrets): Promise<
 
       return {
         cpt: serviceLine.procedureCode,
-        description: await getProcedureCodeTitle(serviceLine.procedureCode, secrets),
+        description: await getProcedureCodeTitle(serviceLine.procedureCode, oystehr),
         charged: formatMoney(chargeAfterAdjustments),
         insurancePaid: formatMoney(insurancePaid),
         patientPaid: formatMoney(patientPaid),
@@ -280,29 +284,15 @@ async function getServiceLines(encounter: Encounter, secrets: Secrets): Promise<
   };
 }
 
-async function getProcedureCodeTitle(code: string, secrets: Secrets): Promise<string> {
-  const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
-  const names = await Promise.all([searchCodeName(code, 'HCPT', apiKey), searchCodeName(code, 'HCPCS', apiKey)]);
-  const name = names.find((entry) => entry != null);
+async function getProcedureCodeTitle(code: string, oystehr: Oystehr): Promise<string> {
+  const [cptResponse, hcpcsResponse] = await Promise.all([
+    oystehr.terminology.searchCpt({ searchType: 'code', strictMatch: true, query: code }),
+    oystehr.terminology.searchHcpcs({ searchType: 'code', strictMatch: true, query: code }),
+  ]);
+  const name =
+    cptResponse.codes.find((c) => c.code === code)?.display ??
+    hcpcsResponse.codes.find((c) => c.code === code)?.display;
   return name ? `${code} - ${name}` : code;
-}
-
-async function searchCodeName(code: string, sabs: string, apiKey: string): Promise<string | undefined> {
-  const response = await fetch(
-    `https://uts-ws.nlm.nih.gov/rest/search/current?apiKey=${apiKey}&returnIdType=code&inputType=code&string=${code}&sabs=${sabs}&partialSearch=true&searchType=rightTruncation`
-  );
-  if (!response.ok) {
-    return undefined;
-  }
-  const responseBody = (await response.json()) as {
-    result: {
-      results: {
-        ui: string;
-        name: string;
-      }[];
-    };
-  };
-  return responseBody.result.results.find((entry) => entry)?.name;
 }
 
 function createStatementDetails(
@@ -401,7 +391,7 @@ export async function getStatementDetails(input: GetStatementDetailsInput): Prom
   }
 
   const insuranceDetails = getInsuranceDetails(coverages, insuranceOrgs);
-  const { serviceLines, totals } = await getServiceLines(resources.encounter, secrets);
+  const { serviceLines, totals } = await getServiceLines(resources.encounter, secrets, oystehr);
   const paymentUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
 
   let billerDetails: StatementBillerDetails = {
