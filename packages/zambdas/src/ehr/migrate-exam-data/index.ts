@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, SecretsKeys } from 'utils';
+import { getSecret, MigrateExamDataInput, MigrateExamDataOutput, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   getPatientEncounter,
@@ -40,20 +40,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       examObservations
     );
 
+    const response: MigrateExamDataOutput = {
+      message: 'Migration complete',
+      migratedCount: migratedObservations.length,
+      chartData: { ...chartData, examObservations: migratedObservations },
+    };
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        message: 'Migration complete',
-        migratedCount: migratedObservations.length,
-        chartData: { ...chartData, examObservations: migratedObservations },
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error) {
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
-function validateInput(input: ZambdaInput): { encounterId: string; secrets: ZambdaInput['secrets'] } {
+function validateInput(input: ZambdaInput): MigrateExamDataInput & { secrets: ZambdaInput['secrets'] } {
   const { body, secrets } = input;
   const parsedBody = typeof body === 'string' ? JSON.parse(body) : body;
   const encounterId = parsedBody?.encounterId;

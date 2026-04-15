@@ -1,14 +1,5 @@
 import { ExamCardCheckboxWithModalComponent } from 'config-types/config/examination';
-
-export const BORDER_STYLE = '1px solid rgba(224, 224, 224, 1)';
 export interface FlatOption {
-  key: string;
-  label: string;
-  groupLabel: string;
-  description?: string;
-  abnormal?: boolean;
-}
-export interface FlatOptionNew {
   key: string;
   label: string;
   groupLabel: string;
@@ -18,7 +9,7 @@ export interface FlatOptionNew {
   abnormal?: boolean;
 }
 
-export function buildAllOptionsNew(config: ExamCardCheckboxWithModalComponent): FlatOptionNew[] {
+export function buildAllOptionsNew(config: ExamCardCheckboxWithModalComponent): FlatOption[] {
   return Object.values(config.modal).flatMap((section) =>
     Object.values(section.columns).flatMap((column) =>
       Object.values(column.groups).flatMap((group) =>
@@ -36,8 +27,8 @@ export function buildAllOptionsNew(config: ExamCardCheckboxWithModalComponent): 
   );
 }
 
-export function buildColumnMap(options: FlatOptionNew[]): Record<string, FlatOptionNew[]> {
-  const map = new Map<string, FlatOptionNew[]>();
+export function buildColumnMap(options: FlatOption[]): Record<string, FlatOption[]> {
+  const map = new Map<string, FlatOption[]>();
   options.forEach((opt) => {
     const header = opt.header ? opt.header : 'single-column';
     const existing = map.get(header);

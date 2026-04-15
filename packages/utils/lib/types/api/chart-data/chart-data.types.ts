@@ -548,3 +548,13 @@ export interface AccidentDTO extends SaveableDTO {
   date?: string;
   state?: string;
 }
+
+export interface MigrateExamDataInput {
+  encounterId: string;
+}
+
+export interface MigrateExamDataOutput {
+  message: string;
+  migratedCount: number;
+  chartData: GetChartDataResponse;
+}

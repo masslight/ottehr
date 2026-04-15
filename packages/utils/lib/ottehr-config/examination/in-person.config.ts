@@ -1,29 +1,3 @@
-/**
- * MIGRATION NOTE: The following multi-select exam items were converted to modal-exam.
- * Old templates and notes may have standalone Observations with these field names
- * that need migration to the new component-based storage model:
- *
- * Heart:
- *   - murmur-grade (parent) -> murmur-i, murmur-ii, murmur-iii, murmur-iv, murmur-v, murmur-vi
- *
- * Lungs:
- *   - wheezing (parent) -> wheezing-left-upper, wheezing-left-lower, wheezing-right-upper,
- *     wheezing-right-middle, wheezing-right-lower
- *   - crackles (parent) -> crackles-left-upper, crackles-left-lower, crackles-right-upper,
- *     crackles-right-middle, crackles-right-lower
- *   - breath-sounds (parent) -> breath-sounds-left-upper, breath-sounds-left-lower,
- *     breath-sounds-right-upper, breath-sounds-right-middle, breath-sounds-right-lower
- *   - retractions (parent) -> subcostal, suprasternal, intercostal
- *
- * Abdomen:
- *   - tender (parent) -> diffusely, ruq, rlq, luq, r-cva, l-cva
- *
- * Skin (converted earlier):
- *   - rash (parent) -> cw-viral-exam, cw-insect-bites, cw-urticaria, cw-coxsackievirus,
- *     cw-irritant-diaper-rash, cw-ringworm, cw-impetigo, cw-fifths-disease, cw-atopic-dermatitis,
- *     cw-paronychia, cw-poison-ivy-contact-dermatitis, cw-tinea-capitis, cw-pityriasis-rosea, cw-lyme-ecm
- */
-
 import {
   ExamCardCheckboxWithModalComponent,
   ExamItemConfig,

@@ -123,6 +123,8 @@ import {
   ListTemplatesZambdaOutput,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
+  MigrateExamDataInput,
+  MigrateExamDataOutput,
   PaginatedResponse,
   PaperworkToPDFInput,
   PendingSupervisorApprovalInput,
@@ -2204,14 +2206,14 @@ const MIGRATE_EXAM_DATA_ZAMBDA_ID = 'migrate-exam-data';
 
 export const migrateExamData = async (
   oystehr: Oystehr,
-  parameters: { encounterId: string }
-): Promise<{ message: string }> => {
+  parameters: MigrateExamDataInput
+): Promise<MigrateExamDataOutput> => {
   try {
     const response = await oystehr.zambda.execute({
       id: MIGRATE_EXAM_DATA_ZAMBDA_ID,
       ...parameters,
     });
-    return chooseJson(response) as { message: string };
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);
