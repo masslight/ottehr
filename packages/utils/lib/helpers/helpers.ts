@@ -12,6 +12,7 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../config-helpers/shared-questionnaire';
 import {
   allLicensesForPractitioner,
   CANDID_PLAN_TYPE_SYSTEM,
@@ -25,7 +26,7 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   SLUG_SYSTEM,
 } from '../fhir';
-import { CONSENT_FORMS_CONFIG, INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../ottehr-config';
+import { CONSENT_FORMS_CONFIG } from '../ottehr-config';
 import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
 import {
   appointmentTypeLabels,

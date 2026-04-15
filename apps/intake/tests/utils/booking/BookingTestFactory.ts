@@ -115,30 +115,26 @@ export async function generateBookingTestScenarios(): Promise<BookingTestScenari
   // This ensures the app sees the same config as the test expectations
   const bookingOverridesToInject: Partial<BookingConfig> = {
     serviceCategories: resolvedConfig.serviceCategories,
-    serviceCategoriesEnabled: resolvedConfig.serviceCategoriesEnabled,
     homepageOptions: resolvedConfig.homepageOptions,
   };
 
   const homepageOptions = resolvedConfig.homepageOptions;
   const serviceCategories = resolvedConfig.serviceCategories;
-  const { serviceCategoriesEnabled } = resolvedConfig;
 
   for (const option of homepageOptions) {
     // Determine visit type and service mode from homepage option ID
     const visitType = (option.id.includes('start') ? 'walk-in' : 'prebook') as 'walk-in' | 'prebook';
     const serviceMode = (option.id.includes('virtual') ? 'virtual' : 'in-person') as 'in-person' | 'virtual';
 
-    // Check if service category selection is enabled for this flow type
-    const categorySelectionEnabled =
-      serviceCategoriesEnabled.serviceModes.includes(serviceMode) &&
-      serviceCategoriesEnabled.visitType.includes(visitType);
+    // Filter categories available for this flow's mode and visit type
+    const availableCategories = serviceCategories.filter(
+      (sc) => sc.serviceModes.includes(serviceMode) && sc.visitTypes.includes(visitType)
+    );
 
     // Determine which categories to generate scenarios for
-    // If category selection is disabled for this flow, only use 'urgent-care' by convention
+    // If only one category available for this flow, use it directly (no selection page)
     const categoriesToTest =
-      categorySelectionEnabled && serviceCategories.length > 1
-        ? serviceCategories
-        : [serviceCategories.find((c) => c.code === 'urgent-care') || serviceCategories[0]];
+      availableCategories.length > 1 ? availableCategories : [availableCategories[0] || serviceCategories[0]];
 
     for (const category of categoriesToTest) {
       // Use the pre-resolved instance paperwork config (has downstream overrides baked in)
@@ -148,11 +144,11 @@ export async function generateBookingTestScenarios(): Promise<BookingTestScenari
         configName: 'instance',
         homepageOptionId: option.id,
         homepageOptionLabel: option.label,
-        serviceCategory: category.code,
+        serviceCategory: category.category.code,
         visitType,
         serviceMode,
-        description: `${option.label} → ${category.code}`,
-        fillingStrategy: getFillingStrategyForScenario(category.code, visitType, serviceMode),
+        description: `${option.label} → ${category.category.code}`,
+        fillingStrategy: getFillingStrategyForScenario(category.category.code, visitType, serviceMode),
         resolvedConfig,
         bookingOverrides: bookingOverridesToInject,
         resolvedPaperworkConfig,
