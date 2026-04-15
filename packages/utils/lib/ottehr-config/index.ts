@@ -5,7 +5,6 @@ export * from './value-sets';
 export * from './branding';
 export * from './consent-forms';
 export * from './screening-questions';
-export * from './shared-questionnaire';
 export * from './booking';
 export * from './examination';
 export * from './forms';
