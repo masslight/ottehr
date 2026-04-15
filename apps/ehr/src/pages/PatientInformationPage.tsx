@@ -5,6 +5,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
+import { PatientMergedBanner } from 'src/components/PatientMergedBanner';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
 import { ActionBar } from 'src/features/visits/shared/components/patient/ActionBar';
 import { AttorneyInformationContainer } from 'src/features/visits/shared/components/patient/AttorneyInformationContainer';
@@ -497,6 +498,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                   {title}
                 </Typography>
               )}
+              <PatientMergedBanner patient={patient} />
               <WarningBanner
                 otherPatientsWithSameName={otherPatientsWithSameName}
                 onClose={() => setOtherPatientsWithSameName(false)}
