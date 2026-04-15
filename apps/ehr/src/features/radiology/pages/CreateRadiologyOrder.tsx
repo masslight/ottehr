@@ -27,7 +27,7 @@ import {
 } from '@mui/material';
 import { ClearIcon } from '@mui/x-date-pickers';
 import { enqueueSnackbar } from 'notistack';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
@@ -62,6 +62,7 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { useMergedRadiologyQuickPicks } from '../../../hooks/useMergedQuickPicks';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
+import { useRadiologyConsentExists } from '../components/useRadiologyConsentExists';
 
 interface CreateRadiologyOrdersProps {
   appointmentID?: string;
@@ -280,22 +281,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     });
   };
 
-  const [consentExists, setConsentExists] = useState(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch('/consent_radiology.pdf', { method: 'HEAD', signal: controller.signal })
-      .then((res) => {
-        const contentType = res.headers.get('content-type');
-        setConsentExists(res.ok && (contentType?.includes('application/pdf') ?? false));
-      })
-      .catch(() => {
-        setConsentExists(false);
-      });
-    return () => {
-      controller.abort();
-    };
-  }, []);
+  const consentExists = useRadiologyConsentExists();
 
   return (
     <DetailPageContainer>
