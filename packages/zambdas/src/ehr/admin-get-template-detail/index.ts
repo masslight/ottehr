@@ -7,6 +7,7 @@ import {
   AdminGetTemplateDetailInput,
   AdminGetTemplateDetailOutput,
   chartDataTagSystem,
+  collectKnownExamFields,
   examConfig,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
@@ -148,8 +149,6 @@ const performEffect = async (
   // Determine exam type from template coding and select appropriate config
   const isInPerson = templateList.code?.coding?.some((c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM);
   const examTypeConfig = isInPerson ? examConfig.inPerson.default : examConfig.telemed.default;
-  const currentVersion = examTypeConfig.version;
-  const isCurrentVersion = examVersion === currentVersion;
 
   // Parse HPI note
   const hpiCondition = contained.find(
@@ -173,6 +172,15 @@ const performEffect = async (
   const examObservations = contained.filter(
     (r) => r.resourceType === 'Observation' && hasTag(r, chartDataTagSystem('exam-observation-field'))
   ) as Observation[];
+
+  // A template is "current" if all its exam observation fields exist in the current config.
+  // This matches the approach used by useUnmatchedExamFields for visit exam data.
+  const knownFields = collectKnownExamFields(examTypeConfig.components);
+  const templateExamFieldCodes = examObservations
+    .map((obs) => getTagCode(obs, chartDataTagSystem('exam-observation-field')))
+    .filter((code): code is string => !!code);
+  const unmatchedFields = templateExamFieldCodes.filter((code) => !knownFields.has(code));
+  const isCurrentVersion = unmatchedFields.length === 0;
 
   const abnormalFieldCodes = buildAbnormalFieldCodes(examTypeConfig.components);
   const fieldLabels = buildFieldLabels(examTypeConfig.components);

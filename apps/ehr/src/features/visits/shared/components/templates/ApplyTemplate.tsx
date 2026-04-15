@@ -91,6 +91,14 @@ export const ApplyTemplate: React.FC = () => {
         setCreateDialogOpen(true);
         return;
       }
+      if (!newValue.isCurrentVersion) {
+        enqueueSnackbar(
+          'This template is out of date and cannot be applied. A user with admin permissions needs to update it in the Admin section.',
+          { variant: 'warning' }
+        );
+        setSelectedTemplate(null);
+        return;
+      }
       setPendingTemplate(newValue.value);
       setDialogOpen(true);
     } else {
