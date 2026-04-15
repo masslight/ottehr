@@ -293,24 +293,28 @@ export const Header = (): JSX.Element => {
         const getEmployeesRes = await getEmployees(oystehrZambda);
         const activeEmployees = getEmployeesRes.employees.filter((employee) => employee.status === 'Active');
         const providers = activeEmployees.filter((employee) => employee.isProvider && !employee.isCustomerSupport);
-        const formattedProviders: ProviderDetails[] = providers.map((prov) => {
-          const id = prov.profile.split('/')[1];
-          return {
-            practitionerId: id,
-            name: `${prov.firstName} ${prov.lastName}`,
-          };
-        });
+        const formattedProviders: ProviderDetails[] = providers
+          .map((prov) => {
+            const id = prov.profile.split('/')[1];
+            return {
+              practitionerId: id,
+              name: `${prov.firstName} ${prov.lastName}`.trim(),
+            };
+          })
+          .filter((prov) => prov.name);
 
         // TODO: remove this once we have nurses role
         // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
         const nonProviders = activeEmployees.filter((employee) => !employee.isCustomerSupport);
-        const formattedNonProviders: ProviderDetails[] = nonProviders.map((prov) => {
-          const id = prov.profile.split('/')[1];
-          return {
-            practitionerId: id,
-            name: `${prov.firstName} ${prov.lastName}`,
-          };
-        });
+        const formattedNonProviders: ProviderDetails[] = nonProviders
+          .map((prov) => {
+            const id = prov.profile.split('/')[1];
+            return {
+              practitionerId: id,
+              name: `${prov.firstName} ${prov.lastName}`.trim(),
+            };
+          })
+          .filter((prov) => prov.name);
         return {
           providers: formattedProviders,
           nonProviders: formattedNonProviders,
