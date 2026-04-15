@@ -36,12 +36,12 @@ const SelectServiceCategoryPage = (): JSX.Element => {
   return (
     <CustomContainer title={getWelcomeTitle()} description="" isFirstPage={true}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {BOOKING_CONFIG.serviceCategories?.map((category) => (
+        {BOOKING_CONFIG.serviceCategories?.map((sc) => (
           <HomepageOption
-            key={category.code}
-            title={category.display}
-            icon={IconMap[category.code] ?? <LocalHospitalOutlinedIcon />}
-            handleClick={() => handleSelection(category.code)}
+            key={sc.category.code}
+            title={sc.category.display}
+            icon={IconMap[sc.category.code] ?? <LocalHospitalOutlinedIcon />}
+            handleClick={() => handleSelection(sc.category.code)}
           />
         ))}
       </Box>

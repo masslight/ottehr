@@ -108,6 +108,10 @@ export interface QuestionnaireItemExtension {
   };
   requiredBooleanValue?: boolean; // if the item is of type boolean and required, this indicates whether it must be true or false
   // permittedStringValues?: string[]; // todo when needed
+  answerDisplayFilters?: {
+    conditions: { question: string; operator: string; answer: string }[];
+    includeValues: string[];
+  }[];
 }
 export interface AppointmentSummary {
   id: string;
