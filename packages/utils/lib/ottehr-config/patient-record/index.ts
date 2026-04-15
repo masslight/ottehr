@@ -5,7 +5,7 @@ import {
   type QuestionnaireBase,
 } from 'config-types';
 import { Questionnaire } from 'fhir/r4b';
-import { createQuestionnaireFromConfig } from '../shared-questionnaire';
+import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
 import { VALUE_SETS as formValueSets } from '../value-sets';
 
 const insurancePlanTypeOptions = formValueSets.insuranceTypeOptions.map((option) => ({
