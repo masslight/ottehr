@@ -1,3 +1,4 @@
+import { type ServiceCategoryConfig } from 'config-types';
 import {
   Patient,
   Questionnaire,
@@ -7,12 +8,96 @@ import {
 } from 'fhir/r4b';
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName } from '../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../helpers';
-import { BOOKING_CONFIG } from '../ottehr-config/booking';
+import { BOOKING_CONFIG, type StrongCoding } from '../ottehr-config/booking';
 import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../types';
 
 // Questionnaire fields that distinguish between "not provided" (undefined) vs "cleared" ('')
 // Cleared fields trigger FHIR resource removal in harvest/update-visit-details zambdas
 export const FIELDS_TO_TRACK_CLEARING = ['patient-preferred-name', 'authorized-non-legal-guardian'] as const;
+
+/**
+ * Extract StrongCoding objects from the service category config array.
+ */
+export const getServiceCategoryCodings = (): StrongCoding[] => {
+  return BOOKING_CONFIG.serviceCategories.map((sc) => sc.category);
+};
+
+/**
+ * Get service categories available for a given service mode and visit type.
+ * Returns the StrongCoding for each matching category.
+ */
+export const getServiceCategoriesForContext = (serviceMode: string, visitType: string): StrongCoding[] => {
+  return BOOKING_CONFIG.serviceCategories
+    .filter((sc) => sc.serviceModes.includes(serviceMode as any) && sc.visitTypes.includes(visitType as any))
+    .map((sc) => sc.category);
+};
+
+/**
+ * Determine whether to show the service category selection page.
+ * Returns true when more than one category matches the given mode and visit type.
+ */
+export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
+  return getServiceCategoriesForContext(params.serviceMode, params.visitType).length > 1;
+};
+
+/**
+ * Pure resolver: get reason-for-visit options from a list of service categories.
+ *
+ * Resolution order:
+ * 1. If the category config has reasonsForVisit[serviceMode], use it
+ * 2. If the category config has reasonsForVisit.default, use it
+ *
+ * When serviceMode is omitted (e.g., EHR context), returns the default or
+ * a combined list of all mode-specific options for the category.
+ */
+export const resolveReasonForVisitOptions = (
+  serviceCategories: ServiceCategoryConfig[],
+  serviceCategory: string,
+  serviceMode?: string
+): { value: string; label: string }[] => {
+  const categoryConfig = serviceCategories.find((sc) => sc.category.code === serviceCategory);
+  if (!categoryConfig?.reasonsForVisit) {
+    return [];
+  }
+
+  const rfv = categoryConfig.reasonsForVisit;
+
+  if (serviceMode) {
+    const modeKey = serviceMode as keyof typeof rfv;
+    if (rfv[modeKey]) {
+      return [...rfv[modeKey]!];
+    }
+    if (rfv.default) {
+      return [...rfv.default];
+    }
+  }
+
+  if (rfv.default) {
+    return [...rfv.default];
+  }
+
+  // No mode specified and no default: combine all mode-specific lists
+  const combined = new Map<string, { value: string; label: string }>();
+  for (const options of Object.values(rfv)) {
+    if (options) {
+      for (const opt of options) {
+        combined.set(opt.value, opt);
+      }
+    }
+  }
+  return [...combined.values()];
+};
+
+/**
+ * Get reason-for-visit options for a given service category and optional service mode,
+ * using the active BOOKING_CONFIG.
+ */
+export const getReasonForVisitOptionsForServiceCategory = (
+  serviceCategory: string,
+  serviceMode?: string
+): { value: string; label: string }[] => {
+  return resolveReasonForVisitOptions(BOOKING_CONFIG.serviceCategories, serviceCategory, serviceMode);
+};
 
 // Helper to normalize form data by converting empty objects to proper questionnaire response format
 // react-hook-form returns {} for conditionally hidden fields with disabled-display extension
