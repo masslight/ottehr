@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetFriendlyPatientId = vi.fn();
 
-vi.mock('utils', () => ({
+vi.mock('../../src/features/visits/shared/utils/friendly-patient-id.helper', () => ({
   getFriendlyPatientId: (...args: any[]) => mockGetFriendlyPatientId(...args),
 }));
 
