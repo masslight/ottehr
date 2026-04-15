@@ -1,4 +1,5 @@
 import { Appointment, Encounter, Location, MedicationStatement, Patient, Practitioner, Reference } from 'fhir/r4b';
+import { MedicationIntakeInfo } from '../chart-data/chart-data.types';
 
 export type MedicationInfoForPrinting = {
   name: string;
@@ -6,6 +7,7 @@ export type MedicationInfoForPrinting = {
   id?: string;
   practitioner?: Practitioner | Reference;
   status: Extract<MedicationStatement['status'], 'active' | 'completed'>;
+  intakeInfo?: MedicationIntakeInfo;
 };
 
 export type MakeMedicationHistoryPdfZambdaInput = {

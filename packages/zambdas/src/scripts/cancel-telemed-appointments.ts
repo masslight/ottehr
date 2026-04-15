@@ -7,7 +7,7 @@ import { fhirApiUrlFromAuth0Audience, projectApiUrlFromAuth0Audience } from './h
 
 async function main(): Promise<void> {
   const env = process.argv[2];
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
   const project_url = secrets.PROJECT_API;
 
   const token = await getAuth0Token(secrets);

@@ -33,6 +33,7 @@ import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { TrackingBoardTableButton } from 'src/features/visits/telemed/components/tracking-board/TrackingBoardTableButton';
+import { getTelemedQuickTexts } from 'src/features/visits/telemed/utils/appointments';
 import { getTelemedAppointmentUrl } from 'src/features/visits/telemed/utils/routing';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
@@ -42,6 +43,7 @@ import {
   getDurationOfStatus,
   getInPersonQuickTexts,
   getPatchBinary,
+  getSupportPhoneFor,
   getTelemedVisitStatus,
   getVisitTotalTime,
   GetVitalsResponseData,
@@ -315,6 +317,7 @@ export default function AppointmentTableRow({
   };
 
   const recentStatus = appointment?.visitStatusHistory[appointment.visitStatusHistory.length - 1];
+  const showStatusTimer = appointment.status !== 'pending';
 
   const { totalMinutes, waitingMinutesEstimate } = useMemo(() => {
     const totalMinutes = getVisitTotalTime(appointment, appointment.visitStatusHistory, now);
@@ -483,7 +486,7 @@ export default function AppointmentTableRow({
     </Box>
   );
 
-  const statusTimeEl = (
+  const statusTimeEl = showStatusTimer ? (
     <>
       <Grid item sx={{ display: 'flex', alignItems: 'center' }}>
         <Typography variant="body2" sx={{ display: 'inline' }}>
@@ -514,17 +517,19 @@ export default function AppointmentTableRow({
         )}
       </Grid>
     </>
-  );
+  ) : undefined;
 
-  const quickTexts = getInPersonQuickTexts({
-    patientAppUrl: VITE_APP_PATIENT_APP_URL,
-    patientName: appointment.patient.firstName,
-    visitId: appointment.id,
-    locationName: location?.name,
-    start,
-    appointmentType: appointment.appointmentType,
-    officePhone: officePhoneNumber,
-  });
+  const quickTexts = isVirtual(appointment)
+    ? getTelemedQuickTexts(getSupportPhoneFor(location?.name) || '')
+    : getInPersonQuickTexts({
+        patientAppUrl: VITE_APP_PATIENT_APP_URL,
+        patientName: appointment.patient.firstName,
+        visitId: appointment.id,
+        locationName: location?.name,
+        start,
+        appointmentType: appointment.appointmentType,
+        officePhone: officePhoneNumber,
+      });
 
   const onCloseChat = useCallback(() => {
     setChatModalOpen(false);
@@ -863,31 +868,33 @@ export default function AppointmentTableRow({
         <Typography variant="body2">
           <strong>{start}</strong>
         </Typography>
-        <Tooltip
-          componentsProps={{
-            tooltip: {
-              sx: {
-                width: 'auto',
-                maxWidth: 'none',
-                marginLeft: 'auto',
-                marginRight: 'auto',
-                padding: 2,
-                backgroundColor: theme.palette.background.default,
-                boxShadow:
-                  '0px 1px 8px 0px rgba(0, 0, 0, 0.12), 0px 3px 4px 0px rgba(0, 0, 0, 0.14), 0px 3px 3px -2px rgba(0, 0, 0, 0.20)',
-                '& .MuiTooltip-arrow': { color: theme.palette.background.default },
+        {showStatusTimer && (
+          <Tooltip
+            componentsProps={{
+              tooltip: {
+                sx: {
+                  width: 'auto',
+                  maxWidth: 'none',
+                  marginLeft: 'auto',
+                  marginRight: 'auto',
+                  padding: 2,
+                  backgroundColor: theme.palette.background.default,
+                  boxShadow:
+                    '0px 1px 8px 0px rgba(0, 0, 0, 0.12), 0px 3px 4px 0px rgba(0, 0, 0, 0.14), 0px 3px 3px -2px rgba(0, 0, 0, 0.20)',
+                  '& .MuiTooltip-arrow': { color: theme.palette.background.default },
+                },
               },
-            },
-          }}
-          title={timeToolTip}
-          placement="top"
-          arrow
-          onOpen={scrollTooltipToBottom}
-        >
-          <Grid sx={{ display: 'flex', alignItems: 'center', marginTop: '4px' }} gap={1}>
-            {statusTimeEl}
-          </Grid>
-        </Tooltip>
+            }}
+            title={timeToolTip}
+            placement="top"
+            arrow
+            onOpen={scrollTooltipToBottom}
+          >
+            <Grid sx={{ display: 'flex', alignItems: 'center', marginTop: '4px' }} gap={1}>
+              {statusTimeEl}
+            </Grid>
+          </Tooltip>
+        )}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center', wordWrap: 'break-word' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>

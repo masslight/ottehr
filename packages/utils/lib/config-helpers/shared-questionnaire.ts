@@ -10,20 +10,23 @@ import {
   FormSectionArraySchema,
   FormSectionSimpleSchema,
   type QuestionnaireConfigType,
+  type ServiceCategoryConfig,
 } from 'config-types';
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
-import { VALUE_SETS as formValueSets } from './value-sets';
+import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../fhir';
 
-export const INSURANCE_PAY_OPTION = formValueSets.patientPaymentPageOptions[0].value; // 'I have insurance'
-export const SELF_PAY_OPTION = formValueSets.patientPaymentPageOptions[1].value; // 'I will pay without insurance'
-export const OCC_MED_SELF_PAY_OPTION = formValueSets.patientOccMedPaymentPageOptions[0].value; // 'Self'
-export const OCC_MED_EMPLOYER_PAY_OPTION = formValueSets.patientOccMedPaymentPageOptions[1].value; // 'Employer'
-
-export const ALLERGIES_YES_OPTION = formValueSets.allergiesYesNoOptions[1].value; // some flavor of 'yes'
-export const SURGICAL_HISTORY_YES_OPTION = formValueSets.surgicalHistoryYesNoOptions[1].value; // 'Patient has surgical history'
-export const HAS_ATTORNEY_OPTION = formValueSets.attorneyOptions[0].value; // 'I have an attorney'
-export const DOES_NOT_HAVE_ATTORNEY_OPTION = formValueSets.attorneyOptions[1].value; // 'I do not have an attorney'
+// Re-export value set constants for backwards compatibility — canonical source is ottehr-config/value-sets
+export {
+  ALLERGIES_YES_OPTION,
+  DOES_NOT_HAVE_ATTORNEY_OPTION,
+  HAS_ATTORNEY_OPTION,
+  INSURANCE_PAY_OPTION,
+  OCC_MED_EMPLOYER_PAY_OPTION,
+  OCC_MED_SELF_PAY_OPTION,
+  SELF_PAY_OPTION,
+  SURGICAL_HISTORY_YES_OPTION,
+} from '../ottehr-config/value-sets';
 
 const createDataTypeExtension = (dataType: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/data-type',
@@ -147,6 +150,24 @@ const createCategoryTagExtension = (categoryTag: string): NonNullable<Questionna
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/category-tag',
   valueString: categoryTag,
 });
+
+const createAnswerDisplayFilterExtension = (
+  conditions: { question: string; operator: string; answer: string }[],
+  includeValues: string[]
+): NonNullable<QuestionnaireItem['extension']>[number] => {
+  const ext = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerDisplayFilter;
+  return {
+    url: ext.extension,
+    extension: [
+      ...conditions.flatMap((c) => [
+        { url: ext.question, valueString: c.question },
+        { url: ext.operator, valueString: c.operator },
+        { url: ext.answer, valueString: c.answer },
+      ]),
+      ...includeValues.map((v) => ({ url: ext.include, valueString: v })),
+    ],
+  };
+};
 
 const createAlwaysFilterExtension = (): NonNullable<QuestionnaireItem['extension']>[number] => ({
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/always-filter',
@@ -619,6 +640,13 @@ const convertFormFieldToQuestionnaireItem = (
     }
   }
 
+  // Add answer-display-filter extensions
+  if (field.answerDisplayFilters && field.answerDisplayFilters.length > 0) {
+    field.answerDisplayFilters.forEach((filter) => {
+      extensions.push(createAnswerDisplayFilterExtension(filter.conditions, filter.includeValues));
+    });
+  }
+
   if (extensions.length > 0) {
     item.extension = extensions;
   }
@@ -850,5 +878,66 @@ export const createQuestionnaireFromConfig = (config: QuestionnaireConfigType): 
   return {
     ...config.questionnaireBase,
     item: createQuestionnaireItemFromConfig(config),
+  };
+};
+
+/**
+ * Build a single reason-for-visit form field from service category configs.
+ *
+ * The generated field has:
+ * - options: deduplicated union of all RFV values across all categories/modes (the full value set)
+ * - triggers: enable when appointment-service-category matches any category
+ * - answerDisplayFilters: one filter per category+mode combo, specifying which options to show
+ */
+export const buildReasonForVisitFromConfig = (serviceCategories: ServiceCategoryConfig[]): Record<string, unknown> => {
+  const allOptions = new Map<string, { label: string; value: string }>();
+  const displayFilters: {
+    conditions: { question: string; operator: string; answer: string }[];
+    includeValues: string[];
+  }[] = [];
+  const enableTriggers: FormFieldTrigger[] = [];
+
+  for (const sc of serviceCategories) {
+    const rfv = sc.reasonsForVisit;
+    enableTriggers.push({
+      targetQuestionLinkId: 'appointment-service-category',
+      effect: ['enable', 'require'],
+      operator: '=',
+      answerString: sc.category.code,
+    });
+
+    for (const mode of sc.serviceModes) {
+      const modeOptions = rfv[mode] ?? rfv.default;
+      if (!modeOptions) continue;
+      for (const opt of modeOptions) {
+        allOptions.set(opt.value, opt);
+      }
+      displayFilters.push({
+        conditions: [
+          { question: 'appointment-service-category', operator: '=', answer: sc.category.code },
+          { question: 'appointment-service-mode', operator: '=', answer: mode },
+        ],
+        includeValues: modeOptions.map((o) => o.value),
+      });
+    }
+
+    if (rfv.default) {
+      for (const opt of rfv.default) {
+        allOptions.set(opt.value, opt);
+      }
+    }
+  }
+
+  return {
+    reasonForVisit: {
+      key: 'reason-for-visit',
+      label: 'Reason for visit',
+      type: 'choice',
+      options: [...allOptions.values()],
+      triggers: enableTriggers,
+      disabledDisplay: 'hidden',
+      enableBehavior: 'any',
+      answerDisplayFilters: displayFilters,
+    },
   };
 };
