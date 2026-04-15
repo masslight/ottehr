@@ -406,9 +406,10 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                   }}
                   style={{ flex: 1 }}
                   value={serviceCategories}
-                  options={BOOKING_CONFIG.serviceCategories.map((category) => category.code)}
+                  options={BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code)}
                   getOptionLabel={(option) =>
-                    BOOKING_CONFIG.serviceCategories.find((category) => category.code === option)?.display ?? 'Unknown'
+                    BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === option)?.category.display ??
+                    'Unknown'
                   }
                   onChange={(event, value) => {
                     if (value) {

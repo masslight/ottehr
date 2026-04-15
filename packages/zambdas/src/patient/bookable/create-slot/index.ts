@@ -7,6 +7,7 @@ import {
   CanonicalUrl,
   CreateSlotParams,
   FHIR_RESOURCE_NOT_FOUND,
+  getServiceCategoryCodeSchema,
   getTimezone,
   INVALID_INPUT_ERROR,
   isValidUUID,
@@ -16,7 +17,6 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
   ServiceCategoryCode,
-  ServiceCategoryCodeSchema,
   ServiceMode,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
@@ -171,9 +171,10 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   let serviceCategoryCode: ServiceCategoryCode | undefined;
 
   if (maybeServiceCategoryCode) {
-    serviceCategoryCode = ServiceCategoryCodeSchema.safeParse(maybeServiceCategoryCode).data;
+    const schema = getServiceCategoryCodeSchema();
+    serviceCategoryCode = schema.safeParse(maybeServiceCategoryCode).data;
     if (!serviceCategoryCode) {
-      throw INVALID_INPUT_ERROR(`"serviceCategoryCode" must be one of ${ServiceCategoryCodeSchema.options.join(', ')}`);
+      throw INVALID_INPUT_ERROR(`"serviceCategoryCode" must be one of ${schema.options.join(', ')}`);
     }
   }
 
@@ -233,12 +234,14 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
       ? [SlotServiceCategory.inPersonServiceMode]
       : [SlotServiceCategory.virtualServiceMode];
   if (serviceCategoryCode) {
-    const serviceCategoryCodeCoding = BOOKING_CONFIG.serviceCategories.find((sc) => sc.code === serviceCategoryCode);
-    if (serviceCategoryCodeCoding) {
+    const serviceCategoryCodeConfig = BOOKING_CONFIG.serviceCategories.find(
+      (sc) => sc.category.code === serviceCategoryCode
+    );
+    if (serviceCategoryCodeConfig) {
       serviceCategory.push({
         coding: [
           {
-            ...serviceCategoryCodeCoding,
+            ...serviceCategoryCodeConfig.category,
           },
         ],
       });

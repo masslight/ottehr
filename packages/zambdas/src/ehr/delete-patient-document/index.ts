@@ -7,6 +7,7 @@ import {
   createOystehrClient,
   deleteZ3Object,
   wrapHandler,
+  Z3Error,
   ZambdaInput,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -42,7 +43,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log(`Found ${z3Urls.length} files to delete`);
 
-  await Promise.all(z3Urls.map((url) => deleteZ3Object(url, m2mToken)));
+  await Promise.all(
+    z3Urls.map(async (url) => {
+      try {
+        await deleteZ3Object(url, m2mToken);
+      } catch (e) {
+        if (e instanceof Z3Error && e.statusCode === 404) {
+          console.warn(`Z3 file not found (already deleted?), continuing: ${url}`);
+        } else {
+          throw e;
+        }
+      }
+    })
+  );
 
   const listResources = (
     await oystehr.fhir.search<List>({
