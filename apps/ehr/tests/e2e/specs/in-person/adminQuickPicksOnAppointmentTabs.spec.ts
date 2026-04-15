@@ -77,7 +77,7 @@ test.describe('Admin-added quick picks are visible and usable on appointment tab
     await page.getByRole('tab', { name: 'Allergies' }).click();
 
     const hasNoQuickPicks = await page
-      .locator('table, p:has-text("No quick picks configured yet.")')
+      .locator('p:has-text("No quick picks configured yet.")')
       .isVisible({ timeout: 2000 })
       .catch(() => false);
     if (hasNoQuickPicks) {
