@@ -568,6 +568,13 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
     answer: `${PRIVATE_EXTENSION_BASE_URL}/text-when-answer`,
     substituteText: `${PRIVATE_EXTENSION_BASE_URL}/text-when-substitute-text`,
   },
+  answerDisplayFilter: {
+    extension: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter`,
+    question: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-question`,
+    operator: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-operator`,
+    answer: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-answer`,
+    include: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-include`,
+  },
 };
 
 // https://hl7.org/fhir/R4B/valueset-audit-event-outcome.html

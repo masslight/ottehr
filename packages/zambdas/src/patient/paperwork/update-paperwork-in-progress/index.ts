@@ -2,7 +2,7 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Flag } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { isFollowupEncounter } from 'utils';
+import { isAnnotationFollowupEncounter } from 'utils';
 import { createOystehrClient, getAuth0Token, getUser, wrapHandler, ZambdaInput } from '../../../shared';
 import { createOrUpdateFlags } from '../sharedHelpers';
 import { validateUpdatePaperworkParams } from './validateRequestParameters';
@@ -72,7 +72,7 @@ async function flagPaperworkInProgress(
 
   const appointment = resources.find((resource) => resource.resourceType === 'Appointment');
   const encounter = resources.find(
-    (resource) => resource.resourceType === 'Encounter' && !isFollowupEncounter(resource as Encounter)
+    (resource) => resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource as Encounter)
   );
   const existingFlags: Flag[] = (
     resources.filter(

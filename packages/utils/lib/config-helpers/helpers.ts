@@ -104,18 +104,30 @@ export const createProxyConfigObject = <T extends object>(
     return undefined;
   };
 
+  // Cache the resolved config to avoid recomputing on every property access.
+  // Invalidated when the overrides reference changes (e.g., test injects new config).
+  let cachedConfig: T | undefined;
+  let cachedOverridesRef: Partial<T> | undefined;
+
+  const getConfig = (): T => {
+    const overrides = getInjectedOverrides();
+    if (cachedConfig && overrides === cachedOverridesRef) {
+      return cachedConfig;
+    }
+    cachedOverridesRef = overrides;
+    cachedConfig = getConfigWithOverrides(overrides);
+    return cachedConfig;
+  };
+
   return new Proxy({} as T, {
     get(_target, prop) {
-      const config = getConfigWithOverrides(getInjectedOverrides());
-      return config[prop as keyof T];
+      return getConfig()[prop as keyof T];
     },
     ownKeys(_target) {
-      const config = getConfigWithOverrides(getInjectedOverrides());
-      return Reflect.ownKeys(config);
+      return Reflect.ownKeys(getConfig());
     },
     getOwnPropertyDescriptor(_target, prop) {
-      const config = getConfigWithOverrides(getInjectedOverrides());
-      return Reflect.getOwnPropertyDescriptor(config, prop);
+      return Reflect.getOwnPropertyDescriptor(getConfig(), prop);
     },
   });
 };

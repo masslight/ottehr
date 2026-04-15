@@ -33,10 +33,14 @@ import {
   FhirAppointmentType,
   formatDateToMDYWithTime,
   getAdmitterPractitionerId,
+  getAnnotationFollowupStatusLabel,
   getAppointmentServiceCategoryAbbreviation,
   getAttendingPractitionerId,
+  getEncounterLocationId,
   getFullestAvailableName,
+  getInitialEncounterIdForFollowUp,
   getInsuranceNameFromCoverage,
+  isInPersonAppointment,
   PaymentVariant,
   PRACTITIONER_CODINGS,
   ProviderDetails,
@@ -148,6 +152,7 @@ export const Header = (): JSX.Element => {
     location,
     locations,
     encounter,
+    followUpOriginEncounter,
     appointmentRefetch,
     selectedEncounterId,
   } = useAppointmentData();
@@ -171,11 +176,9 @@ export const Header = (): JSX.Element => {
   let optionalVisitLabel = '';
 
   if (isFollowup) {
-    const locationRef = encounter?.location?.[0]?.location?.reference;
-    if (locationRef) {
-      const locationId = locationRef.split('/')[1];
+    const locationId = getEncounterLocationId(encounter);
+    if (locationId) {
       const matchedLocation = locations.find((location) => location?.id === locationId);
-
       optionalVisitLabel = matchedLocation?.name ?? '';
     }
   } else {
@@ -214,7 +217,9 @@ export const Header = (): JSX.Element => {
       ? 'Scheduled'
       : 'On Demand'
     : undefined;
-  const visitTypeAndCategory = ['In Person', serviceCategory].filter(Boolean).join(' | ');
+  const visitTypeAndCategory = [isInPersonAppointment(appointment) ? 'In Person' : 'Virtual', serviceCategory]
+    .filter(Boolean)
+    .join(' | ');
 
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
@@ -286,9 +291,8 @@ export const Header = (): JSX.Element => {
     queryFn: async () => {
       if (oystehrZambda) {
         const getEmployeesRes = await getEmployees(oystehrZambda);
-        const providers = getEmployeesRes.employees.filter(
-          (employee) => employee.isProvider && !employee.isCustomerSupport
-        );
+        const activeEmployees = getEmployeesRes.employees.filter((employee) => employee.status === 'Active');
+        const providers = activeEmployees.filter((employee) => employee.isProvider && !employee.isCustomerSupport);
         const formattedProviders: ProviderDetails[] = providers.map((prov) => {
           const id = prov.profile.split('/')[1];
           return {
@@ -299,7 +303,7 @@ export const Header = (): JSX.Element => {
 
         // TODO: remove this once we have nurses role
         // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
-        const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isCustomerSupport);
+        const nonProviders = activeEmployees.filter((employee) => !employee.isCustomerSupport);
         const formattedNonProviders: ProviderDetails[] = nonProviders.map((prov) => {
           const id = prov.profile.split('/')[1];
           return {
@@ -367,7 +371,7 @@ export const Header = (): JSX.Element => {
                 <Grid container alignItems="center" spacing={2}>
                   <Grid item>
                     {isFollowup ? (
-                      getFollowupStatusChip(encounter?.status === 'in-progress' ? 'OPEN' : 'RESOLVED')
+                      getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter?.status))
                     ) : (
                       <ChangeStatusDropdown
                         appointmentID={appointmentID}
@@ -568,7 +572,10 @@ export const Header = (): JSX.Element => {
                     onClick={() => {
                       setHeaderMenuAnchorEl(null);
                       if (patient?.id) {
-                        navigate(`/patient/${patient.id}/followup/add`);
+                        const initialEncounterId = getInitialEncounterIdForFollowUp(encounter, followUpOriginEncounter);
+                        navigate(`/patient/${patient.id}/followup/add`, {
+                          state: { initialEncounterId },
+                        });
                       }
                     }}
                     disabled={!patient?.id}
