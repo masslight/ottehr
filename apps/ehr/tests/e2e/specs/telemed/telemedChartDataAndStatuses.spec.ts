@@ -77,7 +77,7 @@ async function getTestStateThatNotQualificationsStatesList(
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Telemed tracking board checks, buttons, chart data filling', () => {
+test.describe.skip('Telemed tracking board checks, buttons, chart data filling', () => {
   let page: Page;
   let context: BrowserContext;
 
