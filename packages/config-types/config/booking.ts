@@ -41,17 +41,39 @@ export enum VisitType {
 export type CanonicalUrl = `${string}|${string}`;
 
 /**
+ * ReasonsForVisitByMode - Reason-for-visit options keyed by service mode
+ * 'default' is used as a fallback when no mode-specific list is defined
+ */
+const LabelValueOptionSchema = z.object({ label: z.string(), value: z.string() });
+
+export const ReasonsForVisitByModeSchema = z.object({
+  default: z.array(LabelValueOptionSchema).optional(),
+  'in-person': z.array(LabelValueOptionSchema).optional(),
+  virtual: z.array(LabelValueOptionSchema).optional(),
+});
+
+export type ReasonsForVisitByMode = z.infer<typeof ReasonsForVisitByModeSchema>;
+
+/**
+ * ServiceCategoryConfig - A service category with its available modes, visit types, and RFV options
+ */
+export const ServiceCategoryConfigSchema = z.object({
+  category: StrongCodingSchema,
+  serviceModes: z.array(z.enum(['in-person', 'virtual'])),
+  visitTypes: z.array(z.enum(['prebook', 'walk-in'])),
+  reasonsForVisit: ReasonsForVisitByModeSchema,
+});
+
+export type ServiceCategoryConfig = z.infer<typeof ServiceCategoryConfigSchema>;
+
+/**
  * BookingConfig - Configuration for the booking flow
  * Defines available service categories, homepage options, and form configuration
  */
 export const BookingConfigSchema = z.object({
-  serviceCategoriesEnabled: z.object({
-    serviceModes: z.array(z.string()),
-    visitType: z.array(z.string()),
-  }),
   homepageOptions: z.array(BookingOptionSchema),
   ehrBookingOptions: z.array(BookingOptionSchema),
-  serviceCategories: z.array(StrongCodingSchema),
+  serviceCategories: z.array(ServiceCategoryConfigSchema),
   formConfig: QuestionnaireConfigSchema,
   inPersonPrebookRoutingParams: z.array(
     z.object({

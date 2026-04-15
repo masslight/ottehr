@@ -1,6 +1,7 @@
 import { LoadingButton } from '@mui/lab';
 import { Autocomplete, debounce, Grid, Paper, TextField, Typography } from '@mui/material';
 import { Medication } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
@@ -17,6 +18,7 @@ import {
   CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_NDC,
   CPTCodeDTO,
+  getMedicationName,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
 } from 'utils';
@@ -25,8 +27,13 @@ function getMedispanId(medication: Medication): string | undefined {
   return medication.code?.coding?.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)?.code;
 }
 
-function getMedicationName(medication: Medication): string {
-  return medication.identifier?.find((i) => i.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value ?? '';
+function updateMedicationName(medication: Medication | null, newName: string): Medication | null {
+  if (medication == null) return null;
+  const otherIdentifiers = (medication?.identifier ?? []).filter((i) => i.system !== MEDICATION_IDENTIFIER_NAME_SYSTEM);
+  return {
+    ...medication,
+    identifier: [...otherIdentifiers, { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: newName }],
+  };
 }
 
 export default function UpdateMedicationPage(): ReactElement {
@@ -136,13 +143,15 @@ export default function UpdateMedicationPage(): ReactElement {
         cptCodes: finalCptCodes,
         hcpcsCodes: finalHcpcsCodes,
       });
+      enqueueSnackbar('Medication updated successfully', { variant: 'success' });
     } catch (error) {
       console.log('Error updating medication', error);
+      enqueueSnackbar('Failed to update medication', { variant: 'error' });
     }
     setLoading(false);
   }
 
-  async function updateStatus(status: string): Promise<void> {
+  async function updateStatus(newStatus: string): Promise<void> {
     if (!oystehrZambda || !medication?.id) {
       return;
     }
@@ -151,11 +160,20 @@ export default function UpdateMedicationPage(): ReactElement {
     try {
       const medicationTemp = await updateInHouseMedication(oystehrZambda, {
         medicationID: medication.id,
-        status,
+        status: newStatus,
       });
       setStatus(medicationTemp.status || '');
+      enqueueSnackbar(
+        newStatus === 'active' ? 'Medication activated successfully' : 'Medication removed successfully',
+        {
+          variant: 'success',
+        }
+      );
     } catch (error) {
       console.log('Error updating medication', error);
+      enqueueSnackbar(newStatus === 'active' ? 'Failed to activate medication' : 'Failed to remove medication', {
+        variant: 'error',
+      });
     }
     setLoading(false);
   }
@@ -183,19 +201,33 @@ export default function UpdateMedicationPage(): ReactElement {
               <Grid item xs={6}>
                 <Autocomplete
                   value={medication}
-                  getOptionLabel={getMedicationName}
+                  getOptionLabel={(option) => (typeof option === 'string' ? option : getMedicationName(option) || '')}
                   fullWidth
                   isOptionEqualToValue={(option, value) => getMedispanId(option) === getMedispanId(value)}
                   loading={isSearching}
                   disableClearable
                   disablePortal
+                  freeSolo
                   noOptionsText={
                     debouncedSearchTerm && debouncedSearchTerm.length > 2 && medicationOptions.length === 0
                       ? 'Nothing found for this search criteria'
                       : 'Start typing to load results'
                   }
                   options={medicationOptions}
-                  onChange={(_e, value) => setMedication(value)}
+                  // onChange string and onInputChange input are for renaming
+                  onChange={(_e, value) => {
+                    if (typeof value === 'string') {
+                      setMedication((prev) => updateMedicationName(prev, value));
+                    } else {
+                      setMedication(value);
+                    }
+                  }}
+                  onInputChange={(_e, value, reason) => {
+                    if (reason === 'input') {
+                      setMedication((prev) => updateMedicationName(prev, value));
+                      debouncedHandleInputChange(value);
+                    }
+                  }}
                   renderInput={(params) => (
                     <TextField
                       {...params}

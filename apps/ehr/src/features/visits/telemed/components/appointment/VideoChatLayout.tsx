@@ -5,8 +5,8 @@ import { Box, Card, Container, Dialog, Divider, PaperProps, useTheme } from '@mu
 import { FC, PropsWithChildren, useRef, useState } from 'react';
 import Draggable from 'react-draggable';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { VirtualAppointmentFooter } from 'src/features/visits/in-person/components/VirtualAppointmentFooter';
 import { IconButtonContained } from 'src/features/visits/shared/components/IconButtonContained';
-import { AppointmentFooter } from './AppointmentFooter';
 import { VideoProviderReminderPopover } from './VideoProviderReminderPopover';
 
 type LayoutType = 'pip' | 'pinned' | 'fullscreen';
@@ -45,7 +45,6 @@ export const VideoChatLayout: FC<PropsWithChildren> = ({ children }) => {
             {children}
           </VideoRoomContainer>
         </Dialog>
-        <Box sx={{ height: '424px' }} />
       </>
     );
   }
@@ -64,7 +63,7 @@ export const VideoChatLayout: FC<PropsWithChildren> = ({ children }) => {
           </VideoRoomContainer>
         </Box>
         <Divider />
-        <AppointmentFooter />
+        <VirtualAppointmentFooter />
       </Dialog>
     );
   }

@@ -1,10 +1,19 @@
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import { Box, Button, Collapse, List, ListItem, ListItemButton, ListItemText, Typography } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FC, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
+import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
+import {
+  buildAppointmentStartMap,
+  getEncounterDateTime,
+  getEncounterDisplayName,
+  getInteractionModeForEncounter,
+} from 'utils';
 import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
+import { resetExamObservationsStore } from '../../shared/stores/appointment/reset-exam-observations';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
 
 type EncounterSwitcherProps = {
@@ -12,36 +21,36 @@ type EncounterSwitcherProps = {
 };
 
 export const EncounterSwitcher: FC<EncounterSwitcherProps> = ({ open }) => {
-  const { followUpOriginEncounter, followupEncounters, selectedEncounterId, setSelectedEncounter } =
+  const { followUpOriginEncounter, followupEncounters, selectedEncounterId, setSelectedEncounter, rawResources } =
     useAppointmentData();
   const [isExpanded, setIsExpanded] = useState(true);
   const { setInteractionMode } = useInPersonNavigationContext();
+  const queryClient = useQueryClient();
+
+  const appointmentStartMap = useMemo(() => buildAppointmentStartMap(rawResources ?? []), [rawResources]);
 
   const sortedFollowupEncounters = [...(followupEncounters || [])].filter(Boolean).sort((a, b) => {
-    return DateTime.fromISO(a.period?.start ?? '').diff(DateTime.fromISO(b.period?.start ?? ''), 'milliseconds')
-      .milliseconds;
+    return DateTime.fromISO(getEncounterDateTime(a, appointmentStartMap) ?? '').diff(
+      DateTime.fromISO(getEncounterDateTime(b, appointmentStartMap) ?? ''),
+      'milliseconds'
+    ).milliseconds;
   });
 
   const allEncounters = [followUpOriginEncounter, ...sortedFollowupEncounters].filter(Boolean) as Encounter[];
 
   const handleEncounterSelect = (encounterId: string): void => {
+    // Reset exam observations and invalidate chart data cache so it refetches
+    // and repopulates the exam store for the new encounter
+    resetExamObservationsStore();
+    void queryClient.invalidateQueries({
+      queryKey: [CHART_DATA_QUERY_KEY, encounterId],
+      exact: false,
+    });
     setSelectedEncounter(encounterId);
-    if (encounterId === followUpOriginEncounter?.id) {
-      setInteractionMode('main', true);
-    } else {
-      setInteractionMode('follow-up', true);
+    const selectedEnc = allEncounters.find((e) => e.id === encounterId);
+    if (selectedEnc) {
+      setInteractionMode(getInteractionModeForEncounter(selectedEnc, followUpOriginEncounter?.id), true);
     }
-  };
-
-  const getEncounterDisplayName = (encounter: Encounter): string => {
-    if (!encounter.partOf) {
-      return 'Main Visit';
-    }
-
-    const typeText = encounter.type?.[0]?.text || 'Follow-up';
-    const date = encounter.period?.start ? formatISOStringToDateAndTime(encounter.period.start) : '';
-
-    return `${typeText}${date ? ` - ${date}` : ''}`;
   };
 
   if (allEncounters.length <= 1) {
@@ -101,7 +110,7 @@ export const EncounterSwitcher: FC<EncounterSwitcherProps> = ({ open }) => {
                 }}
               >
                 <ListItemText
-                  primary={getEncounterDisplayName(enc)}
+                  primary={getEncounterDisplayName(enc, appointmentStartMap, formatISOStringToDateAndTime)}
                   primaryTypographyProps={{
                     variant: 'body2',
                     fontSize: '0.875rem',
