@@ -1,4 +1,4 @@
-import { getFriendlyPatientIdSystem } from 'utils';
+import { getFriendlyPatientIdSystem } from 'src/features/visits/shared/utils/friendly-patient-id.helper';
 import { SearchOptionsFilters } from '../types';
 
 /**
