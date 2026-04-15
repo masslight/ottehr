@@ -332,6 +332,31 @@ describe('update-in-house-medication - performEffect', () => {
     expect(operations.some((op: any) => op.path === '/code/coding/-')).toBe(false);
   });
 
+  it('narrows to /code/coding (preserving code.text) when clearing the last CPT leaves an empty coding', async () => {
+    const medicationWithText: Medication = {
+      resourceType: 'Medication',
+      id: 'med-cpt-only',
+      status: 'active',
+      identifier: [
+        { system: MEDICATION_TYPE_SYSTEM, value: INVENTORY_MEDICATION_TYPE_CODE },
+        { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: 'CPT-only med' },
+      ],
+      code: {
+        text: 'Human-readable description',
+        coding: [{ system: CODE_SYSTEM_CPT, code: '99213' }],
+      },
+    };
+    const oystehr = makeMockOystehr(medicationWithText);
+
+    await updatePerformEffect(oystehr, { medicationID: 'med-cpt-only', cptCodes: [] });
+
+    expect(oystehr.fhir.patch).toHaveBeenCalledOnce();
+    const { operations } = vi.mocked(oystehr.fhir.patch).mock.calls[0][0] as any;
+    // must not wipe /code wholesale — that would take code.text with it
+    expect(operations).not.toContainEqual(expect.objectContaining({ op: 'remove', path: '/code' }));
+    expect(operations).toContainEqual({ op: 'remove', path: '/code/coding' });
+  });
+
   it('adds /code/coding when the existing medication has code but no coding array', async () => {
     const medicationWithEmptyCode: Medication = {
       resourceType: 'Medication',

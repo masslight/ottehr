@@ -120,7 +120,7 @@ export const performEffect = async (
     } else if (newCoding.length > 0) {
       patchOperations.push({ op: 'replace', path: '/code/coding', value: newCoding });
     } else {
-      patchOperations.push({ op: 'remove', path: '/code' });
+      patchOperations.push({ op: 'remove', path: '/code/coding' });
     }
   }
 
