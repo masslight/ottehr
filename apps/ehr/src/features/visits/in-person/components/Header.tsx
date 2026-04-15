@@ -37,6 +37,7 @@ import {
   getAttendingPractitionerId,
   getFullestAvailableName,
   getInsuranceNameFromCoverage,
+  isInPersonAppointment,
   PaymentVariant,
   PRACTITIONER_CODINGS,
   ProviderDetails,
@@ -214,7 +215,9 @@ export const Header = (): JSX.Element => {
       ? 'Scheduled'
       : 'On Demand'
     : undefined;
-  const visitTypeAndCategory = ['In Person', serviceCategory].filter(Boolean).join(' | ');
+  const visitTypeAndCategory = [isInPersonAppointment(appointment) ? 'In Person' : 'Virtual', serviceCategory]
+    .filter(Boolean)
+    .join(' | ');
 
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
