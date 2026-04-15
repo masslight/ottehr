@@ -5,7 +5,6 @@ import {
   Button,
   CircularProgress,
   FormControl,
-  Grid,
   InputLabel,
   MenuItem,
   OutlinedInput,
@@ -69,44 +68,40 @@ export default function EmployersTab(): ReactElement {
   return (
     <Paper sx={{ padding: 2, marginTop: 2 }}>
       <TableContainer>
-        <Grid container spacing={2} display="flex" alignItems="center">
-          <Grid item xs={12} sm={5}>
-            <TextField
-              fullWidth
-              label="Employer"
-              onChange={(e) => {
-                if (pageNumber !== 0) setPageNumber(0);
-                setSearchText(e.target.value);
-              }}
-              InputProps={{ endAdornment: <SearchIcon /> }}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <TextField
+            sx={{ flex: '1 1 auto', maxWidth: 400 }}
+            label="Employer"
+            onChange={(e) => {
+              if (pageNumber !== 0) setPageNumber(0);
+              setSearchText(e.target.value);
+            }}
+            InputProps={{ endAdornment: <SearchIcon /> }}
+            margin="dense"
+            size="small"
+          />
+          <FormControl sx={{ flex: '1 1 auto', maxWidth: 400 }} size="small" margin="dense">
+            <InputLabel id="select-employer-status-filter">Status</InputLabel>
+            <Select
+              labelId="select-employer-status-filter"
               margin="dense"
-            />
-          </Grid>
-          <Grid item xs={12} sm={5}>
-            <FormControl fullWidth>
-              <InputLabel id="select-employer-status-filter">Status</InputLabel>
-              <Select
-                labelId="select-employer-status-filter"
-                margin="dense"
-                value={activeFilter}
-                input={<OutlinedInput label="Status" />}
-                onChange={(ev: SelectChangeEvent<EmployerActiveStatus | ''>) => {
-                  setActiveFilter(ev.target.value as EmployerActiveStatus | '');
-                }}
-              >
-                <MenuItem value={''}>None</MenuItem>
-                <MenuItem value={EmployerActiveStatus.active}>Active</MenuItem>
-                <MenuItem value={EmployerActiveStatus.inactive}>Inactive</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={2} display={'flex'}>
+              value={activeFilter}
+              input={<OutlinedInput label="Status" />}
+              onChange={(ev: SelectChangeEvent<EmployerActiveStatus | ''>) => {
+                setActiveFilter(ev.target.value as EmployerActiveStatus | '');
+              }}
+            >
+              <MenuItem value={''}>None</MenuItem>
+              <MenuItem value={EmployerActiveStatus.active}>Active</MenuItem>
+              <MenuItem value={EmployerActiveStatus.inactive}>Inactive</MenuItem>
+            </Select>
+          </FormControl>
+          <Box sx={{ marginLeft: 'auto', flexShrink: 0 }}>
             <Button
               sx={{
                 borderRadius: 100,
                 textTransform: 'none',
-                width: '100%',
-                fontWeight: 600,
+                fontWeight: 500,
               }}
               color="primary"
               variant="contained"
@@ -114,12 +109,12 @@ export default function EmployersTab(): ReactElement {
                 setSelectedEmployer(null);
                 setIsDialogOpen(true);
               }}
+              startIcon={<AddIcon />}
             >
-              <AddIcon />
-              <Typography fontWeight="bold">Add new</Typography>
+              Add New
             </Button>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
 
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>

@@ -327,11 +327,11 @@ export default function QuickPicksAdminPage(): ReactElement {
           </TabList>
         </Box>
 
-        <TabPanel value="procedures" sx={{ px: 0 }}>
+        <TabPanel value="procedures" sx={{ p: 0 }}>
           <ProcedureQuickPicksPage />
         </TabPanel>
 
-        <TabPanel value="allergies" sx={{ px: 0 }}>
+        <TabPanel value="allergies" sx={{ p: 0 }}>
           <QuickPickEditor<AllergyQuickPickData>
             title="Allergy Quick Picks"
             description="Manage common allergies that appear as quick picks when documenting patient allergies."
@@ -357,7 +357,7 @@ export default function QuickPicksAdminPage(): ReactElement {
           />
         </TabPanel>
 
-        <TabPanel value="medical-conditions" sx={{ px: 0 }}>
+        <TabPanel value="medical-conditions" sx={{ p: 0 }}>
           <QuickPickEditor<MedicalConditionQuickPickData>
             title="Medical Condition Quick Picks"
             description="Manage common medical conditions that appear as quick picks when documenting patient history."
@@ -386,7 +386,7 @@ export default function QuickPicksAdminPage(): ReactElement {
           />
         </TabPanel>
 
-        <TabPanel value="medications" sx={{ px: 0 }}>
+        <TabPanel value="medications" sx={{ p: 0 }}>
           <QuickPickEditor<MedicationHistoryQuickPickData>
             title="Medication Quick Picks"
             description="Manage common medications that appear as quick picks when documenting current medications."
@@ -415,7 +415,7 @@ export default function QuickPicksAdminPage(): ReactElement {
             })}
           />
         </TabPanel>
-        <TabPanel value="radiology" sx={{ px: 0 }}>
+        <TabPanel value="radiology" sx={{ p: 0 }}>
           <RadiologyQuickPicksPage />
         </TabPanel>
       </TabContext>

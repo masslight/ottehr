@@ -90,8 +90,8 @@ const RadiologyQuickPicksPage: React.FC = () => {
   }
 
   return (
-    <Box>
-      <Typography variant="h6" sx={{ mb: 1 }}>
+    <Paper sx={{ padding: 2, marginTop: 2 }}>
+      <Typography variant="h6" sx={{ mb: 1, color: '#0F347C' }}>
         Radiology Quick Picks
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -104,7 +104,7 @@ const RadiologyQuickPicksPage: React.FC = () => {
           No radiology quick picks yet.
         </Typography>
       ) : (
-        <TableContainer component={Paper}>
+        <TableContainer>
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -146,7 +146,9 @@ const RadiologyQuickPicksPage: React.FC = () => {
       )}
 
       <Dialog open={!!renameTarget} onClose={() => setRenameTarget(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Rename Quick Pick</DialogTitle>
+        <DialogTitle variant="h4" color="primary.dark">
+          Rename Quick Pick
+        </DialogTitle>
         <DialogContent>
           <TextField
             label="Name"
@@ -158,15 +160,20 @@ const RadiologyQuickPicksPage: React.FC = () => {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setRenameTarget(null)} disabled={renaming}>
+          <Button onClick={() => setRenameTarget(null)} disabled={renaming} sx={{ textTransform: 'none' }}>
             Cancel
           </Button>
-          <Button variant="contained" disabled={!renameName.trim() || renaming} onClick={() => void handleRename()}>
+          <Button
+            variant="contained"
+            disabled={!renameName.trim() || renaming}
+            onClick={() => void handleRename()}
+            sx={{ textTransform: 'none' }}
+          >
             {renaming ? <CircularProgress size={20} /> : 'Rename'}
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Paper>
   );
 };
 

@@ -4,9 +4,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   Button,
-  capitalize,
   Chip,
-  Grid,
   Paper,
   Table,
   TableBody,
@@ -138,45 +136,43 @@ function MedicationsTable({
     <>
       <Paper sx={{ padding: 2 }}>
         <TableContainer>
-          <Grid container direction="row" justifyContent="start" alignItems="center" marginTop={1}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, marginTop: 1 }}>
             {/* Medication Name Search Box */}
-            <Grid item xs={6}>
-              <TextField
-                id="outlined-basic"
-                label="Search by name"
-                variant="outlined"
-                onChange={handleChangeSearchText}
-                value={searchText}
-                InputProps={{ endAdornment: <SearchIcon /> }}
-                sx={{ width: '100%', paddingRight: 2 }}
-              />
-            </Grid>
-            <Grid item xs={3}>
+            <TextField
+              id="outlined-basic"
+              label="Medications"
+              variant="outlined"
+              onChange={handleChangeSearchText}
+              value={searchText}
+              InputProps={{ endAdornment: <SearchIcon /> }}
+              size="small"
+              sx={{ flex: '1 1 auto', maxWidth: 400 }}
+            />
+            <Box sx={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 2 }}>
               {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ? (
                 <Link to={`/admin/medications/add`}>
-                  <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
-                    Add medication
+                  <Button variant="contained" sx={{ borderRadius: 100, textTransform: 'none' }} startIcon={<Add />}>
+                    Add Medication
                   </Button>
                 </Link>
               ) : (
                 <Tooltip title="You must be an administrator to add new medications" placement="top">
                   <span>
                     {/* https://mui.com/material-ui/react-tooltip/#disabled-elements */}
-                    <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />} disabled>
-                      Add medication
+                    <Button
+                      variant="contained"
+                      sx={{ borderRadius: 100, textTransform: 'none' }}
+                      startIcon={<Add />}
+                      disabled
+                    >
+                      Add Medication
                     </Button>
                   </span>
                 </Tooltip>
               )}
-            </Grid>
-            <Grid item xs={3}>
-              {medications === undefined && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                  <Loading />
-                </Box>
-              )}
-            </Grid>
-          </Grid>
+              {medications === undefined && <Loading />}
+            </Box>
+          </Box>
 
           {/* Medications Table */}
           <Table sx={{ minWidth: 650 }} aria-label="medicationsTable">
@@ -212,7 +208,7 @@ function MedicationsTable({
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={status ? capitalize(status) : 'Unknown'}
+                        label={status ? status.toUpperCase() : 'UNKNOWN'}
                         sx={{
                           backgroundColor:
                             status === 'active' ? otherColors.employeeActiveChip : otherColors.employeeDeactivatedChip,

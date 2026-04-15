@@ -10,13 +10,25 @@ export default function SchedulesPage(): ReactElement {
   return (
     <Box sx={{ marginTop: 2 }}>
       <ButtonGroup size="medium" aria-label="Switch between different schedule options" sx={{ marginBottom: 2 }}>
-        <Button variant={tab === 'location' ? 'contained' : 'outlined'} onClick={() => setTab('location')}>
+        <Button
+          variant={tab === 'location' ? 'contained' : 'outlined'}
+          onClick={() => setTab('location')}
+          sx={{ textTransform: 'none' }}
+        >
           Locations
         </Button>
-        <Button variant={tab === 'provider' ? 'contained' : 'outlined'} onClick={() => setTab('provider')}>
+        <Button
+          variant={tab === 'provider' ? 'contained' : 'outlined'}
+          onClick={() => setTab('provider')}
+          sx={{ textTransform: 'none' }}
+        >
           Providers
         </Button>
-        <Button variant={tab === 'group' ? 'contained' : 'outlined'} onClick={() => setTab('group')}>
+        <Button
+          variant={tab === 'group' ? 'contained' : 'outlined'}
+          onClick={() => setTab('group')}
+          sx={{ textTransform: 'none' }}
+        >
           Groups
         </Button>
       </ButtonGroup>

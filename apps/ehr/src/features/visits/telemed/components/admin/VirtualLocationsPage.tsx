@@ -2,7 +2,6 @@ import { otherColors } from '@ehrTheme/colors';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
-  Grid,
   Paper,
   Skeleton,
   Table,
@@ -70,29 +69,27 @@ export default function VirtualLocationsPage(): ReactElement {
   return (
     <Paper sx={{ padding: 2, marginTop: 2 }}>
       <TableContainer>
-        <Grid container spacing={2} paddingTop={1}>
-          {/* Locations Search Box */}
-          <Grid item xs={12} sm={5} marginTop={-0.5}>
-            <Box sx={{ display: 'contents' }}>
-              <Box>
-                <TextField
-                  id="outlined-basic"
-                  label="States"
-                  variant="outlined"
-                  onChange={(e) => {
-                    if (pageNumber !== 0) setPageNumber(0);
-                    handleChangeSearchText(e);
-                  }}
-                  InputProps={{ endAdornment: <SearchIcon /> }}
-                  sx={{ marginBottom: 2 }}
-                  margin="dense"
-                  data-testid={dataTestIds.virtualLocationsPage.locationsSearch}
-                />
-              </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', paddingTop: 1, marginBottom: 2 }}>
+          <TextField
+            id="outlined-basic"
+            label="States"
+            variant="outlined"
+            onChange={(e) => {
+              if (pageNumber !== 0) setPageNumber(0);
+              handleChangeSearchText(e);
+            }}
+            InputProps={{ endAdornment: <SearchIcon /> }}
+            margin="dense"
+            size="small"
+            sx={{ flex: '1 1 auto', maxWidth: 400 }}
+            data-testid={dataTestIds.virtualLocationsPage.locationsSearch}
+          />
+          {isFetching && (
+            <Box sx={{ marginLeft: 2 }}>
+              <Loading />
             </Box>
-          </Grid>
-          {isFetching && <Loading />}
-        </Grid>
+          )}
+        </Box>
 
         <Table sx={{ minWidth: 650 }} aria-label="locationsTable">
           {/* Label Row */}

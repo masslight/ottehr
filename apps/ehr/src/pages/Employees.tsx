@@ -8,7 +8,6 @@ import {
   Checkbox,
   Chip,
   FormControlLabel,
-  Grid,
   Paper,
   Table,
   TableBody,
@@ -232,27 +231,28 @@ function EmployeesTable({
     <>
       <Paper sx={{ padding: 2 }}>
         <TableContainer>
-          <Grid container direction="row" justifyContent="start" alignItems="center">
+          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
             {/* Employee Name Search Box */}
-            <Box sx={{ display: 'flex', flex: 2, margin: '10px 0' }}>
+            <Box sx={{ flex: '1 1 auto', maxWidth: 400, margin: '10px 0' }}>
               <TextField
                 id="outlined-basic"
-                label="Search by name"
+                label={currentTab === EmployeeTypes.providers ? 'Providers' : 'Employees'}
                 variant="outlined"
                 onChange={handleChangeSearchText}
                 value={searchText}
                 data-testid={dataTestIds.employeesPage.searchByName}
                 InputProps={{ endAdornment: <SearchIcon /> }}
-                sx={{ width: '100%', paddingRight: 2 }}
+                size="small"
+                sx={{ width: '100%' }}
               />
             </Box>
             {/* States drop-down */}
             {currentTab === EmployeeTypes.providers && (
-              <Box sx={{ display: 'flex', flex: 2, paddingRight: 3 }}>
+              <Box sx={{ flex: '1 1 auto', maxWidth: 400 }}>
                 <StateSelect onChange={handleChangeStateSelect} selectedState={selectedState} />
               </Box>
             )}
-            <Box sx={{ display: 'flex', flex: 1, maxWidth: '260px' }}>
+            <Box sx={{ flex: '1 1 auto' }}>
               <FormControlLabel
                 name="last_login_filter"
                 control={<Checkbox checked={lastLoginFilterChecked} onChange={handleChangeLastLoginFilter} />}
@@ -261,23 +261,30 @@ function EmployeesTable({
               />
             </Box>
             {/* todo reduce code duplicate */}
-            {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ? (
-              <Link to={`/admin/employees/add`}>
-                <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
-                  Add user
-                </Button>
-              </Link>
-            ) : (
-              <Tooltip title="You must be an administrator to add new users" placement="top">
-                <span>
-                  {/* https://mui.com/material-ui/react-tooltip/#disabled-elements */}
-                  <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />} disabled>
-                    Add user
+            <Box sx={{ marginLeft: 'auto', flexShrink: 0 }}>
+              {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ? (
+                <Link to={`/admin/employees/add`}>
+                  <Button variant="contained" sx={{ borderRadius: 100, textTransform: 'none' }} startIcon={<Add />}>
+                    Add User
                   </Button>
-                </span>
-              </Tooltip>
-            )}
-          </Grid>
+                </Link>
+              ) : (
+                <Tooltip title="You must be an administrator to add new users" placement="top">
+                  <span>
+                    {/* https://mui.com/material-ui/react-tooltip/#disabled-elements */}
+                    <Button
+                      variant="contained"
+                      sx={{ borderRadius: 100, textTransform: 'none' }}
+                      startIcon={<Add />}
+                      disabled
+                    >
+                      Add User
+                    </Button>
+                  </span>
+                </Tooltip>
+              )}
+            </Box>
+          </Box>
 
           {/* Employees Table */}
           <Table sx={{ minWidth: 650 }} aria-label="locationsTable" data-testid={dataTestIds.employeesPage.table}>
@@ -460,6 +467,7 @@ function StateSelect({ onChange, selectedState }: StateSelectProps): ReactElemen
         );
       }}
       fullWidth
+      size="small"
       renderInput={(params) => <TextField name="state" {...params} label="State" />}
     />
   );

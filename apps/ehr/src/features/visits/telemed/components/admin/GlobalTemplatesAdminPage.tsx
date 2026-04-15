@@ -1,5 +1,7 @@
+import { otherColors } from '@ehrTheme/colors';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import SearchIcon from '@mui/icons-material/Search';
 import { LoadingButton } from '@mui/lab';
 import {
   Box,
@@ -21,6 +23,7 @@ import {
   TableRow,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
@@ -33,6 +36,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { ExamType, ListTemplatesZambdaOutput, TemplateInfo } from 'utils';
 
 export default function GlobalTemplatesAdminPage(): ReactElement {
+  const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
@@ -137,16 +141,17 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
   };
 
   return (
-    <Paper sx={{ padding: 3 }}>
+    <Paper sx={{ padding: 3, marginTop: 2 }}>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Templates are created from the progress note. Use this page to manage existing templates.
       </Typography>
 
       <TextField
         size="small"
-        placeholder="Filter templates..."
+        label="Templates"
         value={searchFilter}
         onChange={(e) => setSearchFilter(e.target.value)}
+        InputProps={{ endAdornment: <SearchIcon /> }}
         sx={{ mb: 2, width: 300 }}
       />
 
@@ -191,9 +196,19 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={template.isCurrentVersion ? 'Current' : 'Stale'}
-                      color={template.isCurrentVersion ? 'success' : 'warning'}
-                      size="small"
+                      label={template.isCurrentVersion ? 'CURRENT' : 'STALE'}
+                      sx={{
+                        backgroundColor: template.isCurrentVersion
+                          ? otherColors.employeeActiveChip
+                          : otherColors.employeeDeactivatedChip,
+                        color: template.isCurrentVersion
+                          ? otherColors.employeeActiveText
+                          : otherColors.employeeDeactivatedText,
+                        borderRadius: '4px',
+                        height: '17px',
+                        '& .MuiChip-label': { padding: '2px 8px 0px 8px' },
+                        ...theme.typography.subtitle2,
+                      }}
                     />
                   </TableCell>
                   <TableCell align="right">
@@ -231,7 +246,7 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCloseRenameDialog} disabled={isRenaming}>
+          <Button onClick={handleCloseRenameDialog} disabled={isRenaming} sx={{ textTransform: 'none' }}>
             Cancel
           </Button>
           <LoadingButton
@@ -239,6 +254,7 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
             onClick={handleRename}
             loading={isRenaming}
             disabled={!newName.trim() || newName.trim() === selectedTemplate?.title}
+            sx={{ textTransform: 'none' }}
           >
             Rename
           </LoadingButton>
@@ -255,10 +271,16 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCloseDeleteDialog} disabled={isDeleting}>
+          <Button onClick={handleCloseDeleteDialog} disabled={isDeleting} sx={{ textTransform: 'none' }}>
             Cancel
           </Button>
-          <LoadingButton variant="contained" color="error" onClick={handleDelete} loading={isDeleting}>
+          <LoadingButton
+            variant="contained"
+            color="error"
+            onClick={handleDelete}
+            loading={isDeleting}
+            sx={{ textTransform: 'none' }}
+          >
             Delete
           </LoadingButton>
         </DialogActions>

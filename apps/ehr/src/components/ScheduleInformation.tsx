@@ -133,24 +133,22 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <TextField
             id={`search-${scheduleType}`}
-            label={`Search ${scheduleType}s`}
+            label={`${capitalize(scheduleType)}s`}
             variant="outlined"
             onChange={handleChangeSearchText}
             InputProps={{ endAdornment: <SearchIcon /> }}
-            // sx={{ marginBottom: 2 }}
             margin="dense"
             size="small"
+            sx={{ flex: '1 1 auto', maxWidth: 400 }}
           />
-          <Link to={`/admin/schedule/${scheduleType}/add`}>
-            <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
-              Add {scheduleType}
-            </Button>
-          </Link>
-          {loading && (
-            <Box sx={{ marginLeft: 'auto' }}>
-              <Loading />
-            </Box>
-          )}
+          <Box sx={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Link to={`/admin/schedule/${scheduleType}/add`}>
+              <Button variant="contained" sx={{ borderRadius: 100, textTransform: 'none' }} startIcon={<Add />}>
+                Add {capitalize(scheduleType)}
+              </Button>
+            </Link>
+            {loading && <Loading />}
+          </Box>
         </Box>
 
         <Table sx={{ minWidth: 650 }} aria-label={`${scheduleType}sTable`}>
@@ -167,17 +165,20 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
               <TableRow key={item.owner.id}>
                 <TableCell>
                   <Link to={getLinkForItem(item)} style={{ textDecoration: 'none' }}>
-                    <Typography color="primary">{item.owner.name}</Typography>
+                    <Typography variant="body2" color="primary">
+                      {item.owner.name}
+                    </Typography>
                   </Link>
                 </TableCell>
                 <TableCell align="left">
-                  <Typography>{item.owner.address ?? ''}</Typography>
+                  <Typography variant="body2">{item.owner.address ?? ''}</Typography>
                 </TableCell>
                 <TableCell align="left">
-                  <Typography>{getHoursOfOperationText(item)}</Typography>
+                  <Typography variant="body2">{getHoursOfOperationText(item)}</Typography>
                 </TableCell>
                 <TableCell align="left">
                   <Typography
+                    variant="body2"
                     style={{
                       color: item.schedules[0]?.upcomingScheduleChanges ? 'inherit' : otherColors.none,
                     }}
