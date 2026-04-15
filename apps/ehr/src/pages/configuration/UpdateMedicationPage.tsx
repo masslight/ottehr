@@ -31,21 +31,16 @@ function mergeSelectedMedicationIntoExisting(selected: Medication, existing: Med
     (i) => i.system !== MEDICATION_IDENTIFIER_NAME_SYSTEM
   );
   const selectedIdentifiers = selected.identifier ?? [];
-  const preservedCodings = (existing.code?.coding ?? []).filter(
-    (c) => c.system !== CODE_SYSTEM_NDC && c.system !== MEDICATION_DISPENSABLE_DRUG_ID
-  );
   const selectedCodings = selected.code?.coding ?? [];
-  const { coding: existingCoding, ...existingCodeWithoutCoding } = existing.code ?? {};
-  const { coding: selectedCoding, ...selectedCodeWithoutCoding } = selected.code ?? {};
+  const overriddenSystems = new Set(selectedCodings.map((c) => c.system).filter((s): s is string => !!s));
+  const preservedCodings = (existing.code?.coding ?? []).filter((c) => !overriddenSystems.has(c.system ?? ''));
+  const mergedCoding = [...preservedCodings, ...selectedCodings];
   const code = {
-    ...existingCodeWithoutCoding,
-    ...selectedCodeWithoutCoding,
+    ...existing.code,
+    ...selected.code,
+    ...(mergedCoding.length > 0 ? { coding: mergedCoding } : {}),
   };
-  const hasCoding = existingCoding !== undefined || selectedCoding !== undefined;
-  if (hasCoding) {
-    code.coding = [...preservedCodings, ...selectedCodings];
-  }
-  const hasCode = Object.values(code).some((value) => value !== undefined) || hasCoding;
+  const hasCode = Object.values(code).some((value) => value !== undefined);
   return {
     ...existing,
     ...selected,
