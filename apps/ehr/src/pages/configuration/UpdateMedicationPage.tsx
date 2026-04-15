@@ -26,13 +26,27 @@ import {
 function getMedispanId(medication: Medication): string | undefined {
   return medication.code?.coding?.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)?.code;
 }
-
-function updateMedicationName(medication: Medication | null, newName: string): Medication | null {
-  if (medication == null) return null;
-  const otherIdentifiers = (medication?.identifier ?? []).filter((i) => i.system !== MEDICATION_IDENTIFIER_NAME_SYSTEM);
+function mergeSelectedMedicationIntoExisting(selected: Medication, existing: Medication): Medication {
+  const preservedIdentifiers = (existing.identifier ?? []).filter(
+    (i) => i.system !== MEDICATION_IDENTIFIER_NAME_SYSTEM
+  );
+  const selectedIdentifiers = selected.identifier ?? [];
+  const selectedCodings = selected.code?.coding ?? [];
+  const overriddenSystems = new Set(selectedCodings.map((c) => c.system).filter((s): s is string => !!s));
+  const preservedCodings = (existing.code?.coding ?? []).filter((c) => !overriddenSystems.has(c.system ?? ''));
+  const mergedCoding = [...preservedCodings, ...selectedCodings];
+  const code = {
+    ...existing.code,
+    ...selected.code,
+    ...(mergedCoding.length > 0 ? { coding: mergedCoding } : {}),
+  };
+  const hasCode = Object.values(code).some((value) => value !== undefined);
   return {
-    ...medication,
-    identifier: [...otherIdentifiers, { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: newName }],
+    ...existing,
+    ...selected,
+    id: existing.id,
+    identifier: [...preservedIdentifiers, ...selectedIdentifiers],
+    ...(hasCode ? { code } : {}),
   };
 }
 
@@ -201,33 +215,19 @@ export default function UpdateMedicationPage(): ReactElement {
               <Grid item xs={6}>
                 <Autocomplete
                   value={medication}
-                  getOptionLabel={(option) => (typeof option === 'string' ? option : getMedicationName(option) || '')}
+                  getOptionLabel={(option) => getMedicationName(option) || ''}
                   fullWidth
                   isOptionEqualToValue={(option, value) => getMedispanId(option) === getMedispanId(value)}
                   loading={isSearching}
                   disableClearable
                   disablePortal
-                  freeSolo
                   noOptionsText={
                     debouncedSearchTerm && debouncedSearchTerm.length > 2 && medicationOptions.length === 0
                       ? 'Nothing found for this search criteria'
                       : 'Start typing to load results'
                   }
                   options={medicationOptions}
-                  // onChange string and onInputChange input are for renaming
-                  onChange={(_e, value) => {
-                    if (typeof value === 'string') {
-                      setMedication((prev) => updateMedicationName(prev, value));
-                    } else {
-                      setMedication(value);
-                    }
-                  }}
-                  onInputChange={(_e, value, reason) => {
-                    if (reason === 'input') {
-                      setMedication((prev) => updateMedicationName(prev, value));
-                      debouncedHandleInputChange(value);
-                    }
-                  }}
+                  onChange={(_e, value) => setMedication((prev) => mergeSelectedMedicationIntoExisting(value, prev!))}
                   renderInput={(params) => (
                     <TextField
                       {...params}
