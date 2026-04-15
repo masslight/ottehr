@@ -418,7 +418,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const now = DateTime.now().setZone('UTC');
   const nowIso = now.toISO() ?? '';
-  let initialAppointmentStatus: FhirAppointmentStatus =
+  const initialAppointmentStatus: FhirAppointmentStatus =
     visitType === VisitType.PreBook || visitType === VisitType.PostTelemed ? 'booked' : 'arrived';
   let initialEncounterStatus: FhirEncounterStatus =
     visitType === VisitType.PreBook || visitType === VisitType.PostTelemed ? 'planned' : 'arrived';
@@ -427,7 +427,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const encExtensions: Extension[] = [];
 
   if (serviceMode === ServiceMode.virtual) {
-    initialAppointmentStatus = 'arrived';
     initialEncounterStatus = 'planned';
 
     const { encExtensions: telemedEncExtensions, apptExtensions: telemedApptExtensions } =

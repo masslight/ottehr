@@ -37,7 +37,7 @@ export const HPISection: FC = () => {
 
             <ChiefComplaintFieldReadOnly label="Additional information on intake" />
 
-            <AiHpiSuggestion isReadOnly={isReadOnly} />
+            <AiHpiSuggestion />
           </Stack>
         }
         rightColumn={

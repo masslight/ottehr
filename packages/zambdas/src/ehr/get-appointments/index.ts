@@ -18,6 +18,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  appointmentAttendanceTypeAppointment,
   AppointmentRelatedResources,
   appointmentTypeForAppointment,
   CONSENT_FORMS_CONFIG,
@@ -720,6 +721,7 @@ const makeAppointmentInformation = (
     comment: appointment.comment,
     unconfirmedDOB: unconfirmedDOB ?? '',
     appointmentType: appointmentTypeForAppointment(appointment),
+    appointmentAttendanceType: appointmentAttendanceTypeAppointment(appointment),
     appointmentStatus: appointment.status,
     status,
     cancellationReason: cancellationReason,
@@ -743,7 +745,7 @@ const makeAppointmentInformation = (
     serviceCategory: appointment.serviceCategory
       ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])
       ?.find((coding) => coding.system === SERVICE_CATEGORY_SYSTEM)?.display,
-    location: locationIdToResourceMap[encounter.location?.[0]?.location?.reference ?? '']?.name,
+    location: locationIdToResourceMap[encounter.location?.[0]?.location?.reference ?? ''],
     isFollowUp: !!encounter.partOf,
     parentEncounterId: encounter.partOf?.reference?.replace('Encounter/', ''),
     parentAppointmentId: encounter.partOf

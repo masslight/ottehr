@@ -1,22 +1,31 @@
-import { useEffect, useState } from 'react';
+import { Encounter } from 'fhir/r4b';
+import { useEffect, useMemo, useState } from 'react';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
+  allLicensesForPractitioner,
+  AppointmentLocation,
   checkEncounterHasPractitioner,
-  getSelectors,
-  TelemedAppointmentInformation,
   TelemedAppointmentStatusEnum,
+  TelemedCallStatuses,
 } from 'utils';
-import { useTrackingBoardStore } from '../state/tracking-board/tracking-board.store';
 
 export const useTrackingBoardTableButtonType = ({
   appointment,
 }: {
-  appointment: TelemedAppointmentInformation;
+  appointment: {
+    id: string;
+    locationVirtual: AppointmentLocation;
+    telemedStatus: TelemedCallStatuses;
+    encounter: Encounter;
+  };
 }): { type: string } => {
   const [type, setType] = useState('');
 
-  const { availableStates } = getSelectors(useTrackingBoardStore, ['availableStates']);
   const user = useEvolveUser();
+
+  const availableStates = useMemo(() => {
+    return (user?.profileResource && allLicensesForPractitioner(user.profileResource).map((item) => item.state)) ?? [];
+  }, [user]);
 
   const isEncounterForPractitioner =
     !!user?.profileResource && checkEncounterHasPractitioner(appointment.encounter, user.profileResource);
