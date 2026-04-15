@@ -1,8 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { OYSTEHR_AUTH_TOKEN, PROJECT_ENV, PROJECT_NAME, SENDGRID_AUTH_TOKEN } from './setup.config';
 
-const OTTEHR_ROOT = resolve(new URL('.', import.meta.url).pathname, '../../../');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const OTTEHR_ROOT = resolve(__dirname, '../../../');
 
 export type ProjectEnv = 'local' | 'staging' | 'production';
 
@@ -71,9 +74,9 @@ export async function createProject(opts: CreateProjectOptions): Promise<CreateP
   let projectId: string;
   if (opts.existingProjectId) {
     projectId = opts.existingProjectId;
-    console.log(`✅ Using provided project_id=${projectId}`);
+    console.log(`Using provided project_id=${projectId}`);
   } else {
-    console.log(`🔄 Creating project "${fullProjectName}" (sandbox=${envCfg.sandbox})...`);
+    console.log(`Creating project "${fullProjectName}" (sandbox=${envCfg.sandbox})...`);
     const project = await req<{ id: string }>('https://platform-api.zapehr.com/v1/project', {
       method: 'POST',
       body: JSON.stringify({
@@ -83,32 +86,32 @@ export async function createProject(opts: CreateProjectOptions): Promise<CreateP
       }),
     });
     projectId = project.id;
-    console.log(`✅ Project created. project_id=${projectId}`);
+    console.log(`Project created with id: ${projectId}`);
   }
 
-  console.log('🔄 Listing M2M clients...');
+  console.log('Listing M2M clients...');
   const m2ms = await req<{ id: string; clientId: string; name: string }[]>('https://project-api.zapehr.com/v1/m2m', {
     headers: { 'x-oystehr-project-id': projectId },
   });
   if (!m2ms.length) throw new Error('No M2M clients returned for project');
   const m2m = m2ms[0];
-  console.log(`✅ M2M client: ${m2m.name} (${m2m.clientId})`);
+  console.log(`Found M2M client: ${m2m.name} (${m2m.clientId})`);
 
-  console.log('🔄 Rotating M2M secret...');
+  console.log('Rotating M2M secret...');
   const { secret } = await req<{ secret: string }>(`https://project-api.zapehr.com/v1/m2m/${m2m.id}/rotate-secret`, {
     method: 'POST',
     body: '{}',
     headers: { 'x-oystehr-project-id': projectId },
   });
-  console.log(`✅ Secret rotated`);
+  console.log('Secret rotated successfully');
 
   let sendgridApiKey: string | undefined;
   if (!opts.sendgridToken) {
-    console.error('⚠️  SENDGRID_AUTH_TOKEN not set — skipping SendGrid API key creation.');
-    console.error('   You will need to create the SendGrid API key manually and put it into the env files.');
+    console.warn('WARNING: SENDGRID_AUTH_TOKEN not set, skipping SendGrid API key creation.');
+    console.warn('         You will need to create the SendGrid API key manually.');
   } else {
     const sendgridKeyName = `${opts.projectName.trim().replace(/\s+/g, '-')}-${opts.env}`;
-    console.log(`🔄 Creating SendGrid API key "${sendgridKeyName}"...`);
+    console.log(`Creating SendGrid API key "${sendgridKeyName}"...`);
     const sgRes = await fetch('https://api.sendgrid.com/v3/api_keys', {
       method: 'POST',
       headers: {
@@ -121,7 +124,7 @@ export async function createProject(opts: CreateProjectOptions): Promise<CreateP
       throw new Error(`SendGrid create key failed (${sgRes.status}): ${await sgRes.text()}`);
     }
     ({ api_key: sendgridApiKey } = (await sgRes.json()) as { api_key: string });
-    console.log(`✅ SendGrid API key created`);
+    console.log('SendGrid API key created');
   }
 
   // Update deploy/<env>.tfvars
@@ -131,20 +134,61 @@ export async function createProject(opts: CreateProjectOptions): Promise<CreateP
   tfvars = replaceTfvar(tfvars, 'client_id', m2m.clientId);
   tfvars = replaceTfvar(tfvars, 'client_secret', secret);
   writeFileSync(tfvarsPath, tfvars);
-  console.log(`✅ Updated ${tfvarsPath}`);
+  console.log(`Updated ${tfvarsPath}`);
 
-  // Update packages/zambdas/.env/<env>.json
-  const zambdaEnvPath = resolve(OTTEHR_ROOT, 'packages/zambdas/.env', envCfg.zambdaEnv);
-  const zambdaEnv = JSON.parse(readFileSync(zambdaEnvPath, 'utf8'));
-  zambdaEnv.AUTH0_CLIENT = m2m.clientId;
-  zambdaEnv.AUTH0_SECRET = secret;
-  zambdaEnv.PROJECT_ID = projectId;
+  // Update config/.env/<env>.json
+  const configEnvPath = resolve(OTTEHR_ROOT, 'config/.env', envCfg.zambdaEnv);
+  const configEnv = JSON.parse(readFileSync(configEnvPath, 'utf8'));
+  configEnv.AUTH0_CLIENT = m2m.clientId;
+  configEnv.AUTH0_SECRET = secret;
+  configEnv.PROJECT_ID = projectId;
+  configEnv['project-name'] = opts.projectName;
+  configEnv['lab-autolab-account-number'] = `${opts.projectName.toLowerCase().replace(/\s+/g, '-')}-${opts.env}`;
+
+  // Set SendGrid API key or placeholder
   if (sendgridApiKey) {
-    zambdaEnv.SENDGRID_API_KEY = sendgridApiKey;
-    zambdaEnv.SENDGRID_SEND_EMAIL_API_KEY = sendgridApiKey;
+    configEnv.SENDGRID_API_KEY = sendgridApiKey;
+    configEnv.SENDGRID_SEND_EMAIL_API_KEY = sendgridApiKey;
+  } else {
+    configEnv.SENDGRID_API_KEY = 'API_KEY';
+    configEnv.SENDGRID_SEND_EMAIL_API_KEY = 'API_KEY';
   }
-  writeFileSync(zambdaEnvPath, JSON.stringify(zambdaEnv, null, 2) + '\n');
-  console.log(`✅ Updated ${zambdaEnvPath}`);
+
+  // Remove optional API keys that should not be auto-populated
+  delete configEnv.ANTHROPIC_API_KEY;
+  delete configEnv.GOOGLE_CLOUD_API_KEY;
+
+  writeFileSync(configEnvPath, JSON.stringify(configEnv, null, 2) + '\n');
+  console.log(`Updated ${configEnvPath}`);
+
+  // Validate that files were updated correctly
+  console.log('\nValidating updated files...');
+
+  // Validate tfvars
+  const updatedTfvars = readFileSync(tfvarsPath, 'utf8');
+  if (!updatedTfvars.includes(projectId)) {
+    throw new Error(`Failed to update project_id in ${tfvarsPath}`);
+  }
+  if (!updatedTfvars.includes(m2m.clientId)) {
+    throw new Error(`Failed to update client_id in ${tfvarsPath}`);
+  }
+  console.log(`  ${envCfg.tfvars}: project_id, client_id, client_secret verified`);
+
+  // Validate config env
+  const updatedConfigEnv = JSON.parse(readFileSync(configEnvPath, 'utf8'));
+  if (updatedConfigEnv.PROJECT_ID !== projectId) {
+    throw new Error(`Failed to update PROJECT_ID in ${configEnvPath}`);
+  }
+  if (updatedConfigEnv['project-name'] !== opts.projectName) {
+    throw new Error(`Failed to update project-name in ${configEnvPath}`);
+  }
+  if (
+    updatedConfigEnv['lab-autolab-account-number'] !==
+    `${opts.projectName.toLowerCase().replace(/\s+/g, '-')}-${opts.env}`
+  ) {
+    throw new Error(`Failed to update lab-autolab-account-number in ${configEnvPath}`);
+  }
+  console.log(`  ${envCfg.zambdaEnv}: PROJECT_ID, project-name, lab-autolab-account-number verified`);
 
   return { projectId, clientId: m2m.clientId, clientSecret: secret, sendgridApiKey };
 }
@@ -159,11 +203,11 @@ if (isCli) {
     sendgridToken: SENDGRID_AUTH_TOKEN,
     existingProjectId: process.env.PROJECT_ID || process.argv[2],
   });
-  console.log('\n🎉 Done!');
-  console.log(`   project_id:    ${result.projectId}`);
-  console.log(`   client_id:     ${result.clientId}`);
-  console.log(`   client_secret: ${result.clientSecret}`);
+  console.log('\nProject setup complete.');
+  console.log(`  project_id:    ${result.projectId}`);
+  console.log(`  client_id:     ${result.clientId}`);
+  console.log(`  client_secret: ${result.clientSecret}`);
   if (result.sendgridApiKey) {
-    console.log(`   sendgrid_key:  ${result.sendgridApiKey}`);
+    console.log(`  sendgrid_key:  ${result.sendgridApiKey}`);
   }
 }

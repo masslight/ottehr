@@ -100,13 +100,15 @@ client_id     = "<m2m clientId>"
 client_secret = "<rotated secret>"
 ```
 
-`packages/zambdas/.env/<env>.json` (`local.json` / `staging.json` / `production.json`):
+`config/.env/<env>.json` (`local.json` / `staging.json` / `production.json`):
 
 ```json
 {
   "AUTH0_CLIENT": "<m2m clientId>",
   "AUTH0_SECRET": "<rotated secret>",
   "PROJECT_ID":   "<new id>",
+  "project-name": "<PROJECT_NAME>",
+  "lab-autolab-account-number": "<project-name>-<env>",
   "SENDGRID_API_KEY":            "<sendgrid api_key>",
   "SENDGRID_SEND_EMAIL_API_KEY": "<sendgrid api_key>"
 }

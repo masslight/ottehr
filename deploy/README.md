@@ -30,7 +30,7 @@ The following config files must be in place before running Terraform:
 
 - `deploy/backend.config` with the S3 backend configuration values for your project
 - `deploy/${env}.tfvars` for the environment you wish to deploy to
-- `packages/zambda/.env/${env}.json` for the environment you wish to deploy to
+- `config/.env/${env}.json` for the environment you wish to deploy to
 
 ## Scripts
 
@@ -84,7 +84,7 @@ npm run apps:start
 ```
 
 **After applying terraform**
-- Use created resources to determine variables to fill in in env.json in packages/zambdas/.env
+- Use created resources to determine variables to fill in in env.json in config/.env
     - DEFAULT_BILLING_RESOURCE
     - ORGANIZATION_ID
 - Use the created m2m client for e2e tests to get client and secret vars and put it into tests.{env}.json in ehr and intake env folders so e2e tests can run

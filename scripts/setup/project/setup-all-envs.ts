@@ -55,7 +55,7 @@ async function inviteAllDevelopers(config: InviteConfig): Promise<void> {
 
 async function setupOneEnv(env: ProjectEnv): Promise<void> {
   console.log('\n' + '='.repeat(60));
-  console.log(`🏗  Setting up environment: ${env.toUpperCase()}`);
+  console.log(`Setting up environment: ${env.toUpperCase()}`);
   console.log('='.repeat(60));
 
   const result = await createProject({
@@ -69,7 +69,7 @@ async function setupOneEnv(env: ProjectEnv): Promise<void> {
 
   // Demo user — skip on production
   if (env === 'production') {
-    console.log('\nℹ️  Skipping demo user invite for production environment.');
+    console.log('\nSkipping demo user invite for production environment.');
   } else if (DEMO_USERS[0]) {
     console.log(`\n--- Inviting demo user (${env}) ---`);
     await inviteUserAndSetPassword(config, DEMO_USERS[0]);
@@ -85,16 +85,16 @@ async function setupOneEnv(env: ProjectEnv): Promise<void> {
   console.log(`\n--- Inviting developers (${env}) ---`);
   await inviteAllDevelopers(config);
 
-  console.log(`\n✅ Done with ${env}.`);
+  console.log(`\nCompleted setup for ${env} environment.`);
 }
 
 async function main(): Promise<void> {
   if (!OYSTEHR_AUTH_TOKEN) {
-    console.error('❌ OYSTEHR_AUTH_TOKEN is required in setup.config.ts');
+    console.error('ERROR: OYSTEHR_AUTH_TOKEN is required in setup.config.ts');
     process.exit(1);
   }
   if (!PROJECT_NAME) {
-    console.error('❌ PROJECT_NAME is required in setup.config.ts');
+    console.error('ERROR: PROJECT_NAME is required in setup.config.ts');
     process.exit(1);
   }
 
@@ -102,10 +102,10 @@ async function main(): Promise<void> {
     await setupOneEnv(env);
   }
 
-  console.log('\n🎉 All environments provisioned.');
+  console.log('\nAll environments provisioned successfully.');
 }
 
 main().catch((err) => {
-  console.error('❌ Error:', err.message || err);
+  console.error('ERROR:', err.message || err);
   process.exit(1);
 });
