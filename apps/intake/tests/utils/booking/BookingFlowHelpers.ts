@@ -848,6 +848,8 @@ export class BookingFlowHelpers {
     const day = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0'); // 1-28 to avoid invalid dates
     const birthdate = `${month}/${day}/${year}`;
 
+    console.log('Generating sample patient data with timestamp:', timestamp);
+
     return {
       valid: {
         'patient-first-name': `Test${timestamp}`,
