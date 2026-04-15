@@ -26,6 +26,23 @@ import {
 function getMedispanId(medication: Medication): string | undefined {
   return medication.code?.coding?.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)?.code;
 }
+function mergeSelectedMedicationIntoExisting(selected: Medication, existing: Medication): Medication {
+  const preservedIdentifiers = (existing.identifier ?? []).filter(
+    (i) => i.system !== MEDICATION_IDENTIFIER_NAME_SYSTEM
+  );
+  const selectedIdentifiers = selected.identifier ?? [];
+  const preservedCodings = (existing.code?.coding ?? []).filter(
+    (c) => c.system !== CODE_SYSTEM_NDC && c.system !== MEDICATION_DISPENSABLE_DRUG_ID
+  );
+  const selectedCodings = selected.code?.coding ?? [];
+  return {
+    ...existing,
+    ...selected,
+    id: existing.id,
+    identifier: [...preservedIdentifiers, ...selectedIdentifiers],
+    code: { ...existing.code, ...selected.code, coding: [...preservedCodings, ...selectedCodings] },
+  };
+}
 
 export default function UpdateMedicationPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -204,9 +221,7 @@ export default function UpdateMedicationPage(): ReactElement {
                       : 'Start typing to load results'
                   }
                   options={medicationOptions}
-                  onChange={(_e, value) =>
-                    setMedication((prev) => (value && prev?.id ? { ...value, id: prev.id } : value))
-                  }
+                  onChange={(_e, value) => setMedication((prev) => mergeSelectedMedicationIntoExisting(value, prev!))}
                   onInputChange={(_e, value, reason) => {
                     if (reason === 'input') {
                       debouncedHandleInputChange(value);
