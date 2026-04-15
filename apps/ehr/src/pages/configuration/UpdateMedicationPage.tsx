@@ -1,6 +1,7 @@
 import { LoadingButton } from '@mui/lab';
 import { Autocomplete, debounce, Grid, Paper, TextField, Typography } from '@mui/material';
 import { Medication } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
@@ -136,13 +137,15 @@ export default function UpdateMedicationPage(): ReactElement {
         cptCodes: finalCptCodes,
         hcpcsCodes: finalHcpcsCodes,
       });
+      enqueueSnackbar('Medication updated successfully', { variant: 'success' });
     } catch (error) {
       console.log('Error updating medication', error);
+      enqueueSnackbar('Failed to update medication', { variant: 'error' });
     }
     setLoading(false);
   }
 
-  async function updateStatus(status: string): Promise<void> {
+  async function updateStatus(newStatus: string): Promise<void> {
     if (!oystehrZambda || !medication?.id) {
       return;
     }
@@ -151,11 +154,20 @@ export default function UpdateMedicationPage(): ReactElement {
     try {
       const medicationTemp = await updateInHouseMedication(oystehrZambda, {
         medicationID: medication.id,
-        status,
+        status: newStatus,
       });
       setStatus(medicationTemp.status || '');
+      enqueueSnackbar(
+        newStatus === 'active' ? 'Medication activated successfully' : 'Medication removed successfully',
+        {
+          variant: 'success',
+        }
+      );
     } catch (error) {
       console.log('Error updating medication', error);
+      enqueueSnackbar(newStatus === 'active' ? 'Failed to activate medication' : 'Failed to remove medication', {
+        variant: 'error',
+      });
     }
     setLoading(false);
   }
