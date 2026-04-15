@@ -200,7 +200,7 @@ async function updateOrder(
 
       if (!erxDataFromMedication)
         throw INVALID_INPUT_ERROR(
-          `Can't create MedicationStatement for order, Medication resource don't have coding with ERX data in it`
+          `Can't create MedicationStatement for order, Medication resource doesn't have coding with ERX data in it`
         );
 
       const medicationCodeableConcept: CodeableConcept = {

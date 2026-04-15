@@ -9,10 +9,9 @@ import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
-  APIError,
   ExtendedMedicationDataForResponse,
+  getApiError,
   getMedicationName,
-  isApiError,
   MEDICAL_HISTORY_CONFIG,
   MedicationData,
   medicationExtendedToMedicationData,
@@ -131,10 +130,7 @@ export const EditableMedicationCard: React.FC<{
         navigate(getInHouseMedicationMARUrl(appointmentId));
       }
     } catch (error) {
-      let errorMessage = 'Failed to delete medication. Please try again.';
-      if (isApiError(error)) {
-        errorMessage = (error as APIError).message;
-      }
+      const errorMessage = getApiError({ error, defaultError: 'Failed to delete medication. Please try again.' });
       enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       setIsDeleting(false);
@@ -287,10 +283,7 @@ export const EditableMedicationCard: React.FC<{
       void refetchHistory();
     } catch (error) {
       console.error(error);
-      let errorMessage = 'Failed to save medication. Please try again.';
-      if (isApiError(error)) {
-        errorMessage = (error as APIError).message;
-      }
+      const errorMessage = getApiError({ error, defaultError: 'Failed to save medication. Please try again.' });
       enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       setIsOrderUpdating(false);

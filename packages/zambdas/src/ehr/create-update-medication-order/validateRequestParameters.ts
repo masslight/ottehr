@@ -10,7 +10,13 @@ export function validateRequestParameters(
     throw MISSING_REQUEST_BODY;
   }
 
-  const { orderId, newStatus, orderData, interactions } = JSON.parse(input.body);
+  let parsedBody;
+  try {
+    parsedBody = JSON.parse(input.body);
+  } catch {
+    throw INVALID_INPUT_ERROR('Request body must be valid JSON');
+  }
+  const { orderId, newStatus, orderData, interactions } = parsedBody;
 
   if (newStatus) {
     if (newStatus === 'administered' && !orderData) {
@@ -20,7 +26,9 @@ export function validateRequestParameters(
       throw INVALID_INPUT_ERROR('Cannot change status back to pending.');
     }
     if (orderId && newStatus !== 'administered' && newStatus !== 'cancelled' && !orderData?.reason) {
-      throw INVALID_INPUT_ERROR(`Reason should be provided if you changing status to anything except 'administered'`);
+      throw INVALID_INPUT_ERROR(
+        `Reason should be provided if you are changing status to anything except 'administered'`
+      );
     }
     if (newStatus === 'administered') {
       if (!orderData.effectiveDateTime)

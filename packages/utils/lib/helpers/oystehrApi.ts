@@ -78,6 +78,20 @@ export const apiErrorToThrow = (error: any): APIError => {
   }
 };
 
+/**
+ * Extracts the error message from an API error with fallback to default message.
+ */
+export const getApiError = ({ error, defaultError }: { error: APIError; defaultError: string }): string => {
+  const err = error as any;
+  if (err?.output?.message) {
+    return err.output.message;
+  }
+  if (err?.message) {
+    return err.message;
+  }
+  return defaultError;
+};
+
 export function NotFoundAppointmentErrorHandler(error: any): void {
   if (error.message === 'Appointment is not found') {
     throw error;
