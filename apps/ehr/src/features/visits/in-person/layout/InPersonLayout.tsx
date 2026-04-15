@@ -4,7 +4,7 @@ import { GlobalStyles, lightTheme, MeetingProvider } from 'amazon-chime-sdk-comp
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
-import { getAdmitterPractitionerId, getAttendingPractitionerId, getSelectors, OTTEHR_MODULE } from 'utils';
+import { getAdmitterPractitionerId, getAttendingPractitionerId, getSelectors, isTelemedAppointment } from 'utils';
 import { Sidebar } from '../../shared/components/Sidebar';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
@@ -50,7 +50,7 @@ export const InPersonLayout: React.FC = () => {
   const { chartData } = useChartData({ shouldUpdateExams: true });
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
   const assignedProviderId = getAttendingPractitionerId(encounter);
-  const virtual = appointment?.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM);
+  const virtual = isTelemedAppointment(appointment);
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
 
   return (
