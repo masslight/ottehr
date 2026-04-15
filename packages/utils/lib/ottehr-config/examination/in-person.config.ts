@@ -35,7 +35,7 @@ import {
 
 type ColumnConfig = { key: string; header?: string; headerAbbreviation?: string };
 
-const NORMAL_LABELS = new Set([
+export const NORMAL_LABELS = new Set([
   'Normal',
   'None',
   'Absent',

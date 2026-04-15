@@ -220,6 +220,7 @@ export type ExamItemConfig = Record<string, ExamCard>;
 export interface ExamTypeInstance {
   version: string;
   components: ExamItemConfig;
+  constants?: Record<string, Set<string>>;
 }
 
 /**
@@ -456,6 +457,7 @@ export const ExamTypeInstanceSchema: z.ZodType<Record<string, ExamTypeInstance>,
   z.object({
     version: HexHashSchema,
     components: ExamItemConfigSchema,
+    constants: z.record(z.string(), z.set(z.string())).optional(),
   })
 );
 
