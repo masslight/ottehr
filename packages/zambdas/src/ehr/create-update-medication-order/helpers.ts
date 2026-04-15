@@ -2,11 +2,13 @@ import Oystehr, { TerminologySearchCptResponse, TerminologySearchHcpcsResponse }
 import { Medication, MedicationAdministration } from 'fhir/r4b';
 import {
   CPTCodeOption,
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getAllCptCodesFromInHouseMedication,
   getAllHcpcsCodesFromInHouseMedication,
   getDosageUnitsAndRouteOfMedication,
   getLocationCodeFromMedicationAdministration,
   getResourcesFromBatchInlineRequests,
+  INVALID_INPUT_ERROR,
   INVENTORY_MEDICATION_TYPE_CODE,
   MedicationData,
   MedicationOrderStatuses,
@@ -48,14 +50,14 @@ export function createMedicationCopy(
 export async function practitionerIdFromZambdaInput(userToken: string, secrets: Secrets | null): Promise<string> {
   const oystehr = createOystehrClient(userToken, secrets);
   const myPractitionerId = removePrefix('Practitioner/', (await oystehr.user.me()).profile);
-  if (!myPractitionerId) throw new Error('No practitioner id was found for token provided');
+  if (!myPractitionerId) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('No practitioner id was found for token provided');
   return myPractitionerId;
 }
 
 export async function getMedicationByName(oystehr: Oystehr, medicationName: string): Promise<Medication> {
   const medications = await getResourcesFromBatchInlineRequests(oystehr, [`Medication?identifier=${medicationName}`]);
   const medication = medications.find((res) => res.resourceType === 'Medication') as Medication;
-  if (!medication) throw new Error(`No medication was found with this name: ${medicationName}`);
+  if (!medication) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No medication was found with this name: ${medicationName}`);
   return medication;
 }
 
@@ -64,7 +66,7 @@ export async function getMedicationById(oystehr: Oystehr, medicationId: string):
     resourceType: 'Medication',
     id: medicationId,
   });
-  if (!medication) throw new Error(`No medication was found for this id: ${medicationId}`);
+  if (!medication) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No medication was found for this id: ${medicationId}`);
   return medication;
 }
 
@@ -80,7 +82,7 @@ export function validateProviderAccess(
   // When we receive new data and new status, it means that we are on 'Medication Details' screen so
   // we don't need provider validation because everybody can do it
   if (orderData && !newStatus && getPerformerId(orderPkg.medicationAdministration) !== practitionerId)
-    throw new Error(`You can't edit this order, because it was created by another provider`);
+    throw INVALID_INPUT_ERROR(`You can't edit this order, because it was created by another provider`);
 }
 
 export function updateMedicationAdministrationData(data: {
@@ -95,15 +97,16 @@ export function updateMedicationAdministrationData(data: {
     ? orderData.route
     : getDosageUnitsAndRouteOfMedication(orderResources.medicationAdministration).route;
   const routeCoding = searchRouteByCode(routeCode!);
-  if (orderData.route && !routeCoding) throw new Error(`No route found with code provided: ${orderData.route}`);
+  if (orderData.route && !routeCoding)
+    throw INVALID_INPUT_ERROR(`No route found with code provided: ${orderData.route}`);
   const locationCode = orderData.location
     ? orderData.location
     : getLocationCodeFromMedicationAdministration(orderResources.medicationAdministration);
   const locationCoding = locationCode ? searchMedicationLocation(locationCode) : undefined;
   if (orderData.location && !locationCoding)
-    throw new Error(`No location found with code provided: ${orderData.location}`);
+    throw INVALID_INPUT_ERROR(`No location found with code provided: ${orderData.location}`);
 
-  if (!routeCoding) throw new Error(`No medication appliance route was found for code: ${routeCode}`);
+  if (!routeCoding) throw INVALID_INPUT_ERROR(`No medication appliance route was found for code: ${routeCode}`);
   const newMA = createMedicationAdministrationResource({
     orderData,
     status: orderResources.medicationAdministration.status,
