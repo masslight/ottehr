@@ -223,7 +223,11 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   />
                 </Grid>
                 <Grid xs={6} item>
-                  <ImmunizationCptCodesField methods={methods} isReadOnly={isReadOnly} />
+                  <ImmunizationCptCodesField
+                    methods={methods}
+                    isReadOnly={isReadOnly}
+                    dataTestId={dataTestIds.vaccineDetailsPage.cptCode}
+                  />
                 </Grid>
                 <Grid xs={3} item>
                   <DateInput
@@ -440,16 +444,18 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
 };
 
 // Wrapper to make cptCodes reactive via useWatch
-const ImmunizationCptCodesField: React.FC<{ methods: ReturnType<typeof useForm>; isReadOnly?: boolean }> = ({
-  methods,
-  isReadOnly,
-}) => {
+const ImmunizationCptCodesField: React.FC<{
+  methods: ReturnType<typeof useForm>;
+  isReadOnly?: boolean;
+  dataTestId?: string;
+}> = ({ methods, isReadOnly, dataTestId }) => {
   const cptCodes = useWatch({ control: methods.control, name: 'administrationDetails.cptCodes' }) ?? [];
   return (
     <CptCodesInput
       cptCodes={cptCodes}
       onChange={(codes) => methods.setValue('administrationDetails.cptCodes', codes)}
       isEditable={!isReadOnly}
+      dataTestId={dataTestId}
     />
   );
 };

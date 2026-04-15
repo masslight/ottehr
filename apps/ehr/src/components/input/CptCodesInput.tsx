@@ -9,9 +9,10 @@ interface CptCodesInputProps {
   cptCodes: { code: string; display: string }[];
   onChange: (codes: { code: string; display: string }[]) => void;
   isEditable: boolean;
+  dataTestId?: string;
 }
 
-export const CptCodesInput: FC<CptCodesInputProps> = ({ cptCodes, onChange, isEditable }) => {
+export const CptCodesInput: FC<CptCodesInputProps> = ({ cptCodes, onChange, isEditable, dataTestId }) => {
   const [inputValue, setInputValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const timeoutRef = React.useRef<ReturnType<typeof setTimeout>>();
@@ -44,6 +45,7 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({ cptCodes, onChange, isEd
       </Box>
       {isEditable && (
         <Autocomplete
+          data-testid={dataTestId}
           size="small"
           fullWidth
           blurOnSelect
