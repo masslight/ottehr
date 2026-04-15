@@ -25,6 +25,17 @@ const patientSummary = PATIENT_RECORD_CONFIG.FormFields.patientSummary.items;
 const PROCESS_ID = `patients.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID);
 
+const getFriendlyPatientId = (): string => {
+  const system = `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/${process.env.PROJECT_ID}`;
+  const friendlyId = resourceHandler.patient.identifier?.find((ident) => ident.system === system)?.value;
+
+  if (!friendlyId) {
+    throw new Error('Friendly patient ID not found on test patient resource');
+  }
+
+  return friendlyId;
+};
+
 test.beforeAll(async () => {
   await resourceHandler.setResources({ skipPaperwork: true });
 });
@@ -111,13 +122,10 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
   });
 
   test('Search by PID', async ({ page }) => {
-    const system = `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/${process.env.PROJECT_ID}`;
-    const friendlyId = resourceHandler.patient.identifier?.find((ident) => ident.system === system)?.value;
-
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
-    await patientsPage.searchByPid(friendlyId!);
+    await patientsPage.searchByPid(getFriendlyPatientId());
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
       lastName: PATIENT_LAST_NAME,
@@ -225,7 +233,7 @@ test.describe('Patient header tests', () => {
 
   test('Check header info', async () => {
     const patientHeader = patientInformationPage.getPatientHeader();
-    await patientHeader.verifyHeaderPatientID('PID: ' + resourceHandler.patient.id);
+    await patientHeader.verifyHeaderPatientID('PID: ' + getFriendlyPatientId());
     await patientHeader.verifyHeaderPatientName(HEADER_PATIENT_NAME);
     await patientHeader.verifyHeaderPatientBirthSex(HEADER_PATIENT_GENDER);
     await patientHeader.verifyHeaderPatientBirthday(HEADER_PATIENT_BIRTHDAY);
