@@ -436,7 +436,7 @@ export function makeObservationResource(
       'items' in textData && Array.isArray(textData.items) && textData.items.length > 0
         ? textData.items.map((item) => ({
             code: { text: textData.field },
-            valueString: item,
+            valueString: JSON.stringify(item),
           }))
         : undefined;
     if ('note' in textData && textData.note) {
@@ -1189,24 +1189,25 @@ export function makeObservationDTO(observation: Observation): null | Observation
       value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
     } as ObservationDateRangeFieldDTO;
   } else if (typeof observation.valueString === 'string') {
-    const rawItems = observation.component?.map((c) => c.valueString).filter((v): v is string => typeof v === 'string');
-    const items = rawItems
-      ?.map((raw) => {
+    const items = observation.component
+      ?.map((c) => {
+        if (typeof c.valueString !== 'string') return undefined;
         try {
-          const parsed = JSON.parse(raw);
+          const parsed = JSON.parse(c.valueString);
           if (parsed && typeof parsed === 'object' && typeof parsed.display === 'string') {
             const searchTerms =
               Array.isArray(parsed.searchTerms) && parsed.searchTerms.every((t: unknown) => typeof t === 'string')
                 ? parsed.searchTerms
-                : [parsed.display];
+                : [];
             return { display: parsed.display, searchTerms };
           }
         } catch {
-          // Not JSON — legacy plain string item, wrap it
+          // Legacy plain-string component — use as display, leave searchTerms empty
+          // (do not echo the display/prose into searchTerms).
         }
-        return { display: raw, searchTerms: [raw] };
+        return { display: c.valueString, searchTerms: [] };
       })
-      .filter(Boolean);
+      .filter((v): v is { display: string; searchTerms: string[] } => v != null);
     return {
       resourceId: observation.id,
       field,

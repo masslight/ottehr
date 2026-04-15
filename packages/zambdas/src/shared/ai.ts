@@ -9,6 +9,7 @@ import { uuid } from 'short-uuid';
 import {
   AI_OBSERVATION_META_SYSTEM,
   AiObservationField,
+  AiSuggestionItem,
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
   fixAndParseJsonObjectFromString,
@@ -402,12 +403,21 @@ function createObservations(
   return Object.entries(AI_RESPONSE_KEY_TO_FIELD).flatMap(([key, field]) => {
     if (aiResponse[key] != null) {
       const rawItems = aiResponse[key + 'Items'];
-      const items =
+      const items: AiSuggestionItem[] | undefined =
         FIELDS_WITH_ITEMS.has(key) && Array.isArray(rawItems)
           ? rawItems
-              .filter((item: any) => item != null && item !== '')
-              .map((item: any) => (typeof item === 'string' ? item.trim() : JSON.stringify(item)))
-              .filter(Boolean)
+              .map((item: any) => {
+                if (item && typeof item === 'object' && typeof item.display === 'string' && item.display.trim()) {
+                  const display = item.display;
+                  const searchTerms =
+                    Array.isArray(item.searchTerms) && item.searchTerms.every((t: unknown) => typeof t === 'string')
+                      ? item.searchTerms
+                      : [];
+                  return { display, searchTerms };
+                }
+                return undefined;
+              })
+              .filter((v: AiSuggestionItem | undefined): v is AiSuggestionItem => v != null)
           : undefined;
       return [
         saveResourceRequest(
