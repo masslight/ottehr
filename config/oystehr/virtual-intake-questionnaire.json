@@ -1,7 +1,7 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-virtual-previsit-1_0_22": {
+    "questionnaire-virtual-previsit-1_0_23": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
@@ -5228,29 +5228,6 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
                     "valueString": "55188-7"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "linkId": "patient-condition-page",
-            "type": "group",
-            "text": "Patient condition",
-            "item": [
-              {
-                "linkId": "patient-photos",
-                "type": "attachment",
-                "text": "Photo of patient's condition (optional)",
-                "required": false,
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-                    "valueString": "Image"
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-                    "valueString": "72170-4"
                   }
                 ]
               }

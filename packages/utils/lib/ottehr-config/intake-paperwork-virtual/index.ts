@@ -2130,21 +2130,6 @@ function buildFormFields(
       hiddenFields: [],
       requiredFields: [],
     },
-    patientCondition: {
-      linkId: 'patient-condition-page',
-      title: 'Patient condition',
-      items: {
-        patientPhotos: {
-          key: 'patient-photos',
-          label: "Photo of patient's condition (optional)",
-          type: 'attachment',
-          dataType: 'Image',
-          documentType: '72170-4',
-        },
-      },
-      hiddenFields: [],
-      requiredFields: [],
-    },
     schoolWorkNote: {
       linkId: 'school-work-note-page',
       title: 'Do you need a school or work note?',

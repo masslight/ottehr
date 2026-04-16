@@ -5223,29 +5223,6 @@
     ]
   },
   {
-    "linkId": "patient-condition-page",
-    "type": "group",
-    "text": "Patient condition",
-    "item": [
-      {
-        "linkId": "patient-photos",
-        "type": "attachment",
-        "text": "Photo of patient's condition (optional)",
-        "required": false,
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-            "valueString": "Image"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-            "valueString": "72170-4"
-          }
-        ]
-      }
-    ]
-  },
-  {
     "linkId": "school-work-note-page",
     "type": "group",
     "text": "Do you need a school or work note?",
