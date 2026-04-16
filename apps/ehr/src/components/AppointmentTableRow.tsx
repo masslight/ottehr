@@ -31,7 +31,10 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
+import {
+  getAppointmentVisitDetailsUrl,
+  getInPersonUrlByAppointmentType,
+} from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { getTelemedQuickTexts } from 'src/features/visits/telemed/utils/appointments';
@@ -1031,7 +1034,7 @@ export default function AppointmentTableRow({
         <Stack direction={'row'} spacing={1} alignItems="center">
           <GoToButton
             text="Visit Details"
-            onClick={() => navigate(getInPersonUrlByAppointmentType(appointment, 'review-and-sign'))}
+            onClick={() => navigate(getAppointmentVisitDetailsUrl(appointment))}
             dataTestId={dataTestIds.dashboard.visitDetailsButton}
           >
             <MedicalInformationIcon />

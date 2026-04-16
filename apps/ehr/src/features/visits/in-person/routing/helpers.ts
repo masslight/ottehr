@@ -80,6 +80,14 @@ export const getInPersonVisitDetailsUrl = (appointmentId: string): string => {
   return `/visit/${appointmentId}`;
 };
 
+export const getAppointmentVisitDetailsUrl = (
+  appointment: Pick<InPersonAppointmentInformation, 'id' | 'parentAppointmentId' | 'encounterId' | 'isFollowUp'>
+): string => {
+  const navAppointmentId = appointment.parentAppointmentId || appointment.id;
+  const followUpParams = appointment.isFollowUp ? `?encounterId=${appointment.encounterId}` : '';
+  return `/visit/${navAppointmentId}${followUpParams}`;
+};
+
 export const getInPersonUrlByAppointmentType = (
   appointment: Pick<InPersonAppointmentInformation, 'id' | 'parentAppointmentId' | 'encounterId' | 'isFollowUp'>,
   targetUrl?: string
