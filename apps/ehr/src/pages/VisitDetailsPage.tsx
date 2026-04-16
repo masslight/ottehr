@@ -48,7 +48,6 @@ import ImageUploader from 'src/components/ImageUploader';
 import PatientBalances from 'src/components/PatientBalances';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
-import { TelemedAppointmentStatusChip } from 'src/components/TelemedAppointmentStatusChip';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
@@ -69,7 +68,6 @@ import {
   getPatchOperationForNewMetaTag,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
-  getTelemedVisitStatus,
   getUnconfirmedDOBForAppointment,
   GetVisitFaxHistoryOutput,
   isApiError,
@@ -83,7 +81,6 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   ServiceCategoryCode,
   ServiceMode,
-  TelemedAppointmentStatus,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
   VisitDocuments,
@@ -236,7 +233,7 @@ export default function VisitDetailsPage(): ReactElement {
   const navigate = useNavigate();
 
   // state variables
-  const [status, setStatus] = useState<VisitStatusLabel | TelemedAppointmentStatus | undefined>(undefined);
+  const [status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const [errors, setErrors] = useState<{ hopError?: string }>({});
   const [toastMessage, setToastMessage] = React.useState<string | undefined>(undefined);
   const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
@@ -690,7 +687,7 @@ export default function VisitDetailsPage(): ReactElement {
   const appointmentDate = formatDateForDisplay(appointmentStartTime.toISO() || '', locationTimeZone);
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
   const serviceCategoryLabel =
-    BOOKING_CONFIG.serviceCategories.find((category) => category.code === serviceCategory)?.display ??
+    BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategory)?.category.display ??
     serviceCategory ??
     '';
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
@@ -757,11 +754,7 @@ export default function VisitDetailsPage(): ReactElement {
 
   useEffect(() => {
     if (appointment && encounter) {
-      const encounterStatus = isInPerson
-        ? getInPersonVisitStatus(appointment, encounter)
-        : getTelemedVisitStatus(encounter.status, appointment.status);
-
-      setStatus(encounterStatus);
+      setStatus(getInPersonVisitStatus(appointment, encounter));
     } else {
       setStatus(undefined);
     }
@@ -1023,11 +1016,7 @@ export default function VisitDetailsPage(): ReactElement {
                       alignSelf: 'center',
                     }}
                   >
-                    {isInPerson ? (
-                      <InPersonAppointmentStatusChip status={status as VisitStatusLabel} />
-                    ) : (
-                      <TelemedAppointmentStatusChip status={status as TelemedAppointmentStatus} />
-                    )}
+                    <InPersonAppointmentStatusChip status={status as VisitStatusLabel} />
                   </span>
                   {appointment && appointment.status === 'cancelled' && (
                     <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
@@ -1406,25 +1395,23 @@ export default function VisitDetailsPage(): ReactElement {
         </Grid>
         {!loading && encounter && (
           <Grid container direction="row" justifyContent="space-between">
-            {isInPerson && (
-              <Grid item>
-                {loading || !status ? (
-                  <Skeleton sx={{ marginLeft: { xs: 0, sm: 2 } }} aria-busy="true" width={200} />
-                ) : (
-                  <div id="user-set-appointment-status">
-                    <FormControl size="small" sx={{ marginTop: 2, marginLeft: { xs: 0, sm: 8 } }}>
-                      <ChangeStatusDropdown
-                        appointmentID={appointmentID}
-                        onStatusChange={isInPerson ? setStatus : () => {}}
-                        getAndSetResources={getAndSetHistoricResources}
-                        dataTestId={dataTestIds.appointmentPage.changeStatusDropdown}
-                      />
-                    </FormControl>
-                    {loading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}
-                  </div>
-                )}
-              </Grid>
-            )}
+            <Grid item>
+              {loading || !status ? (
+                <Skeleton sx={{ marginLeft: { xs: 0, sm: 2 } }} aria-busy="true" width={200} />
+              ) : (
+                <div id="user-set-appointment-status">
+                  <FormControl size="small" sx={{ marginTop: 2, marginLeft: { xs: 0, sm: 8 } }}>
+                    <ChangeStatusDropdown
+                      appointmentID={appointmentID}
+                      onStatusChange={setStatus}
+                      getAndSetResources={getAndSetHistoricResources}
+                      dataTestId={dataTestIds.appointmentPage.changeStatusDropdown}
+                    />
+                  </FormControl>
+                  {loading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}
+                </div>
+              )}
+            </Grid>
           </Grid>
         )}
         <Grid container direction="row">
@@ -1550,9 +1537,9 @@ export default function VisitDetailsPage(): ReactElement {
                           )
                         }
                       >
-                        {BOOKING_CONFIG.serviceCategories.map((category) => (
-                          <MenuItem key={category.code} value={category.code}>
-                            {category.display}
+                        {BOOKING_CONFIG.serviceCategories.map((sc) => (
+                          <MenuItem key={sc.category.code} value={sc.category.code}>
+                            {sc.category.display}
                           </MenuItem>
                         ))}
                       </Select>

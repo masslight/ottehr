@@ -82,7 +82,6 @@ export const AppointmentFooterEndVisitButton: FC = () => {
     <ConfirmationDialog
       title="Are you sure you want to finish the visit?"
       response={onClick}
-      description="It will move to the Unsigned tab on the tracking board."
       actionButtons={{
         proceed: {
           text: 'Finish visit',

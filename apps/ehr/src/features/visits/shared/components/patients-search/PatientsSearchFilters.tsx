@@ -87,6 +87,13 @@ export const PatientsSearchFilters: React.FC<{
             value={searchFilters.email}
             onChange={(e) => setSearchField({ field: 'email', value: e.target.value })}
           />
+          <TextField
+            data-testid={dataTestIds.patients.searchByPidField}
+            label="PID"
+            placeholder="Friendly patient ID"
+            value={searchFilters.pid}
+            onChange={(e) => setSearchField({ field: 'pid', value: e.target.value })}
+          />
           {/* <TextField
                 label="Subscriber Number (Insurance)"
                 value={searchFilters.subscriberNumber}

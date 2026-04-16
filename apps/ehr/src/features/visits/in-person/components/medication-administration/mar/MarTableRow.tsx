@@ -8,7 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { ExtendedMedicationDataForResponse, searchRouteByCode } from 'utils';
 import { dataTestIds } from '../../../../../../constants/data-test-ids';
-import { getInHouseMedicationDetailsUrl } from '../../../routing/helpers';
+import { getEditOrderUrl, getInHouseMedicationDetailsUrl } from '../../../routing/helpers';
 import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
 import { MedicationActions } from './MedicationActions';
 import { MedicationBarcodeScan } from './MedicationBarcodeScan';
@@ -41,14 +41,21 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
   });
 
   const isPending = medication.status === 'pending';
+  const isCompleted =
+    medication.status === 'administered' ||
+    medication.status === 'administered-partly' ||
+    medication.status === 'administered-not';
 
   const handleRowClick = (): void => {
-    if (!isPending) {
-      return;
+    if (isPending) {
+      requestAnimationFrame(() => {
+        navigate(`${getInHouseMedicationDetailsUrl(appointmentId!)}?scrollTo=${medication.id}`);
+      });
+    } else if (isCompleted) {
+      requestAnimationFrame(() => {
+        navigate(getEditOrderUrl(appointmentId!, medication.id));
+      });
     }
-    requestAnimationFrame(() => {
-      navigate(`${getInHouseMedicationDetailsUrl(appointmentId!)}?scrollTo=${medication.id}`);
-    });
   };
 
   const formatOrderDateTime = useMemo(() => {
@@ -81,17 +88,17 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
     <TableRow
       data-testid={dataTestIds.inHouseMedicationsPage.marTable.medicationRow(medication.id)}
       sx={{
-        cursor: 'pointer',
+        cursor: isPending || isCompleted ? 'pointer' : 'default',
         position: 'relative',
         paddingLeft: '12px',
-        ...(isPending
+        ...(isPending || isCompleted
           ? {
               '&:hover': {
                 backgroundColor: alpha(theme.palette.primary.main, 0.04),
               },
               willChange: 'background-color',
             }
-          : { cursor: 'default' }),
+          : {}),
       }}
       onClick={handleRowClick}
       {...getRippleHandlers()}

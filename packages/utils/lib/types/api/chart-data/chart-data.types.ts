@@ -326,6 +326,7 @@ export enum NOTE_TYPE {
   VITALS = 'vitals',
   SCREENING = 'screening',
   MEDICATION = 'medication',
+  IMMUNIZATION = 'immunization',
   ALLERGY = 'allergy',
   INTAKE_MEDICATION = 'intake-medication',
   MEDICAL_CONDITION = 'medical-condition',

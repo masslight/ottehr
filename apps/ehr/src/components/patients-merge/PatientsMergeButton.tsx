@@ -1,35 +1,39 @@
-import { Button } from '@mui/material';
-import React, { FC, useState } from 'react';
+import MergeIcon from '@mui/icons-material/MergeType';
+import { FC, useState } from 'react';
+import { RoundedButton } from '../RoundedButton';
 import { PatientsMergeDifference } from './PatientsMergeDifference';
-import { PatientsMergeSelect } from './PatientsMergeSelect';
 
 type PatientsMergeButtonProps = {
-  patientIds?: string[];
+  /** The current patient's ID (will be the main/surviving patient) */
+  patientId: string;
 };
 
-export const PatientsMergeButton: FC<PatientsMergeButtonProps> = (props) => {
-  const { patientIds } = props;
+export const PatientsMergeButton: FC<PatientsMergeButtonProps> = ({ patientId }) => {
+  const [mergePatientIds, setMergePatientIds] = useState<[string, string] | null>(null);
 
-  const [open, setOpen] = useState<'select' | 'difference' | undefined>(undefined);
-  const [difference, setDifference] = useState<string[]>([]);
+  const handleClick = (): void => {
+    const secondPatientId = window.prompt('Enter the PID of the patient to merge from:');
+    if (!secondPatientId || secondPatientId.trim().length === 0) return;
+    const trimmedId = secondPatientId.trim();
 
-  const close = (): void => {
-    setDifference([]);
-    setOpen(undefined);
+    if (trimmedId === patientId) {
+      window.alert('Cannot merge a patient with themselves.');
+      return;
+    }
+
+    setMergePatientIds([patientId, trimmedId]);
   };
 
-  const next = (patientIds: string[]): void => {
-    setDifference(patientIds);
-    setOpen('difference');
+  const handleClose = (): void => {
+    setMergePatientIds(null);
   };
 
   return (
     <>
-      <Button onClick={() => setOpen('select')}>Open</Button>
-      {open === 'select' && <PatientsMergeSelect open next={next} close={close} patientIds={patientIds} />}
-      {open === 'difference' && (
-        <PatientsMergeDifference open close={close} back={() => setOpen('select')} patientIds={difference} />
-      )}
+      <RoundedButton onClick={handleClick} startIcon={<MergeIcon />} sx={{ width: '100%' }}>
+        Merge Patient
+      </RoundedButton>
+      {mergePatientIds && <PatientsMergeDifference open close={handleClose} patientIds={mergePatientIds} />}
     </>
   );
 };
