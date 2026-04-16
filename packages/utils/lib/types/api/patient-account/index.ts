@@ -35,3 +35,13 @@ export interface UpdatePatientAccountInput {
 export interface UpdatePatientAccountResponse {
   result: 'success';
 }
+
+export interface MergePatientsInput {
+  mainPatientId: string;
+  otherPatientId: string;
+  questionnaireResponse: QuestionnaireResponse;
+}
+
+export interface MergePatientsResponse {
+  result: 'success';
+}

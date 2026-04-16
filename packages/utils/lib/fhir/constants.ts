@@ -46,6 +46,7 @@ export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
+export const FRIENDLY_PATIENT_ID_SYSTEM_BASE = 'https://identifiers.fhir.oystehr.com/friendly-patient-id';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
 export const FHIR_HL7_ORG_VALUE_SET_BASE_URL = 'http://hl7.org/fhir/ValueSet';
 
@@ -566,6 +567,13 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
     operator: `${PRIVATE_EXTENSION_BASE_URL}/text-when-operator`,
     answer: `${PRIVATE_EXTENSION_BASE_URL}/text-when-answer`,
     substituteText: `${PRIVATE_EXTENSION_BASE_URL}/text-when-substitute-text`,
+  },
+  answerDisplayFilter: {
+    extension: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter`,
+    question: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-question`,
+    operator: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-operator`,
+    answer: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-answer`,
+    include: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-include`,
   },
 };
 

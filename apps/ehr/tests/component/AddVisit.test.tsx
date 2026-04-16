@@ -45,11 +45,11 @@ describe('AddVisit', () => {
     const serviceCategoryDropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
     const serviceCategoryButton = serviceCategoryDropdown.querySelector('[role="combobox"]');
     await user.click(serviceCategoryButton!);
-    let serviceCategoryOption = BOOKING_CONFIG.serviceCategories[0].display;
+    let serviceCategoryOption = BOOKING_CONFIG.serviceCategories[0].category.display;
     if (category) {
-      const matchingOption = BOOKING_CONFIG.serviceCategories.find((sc) => sc.code === category);
+      const matchingOption = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === category);
       expect(matchingOption).toBeDefined();
-      serviceCategoryOption = matchingOption!.display;
+      serviceCategoryOption = matchingOption!.category.display;
     }
     const generalOption = await screen.findByText(serviceCategoryOption);
     await user.click(generalOption);
@@ -398,9 +398,9 @@ describe('AddVisit', () => {
       await waitForElementToBeRemoved(notFoundButton);
 
       // Test each service category
-      for (const serviceCategory of BOOKING_CONFIG.serviceCategories) {
+      for (const serviceCategoryConfig of BOOKING_CONFIG.serviceCategories) {
         // Select the service category
-        await selectServiceCategory(user, screen, serviceCategory.code);
+        await selectServiceCategory(user, screen, serviceCategoryConfig.category.code);
 
         // Wait for reason for visit dropdown to appear
         const reasonDropdown = await screen.findByTestId(
@@ -414,7 +414,7 @@ describe('AddVisit', () => {
         await user.click(reasonButton!);
 
         // Get the expected options for this service category
-        const expectedOptions = getReasonForVisitOptionsForServiceCategory(serviceCategory.code);
+        const expectedOptions = getReasonForVisitOptionsForServiceCategory(serviceCategoryConfig.category.code);
         expect(expectedOptions.length).toBeGreaterThan(0);
 
         // Get all visible options in the dropdown
@@ -439,7 +439,7 @@ describe('AddVisit', () => {
         await user.keyboard('{Escape}');
 
         // Select a different service category for the next iteration (unless it's the last one)
-        if (serviceCategory !== BOOKING_CONFIG.serviceCategories[BOOKING_CONFIG.serviceCategories.length - 1]) {
+        if (serviceCategoryConfig !== BOOKING_CONFIG.serviceCategories[BOOKING_CONFIG.serviceCategories.length - 1]) {
           const serviceCategoryDropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
           const serviceCategoryButton = serviceCategoryDropdown.querySelector('[role="combobox"]');
           await user.click(serviceCategoryButton!);

@@ -88,7 +88,6 @@ This directory contains per-environment configuration files for Ottehr. The file
 | `CANDID_CLIENT_ID` | OAuth client ID for the Candid Health billing API. Used to submit medical encounters for insurance claim processing. |
 | `CANDID_CLIENT_SECRET` | Client secret for Candid Health API authentication. |
 | `CANDID_ENV` | Candid Health environment to target. Set to `SANDBOX` for testing or `PRODUCTION` for live billing. |
-| `DEFAULT_BILLING_RESOURCE` | The FHIR Organization resource ID used as the default billing organization on claims and payment receipts. Typically set automatically during deployment. |
 
 ### Payments — Stripe
 

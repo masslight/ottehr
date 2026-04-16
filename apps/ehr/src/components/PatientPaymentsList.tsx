@@ -126,21 +126,45 @@ function buildLineItems(
   const items: LineItem[] = [];
 
   for (const cpt of allCodes) {
+    const cptModifier = cpt.modifier?.[0]?.code;
+    let noModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
+    let anyModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
+
     for (const pg of feeSchedule.propertyGroup) {
       const pc = pg.priceComponent?.[0];
       if (!pc) continue;
       const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
       if (!fsCoding || fsCoding.code !== cpt.code) continue;
       const fsModifier = pc.extension?.find((ext) => ext.url === CPT_MODIFIER_EXTENSION_URL)?.valueCode;
-      const cptModifier = cpt.modifier?.[0]?.code;
-      if ((fsModifier || '') !== (cptModifier || '')) continue;
+      if ((fsModifier || '') === (cptModifier || '')) {
+        // Exact code + modifier match — use it immediately
+        items.push({
+          code: cpt.code,
+          modifier: cptModifier,
+          description: cpt.display || fsCoding.display || '',
+          amount: pc.amount?.value ?? 0,
+        });
+        noModifierFallbackPg = undefined;
+        anyModifierFallbackPg = undefined;
+        break;
+      }
+      // Code matches but modifier doesn't — prefer no-modifier entry as fallback
+      if (!fsModifier && !noModifierFallbackPg) noModifierFallbackPg = pg;
+      else if (fsModifier && !anyModifierFallbackPg) anyModifierFallbackPg = pg;
+    }
+
+    const fallbackPg = noModifierFallbackPg ?? anyModifierFallbackPg;
+
+    // No exact match found — fall back to first entry with matching code
+    if (fallbackPg) {
+      const pc = fallbackPg.priceComponent![0];
+      const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
       items.push({
         code: cpt.code,
         modifier: cptModifier,
-        description: cpt.display || fsCoding.display || '',
+        description: cpt.display || fsCoding?.display || '',
         amount: pc.amount?.value ?? 0,
       });
-      break;
     }
   }
 

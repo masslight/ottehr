@@ -590,8 +590,8 @@ test.describe('Insurance Information Section mutating tests', () => {
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     await primaryInsuranceCard.clickRemoveInsuranceButton();
     await patientInformationPage.verifyCoverageRemovedMessageShown();
-    const addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
-    await addInsuranceDialog.verifyTypeField('Primary', false);
+    const inlineInsuranceCard = await patientInformationPage.clickAddInsuranceButton();
+    await inlineInsuranceCard.verifyInsuranceType('Primary');
   });
 
   test('Check [Add insurance] button is present if Primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Secondary"', async ({
@@ -601,8 +601,8 @@ test.describe('Insurance Information Section mutating tests', () => {
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
     await secondaryInsuranceCard.clickRemoveInsuranceButton();
     await patientInformationPage.verifyCoverageRemovedMessageShown();
-    const addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
-    await addInsuranceDialog.verifyTypeField('Secondary', false);
+    const inlineInsuranceCard = await patientInformationPage.clickAddInsuranceButton();
+    await inlineInsuranceCard.verifyInsuranceType('Secondary');
   });
 });
 

@@ -118,6 +118,8 @@ export const ERX: FC<{
           errorMsg = `Patient has specified some wrong phone number: ${phoneNumber}. Please provide a real patient's phone number`;
         } else if (error.message?.includes('eRx service is not configured')) {
           errorMsg = `eRx service is not configured. Please contact support.`;
+        } else if (error.message?.includes('Weight must be entered for patient 18 years old and under')) {
+          errorMsg = `Weight must be entered for patient 18 years old and under. Please specify patient's weight in the 'Vitals' tab.`;
         } else {
           errorMsg = `Something is wrong with patient data.`;
         }
@@ -240,11 +242,7 @@ export const ERX: FC<{
 
   // Handle practitioner connection for confirmation
   useEffect(() => {
-    if (
-      practitionerEnrollmentStatus?.registered &&
-      !practitionerEnrollmentStatus.confirmed &&
-      practitionerEnrollmentStatus.identityVerified
-    ) {
+    if (practitionerEnrollmentStatus?.registered && !practitionerEnrollmentStatus.confirmed) {
       setPendingErxEnrollmentDialogOpen(true);
 
       safelyCaptureMessage('DoseSpot enrollment pending review', {

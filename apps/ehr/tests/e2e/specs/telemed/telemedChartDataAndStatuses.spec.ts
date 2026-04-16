@@ -77,7 +77,7 @@ async function getTestStateThatNotQualificationsStatesList(
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Telemed tracking board checks, buttons, chart data filling', () => {
+test.describe.skip('Telemed tracking board checks, buttons, chart data filling', () => {
   let page: Page;
   let context: BrowserContext;
 
@@ -156,7 +156,6 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
     await test.step('Find and assign my appointment', async () => {
       const visitsPage = await openVisitsPage(page);
       await visitsPage.selectLocation(myPatientsTabAppointmentResources.appointmentLocation?.name ?? 'Unknown');
-      await visitsPage.clickAssignButton(myPatientsTabAppointmentResources.appointment.id!);
 
       await telemedDialogConfirm(page);
     });

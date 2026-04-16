@@ -328,19 +328,21 @@ test.describe('Order Deletion - Happy Path', () => {
         // Click save button
         await orderMedicationPage.clickOrderMedicationButton();
 
-        // UI CHECK: Verify medication was saved by checking URL changed to edit page
-        await page.waitForURL(/\/in-house-medication\/order\/edit\//, { timeout: 15000 });
+        // After saving a new order the app navigates directly to the MAR
+        await page.waitForURL(/\/in-house-medication\/mar/, { timeout: 15000 });
+        await expect(page.getByTestId(dataTestIds.inHouseMedicationsPage.title)).toBeVisible({ timeout: 10000 });
 
-        // Extract medication ID from URL
-        const url = page.url();
-        const match = url.match(/\/in-house-medication\/order\/edit\/([^/?]+)/);
-        if (!match) {
-          throw new Error(`Failed to extract medication ID from URL: ${url}`);
+        // Extract medication ID from the MAR table row data-testid
+        const medicationRowPrefix = dataTestIds.inHouseMedicationsPage.marTable.medicationRowPrefix;
+        const newMedicationRow = page
+          .locator(`[data-testid^="${medicationRowPrefix}"]`)
+          .filter({ hasText: MEDICATION_NAME });
+        await expect(newMedicationRow).toBeVisible({ timeout: 30000 });
+        const rowTestId = await newMedicationRow.getAttribute('data-testid');
+        if (!rowTestId) {
+          throw new Error(`Failed to find medication row for: ${MEDICATION_NAME}`);
         }
-        medicationId = match[1];
-
-        // Verify we're on Edit Order page
-        await expect(page.getByRole('heading', { name: 'Edit Order', level: 1 })).toBeVisible({ timeout: 10000 });
+        medicationId = rowTestId.replace(medicationRowPrefix, '');
       });
 
       await test.step('Verify medication appears in MAR', async () => {
@@ -362,7 +364,7 @@ test.describe('Order Deletion - Happy Path', () => {
 
         // First, wait for ANY medication row to appear in the table (confirms data loaded from backend)
         // Use data-testid pattern to find any medication row - this confirms table rendered and data arrived
-        const anyMedicationRow = page.locator('[data-testid^="mar-table-medication-"]').first();
+        const anyMedicationRow = page.locator('[data-testid^="mar-table-medication-row-"]').first();
         await expect(anyMedicationRow).toBeVisible({ timeout: 30_000 });
 
         // Now verify the specific medication row we just created is visible
