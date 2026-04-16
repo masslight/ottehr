@@ -889,6 +889,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     primarySubscriberMiddleName = primarySubscriber.name?.[0]?.given?.[1] ?? '';
   }
 
+  // CW TODO: need to change the source of this to the List
   const primaryAdditionalInformation =
     primary?.extension?.find((e: { url: string }) => e.url === COVERAGE_ADDITIONAL_INFORMATION_URL)?.valueString ?? '';
 
@@ -914,6 +915,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     secondarySubscriberMiddleName = secondarySubscriber.name?.[0]?.given?.[1] ?? '';
   }
 
+  // CW TODO: need to change the source of this to the List
   const secondaryAdditionalInformation =
     secondary?.extension?.find((e: { url: string }) => e.url === COVERAGE_ADDITIONAL_INFORMATION_URL)?.valueString ??
     '';

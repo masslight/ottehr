@@ -158,11 +158,17 @@ export type FhirResourceType = z.infer<typeof FhirResourceTypeSchema>;
  * For example, if prependedIdentifier is {system_for_NPIs} and the resourceType is Practitioner,
  * the returned display name will be '{NPI_value} - {practitioner_name}'
  */
-export const AnswerOptionSourceSchema = z.object({
-  resourceType: FhirResourceTypeSchema,
-  query: z.string(),
-  prependedIdentifier: z.string().optional(),
-});
+export const AnswerOptionSourceSchema = z.union([
+  // CW TODO: turns out the OG option is also a zambda, so flesh this out into a discriminated union of zambda ids with strongly typed params
+  z.object({
+    resourceType: FhirResourceTypeSchema,
+    query: z.string(),
+    prependedIdentifier: z.string().optional(),
+  }),
+  z.object({
+    zambdaId: z.string(),
+  }),
+]);
 
 export type AnswerOptionSource = z.infer<typeof AnswerOptionSourceSchema>;
 
@@ -171,7 +177,6 @@ export type AnswerOptionSource = z.infer<typeof AnswerOptionSourceSchema>;
  */
 export const AnswerLoadingOptionsSchema = z.object({
   strategy: z.enum(['prefetch', 'dynamic']),
-  // CW TODO: maybe need a `nested` attribute to control re-querying
   answerSource: AnswerOptionSourceSchema.optional(),
 });
 

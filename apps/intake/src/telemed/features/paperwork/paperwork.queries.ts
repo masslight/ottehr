@@ -70,6 +70,7 @@ export const useAnswerOptionsQuery = (
 ): UseQueryResult<QuestionnaireItemAnswerOption[], Error> => {
   const apiClient = useOystehrAPIClient();
 
+  // CW TODO: wow big frowny face on this query key lol
   const queryResult = useQuery({
     queryKey: ['insurances', { apiClient }],
 
@@ -78,6 +79,7 @@ export const useAnswerOptionsQuery = (
         throw new Error('App client is not provided');
       }
 
+      // CW TODO: this uses a zambda???
       const resources = await apiClient.getAnswerOptions(params as GetAnswerOptionsRequest);
       return resources;
     },

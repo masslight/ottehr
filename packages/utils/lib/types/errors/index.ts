@@ -29,6 +29,7 @@ export enum APIErrorCode {
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
   FHIR_RESOURCE_IS_GONE = 4102,
+  PRECONDITION_FAILED = 4120,
   // 42xx
   MISSING_REQUEST_BODY = 4200,
   MISSING_REQUIRED_PARAMETERS = 4201,
@@ -443,3 +444,8 @@ export const ADMIN_IN_HOUSE_LAB_TEST_EXISTS_ERROR = (testName?: string): APIErro
     } already exists. Please change the name, or update the existing test`,
   };
 };
+
+export const PRECONDITION_FAILED = (message?: string): APIError => ({
+  code: APIErrorCode.PRECONDITION_FAILED,
+  message: message ?? 'Resource was edited during operation',
+});
