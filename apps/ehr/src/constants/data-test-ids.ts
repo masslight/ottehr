@@ -717,4 +717,10 @@ export const dataTestIds = {
     editButton: (code: string) => `procedure-code-edit-${code}`,
     deleteButton: (code: string) => `procedure-code-delete-${code}`,
   },
+
+  globalTemplates: {
+    admin: {
+      scanForStaleBtn: 'global-template-scan-staleness-btn',
+    },
+  },
 };

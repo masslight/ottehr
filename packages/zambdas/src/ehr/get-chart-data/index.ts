@@ -307,6 +307,7 @@ export async function getChartData(
     oystehr
   );
   console.timeLog('check', 'after converting to response');
+
   if (chartDataResult.chartData.aiChat) {
     const practitionerIDs = chartDataResult.chartData.aiChat.documents
       .filter((document) => document.resourceType === 'DocumentReference')
