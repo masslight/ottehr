@@ -31,6 +31,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { deleteTemplate, getTemplateDetail, listTemplates, renameTemplate } from 'src/api/api';
 import { GLOBAL_TEMPLATES_URL } from 'src/App';
 import { QUERY_STALE_TIME } from 'src/constants';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { collectKnownExamFields, examConfig, ExamType, ListTemplatesZambdaOutput, TemplateInfo } from 'utils';
 
@@ -207,6 +208,7 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
           sx={{ width: 300 }}
         />
         <LoadingButton
+          data-testid={dataTestIds.globalTemplates.admin.scanForStaleBtn}
           variant="outlined"
           size="small"
           startIcon={<SearchIcon />}
