@@ -1,8 +1,10 @@
 import AddIcon from '@mui/icons-material/Add';
+import BusinessIcon from '@mui/icons-material/Business';
 import CheckIcon from '@mui/icons-material/Check';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
+import ShieldIcon from '@mui/icons-material/Shield';
 import {
   Box,
   Button,
@@ -37,10 +39,12 @@ import {
   useCmAssociatePayerMutation,
   useCmDisassociatePayerMutation,
 } from 'src/rcm/state/charge-masters/charge-master.queries';
+import { useEmployersQuery } from 'src/rcm/state/employers/employers.queries';
 import {
   useAssociatePayerMutation,
   useDisassociatePayerMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
+import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils';
 import { useInsurancesQuery } from '../admin.queries';
 import { ChargeItemMode } from '../ChargeItemList';
 
@@ -53,6 +57,28 @@ function getPayerId(org: Organization | undefined): string {
     (id) => id.type?.coding?.some((c) => c.system === PAYER_ID_SYSTEM && c.code === PAYER_ID_CODE)
   );
   return identifier?.value || '';
+}
+
+function isInsurancePayer(org: Organization): boolean {
+  return (
+    org.type?.some((t) => t.coding?.some((c) => c.system === ORG_TYPE_CODE_SYSTEM && c.code === ORG_TYPE_PAYER_CODE)) ??
+    false
+  );
+}
+
+function OrgTypeIcon({ org }: { org: Organization }): ReactElement {
+  if (isInsurancePayer(org)) {
+    return (
+      <Tooltip title="Insurance Payer">
+        <ShieldIcon fontSize="small" sx={{ color: 'primary.main' }} />
+      </Tooltip>
+    );
+  }
+  return (
+    <Tooltip title="Employer">
+      <BusinessIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+    </Tooltip>
+  );
 }
 
 interface PayerAssociationsProps {
@@ -75,7 +101,23 @@ export default function PayerAssociations({
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
 
   const queryClient = useQueryClient();
-  const { data: allInsuranceOrgs, isPending: orgsLoading } = useInsurancesQuery(undefined, true);
+  const { data: allInsuranceOrgs, isPending: insuranceOrgsLoading } = useInsurancesQuery(undefined, true);
+  const { data: allEmployerOrgs, isPending: employerOrgsLoading } = useEmployersQuery();
+  const orgsLoading = insuranceOrgsLoading || employerOrgsLoading;
+
+  // Merge insurance orgs and active employers into one list
+  const allOrgs = useMemo(() => {
+    const insurers = allInsuranceOrgs ?? [];
+    const employers = (allEmployerOrgs ?? []).filter((e) => e.active !== false);
+    const merged = [...insurers];
+    for (const emp of employers) {
+      if (!merged.some((o) => o.id === emp.id)) {
+        merged.push(emp);
+      }
+    }
+    return merged;
+  }, [allInsuranceOrgs, allEmployerOrgs]);
+
   const fsAssociate = useAssociatePayerMutation();
   const fsDisassociate = useDisassociatePayerMutation();
   const cmAssociate = useCmAssociatePayerMutation();
@@ -93,17 +135,18 @@ export default function PayerAssociations({
       .map((uc) => uc.valueReference!.reference!.replace('Organization/', ''));
   }, [feeSchedule?.useContext]);
 
-  // Build list of associated orgs with names from the insurance orgs query
+  // Build list of associated orgs with names from the merged orgs list
   const associatedOrgs = useMemo(() => {
     return associatedOrgIds.map((orgId) => {
-      const org = allInsuranceOrgs?.find((o) => o.id === orgId);
+      const org = allOrgs?.find((o) => o.id === orgId);
       return {
         id: orgId,
         name: org?.name,
         payerId: getPayerId(org),
+        org,
       };
     });
-  }, [associatedOrgIds, allInsuranceOrgs]);
+  }, [associatedOrgIds, allOrgs]);
 
   // Filter associated orgs by search text
   const filteredOrgs = useMemo(() => {
@@ -119,9 +162,9 @@ export default function PayerAssociations({
 
   // Available orgs for the dialog (active, not already associated)
   const availableOrgs = useMemo(() => {
-    if (!allInsuranceOrgs) return [];
-    return allInsuranceOrgs.filter((org) => org.active !== false && org.id && !associatedOrgIds.includes(org.id));
-  }, [allInsuranceOrgs, associatedOrgIds]);
+    if (!allOrgs) return [];
+    return allOrgs.filter((org) => org.active !== false && org.id && !associatedOrgIds.includes(org.id));
+  }, [allOrgs, associatedOrgIds]);
 
   // Filter available orgs by dialog search text
   const filteredAvailableOrgs = useMemo(() => {
@@ -190,8 +233,8 @@ export default function PayerAssociations({
           Payer Associations
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Associate insurance payers with this fee schedule. When a payer is associated, this fee schedule will be used
-          for billing that payer.
+          Associate insurance payers or employers with this fee schedule. When a payer is associated, this fee schedule
+          will be used for billing that payer.
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <TextField
@@ -205,9 +248,9 @@ export default function PayerAssociations({
             sx={{ flex: 1 }}
           />
           <Button
-            variant="outlined"
+            variant="contained"
             startIcon={<AddIcon />}
-            sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+            sx={{ textTransform: 'none', whiteSpace: 'nowrap', borderRadius: 28 }}
             onClick={() => setDialogOpen(true)}
           >
             Add payer
@@ -218,6 +261,7 @@ export default function PayerAssociations({
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>Payer Name</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Payer ID</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 60 }} />
               </TableRow>
@@ -225,7 +269,7 @@ export default function PayerAssociations({
             <TableBody>
               {filteredOrgs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                  <TableCell colSpan={4} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                     {associatedOrgs.length === 0
                       ? 'No payer associations yet. Click "Add payer" to associate a payer with this fee schedule.'
                       : 'No matching payers found.'}
@@ -269,6 +313,18 @@ export default function PayerAssociations({
                         )}
                       </Box>
                     </TableCell>
+                    <TableCell>
+                      {org.org ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <OrgTypeIcon org={org.org} />
+                          <Typography variant="body2">
+                            {isInsurancePayer(org.org) ? 'Insurance' : 'Employer'}
+                          </Typography>
+                        </Box>
+                      ) : orgsLoading ? (
+                        <Skeleton width={80} />
+                      ) : null}
+                    </TableCell>
                     <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                       {orgsLoading && !org.payerId ? <Skeleton width={120} /> : org.payerId}
                     </TableCell>
@@ -302,7 +358,7 @@ export default function PayerAssociations({
         <DialogTitle>Associate Payers</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', pb: 0 }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            Select active insurance organizations to associate with this fee schedule.
+            Select active insurance organizations or employers to associate with this fee schedule.
             {selectedOrgs.length > 0 && <strong> ({selectedOrgs.length} selected)</strong>}
           </Typography>
           <TextField
@@ -321,7 +377,7 @@ export default function PayerAssociations({
             </Box>
           ) : filteredAvailableOrgs.length === 0 ? (
             <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-              {dialogSearch ? 'No matching active insurance organizations.' : 'No available insurance organizations.'}
+              {dialogSearch ? 'No matching active organizations.' : 'No available organizations.'}
             </Typography>
           ) : (
             <List
@@ -330,14 +386,18 @@ export default function PayerAssociations({
             >
               {filteredAvailableOrgs.map((org) => {
                 const isSelected = selectedOrgs.some((o) => o.id === org.id);
+                const typeLabel = isInsurancePayer(org) ? 'Insurance' : 'Employer';
                 return (
                   <ListItemButton key={org.id} onClick={() => toggleOrg(org)} dense>
                     <ListItemIcon sx={{ minWidth: 36 }}>
                       <Checkbox edge="start" checked={isSelected} disableRipple size="small" />
                     </ListItemIcon>
+                    <ListItemIcon sx={{ minWidth: 32 }}>
+                      <OrgTypeIcon org={org} />
+                    </ListItemIcon>
                     <ListItemText
                       primary={org.name}
-                      secondary={`Payer ID: ${getPayerId(org) || 'N/A'}`}
+                      secondary={`${typeLabel} · Payer ID: ${getPayerId(org) || 'N/A'}`}
                       primaryTypographyProps={{ variant: 'body2' }}
                       secondaryTypographyProps={{ variant: 'caption' }}
                     />

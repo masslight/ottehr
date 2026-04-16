@@ -83,7 +83,8 @@ export const updateFeeSchedule = async (
 
 export interface AssociatePayerInput {
   feeScheduleId: string;
-  organizationId: string;
+  organizationId?: string;
+  locationId?: string;
 }
 
 export const associatePayer = async (
@@ -242,8 +243,10 @@ export const getVersionHistory = async (
 };
 
 export interface FindApplicableFeeScheduleInput {
-  payerOrganizationId: string;
+  payerOrganizationId?: string;
   dateOfService: string;
+  locationId?: string;
+  employerOrganizationId?: string;
 }
 
 export interface FindApplicableFeeScheduleResponse {

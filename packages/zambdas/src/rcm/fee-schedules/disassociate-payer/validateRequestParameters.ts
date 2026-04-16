@@ -3,7 +3,8 @@ import { ZambdaInput } from '../../../shared';
 
 export interface DisassociatePayerParams {
   feeScheduleId: string;
-  organizationId: string;
+  organizationId?: string;
+  locationId?: string;
   secrets: ZambdaInput['secrets'];
 }
 
@@ -12,19 +13,20 @@ export function validateRequestParameters(input: ZambdaInput): DisassociatePayer
     throw MISSING_REQUEST_BODY;
   }
 
-  const { feeScheduleId, organizationId } = JSON.parse(input.body);
+  const { feeScheduleId, organizationId, locationId } = JSON.parse(input.body);
 
   if (!feeScheduleId) {
     throw MISSING_REQUIRED_PARAMETERS(['feeScheduleId']);
   }
 
-  if (!organizationId) {
-    throw MISSING_REQUIRED_PARAMETERS(['organizationId']);
+  if (!organizationId && !locationId) {
+    throw MISSING_REQUIRED_PARAMETERS(['organizationId or locationId']);
   }
 
   return {
     feeScheduleId,
-    organizationId,
+    organizationId: organizationId || undefined,
+    locationId: locationId || undefined,
     secrets: input.secrets,
   };
 }
