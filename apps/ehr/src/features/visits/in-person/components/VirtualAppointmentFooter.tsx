@@ -13,7 +13,7 @@ import {
   INTERPRETER_PHONE_NUMBER,
   TelemedAppointmentStatusEnum,
 } from 'utils';
-import { AppointmentFooterButton } from '../../telemed/components/appointment/AppointmentFooterButton';
+import { AppointmentFooterButton, FooterButton } from '../../telemed/components/appointment/AppointmentFooterButton';
 import { AppointmentFooterEndVisitButton } from '../../telemed/components/appointment/AppointmentFooterEndVisitButton';
 import InviteParticipant from '../../telemed/components/appointment/InviteParticipant';
 import { useVideoCallStore } from '../../telemed/state/video-call/video-call.store';
@@ -101,6 +101,16 @@ export const VirtualAppointmentFooter: FC = () => {
           </Box>
         </Stack>
         <Stack direction="row" spacing={2} alignItems="center">
+          {appointmentAccessibility.status === TelemedAppointmentStatusEnum['pre-video'] ||
+            (appointmentAccessibility.status === TelemedAppointmentStatusEnum['on-video'] && (
+              <FooterButton
+                onClick={() => setIsInviteParticipantOpen(true)}
+                variant="contained"
+                sx={{ backgroundColor: 'transparent', border: '1px solid white' }}
+              >
+                Invite participant
+              </FooterButton>
+            ))}
           {(appointmentAccessibility.status === TelemedAppointmentStatusEnum['ready'] ||
             appointmentAccessibility.status === TelemedAppointmentStatusEnum['on-video'] ||
             appointmentAccessibility.status === TelemedAppointmentStatusEnum['pre-video']) &&
