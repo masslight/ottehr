@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
+import QuestionnaireAdminPage from 'src/features/visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
@@ -26,6 +27,7 @@ enum PageTab {
   'in-house-labs' = 'in-house-labs',
   'em-codes' = 'em-codes',
   'lab-sets' = 'lab-sets',
+  questionnaires = 'questionnaires',
 }
 
 export function AdminPage(): JSX.Element {
@@ -107,6 +109,12 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['lab-sets']}`)}
                 />
+                <Tab
+                  label="Questionnaires"
+                  value={PageTab.questionnaires}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab.questionnaires}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -151,6 +159,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['lab-sets']} sx={{ padding: 0 }}>
             <LabSetsAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab.questionnaires} sx={{ padding: 0 }}>
+            <QuestionnaireAdminPage />
           </TabPanel>
         </TabContext>
       </Box>

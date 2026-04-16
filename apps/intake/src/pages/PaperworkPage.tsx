@@ -450,9 +450,44 @@ export const PaperworkPage: FC = () => {
             saveProgress(currentPage.linkId, undefined);
             const nextPage = getNextPage(updatedPaperwork);
 
-            navigate(
-              `/paperwork/${appointmentID}/${nextPage !== undefined ? slugFromLinkId(nextPage.linkId) : 'review'}`
-            );
+            if (nextPage !== undefined) {
+              // Check for practice-managed forms only once per flow: when the next page
+              // is a finalization page (consent, medical-history). The zambda determines
+              // the exact insertion point server-side based on questionnaire structure,
+              // so we only need to call it when we're potentially at that boundary.
+              // This avoids making the zambda call on every page transition.
+              const nextLinkId = (nextPage.linkId || '').toLowerCase();
+              const isPotentialInsertionBoundary =
+                nextLinkId.includes('consent') || nextLinkId.includes('medical-history');
+
+              if (isPotentialInsertionBoundary) {
+                try {
+                  const pmResponse = await zambdaClient.execute('get-practice-managed-questionnaires', {
+                    appointmentId: appointmentID,
+                  });
+                  const pmData =
+                    typeof pmResponse.output === 'string' ? JSON.parse(pmResponse.output) : pmResponse.output;
+                  const insertAfter = pmData?.insertAfterPageLinkId;
+                  const pmQuestionnaires = pmData?.questionnaires || [];
+
+                  if (insertAfter && currentPage.linkId === insertAfter && pmQuestionnaires.length > 0) {
+                    const firstIncomplete = pmQuestionnaires.find(
+                      (q: any) => q.questionnaireResponseStatus !== 'completed'
+                    );
+                    if (firstIncomplete) {
+                      const returnSlug = slugFromLinkId(nextPage.linkId);
+                      navigate(`/paperwork/${appointmentID}/custom/${firstIncomplete.id}/${returnSlug}`);
+                      return;
+                    }
+                  }
+                } catch (err) {
+                  console.error('Failed to check practice-managed questionnaires:', err);
+                }
+              }
+              navigate(`/paperwork/${appointmentID}/${slugFromLinkId(nextPage.linkId)}`);
+            } else {
+              navigate(`/paperwork/${appointmentID}/review`);
+            }
           } catch (e) {
             // todo: handle this better
             console.error('error patching paperwork', e);

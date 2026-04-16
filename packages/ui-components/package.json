@@ -20,5 +20,9 @@
     "@stripe/stripe-js": "^3.5.0",
     "tsconfig": "*",
     "utils": "*"
+  },
+  "peerDependencies": {
+    "@types/fhir": ">=0.0.30",
+    "react-hook-form": ">=7.0.0"
   }
 }

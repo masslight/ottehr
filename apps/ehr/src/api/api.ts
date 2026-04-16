@@ -305,6 +305,10 @@ const ADMIN_CREATE_TEMPLATE_ZAMBDA_ID = 'admin-create-template';
 const ADMIN_RENAME_TEMPLATE_ZAMBDA_ID = 'admin-rename-template';
 const ADMIN_DELETE_TEMPLATE_ZAMBDA_ID = 'admin-delete-template';
 const ADMIN_GET_TEMPLATE_DETAIL_ZAMBDA_ID = 'admin-get-template-detail';
+const ADMIN_LIST_QUESTIONNAIRES_ZAMBDA_ID = 'admin-list-questionnaires';
+const ADMIN_CREATE_QUESTIONNAIRE_ZAMBDA_ID = 'admin-create-questionnaire';
+const ADMIN_UPDATE_QUESTIONNAIRE_ZAMBDA_ID = 'admin-update-questionnaire';
+const ADMIN_DELETE_QUESTIONNAIRE_ZAMBDA_ID = 'admin-delete-questionnaire';
 const ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID = 'admin-list-in-house-labs';
 const ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-add-in-house-lab';
 const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
@@ -2560,4 +2564,43 @@ export const migrateExamData = async (
     console.log(error);
     throw apiErrorToThrow(error);
   }
+};
+
+// ── Practice-Managed Questionnaires ──
+
+export const listPracticeManagedQuestionnaires = async (
+  oystehr: Oystehr
+): Promise<{
+  questionnaires: any[];
+  systemQuestionnaires: { id: string; url: string; title: string }[];
+}> => {
+  const response = await oystehr.zambda.execute({ id: ADMIN_LIST_QUESTIONNAIRES_ZAMBDA_ID });
+  return chooseJson(response);
+};
+
+export const createPracticeManagedQuestionnaire = async (
+  oystehr: Oystehr,
+  questionnaire: Record<string, unknown>
+): Promise<{ questionnaire: any }> => {
+  const response = await oystehr.zambda.execute({ id: ADMIN_CREATE_QUESTIONNAIRE_ZAMBDA_ID, questionnaire } as any);
+  return chooseJson(response);
+};
+
+export const updatePracticeManagedQuestionnaire = async (
+  oystehr: Oystehr,
+  questionnaire: Record<string, unknown>
+): Promise<{ questionnaire: any }> => {
+  const response = await oystehr.zambda.execute({ id: ADMIN_UPDATE_QUESTIONNAIRE_ZAMBDA_ID, questionnaire } as any);
+  return chooseJson(response);
+};
+
+export const deletePracticeManagedQuestionnaire = async (
+  oystehr: Oystehr,
+  questionnaireId: string
+): Promise<{ message: string }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_DELETE_QUESTIONNAIRE_ZAMBDA_ID,
+    questionnaireId,
+  } as any);
+  return chooseJson(response);
 };

@@ -279,6 +279,29 @@ export default function VisitDetailsPage(): ReactElement {
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
   });
 
+  // Fetch practice-managed questionnaire responses for this visit
+  const { data: practiceManagedData } = useQuery({
+    queryKey: ['practice-managed-questionnaires', appointmentID],
+    queryFn: async () => {
+      if (!oystehrZambda || !appointmentID) return { questionnaires: [] };
+      const response = await oystehrZambda.zambda.execute({
+        id: 'get-practice-managed-questionnaires',
+        appointmentId: appointmentID,
+      } as any);
+      const output = typeof response.output === 'string' ? JSON.parse(response.output) : response.output;
+      return output as {
+        questionnaires: {
+          id: string;
+          title: string;
+          questionnaireResponseId?: string;
+          questionnaireResponseStatus?: string;
+          item?: any[];
+        }[];
+      };
+    },
+    enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+  });
+
   const { fullCardPdfs, consentPdfUrls } = imageFileData || {
     fullCardPdfs: [],
     consentPdfUrls: [],
@@ -1336,6 +1359,68 @@ export default function VisitDetailsPage(): ReactElement {
                         }
                       />
                     </Grid>
+                    {(practiceManagedData?.questionnaires || []).length > 0 ? (
+                      (practiceManagedData?.questionnaires || []).map((pmQ: any) => (
+                        <Grid item key={pmQ.id}>
+                          <PatientInformation
+                            title={pmQ.title}
+                            loading={loading}
+                            patientDetails={(() => {
+                              if (!pmQ.questionnaireResponseItems) {
+                                return { Status: 'Not Started' };
+                              }
+                              // Build a linkId→text map from the questionnaire items
+                              const labelMap: Record<string, string> = {};
+                              const mapItems = (items: any[]): void => {
+                                for (const item of items || []) {
+                                  if (item.text && item.linkId) labelMap[item.linkId] = item.text;
+                                  if (item.item) mapItems(item.item);
+                                }
+                              };
+                              mapItems(pmQ.item || []);
+
+                              // Extract answers from QR items
+                              const details: Record<string, string> = {};
+                              const extractAnswers = (qrItems: any[]): void => {
+                                for (const qrItem of qrItems || []) {
+                                  if (qrItem.answer?.length > 0) {
+                                    const answer = qrItem.answer[0];
+                                    const value =
+                                      answer.valueString ??
+                                      answer.valueBoolean?.toString() ??
+                                      answer.valueInteger?.toString() ??
+                                      answer.valueDate ??
+                                      answer.valueCoding?.display ??
+                                      '';
+                                    const label = labelMap[qrItem.linkId] || qrItem.linkId;
+                                    if (value) details[label] = value;
+                                  }
+                                  if (qrItem.item) extractAnswers(qrItem.item);
+                                }
+                              };
+                              extractAnswers(pmQ.questionnaireResponseItems);
+
+                              return Object.keys(details).length > 0
+                                ? details
+                                : {
+                                    Status:
+                                      pmQ.questionnaireResponseStatus === 'completed'
+                                        ? 'Completed (no answers)'
+                                        : 'In Progress',
+                                  };
+                            })()}
+                          />
+                        </Grid>
+                      ))
+                    ) : (
+                      <Grid item>
+                        <PatientInformation
+                          title="Custom Paperwork"
+                          loading={loading}
+                          patientDetails={{ Status: 'No custom questionnaires attached' }}
+                        />
+                      </Grid>
+                    )}
                   </Grid>
                   <Grid container item xs={12} sm={6} direction="column">
                     {!patientBalancesLoading &&
