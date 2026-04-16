@@ -43,7 +43,7 @@ This directory contains per-environment configuration files for Ottehr. The file
 | Variable | Description |
 |---|---|
 | `PATIENT_LOGIN_REDIRECT_URL` | The URL patients are redirected to after a successful login. |
-| `PATIENT_ALLOWED_URL_1` through `PATIENT_ALLOWED_URL_6` | Allowed callback/logout/CORS origins for the patient application. Auth0 will only redirect to URLs in this list. Covers both `http` and `https` variants and common paths (`/`, `/patients`, `/redirect`). |
+| `PATIENT_ALLOWED_URL_1` through `PATIENT_ALLOWED_URL_6` | Allowed callback/logout/CORS origins for the patient application. Auth0 will only redirect to URLs in this list. Covers both `http` and `https` variants and common paths (`/`, `/patients`, `/redirect`). If you do not need all 6 of these, you can remove their usage from `config/oystehr-core/apps.json`. |
 | `PATIENT_APP_LOGO_URI` | URL of the logo image displayed in the patient application. |
 
 ### Provider (EHR) App URLs
@@ -100,7 +100,7 @@ Add other lab id + account number pairs for each lab you send orders to through 
 | Variable | Description |
 |---|---|
 | `lab-autolab-account-number` | :warning: Must be unique per environment. Account number used to identify this deployment when submitting lab orders to Autolab. |
-| `lab-autolab-lab-id` | UUID identifying the specific lab configured in Autolab for routing in-house lab orders. |
+| `lab-autolab-lab-id` | UUID identifying the specific lab configured in Autolab for routing in-house lab orders. This is static for Production or Sandbox usage. local.template.json has the UUID for the Sandbox. |
 
 ### AI Services
 
@@ -117,4 +117,3 @@ Add other lab id + account number pairs for each lab you send orders to through 
 | `SENTRY_ORG` | Sentry organization slug. |
 | `SENTRY_PROJECT` | Sentry project slug. Identifies which Sentry project receives error events. |
 | `SENTRY_DSN` | Sentry Data Source Name (DSN). The ingest URL that the Sentry SDK uses to send runtime error events. |
-| `SENTRY_INTAKE_API_AUTH_TOKEN` | A separate Sentry auth token scoped to the intake application's Sentry project. |
