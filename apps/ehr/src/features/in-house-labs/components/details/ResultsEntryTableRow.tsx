@@ -88,7 +88,8 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
     );
   };
 
-  const rowStyling: SxProps<Theme> = isLastRow
+  const displayBottomBorder = isLastRow || nullOptionAvailable;
+  const rowStyling: SxProps<Theme> = displayBottomBorder
     ? { ...ROW_STYLING, borderBottom: 'none', paddingBottom: 0 }
     : ROW_STYLING;
 
