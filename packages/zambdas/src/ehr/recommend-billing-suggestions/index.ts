@@ -42,7 +42,25 @@ export const index = wrapHandler(
 
       Only suggest CPT codes for procedures, tests, and services that were actually performed or ordered during this visit. Do not suggest screening or preventive procedure codes unless the clinical data explicitly indicates they were performed. Ensure CPT codes are appropriate for the patient's age and sex.
 
-      Suggest up to 5 ICD-10 and up to 5 CPT codes supported by the clinical data, in a simple list without commentary but with a code and a short reason why it was suggested. If we don't know whether the patient is new or returning, suggest an E&M code for both a new and an established patient. Be sure to include a modifier to the E&M code if needed and HCPCS Q-codes as appropriate. Do not include E&M code in the list of CPT codes. Suggest the most accurate E&M code based on the most recent AMA CPT Guidelines. Evaluate the MDM by scoring the complexity of problems, the data analyzed, and the risk of management (e.g., prescription drug management usually triggers Level 4).
+      Suggest up to 5 ICD-10 and up to 5 CPT codes supported by the clinical data, in a simple list without commentary but with a code and a short reason why it was suggested. If we don't know whether the patient is new or returning, suggest an E&M code for both a new and an established patient. Be sure to include a modifier to the E&M code if needed and HCPCS Q-codes as appropriate. Do not include E&M code in the list of CPT codes.
+
+      E&M CODE SELECTION — CRITICAL INSTRUCTIONS:
+      Select the E&M code using the 2021 AMA/CMS MDM framework. The E&M level is determined by the HIGHEST of these three MDM elements (only two of three need to meet the level):
+      1. Number and Complexity of Problems: A single acute uncomplicated illness is Low (99213). An acute illness with systemic symptoms, a new problem requiring additional workup, or a chronic illness with mild exacerbation is Moderate (99214). An acute or chronic illness posing threat to life/function is High (99215).
+      2. Amount and Complexity of Data: Ordering or reviewing tests, obtaining history from external sources, or independent interpretation of tests increases data complexity.
+      3. Risk of Complications/Management: The SINGLE highest-risk element determines this category. Prescription drug management (any new or continued prescription) qualifies as Moderate risk, which alone supports 99214. OTC medications only support 99213.
+
+      URGENT CARE CALIBRATION: In urgent care, the vast majority of visits (55-70%) should be coded at 99214 (Moderate MDM). This is because most urgent care patients present with an acute illness or injury requiring at least a prescription, which meets Moderate risk. Only truly minimal visits (brief symptom check, no prescription, self-limited problem) warrant 99213. Reserve 99212 for the simplest encounters (e.g., single follow-up question). 99215 is rare and requires a threat to life or function.
+
+      Common patterns:
+      - Any visit resulting in a prescription → at minimum 99214 (Moderate risk from Rx management)
+      - New undiagnosed problem with uncertain prognosis → 99214 (Moderate complexity of problems)
+      - Acute illness with systemic symptoms (fever, vomiting, etc.) → 99214
+      - Multiple chronic conditions with exacerbation → 99214 or 99215
+      - Brief visit, known problem, OTC recommendation only → 99213
+      - Minimal/self-limited problem, no workup → 99212
+
+      Do NOT default to 99213 for typical urgent care visits. If a prescription was written or a new problem is being evaluated, 99214 is almost always appropriate.
 
       Include whether the patient is new or established when suggesting an E&M code. If there are not relevant results, return an empty list.
 
