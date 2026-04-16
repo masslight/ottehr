@@ -88,6 +88,29 @@ const PERFORMED_BY = ['Healthcare staff', 'Provider', 'Both'];
 const SPECIMEN_SENT = ['Yes', 'No'];
 const DOCUMENTED_BY = ['Provider', 'Healthcare staff'];
 
+// Keys from ProcedureQuickPickData that should be applied to page state when a quick pick is selected.
+// Encounter-specific fields (diagnoses, performerType, consentObtained) and metadata (id, name, procedureType)
+// are intentionally excluded.
+const QUICK_PICK_APPLY_KEYS: (keyof ProcedureQuickPickData)[] = [
+  'cptCodes',
+  'medicationUsed',
+  'bodySite',
+  'otherBodySite',
+  'bodySide',
+  'technique',
+  'suppliesUsed',
+  'otherSuppliesUsed',
+  'procedureDetails',
+  'specimenSent',
+  'complications',
+  'otherComplications',
+  'patientResponse',
+  'postInstructions',
+  'otherPostInstructions',
+  'timeSpent',
+  'documentedBy',
+];
+
 interface PageState {
   consentObtained?: boolean;
   cptCodes?: CPTCodeDTO[];
@@ -456,18 +479,25 @@ export default function ProceduresNew(): ReactElement {
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(mergedQuickPicks);
     }
-    setQuickPickName('');
+    // Suggest name: procedure name | site location | side of body | complications | cpt codes
+    const parts: string[] = [];
+    if (formValues.procedureType) parts.push(formValues.procedureType);
+    if (state.bodySite) parts.push(state.bodySite);
+    if (state.bodySide) parts.push(state.bodySide);
+    if (state.complications) parts.push(state.complications);
+    if (state.cptCodes?.length) parts.push(state.cptCodes.map((c) => c.code).join(', '));
+    setQuickPickName(parts.join(' | '));
     setQuickPickDialogOpen(true);
   };
 
   const buildQuickPickFromCurrentState = (): Omit<ProcedureQuickPickData, 'id'> => {
     return {
       name: quickPickName.trim(),
-      procedureType: selectOptions?.procedureTypes?.find((pt) => pt.name === formValues.procedureType)?.code,
+      procedureType:
+        selectOptions?.procedureTypes?.find((pt) => pt.name === formValues.procedureType)?.code ??
+        formValues.procedureType,
       cptCodes: state.cptCodes?.map((c) => ({ code: c.code, display: c.display })),
-      diagnoses: state.diagnoses?.map((d) => ({ code: d.code, display: d.display })),
-      consentObtained: state.consentObtained,
-      performerType: state.performerType,
+      // diagnoses, consentObtained, and performerType excluded — encounter-specific
       medicationUsed: state.medicationUsed,
       bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim(),
       otherBodySite: state.bodySite === OTHER ? state.otherBodySite : undefined,
@@ -770,20 +800,15 @@ export default function ProceduresNew(): ReactElement {
           const selected = selectOptions?.procedureTypes.find(
             (procedureType) => procedureType.name === values.procedureType
           );
-          const newCodes: CPTCodeDTO[] = [];
-          if (selected?.cpt) {
-            newCodes.push({
-              code: selected.cpt.code,
-              display: selected.cpt.display,
-            });
+          // don't remove applied codes on changes
+          const appliedCodes = [...(state.cptCodes ?? [])];
+          if (selected?.cpt && !appliedCodes.some((c) => c.code === selected.cpt!.code)) {
+            appliedCodes.push({ code: selected.cpt.code, display: selected.cpt.display });
           }
-          if (selected?.hcpcs) {
-            newCodes.push({
-              code: selected.hcpcs.code,
-              display: selected.hcpcs.display,
-            });
+          if (selected?.hcpcs && !appliedCodes.some((c) => c.code === selected.hcpcs!.code)) {
+            appliedCodes.push({ code: selected.hcpcs.code, display: selected.hcpcs.display });
           }
-          state.cptCodes = newCodes;
+          state.cptCodes = appliedCodes;
 
           if (selected) {
             Object.entries(PROCEDURES_CONFIG.prepopulation[selected.code] ?? []).forEach(([field, value]) => {
@@ -814,27 +839,16 @@ export default function ProceduresNew(): ReactElement {
       if (quickPick.procedureType) {
         methods.reset({
           ...formValues,
-          procedureType: selectOptions?.procedureTypes.find(
-            (procedureType) => procedureType.code === quickPick.procedureType
-          )?.name,
+          procedureType:
+            selectOptions?.procedureTypes.find((procedureType) => procedureType.code === quickPick.procedureType)
+              ?.name ?? quickPick.procedureType,
         });
       }
-      Object.entries(quickPick).forEach(([key, value]) => {
-        if (key !== 'name' && key !== 'procedureType') {
-          (state as any)[key] = value;
-        }
-      });
-      Object.entries(state).forEach(([key, _value]) => {
-        if ((quickPick as any)[key] == null) {
-          (state as any)[key] = undefined;
-        }
+      QUICK_PICK_APPLY_KEYS.forEach((key) => {
+        (state as Record<string, unknown>)[key] = quickPick[key];
       });
     });
   };
-
-  const selectedProcedureTypeCode = selectOptions?.procedureTypes?.find(
-    (procedureType) => procedureType.name === formValues.procedureType
-  )?.code;
 
   return (
     <FormProvider {...methods}>
@@ -862,14 +876,7 @@ export default function ProceduresNew(): ReactElement {
             </Box>
 
             <QuickPicksButton
-              quickPicks={
-                !procedureId
-                  ? mergedQuickPicks.filter(
-                      (quickPick) =>
-                        selectedProcedureTypeCode == null || selectedProcedureTypeCode === quickPick.procedureType
-                    )
-                  : []
-              }
+              quickPicks={!procedureId ? mergedQuickPicks : []}
               getLabel={(quickPick) => quickPick.name}
               onSelect={onQuickPickSelect}
               showAddOption
@@ -888,6 +895,7 @@ export default function ProceduresNew(): ReactElement {
               options={selectOptions?.procedureTypes.map((procedureType) => procedureType.name)}
               disabled={isReadOnly}
               loading={isSelectOptionsLoading}
+              freeSolo
               dataTestId={dataTestIds.documentProcedurePage.procedureType}
             />
 

@@ -6,12 +6,16 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunization';
+import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { LOCATION_OPTIONS, ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { UNIT_OPTIONS } from 'utils';
 
 export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
   const { data: vaccines, isLoading } = useGetVaccines();
+  const { chartData } = useChartData();
+  const diagnosisOptions = (chartData?.diagnosis ?? []).map((dx) => `${dx.code} - ${dx.display}`);
+
   return (
     <Grid container spacing={2}>
       <Grid xs={12} item>
@@ -35,6 +39,15 @@ export const OrderDetailsSection: React.FC = () => {
           isOptionEqualToValue={(option, value) => option.id === value.id}
           required
           dataTestId={dataTestIds.orderVaccinePage.vaccine}
+        />
+      </Grid>
+      <Grid xs={6} item>
+        <AutocompleteInput
+          name="details.associatedDx"
+          label="Associated Dx"
+          options={diagnosisOptions}
+          freeSolo
+          dataTestId={dataTestIds.orderVaccinePage.associatedDx}
         />
       </Grid>
       <Grid xs={3} item>
@@ -67,6 +80,13 @@ export const OrderDetailsSection: React.FC = () => {
         />
       </Grid>
       <Grid xs={6} item>
+        <TextInput
+          name="details.manufacturer"
+          label="Manufacturer"
+          dataTestId={dataTestIds.orderVaccinePage.manufacturer}
+        />
+      </Grid>
+      <Grid xs={6} item>
         <AutocompleteInput
           name="details.location"
           label="Location"
@@ -77,14 +97,6 @@ export const OrderDetailsSection: React.FC = () => {
           dataTestId={dataTestIds.orderVaccinePage.location}
         />
       </Grid>
-      <Grid xs={12} item>
-        <TextInput
-          name="details.instructions"
-          label="Instructions"
-          multiline
-          dataTestId={dataTestIds.orderVaccinePage.instructions}
-        />
-      </Grid>
       <Grid xs={6} item>
         <EmployeeSelectInput
           name="details.orderedProvider"
@@ -92,6 +104,14 @@ export const OrderDetailsSection: React.FC = () => {
           required
           dataTestId={dataTestIds.orderVaccinePage.orderedBy}
           filter={PROVIDERS_FILTER}
+        />
+      </Grid>
+      <Grid xs={12} item>
+        <TextInput
+          name="details.instructions"
+          label="Instructions"
+          multiline
+          dataTestId={dataTestIds.orderVaccinePage.instructions}
         />
       </Grid>
     </Grid>

@@ -114,7 +114,7 @@ function mapMedicationAdministrationToImmunizationOrder(
   const status = mapFhirToOrderStatus(medicationAdministration) ?? '';
   const isAdministered = ['administered', 'administered-partly', 'administered-not'].includes(status);
   const medication = getContainedMedication(medicationAdministration);
-  const administrationCodesExtensions = (medicationAdministration.extension ?? []).filter(
+  const administrationCodesExtensions = (medication?.extension ?? []).filter(
     (extension) => extension.url === VACCINE_ADMINISTRATION_CODES_EXTENSION_URL
   );
   const emergencyContactRelatedPerson = medicationAdministration.contained?.find(
@@ -154,13 +154,18 @@ function mapMedicationAdministrationToImmunizationOrder(
             expDate: medication.batch?.expirationDate ?? '',
             mvx: findCoding(administrationCodesExtensions, MVX_CODE_SYSTEM_URL)?.code ?? '',
             cvx: findCoding(administrationCodesExtensions, CVX_CODE_SYSTEM_URL)?.code ?? '',
-            cpt: findCoding(administrationCodesExtensions, CODE_SYSTEM_CPT)?.code,
+            cptCodes: administrationCodesExtensions
+              ?.filter((ext) => ext.valueCodeableConcept?.coding?.[0]?.system === CODE_SYSTEM_CPT)
+              .map((ext) => ({
+                code: ext.valueCodeableConcept?.coding?.[0]?.code ?? '',
+                display: ext.valueCodeableConcept?.coding?.[0]?.display ?? '',
+              }))
+              .filter((c) => c.code !== ''),
             ndc: findCoding(administrationCodesExtensions, CODE_SYSTEM_NDC)?.code ?? '',
             administeredProvider: getProvider(medicationAdministration, PRACTITIONER_ADMINISTERED_MEDICATION_CODE),
             administeredDateTime: medicationAdministration.effectiveDateTime ?? '',
-            visGivenDate: medicationAdministration.extension?.find(
-              (e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
-            )?.valueDate,
+            visGivenDate: medication?.extension?.find((e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL)
+              ?.valueDate,
             emergencyContact: emergencyContactRelatedPerson
               ? {
                   fullName: emergencyContactRelatedPerson.name?.[0].text ?? '',

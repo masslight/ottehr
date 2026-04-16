@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { Organization } from 'fhir/r4b';
 import * as fs from 'fs';
 import { fhirApiUrlFromAuth0Audience, projectApiUrlFromAuth0Audience } from '../packages/zambdas/src/scripts/helpers';
 import { getAuth0Token } from '../packages/zambdas/src/shared';
@@ -16,44 +15,6 @@ async function main(): Promise<void> {
     fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
     projectApiUrl: projectApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
   });
-
-  // get organization
-  const organizationName = `${secrets['project-name']} Organization`;
-  const organizationSearch = await oystehr.fhir.search<Organization>({
-    resourceType: 'Organization',
-    params: [{ name: 'name', value: organizationName }],
-  });
-  const organization = (await organizationSearch.unbundle())[0];
-
-  if (!organization) {
-    throw new Error(`Organization ${organizationName} not found`);
-  } else {
-    secrets['ORGANIZATION_ID'] = organization.id;
-    fs.writeFileSync(envFilePath, JSON.stringify(secrets, null, 2));
-    console.log(`Updated ORGANIZATION_ID=${organization.id} in ${envFilePath}`);
-  }
-
-  // get default billing resource
-  const defaultBillingResourceSearch = await oystehr.fhir.search<Organization>({
-    resourceType: 'Organization',
-    params: [{ name: 'name', value: 'Ottehr Clinic' }],
-  });
-  const defaultBillingResource = (await defaultBillingResourceSearch.unbundle())[0];
-  if (!defaultBillingResource) {
-    throw new Error('Default billing resource not found');
-  } else {
-    secrets['DEFAULT_BILLING_RESOURCE'] = `${defaultBillingResource.resourceType}/${defaultBillingResource.id}`;
-    fs.writeFileSync(envFilePath, JSON.stringify(secrets, null, 2));
-    console.log(
-      `Updated DEFAULT_BILLING_RESOURCE=${defaultBillingResource.resourceType}/${defaultBillingResource.id} in ${envFilePath}`
-    );
-  }
-
-  // get sendgrid api key
-  const sendgridApiKey = secrets['SENDGRID_API_KEY'];
-  if (!sendgridApiKey) {
-    throw new Error('Sendgrid API key not found');
-  }
 
   const m2ms = await oystehr.m2m.list();
   const e2eM2M = m2ms.find((m2m) => m2m.name === 'E2E Tests M2M Client');
