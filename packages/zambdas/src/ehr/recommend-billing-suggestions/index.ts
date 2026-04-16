@@ -79,12 +79,13 @@ export const index = wrapHandler(
 
       Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level, identifying exactly which progress note data were the bottlenecks preventing a higher level and a sample MDM paragraph that would satisfy that level.
 
-      Act as a Senior RCM Compliance Auditor specializing in Urgent Care. Review the final claim for 'Denial Triggers.' Specifically, check for:
+      AUDIT FINDING — Review the PROVIDER'S CURRENT CODES ONLY (the ICD, CPT, and E&M codes listed at the end of this prompt under "ICD:" and "CPT:"), NOT the codes you are suggesting above. If the provider has not entered any codes yet, respond with "No provider codes to audit yet."
+      Acting as a Senior RCM Compliance Auditor specializing in Urgent Care, check the provider's current ICD, CPT, and E&M codes for:
       1. NCCI PTP (Procedure-to-Procedure) edits (e.g., unbundling an E&M with a procedure).
       2. Lack of medical necessity linking (does the primary ICD-10 support the E&M level/procedure?).
       3. Missing or misplaced modifiers (specifically -25, -57, or -59).
       4. Any other coding issues that might cause a claim denial.
-      Provide a concise single-sentence 'Audit Finding' identifying the highest-risk issues, or say 'No coding changes' if the claim is clean and defensible.
+      Provide a concise single-sentence 'Audit Finding' about the provider's current codes, or say 'No coding changes' if they are clean and defensible.
 
       Return the response in the following JSON:
 
@@ -108,7 +109,7 @@ export const index = wrapHandler(
             "upcodingSuggestion": "upcodingSuggestion. Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level, identifying exactly which progress note data were the bottlenecks preventing a higher level and a sample MDM paragraph that would satisfy that level"
           }
         ],
-        "codingSuggestions": "codingSuggestions"
+        "codingSuggestions": "Audit Finding for the PROVIDER'S CURRENT CODES ONLY (the ICD, CPT, and E&M codes listed under 'ICD:' and 'CPT:' in this prompt). Do NOT audit your own suggestions. If the provider has no codes yet, say 'No provider codes to audit yet.'"
       }
       `;
 
