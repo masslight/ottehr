@@ -23,7 +23,6 @@ import { ExamCardCheckboxWithModalComponent } from 'config-types/config/examinat
 import { FC, useCallback, useMemo, useState } from 'react';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import { ExamObservationComponentDTO } from 'utils';
-import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { buildAbnormalMap, buildAllOptionsNew, buildColumnMap, buildDescriptionMap } from './exam-modal-helpers';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
@@ -67,13 +66,6 @@ export const ExamCheckboxWithModal: FC<ExamCheckboxWithModalProps> = ({ name, co
     (optionKey: string, columnLabel: string | undefined, groupLabel: string, label: string, checked: boolean) => {
       const desc = descriptionMap[optionKey];
       const fullLabel = desc ?? label;
-
-      // this shouldn't happen and is probably a bug, so alerting
-      if (!abnormalMap[optionKey]) {
-        safelyCaptureException(
-          `Possible exam config error, could not find an abnormal attribute for "optionKey: ${optionKey}" "columnLabel: ${columnLabel} "groupLabel: ${groupLabel}"`
-        );
-      }
 
       const isAbnormal = abnormalMap[optionKey] ?? true;
 
