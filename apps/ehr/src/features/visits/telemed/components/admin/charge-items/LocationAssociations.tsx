@@ -35,12 +35,12 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useMemo } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
-  useCmAssociateLocationMutation,
-  useCmDisassociateLocationMutation,
+  useCmAssociatePayerMutation,
+  useCmDisassociatePayerMutation,
 } from 'src/rcm/state/charge-masters/charge-master.queries';
 import {
-  useAssociateLocationMutation,
-  useDisassociateLocationMutation,
+  useAssociatePayerMutation,
+  useDisassociatePayerMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { isLocationVirtual } from 'utils';
 import { ChargeItemMode } from '../ChargeItemList';
@@ -104,14 +104,12 @@ export default function LocationAssociations({
 
   const queryClient = useQueryClient();
   const { data: allLocations, isPending: locationsLoading } = useScheduleOwnerLocationsQuery();
-  const fsAssociate = useAssociateLocationMutation();
-  const fsDisassociate = useDisassociateLocationMutation();
-  const cmAssociate = useCmAssociateLocationMutation();
-  const cmDisassociate = useCmDisassociateLocationMutation();
-  const { mutateAsync: associateLocation, isPending: associating } = isChargeMaster ? cmAssociate : fsAssociate;
-  const { mutateAsync: disassociateLocation, isPending: disassociating } = isChargeMaster
-    ? cmDisassociate
-    : fsDisassociate;
+  const { mutateAsync: fsAssociateAsync, isPending: fsAssociating } = useAssociatePayerMutation();
+  const { mutateAsync: fsDisassociateAsync, isPending: fsDisassociating } = useDisassociatePayerMutation();
+  const { mutateAsync: cmAssociateAsync, isPending: cmAssociating } = useCmAssociatePayerMutation();
+  const { mutateAsync: cmDisassociateAsync, isPending: cmDisassociating } = useCmDisassociatePayerMutation();
+  const associating = isChargeMaster ? cmAssociating : fsAssociating;
+  const disassociating = isChargeMaster ? cmDisassociating : fsDisassociating;
 
   // Extract currently associated location IDs from useContext (venue type)
   const associatedLocationIds = useMemo(() => {
@@ -175,10 +173,11 @@ export default function LocationAssociations({
     try {
       for (const loc of selectedLocations) {
         if (!loc.id) continue;
-        const idParam = isChargeMaster
-          ? { chargeMasterId: feeSchedule.id, locationId: loc.id }
-          : { feeScheduleId: feeSchedule.id, locationId: loc.id };
-        await associateLocation(idParam as any);
+        if (isChargeMaster) {
+          await cmAssociateAsync({ chargeMasterId: feeSchedule.id, locationId: loc.id });
+        } else {
+          await fsAssociateAsync({ feeScheduleId: feeSchedule.id, locationId: loc.id });
+        }
       }
       await queryClient.invalidateQueries({ queryKey: [queryKey] });
       const names = selectedLocations.map((l) => getLocationDisplayName(l)).join(', ');
@@ -193,10 +192,11 @@ export default function LocationAssociations({
   const handleDisassociate = async (locId: string, locName: string): Promise<void> => {
     if (!feeSchedule?.id) return;
     try {
-      const idParam = isChargeMaster
-        ? { chargeMasterId: feeSchedule.id, locationId: locId }
-        : { feeScheduleId: feeSchedule.id, locationId: locId };
-      await disassociateLocation(idParam as any);
+      if (isChargeMaster) {
+        await cmDisassociateAsync({ chargeMasterId: feeSchedule.id, locationId: locId });
+      } else {
+        await fsDisassociateAsync({ feeScheduleId: feeSchedule.id, locationId: locId });
+      }
       await queryClient.invalidateQueries({ queryKey: [queryKey] });
       enqueueSnackbar(`Removed ${locName}`, { variant: 'success' });
     } catch {

@@ -22,6 +22,16 @@ import { ZambdaInput } from '../../src/shared/types';
 const handler = _handler as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
 // ---------------------------------------------------------------------------
+// Deterministic UUIDs used in place of plain-string IDs so validation passes
+// ---------------------------------------------------------------------------
+const PAYER_1 = '00000000-0000-4000-8000-000000000001';
+const EMPLOYER_1 = '00000000-0000-4000-8000-000000000002';
+const EMPLOYER_NO_MATCH = '00000000-0000-4000-8000-000000000003';
+const PAYER_UNKNOWN = '00000000-0000-4000-8000-000000000004';
+const LOC_1 = '00000000-0000-4000-8000-000000000005';
+const LOC_OTHER = '00000000-0000-4000-8000-000000000006';
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function makeChargeMaster(
@@ -115,10 +125,10 @@ describe('find-applicable-charge-master', () => {
   // -----------------------------------------------------------------------
   describe('employer-specific resolution', () => {
     it('returns employer-specific charge master when employer matches', async () => {
-      const cm = cmWithOrg('cm-emp', 'employer-1', '2025-01-01');
+      const cm = cmWithOrg('cm-emp', EMPLOYER_1, '2025-01-01');
       stubSearch([cm]);
 
-      const result = await handler(makeInput({ employerOrganizationId: 'employer-1', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ employerOrganizationId: EMPLOYER_1, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       expect(result.statusCode).toBe(200);
@@ -127,14 +137,14 @@ describe('find-applicable-charge-master', () => {
     });
 
     it('prefers employer over payer when both are provided', async () => {
-      const cmEmp = cmWithOrg('cm-emp', 'employer-1', '2025-01-01');
-      const cmPayer = cmWithOrg('cm-payer', 'payer-1', '2025-01-01');
+      const cmEmp = cmWithOrg('cm-emp', EMPLOYER_1, '2025-01-01');
+      const cmPayer = cmWithOrg('cm-payer', PAYER_1, '2025-01-01');
       stubSearch([cmEmp, cmPayer]);
 
       const result = await handler(
         makeInput({
-          employerOrganizationId: 'employer-1',
-          payerOrganizationId: 'payer-1',
+          employerOrganizationId: EMPLOYER_1,
+          payerOrganizationId: PAYER_1,
           dateOfService: '2025-06-01',
         })
       );
@@ -145,13 +155,13 @@ describe('find-applicable-charge-master', () => {
     });
 
     it('falls back to payer when employer has no match', async () => {
-      const cmPayer = cmWithOrg('cm-payer', 'payer-1', '2025-01-01');
+      const cmPayer = cmWithOrg('cm-payer', PAYER_1, '2025-01-01');
       stubSearch([cmPayer]);
 
       const result = await handler(
         makeInput({
-          employerOrganizationId: 'employer-no-match',
-          payerOrganizationId: 'payer-1',
+          employerOrganizationId: EMPLOYER_NO_MATCH,
+          payerOrganizationId: PAYER_1,
           dateOfService: '2025-06-01',
         })
       );
@@ -167,10 +177,10 @@ describe('find-applicable-charge-master', () => {
   // -----------------------------------------------------------------------
   describe('payer-specific resolution', () => {
     it('returns payer-specific charge master', async () => {
-      const cm = cmWithOrg('cm-payer', 'payer-1', '2025-01-01');
+      const cm = cmWithOrg('cm-payer', PAYER_1, '2025-01-01');
       stubSearch([cm]);
 
-      const result = await handler(makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       expect(body.source).toBe('payer-specific');
@@ -178,23 +188,23 @@ describe('find-applicable-charge-master', () => {
     });
 
     it('selects the most recent effective date on or before dateOfService', async () => {
-      const cmOld = cmWithOrg('cm-old', 'payer-1', '2024-01-01');
-      const cmRecent = cmWithOrg('cm-recent', 'payer-1', '2025-03-01');
-      const cmFuture = cmWithOrg('cm-future', 'payer-1', '2025-07-01');
+      const cmOld = cmWithOrg('cm-old', PAYER_1, '2024-01-01');
+      const cmRecent = cmWithOrg('cm-recent', PAYER_1, '2025-03-01');
+      const cmFuture = cmWithOrg('cm-future', PAYER_1, '2025-07-01');
       stubSearch([cmOld, cmRecent, cmFuture]);
 
-      const result = await handler(makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       expect(body.chargeMaster.id).toBe('cm-recent');
     });
 
     it('ignores inactive charge masters', async () => {
-      const cmInactive = cmWithOrg('cm-inactive', 'payer-1', '2025-01-01', { status: 'retired' });
-      const cmActive = cmWithOrg('cm-active', 'payer-1', '2024-06-01');
+      const cmInactive = cmWithOrg('cm-inactive', PAYER_1, '2025-01-01', { status: 'retired' });
+      const cmActive = cmWithOrg('cm-active', PAYER_1, '2024-06-01');
       stubSearch([cmInactive, cmActive]);
 
-      const result = await handler(makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       expect(body.chargeMaster.id).toBe('cm-active');
@@ -209,7 +219,7 @@ describe('find-applicable-charge-master', () => {
       const cmDefault1 = cmDefault('cm-default', '2025-01-01');
       stubSearch([cmDefault1]);
 
-      const result = await handler(makeInput({ payerOrganizationId: 'payer-unknown', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ payerOrganizationId: PAYER_UNKNOWN, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       expect(body.source).toBe('default-insurance');
@@ -222,8 +232,8 @@ describe('find-applicable-charge-master', () => {
 
       const result = await handler(
         makeInput({
-          employerOrganizationId: 'employer-unknown',
-          payerOrganizationId: 'payer-unknown',
+          employerOrganizationId: EMPLOYER_NO_MATCH,
+          payerOrganizationId: PAYER_UNKNOWN,
           dateOfService: '2025-06-01',
         })
       );
@@ -252,7 +262,7 @@ describe('find-applicable-charge-master', () => {
       const cm = cmSelfPay('cm-selfpay', '2025-01-01');
       stubSearch([cm]);
 
-      const result = await handler(makeInput({ payerOrganizationId: 'payer-unknown', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ payerOrganizationId: PAYER_UNKNOWN, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       // Self-pay is only for when no payer/employer at all; should fall to default-insurance or null
@@ -265,12 +275,12 @@ describe('find-applicable-charge-master', () => {
   // -----------------------------------------------------------------------
   describe('location filtering', () => {
     it('prefers location-specific charge master over general', async () => {
-      const cmGeneral = cmWithOrg('cm-general', 'payer-1', '2025-01-01');
-      const cmLocation = cmWithOrgAndLocation('cm-loc', 'payer-1', 'loc-1', '2025-01-01');
+      const cmGeneral = cmWithOrg('cm-general', PAYER_1, '2025-01-01');
+      const cmLocation = cmWithOrgAndLocation('cm-loc', PAYER_1, LOC_1, '2025-01-01');
       stubSearch([cmGeneral, cmLocation]);
 
       const result = await handler(
-        makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01', locationId: 'loc-1' })
+        makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01', locationId: LOC_1 })
       );
 
       const body = parseBody(result);
@@ -278,12 +288,12 @@ describe('find-applicable-charge-master', () => {
     });
 
     it('falls back to charge master with no location when locationId does not match', async () => {
-      const cmGeneral = cmWithOrg('cm-general', 'payer-1', '2025-01-01');
-      const cmOtherLoc = cmWithOrgAndLocation('cm-other-loc', 'payer-1', 'loc-other', '2025-01-01');
+      const cmGeneral = cmWithOrg('cm-general', PAYER_1, '2025-01-01');
+      const cmOtherLoc = cmWithOrgAndLocation('cm-other-loc', PAYER_1, LOC_OTHER, '2025-01-01');
       stubSearch([cmGeneral, cmOtherLoc]);
 
       const result = await handler(
-        makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01', locationId: 'loc-1' })
+        makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01', locationId: LOC_1 })
       );
 
       const body = parseBody(result);
@@ -292,11 +302,11 @@ describe('find-applicable-charge-master', () => {
     });
 
     it('returns null when locationId is provided but only location-specific CMs exist for other locations', async () => {
-      const cmOtherLoc = cmWithOrgAndLocation('cm-other-loc', 'payer-1', 'loc-other', '2025-01-01');
+      const cmOtherLoc = cmWithOrgAndLocation('cm-other-loc', PAYER_1, LOC_OTHER, '2025-01-01');
       stubSearch([cmOtherLoc]);
 
       const result = await handler(
-        makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01', locationId: 'loc-1' })
+        makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01', locationId: LOC_1 })
       );
 
       const body = parseBody(result);
@@ -312,7 +322,7 @@ describe('find-applicable-charge-master', () => {
     it('returns null when no charge masters exist', async () => {
       stubSearch([]);
 
-      const result = await handler(makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       expect(body.chargeMaster).toBeNull();
@@ -320,10 +330,10 @@ describe('find-applicable-charge-master', () => {
     });
 
     it('returns null when all charge masters are in the future', async () => {
-      const cmFuture = cmWithOrg('cm-future', 'payer-1', '2026-01-01');
+      const cmFuture = cmWithOrg('cm-future', PAYER_1, '2026-01-01');
       stubSearch([cmFuture]);
 
-      const result = await handler(makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       expect(body.chargeMaster).toBeNull();

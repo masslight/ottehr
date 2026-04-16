@@ -8,8 +8,6 @@ const LIST_FEE_SCHEDULES_ZAMBDA_ID = 'list-fee-schedules';
 const FIND_APPLICABLE_FEE_SCHEDULE_ZAMBDA_ID = 'find-applicable-fee-schedule';
 const ASSOCIATE_PAYER_ZAMBDA_ID = 'associate-payer';
 const DISASSOCIATE_PAYER_ZAMBDA_ID = 'disassociate-payer';
-const ASSOCIATE_LOCATION_ZAMBDA_ID = 'associate-location';
-const DISASSOCIATE_LOCATION_ZAMBDA_ID = 'disassociate-location';
 const ADD_PROCEDURE_CODE_ZAMBDA_ID = 'add-procedure-code';
 const UPDATE_PROCEDURE_CODE_ZAMBDA_ID = 'update-procedure-code';
 const DELETE_PROCEDURE_CODE_ZAMBDA_ID = 'delete-procedure-code';
@@ -85,7 +83,8 @@ export const updateFeeSchedule = async (
 
 export interface AssociatePayerInput {
   feeScheduleId: string;
-  organizationId: string;
+  organizationId?: string;
+  locationId?: string;
 }
 
 export const associatePayer = async (
@@ -117,49 +116,6 @@ export const disassociatePayer = async (
     }
     const response = await oystehr.zambda.execute({
       id: DISASSOCIATE_PAYER_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export interface AssociateLocationInput {
-  feeScheduleId: string;
-  locationId: string;
-}
-
-export const associateLocation = async (
-  oystehr: Oystehr,
-  parameters: AssociateLocationInput
-): Promise<ChargeItemDefinition> => {
-  try {
-    if (ASSOCIATE_LOCATION_ZAMBDA_ID == null) {
-      throw new Error('associate location zambda environment variable could not be loaded');
-    }
-    const response = await oystehr.zambda.execute({
-      id: ASSOCIATE_LOCATION_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const disassociateLocation = async (
-  oystehr: Oystehr,
-  parameters: AssociateLocationInput
-): Promise<ChargeItemDefinition> => {
-  try {
-    if (DISASSOCIATE_LOCATION_ZAMBDA_ID == null) {
-      throw new Error('disassociate location zambda environment variable could not be loaded');
-    }
-    const response = await oystehr.zambda.execute({
-      id: DISASSOCIATE_LOCATION_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

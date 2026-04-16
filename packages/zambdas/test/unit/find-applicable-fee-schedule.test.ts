@@ -20,6 +20,17 @@ import { ZambdaInput } from '../../src/shared/types';
 const handler = _handler as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
 // ---------------------------------------------------------------------------
+// Deterministic UUIDs used in place of plain-string IDs so validation passes
+// ---------------------------------------------------------------------------
+const PAYER_1 = '00000000-0000-4000-8000-000000000001';
+const EMPLOYER_1 = '00000000-0000-4000-8000-000000000002';
+const EMPLOYER_NO_MATCH = '00000000-0000-4000-8000-000000000003';
+const PAYER_UNKNOWN = '00000000-0000-4000-8000-000000000004';
+const LOC_1 = '00000000-0000-4000-8000-000000000005';
+const LOC_OTHER = '00000000-0000-4000-8000-000000000006';
+const OTHER_PAYER = '00000000-0000-4000-8000-000000000007';
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function makeFeeSchedule(
@@ -87,10 +98,10 @@ describe('find-applicable-fee-schedule', () => {
   // -----------------------------------------------------------------------
   describe('employer-specific resolution', () => {
     it('returns employer-specific fee schedule when employer matches', async () => {
-      const fs = fsWithOrg('fs-emp', 'employer-1', '2025-01-01');
+      const fs = fsWithOrg('fs-emp', EMPLOYER_1, '2025-01-01');
       stubSearch([fs]);
 
-      const result = await handler(makeInput({ employerOrganizationId: 'employer-1', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ employerOrganizationId: EMPLOYER_1, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       expect(result.statusCode).toBe(200);
@@ -98,14 +109,14 @@ describe('find-applicable-fee-schedule', () => {
     });
 
     it('prefers employer over payer when both are provided', async () => {
-      const fsEmp = fsWithOrg('fs-emp', 'employer-1', '2025-01-01');
-      const fsPayer = fsWithOrg('fs-payer', 'payer-1', '2025-01-01');
+      const fsEmp = fsWithOrg('fs-emp', EMPLOYER_1, '2025-01-01');
+      const fsPayer = fsWithOrg('fs-payer', PAYER_1, '2025-01-01');
       stubSearch([fsEmp, fsPayer]);
 
       const result = await handler(
         makeInput({
-          employerOrganizationId: 'employer-1',
-          payerOrganizationId: 'payer-1',
+          employerOrganizationId: EMPLOYER_1,
+          payerOrganizationId: PAYER_1,
           dateOfService: '2025-06-01',
         })
       );
@@ -115,13 +126,13 @@ describe('find-applicable-fee-schedule', () => {
     });
 
     it('falls back to payer when employer has no match', async () => {
-      const fsPayer = fsWithOrg('fs-payer', 'payer-1', '2025-01-01');
+      const fsPayer = fsWithOrg('fs-payer', PAYER_1, '2025-01-01');
       stubSearch([fsPayer]);
 
       const result = await handler(
         makeInput({
-          employerOrganizationId: 'employer-no-match',
-          payerOrganizationId: 'payer-1',
+          employerOrganizationId: EMPLOYER_NO_MATCH,
+          payerOrganizationId: PAYER_1,
           dateOfService: '2025-06-01',
         })
       );
@@ -136,33 +147,33 @@ describe('find-applicable-fee-schedule', () => {
   // -----------------------------------------------------------------------
   describe('payer-specific resolution', () => {
     it('returns payer-specific fee schedule', async () => {
-      const fs = fsWithOrg('fs-payer', 'payer-1', '2025-01-01');
+      const fs = fsWithOrg('fs-payer', PAYER_1, '2025-01-01');
       stubSearch([fs]);
 
-      const result = await handler(makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       expect(body.feeSchedule.id).toBe('fs-payer');
     });
 
     it('selects the most recent effective date on or before dateOfService', async () => {
-      const fsOld = fsWithOrg('fs-old', 'payer-1', '2024-01-01');
-      const fsRecent = fsWithOrg('fs-recent', 'payer-1', '2025-03-01');
-      const fsFuture = fsWithOrg('fs-future', 'payer-1', '2025-07-01');
+      const fsOld = fsWithOrg('fs-old', PAYER_1, '2024-01-01');
+      const fsRecent = fsWithOrg('fs-recent', PAYER_1, '2025-03-01');
+      const fsFuture = fsWithOrg('fs-future', PAYER_1, '2025-07-01');
       stubSearch([fsOld, fsRecent, fsFuture]);
 
-      const result = await handler(makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       expect(body.feeSchedule.id).toBe('fs-recent');
     });
 
     it('includes inactive fee schedules for historical lookups', async () => {
-      const fsInactive = fsWithOrg('fs-inactive', 'payer-1', '2025-02-01', { status: 'retired' });
-      const fsOld = fsWithOrg('fs-old', 'payer-1', '2024-01-01');
+      const fsInactive = fsWithOrg('fs-inactive', PAYER_1, '2025-02-01', { status: 'retired' });
+      const fsOld = fsWithOrg('fs-old', PAYER_1, '2024-01-01');
       stubSearch([fsInactive, fsOld]);
 
-      const result = await handler(makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       // Unlike charge masters, fee schedules include inactive ones; most recent date wins
@@ -175,12 +186,12 @@ describe('find-applicable-fee-schedule', () => {
   // -----------------------------------------------------------------------
   describe('location filtering', () => {
     it('prefers location-specific fee schedule over general', async () => {
-      const fsGeneral = fsWithOrg('fs-general', 'payer-1', '2025-01-01');
-      const fsLocation = fsWithOrgAndLocation('fs-loc', 'payer-1', 'loc-1', '2025-01-01');
+      const fsGeneral = fsWithOrg('fs-general', PAYER_1, '2025-01-01');
+      const fsLocation = fsWithOrgAndLocation('fs-loc', PAYER_1, LOC_1, '2025-01-01');
       stubSearch([fsGeneral, fsLocation]);
 
       const result = await handler(
-        makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01', locationId: 'loc-1' })
+        makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01', locationId: LOC_1 })
       );
 
       const body = parseBody(result);
@@ -188,12 +199,12 @@ describe('find-applicable-fee-schedule', () => {
     });
 
     it('falls back to fee schedule with no location when locationId does not match', async () => {
-      const fsGeneral = fsWithOrg('fs-general', 'payer-1', '2025-01-01');
-      const fsOtherLoc = fsWithOrgAndLocation('fs-other-loc', 'payer-1', 'loc-other', '2025-01-01');
+      const fsGeneral = fsWithOrg('fs-general', PAYER_1, '2025-01-01');
+      const fsOtherLoc = fsWithOrgAndLocation('fs-other-loc', PAYER_1, LOC_OTHER, '2025-01-01');
       stubSearch([fsGeneral, fsOtherLoc]);
 
       const result = await handler(
-        makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01', locationId: 'loc-1' })
+        makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01', locationId: LOC_1 })
       );
 
       const body = parseBody(result);
@@ -201,11 +212,11 @@ describe('find-applicable-fee-schedule', () => {
     });
 
     it('returns null when only location-specific fee schedules exist for other locations', async () => {
-      const fsOtherLoc = fsWithOrgAndLocation('fs-other', 'payer-1', 'loc-other', '2025-01-01');
+      const fsOtherLoc = fsWithOrgAndLocation('fs-other', PAYER_1, LOC_OTHER, '2025-01-01');
       stubSearch([fsOtherLoc]);
 
       const result = await handler(
-        makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01', locationId: 'loc-1' })
+        makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01', locationId: LOC_1 })
       );
 
       const body = parseBody(result);
@@ -218,10 +229,10 @@ describe('find-applicable-fee-schedule', () => {
   // -----------------------------------------------------------------------
   describe('no fallback defaults', () => {
     it('returns null when payer has no match (no default-insurance fallback)', async () => {
-      const fsOther = fsWithOrg('fs-other', 'other-payer', '2025-01-01');
+      const fsOther = fsWithOrg('fs-other', OTHER_PAYER, '2025-01-01');
       stubSearch([fsOther]);
 
-      const result = await handler(makeInput({ payerOrganizationId: 'payer-unknown', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ payerOrganizationId: PAYER_UNKNOWN, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       expect(body.feeSchedule).toBeNull();
@@ -235,17 +246,17 @@ describe('find-applicable-fee-schedule', () => {
     it('returns null when no fee schedules exist', async () => {
       stubSearch([]);
 
-      const result = await handler(makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       expect(body.feeSchedule).toBeNull();
     });
 
     it('returns null when all fee schedules are in the future', async () => {
-      const fsFuture = fsWithOrg('fs-future', 'payer-1', '2026-01-01');
+      const fsFuture = fsWithOrg('fs-future', PAYER_1, '2026-01-01');
       stubSearch([fsFuture]);
 
-      const result = await handler(makeInput({ payerOrganizationId: 'payer-1', dateOfService: '2025-06-01' }));
+      const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
 
       const body = parseBody(result);
       expect(body.feeSchedule).toBeNull();

@@ -9,8 +9,6 @@ const DESIGNATE_CHARGE_MASTER_ENTRY_ZAMBDA_ID = 'designate-charge-master-entry';
 const GET_CHARGE_MASTER_ENTRY_ZAMBDA_ID = 'get-charge-master-entry';
 const CM_ASSOCIATE_PAYER_ZAMBDA_ID = 'cm-associate-payer';
 const CM_DISASSOCIATE_PAYER_ZAMBDA_ID = 'cm-disassociate-payer';
-const CM_ASSOCIATE_LOCATION_ZAMBDA_ID = 'cm-associate-location';
-const CM_DISASSOCIATE_LOCATION_ZAMBDA_ID = 'cm-disassociate-location';
 const CM_ADD_PROCEDURE_CODE_ZAMBDA_ID = 'cm-add-procedure-code';
 const CM_UPDATE_PROCEDURE_CODE_ZAMBDA_ID = 'cm-update-procedure-code';
 const CM_DELETE_PROCEDURE_CODE_ZAMBDA_ID = 'cm-delete-procedure-code';
@@ -134,7 +132,8 @@ export const getChargeMasterEntry = async (
 
 export interface CmAssociatePayerInput {
   chargeMasterId: string;
-  organizationId: string;
+  organizationId?: string;
+  locationId?: string;
 }
 
 export const cmAssociatePayer = async (
@@ -166,49 +165,6 @@ export const cmDisassociatePayer = async (
     }
     const response = await oystehr.zambda.execute({
       id: CM_DISASSOCIATE_PAYER_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export interface CmAssociateLocationInput {
-  chargeMasterId: string;
-  locationId: string;
-}
-
-export const cmAssociateLocation = async (
-  oystehr: Oystehr,
-  parameters: CmAssociateLocationInput
-): Promise<ChargeItemDefinition> => {
-  try {
-    if (CM_ASSOCIATE_LOCATION_ZAMBDA_ID == null) {
-      throw new Error('cm associate location zambda environment variable could not be loaded');
-    }
-    const response = await oystehr.zambda.execute({
-      id: CM_ASSOCIATE_LOCATION_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const cmDisassociateLocation = async (
-  oystehr: Oystehr,
-  parameters: CmAssociateLocationInput
-): Promise<ChargeItemDefinition> => {
-  try {
-    if (CM_DISASSOCIATE_LOCATION_ZAMBDA_ID == null) {
-      throw new Error('cm disassociate location zambda environment variable could not be loaded');
-    }
-    const response = await oystehr.zambda.execute({
-      id: CM_DISASSOCIATE_LOCATION_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
