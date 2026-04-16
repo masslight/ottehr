@@ -50,17 +50,26 @@ export const index = wrapHandler(
       2. Amount and Complexity of Data: Ordering or reviewing tests, obtaining history from external sources, or independent interpretation of tests increases data complexity.
       3. Risk of Complications/Management: The SINGLE highest-risk element determines this category. Prescription drug management (any new or continued prescription) qualifies as Moderate risk, which alone supports 99214. OTC medications only support 99213.
 
-      URGENT CARE CALIBRATION: In urgent care, the vast majority of visits (55-70%) should be coded at 99214 (Moderate MDM). This is because most urgent care patients present with an acute illness or injury requiring at least a prescription, which meets Moderate risk. Only truly minimal visits (brief symptom check, no prescription, self-limited problem) warrant 99213. Reserve 99212 for the simplest encounters (e.g., single follow-up question). 99215 is rare and requires a threat to life or function.
+      URGENT CARE CALIBRATION: The E&M codes differ by whether the patient is new or established, but the MDM complexity levels are the same:
+      - Straightforward: 99202 (new) / 99212 (established) — ~3–8% of visits
+      - Low: 99203 (new) / 99213 (established) — ~30–45% of visits
+      - Moderate: 99204 (new) / 99214 (established) — ~45–60% of visits
+      - High: 99205 (new) / 99215 (established) — ~1–3% of visits
+
+      Use the new patient codes (99202–99205) when the patient is new to the practice, and the established patient codes (99212–99215) when the patient is established. The complexity thresholds are identical — only the code number differs.
+
+      Moderate complexity is the most common level because most urgent care patients present with an acute illness or injury requiring at least a prescription, which meets Moderate risk. However, Low complexity is still appropriate for roughly a third of visits — those involving a single self-limited problem managed with OTC recommendations or simple reassurance.
 
       Common patterns:
-      - Any visit resulting in a prescription → at minimum 99214 (Moderate risk from Rx management)
-      - New undiagnosed problem with uncertain prognosis → 99214 (Moderate complexity of problems)
-      - Acute illness with systemic symptoms (fever, vomiting, etc.) → 99214
-      - Multiple chronic conditions with exacerbation → 99214 or 99215
-      - Brief visit, known problem, OTC recommendation only → 99213
-      - Minimal/self-limited problem, no workup → 99212
+      - Any visit resulting in a prescription → at minimum Moderate (99204/99214)
+      - New undiagnosed problem with uncertain prognosis → Moderate (99204/99214)
+      - Acute illness with systemic symptoms (fever, vomiting, etc.) → Moderate (99204/99214)
+      - Multiple chronic conditions with exacerbation → Moderate or High (99204-05/99214-15)
+      - Single acute uncomplicated illness, OTC recommendation only → Low (99203/99213)
+      - Brief visit, known self-limited problem, simple reassurance → Low (99203/99213)
+      - Minimal encounter, e.g., single follow-up question, suture removal → Straightforward (99202/99212)
 
-      Do NOT default to 99213 for typical urgent care visits. If a prescription was written or a new problem is being evaluated, 99214 is almost always appropriate.
+      Do not default to Low complexity when the visit involves prescription drug management or a new problem requiring workup — those are Moderate. But do not upcode to Moderate when the visit is genuinely straightforward with no prescription and a self-limited problem.
 
       Include whether the patient is new or established when suggesting an E&M code. If there are not relevant results, return an empty list.
 
