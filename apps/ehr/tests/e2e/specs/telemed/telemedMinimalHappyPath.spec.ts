@@ -26,7 +26,7 @@ test.describe.configure({ mode: 'serial' });
 test('Should assign visit to practitioner', async () => {
   const visitsPage = await openVisitsPage(page);
   await visitsPage.selectLocation(resourceHandler.appointmentLocation?.name ?? 'Unknown');
-  await visitsPage.clickProgressNoteButton(resourceHandler.appointment.id!);
+  await page.goto(`/in-person/${resourceHandler.appointment.id}`);
   const assignMeButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe);
   await assignMeButton.click();
   await telemedDialogConfirm(page);
