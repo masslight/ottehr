@@ -700,7 +700,7 @@ const formatObsValueAndInterpretation = (
     const obsInterpretation = {
       interpretation: [NORMAL_OBSERVATION_INTERPRETATION],
     };
-    return { obsValue, obsInterpretation, nonNormalResult: undefined };
+    return { obsValue, obsInterpretation, nonNormalResult: NonNormalResult.Neutral };
   }
   throw new Error('Cannot format Obs value and interpretation. Unrecognized obsDef.permittedDataType');
 };

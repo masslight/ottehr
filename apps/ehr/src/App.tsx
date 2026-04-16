@@ -25,8 +25,12 @@ import EditChargeItem from './features/visits/telemed/components/admin/EditCharg
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
 import GlobalTemplateDetailPage from './features/visits/telemed/components/admin/GlobalTemplateDetailPage';
+import ImmunizationQuickPickDetailPage from './features/visits/telemed/components/admin/ImmunizationQuickPickDetailPage';
 import AdminAddInHouseLab from './features/visits/telemed/components/admin/in-house-labs/AdminAddInHouseLab';
 import AdminInHouseLabDetails from './features/visits/telemed/components/admin/in-house-labs/AdminInHouseLabDetails';
+import InHouseMedicationQuickPickDetailPage from './features/visits/telemed/components/admin/InHouseMedicationQuickPickDetailPage';
+import ProcedureQuickPickDetailPage from './features/visits/telemed/components/admin/ProcedureQuickPickDetailPage';
+import RadiologyQuickPickDetailPage from './features/visits/telemed/components/admin/RadiologyQuickPickDetailPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
@@ -83,9 +87,9 @@ export const INSURANCES_URL = '/admin/insurances';
 export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
 export const CHARGE_MASTERS_URL = '/admin/charge-masters';
 export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
-export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 export const BILLING_URL = '/admin/billing';
 export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';
+export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
@@ -227,6 +231,16 @@ function App(): ReactElement {
                   <Route path="/admin" element={<AdminPage />} />
                   <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
+                  <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
+                  <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
+                  <Route
+                    path="/admin/quick-picks/immunization/:quickPickId"
+                    element={<ImmunizationQuickPickDetailPage />}
+                  />
+                  <Route
+                    path="/admin/quick-picks/in-house-medication/:quickPickId"
+                    element={<InHouseMedicationQuickPickDetailPage />}
+                  />
                   <Route path="/admin/employees/add" element={<AddEmployeePage />} />
                   <Route path="/admin/employee/:id" element={<EditEmployeePage />} />
                   <Route path="/admin/schedule/:schedule-type/add" element={<AddSchedulePage />} />
@@ -237,10 +251,10 @@ function App(): ReactElement {
                   <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
-                  <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                   <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
                   <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
                   <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />
+                  <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                   <Route path="/admin/in-house-labs/add" element={<AdminAddInHouseLab />} />
                   <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
                   {/** telemed */}

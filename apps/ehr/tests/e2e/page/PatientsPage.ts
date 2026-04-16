@@ -24,6 +24,10 @@ export class PatientsPage extends PageWithTablePagination {
     await locator.fill(dateOfBirth);
   }
 
+  async searchByPid(pid: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patients.searchByPidField).locator('input').fill(pid);
+  }
+
   async searchByMobilePhone(phone: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patients.searchByPhoneField).locator('input').fill(phone);
   }
@@ -58,6 +62,7 @@ export class PatientsPage extends PageWithTablePagination {
     await expect(this.#page.getByTestId(dataTestIds.patients.searchByLastNameField).locator('input')).toBeEmpty();
     await expect(this.#page.getByTestId(dataTestIds.patients.searchByGivenNamesField).locator('input')).toBeEmpty();
     await expect(this.#page.getByTestId(dataTestIds.patients.searchByDateOfBirthField).locator('input')).toBeEmpty();
+    await expect(this.#page.getByTestId(dataTestIds.patients.searchByPidField).locator('input')).toBeEmpty();
     await expect(this.#page.getByTestId(dataTestIds.patients.searchByPhoneField).locator('input')).toBeEmpty();
     await expect(this.#page.getByTestId(dataTestIds.patients.searchByAddressField).locator('input')).toBeEmpty();
     await expect(this.#page.getByTestId(dataTestIds.patients.searchByEmailField).locator('input')).toBeEmpty();

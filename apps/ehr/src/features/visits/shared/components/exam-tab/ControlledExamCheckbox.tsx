@@ -6,12 +6,17 @@ type ControlledExamCheckboxProps = {
   label: string;
   name: string;
   abnormal?: boolean;
+  legacy?: boolean;
 };
 
 export const ControlledExamCheckbox: FC<ControlledExamCheckboxProps> = (props) => {
-  const { label, name, abnormal } = props;
+  const { label, name, abnormal, legacy } = props;
 
   const { value: field, update, delete: deleteField, isLoading } = useExamObservations(name);
+
+  if (legacy && !field.value) {
+    return null;
+  }
 
   const onChange = (value: boolean): void => {
     if (value) {

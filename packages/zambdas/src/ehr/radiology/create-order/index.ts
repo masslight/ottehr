@@ -86,7 +86,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
-  const validatedInput = await validateInput(unsafeInput, secrets, oystehr);
+  const validatedInput = await validateInput(unsafeInput, oystehr);
 
   const callerUser = await getCallerUserWithAccessToken(validatedInput.callerAccessToken, secrets);
 
