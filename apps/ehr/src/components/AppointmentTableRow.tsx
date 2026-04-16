@@ -614,13 +614,11 @@ export default function AppointmentTableRow({
 
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
-      (!isVirtual(appointment) &&
-        (appointment.status === 'ready for provider' ||
-          appointment.status === 'provider' ||
-          appointment.status === 'awaiting supervisor approval' ||
-          appointment.status === 'completed' ||
-          appointment.status === 'discharged')) ||
-      isVirtual(appointment)
+      appointment.status === 'ready for provider' ||
+      appointment.status === 'provider' ||
+      appointment.status === 'awaiting supervisor approval' ||
+      appointment.status === 'completed' ||
+      appointment.status === 'discharged'
     ) {
       return (
         <GoToButton
