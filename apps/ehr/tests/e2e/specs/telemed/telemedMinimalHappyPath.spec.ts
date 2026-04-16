@@ -1,6 +1,7 @@
 import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForGetChartDataResponse, waitForSaveChartDataResponse } from 'test-utils';
+import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { openVisitsPage } from 'tests/e2e/page/VisitsPage';
 import { TelemedAppointmentStatusEnum, TelemedAppointmentVisitTabs } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
@@ -26,7 +27,7 @@ test.describe.configure({ mode: 'serial' });
 test('Should assign visit to practitioner', async () => {
   const visitsPage = await openVisitsPage(page);
   await visitsPage.selectLocation(resourceHandler.appointmentLocation?.name ?? 'Unknown');
-  await visitsPage.clickProgressNoteButton(resourceHandler.appointment.id!);
+  await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
   const assignMeButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe);
   await assignMeButton.click();
   await telemedDialogConfirm(page);
