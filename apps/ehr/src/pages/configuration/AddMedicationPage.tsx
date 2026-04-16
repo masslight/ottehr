@@ -28,7 +28,7 @@ export default function AddMedicationPage(): ReactElement {
   const navigate = useNavigate();
 
   const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
-  const medSearchOptions = data?.filter((option) => !option.isObsolete) || [];
+  const medSearchOptions = data || [];
 
   const { isFetching: isCptSearching, data: cptData } = useGetCPTHCPCSSearch({
     search: debouncedCptSearch,
