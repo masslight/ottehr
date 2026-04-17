@@ -187,6 +187,7 @@ const makeDeleteRequests = async (
       resource.meta?.tag?.some(
         (tag) =>
           tag.system === chartDataTagSystem('exam-observation-field') ||
+          tag.system === chartDataTagSystem('ros-observation-field') ||
           tag.system === chartDataTagSystem('medical-decision') ||
           tag.system === chartDataTagSystem('patient-instruction') ||
           // E&M code is replaced (one per visit); CPT codes are additive (like ICD diagnoses)

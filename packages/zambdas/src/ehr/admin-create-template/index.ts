@@ -155,6 +155,7 @@ const performEffect = async (
     chartDataTagSystem('mechanism-of-injury'),
     chartDataTagSystem('ros'),
     chartDataTagSystem('exam-observation-field'),
+    chartDataTagSystem('ros-observation-field'),
     chartDataTagSystem('medical-decision'),
     chartDataTagSystem('patient-instruction'),
     chartDataTagSystem('cpt-code'),

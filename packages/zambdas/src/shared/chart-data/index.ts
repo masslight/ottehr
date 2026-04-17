@@ -85,6 +85,7 @@ import {
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_ID,
   removeOperation,
+  ROS_OBSERVATION_META_SYSTEM,
   SCHOOL_WORK_NOTE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
@@ -584,6 +585,24 @@ export function makeExamObservationResource(
   }
 
   return observation;
+}
+
+export function makeRosObservationResource(
+  encounterId: string,
+  patientId: string,
+  data: ExamObservationDTO,
+  label?: string
+): Observation {
+  return {
+    resourceType: 'Observation',
+    id: data.resourceId,
+    subject: { reference: `Patient/${patientId}` },
+    encounter: { reference: `Encounter/${encounterId}` },
+    status: 'final',
+    valueBoolean: typeof data.value === 'boolean' ? Boolean(data.value) : undefined,
+    code: { text: label || data.field },
+    meta: fillMeta(data.field, ROS_OBSERVATION_META_SYSTEM),
+  };
 }
 
 export function makeExamObservationDTO(observation: Observation): ExamObservationDTO {
@@ -1394,6 +1413,12 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagBySystem(resource, `${PRIVATE_EXTENSION_BASE_URL}/${EXAM_OBSERVATION_META_SYSTEM}`)
   ) {
     data.examObservations?.push(makeExamObservationDTO(resource));
+    resourceMapped = true;
+  } else if (
+    resource?.resourceType === 'Observation' &&
+    chartDataResourceHasMetaTagBySystem(resource, `${PRIVATE_EXTENSION_BASE_URL}/${ROS_OBSERVATION_META_SYSTEM}`)
+  ) {
+    data.rosObservations?.push(makeExamObservationDTO(resource));
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Observation' &&

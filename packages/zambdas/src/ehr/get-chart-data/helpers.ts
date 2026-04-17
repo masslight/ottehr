@@ -196,6 +196,7 @@ export async function convertSearchResultsToResponse(
           allergies: [],
           surgicalHistory: [],
           examObservations: [],
+          rosObservations: [],
           cptCodes: [],
           instructions: [],
           diagnosis: [],

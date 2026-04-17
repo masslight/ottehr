@@ -8,6 +8,7 @@ export * from './screening-questions';
 export * from './booking';
 export * from './examination';
 export * from './forms';
+export * from './review-of-systems';
 export * from './intake-paperwork';
 export * from './intake-paperwork-virtual';
 export * from './legal';
