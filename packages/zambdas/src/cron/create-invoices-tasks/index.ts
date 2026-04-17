@@ -283,7 +283,6 @@ export async function populateAmountInPackages(
 async function getAllCandidClaims(candid: CandidApiClient, sinceDate: DateTime): Promise<InventoryRecord[]> {
   const inventoryPages = await getCandidInventoryPages({
     candid,
-    limitPerPage: 100,
     onlyInvoiceable: true,
     since: sinceDate,
   });
