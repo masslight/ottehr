@@ -54,8 +54,11 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
         try {
           suggestions = fixAndParseJsonObjectFromString(aiResponseString);
         } catch (fixError) {
-          console.warn('Failed to fix JSON format, returning empty suggestions:', fixError);
-          suggestions = { suggestions: [] };
+          console.error('Failed to fix JSON format from AI response:', fixError);
+          return {
+            statusCode: 500,
+            body: JSON.stringify({ message: 'AI returned invalid JSON response' }),
+          };
         }
       }
     }
