@@ -6,7 +6,6 @@ import {
   Button,
   Checkbox,
   FormControl,
-  Grid,
   InputLabel,
   MenuItem,
   OutlinedInput,
@@ -216,54 +215,50 @@ export default function Insurances(): ReactElement {
   return (
     <Paper sx={{ padding: 2, marginTop: 2 }}>
       <TableContainer>
-        <Grid container spacing={2} display="flex" alignItems="center">
-          <Grid item xs={12} sm={5}>
-            <TextField
-              fullWidth
-              id="outlined-basic"
-              label="Insurance"
-              onChange={(e) => {
-                if (pageNumber !== 0) setPageNumber(0);
-                handleChangeSearchText(e);
-              }}
-              InputProps={{ endAdornment: <SearchIcon /> }}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <TextField
+            sx={{ flex: '1 1 auto', maxWidth: 400 }}
+            id="outlined-basic"
+            label="Insurance"
+            onChange={(e) => {
+              if (pageNumber !== 0) setPageNumber(0);
+              handleChangeSearchText(e);
+            }}
+            InputProps={{ endAdornment: <SearchIcon /> }}
+            margin="dense"
+            size="small"
+          />
+          <FormControl sx={{ flex: '1 1 auto', maxWidth: 400 }} size="small" margin="dense">
+            <InputLabel id="select-insurance-status-filter">Status</InputLabel>
+            <Select
+              labelId="select-insurance-status-filter"
               margin="dense"
-            />
-          </Grid>
-          <Grid item xs={12} sm={5}>
-            <FormControl fullWidth>
-              <InputLabel id="select-insurance-status-filter">Status</InputLabel>
-              <Select
-                labelId="select-insurance-status-filter"
-                margin="dense"
-                defaultValue={''}
-                input={<OutlinedInput label="Status" />}
-                onChange={handleStatusChange}
-              >
-                <MenuItem value={''}>None</MenuItem>
-                <MenuItem value={IsActiveStatus.active}>Active</MenuItem>
-                <MenuItem value={IsActiveStatus.deactivated}>Deactivated</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={2} display={'flex'}>
-            <Link to={`${INSURANCES_URL}/new`} style={{ width: '100%' }}>
+              defaultValue={''}
+              input={<OutlinedInput label="Status" />}
+              onChange={handleStatusChange}
+            >
+              <MenuItem value={''}>None</MenuItem>
+              <MenuItem value={IsActiveStatus.active}>Active</MenuItem>
+              <MenuItem value={IsActiveStatus.deactivated}>Deactivated</MenuItem>
+            </Select>
+          </FormControl>
+          <Box sx={{ marginLeft: 'auto', flexShrink: 0 }}>
+            <Link to={`${INSURANCES_URL}/new`}>
               <Button
                 sx={{
                   borderRadius: 100,
                   textTransform: 'none',
-                  width: '100%',
-                  fontWeight: 600,
+                  fontWeight: 500,
                 }}
                 color="primary"
                 variant="contained"
+                startIcon={<AddIcon />}
               >
-                <AddIcon />
-                <Typography fontWeight="bold">Add new</Typography>
+                Add New
               </Button>
             </Link>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {filteredInsurances.length > 0 && (

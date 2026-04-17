@@ -68,7 +68,7 @@ function PaymentLocationsList(): ReactElement {
       <TableContainer>
         <Box sx={{ pb: 1 }}>
           <TextField
-            label="Search by location name"
+            label="Locations"
             variant="outlined"
             size="small"
             onChange={(e) => {
@@ -147,7 +147,7 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
   };
 
   return (
-    <Box sx={{ marginTop: 2 }}>
+    <Box>
       <TabContext value={subTab}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList onChange={handleSubTabChange} aria-label="Billing configuration tabs">

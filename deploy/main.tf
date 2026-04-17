@@ -1,9 +1,6 @@
 terraform {
-  backend "s3" {
-    bucket  = "YOUR_TF_BUCKET_NAME"
-    region  = "us-east-1"
-    profile = "YOUR_AWS_PROFILE_NAME"
-    key     = "terraform.tfstate"
+  backend "local" {
+    path = "terraform.tfstate"
   }
   required_version = ">= 1.12.0"
   required_providers {
@@ -14,12 +11,13 @@ terraform {
     oystehr = {
       source = "registry.terraform.io/masslight/oystehr"
     }
-    aws = {
-      source = "hashicorp/aws"
-    }
-    google = {
-      source = "hashicorp/google"
-    }
+    # aws and google providers not needed for local environment
+    # aws = {
+    #   source = "hashicorp/aws"
+    # }
+    # google = {
+    #   source = "hashicorp/google"
+    # }
   }
 }
 

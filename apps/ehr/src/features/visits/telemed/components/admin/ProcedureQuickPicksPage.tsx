@@ -89,9 +89,9 @@ export default function ProcedureQuickPicksPage(): ReactElement {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Paper sx={{ padding: 2, marginTop: 2 }}>
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, color: '#0F347C' }}>
           Procedure Quick Picks
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
@@ -101,14 +101,12 @@ export default function ProcedureQuickPicksPage(): ReactElement {
       </Box>
 
       {quickPicks.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary">
-            No procedure quick picks configured. Quick picks can be created from the Document Procedure page by clicking
-            &quot;Save as Quick Pick&quot;.
-          </Typography>
-        </Paper>
+        <Typography color="text.secondary" sx={{ p: 2 }}>
+          No procedure quick picks configured. Quick picks can be created from the Document Procedure page by clicking
+          &quot;Save as Quick Pick&quot;.
+        </Typography>
       ) : (
-        <TableContainer component={Paper}>
+        <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
@@ -156,7 +154,9 @@ export default function ProcedureQuickPicksPage(): ReactElement {
       )}
 
       <Dialog open={renameDialogOpen} onClose={() => setRenameDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Rename Quick Pick</DialogTitle>
+        <DialogTitle variant="h4" color="primary.dark">
+          Rename Quick Pick
+        </DialogTitle>
         <DialogContent>
           <TextField
             label="Name"
@@ -176,6 +176,6 @@ export default function ProcedureQuickPicksPage(): ReactElement {
           </RoundedButton>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Paper>
   );
 }

@@ -168,27 +168,32 @@ export default function QuickPickEditor<T extends { id?: string }>({
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Paper sx={{ padding: 2, marginTop: 2 }}>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: '#0F347C' }}>
             {title}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             {description}
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openAddDialog} size="small">
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={openAddDialog}
+          sx={{ borderRadius: 100, textTransform: 'none' }}
+        >
           Add
         </Button>
       </Box>
 
       {sortedItems.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary">No quick picks configured yet.</Typography>
-        </Paper>
+        <Typography color="text.secondary" sx={{ p: 2 }}>
+          No quick picks configured yet.
+        </Typography>
       ) : (
-        <TableContainer component={Paper}>
+        <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
@@ -233,7 +238,9 @@ export default function QuickPickEditor<T extends { id?: string }>({
       )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingItem ? 'Edit Quick Pick' : 'Add Quick Pick'}</DialogTitle>
+        <DialogTitle variant="h4" color="primary.dark">
+          {editingItem ? 'Edit Quick Pick' : 'Add Quick Pick'}
+        </DialogTitle>
         <DialogContent>
           {fields.map((field, index) =>
             field.renderField ? (
@@ -268,6 +275,6 @@ export default function QuickPickEditor<T extends { id?: string }>({
           </RoundedButton>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Paper>
   );
 }

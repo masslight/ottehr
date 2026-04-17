@@ -1,8 +1,8 @@
 import { Add } from '@mui/icons-material';
 import SearchIcon from '@mui/icons-material/Search';
 import {
+  Box,
   Button,
-  Grid,
   Paper,
   Skeleton,
   Table,
@@ -84,32 +84,31 @@ export default function InHouseLabAdminPage(): ReactElement {
     <Paper sx={{ padding: 2, marginTop: 2 }}>
       <TableContainer sx={{ overflowX: 'auto' }}>
         {/* Filter fields grid container */}
-        <Grid container spacing={2} display="flex" alignItems="center" justifyContent="space-between">
-          <Grid item xs={12} sm={10}>
-            <TextField
-              fullWidth
-              id="lab-search-field"
-              label="In-House Lab"
-              onChange={(e) => {
-                setLabFilter(e.target.value);
-              }}
-              InputProps={{ endAdornment: <SearchIcon /> }}
-              margin="dense"
-            ></TextField>
-          </Grid>
-          <Grid item xs={12} sm={2} display="flex">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <TextField
+            sx={{ flex: '1 1 auto', maxWidth: 400 }}
+            id="lab-search-field"
+            label="In-House Lab"
+            onChange={(e) => {
+              setLabFilter(e.target.value);
+            }}
+            InputProps={{ endAdornment: <SearchIcon /> }}
+            margin="dense"
+            size="small"
+          />
+          <Box sx={{ marginLeft: 'auto', flexShrink: 0 }}>
             <Button
               component={Link}
               to="/admin/in-house-labs/add"
-              sx={{ marginLeft: 1 }}
+              sx={{ borderRadius: 100, textTransform: 'none' }}
               color="primary"
               variant="contained"
               startIcon={<Add />}
             >
               Add In House Lab
             </Button>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
 
         <Table sx={{ minWidth: 650 }}>
           <TableHead>

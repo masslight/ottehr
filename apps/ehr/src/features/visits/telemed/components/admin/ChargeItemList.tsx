@@ -10,7 +10,6 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  Grid,
   Paper,
   Skeleton,
   Switch,
@@ -157,35 +156,33 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
         </Box>
       )}
       <TableContainer>
-        <Grid container spacing={2} display="flex" alignItems="center">
-          <Grid item xs={12} sm={10}>
-            <TextField
-              fullWidth
-              id={`${mode}-search`}
-              label={label}
-              value={searchText}
-              onChange={handleChangeSearchText}
-              InputProps={{ endAdornment: <SearchIcon /> }}
-              margin="dense"
-            />
-          </Grid>
-          <Grid item xs={12} sm={2} display={'flex'}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <TextField
+            sx={{ flex: '1 1 auto', maxWidth: 400 }}
+            id={`${mode}-search`}
+            label={label}
+            value={searchText}
+            onChange={handleChangeSearchText}
+            InputProps={{ endAdornment: <SearchIcon /> }}
+            margin="dense"
+            size="small"
+          />
+          <Box sx={{ marginLeft: 'auto', flexShrink: 0 }}>
             <Button
               sx={{
                 borderRadius: 100,
                 textTransform: 'none',
-                width: '100%',
-                fontWeight: 600,
+                fontWeight: 500,
               }}
               color="primary"
               variant="contained"
               onClick={handleOpenDialog}
+              startIcon={<AddIcon />}
             >
-              <AddIcon />
-              <Typography fontWeight="bold">Add new</Typography>
+              Add New
             </Button>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
 
         <FormControlLabel
           control={<Switch checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} size="small" />}
