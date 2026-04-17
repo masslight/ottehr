@@ -55,6 +55,17 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
       }
     }
 
+    if (
+      !suggestions ||
+      (Array.isArray(suggestions) && suggestions.length === 0) ||
+      (suggestions.suggestions && Array.isArray(suggestions.suggestions) && suggestions.suggestions.length === 0)
+    ) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ message: 'Error getting ai suggestions: AI returned empty suggestions' }),
+      };
+    }
+
     return {
       statusCode: 200,
       body: JSON.stringify(suggestions),
