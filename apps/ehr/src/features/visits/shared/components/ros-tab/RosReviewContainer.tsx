@@ -1,6 +1,6 @@
-import { Box, Chip, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import { FC } from 'react';
-import { ExamObservationDTO, InPersonRosConfig } from 'utils';
+import { InPersonRosConfig } from 'utils';
 import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
 
 export const RosReviewContainer: FC = () => {
@@ -8,46 +8,50 @@ export const RosReviewContainer: FC = () => {
   const checkedObservations = Object.values(state).filter((obs) => obs.value === true);
 
   if (checkedObservations.length === 0) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        No review of systems documented
-      </Typography>
-    );
+    return null;
   }
 
-  // Group checked items by system
-  const systemGroups: Record<string, { label: string; items: ExamObservationDTO[] }> = {};
+  // Group by system, separating denies and reports
+  const systemGroups: Record<string, { label: string; denies: string[]; reports: string[] }> = {};
+
   for (const [systemKey, system] of Object.entries(InPersonRosConfig)) {
-    const systemItems = checkedObservations.filter((obs) => obs.field in system.items);
-    if (systemItems.length > 0) {
-      systemGroups[systemKey] = { label: system.label, items: systemItems };
+    const denies: string[] = [];
+    const reports: string[] = [];
+
+    for (const [fieldKey, item] of Object.entries(system.items)) {
+      const deniesObs = state[`${fieldKey}-denies`];
+      const reportsObs = state[`${fieldKey}-reports`];
+      if (deniesObs?.value) denies.push(item.label);
+      if (reportsObs?.value) reports.push(item.label);
+    }
+
+    if (denies.length > 0 || reports.length > 0) {
+      systemGroups[systemKey] = { label: system.label, denies, reports };
     }
   }
 
+  if (Object.keys(systemGroups).length === 0) return null;
+
   return (
     <Stack spacing={1.5}>
-      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+      <Typography variant="h5" color="primary.dark">
         Review of Systems
       </Typography>
       {Object.entries(systemGroups).map(([key, group]) => (
         <Box key={key}>
-          <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>
             {group.label}
           </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-            {group.items.map((obs) => {
-              const itemConfig = InPersonRosConfig[key]?.items[obs.field];
-              return (
-                <Chip
-                  key={obs.field}
-                  label={itemConfig?.label || obs.label || obs.field}
-                  size="small"
-                  variant="outlined"
-                  sx={{ fontSize: 12 }}
-                />
-              );
-            })}
-          </Box>
+          {group.denies.length > 0 && (
+            <Typography variant="body2" sx={{ color: 'success.main', fontSize: 13 }}>
+              Denies: {group.denies.join(', ')}
+            </Typography>
+          )}
+          {group.reports.length > 0 && (
+            <Typography variant="body2" sx={{ color: 'error.main', fontSize: 13 }}>
+              Reports: {group.reports.join(', ')}
+            </Typography>
+          )}
         </Box>
       ))}
     </Stack>

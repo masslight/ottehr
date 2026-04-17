@@ -3,20 +3,28 @@ import { ExamObservationDTO, InPersonRosConfig } from 'utils';
 import { PdfDataComposerInput, ProgressNoteSectionCreator } from '../../types';
 
 export interface RosObservationsData {
-  systems: { label: string; items: string[] }[];
+  systems: { label: string; denies: string[]; reports: string[] }[];
 }
 
 export function composeRosObservations({ allChartData }: PdfDataComposerInput): RosObservationsData {
   const observations = allChartData.rosObservations || [];
-  const checked = observations.filter((o) => o.value === true);
+  const obsMap = new Map<string, ExamObservationDTO>();
+  for (const obs of observations) {
+    if (obs.value) obsMap.set(obs.field, obs);
+  }
 
-  const systems: { label: string; items: string[] }[] = [];
+  const systems: { label: string; denies: string[]; reports: string[] }[] = [];
   for (const [_systemKey, system] of Object.entries(InPersonRosConfig)) {
-    const systemItems = checked
-      .filter((obs: ExamObservationDTO) => obs.field in system.items)
-      .map((obs: ExamObservationDTO) => system.items[obs.field]?.label || obs.label || obs.field);
-    if (systemItems.length > 0) {
-      systems.push({ label: system.label, items: systemItems });
+    const denies: string[] = [];
+    const reports: string[] = [];
+
+    for (const [fieldKey, item] of Object.entries(system.items)) {
+      if (obsMap.has(`${fieldKey}-denies`)) denies.push(item.label);
+      if (obsMap.has(`${fieldKey}-reports`)) reports.push(item.label);
+    }
+
+    if (denies.length > 0 || reports.length > 0) {
+      systems.push({ label: system.label, denies, reports });
     }
   }
 
@@ -38,13 +46,17 @@ export function createRosObservationsSection(): ProgressNoteSectionCreator<'rosO
       ];
 
       for (const system of data.systems) {
-        content.push({
-          text: [
-            { text: `${system.label}: `, bold: true, fontSize: 9 },
-            { text: system.items.join(', '), fontSize: 9 },
-          ],
-          margin: [0, 2, 0, 0],
-        });
+        const parts: any[] = [{ text: `${system.label}: `, bold: true, fontSize: 9 }];
+        if (system.denies.length > 0) {
+          parts.push({ text: `Denies ${system.denies.join(', ')}`, fontSize: 9, color: '#2e7d32' });
+        }
+        if (system.denies.length > 0 && system.reports.length > 0) {
+          parts.push({ text: '; ', fontSize: 9 });
+        }
+        if (system.reports.length > 0) {
+          parts.push({ text: `Reports ${system.reports.join(', ')}`, fontSize: 9, color: '#d32f2f' });
+        }
+        content.push({ text: parts, margin: [0, 2, 0, 0] });
       }
 
       return content;
