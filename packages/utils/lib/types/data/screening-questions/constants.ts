@@ -4,6 +4,8 @@ export const SEEN_IN_LAST_THREE_YEARS_FIELD = 'seen-in-last-three-years'; // tod
 
 export const PATIENT_VACCINATION_STATUS = 'patient-vaccination-status';
 
+export const DEPRESSION_HOPELESSNESS_FIELD = 'depression-hopelessness';
+
 export enum PatientVaccinationKeys {
   yes = 'yes',
   partially = 'partially',
