@@ -9,7 +9,6 @@ import {
   GetImmunizationOrdersRequest,
   GetImmunizationOrdersResponse,
   getMedicationName,
-  getSecret,
   ImmunizationOrder,
   mapFhirToOrderStatus,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
@@ -18,7 +17,6 @@ import {
   MVX_CODE_SYSTEM_URL,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
-  SecretsKeys,
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
@@ -26,7 +24,6 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  topLevelCatch,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -43,18 +40,14 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'get-immunization-orders';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const response = await getImmunizationOrders(oystehr, validatedParameters);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  const validatedParameters = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const response = await getImmunizationOrders(oystehr, validatedParameters);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export async function getImmunizationOrders(
@@ -121,7 +114,7 @@ function mapMedicationAdministrationToImmunizationOrder(
   const status = mapFhirToOrderStatus(medicationAdministration) ?? '';
   const isAdministered = ['administered', 'administered-partly', 'administered-not'].includes(status);
   const medication = getContainedMedication(medicationAdministration);
-  const administrationCodesExtensions = (medicationAdministration.extension ?? []).filter(
+  const administrationCodesExtensions = (medication?.extension ?? []).filter(
     (extension) => extension.url === VACCINE_ADMINISTRATION_CODES_EXTENSION_URL
   );
   const emergencyContactRelatedPerson = medicationAdministration.contained?.find(
@@ -161,13 +154,18 @@ function mapMedicationAdministrationToImmunizationOrder(
             expDate: medication.batch?.expirationDate ?? '',
             mvx: findCoding(administrationCodesExtensions, MVX_CODE_SYSTEM_URL)?.code ?? '',
             cvx: findCoding(administrationCodesExtensions, CVX_CODE_SYSTEM_URL)?.code ?? '',
-            cpt: findCoding(administrationCodesExtensions, CODE_SYSTEM_CPT)?.code,
+            cptCodes: administrationCodesExtensions
+              ?.filter((ext) => ext.valueCodeableConcept?.coding?.[0]?.system === CODE_SYSTEM_CPT)
+              .map((ext) => ({
+                code: ext.valueCodeableConcept?.coding?.[0]?.code ?? '',
+                display: ext.valueCodeableConcept?.coding?.[0]?.display ?? '',
+              }))
+              .filter((c) => c.code !== ''),
             ndc: findCoding(administrationCodesExtensions, CODE_SYSTEM_NDC)?.code ?? '',
             administeredProvider: getProvider(medicationAdministration, PRACTITIONER_ADMINISTERED_MEDICATION_CODE),
             administeredDateTime: medicationAdministration.effectiveDateTime ?? '',
-            visGivenDate: medicationAdministration.extension?.find(
-              (e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
-            )?.valueDate,
+            visGivenDate: medication?.extension?.find((e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL)
+              ?.valueDate,
             emergencyContact: emergencyContactRelatedPerson
               ? {
                   fullName: emergencyContactRelatedPerson.name?.[0].text ?? '',

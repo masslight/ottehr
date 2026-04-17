@@ -1,6 +1,6 @@
-import { CodeableConcept } from 'fhir/r4b';
+import { CodeableConcept, Coding } from 'fhir/r4b';
 import { CPTCodeDTO } from '../../api';
-import { TestStatus } from './in-house.types';
+import { AdminInHouseLabItemDefinition, TestStatus } from './in-house.types';
 
 export enum PageName {
   collectSample,
@@ -94,9 +94,20 @@ export const IN_HOUSE_TEST_CODE_SYSTEM = 'http://ottehr.org/fhir/StructureDefini
 export const IN_HOUSE_PARTICIPANT_ROLE_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role';
 
+export const IN_HOUSE_DEVICE_PARTICIPANT_CODING: Coding = {
+  system: IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
+  code: 'device',
+};
+
+const IN_HOUSE_LAB_TAG_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes';
 export const IN_HOUSE_TAG_DEFINITION = {
-  system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes',
+  system: IN_HOUSE_LAB_TAG_SYSTEM,
   code: 'in-house-lab-test-definition',
+};
+
+export const IN_HOUSE_LAB_LATEST_TAG_DEFINITION = {
+  system: IN_HOUSE_LAB_TAG_SYSTEM,
+  code: 'latest',
 };
 
 export const IN_HOUSE_UNIT_OF_MEASURE_SYSTEM = 'http://unitsofmeasure.org/';
@@ -104,11 +115,12 @@ export const IN_HOUSE_UNIT_OF_MEASURE_SYSTEM = 'http://unitsofmeasure.org/';
 export const IN_HOUSE_RESULTS_VALUESET_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet';
 
-const IN_HOUSE_LAB_OD_DISPLAY_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/valueset-display';
+export const IN_HOUSE_LAB_OBSERVATION_DEF_DISPLAY_SYSTEM =
+  'http://ottehr.org/fhir/StructureDefinition/valueset-display';
 
 export type IN_HOUSE_LAB_DISPLAY_TYPES = 'Radio' | 'Select' | 'Numeric' | 'Free Text';
 export const OD_DISPLAY_CONFIG = {
-  url: IN_HOUSE_LAB_OD_DISPLAY_SYSTEM,
+  url: IN_HOUSE_LAB_OBSERVATION_DEF_DISPLAY_SYSTEM,
   valueString: {
     radio: 'Radio' as IN_HOUSE_LAB_DISPLAY_TYPES,
     select: 'Select' as IN_HOUSE_LAB_DISPLAY_TYPES,
@@ -199,4 +211,34 @@ export const REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG = {
 export const REPEAT_TEST_CPT_CODE_MODIFIER: CPTCodeDTO = {
   code: '91',
   display: 'Repeat Clinical Diagnostic Laboratory Test',
+};
+
+export const DEFAULT_OBSERVATION_DEFINITION_CODING: Coding = {
+  system: 'http://ottehr.org/fhir/StructureDefinition/default-observation-definition-code-coding',
+  code: 'default-code',
+};
+
+export const DEFAULT_ACTIVITY_DEFINITION_PARTICIPANT_ROLE_CODING: Coding = {
+  system: 'http://ottehr.org/fhir/StructureDefinition/default-activity-definition-participant-role-coding',
+  code: 'default-code',
+};
+
+export const IN_HOUSE_LAB_ACTIVITY_DEFINITION_DEVICE_PARTICIPANT_TYPE = 'device';
+
+// explicitly defining the optional parameters as undefined for clarity
+export const ADMIN_IN_HOUSE_LAB_FORM_DEFAULT_VALUES: AdminInHouseLabItemDefinition = {
+  name: '',
+  device: undefined,
+  cptCode: [{ code: '' }],
+  loincCode: undefined,
+  repeatTest: false,
+  components: [
+    {
+      dataType: 'string',
+      componentName: '',
+      loincCode: undefined,
+      display: { type: 'Free Text' },
+    },
+  ],
+  note: undefined,
 };

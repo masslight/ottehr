@@ -20,14 +20,14 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Markdown as TiptapMarkdown } from '@tiptap/markdown';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Appointment, ChargeItemDefinition, DocumentReference, Encounter, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { FC, Fragment, ReactElement, useEffect, useMemo, useState } from 'react';
+import { FC, Fragment, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -125,21 +125,45 @@ function buildLineItems(
   const items: LineItem[] = [];
 
   for (const cpt of allCodes) {
+    const cptModifier = cpt.modifier?.[0]?.code;
+    let noModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
+    let anyModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
+
     for (const pg of feeSchedule.propertyGroup) {
       const pc = pg.priceComponent?.[0];
       if (!pc) continue;
       const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
       if (!fsCoding || fsCoding.code !== cpt.code) continue;
       const fsModifier = pc.extension?.find((ext) => ext.url === CPT_MODIFIER_EXTENSION_URL)?.valueCode;
-      const cptModifier = cpt.modifier?.[0]?.code;
-      if ((fsModifier || '') !== (cptModifier || '')) continue;
+      if ((fsModifier || '') === (cptModifier || '')) {
+        // Exact code + modifier match — use it immediately
+        items.push({
+          code: cpt.code,
+          modifier: cptModifier,
+          description: cpt.display || fsCoding.display || '',
+          amount: pc.amount?.value ?? 0,
+        });
+        noModifierFallbackPg = undefined;
+        anyModifierFallbackPg = undefined;
+        break;
+      }
+      // Code matches but modifier doesn't — prefer no-modifier entry as fallback
+      if (!fsModifier && !noModifierFallbackPg) noModifierFallbackPg = pg;
+      else if (fsModifier && !anyModifierFallbackPg) anyModifierFallbackPg = pg;
+    }
+
+    const fallbackPg = noModifierFallbackPg ?? anyModifierFallbackPg;
+
+    // No exact match found — fall back to first entry with matching code
+    if (fallbackPg) {
+      const pc = fallbackPg.priceComponent![0];
+      const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
       items.push({
         code: cpt.code,
         modifier: cptModifier,
-        description: cpt.display || fsCoding.display || '',
+        description: cpt.display || fsCoding?.display || '',
         amount: pc.amount?.value ?? 0,
       });
-      break;
     }
   }
 
@@ -177,6 +201,12 @@ function buildEmPreviewRates(feeSchedule: ChargeItemDefinition | null | undefine
   return rates;
 }
 
+const deriveCardOnFileStatus = (output: unknown): boolean => {
+  if (!output || typeof output !== 'object') return false;
+  const response = output as Record<string, unknown>;
+  return Array.isArray(response.cards) && response.cards.length > 0;
+};
+
 export default function PatientPaymentList({
   loading,
   patient,
@@ -194,8 +224,23 @@ export default function PatientPaymentList({
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
-  const [hasCreditCardOnFileFromList, setHasCreditCardOnFileFromList] = useState<boolean>(false);
-  const [cardOnFileKnown, setCardOnFileKnown] = useState<boolean>(false);
+  const {
+    data: hasCreditCardOnFileFromList = false,
+    isSuccess: cardOnFileKnown,
+    refetch: refetchCardOnFile,
+  } = useQuery({
+    queryKey: ['card-on-file', patient?.id, appointment?.id],
+    queryFn: async () => {
+      if (!oystehrZambda || !patient?.id || !appointment?.id) return false;
+      const result = await oystehrZambda.zambda.execute({
+        id: 'payment-methods-list',
+        beneficiaryPatientId: patient.id,
+        appointmentId: appointment.id,
+      });
+      return deriveCardOnFileStatus(result.output);
+    },
+    enabled: !!oystehrZambda && !!patient?.id && !!appointment?.id,
+  });
 
   const {
     data: encounter,
@@ -395,101 +440,12 @@ export default function PatientPaymentList({
   const cardOnFileChipLabel = hasCreditCardOnFileFromList === true ? 'ON FILE' : 'NO CARD';
   const cardOnFileTooltipText = hasCreditCardOnFileFromList === true ? 'Credit card on file' : 'No card on file';
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const getBooleanFlag = (candidate: unknown): boolean | undefined => {
-      if (typeof candidate === 'boolean') {
-        return candidate;
-      }
-      return undefined;
-    };
-
-    const deriveCardOnFileStatus = (output: unknown): boolean => {
-      if (!output || typeof output !== 'object') {
-        return false;
-      }
-
-      const response = output as Record<string, unknown>;
-      if (!Array.isArray(response.cards)) {
-        return false;
-      }
-
-      const allCards = response.cards as unknown[];
-      if (allCards.length === 0) {
-        return false;
-      }
-
-      let hasAnyDefaultFlag = false;
-      let hasDefaultOrPrimary = false;
-
-      allCards.forEach((card) => {
-        if (!card || typeof card !== 'object') {
-          return;
-        }
-
-        const cardObj = card as Record<string, unknown>;
-        const possibleFlags = [
-          cardObj.default,
-          cardObj.isDefault,
-          cardObj.is_default,
-          cardObj.primary,
-          cardObj.isPrimary,
-          cardObj.is_primary,
-        ];
-
-        possibleFlags.forEach((flag) => {
-          const boolFlag = getBooleanFlag(flag);
-          if (boolFlag !== undefined) {
-            hasAnyDefaultFlag = true;
-            if (boolFlag) {
-              hasDefaultOrPrimary = true;
-            }
-          }
-        });
-      });
-
-      if (hasAnyDefaultFlag) {
-        return hasDefaultOrPrimary;
-      }
-
-      return true;
-    };
-
-    const fetchCardStatus = async (): Promise<void> => {
-      if (!oystehrZambda || !patient?.id) {
-        setCardOnFileKnown(false);
-        setHasCreditCardOnFileFromList(false);
-        return;
-      }
-
-      try {
-        const result = await oystehrZambda.zambda.execute({
-          id: 'payment-methods-list',
-          beneficiaryPatientId: patient.id,
-          appointmentId: appointment?.id,
-        });
-
-        const derivedStatus = deriveCardOnFileStatus(result.output);
-        if (!cancelled) {
-          setHasCreditCardOnFileFromList(derivedStatus);
-          setCardOnFileKnown(true);
-        }
-      } catch (error) {
-        console.error('Failed to determine card-on-file status from payment-methods-list', error);
-        if (!cancelled) {
-          setCardOnFileKnown(false);
-          setHasCreditCardOnFileFromList(false);
-        }
-      }
-    };
-
-    void fetchCardStatus();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [oystehrZambda, patient?.id, appointment?.id]);
+  const handlePaymentDialogClose = useCallback(() => {
+    setPaymentDialogOpen(false);
+    if (oystehrZambda && patient?.id && appointment?.id) {
+      void refetchCardOnFile();
+    }
+  }, [oystehrZambda, patient?.id, appointment?.id, refetchCardOnFile]);
 
   const stripeCustomerDeletedError =
     paymentListError && isApiError(paymentListError)
@@ -566,7 +522,7 @@ export default function PatientPaymentList({
 
   const createNewPayment = useMutation({
     mutationFn: async (input: PostPatientPaymentInput) => {
-      if (!oystehrZambda) return;
+      if (!oystehrZambda) throw new Error('Oystehr client is not available');
 
       await oystehrZambda.zambda.execute({
         id: 'patient-payments-post',
@@ -575,6 +531,13 @@ export default function PatientPaymentList({
     },
     onSuccess: async () => {
       await refetchPaymentList();
+
+      // Close as soon as the payment is visible; receipt creation can continue in background.
+      setPaymentDialogOpen(false);
+      if (appointment?.id) {
+        void refetchCardOnFile();
+      }
+
       const waitForReceipt = async (): Promise<void> => {
         let receipt: DocumentReference | null = null;
         const maxTries = 15;
@@ -591,9 +554,7 @@ export default function PatientPaymentList({
         }
       };
 
-      await waitForReceipt();
-
-      setPaymentDialogOpen(false);
+      void waitForReceipt().catch((err) => console.error('Receipt polling failed', err));
     },
     retry: 0,
   });
@@ -734,7 +695,9 @@ export default function PatientPaymentList({
       </Box>
       <ToggleButtonGroup
         exclusive
+        color="primary"
         value={paymentVariant ?? null}
+        aria-label="Select payer for claim"
         onChange={async (_e, newValue) => {
           if (newValue !== null && encounter) {
             await updateEncounter.mutateAsync(
@@ -743,82 +706,48 @@ export default function PatientPaymentList({
           }
         }}
         sx={{
-          mt: 2,
+          mt: 1,
+          borderRadius: 2,
           backgroundColor: theme.palette.grey[200],
-          borderRadius: '8px',
-          padding: '3px',
+          p: 0.25,
+          overflow: 'hidden',
           gap: 0,
           '& .MuiToggleButtonGroup-grouped': {
-            border: 'none',
-            '&:not(:first-of-type)': { borderRadius: '6px', marginLeft: '2px' },
-            '&:first-of-type': { borderRadius: '6px' },
+            border: 0,
+            borderRadius: 1,
+            px: 2.5,
+            py: 0.9,
+            textTransform: 'none',
+            fontWeight: 600,
+            fontSize: '0.9rem',
+            color: theme.palette.text.secondary,
+            backgroundColor: 'transparent',
+            '&.Mui-selected': {
+              backgroundColor: theme.palette.primary.main,
+              color: theme.palette.primary.contrastText,
+              '&:hover': {
+                backgroundColor: theme.palette.primary.dark,
+              },
+            },
+            '&:hover': {
+              backgroundColor: theme.palette.action.hover,
+            },
+          },
+          '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+            borderLeft: `1px solid ${theme.palette.divider}`,
           },
         }}
       >
         {isUrgentCare ? (
-          <ToggleButton
-            disabled={updateEncounter.isPending || isEncounterRefetching}
-            value={PaymentVariant.insurance}
-            sx={{
-              px: 3,
-              py: 0.75,
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '14px',
-              color: theme.palette.text.secondary,
-              '&.Mui-selected': {
-                backgroundColor: theme.palette.common.white,
-                color: theme.palette.primary.main,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-                '&:hover': { backgroundColor: theme.palette.common.white },
-              },
-              '&:hover': { backgroundColor: 'transparent' },
-            }}
-          >
+          <ToggleButton disabled={updateEncounter.isPending || isEncounterRefetching} value={PaymentVariant.insurance}>
             Insurance
           </ToggleButton>
         ) : null}
-        <ToggleButton
-          disabled={updateEncounter.isPending || isEncounterRefetching}
-          value={PaymentVariant.selfPay}
-          sx={{
-            px: 3,
-            py: 0.75,
-            textTransform: 'none',
-            fontWeight: 600,
-            fontSize: '14px',
-            color: theme.palette.text.secondary,
-            '&.Mui-selected': {
-              backgroundColor: theme.palette.common.white,
-              color: theme.palette.primary.main,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-              '&:hover': { backgroundColor: theme.palette.common.white },
-            },
-            '&:hover': { backgroundColor: 'transparent' },
-          }}
-        >
+        <ToggleButton disabled={updateEncounter.isPending || isEncounterRefetching} value={PaymentVariant.selfPay}>
           Self Pay
         </ToggleButton>
         {isOccupationalMedicine || isWorkmansComp ? (
-          <ToggleButton
-            disabled={updateEncounter.isPending || isEncounterRefetching}
-            value={PaymentVariant.employer}
-            sx={{
-              px: 3,
-              py: 0.75,
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '14px',
-              color: theme.palette.text.secondary,
-              '&.Mui-selected': {
-                backgroundColor: theme.palette.common.white,
-                color: theme.palette.primary.main,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-                '&:hover': { backgroundColor: theme.palette.common.white },
-              },
-              '&:hover': { backgroundColor: 'transparent' },
-            }}
-          >
+          <ToggleButton disabled={updateEncounter.isPending || isEncounterRefetching} value={PaymentVariant.employer}>
             Employer
           </ToggleButton>
         ) : null}
@@ -1570,7 +1499,7 @@ export default function PatientPaymentList({
           patient={patient}
           encounterId={encounterId}
           appointmentId={appointment?.id}
-          handleClose={() => setPaymentDialogOpen(false)}
+          handleClose={handlePaymentDialogClose}
           isSubmitting={createNewPayment.isPending}
           onTerminalPaymentSuccess={async () => {
             await refetchPaymentList();

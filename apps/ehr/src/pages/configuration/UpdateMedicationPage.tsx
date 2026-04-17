@@ -1,6 +1,7 @@
 import { LoadingButton } from '@mui/lab';
 import { Autocomplete, debounce, Grid, Paper, TextField, Typography } from '@mui/material';
 import { Medication } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
@@ -17,6 +18,7 @@ import {
   CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_NDC,
   CPTCodeDTO,
+  getMedicationName,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
 } from 'utils';
@@ -24,9 +26,28 @@ import {
 function getMedispanId(medication: Medication): string | undefined {
   return medication.code?.coding?.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)?.code;
 }
-
-function getMedicationName(medication: Medication): string {
-  return medication.identifier?.find((i) => i.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value ?? '';
+function mergeSelectedMedicationIntoExisting(selected: Medication, existing: Medication): Medication {
+  const preservedIdentifiers = (existing.identifier ?? []).filter(
+    (i) => i.system !== MEDICATION_IDENTIFIER_NAME_SYSTEM
+  );
+  const selectedIdentifiers = selected.identifier ?? [];
+  const selectedCodings = selected.code?.coding ?? [];
+  const overriddenSystems = new Set(selectedCodings.map((c) => c.system).filter((s): s is string => !!s));
+  const preservedCodings = (existing.code?.coding ?? []).filter((c) => !overriddenSystems.has(c.system ?? ''));
+  const mergedCoding = [...preservedCodings, ...selectedCodings];
+  const code = {
+    ...existing.code,
+    ...selected.code,
+    ...(mergedCoding.length > 0 ? { coding: mergedCoding } : {}),
+  };
+  const hasCode = Object.values(code).some((value) => value !== undefined);
+  return {
+    ...existing,
+    ...selected,
+    id: existing.id,
+    identifier: [...preservedIdentifiers, ...selectedIdentifiers],
+    ...(hasCode ? { code } : {}),
+  };
 }
 
 export default function UpdateMedicationPage(): ReactElement {
@@ -42,7 +63,7 @@ export default function UpdateMedicationPage(): ReactElement {
   const [debouncedHcpcsSearch, setDebouncedHcpcsSearch] = useState('');
 
   const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
-  const medicationOptions: Medication[] = (data ?? []).map((option) => ({
+  const medicationOptions: Medication[] = (data?.filter((option) => !option.isObsolete) ?? []).map((option) => ({
     resourceType: 'Medication',
     identifier: [
       {
@@ -52,7 +73,7 @@ export default function UpdateMedicationPage(): ReactElement {
     ],
     code: {
       coding: [
-        { system: MEDICATION_DISPENSABLE_DRUG_ID, code: option.routedDoseFormDrugId.toString() },
+        { system: MEDICATION_DISPENSABLE_DRUG_ID, code: option.id.toString() },
         ...(option.ndc ? [{ system: CODE_SYSTEM_NDC, code: option.ndc }] : []),
       ],
     },
@@ -99,7 +120,7 @@ export default function UpdateMedicationPage(): ReactElement {
       const medicationsTemp = await getInHouseMedications(oystehrZambda);
       const medicationTemp = medicationsTemp.find((temp) => temp.id === medicationId);
       setMedication(medicationTemp ?? null);
-      setStatus(medicationTemp?.status || '');
+      setStatus(medicationTemp?.status ? medicationTemp.status : 'active');
       setCptCodes(
         (medicationTemp?.code?.coding ?? [])
           .filter((c) => c.system === CODE_SYSTEM_CPT)
@@ -136,13 +157,15 @@ export default function UpdateMedicationPage(): ReactElement {
         cptCodes: finalCptCodes,
         hcpcsCodes: finalHcpcsCodes,
       });
+      enqueueSnackbar('Medication updated successfully', { variant: 'success' });
     } catch (error) {
       console.log('Error updating medication', error);
+      enqueueSnackbar('Failed to update medication', { variant: 'error' });
     }
     setLoading(false);
   }
 
-  async function updateStatus(status: string): Promise<void> {
+  async function updateStatus(newStatus: string): Promise<void> {
     if (!oystehrZambda || !medication?.id) {
       return;
     }
@@ -151,11 +174,20 @@ export default function UpdateMedicationPage(): ReactElement {
     try {
       const medicationTemp = await updateInHouseMedication(oystehrZambda, {
         medicationID: medication.id,
-        status,
+        status: newStatus,
       });
       setStatus(medicationTemp.status || '');
+      enqueueSnackbar(
+        newStatus === 'active' ? 'Medication activated successfully' : 'Medication removed successfully',
+        {
+          variant: 'success',
+        }
+      );
     } catch (error) {
       console.log('Error updating medication', error);
+      enqueueSnackbar(newStatus === 'active' ? 'Failed to activate medication' : 'Failed to remove medication', {
+        variant: 'error',
+      });
     }
     setLoading(false);
   }
@@ -183,10 +215,11 @@ export default function UpdateMedicationPage(): ReactElement {
               <Grid item xs={6}>
                 <Autocomplete
                   value={medication}
-                  getOptionLabel={getMedicationName}
+                  getOptionLabel={(option) => getMedicationName(option) || ''}
                   fullWidth
                   isOptionEqualToValue={(option, value) => getMedispanId(option) === getMedispanId(value)}
                   loading={isSearching}
+                  disableClearable
                   disablePortal
                   noOptionsText={
                     debouncedSearchTerm && debouncedSearchTerm.length > 2 && medicationOptions.length === 0
@@ -194,9 +227,14 @@ export default function UpdateMedicationPage(): ReactElement {
                       : 'Start typing to load results'
                   }
                   options={medicationOptions}
-                  onChange={(_e, value) => setMedication(value)}
+                  onChange={(_e, value) => setMedication((prev) => mergeSelectedMedicationIntoExisting(value, prev!))}
                   renderInput={(params) => (
-                    <TextField {...params} label="Name" onChange={(e) => debouncedHandleInputChange(e.target.value)} />
+                    <TextField
+                      {...params}
+                      label="Name"
+                      required
+                      onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                    />
                   )}
                 />
               </Grid>

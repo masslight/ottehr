@@ -11,17 +11,15 @@ import {
   getFullestAvailableName,
   getInPersonVisitStatus,
   getPatchBinary,
-  getSecret,
   getTaskResource,
   isFollowupEncounter,
-  SecretsKeys,
   SignAppointmentInput,
   SignAppointmentResponse,
   TaskIndicator,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
@@ -34,25 +32,19 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'sign-appointment';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-    console.log('Created Oystehr client');
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
+  console.log('Created Oystehr client');
 
-    const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.error('Stringified error: ' + JSON.stringify(error));
-    console.error('Error: ' + error);
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export const performEffect = async (

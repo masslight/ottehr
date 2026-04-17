@@ -130,6 +130,7 @@ export const dataTestIds = {
     searchByLastNameField: 'search-last-name-field',
     searchByGivenNamesField: 'search-given-names-field',
     searchByDateOfBirthField: 'searchByDateOfBirthField',
+    searchByPidField: 'search-pid-field',
     searchByPhoneField: 'search-phone-field',
     searchByAddressField: 'search-by-address',
     searchByEmailField: 'search-by-email-field',
@@ -284,6 +285,7 @@ export const dataTestIds = {
     medicalDecisionLink: 'medical-decision-link',
     emCodeLink: 'em-code-link',
     hpiLink: 'hpi-link',
+    accidentDateLink: 'accident-date-link',
     ccLink: 'chief-complaint-link',
     visitNoteCard: 'visit-note-card',
     procedureItem: 'procedure-item',
@@ -336,8 +338,8 @@ export const dataTestIds = {
     orderButton: 'order-button',
     marTableLoader: 'mar-table-loader',
     marTable: {
-      medicationRowPrefix: 'mar-table-medication-',
-      medicationRow: (medicationId: string) => `mar-table-medication-${medicationId}`,
+      medicationRowPrefix: 'mar-table-medication-row-',
+      medicationRow: (medicationId: string) => `mar-table-medication-row-${medicationId}`,
       medicationCell: 'mar-table-medication-cell',
       statusCell: 'mar-table-status-cell',
       doseCell: 'mar-table-dose-cell',
@@ -511,6 +513,7 @@ export const dataTestIds = {
     deleteButtonPrefix: 'delete-button-',
     tableRowPrefix: 'in-house-lab-table-row-',
     loading: 'in-house-labs-table-loading',
+    noLabsMessage: 'in-house-labs-table-no-labs-text',
   },
   orderInHouseLabPage: {
     title: 'order-in-house-labs-title',
@@ -688,6 +691,7 @@ export const dataTestIds = {
   },
 
   commonLabOrder: {
+    deleteDialog: 'delete-lab-order-dialog',
     deleteDialogButton: 'delete-lab-order-dialog-btn',
     labSets: {
       launchModal: 'launch-lab-set-modal-btn',

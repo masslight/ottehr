@@ -790,7 +790,9 @@ function parseBundleIntoResources(bundle: Bundle): Resource[] {
       const innerBundle = entry.resource as Bundle;
       const innerEntry = innerBundle.entry;
       if (!innerEntry) {
-        throw new Error('could not parse search bundle');
+        console.log('no inner entry found in bundle');
+        // A FHIR searchset bundle with 0 results may omit the entry field entirely — that's valid.
+        return;
       }
       innerEntry.forEach((e) => {
         if (e.resource?.resourceType && e.resource?.id) result.push(e.resource);
@@ -1542,4 +1544,16 @@ export async function patchWithOptimisticLock<T extends FhirResource & { id: str
       current = (await oystehr.fhir.get<T>({ resourceType, id: current.id } as any)) as T;
     }
   }
+}
+
+export function makeOptimisticLockIfMatchHeader(res: FhirResource | string): string | undefined {
+  let versionId: string | undefined;
+
+  if (typeof res === 'string') {
+    versionId = res;
+  } else {
+    versionId = res.meta?.versionId;
+  }
+
+  return versionId ? `W/"${versionId}"` : undefined;
 }

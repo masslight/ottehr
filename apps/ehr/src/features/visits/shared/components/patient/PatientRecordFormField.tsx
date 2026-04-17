@@ -1,6 +1,5 @@
 import { Autocomplete, Checkbox, FormControlLabel, Link, TextField, useTheme } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { FormFieldsDisplayItem, FormFieldsGroupItem, FormFieldsInputItem } from 'config-types';
 import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
@@ -8,7 +7,14 @@ import { BasicDatePicker, FormGroupPharmacyCollection, FormSelect, FormTextField
 import InputMask from 'src/components/InputMask';
 import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { dedupeObjectsByKey, isRemovableField, QuestionnaireItemGroupType } from 'utils';
+import {
+  dedupeObjectsByKey,
+  FormFieldsDisplayItem,
+  FormFieldsGroupItem,
+  FormFieldsInputItem,
+  isRemovableField,
+  QuestionnaireItemGroupType,
+} from 'utils';
 import { evaluateFieldTriggers } from './patientRecordValidation';
 
 interface PatientRecordFormFieldProps {
@@ -66,8 +72,10 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
   const sourceFieldValue = dynamicPopulation?.sourceLinkId ? watch(dynamicPopulation.sourceLinkId) : undefined;
   const stashedValueRef = useRef<any>(null);
 
+  const triggerState = dynamicPopulation?.triggerState ?? 'disabled';
+
   useEffect(() => {
-    if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && isDisabled) {
+    if (dynamicPopulation && triggerState === 'disabled' && isDisabled) {
       const currentValue = getValues(item.key);
 
       // Only update if the source value is different from current value
@@ -75,13 +83,13 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
         stashedValueRef.current = currentValue;
         setValue(item.key, sourceFieldValue, { shouldDirty: true });
       }
-    } else if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && !isDisabled) {
+    } else if (dynamicPopulation && triggerState === 'disabled' && !isDisabled) {
       if (stashedValueRef.current !== null) {
         setValue(item.key, stashedValueRef.current, { shouldDirty: true });
         stashedValueRef.current = null;
       }
     }
-  }, [sourceFieldValue, isDisabled, dynamicPopulation, item.key, setValue, getValues]);
+  }, [sourceFieldValue, isDisabled, dynamicPopulation, triggerState, item.key, setValue, getValues]);
 
   if (isDisabled && disabledDisplay === 'hidden') {
     return null;
@@ -307,6 +315,18 @@ interface DynamicReferenceFieldProps {
   id?: string;
 }
 
+/**
+ * If the currently selected value is not in the active options list,
+ * include it with an "(inactive)" suffix so it remains visible.
+ */
+function ensureSelectedOptionVisible(options: Reference[], selected: Reference | null | undefined): Reference[] {
+  if (!selected?.reference) return options;
+  const isInList = options.some((opt) => opt.reference === selected.reference);
+  if (isInList) return options;
+  const inactiveLabel = selected.display ? `${selected.display} (inactive)` : selected.reference;
+  return [...options, { ...selected, display: inactiveLabel }];
+}
+
 const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStrategy, id }) => {
   const { oystehrZambda } = useApiClients();
   const { control, setValue } = useFormContext();
@@ -358,12 +378,14 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
       name={item.key}
       control={control}
       render={({ field: { value }, fieldState: { error } }) => {
+        const options = ensureSelectedOptionVisible(answerOptions ?? [], value);
+
         const selectedOption = value?.reference
-          ? answerOptions?.find((option) => option.reference === value.reference)
+          ? options.find((option) => option.reference === value.reference)
           : undefined;
         return (
           <Autocomplete
-            options={answerOptions ?? []}
+            options={options}
             loading={isLoading || isRefetching}
             id={id}
             loadingText={'Loading...'}

@@ -2,12 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, CodeableConcept, Consent, DocumentReference, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  AppointmentAttendanceType,
   AppointmentType,
   diffInMinutes,
   EncounterVirtualServiceExtension,
   FHIR_APPOINTMENT_TYPE_MAP,
   FHIR_ZAPEHR_URL,
   getCoding,
+  OTTEHR_MODULE,
   PAPERWORK_CONSENT_CODE_UNIQUE,
   PUBLIC_EXTENSION_BASE_URL,
   REASON_FOR_VISIT_SEPARATOR,
@@ -127,6 +129,16 @@ export const appointmentTypeForAppointment = (appointment: Appointment): Appoint
   return appointment.appointmentType?.text
     ? FHIR_APPOINTMENT_TYPE_MAP[appointment.appointmentType?.text] || 'walk-in'
     : 'walk-in';
+};
+
+export const appointmentAttendanceTypeAppointment = (
+  appointment: Appointment
+): AppointmentAttendanceType | undefined => {
+  return appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP)
+    ? 'in-person'
+    : appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM)
+    ? 'virtual'
+    : undefined;
 };
 
 interface GetConsentAndRelatedDocRefsForAppointmentParams {

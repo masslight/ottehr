@@ -2,7 +2,7 @@ import { LoadingButton } from '@mui/lab';
 import { Button, Checkbox, Chip, CircularProgress, TextField, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
 import React, { useCallback, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { radiologyLaunchViewer } from 'src/api/api';
 import { DetailTaskCard } from 'src/features/tasks/components/DetailTaskCard';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -13,6 +13,7 @@ import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCa
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
 import { RadiologyTableStatusChip } from '../components/RadiologyTableStatusChip';
 import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
+import { useRadiologyConsentExists } from '../components/useRadiologyConsentExists';
 
 export const RadiologyOrderDetailsPage: React.FC = () => {
   const { oystehrZambda } = useApiClients();
@@ -67,6 +68,8 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
       setIsLaunchingViewer(false);
     }
   }, [serviceRequestId, oystehrZambda]);
+
+  const consentExists = useRadiologyConsentExists();
 
   const order = orders.find((order) => order.serviceRequestId === serviceRequestId);
 
@@ -233,7 +236,21 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                     inputProps={{ readOnly: true }}
                     checked={order.consentObtained}
                   />
-                  <Typography>I have obtained the consent for X-ray</Typography>
+                  <Typography>
+                    I have obtained the{' '}
+                    {consentExists ? (
+                      <Link
+                        target="_blank"
+                        to={`/consent_radiology.pdf`}
+                        style={{ color: theme.palette.primary.main }}
+                        rel="noopener noreferrer"
+                      >
+                        consent for X-ray
+                      </Link>
+                    ) : (
+                      'consent for X-ray'
+                    )}
+                  </Typography>
                 </Box>
               </Box>
             </Box>

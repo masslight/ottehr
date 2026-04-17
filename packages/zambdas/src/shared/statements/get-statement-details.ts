@@ -26,6 +26,7 @@ import {
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { getDefaultBillingProviderResource } from '../../patient/get-eligibility/validation';
 import { getCandidEncounterIdFromEncounter } from '../candid';
+import { resolveTimezone } from '../helpers';
 import { getLogoBase64 } from './get-logo-base64';
 
 export type StatementType = 'standard' | 'past-due' | 'final-notice';
@@ -35,6 +36,7 @@ interface StatementResources {
   encounter: Encounter;
   patient: Patient;
   location: Location | undefined;
+  schedule: Schedule | undefined;
 }
 
 interface StatementInsuranceDetails {
@@ -89,6 +91,10 @@ const getResources = async (encounterId: string, oystehr: Oystehr): Promise<Stat
           name: '_include:iterate',
           value: 'Appointment:location',
         },
+        {
+          name: '_revinclude:iterate',
+          value: 'Schedule:actor:Location',
+        },
       ],
     })
   ).unbundle();
@@ -103,12 +109,18 @@ const getResources = async (encounterId: string, oystehr: Oystehr): Promise<Stat
   if (!patient) throw new Error('Patient not found');
 
   const location = items.find((item: Resource) => item.resourceType === 'Location') as Location | undefined;
+  const schedule = location?.id
+    ? (items.filter((item: Resource) => item.resourceType === 'Schedule') as Schedule[]).find(
+        (s) => s.actor?.some((a) => a.reference === `Location/${location.id}`)
+      )
+    : undefined;
 
   return {
     appointment,
     encounter,
     patient,
     location,
+    schedule,
   };
 };
 
@@ -187,7 +199,11 @@ function formatMoney(cents: number | undefined): string {
   return `$${((cents ?? 0) / 100).toFixed(2)}`;
 }
 
-async function getServiceLines(encounter: Encounter, secrets: Secrets): Promise<StatementLineDetails> {
+async function getServiceLines(
+  encounter: Encounter,
+  secrets: Secrets,
+  oystehr: Oystehr
+): Promise<StatementLineDetails> {
   const encounterId = encounter.id;
   if (!encounterId) {
     throw new Error('Encounter id is missing');
@@ -227,7 +243,7 @@ async function getServiceLines(encounter: Encounter, secrets: Secrets): Promise<
 
       return {
         cpt: serviceLine.procedureCode,
-        description: await getProcedureCodeTitle(serviceLine.procedureCode, secrets),
+        description: await getProcedureCodeTitle(serviceLine.procedureCode, oystehr),
         charged: formatMoney(chargeAfterAdjustments),
         insurancePaid: formatMoney(insurancePaid),
         patientPaid: formatMoney(patientPaid),
@@ -268,29 +284,15 @@ async function getServiceLines(encounter: Encounter, secrets: Secrets): Promise<
   };
 }
 
-async function getProcedureCodeTitle(code: string, secrets: Secrets): Promise<string> {
-  const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
-  const names = await Promise.all([searchCodeName(code, 'HCPT', apiKey), searchCodeName(code, 'HCPCS', apiKey)]);
-  const name = names.find((entry) => entry != null);
+async function getProcedureCodeTitle(code: string, oystehr: Oystehr): Promise<string> {
+  const [cptResponse, hcpcsResponse] = await Promise.all([
+    oystehr.terminology.searchCpt({ searchType: 'code', strictMatch: true, query: code }),
+    oystehr.terminology.searchHcpcs({ searchType: 'code', strictMatch: true, query: code }),
+  ]);
+  const name =
+    cptResponse.codes.find((c) => c.code === code)?.display ??
+    hcpcsResponse.codes.find((c) => c.code === code)?.display;
   return name ? `${code} - ${name}` : code;
-}
-
-async function searchCodeName(code: string, sabs: string, apiKey: string): Promise<string | undefined> {
-  const response = await fetch(
-    `https://uts-ws.nlm.nih.gov/rest/search/current?apiKey=${apiKey}&returnIdType=code&inputType=code&string=${code}&sabs=${sabs}&partialSearch=true&searchType=rightTruncation`
-  );
-  if (!response.ok) {
-    return undefined;
-  }
-  const responseBody = (await response.json()) as {
-    result: {
-      results: {
-        ui: string;
-        name: string;
-      }[];
-    };
-  };
-  return responseBody.result.results.find((entry) => entry)?.name;
 }
 
 function createStatementDetails(
@@ -307,15 +309,16 @@ function createStatementDetails(
   const pastDue = statementType === 'past-due' || statementType === 'final-notice';
   const finalNotice = statementType === 'final-notice';
   const logoBase64 = getLogoBase64();
-  const { patient, location, appointment } = resources;
+  const { patient, location, schedule, appointment } = resources;
   const statementNumber = appointment.id ?? 'unknown';
   const patientName = patient.name?.[0];
   const guarantorName = guarantorResource.name?.[0];
   const guarantorAddress = guarantorResource.address?.[0];
-  const { date: visitDate = '', time: visitTime = '' } = formatDateToMDYWithTime(
-    appointment?.start,
-    'America/New_York'
-  ) ?? { date: '', time: '' };
+  const timezone = resolveTimezone(schedule, location);
+  const { date: visitDate = '', time: visitTime = '' } = formatDateToMDYWithTime(appointment?.start, timezone) ?? {
+    date: '',
+    time: '',
+  };
 
   const today = DateTime.now();
   const patientFirstName = patientName?.given?.[0] ?? '';
@@ -388,7 +391,7 @@ export async function getStatementDetails(input: GetStatementDetailsInput): Prom
   }
 
   const insuranceDetails = getInsuranceDetails(coverages, insuranceOrgs);
-  const { serviceLines, totals } = await getServiceLines(resources.encounter, secrets);
+  const { serviceLines, totals } = await getServiceLines(resources.encounter, secrets, oystehr);
   const paymentUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
 
   let billerDetails: StatementBillerDetails = {

@@ -25,7 +25,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
         <ProfileAvatar embracingSquareSize={150} showEditButton={true} />
 
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <IdentifiersRow id={patientData?.id} />
+          <IdentifiersRow patient={patientData} loading={isLoading} />
           <FullNameDisplay patient={patientData} loading={isLoading} />
           <Summary patient={patientData} loading={isLoading} />
           <Contacts patient={patientData} loading={isLoading} />

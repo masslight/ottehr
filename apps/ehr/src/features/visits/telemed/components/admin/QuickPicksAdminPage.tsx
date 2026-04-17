@@ -32,9 +32,9 @@ type SubTab =
   | 'allergies'
   | 'medical-conditions'
   | 'medications'
+  | 'radiology'
   | 'immunizations'
-  | 'in-house-medications'
-  | 'radiology';
+  | 'in-house-medications';
 
 const AllergenSearchField: React.FC<{
   value: string;

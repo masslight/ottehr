@@ -21,7 +21,6 @@ import {
   getAuth0Token,
   makeObservationResource,
   saveResourceRequest,
-  topLevelCatch,
   triggerSlackAlarm,
   wrapHandler,
   ZambdaInput,
@@ -34,31 +33,26 @@ let oystehrToken: string;
 export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('Intake Harvest Hath Been Invoked');
   console.log(`Input: ${JSON.stringify(input)}`);
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { qr, secrets } = validatedParameters;
-    console.log('questionnaire response id', qr.id);
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const { qr, secrets } = validatedParameters;
+  console.log('questionnaire response id', qr.id);
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
 
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
-    const response = await performEffect(validatedParameters, oystehr);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('qr-subscription', error, ENVIRONMENT);
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
   }
+
+  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const response = await performEffect(validatedParameters, oystehr);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 // this is exported to facilitate integration testing

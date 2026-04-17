@@ -3,8 +3,8 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getSecret, isTelemedAppointment, SecretsKeys } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { isTelemedAppointment } from 'utils';
+import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { SubmitPaperworkEffectInput, validateSubmitInputs } from '../validateRequestParameters';
 
@@ -12,31 +12,26 @@ import { SubmitPaperworkEffectInput, validateSubmitInputs } from '../validateReq
 export let token: string;
 
 export const index = wrapHandler('submit-paperwork', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const secrets = input.secrets;
-    if (!token) {
-      console.log('getting token');
-      token = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(token, secrets);
-
-    const effectInput = await validateSubmitInputs(input, oystehr);
-
-    console.log('effect input', JSON.stringify(effectInput));
-
-    const qr = await performEffect(effectInput, oystehr);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(qr),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('submit-paperwork', error, ENVIRONMENT);
+  const secrets = input.secrets;
+  if (!token) {
+    console.log('getting token');
+    token = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
   }
+
+  const oystehr = createOystehrClient(token, secrets);
+
+  const effectInput = await validateSubmitInputs(input, oystehr);
+
+  console.log('effect input', JSON.stringify(effectInput));
+
+  const qr = await performEffect(effectInput, oystehr);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(qr),
+  };
 });
 
 const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr): Promise<QuestionnaireResponse> => {

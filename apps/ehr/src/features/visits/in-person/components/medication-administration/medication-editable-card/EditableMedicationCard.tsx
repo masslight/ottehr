@@ -32,7 +32,10 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useMergedInHouseMedicationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import {
+  CODE_SYSTEM_CPT,
+  CODE_SYSTEM_HCPCS,
   ExtendedMedicationDataForResponse,
+  getApiError,
   getMedicationName,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
   InHouseMedicationQuickPickData,
@@ -162,8 +165,9 @@ export const EditableMedicationCard: React.FC<{
       if (appointmentId) {
         navigate(getInHouseMedicationMARUrl(appointmentId));
       }
-    } catch {
-      enqueueSnackbar('Failed to delete medication. Please try again.', { variant: 'error' });
+    } catch (error) {
+      const errorMessage = getApiError({ error, defaultError: 'Failed to delete medication. Please try again.' });
+      enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       setIsDeleting(false);
     }
@@ -181,6 +185,28 @@ export const EditableMedicationCard: React.FC<{
     }
     if (field === 'medicationId' && value !== '' && (typeFromProps === 'order-new' || typeFromProps === 'order-edit')) {
       setErxEnabled(true);
+    }
+    // Auto-populate CPT codes from medication resource when a medication is selected
+    if (field === 'medicationId' && value && value !== IN_HOUSE_CONTAINED_MEDICATION_ID && oystehr) {
+      void (async () => {
+        try {
+          const med = await oystehr.fhir.get<Medication>({
+            resourceType: 'Medication',
+            id: value as string,
+          });
+          const codes: { code: string; display: string }[] = [];
+          med.code?.coding?.forEach((coding) => {
+            if ((coding.system === CODE_SYSTEM_CPT || coding.system === CODE_SYSTEM_HCPCS) && coding.code) {
+              codes.push({ code: coding.code, display: coding.display ?? '' });
+            }
+          });
+          if (codes.length > 0) {
+            setLocalValues((prev) => ({ ...prev, cptCodes: codes }));
+          }
+        } catch {
+          // Medication lookup failed — user can still add CPT codes manually
+        }
+      })();
     }
   };
 
@@ -239,15 +265,17 @@ export const EditableMedicationCard: React.FC<{
       setLocalValues((prev) => ({
         ...prev,
         ...(resolvedMedicationId && { medicationId: resolvedMedicationId }),
-        ...(quickPick.dose != null && { dose: quickPick.dose }),
-        ...(quickPick.units && { units: quickPick.units }),
-        ...(quickPick.route && { route: quickPick.route }),
-        ...(quickPick.manufacturer && { manufacturer: quickPick.manufacturer }),
+        dose: quickPick.dose,
+        units: quickPick.units,
+        route: quickPick.route,
+        manufacturer: quickPick.manufacturer,
         // Don't apply associatedDx from quick pick — it's a Condition resource ID
         // that is encounter-specific and won't be valid on other encounters
-        ...(quickPick.instructions && { instructions: quickPick.instructions }),
-        ...(quickPick.lotNumber && { lotNumber: quickPick.lotNumber }),
-        ...(quickPick.expDate && { expDate: quickPick.expDate }),
+        instructions: quickPick.instructions,
+        lotNumber: quickPick.lotNumber,
+        ndc: quickPick.ndc,
+        expDate: quickPick.expDate,
+        cptCodes: quickPick.cptCodes ?? [],
       }));
       // Only enable ERX on order pages — the ERX component isn't rendered for dispense/completed-edit
       if (resolvedMedicationId && isOrderType) setErxEnabled(true);
@@ -292,7 +320,9 @@ export const EditableMedicationCard: React.FC<{
     // associatedDx is not saved — it's a Condition resource ID that is encounter-specific
     instructions: localValues.instructions,
     lotNumber: localValues.lotNumber,
+    ndc: localValues.ndc,
     expDate: localValues.expDate,
+    cptCodes: localValues.cptCodes,
   });
 
   const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
@@ -424,7 +454,11 @@ export const EditableMedicationCard: React.FC<{
         await handleStatusChange(newStatus);
       }
 
-      if (typeRef.current === 'order-new') {
+      if (
+        typeRef.current === 'order-new' ||
+        typeRef.current === 'dispense' ||
+        typeRef.current === 'dispense-not-administered'
+      ) {
         navigate(getInHouseMedicationMARUrl(appointmentId!));
       }
 
@@ -432,7 +466,8 @@ export const EditableMedicationCard: React.FC<{
     } catch (error) {
       console.error('handleConfirmSave error:', error);
       console.error('Request data:', JSON.stringify(medicationUpdateRequestInputRefRef.current, null, 2));
-      enqueueSnackbar('Failed to save medication order', { variant: 'error' });
+      const errorMessage = getApiError({ error, defaultError: 'Failed to save medication. Please try again.' });
+      enqueueSnackbar(errorMessage, { variant: 'error' });
       setIsOrderUpdating(false);
       setIsConfirmSaveModalOpen(false);
       setConfirmationModalConfig(null);
@@ -479,7 +514,7 @@ export const EditableMedicationCard: React.FC<{
     isUnsavedData
   );
 
-  const hasNotEditableStatus = currentStatus !== 'pending';
+  const hasNotEditableStatus = currentStatus !== 'pending' && typeRef.current !== 'completed-edit';
   const isCreatingOrEditingOrder = typeRef.current === 'order-new' || typeRef.current === 'order-edit';
   const isCreatingOrEditingOrderAndNothingToSave = isCreatingOrEditingOrder && !isUnsavedData;
   const isErxLoading = erxEnabled && erxStatus === ERXStatus.LOADING;

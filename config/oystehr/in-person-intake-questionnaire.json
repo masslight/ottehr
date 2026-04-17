@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-in-person-previsit-1_1_6": {
+    "questionnaire-in-person-previsit-1_1_7": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-        "version": "1.1.6",
+        "version": "1.1.7",
         "name": "in-person_pre-visit_paperwork",
         "title": "in-person pre-visit paperwork",
         "status": "active",
@@ -441,74 +441,9 @@
               },
               {
                 "linkId": "reason-for-visit",
-                "type": "choice",
+                "type": "string",
                 "required": true,
                 "readOnly": true,
-                "answerOption": [
-                  {
-                    "valueString": "Cough and/or congestion"
-                  },
-                  {
-                    "valueString": "Throat pain"
-                  },
-                  {
-                    "valueString": "Eye concern"
-                  },
-                  {
-                    "valueString": "Fever"
-                  },
-                  {
-                    "valueString": "Ear pain"
-                  },
-                  {
-                    "valueString": "Vomiting and/or diarrhea"
-                  },
-                  {
-                    "valueString": "Abdominal (belly) pain"
-                  },
-                  {
-                    "valueString": "Rash or skin issue"
-                  },
-                  {
-                    "valueString": "Urinary problem"
-                  },
-                  {
-                    "valueString": "Breathing problem"
-                  },
-                  {
-                    "valueString": "Injury to arm"
-                  },
-                  {
-                    "valueString": "Injury to leg"
-                  },
-                  {
-                    "valueString": "Injury to head"
-                  },
-                  {
-                    "valueString": "Injury (Other)"
-                  },
-                  {
-                    "valueString": "Cut to arm or leg"
-                  },
-                  {
-                    "valueString": "Cut to face or head"
-                  },
-                  {
-                    "valueString": "Removal of sutures/stitches/staples"
-                  },
-                  {
-                    "valueString": "Choked or swallowed something"
-                  },
-                  {
-                    "valueString": "Allergic reaction to medication or food"
-                  },
-                  {
-                    "valueString": "Auto accident"
-                  },
-                  {
-                    "valueString": "Other"
-                  }
-                ],
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
@@ -2152,7 +2087,7 @@
               {
                 "linkId": "insurance-card-back",
                 "type": "attachment",
-                "text": "Back side of the insurance card",
+                "text": "Back side of the insurance card (optional)",
                 "required": false,
                 "enableWhen": [
                   {
@@ -2704,7 +2639,7 @@
                   {
                     "linkId": "insurance-card-back-2",
                     "type": "attachment",
-                    "text": "Back side of the insurance card",
+                    "text": "Back side of the insurance card (optional)",
                     "required": false,
                     "extension": [
                       {

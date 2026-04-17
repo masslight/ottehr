@@ -28,7 +28,7 @@ import {
 import { ClearIcon } from '@mui/x-date-pickers';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
@@ -64,6 +64,7 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { useMergedRadiologyQuickPicks } from '../../../hooks/useMergedQuickPicks';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
+import { useRadiologyConsentExists } from '../components/useRadiologyConsentExists';
 
 interface CreateRadiologyOrdersProps {
   appointmentID?: string;
@@ -73,10 +74,11 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
+  const { id: appointmentIdFromUrl } = useParams();
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const { mutate: saveChartData } = useSaveChartData();
-  const { encounter, appointment } = useAppointmentData();
+  const { encounter } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
   const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
@@ -97,7 +99,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const [overwriteTarget, setOverwriteTarget] = useState<RadiologyQuickPickData | null>(null);
   const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
   const currentUser = useEvolveUser();
-  const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
+  const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
 
   const cptCodes = chartData?.cptCodes || [];
 
@@ -133,12 +135,13 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const onQuickPickSelect = (quickPick: RadiologyQuickPickData): void => {
     if (quickPick.cptCode && quickPick.cptDisplay) {
       setOrderCpt({ code: quickPick.cptCode, display: quickPick.cptDisplay });
+    } else {
+      setOrderCpt(undefined);
     }
-    if (quickPick.studyName != null) setStudyName(quickPick.studyName);
-    if (quickPick.laterality) setLaterality(quickPick.laterality as LateralityValue);
-    if (quickPick.clinicalHistory != null) setClinicalHistory(quickPick.clinicalHistory);
-    if (quickPick.stat != null) setStat(quickPick.stat);
-    if (quickPick.consentObtained != null) setConsentObtained(quickPick.consentObtained);
+    setStudyName(quickPick.studyName ?? '');
+    setLaterality((quickPick.laterality as LateralityValue) ?? '');
+    setClinicalHistory(quickPick.clinicalHistory ?? '');
+    // stat and consentObtained not applied — encounter-specific
   };
 
   // Register radiology quick picks in the command palette
@@ -188,8 +191,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     studyName,
     laterality: laterality || undefined,
     clinicalHistory,
-    stat,
-    consentObtained,
+    // stat and consentObtained excluded — encounter-specific
   });
 
   const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
@@ -250,7 +252,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           });
         }
 
-        navigate(getRadiologyUrl(appointment?.id || ''));
+        navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
       } catch (e) {
         const error = e as any;
         console.log('error', JSON.stringify(error));
@@ -302,6 +304,8 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     });
   };
 
+  const consentExists = useRadiologyConsentExists();
+
   return (
     <DetailPageContainer>
       <WithRadiologyBreadcrumbs sectionName="Order Radiology">
@@ -317,7 +321,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
               <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
                 <Grid item xs={12}>
                   <QuickPicksButton
-                    quickPicks={mergedQuickPicks}
+                    quickPicks={[...mergedQuickPicks].sort((a, b) => a.name.localeCompare(b.name))}
                     getLabel={(qp) => {
                       const parts = [qp.name] as string[];
                       if (qp.cptCode) parts.push(qp.cptCode);
@@ -454,6 +458,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     fullWidth
                     multiline
                     size="small"
+                    InputLabelProps={{ shrink: !!clinicalHistory }}
                     value={clinicalHistory}
                     onChange={(e) => {
                       const value = e.target.value;
@@ -472,7 +477,21 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                 <Grid item xs={12}>
                   <Box style={{ display: 'flex', alignItems: 'center' }}>
                     <Checkbox checked={consentObtained} onChange={() => setConsentObtained(!consentObtained)} />
-                    <Typography>I have obtained the consent for X-ray</Typography>
+                    <Typography>
+                      I have obtained the{' '}
+                      {consentExists ? (
+                        <Link
+                          target="_blank"
+                          to={`/consent_radiology.pdf`}
+                          style={{ color: theme.palette.primary.main }}
+                          rel="noopener noreferrer"
+                        >
+                          consent for X-ray
+                        </Link>
+                      ) : (
+                        'consent for X-ray'
+                      )}
+                    </Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={12}>
@@ -487,7 +506,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     variant="outlined"
                     sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                     onClick={() => {
-                      navigate(`/in-person/${appointment?.id}/radiology`);
+                      navigate(`/in-person/${appointmentIdFromUrl}/radiology`);
                     }}
                   >
                     Cancel

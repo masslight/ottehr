@@ -1,5 +1,4 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import mixpanel from 'mixpanel-browser';
 import React, { useCallback } from 'react';
 import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils';
 import { intakeLogo } from '../branding/assets';
@@ -18,7 +17,6 @@ export const PageContainer: React.FC<PageContainerProps> = (props) => {
 
   const logoutHandler = useCallback(async () => {
     clearStore(lastUsedLocationPath);
-    mixpanel.reset();
     // for some reason this is necessary to get auth0 to clear out its local state
     void logout({ logoutParams: { returnTo: PROJECT_WEBSITE } });
     void logout({ logoutParams: { localOnly: true } });

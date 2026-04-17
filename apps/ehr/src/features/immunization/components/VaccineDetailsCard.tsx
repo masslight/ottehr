@@ -20,16 +20,14 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createImmunizationQuickPick, getImmunizationQuickPicks, updateImmunizationQuickPick } from 'src/api/api';
-import { AccordionCard } from 'src/components/AccordionCard';
 import { CustomDialog } from 'src/components/dialogs';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
+import { CptCodesInput } from 'src/components/input/CptCodesInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { PhoneInput } from 'src/components/input/PhoneInput';
 import { SelectInput } from 'src/components/input/SelectInput';
-import { SingleCptCodeInput } from 'src/components/input/SingleCptInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -43,23 +41,19 @@ import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPic
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
-import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
-import { ROUTE_OPTIONS } from 'src/shared/utils';
+import { ROUTE_OPTIONS } from 'src/shared/utils/options';
 import {
   EMERGENCY_CONTACT_RELATIONSHIPS,
   ImmunizationOrder,
-  ImmunizationQuickPickData,
   REQUIRED_FIELD_ERROR_MESSAGE,
   RoleType,
   UNIT_OPTIONS,
 } from 'utils';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
+import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
-import { ImmunizationNotes } from './ImmunizationNotes';
 import { OrderDetailsSection } from './OrderDetailsSection';
-import { OrderHistoryTable } from './OrderHistoryTable';
 import { OrderStatusChip } from './OrderStatusChip';
 
 interface Props {
@@ -89,115 +83,34 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const navigate = useNavigate();
   const [showAdministrationConfirmationDialog, setShowAdministrationConfirmationDialog] = useState<boolean>(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
   const administrationTypeRef = useRef<AdministrationType>(ADMINISTERED);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { id: appointmentId } = useParams();
   const {
     mappedData,
-    resources: { patient },
+    resources: { patient: _patient },
   } = useAppointmentData(appointmentId);
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
-  const { quickPicks: mergedQuickPicks } = useMergedImmunizationQuickPicks();
-  const { oystehrZambda } = useApiClients();
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
-  const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
-  const [quickPickName, setQuickPickName] = useState('');
-  const [existingQuickPicks, setExistingQuickPicks] = useState<ImmunizationQuickPickData[]>([]);
-  const [quickPickSaving, setQuickPickSaving] = useState(false);
-  const [overwriteTarget, setOverwriteTarget] = useState<ImmunizationQuickPickData | null>(null);
 
-  const onQuickPickSelect = (quickPick: ImmunizationQuickPickData): void => {
-    const currentValues = methods.getValues();
-    methods.reset({
-      ...currentValues,
-      details: {
-        ...currentValues.details,
-        ...(quickPick.vaccine && { medication: quickPick.vaccine }),
-        ...(quickPick.dose && { dose: quickPick.dose }),
-        ...(quickPick.units && { units: quickPick.units }),
-        ...(quickPick.route && { route: quickPick.route }),
-        ...(quickPick.location && { location: quickPick.location }),
-        ...(quickPick.associatedDx && { associatedDx: quickPick.associatedDx }),
-        ...(quickPick.manufacturer && { manufacturer: quickPick.manufacturer }),
-        ...(quickPick.instructions && { instructions: quickPick.instructions }),
-      },
-      administrationDetails: {
-        ...currentValues.administrationDetails,
-        ...(quickPick.lot && { lot: quickPick.lot }),
-        ...(quickPick.expDate && { expDate: quickPick.expDate }),
-        ...(quickPick.mvx && { mvx: quickPick.mvx }),
-        ...(quickPick.cvx && { cvx: quickPick.cvx }),
-        ...(quickPick.cpt && { cpt: quickPick.cpt }),
-        ...(quickPick.ndc && { ndc: quickPick.ndc }),
-      },
-    });
-  };
-
-  const openQuickPickDialog = async (): Promise<void> => {
-    if (!oystehrZambda) return;
-    try {
-      const response = await getImmunizationQuickPicks(oystehrZambda);
-      setExistingQuickPicks(response.quickPicks);
-    } catch (error) {
-      console.error('Failed to load existing quick picks:', error);
-      setExistingQuickPicks(mergedQuickPicks);
-    }
-    setQuickPickName('');
-    setOverwriteTarget(null);
-    setQuickPickDialogOpen(true);
-  };
-
-  const buildQuickPickFromCurrentState = (): Omit<ImmunizationQuickPickData, 'id'> => {
-    const values = methods.getValues();
-    return {
-      name: quickPickName.trim(),
-      vaccine: values.details?.medication,
-      dose: values.details?.dose,
-      units: values.details?.units,
-      route: values.details?.route,
-      location: values.details?.location,
-      associatedDx: values.details?.associatedDx,
-      manufacturer: values.details?.manufacturer,
-      instructions: values.details?.instructions,
-      cvx: values.administrationDetails?.cvx,
-      mvx: values.administrationDetails?.mvx,
-      cpt: values.administrationDetails?.cpt,
-      ndc: values.administrationDetails?.ndc,
-      lot: values.administrationDetails?.lot,
-      expDate: values.administrationDetails?.expDate,
-    };
-  };
-
-  const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
-    if (!quickPickName.trim()) {
-      enqueueSnackbar('Quick pick name is required', { variant: 'error' });
-      return;
-    }
-    if (!oystehrZambda) throw new Error('oystehrZambda was null');
-
-    setQuickPickSaving(true);
-    try {
-      const quickPickData = buildQuickPickFromCurrentState();
-      if (overwriteId) {
-        await updateImmunizationQuickPick(oystehrZambda, overwriteId, quickPickData);
-        enqueueSnackbar(`Quick pick "${quickPickName}" updated`, { variant: 'success' });
-      } else {
-        await createImmunizationQuickPick(oystehrZambda, { quickPick: quickPickData });
-        enqueueSnackbar(`Quick pick "${quickPickName}" created`, { variant: 'success' });
-      }
-      setQuickPickDialogOpen(false);
-    } catch (error) {
-      console.error('Failed to save quick pick:', error);
-      enqueueSnackbar('Failed to save quick pick', { variant: 'error' });
-    } finally {
-      setQuickPickSaving(false);
-    }
-  };
+  const {
+    mergedQuickPicks,
+    quickPickDialogOpen,
+    setQuickPickDialogOpen,
+    quickPickName,
+    setQuickPickName,
+    existingQuickPicks,
+    quickPickSaving,
+    overwriteTarget,
+    setOverwriteTarget,
+    onQuickPickSelect,
+    openQuickPickDialog,
+    onSaveAsQuickPick,
+  } = useImmunizationQuickPickManagement({ methods, applyOrderDetails: false });
 
   const handleDeleteOrder = async (): Promise<void> => {
     try {
@@ -221,6 +134,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
       type: administrationTypeRef.current.type,
       ...(await cleanupProperties(data)),
     });
+    navigate(getImmunizationMARUrl(appointmentId!));
   };
 
   const onAdministrationActionClick = async (administrationType: AdministrationType): Promise<void> => {
@@ -277,6 +191,15 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   />
                 </Grid>
                 <Grid xs={3} item>
+                  <TextInput
+                    name="administrationDetails.ndc"
+                    label="NDC code"
+                    required
+                    validate={requiredForAdministration}
+                    dataTestId={dataTestIds.vaccineDetailsPage.ndcCode}
+                  />
+                </Grid>
+                <Grid xs={3} item>
                   <DateInput
                     name="administrationDetails.expDate"
                     label="Exp. Date"
@@ -302,20 +225,11 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     dataTestId={dataTestIds.vaccineDetailsPage.cvxCode}
                   />
                 </Grid>
-                <Grid xs={3} item>
-                  <SingleCptCodeInput
-                    name="administrationDetails.cpt"
-                    label="CPT code"
+                <Grid xs={6} item>
+                  <ImmunizationCptCodesField
+                    methods={methods}
+                    isReadOnly={isReadOnly}
                     dataTestId={dataTestIds.vaccineDetailsPage.cptCode}
-                  />
-                </Grid>
-                <Grid xs={3} item>
-                  <TextInput
-                    name="administrationDetails.ndc"
-                    label="NDC code"
-                    required
-                    validate={requiredForAdministration}
-                    dataTestId={dataTestIds.vaccineDetailsPage.ndcCode}
                   />
                 </Grid>
                 <Grid xs={3} item>
@@ -380,8 +294,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     getOptionLabel={(option) =>
                       RELATIONSHIP_OPTIONS.find((opt) => opt.value === option)?.label ?? option
                     }
-                    required
-                    validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.relationship}
                   />
                 </Grid>
@@ -389,8 +301,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <TextInput
                     name="administrationDetails.emergencyContact.fullName"
                     label="Full name"
-                    required
-                    validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.fullName}
                   />
                 </Grid>
@@ -398,8 +308,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <PhoneInput
                     name="administrationDetails.emergencyContact.mobile"
                     label="Mobile"
-                    required
-                    validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.mobile}
                   />
                 </Grid>
@@ -472,15 +380,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 </Grid>
               </Grid>
             </Paper>
-            <AccordionCard
-              label="Immunization History"
-              collapsed={isImmunizationHistoryCollapsed}
-              onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
-              withBorder={false}
-            >
-              <OrderHistoryTable showActions={false} administeredOnly immunizationInput={{ patientId: patient?.id }} />
-            </AccordionCard>
-            <ImmunizationNotes />
           </Stack>
           <AdministrationConfirmationDialog
             administrationType={administrationTypeRef.current}
@@ -544,5 +443,22 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
         </DialogActions>
       </Dialog>
     </FormProvider>
+  );
+};
+
+// Wrapper to make cptCodes reactive via useWatch
+const ImmunizationCptCodesField: React.FC<{
+  methods: ReturnType<typeof useForm>;
+  isReadOnly?: boolean;
+  dataTestId?: string;
+}> = ({ methods, isReadOnly, dataTestId }) => {
+  const cptCodes = useWatch({ control: methods.control, name: 'administrationDetails.cptCodes' }) ?? [];
+  return (
+    <CptCodesInput
+      cptCodes={cptCodes}
+      onChange={(codes) => methods.setValue('administrationDetails.cptCodes', codes)}
+      isEditable={!isReadOnly}
+      dataTestId={dataTestId}
+    />
   );
 };

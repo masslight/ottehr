@@ -433,7 +433,7 @@ describe('round-trip conversion', () => {
       manufacturer: 'Pfizer',
       cvx: '158',
       mvx: 'PFR',
-      cpt: '90471',
+      cptCodes: [{ code: '90471', display: 'Immunization administration' }],
       ndc: '12345-678-90',
       lot: 'ABC123',
       expDate: '2027-06-30',
@@ -450,7 +450,7 @@ describe('round-trip conversion', () => {
     expect(restored.manufacturer).toBe('Pfizer');
     expect(restored.cvx).toBe('158');
     expect(restored.mvx).toBe('PFR');
-    expect(restored.cpt).toBe('90471');
+    expect(restored.cptCodes).toEqual([{ code: '90471', display: 'Immunization administration' }]);
     expect(restored.ndc).toBe('12345-678-90');
     expect(restored.lot).toBe('ABC123');
     expect(restored.expDate).toBe('2027-06-30');

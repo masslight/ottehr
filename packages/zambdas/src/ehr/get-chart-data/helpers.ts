@@ -1,4 +1,4 @@
-import { BatchInputGetRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { Bundle, Encounter, FhirResource, Patient, Resource } from 'fhir/r4b';
 import {
   addSearchParams,
@@ -180,7 +180,8 @@ export async function convertSearchResultsToResponse(
   patientId: string,
   encounterId: string,
   fields?: (keyof ChartDataRequestedFields)[],
-  patientResource?: Patient
+  patientResource?: Patient,
+  oystehr?: Oystehr
 ): Promise<ChartDataWithResources> {
   let getChartDataResponse: GetChartDataResponse = {
     patientId,
@@ -226,7 +227,11 @@ export async function convertSearchResultsToResponse(
   getChartDataResponse = handleCustomDTOExtractions(getChartDataResponse, resources) as GetChartDataResponse;
   if (getChartDataResponse.externalLabResults || getChartDataResponse.inHouseLabResults) {
     console.log('constructing lab result configs');
-    const { externalLabResultConfig, inHouseLabResultConfig } = await makeEncounterLabResults(resources, m2mToken);
+    const { externalLabResultConfig, inHouseLabResultConfig } = await makeEncounterLabResults(
+      resources,
+      m2mToken,
+      oystehr
+    );
     if (getChartDataResponse.externalLabResults) getChartDataResponse.externalLabResults = externalLabResultConfig;
     if (getChartDataResponse.inHouseLabResults) getChartDataResponse.inHouseLabResults = inHouseLabResultConfig;
   }

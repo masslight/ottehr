@@ -8,7 +8,9 @@ import {
   AppointmentTypeOptions,
   AppointmentTypeSchema,
   FHIR_RESOURCE_NOT_FOUND,
+  FOLLOWUP_SUBTYPE_SYSTEM,
   FOLLOWUP_SYSTEMS,
+  FollowupSubtype,
   FollowUpVisitHistoryRow,
   getAttendingPractitionerId,
   getCoding,
@@ -17,7 +19,6 @@ import {
   getLastName,
   GetPatientVisitListInput,
   getReasonForVisitFromAppointment,
-  getSecret,
   getTelemedLength,
   getTelemedVisitStatus,
   getVisitStatusHistory,
@@ -32,7 +33,6 @@ import {
   RCM_TASK_SYSTEM,
   RcmTaskCode,
   Secrets,
-  SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
   ServiceMode,
   TelemedAppointmentStatusEnum,
@@ -40,14 +40,7 @@ import {
   VisitStatusLabel,
 } from 'utils';
 import { z } from 'zod';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  lambdaResponse,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
@@ -55,46 +48,40 @@ let oystehrM2MClientToken: string;
 const ZAMBDA_NAME = 'get-patient-visit-history';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.group('validateRequestParameters');
+  let validatedParameters: ReturnType<typeof validateRequestParameters>;
   try {
-    console.group('validateRequestParameters');
-    let validatedParameters: ReturnType<typeof validateRequestParameters>;
-    try {
-      validatedParameters = validateRequestParameters(input);
-      console.log(JSON.stringify(validatedParameters, null, 4));
-    } catch (error: any) {
-      console.log(error);
-      return lambdaResponse(400, { message: error.message });
-    }
-
-    const secrets = input.secrets;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-
-    if (!oystehrM2MClientToken) {
-      console.log('getting m2m token for service calls');
-      oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
-    } else {
-      console.log('already have a token, no need to update');
-    }
-
-    const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
-
-    const effectInput = await complexValidation(
-      {
-        ...validatedParameters,
-        secrets: input.secrets,
-      },
-      oystehrClient
-    );
-
-    const response = await performEffect(effectInput, oystehrClient);
-
-    return lambdaResponse(200, response);
+    validatedParameters = validateRequestParameters(input);
+    console.log(JSON.stringify(validatedParameters, null, 4));
   } catch (error: any) {
-    console.error(error);
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+    console.log(error);
+    return lambdaResponse(400, { message: error.message });
   }
+
+  const secrets = input.secrets;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  if (!oystehrM2MClientToken) {
+    console.log('getting m2m token for service calls');
+    oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
+  } else {
+    console.log('already have a token, no need to update');
+  }
+
+  const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
+
+  const effectInput = await complexValidation(
+    {
+      ...validatedParameters,
+      secrets: input.secrets,
+    },
+    oystehrClient
+  );
+
+  const response = await performEffect(effectInput, oystehrClient);
+
+  return lambdaResponse(200, response);
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<PatientVisitListResponse> => {
@@ -163,6 +150,9 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
   const slots: Slot[] = [];
   const tasks: Task[] = [];
   const followUpMap: Record<string, Encounter[]> = {};
+  // Track appointment IDs belonging to scheduled follow-up encounters so we can
+  // exclude them from top-level appointment rows
+  const scheduledFollowUpAppointmentIds = new Set<string>();
   allResources.forEach((res) => {
     switch (res.resourceType) {
       case 'Appointment':
@@ -173,6 +163,17 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
           const parentEncounterId = res.partOf.reference.replace('Encounter/', '');
           followUpMap[parentEncounterId] = followUpMap[parentEncounterId] || [];
           followUpMap[parentEncounterId].push(res);
+          // For scheduled follow-ups (which have their own appointment), track the
+          // appointment ID so we can exclude it from top-level rows
+          const subtypeCoding = (res as Encounter).type
+            ?.flatMap((t) => t.coding ?? [])
+            .find((c) => c.system === FOLLOWUP_SUBTYPE_SYSTEM);
+          if (subtypeCoding?.code === 'scheduled') {
+            const ownApptRef = res.appointment?.[0]?.reference?.replace('Appointment/', '');
+            if (ownApptRef) {
+              scheduledFollowUpAppointmentIds.add(ownApptRef);
+            }
+          }
         } else {
           encounters.push(res as Encounter);
         }
@@ -197,6 +198,11 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
     if (!appointment.id) {
       return [];
     }
+    // Skip appointments that belong to scheduled follow-up encounters —
+    // they appear as indented follow-up rows under their parent, not as top-level rows
+    if (scheduledFollowUpAppointmentIds.has(appointment.id)) {
+      return [];
+    }
     const slot = slots.find((slot) => appointment.slot?.some((s) => s.reference === `Slot/${slot.id}`));
     const location = locations.find(
       (location) => appointment?.participant?.some((p) => p.actor?.reference?.replace('Location/', '') === location.id)
@@ -218,6 +224,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
               locations,
               originalEncounter: encounter,
               serviceCategory,
+              appointments,
             })
           )
           .filter((fu): fu is FollowUpVisitHistoryRow => fu !== undefined)
@@ -423,6 +430,7 @@ interface FollowUpContext {
   locations: Location[];
   originalEncounter: Encounter;
   serviceCategory?: string;
+  appointments: Appointment[];
 }
 
 const followUpVisitHistoryRowFromEncounter = (
@@ -433,7 +441,7 @@ const followUpVisitHistoryRowFromEncounter = (
     return undefined;
   }
   const followUpType = getFollowUpTypeFromEncounter(encounter);
-  const { practitioners, locations, originalEncounter, serviceCategory } = context;
+  const { practitioners, locations, originalEncounter, serviceCategory, appointments } = context;
 
   const location = locations.find(
     (location) => encounter?.location?.some((loc) => loc.location?.reference?.replace('Location/', '') === location.id)
@@ -441,17 +449,33 @@ const followUpVisitHistoryRowFromEncounter = (
   const office =
     location?.address?.state && location?.name ? `${location.address.state.toUpperCase()} - ${location.name}` : '-';
   const originalAppointmentId = originalEncounter.appointment?.[0]?.reference?.replace('Appointment/', '');
+
+  // Determine follow-up subtype from encounter type coding
+  const subtypeCoding = encounter.type
+    ?.flatMap((t) => t.coding ?? [])
+    .find((c) => c.system === FOLLOWUP_SUBTYPE_SYSTEM);
+  const followupSubtype: FollowupSubtype = subtypeCoding?.code === 'scheduled' ? 'scheduled' : 'annotation';
+
+  // For scheduled follow-ups, get the encounter's own appointment ID and use its data
+  const ownAppointmentId =
+    followupSubtype === 'scheduled' ? encounter.appointment?.[0]?.reference?.replace('Appointment/', '') : undefined;
+
+  // For scheduled follow-ups, fall back to appointment data for date and reason
+  const ownAppointment = ownAppointmentId ? appointments.find((a) => a.id === ownAppointmentId) : undefined;
+
   return {
     encounterId: encounter.id,
-    dateTime: encounter.period?.start,
+    dateTime: encounter.period?.start || ownAppointment?.start,
     type: followUpType,
     serviceCategory,
-    visitReason: encounter.reasonCode?.[0]?.text,
+    visitReason: encounter.reasonCode?.[0]?.text || ownAppointment?.description,
     provider: getProviderFromEncounter(encounter, practitioners),
     office,
     status: encounter.status ?? '-',
     originalEncounterId: originalEncounter.id,
     originalAppointmentId,
+    followupSubtype,
+    appointmentId: ownAppointmentId,
   };
 };
 

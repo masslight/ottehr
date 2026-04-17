@@ -1,5 +1,6 @@
 import { LoadingButton } from '@mui/lab';
 import { useQueryClient } from '@tanstack/react-query';
+import { Encounter } from 'fhir/r4b';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
@@ -9,7 +10,12 @@ import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehr
 import { useChangeTelemedAppointmentStatusMutation } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { TelemedAppointmentInformation, TelemedAppointmentStatus, TelemedAppointmentStatusEnum } from 'utils';
+import {
+  AppointmentLocation,
+  TelemedAppointmentStatus,
+  TelemedAppointmentStatusEnum,
+  TelemedCallStatuses,
+} from 'utils';
 import { useTrackingBoardTableButtonType } from '../../hooks/useTrackingBoardTableButtonType';
 import {
   assignWaitingRoomTasksToProvider,
@@ -23,7 +29,14 @@ const baseStyles = {
   fontWeight: 500,
 };
 
-export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInformation }> = (props) => {
+export const TrackingBoardTableButton: FC<{
+  appointment: {
+    id: string;
+    locationVirtual: AppointmentLocation;
+    telemedStatus: TelemedCallStatuses;
+    encounter: Encounter;
+  };
+}> = (props) => {
   const { appointment } = props;
 
   const apiClient = useOystehrAPIClient();
@@ -36,7 +49,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
   const { mutateAsync: unassignTask } = useUnassignTask();
 
   const goToAppointment = (state?: unknown): void => {
-    navigate(`/telemed/appointments/${appointment.id}`, { state });
+    navigate(`/in-person/${appointment.id}`, { state });
   };
 
   const onAssign = async (): Promise<void> => {

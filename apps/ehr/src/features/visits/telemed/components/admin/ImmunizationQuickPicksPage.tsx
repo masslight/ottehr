@@ -20,39 +20,26 @@ import {
   useTheme,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useCallback, useEffect, useState } from 'react';
-import { getImmunizationQuickPicks, removeImmunizationQuickPick, updateImmunizationQuickPick } from 'src/api/api';
+import React, { ReactElement, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { useApiClients } from 'src/hooks/useAppClients';
 import { ImmunizationQuickPickData } from 'utils';
+import {
+  useImmunizationQuickPicksQuery,
+  useRemoveImmunizationQuickPickMutation,
+  useRenameImmunizationQuickPickMutation,
+} from './admin.queries';
 
 export default function ImmunizationQuickPicksPage(): ReactElement {
   const theme = useTheme();
-  const { oystehrZambda } = useApiClients();
-  const [quickPicks, setQuickPicks] = useState<ImmunizationQuickPickData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const navigate = useNavigate();
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingQuickPick, setRenamingQuickPick] = useState<ImmunizationQuickPickData | null>(null);
   const [newName, setNewName] = useState('');
 
-  const fetchQuickPicks = useCallback(async () => {
-    if (!oystehrZambda) return;
-    setLoading(true);
-    try {
-      const response = await getImmunizationQuickPicks(oystehrZambda);
-      setQuickPicks([...response.quickPicks].sort((a, b) => a.name.localeCompare(b.name)));
-    } catch (error) {
-      console.error('Failed to fetch immunization quick picks:', error);
-      enqueueSnackbar('Failed to load immunization quick picks', { variant: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [oystehrZambda]);
-
-  useEffect(() => {
-    void fetchQuickPicks();
-  }, [fetchQuickPicks]);
+  const { data: quickPicks = [], isLoading } = useImmunizationQuickPicksQuery();
+  const renameMutation = useRenameImmunizationQuickPickMutation();
+  const removeMutation = useRemoveImmunizationQuickPickMutation();
 
   const handleOpenRename = (qp: ImmunizationQuickPickData): void => {
     setRenamingQuickPick(qp);
@@ -61,44 +48,39 @@ export default function ImmunizationQuickPicksPage(): ReactElement {
   };
 
   const handleRename = async (): Promise<void> => {
-    if (!oystehrZambda) throw new Error('oystehrZambda was null');
-    if (!renamingQuickPick?.id) throw new Error('renamingQuickPick or its id was undefined');
+    if (!renamingQuickPick) return;
     if (!newName.trim()) {
       enqueueSnackbar('Name is required', { variant: 'warning' });
       return;
     }
-
-    setSaving(true);
-    try {
-      const { id, name: _name, ...rest } = renamingQuickPick;
-      await updateImmunizationQuickPick(oystehrZambda, id, { ...rest, name: newName.trim() });
-      enqueueSnackbar('Quick pick renamed successfully', { variant: 'success' });
-      setRenameDialogOpen(false);
-      setRenamingQuickPick(null);
-      await fetchQuickPicks();
-    } catch (error) {
-      console.error('Failed to rename quick pick:', error);
-      enqueueSnackbar('Failed to rename quick pick', { variant: 'error' });
-    } finally {
-      setSaving(false);
-    }
+    renameMutation.mutate(
+      { quickPick: renamingQuickPick, newName: newName.trim() },
+      {
+        onSuccess: () => {
+          enqueueSnackbar('Quick pick renamed successfully', { variant: 'success' });
+          setRenameDialogOpen(false);
+          setRenamingQuickPick(null);
+        },
+        onError: (error) => {
+          console.error('Failed to rename quick pick:', error);
+          enqueueSnackbar('Failed to rename quick pick', { variant: 'error' });
+        },
+      }
+    );
   };
 
-  const handleDelete = async (qp: ImmunizationQuickPickData): Promise<void> => {
-    if (!oystehrZambda) throw new Error('oystehrZambda was null');
-    if (!qp.id) throw new Error('quick pick id was undefined');
-
-    try {
-      await removeImmunizationQuickPick(oystehrZambda, qp.id);
-      enqueueSnackbar('Quick pick removed successfully', { variant: 'success' });
-      await fetchQuickPicks();
-    } catch (error) {
-      console.error('Failed to remove quick pick:', error);
-      enqueueSnackbar('Failed to remove quick pick', { variant: 'error' });
-    }
+  const handleDelete = (qp: ImmunizationQuickPickData): void => {
+    if (!qp.id) return;
+    removeMutation.mutate(qp.id, {
+      onSuccess: () => enqueueSnackbar('Quick pick removed successfully', { variant: 'success' }),
+      onError: (error) => {
+        console.error('Failed to remove quick pick:', error);
+        enqueueSnackbar('Failed to remove quick pick', { variant: 'error' });
+      },
+    });
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
         <CircularProgress />
@@ -139,12 +121,17 @@ export default function ImmunizationQuickPicksPage(): ReactElement {
             </TableHead>
             <TableBody>
               {quickPicks.map((qp, index) => (
-                <TableRow key={qp.id ?? `default-${index}`} hover>
+                <TableRow
+                  key={qp.id ?? `default-${index}`}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => qp.id && navigate(`/admin/quick-picks/immunization/${qp.id}`)}
+                >
                   <TableCell>{qp.name}</TableCell>
                   <TableCell>{qp.vaccine?.name || '-'}</TableCell>
                   <TableCell>{qp.dose ? `${qp.dose} ${qp.units ?? ''}`.trim() : '-'}</TableCell>
                   <TableCell>{qp.cvx || '-'}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <IconButton size="small" onClick={() => handleOpenRename(qp)} title="Rename">
                       <EditIcon fontSize="small" />
                     </IconButton>
@@ -152,7 +139,7 @@ export default function ImmunizationQuickPicksPage(): ReactElement {
                       size="small"
                       onClick={() => {
                         if (window.confirm(`Remove quick pick "${qp.name}"?`)) {
-                          void handleDelete(qp);
+                          handleDelete(qp);
                         }
                       }}
                       title="Remove"
@@ -181,11 +168,11 @@ export default function ImmunizationQuickPicksPage(): ReactElement {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <RoundedButton onClick={() => setRenameDialogOpen(false)} disabled={saving}>
+          <RoundedButton onClick={() => setRenameDialogOpen(false)} disabled={renameMutation.isPending}>
             Cancel
           </RoundedButton>
-          <RoundedButton variant="contained" onClick={handleRename} disabled={saving}>
-            {saving ? <CircularProgress size={20} /> : 'Rename'}
+          <RoundedButton variant="contained" onClick={handleRename} disabled={renameMutation.isPending}>
+            {renameMutation.isPending ? <CircularProgress size={20} /> : 'Rename'}
           </RoundedButton>
         </DialogActions>
       </Dialog>

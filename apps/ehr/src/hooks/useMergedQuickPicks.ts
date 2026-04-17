@@ -29,7 +29,9 @@ interface UseFhirQuickPicksResult<T> {
 /**
  * Generic hook that fetches FHIR-based quick picks from a zambda endpoint.
  */
-function useFhirQuickPicks<T>(fetchFn: (oystehr: any) => Promise<{ quickPicks: T[] }>): UseFhirQuickPicksResult<T> {
+export function useFhirQuickPicks<T>(
+  fetchFn: (oystehr: any) => Promise<{ quickPicks: T[] }>
+): UseFhirQuickPicksResult<T> {
   const { oystehrZambda } = useApiClients();
   const [quickPicks, setQuickPicks] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,17 +76,11 @@ export function useMergedMedicationHistoryQuickPicks(): UseFhirQuickPicksResult<
   return useFhirQuickPicks(getMedicationHistoryQuickPicks);
 }
 
-export function useMergedImmunizationQuickPicks(): {
-  quickPicks: ImmunizationQuickPickData[];
-  loading: boolean;
-} {
+export function useMergedImmunizationQuickPicks(): UseFhirQuickPicksResult<ImmunizationQuickPickData> {
   return useFhirQuickPicks(getImmunizationQuickPicks);
 }
 
-export function useMergedInHouseMedicationQuickPicks(): {
-  quickPicks: InHouseMedicationQuickPickData[];
-  loading: boolean;
-} {
+export function useMergedInHouseMedicationQuickPicks(): UseFhirQuickPicksResult<InHouseMedicationQuickPickData> {
   return useFhirQuickPicks(getInHouseMedicationQuickPicks);
 }
 

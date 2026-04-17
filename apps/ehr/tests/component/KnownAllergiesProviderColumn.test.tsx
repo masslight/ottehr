@@ -72,6 +72,10 @@ vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: any[]) => mockEnqueueSnackbar(...args),
 }));
 
+vi.mock('../../src/hooks/useMergedQuickPicks', () => ({
+  useMergedAllergyQuickPicks: () => ({ quickPicks: [], loading: false, refetch: vi.fn() }),
+}));
+
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { GetChartDataResponse } from 'utils';
 import { KnownAllergiesProviderColumn } from '../../src/features/visits/shared/components/known-allergies/KnownAllergiesProviderColumn';

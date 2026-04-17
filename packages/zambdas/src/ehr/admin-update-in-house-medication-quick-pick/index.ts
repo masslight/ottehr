@@ -1,4 +1,4 @@
-import { INVALID_INPUT_ERROR } from 'utils';
+import { InHouseMedicationQuickPickData, INVALID_INPUT_ERROR } from 'utils';
 import { IN_HOUSE_MEDICATION_QUICK_PICK_CATEGORY } from '../shared/quick-pick-categories';
 import { makeUpdateHandler } from '../shared/quick-pick-zambda';
 
@@ -18,6 +18,6 @@ export const index = makeUpdateHandler(
     if (!quickPick.name || typeof quickPick.name !== 'string') {
       throw INVALID_INPUT_ERROR('quickPick.name is required and must be a string');
     }
-    return { quickPickId, quickPick: quickPick as any };
+    return { quickPickId, quickPick: quickPick as Omit<InHouseMedicationQuickPickData, 'id'> };
   }
 );

@@ -11,7 +11,7 @@ import {
  This is a temporary solution; the current resource deletion script 'packages/zambdas/src/scripts/clean-up-e2e.ts' needs to be improved.
 
  to run:
- npx env-cmd -f packages/zambdas/.env/{ENV}.json tsx scripts/delete-resources/cleanup-e2e-resources.ts
+ npx env-cmd -f config/.env/{ENV}.json tsx scripts/delete-resources/cleanup-e2e-resources.ts
 */
 
 const { FHIR_API, PROJECT_API, AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE } = process.env;
