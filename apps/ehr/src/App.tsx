@@ -87,9 +87,9 @@ export const INSURANCES_URL = '/admin/insurances';
 export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
 export const CHARGE_MASTERS_URL = '/admin/charge-masters';
 export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
-export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 export const BILLING_URL = '/admin/billing';
 export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';
+export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
@@ -251,10 +251,10 @@ function App(): ReactElement {
                   <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
-                  <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                   <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
                   <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
                   <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />
+                  <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                   <Route path="/admin/in-house-labs/add" element={<AdminAddInHouseLab />} />
                   <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
                   {/** telemed */}

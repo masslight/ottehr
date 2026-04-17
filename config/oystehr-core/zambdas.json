@@ -148,6 +148,13 @@
       "src": "src/ehr/delete-chart-data/index",
       "zip": ".dist/zips/delete-chart-data.zip"
     },
+    "MIGRATE-EXAM-DATA": {
+      "name": "migrate-exam-data",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/migrate-exam-data/index",
+      "zip": ".dist/zips/migrate-exam-data.zip"
+    },
     "BULK-UPDATE-INSURANCE-STATUS": {
       "name": "bulk-update-insurance-status",
       "type": "http_auth",

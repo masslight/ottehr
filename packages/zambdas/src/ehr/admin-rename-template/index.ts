@@ -1,15 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
-import {
-  AdminRenameTemplateInput,
-  getSecret,
-  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
-  SecretsKeys,
-} from 'utils';
+import { AdminRenameTemplateInput, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -49,13 +44,7 @@ const performEffect = async (
     id: templateId,
   });
 
-  // Verify this is a template List (has exam type coding)
-  const isTemplate = templateList.code?.coding?.some(
-    (c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM || c.system === GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM
-  );
-  if (!isTemplate) {
-    throw new Error(`List ${templateId} is not a global template`);
-  }
+  verifyIsTemplate(templateList, templateId);
 
   templateList.title = newName;
 

@@ -551,7 +551,7 @@ export function makeExamObservationResource(
   snomedCodes?: SNOMEDCodeConceptInterface,
   label?: string
 ): Observation {
-  return {
+  const observation: Observation = {
     resourceType: 'Observation',
     id: data.resourceId,
     subject: { reference: `Patient/${patientId}` },
@@ -563,15 +563,59 @@ export function makeExamObservationResource(
     code: snomedCodes?.code || { text: label || 'unknown' },
     meta: fillMeta(data.field, EXAM_OBSERVATION_META_SYSTEM),
   };
+
+  if (data.components && data.components.length > 0) {
+    observation.component = data.components
+      .filter((c) => c.value)
+      .map((c) => ({
+        code: { text: c.code },
+        valueBoolean: c.value,
+        extension: [
+          { url: FHIR_EXTENSION.Observation.examComponentLabel.url, valueString: c.label },
+          { url: FHIR_EXTENSION.Observation.examComponentGroupLabel.url, valueString: c.groupLabel },
+          ...(c.columnLabel
+            ? [{ url: FHIR_EXTENSION.Observation.examComponentColumnLabel.url, valueString: c.columnLabel }]
+            : []),
+          ...(c.abnormal !== undefined
+            ? [{ url: FHIR_EXTENSION.Observation.examComponentAbnormal.url, valueBoolean: c.abnormal }]
+            : []),
+        ],
+      }));
+  }
+
+  return observation;
 }
 
 export function makeExamObservationDTO(observation: Observation): ExamObservationDTO {
-  return {
+  const dto: ExamObservationDTO = {
     resourceId: observation.id,
     field: observation.meta?.tag?.[0]?.code || 'unknown',
+    label: observation.code?.text,
     note: observation.note?.[0]?.text,
     value: observation.valueBoolean,
   };
+
+  if (observation.component && observation.component.length > 0) {
+    dto.components = observation.component.map((c) => {
+      const abnormalExt = c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentAbnormal.url);
+      return {
+        code: c.code?.text || 'unknown',
+        label:
+          c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentLabel.url)?.valueString ||
+          c.code?.text ||
+          'unknown',
+        groupLabel:
+          c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentGroupLabel.url)?.valueString ||
+          'unknown',
+        columnLabel: c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentColumnLabel.url)
+          ?.valueString,
+        value: c.valueBoolean ?? false,
+        abnormal: abnormalExt?.valueBoolean,
+      };
+    });
+  }
+
+  return dto;
 }
 
 export function makeClinicalImpressionResource(

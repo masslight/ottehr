@@ -28,6 +28,7 @@ import * as path from 'path';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils';
 
 const PAGE_SIZE = 200;
+const CONCURRENCY = 20;
 
 function loadEnvFile(envName: string): void {
   const filePath = path.resolve(process.cwd(), 'packages/zambdas/.env', `${envName}.json`);
@@ -75,23 +76,18 @@ async function generateForPatient(
   isDryRun: boolean
 ): Promise<{ updated: number; errorCount: number }> {
   if (isDryRun) {
-    console.log(`  WOULD GENERATE: Patient/${patientId}`);
     return { updated: 1, errorCount: 0 };
   }
 
   try {
     await oystehr.fhir.generateFriendlyPatientId({ id: patientId });
-    console.log(`  GENERATED: Patient/${patientId}`);
     return { updated: 1, errorCount: 0 };
   } catch (error) {
     if (error instanceof Oystehr.OystehrFHIRError) {
-      if (error.code === 404) {
-        console.error(`  NOT FOUND (404): Patient/${patientId} — patient does not exist`);
-      } else if (error.code === 422) {
-        console.error(`  ALREADY HAS FRIENDLY ID (422): Patient/${patientId} — skipping`);
-      } else {
-        console.error(`  ERROR (${error.code}): Patient/${patientId} — ${error.message}`);
+      if (error.code === 422) {
+        return { updated: 0, errorCount: 0 };
       }
+      console.error(`  ERROR (${error.code}): Patient/${patientId} — ${error.message}`);
     } else {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`  ERROR: Patient/${patientId} — ${message}`);
@@ -154,6 +150,7 @@ async function migrate(): Promise<void> {
     errorCount = result.errorCount;
   } else {
     let offset = 0;
+    let total: number | undefined;
     let hasMore = true;
 
     while (hasMore) {
@@ -168,27 +165,28 @@ async function migrate(): Promise<void> {
         ],
       });
       const patients = page.unbundle();
-      const total = page.total ?? '?';
+      if (total === undefined) {
+        total = page.total ?? 0;
+      }
 
-      console.log(`Fetched ${patients.length} patients (offset=${offset}, total without friendly ID=${total})`);
+      const patientsToProcess = patients.filter((p) => p.id);
+      skipped += patients.length - patientsToProcess.length;
+      processed += patientsToProcess.length;
 
-      for (const patient of patients) {
-        processed++;
-
-        if (!patient.id) {
-          console.warn('  SKIP: patient has no id');
-          skipped++;
-          continue;
+      for (let i = 0; i < patientsToProcess.length; i += CONCURRENCY) {
+        const batch = patientsToProcess.slice(i, i + CONCURRENCY);
+        const results = await Promise.all(batch.map((patient) => generateForPatient(oystehr, patient.id!, isDryRun)));
+        for (const result of results) {
+          updated += result.updated;
+          errorCount += result.errorCount;
         }
-
-        const result = await generateForPatient(oystehr, patient.id, isDryRun);
-        updated += result.updated;
-        errorCount += result.errorCount;
+        const batchProcessed = processed - patientsToProcess.length + i + batch.length;
+        console.log(`Progress: ${batchProcessed}/${total} | batch: ${batch.length} processed`);
       }
 
       if (patients.length < PAGE_SIZE) {
         hasMore = false;
-      } else {
+      } else if (isDryRun) {
         offset += PAGE_SIZE;
       }
     }
