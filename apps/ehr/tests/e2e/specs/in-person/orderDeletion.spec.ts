@@ -1,4 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
+import { Medication } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { DocumentProcedurePage, openDocumentProcedurePage } from 'tests/e2e/page/DocumentProcedurePage';
@@ -17,37 +18,17 @@ import {
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import {
+  FEATURE_FLAGS_CONFIG,
+  INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   medicationApplianceRoutes,
   radiologyStudiesConfig,
   UNIT_OPTIONS,
 } from 'utils';
-import InHouseMedicationsConfig from '../../../../../../config/oystehr/in-house-medications.json' assert { type: 'json' };
 import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
 
 const PROCESS_ID = `orderCancellation.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID);
-
-// Helper function to get first available medication from config
-function getFirstMedicationName(): string {
-  const config = InHouseMedicationsConfig as any;
-  const medicationKeys = Object.keys(config?.fhirResources || {});
-
-  if (medicationKeys.length === 0) {
-    throw new Error('No medications found in InHouseMedicationsConfig');
-  }
-
-  const firstKey = medicationKeys[0];
-  const identifier = config.fhirResources[firstKey].resource.identifier.find(
-    (id: { system: string; value: string }) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-  );
-
-  if (!identifier?.value) {
-    throw new Error('Medication identifier not found');
-  }
-
-  return identifier.value;
-}
 
 const procedureTypeKey = Object.keys(procedureType.fhirResources).find((key) =>
   key.startsWith('value-set-procedure-type')
@@ -88,8 +69,8 @@ const PROCEDURE_TYPE = SELECTED_PROCEDURE.dropDownChoice;
 const PROCEDURE_CPT_CODE = SELECTED_PROCEDURE.cptCode;
 const PROCEDURE_CPT_DISPLAY = SELECTED_PROCEDURE.display;
 
-// Medications from config and utils
-const MEDICATION_NAME = getFirstMedicationName(); // From in-house-medications.json
+// Medications from FHIR and utils
+let MEDICATION_NAME: string;
 const MEDICATION_DOSE = '2'; // Test value
 const MEDICATION_UNITS = UNIT_OPTIONS[0].label;
 const MEDICATION_ROUTE = medicationApplianceRoutes.ORAL.display || 'Oral route';
@@ -103,6 +84,25 @@ const RADIOLOGY_STUDY_TYPE = RADIOLOGY_STUDY.display;
 const RADIOLOGY_CLINICAL_HISTORY = 'Test clinical history for radiology order';
 
 test.beforeAll(async () => {
+  const oystehr = await ResourceHandler.getOystehr();
+  const medications = (
+    await oystehr.fhir.search<Medication>({
+      resourceType: 'Medication',
+      params: [{ name: 'identifier', value: INVENTORY_MEDICATION_TYPE_CODE }],
+    })
+  ).unbundle();
+
+  const firstMed = medications[0];
+  if (!firstMed) {
+    throw new Error('No in-house medications found in FHIR');
+  }
+
+  const nameIdentifier = firstMed.identifier?.find((id) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM);
+  if (!nameIdentifier?.value) {
+    throw new Error('Medication name identifier not found');
+  }
+  MEDICATION_NAME = nameIdentifier.value;
+
   await resourceHandler.setResources({ skipPaperwork: true });
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 });
@@ -328,19 +328,21 @@ test.describe('Order Deletion - Happy Path', () => {
         // Click save button
         await orderMedicationPage.clickOrderMedicationButton();
 
-        // UI CHECK: Verify medication was saved by checking URL changed to edit page
-        await page.waitForURL(/\/in-house-medication\/order\/edit\//, { timeout: 15000 });
+        // After saving a new order the app navigates directly to the MAR
+        await page.waitForURL(/\/in-house-medication\/mar/, { timeout: 15000 });
+        await expect(page.getByTestId(dataTestIds.inHouseMedicationsPage.title)).toBeVisible({ timeout: 10000 });
 
-        // Extract medication ID from URL
-        const url = page.url();
-        const match = url.match(/\/in-house-medication\/order\/edit\/([^/?]+)/);
-        if (!match) {
-          throw new Error(`Failed to extract medication ID from URL: ${url}`);
+        // Extract medication ID from the MAR table row data-testid
+        const medicationRowPrefix = dataTestIds.inHouseMedicationsPage.marTable.medicationRowPrefix;
+        const newMedicationRow = page
+          .locator(`[data-testid^="${medicationRowPrefix}"]`)
+          .filter({ hasText: MEDICATION_NAME });
+        await expect(newMedicationRow).toBeVisible({ timeout: 30000 });
+        const rowTestId = await newMedicationRow.getAttribute('data-testid');
+        if (!rowTestId) {
+          throw new Error(`Failed to find medication row for: ${MEDICATION_NAME}`);
         }
-        medicationId = match[1];
-
-        // Verify we're on Edit Order page
-        await expect(page.getByRole('heading', { name: 'Edit Order', level: 1 })).toBeVisible({ timeout: 10000 });
+        medicationId = rowTestId.replace(medicationRowPrefix, '');
       });
 
       await test.step('Verify medication appears in MAR', async () => {
@@ -362,7 +364,7 @@ test.describe('Order Deletion - Happy Path', () => {
 
         // First, wait for ANY medication row to appear in the table (confirms data loaded from backend)
         // Use data-testid pattern to find any medication row - this confirms table rendered and data arrived
-        const anyMedicationRow = page.locator('[data-testid^="mar-table-medication-"]').first();
+        const anyMedicationRow = page.locator('[data-testid^="mar-table-medication-row-"]').first();
         await expect(anyMedicationRow).toBeVisible({ timeout: 30_000 });
 
         // Now verify the specific medication row we just created is visible
@@ -446,6 +448,7 @@ test.describe('Order Deletion - Happy Path', () => {
   });
 
   test('Delete radiology order and verify it is removed from list', async ({ browser }) => {
+    test.skip(!FEATURE_FLAGS_CONFIG.radiologyEnabled, 'Radiology is not enabled in this configuration');
     // Create isolated context and page for this test
     const context = await browser.newContext();
     const page = await context.newPage();

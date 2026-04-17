@@ -9,6 +9,7 @@ import {
   getQuestionnaireResponseByLinkId,
   getSecret,
   getTelemedVisitStatus,
+  isFeatureFlagEnabled,
   SecretsKeys,
   TelemedAppointmentStatusEnum,
   TelemedCompletionTemplateData,
@@ -24,7 +25,6 @@ import {
   getMyPractitionerId,
   parseCreatedResourcesBundle,
   saveResourceRequest,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -43,25 +43,19 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'change-telemed-appointment-status';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-    console.log('Created Oystehr client');
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
+  console.log('Created Oystehr client');
 
-    const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.error('Stringified error: ' + JSON.stringify(error));
-    console.error('Error: ' + error);
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export const performEffect = async (
@@ -126,37 +120,47 @@ export const performEffect = async (
     );
 
     console.log('Chart data received');
-    try {
-      const { pdfInfo } = await createProgressNotePdf(
-        {
-          patient,
-          encounter,
-          allChartData: { chartData, additionalChartData },
-          appointmentPackage: visitResources,
-          questionnaireResponse,
-        },
-        secrets,
-        m2mToken
-      );
-      if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
-      console.log(`Creating visit note pdf docRef`);
-      await makeVisitNotePdfDocumentReference(
-        oystehr,
-        pdfInfo,
-        patient.id,
-        appointmentId,
-        encounter.id!,
-        listResources
-      );
-    } catch (error) {
-      console.error(`Error creating visit note pdf: ${error}`);
-      captureException(error, {
-        tags: {
+
+    const createVisitNoteForPatientPortal = async (): Promise<boolean> => {
+      try {
+        const { pdfInfo } = await createProgressNotePdf(
+          {
+            patient,
+            encounter,
+            allChartData: { chartData, additionalChartData },
+            appointmentPackage: visitResources,
+            questionnaireResponse,
+          },
+          secrets,
+          m2mToken
+        );
+
+        if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
+
+        console.log(`Creating visit note pdf docRef`);
+
+        await makeVisitNotePdfDocumentReference(
+          oystehr,
+          pdfInfo,
+          patient.id,
           appointmentId,
-          encounterId: encounter.id,
-        },
-      });
-    }
+          encounter.id!,
+          listResources
+        );
+        return true;
+      } catch (error) {
+        console.error(`Error creating visit note pdf: ${error}`);
+        captureException(error, {
+          tags: {
+            appointmentId,
+            encounterId: encounter.id,
+          },
+        });
+        return false;
+      }
+    };
+
+    const visitNoteCreatedSuccessfully = await createVisitNoteForPatientPortal();
 
     let candidEncounterId: string | undefined;
     try {
@@ -256,20 +260,36 @@ export const performEffect = async (
         });
       }
     }
-    // todo: decouple email sending from this endpoint
-    const emailClient = getEmailClient(secrets);
-    const emailEnabled = emailClient.getFeatureFlag();
-    const patientEmail = getPatientContactEmail(patient);
-    if (emailEnabled && location && patientEmail) {
-      const locationName = getNameForOwner(location) ?? '';
-      const { presignedUrls } = await getPresignedURLs(oystehr, m2mToken, visitResources.encounter.id!);
-      const visitNoteUrl = presignedUrls['visit-note'].presignedUrl;
 
-      const templateData: TelemedCompletionTemplateData = {
-        location: locationName,
-        'visit-note-url': visitNoteUrl || '',
-      };
-      await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
+    const skipVisitNoteInPatientPortal = isFeatureFlagEnabled(
+      'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG',
+      secrets
+    );
+
+    // Send email notification only if visit note was created successfully and not suppressed
+    if (visitNoteCreatedSuccessfully && !skipVisitNoteInPatientPortal) {
+      const emailClient = getEmailClient(secrets);
+      const emailEnabled = emailClient.getFeatureFlag();
+      const patientEmail = getPatientContactEmail(patient);
+
+      if (emailEnabled && location && patientEmail) {
+        const locationName = getNameForOwner(location) ?? '';
+        const { presignedUrls } = await getPresignedURLs(oystehr, m2mToken, visitResources.encounter.id!);
+        const visitNoteUrl = presignedUrls['visit-note']?.presignedUrl;
+
+        if (visitNoteUrl) {
+          const templateData: TelemedCompletionTemplateData = {
+            location: locationName,
+            'visit-note-url': visitNoteUrl,
+          };
+          await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
+        } else {
+          console.warn('Visit note presigned URL not available; skipping telemed completion email.', {
+            appointmentId,
+            encounterId: visitResources.encounter.id,
+          });
+        }
+      }
     }
   }
   return {

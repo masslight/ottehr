@@ -236,7 +236,7 @@ describe('DiagnosesContainer', () => {
       render(<DiagnosesContainer />, { wrapper: createWrapper() });
 
       // Should have info icon for lab order
-      expect(screen.getByTestId('InfoOutlinedIcon')).toBeInTheDocument();
+      expect(screen.getByLabelText('Added during lab order')).toBeInTheDocument();
     });
   });
 

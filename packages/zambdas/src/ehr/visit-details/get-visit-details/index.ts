@@ -24,28 +24,20 @@ import {
   getEmailForIndividual,
   getFullestAvailableName,
   getNameFromScheduleResource,
-  getSecret,
   getTimezone,
   INVALID_RESOURCE_ID_ERROR,
-  isFollowupEncounter,
+  isAnnotationFollowupEncounter,
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   PersistedFhirResource,
   ScheduleOwnerFhirResource,
   Secrets,
-  SecretsKeys,
   selectIntakeQuestionnaireResponse,
   Timezone,
   TIMEZONES,
 } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'get-visit-details';
@@ -53,29 +45,23 @@ const ZAMBDA_NAME = 'get-visit-details';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const effectInput = await complexValidation(validatedParameters, oystehr);
-    console.debug('complexValidation success', JSON.stringify(effectInput));
+  const effectInput = await complexValidation(validatedParameters, oystehr);
+  console.debug('complexValidation success', JSON.stringify(effectInput));
 
-    const resources = performEffect(effectInput);
+  const resources = performEffect(effectInput);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(resources),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(resources),
+  };
 });
 
 const performEffect = (input: EffectInput): EHRVisitDetails => {
@@ -181,7 +167,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
   const appointment = searchResults.find((resource) => resource.resourceType === 'Appointment') as Appointment;
   const patient = searchResults.find((resource) => resource.resourceType === 'Patient') as Patient;
   const encounter = searchResults.find(
-    (resource) => resource.resourceType === 'Encounter' && !isFollowupEncounter(resource as Encounter)
+    (resource) => resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource as Encounter)
   ) as Encounter;
   const location = searchResults.find((resource) => resource.resourceType === 'Location') as Location | undefined;
   const flags = searchResults.filter((resource) => resource.resourceType === 'Flag') as Flag[];

@@ -46,6 +46,7 @@ export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
+export const FRIENDLY_PATIENT_ID_SYSTEM_BASE = 'https://identifiers.fhir.oystehr.com/friendly-patient-id';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
 export const FHIR_HL7_ORG_VALUE_SET_BASE_URL = 'http://hl7.org/fhir/ValueSet';
 
@@ -268,6 +269,12 @@ export const APPOINTMENT_LOCKED_META_TAG_SYSTEM = 'appointment-locked-status';
 export const APPOINTMENT_LOCKED_META_TAG = {
   system: APPOINTMENT_LOCKED_META_TAG_SYSTEM,
   code: 'APPOINTMENT_LOCKED',
+};
+
+export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM = 'encounter-erx-sync-status';
+export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG = {
+  system: FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM,
+  code: 'ERX_PATIENT_SYNCED',
 };
 
 export const ERX_MEDICATION_META_TAG_CODE = 'erx-medication';
@@ -561,6 +568,13 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
     answer: `${PRIVATE_EXTENSION_BASE_URL}/text-when-answer`,
     substituteText: `${PRIVATE_EXTENSION_BASE_URL}/text-when-substitute-text`,
   },
+  answerDisplayFilter: {
+    extension: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter`,
+    question: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-question`,
+    operator: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-operator`,
+    answer: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-answer`,
+    include: `${PRIVATE_EXTENSION_BASE_URL}/answer-display-filter-include`,
+  },
 };
 
 // https://hl7.org/fhir/R4B/valueset-audit-event-outcome.html
@@ -741,6 +755,11 @@ export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorn
 export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/global-template-list`;
 export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-in-person`;
 export const GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-telemed`;
+
+/** Builds the full meta.tag system URL from a chart data field name (e.g. 'chief-complaint' → full URL). */
+export const chartDataTagSystem = (fieldName: string): string => `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}`;
+
+export const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
 
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_TYPE = ottehrCodeSystemUrl('task-type');
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE = 'video-chat-waiting-room-notification';

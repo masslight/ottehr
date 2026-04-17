@@ -136,4 +136,9 @@ export class FinalResultPage {
     await expect(button, `confirming order reflex btn is labeled: ${buttonLabel}`).toHaveText(buttonLabel);
     await button.click();
   }
+
+  async orderReflexButtonIsHidden(): Promise<void> {
+    const button = this.#page.getByTestId(dataTestIds.resultPage.orderReflexTestBtn);
+    await expect(button, `confirm that the order reflex test button is hidden`).toBeHidden();
+  }
 }

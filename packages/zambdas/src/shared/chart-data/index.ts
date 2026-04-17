@@ -59,6 +59,7 @@ import {
   GetChartDataResponse,
   getVitalObservationFhirInterpretations,
   HospitalizationDTO,
+  ICD_10_CODE_SYSTEM,
   IN_PERSON_NOTE_ID,
   isVitalObservation,
   makeVitalsObservationDTO,
@@ -81,6 +82,8 @@ import {
   PROCEDURE_TYPE_SYSTEM,
   ProcedureDTO,
   ProviderChartDataFieldsNames,
+  REFUSAL_OF_EMS_TRANSPORT_FIELD,
+  REFUSAL_OF_EMS_TRANSPORT_ID,
   removeOperation,
   SCHOOL_WORK_NOTE,
   SCHOOL_WORK_NOTE_CODE,
@@ -137,7 +140,7 @@ export function makeConditionResource(
       ? {
           coding: [
             {
-              system: 'http://hl7.org/fhir/sid/icd-10',
+              system: ICD_10_CODE_SYSTEM,
               version: '2019',
               code: dto.code,
               display: dto.display,
@@ -429,16 +432,25 @@ export function makeObservationResource(
   // and date fields also have string values.
   const textData = data as ObservationTextFieldDTO;
   if (isObservationTextFieldDTO(data)) {
+    const component =
+      'items' in textData && Array.isArray(textData.items) && textData.items.length > 0
+        ? textData.items.map((item) => ({
+            code: { text: textData.field },
+            valueString: JSON.stringify(item),
+          }))
+        : undefined;
     if ('note' in textData && textData.note) {
       return {
         ...base,
         valueString: textData.value,
         note: [{ text: textData.note }],
+        ...(component ? { component } : {}),
       };
     } else {
       return {
         ...base,
         valueString: textData.value,
+        ...(component ? { component } : {}),
       };
     }
   }
@@ -691,6 +703,7 @@ export function makeServiceRequestResource({
   performerType,
   note,
   nothingToEatOrDrink,
+  refusalOfEmsTransport,
 }: {
   resourceId: string | undefined;
   encounterId: string;
@@ -702,7 +715,23 @@ export function makeServiceRequestResource({
   performerType?: CodeableConcept;
   note?: string;
   [NOTHING_TO_EAT_OR_DRINK_FIELD]?: boolean;
+  [REFUSAL_OF_EMS_TRANSPORT_FIELD]?: boolean;
 }): ServiceRequest {
+  const extensions = [];
+
+  if (nothingToEatOrDrink === true) {
+    extensions.push({
+      url: NOTHING_TO_EAT_OR_DRINK_ID,
+      valueBoolean: true,
+    });
+  }
+
+  if (refusalOfEmsTransport === true) {
+    extensions.push({
+      url: REFUSAL_OF_EMS_TRANSPORT_ID,
+      valueBoolean: true,
+    });
+  }
   return {
     id: resourceId,
     resourceType: 'ServiceRequest',
@@ -729,10 +758,7 @@ export function makeServiceRequestResource({
       : undefined,
     code,
     meta: fillMeta(metaName, metaName),
-    extension:
-      nothingToEatOrDrink === true
-        ? [{ url: NOTHING_TO_EAT_OR_DRINK_ID, valueBoolean: nothingToEatOrDrink }]
-        : undefined,
+    extension: extensions.length > 0 ? extensions : undefined,
   };
 }
 
@@ -754,6 +780,7 @@ export function makeDispositionDTO(
   const labServices = filterCodeableConcepts(followUp.orderDetail, 'lab-service');
   const virusTests = filterCodeableConcepts(followUp.orderDetail, 'virus-test');
   const reasonForTransfer = filterCodeableConcepts(followUp.orderDetail, 'reason-for-transfer')[0];
+  const specialtyTransfer = filterCodeableConcepts(followUp.orderDetail, 'specialty-transfer')[0];
 
   const followUpArr = subFollowUp?.map((element) => {
     const performerCode = element.performerType?.coding?.[0].code;
@@ -777,10 +804,14 @@ export function makeDispositionDTO(
     labService: labServices,
     virusTest: virusTests,
     reason: reasonForTransfer,
+    specialty: specialtyTransfer,
     followUp: followUpArr ?? undefined,
     followUpIn: typeof followUpTime === 'number' ? Math.floor(followUpTime / 1440) : undefined,
     [NOTHING_TO_EAT_OR_DRINK_FIELD]: followUp.extension?.some(
       (ext) => ext.url === NOTHING_TO_EAT_OR_DRINK_ID && ext.valueBoolean === true
+    ),
+    [REFUSAL_OF_EMS_TRANSPORT_FIELD]: followUp.extension?.some(
+      (ext) => ext.url === REFUSAL_OF_EMS_TRANSPORT_ID && ext.valueBoolean === true
     ),
   };
 }
@@ -944,7 +975,7 @@ export function makeDiagnosisConditionResource(
     code: {
       coding: [
         {
-          system: 'http://hl7.org/fhir/sid/icd-10',
+          system: ICD_10_CODE_SYSTEM,
           code: data.code,
           display: data.display,
         },
@@ -1158,12 +1189,32 @@ export function makeObservationDTO(observation: Observation): null | Observation
       value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
     } as ObservationDateRangeFieldDTO;
   } else if (typeof observation.valueString === 'string') {
+    const items = observation.component
+      ?.map((c) => {
+        if (typeof c.valueString !== 'string') return undefined;
+        try {
+          const parsed = JSON.parse(c.valueString);
+          if (parsed && typeof parsed === 'object' && typeof parsed.display === 'string') {
+            const searchTerms =
+              Array.isArray(parsed.searchTerms) && parsed.searchTerms.every((t: unknown) => typeof t === 'string')
+                ? parsed.searchTerms
+                : [];
+            return { display: parsed.display, searchTerms };
+          }
+        } catch {
+          // Legacy plain-string component — use as display, leave searchTerms empty
+          // (do not echo the display/prose into searchTerms).
+        }
+        return { display: c.valueString, searchTerms: [] };
+      })
+      .filter((v): v is { display: string; searchTerms: string[] } => v != null);
     return {
       resourceId: observation.id,
       field,
       value: observation.valueString,
       note: observation.note?.[0]?.text,
       derivedFrom: observation.derivedFrom?.[0].reference,
+      ...(items && items.length > 0 ? { items } : {}),
     } as ObservationTextFieldDTO;
   }
 
@@ -1523,6 +1574,18 @@ export const createDispositionServiceRequest = ({
     );
   }
 
+  if (disposition.type === 'specialty' && disposition.specialty) {
+    if (!orderDetail) orderDetail = [];
+    orderDetail.push(
+      createCodeableConcept([
+        {
+          code: disposition.specialty,
+          system: 'specialty-transfer', // TODO phony Coding system
+        },
+      ])
+    );
+  }
+
   const followUpDaysInMinutes = typeof disposition.followUpIn === 'number' ? disposition.followUpIn * 1440 : undefined;
 
   return saveOrUpdateResourceRequest(
@@ -1535,6 +1598,7 @@ export const createDispositionServiceRequest = ({
       followUpIn: followUpDaysInMinutes,
       orderDetail,
       [NOTHING_TO_EAT_OR_DRINK_FIELD]: disposition[NOTHING_TO_EAT_OR_DRINK_FIELD],
+      [REFUSAL_OF_EMS_TRANSPORT_FIELD]: disposition[REFUSAL_OF_EMS_TRANSPORT_FIELD],
     })
   );
 };

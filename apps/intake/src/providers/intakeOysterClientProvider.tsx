@@ -78,6 +78,10 @@ export const IntakeClientsProvider: FC<PropsWithChildren> = ({ children }) => {
       accessToken: token,
       projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
       projectId: import.meta.env.VITE_APP_PROJECT_ID,
+      services: {
+        zambdaApiUrl:
+          import.meta.env.VITE_APP_IS_LOCAL === 'true' ? import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL : undefined,
+      },
 
       // fetch interceptor responsible for:
       // - Checks token validity before each request and refreshes token if it is close to expiration (30s buffer)
@@ -125,6 +129,10 @@ export const IntakeClientsProvider: FC<PropsWithChildren> = ({ children }) => {
       return new Oystehr({
         projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
         projectId: import.meta.env.VITE_APP_PROJECT_ID,
+        services: {
+          zambdaApiUrl:
+            import.meta.env.VITE_APP_IS_LOCAL === 'true' ? import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL : undefined,
+        },
       });
     });
   }, [tryGetToken, logout, auth0Loaded]);

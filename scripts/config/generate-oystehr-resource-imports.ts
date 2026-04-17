@@ -29,7 +29,7 @@ const zambdasDirPath = path.resolve(__dirname, '../../packages/zambdas');
 
 async function generate(input: GenerateResourcesArgs): Promise<void> {
   const { configDir, env, projectId, accessToken } = input;
-  const varFile = path.resolve(__dirname, `../../packages/zambdas/.env/${env}.json`);
+  const varFile = path.resolve(__dirname, `../../config/.env/${env}.json`);
   await generateOystehrResourceImports({ configDir: `${configDir}/oystehr`, varFile, projectId, accessToken });
 }
 

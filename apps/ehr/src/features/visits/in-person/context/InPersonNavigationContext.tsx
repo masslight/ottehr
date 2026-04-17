@@ -110,7 +110,8 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
       return;
     }
 
-    const isEncounterLoadedToStore = appointmentIdReferenceFromEncounter === appointmentIdFromUrl;
+    const isEncounterLoadedToStore =
+      appointmentIdReferenceFromEncounter === appointmentIdFromUrl || !!encounter?.partOf;
 
     if (!isEncounterLoadedToStore) {
       return;
@@ -133,6 +134,7 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
   }, [
     encounter?.id,
     encounter?.participant,
+    encounter?.partOf,
     setInteractionMode,
     interactionMode,
     isModeInitialized,

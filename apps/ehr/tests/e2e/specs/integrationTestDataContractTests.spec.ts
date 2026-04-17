@@ -513,6 +513,13 @@ const cleanAppointment = (appointment: Appointment): Appointment => {
 const cleanPatient = (patient: Patient): Patient => {
   let cleanedPatient = { ...patient };
   cleanedPatient = cleanOutMetaStuff(cleanedPatient) as Patient;
+  // Friendly patient IDs are sequential and unique per patient, so the values will differ
+  // between the e2e and integration patients. Skip the value, but still verify the system exists.
+  if (cleanedPatient.identifier) {
+    cleanedPatient.identifier = cleanedPatient.identifier.map((id) =>
+      id.system?.startsWith('https://identifiers.fhir.oystehr.com/friendly-patient-id') ? { ...id, value: SKIP_ME } : id
+    );
+  }
   return cleanedPatient;
 };
 

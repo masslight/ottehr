@@ -96,7 +96,8 @@ export type RequestedFields =
   | 'observations'
   | 'preferredPharmacies'
   | 'reasonForVisit'
-  | 'accident';
+  | 'accident'
+  | 'patientHasPreviousVisits';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 
@@ -188,6 +189,9 @@ export const PATIENT_VITALS_META_SYSTEM = 'patient-vitals-field';
 export const NOTHING_TO_EAT_OR_DRINK_ID = 'nothing-to-eat-or-drink'; // fhir url
 export const NOTHING_TO_EAT_OR_DRINK_FIELD = 'nothingToEatOrDrink'; // backend/frontend - disposition field & form field
 export const NOTHING_TO_EAT_OR_DRINK_LABEL = 'Nothing to eat or drink until evaluated in the Emergency Department.'; // frontend form label
+export const REFUSAL_OF_EMS_TRANSPORT_ID = 'refusal-of-ems-transport';
+export const REFUSAL_OF_EMS_TRANSPORT_FIELD = 'refusalOfEmsTransport';
+export const REFUSAL_OF_EMS_TRANSPORT_LABEL = 'Refusal of EMS Transport';
 export const PATIENT_INSTRUCTIONS_TEMPLATE_CODE = 'patient-instruction-template';
 export const IN_PERSON_NOTE_ID = 'css-note';
 
@@ -322,6 +326,7 @@ export enum NOTE_TYPE {
   VITALS = 'vitals',
   SCREENING = 'screening',
   MEDICATION = 'medication',
+  IMMUNIZATION = 'immunization',
   ALLERGY = 'allergy',
   INTAKE_MEDICATION = 'intake-medication',
   MEDICAL_CONDITION = 'medical-condition',
@@ -349,6 +354,7 @@ export interface DispositionDTO {
   type: DispositionType;
   note: string;
   reason?: string;
+  specialty?: string;
   labService?: string[];
   virusTest?: string[];
   followUp?: {
@@ -357,6 +363,7 @@ export interface DispositionDTO {
   }[];
   followUpIn?: number;
   [NOTHING_TO_EAT_OR_DRINK_FIELD]?: boolean;
+  [REFUSAL_OF_EMS_TRANSPORT_FIELD]?: boolean;
 }
 
 export interface HospitalizationDTO extends SaveableDTO {
@@ -471,11 +478,14 @@ export const followUpInOptions = [
 
 export interface BillingSuggestionInput {
   newPatient: boolean | undefined;
+  patientAge?: string;
+  patientSex?: string;
   hpi: string;
   mdm: string;
   externalLabOrders: string;
   internalLabOrders: string;
   radiologyOrders: any;
+  radiologyReports?: string;
   procedures: any;
   diagnoses: DiagnosisDTO[] | undefined;
   billing: CPTCodeDTO[] | undefined;

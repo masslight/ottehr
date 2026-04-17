@@ -18,7 +18,7 @@ export type GetAppointmentAccessibilityDataProps = {
   encounter: Encounter;
   appointment?: Appointment;
   user?: EvolveUser;
-  featureFlags: Partial<AppFlags>;
+  appFlags: Partial<AppFlags>;
 };
 
 export type GetAppointmentAccessibilityDataResult = {
@@ -40,7 +40,7 @@ export const getAppointmentAccessibilityData = ({
   encounter,
   appointment,
   user,
-  featureFlags = {},
+  appFlags = {},
 }: GetAppointmentAccessibilityDataProps): GetAppointmentAccessibilityDataResult => {
   const allLicenses = user?.profileResource && allLicensesForPractitioner(user.profileResource);
   const licensedPractitionerStates = allLicenses?.map((item) => item.state);
@@ -65,10 +65,11 @@ export const getAppointmentAccessibilityData = ({
   const isAppointmentLockedByMetaTag = appointment ? isAppointmentLocked(appointment) : false;
   const visitType = getEncounterVisitType(encounter);
   const isFollowup = visitType === 'follow-up';
+  const isScheduledFollowup = visitType === 'scheduled-follow-up';
 
   const isAppointmentReadOnly = (() => {
-    if (featureFlags.isInPerson) {
-      return isAppointmentLockedByMetaTag && !isFollowup;
+    if (appFlags.isInPerson) {
+      return isAppointmentLockedByMetaTag && !isFollowup && !isScheduledFollowup;
     }
 
     return (

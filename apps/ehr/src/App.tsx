@@ -1,12 +1,11 @@
 import { TabContext } from '@mui/lab';
 import { CssBaseline } from '@mui/material';
-// import Alert from '@mui/material/Alert';
 import { LicenseInfo } from '@mui/x-data-grid-pro';
 import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { RoleType, setupSentry } from 'utils';
+import { parseCommaSeparatedTags, RoleType, setupSentry } from 'utils';
 import Banner from './components/Banner';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -25,6 +24,13 @@ import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAp
 import EditChargeItem from './features/visits/telemed/components/admin/EditChargeItem';
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
+import GlobalTemplateDetailPage from './features/visits/telemed/components/admin/GlobalTemplateDetailPage';
+import ImmunizationQuickPickDetailPage from './features/visits/telemed/components/admin/ImmunizationQuickPickDetailPage';
+import AdminAddInHouseLab from './features/visits/telemed/components/admin/in-house-labs/AdminAddInHouseLab';
+import AdminInHouseLabDetails from './features/visits/telemed/components/admin/in-house-labs/AdminInHouseLabDetails';
+import InHouseMedicationQuickPickDetailPage from './features/visits/telemed/components/admin/InHouseMedicationQuickPickDetailPage';
+import ProcedureQuickPickDetailPage from './features/visits/telemed/components/admin/ProcedureQuickPickDetailPage';
+import RadiologyQuickPickDetailPage from './features/visits/telemed/components/admin/RadiologyQuickPickDetailPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
@@ -62,19 +68,15 @@ import VisitDetailsPage from './pages/VisitDetailsPage';
 import { Claim, Claims } from './rcm';
 import { useNavStore } from './state/nav.store';
 
-const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV } = import.meta.env;
+const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_TAGS } = import.meta.env;
 
 setupSentry({
   dsn: VITE_APP_SENTRY_DSN,
   environment: VITE_APP_SENTRY_ENV,
+  tags: parseCommaSeparatedTags(VITE_APP_SENTRY_TAGS),
 });
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
-
-const TelemedTrackingBoardPageLazy = lazy(async () => {
-  const TrackingBoardPage = await import('./features/visits/telemed/pages/TrackingBoardPage');
-  return { default: TrackingBoardPage.TrackingBoardPage };
-});
 
 const TelemedAppointmentPageLazy = lazy(async () => {
   const TelemedAppointmentPage = await import('./features/visits/telemed/pages/AppointmentPage');
@@ -85,6 +87,7 @@ export const INSURANCES_URL = '/admin/insurances';
 export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
 export const CHARGE_MASTERS_URL = '/admin/charge-masters';
 export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
+export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 export const BILLING_URL = '/admin/billing';
 export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';
 
@@ -222,10 +225,22 @@ function App(): ReactElement {
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                  <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
+                    <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  )}
                   <Route path="/admin" element={<AdminPage />} />
                   <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
+                  <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
+                  <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
+                  <Route
+                    path="/admin/quick-picks/immunization/:quickPickId"
+                    element={<ImmunizationQuickPickDetailPage />}
+                  />
+                  <Route
+                    path="/admin/quick-picks/in-house-medication/:quickPickId"
+                    element={<InHouseMedicationQuickPickDetailPage />}
+                  />
                   <Route path="/admin/employees/add" element={<AddEmployeePage />} />
                   <Route path="/admin/employee/:id" element={<EditEmployeePage />} />
                   <Route path="/admin/schedule/:schedule-type/add" element={<AddSchedulePage />} />
@@ -236,18 +251,13 @@ function App(): ReactElement {
                   <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
+                  <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                   <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
                   <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
                   <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />
+                  <Route path="/admin/in-house-labs/add" element={<AdminAddInHouseLab />} />
+                  <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
                   {/** telemed */}
-                  <Route
-                    path="/telemed/appointments"
-                    element={
-                      <Suspense fallback={<LoadingScreen />}>
-                        <TelemedTrackingBoardPageLazy />
-                      </Suspense>
-                    }
-                  ></Route>
                   <Route
                     path="/telemed/appointments/:id"
                     element={
@@ -273,7 +283,9 @@ function App(): ReactElement {
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                  <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
+                    <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  )}
                   <Route path="/patients" element={<PatientsPage />} />
 
                   <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
@@ -286,14 +298,6 @@ function App(): ReactElement {
                   <Route path="/rcm/claims" element={<Claims />} />
                   <Route path="/rcm/claims/:id" element={<Claim />} />
                   {/** telemed */}
-                  <Route
-                    path="/telemed/appointments"
-                    element={
-                      <Suspense fallback={<LoadingScreen />}>
-                        <TelemedTrackingBoardPageLazy />
-                      </Suspense>
-                    }
-                  ></Route>
                   <Route path="/telemed/appointments/:id/visit-details" element={<VisitDetailsPage />} />
                   <Route
                     path="/telemed/appointments/:id"

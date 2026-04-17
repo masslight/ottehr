@@ -2,7 +2,7 @@ import { otherColors } from '@ehrTheme/colors';
 import { WarningAmber } from '@mui/icons-material';
 import { Avatar, Box, Link, Typography } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -10,11 +10,11 @@ import { getAssessmentUrl, getChiefComplaintUrl, getHPIUrl } from 'src/features/
 import { TelemedAppointmentVisitTabs } from 'utils';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
-import { useAppointmentData, useAppTelemedLocalStore, useChartData } from '../../stores/appointment/appointment.store';
+import { useAppTelemedLocalStore, useChartData } from '../../stores/appointment/appointment.store';
 import { useAppFlags } from '../../stores/contexts/useAppFlags';
 
 export const MissingCard: FC = () => {
-  const { appointment } = useAppointmentData();
+  const { id: appointmentIdFromUrl } = useParams();
   const { chartData } = useChartData();
 
   const { data: chartFields, isFetching } = useChartFields({
@@ -28,6 +28,9 @@ export const MissingCard: FC = () => {
       historyOfPresentIllness: {
         _tag: 'history-of-present-illness',
       },
+      accident: {
+        _tag: 'accident',
+      },
     },
   });
 
@@ -39,6 +42,8 @@ export const MissingCard: FC = () => {
   const medicalDecision = chartFields?.medicalDecision?.text;
   const emCode = chartData?.emCode;
   const hpi = chartFields?.chiefComplaint?.text;
+  const accidentHasType = (chartFields?.accident?.type?.length ?? 0) > 0;
+  const accidentMissingDate = accidentHasType && !chartFields?.accident?.date;
   const [suggestionNote, setSuggestionNote] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -56,16 +61,16 @@ export const MissingCard: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hpi]);
 
-  if (primaryDiagnosis && medicalDecision && emCode && hpi && !suggestionNote) {
+  if (primaryDiagnosis && medicalDecision && emCode && hpi && !suggestionNote && !accidentMissingDate) {
     return null;
   }
 
   const navigateTo = (target: 'chief-complaint' | 'hpi' | 'assessment'): void => {
     if (isInPerson) {
       const inPersonRoutes: Record<'chief-complaint' | 'hpi' | 'assessment', string> = {
-        'chief-complaint': getChiefComplaintUrl(appointment?.id || ''),
-        hpi: getHPIUrl(appointment?.id || ''),
-        assessment: getAssessmentUrl(appointment?.id || ''),
+        'chief-complaint': getChiefComplaintUrl(appointmentIdFromUrl || ''),
+        hpi: getHPIUrl(appointmentIdFromUrl || ''),
+        assessment: getAssessmentUrl(appointmentIdFromUrl || ''),
       };
 
       requestAnimationFrame(() => {
@@ -132,6 +137,16 @@ export const MissingCard: FC = () => {
               data-testid={dataTestIds.progressNotePage.emCodeLink}
             >
               E&M code
+            </Link>
+          )}
+          {accidentMissingDate && (
+            <Link
+              sx={{ cursor: 'pointer' }}
+              color="error"
+              onClick={() => navigateTo('hpi')}
+              data-testid={dataTestIds.progressNotePage.accidentDateLink}
+            >
+              Date of accident
             </Link>
           )}
           {suggestionNote && (

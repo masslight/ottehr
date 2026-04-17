@@ -36,7 +36,6 @@ import {
   fillMeta,
   makeCPTCodeDTO,
   makeCptModifierExtension,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -80,27 +79,23 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-radiology-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log('Input body and headers', unsafeInput.body, unsafeInput.headers);
+  console.log('Input body and headers', unsafeInput.body, unsafeInput.headers);
 
-    const secrets = validateSecrets(unsafeInput.secrets);
+  const secrets = validateSecrets(unsafeInput.secrets);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const validatedInput = await validateInput(unsafeInput, secrets, oystehr);
+  const validatedInput = await validateInput(unsafeInput, oystehr);
 
-    const callerUser = await getCallerUserWithAccessToken(validatedInput.callerAccessToken, secrets);
+  const callerUser = await getCallerUserWithAccessToken(validatedInput.callerAccessToken, secrets);
 
-    const output = await performEffect(validatedInput, callerUser.profile, secrets, oystehr);
+  const output = await performEffect(validatedInput, callerUser.profile, secrets, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(output),
-    };
-  } catch (error: any) {
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(output),
+  };
 });
 
 const performEffect = async (

@@ -1,6 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, SecretsKeys } from 'utils';
-import { topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { wrapHandler, ZambdaInput } from '../../../shared';
 import { getStripeClient } from '../../../shared/stripeIntegration';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -51,8 +50,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(response),
     };
   } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-
     if (
       error instanceof Error &&
       'type' in error &&
@@ -68,6 +65,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     }
 
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+    throw error;
   }
 });

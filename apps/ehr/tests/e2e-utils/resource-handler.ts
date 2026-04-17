@@ -10,6 +10,7 @@ import {
   Encounter,
   FhirResource,
   List,
+  Location,
   Patient,
   Person,
   Practitioner,
@@ -35,6 +36,7 @@ import {
   genderMap,
   GetPaperworkAnswers,
   RelationshipOption,
+  SampleAppointmentResponse,
   ServiceMode,
   VALUE_SETS,
 } from 'utils';
@@ -144,7 +146,10 @@ export type CreateTestAppointmentInput = {
 export class ResourceHandler {
   #apiClient!: Promise<Oystehr>;
   #authToken!: Promise<string>;
-  #resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
+  #resources!: CreateAppointmentResponse['resources'] & {
+    relatedPerson: { id: string; resourceType: string };
+    selectedLocation?: Location;
+  };
   #createAppointmentZambdaId: string;
   #flow: 'telemed' | 'in-person';
   #paperworkAnswers?: GetPaperworkAnswers;
@@ -198,7 +203,7 @@ export class ResourceHandler {
     return patient;
   }
 
-  public async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
+  public async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<SampleAppointmentResponse> {
     try {
       const address: Address = {
         city: inputParams?.city ?? PATIENT_CITY,
@@ -263,7 +268,7 @@ export class ResourceHandler {
         throw new Error('LOCATION_ID is not set');
       }
 
-      if (!process.env.STATE_ONE) {
+      if (this.#flow === 'telemed' && !process.env.STATE_ONE) {
         throw new Error('STATE_ONE is not set');
       }
 
@@ -282,7 +287,7 @@ export class ResourceHandler {
         zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
         serviceMode: this.#flow === 'telemed' ? ServiceMode.virtual : ServiceMode['in-person'],
         selectedLocationId: inputParams?.selectedLocationId ?? process.env.LOCATION_ID,
-        locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // todo: check why state is used here
+        locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // only relevant for telemed flow; undefined falls back to a random virtual location
         demoData: patientData,
         projectId: process.env.PROJECT_ID!,
         paperworkAnswers: this.#paperworkAnswers,
@@ -302,7 +307,7 @@ export class ResourceHandler {
         console.log(`✅ created relatedPerson: ${appointmentData.relatedPersonId}`);
       }
 
-      return appointmentData as CreateAppointmentResponse;
+      return appointmentData as SampleAppointmentResponse;
     } catch (error) {
       console.error('❌ Failed to create resources:', error);
       throw error;
@@ -318,6 +323,7 @@ export class ResourceHandler {
         id: response.relatedPersonId,
         resourceType: 'RelatedPerson',
       },
+      selectedLocation: response.selectedLocation,
     };
   }
 
@@ -618,6 +624,10 @@ export class ResourceHandler {
 
   public get questionnaireResponse(): QuestionnaireResponse {
     return this.findResourceByType('QuestionnaireResponse');
+  }
+
+  public get appointmentLocation(): Location | undefined {
+    return this.#resources.selectedLocation;
   }
 
   private findResourceByType<T>(resourceType: string): T {

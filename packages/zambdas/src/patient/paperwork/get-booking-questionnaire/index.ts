@@ -7,7 +7,6 @@ import {
   GetBookingQuestionnaireParams,
   GetBookingQuestionnaireParamsSchema,
   GetBookingQuestionnaireResponse,
-  getSecret,
   getServiceCategoryFromSlot,
   getServiceModeFromSlot,
   INVALID_INPUT_ERROR,
@@ -15,12 +14,11 @@ import {
   MISSING_REQUEST_BODY,
   prepopulateBookingForm,
   Secrets,
-  SecretsKeys,
   selectBookingQuestionnaire,
   ServiceCategoryCode,
   ServiceMode,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 import { getUser, userHasAccessToPatient } from '../../../shared/auth';
 
 const ZAMBDA_NAME = 'get-booking-questionnaire';
@@ -28,35 +26,30 @@ const ZAMBDA_NAME = 'get-booking-questionnaire';
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
-    const validatedParams = validatedParameters;
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParams;
+  const validatedParameters = validateRequestParameters(input);
+  const validatedParams = validatedParameters;
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParams;
 
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    const oystehr = createOystehrClient(oystehrToken, secrets);
-
-    const effectInput = await complexValidation(validatedParams, oystehr);
-
-    console.time('perform-effect');
-    const response = await performEffect(effectInput);
-    console.timeEnd('perform-effect');
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
   }
+
+  const oystehr = createOystehrClient(oystehrToken, secrets);
+
+  const effectInput = await complexValidation(validatedParams, oystehr);
+
+  console.time('perform-effect');
+  const response = await performEffect(effectInput);
+  console.timeEnd('perform-effect');
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 const performEffect = async (input: EffectInput): Promise<GetBookingQuestionnaireResponse> => {
@@ -157,7 +150,7 @@ const complexValidation = async (input: ValidatedInput, oystehr: Oystehr): Promi
   }
 
   const serviceMode = getServiceModeFromSlot(slot);
-  const serviceCategoryCode = getServiceCategoryFromSlot(slot) ?? BOOKING_CONFIG.serviceCategories[0].code;
+  const serviceCategoryCode = getServiceCategoryFromSlot(slot) ?? BOOKING_CONFIG.serviceCategories[0].category.code;
 
   if (!serviceMode) {
     // this indicates something is misconfigured in the slot or schedule

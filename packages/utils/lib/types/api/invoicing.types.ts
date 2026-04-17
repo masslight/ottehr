@@ -49,7 +49,6 @@ export const UpdateInvoiceTaskZambdaInputSchema = z.object({
   taskId: z.string().uuid(),
   status: z.string(),
   invoiceTaskInput: InvoiceTaskInputSchema.optional(),
-  userTimezone: z.string(),
 });
 export type UpdateInvoiceTaskZambdaInput = z.infer<typeof UpdateInvoiceTaskZambdaInputSchema>;
 
@@ -57,7 +56,7 @@ export type InvoiceMessagesPlaceholders = {
   'patient-full-name'?: string;
   location?: string;
   'visit-date'?: string;
-  'url-to-patient-portal'?: string;
+  'patient-portal-link'?: string;
   clinic?: string;
   amount?: string;
   'due-date'?: string;

@@ -3,20 +3,17 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
   AppointmentTypeCount,
-  BOOKING_CONFIG,
   DailyVisitCount,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
   getCoding,
   getInPersonVisitStatus,
-  getSecret,
-  isFollowupEncounter,
+  isAnnotationFollowupEncounter,
   isInPersonAppointment,
   isTelemedAppointment,
   LocationVisitCount,
   OTTEHR_MODULE,
   PractitionerVisitCount,
-  SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
   VisitsByTypeCount,
   VisitsOverviewReportZambdaOutput,
@@ -25,7 +22,6 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   fetchAllPages,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -37,400 +33,113 @@ const ZAMBDA_NAME = 'visits-overview-report';
 const INITIAL_PAGE_SIZE = 1000;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  let validatedParameters;
-  try {
-    validatedParameters = validateRequestParameters(input);
-    const { dateRange } = validatedParameters;
+  const validatedParameters = validateRequestParameters(input);
+  const { dateRange } = validatedParameters;
 
-    // Get M2M token for FHIR access
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  // Get M2M token for FHIR access
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
 
-    console.log('Searching for appointments in date range:', dateRange);
+  console.log('Searching for appointments in date range:', dateRange);
 
-    // Search for appointments within the date range
-    // Fetch all appointments, locations, encounters, and practitioners with proper FHIR pagination
-    let allResources: (Appointment | Location | Encounter | Practitioner)[] = [];
+  // Search for appointments within the date range
+  // Fetch all appointments, locations, encounters, and practitioners with proper FHIR pagination
+  let allResources: (Appointment | Location | Encounter | Practitioner)[] = [];
 
-    await fetchAllPages(async (offset, count) => {
-      console.log(`Fetching resources with offset=${offset}, count=${count} of appointments and locations...`);
-      const searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Practitioner>({
-        resourceType: 'Appointment',
-        params: [
-          { name: 'date', value: `ge${dateRange.start}` },
-          { name: 'date', value: `le${dateRange.end}` },
-          { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
-          { name: '_include', value: 'Appointment:location' },
-          { name: '_revinclude', value: 'Encounter:appointment' },
-          { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
-          {
-            name: '_elements',
-            value: [
-              'id',
-              'status',
-              'serviceCategory',
-              'Location.id',
-              'Location.name',
-              'Practitioner.id',
-              'Practitioner.name',
-              'Encounter.id',
-              'Encounter.type',
-              'Encounter.status',
-              'Encounter.appointment',
-              'Encounter.participant',
-              'Encounter.extension',
-            ].join(','),
-          },
-          { name: '_offset', value: offset.toString() },
-          { name: '_count', value: count.toString() },
-        ],
-      });
-      const pageResources = searchBundle?.unbundle() ?? [];
-      allResources = allResources.concat(pageResources);
-      const pageAppointmentsCount = pageResources.filter(
-        (resource): resource is Appointment => resource.resourceType === 'Appointment'
-      ).length;
-      console.log(`Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`);
-      return searchBundle;
-    }, INITIAL_PAGE_SIZE);
-
-    // Separate resources by type
-    const appointments = allResources.filter(
+  await fetchAllPages(async (offset, count) => {
+    console.log(`Fetching resources with offset=${offset}, count=${count} of appointments and locations...`);
+    const searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Practitioner>({
+      resourceType: 'Appointment',
+      params: [
+        { name: 'date', value: `ge${dateRange.start}` },
+        { name: 'date', value: `le${dateRange.end}` },
+        { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
+        { name: '_include', value: 'Appointment:location' },
+        { name: '_revinclude', value: 'Encounter:appointment' },
+        { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
+        {
+          name: '_elements',
+          value: [
+            'id',
+            'status',
+            'serviceCategory',
+            'Location.id',
+            'Location.name',
+            'Practitioner.id',
+            'Practitioner.name',
+            'Encounter.id',
+            'Encounter.type',
+            'Encounter.status',
+            'Encounter.appointment',
+            'Encounter.participant',
+            'Encounter.extension',
+          ].join(','),
+        },
+        { name: '_offset', value: offset.toString() },
+        { name: '_count', value: count.toString() },
+      ],
+    });
+    const pageResources = searchBundle?.unbundle() ?? [];
+    allResources = allResources.concat(pageResources);
+    const pageAppointmentsCount = pageResources.filter(
       (resource): resource is Appointment => resource.resourceType === 'Appointment'
-    );
-    const locations = allResources.filter((resource): resource is Location => resource.resourceType === 'Location');
-    const encounters = allResources.filter((resource): resource is Encounter => resource.resourceType === 'Encounter');
-    const practitioners = allResources.filter(
-      (resource): resource is Practitioner => resource.resourceType === 'Practitioner'
-    );
+    ).length;
+    console.log(`Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`);
+    return searchBundle;
+  }, INITIAL_PAGE_SIZE);
 
-    console.log(
-      `Total resources found: ${allResources.length} (${appointments.length} appointments, ${locations.length} locations, ${encounters.length} encounters, ${practitioners.length} practitioners)`
-    );
+  // Separate resources by type
+  const appointments = allResources.filter(
+    (resource): resource is Appointment => resource.resourceType === 'Appointment'
+  );
+  const locations = allResources.filter((resource): resource is Location => resource.resourceType === 'Location');
+  const encounters = allResources.filter((resource): resource is Encounter => resource.resourceType === 'Encounter');
+  const practitioners = allResources.filter(
+    (resource): resource is Practitioner => resource.resourceType === 'Practitioner'
+  );
 
-    // Create encounter map for quick lookups to determine visit status
-    const encounterMap = new Map<string, Encounter>();
-    encounters
-      .filter((encounter) => !isFollowupEncounter(encounter))
-      .forEach((encounter) => {
-        const appointmentRef = encounter.appointment?.[0]?.reference;
-        if (appointmentRef && encounter.id) {
-          encounterMap.set(appointmentRef, encounter);
-        }
-      });
+  console.log(
+    `Total resources found: ${allResources.length} (${appointments.length} appointments, ${locations.length} locations, ${encounters.length} encounters, ${practitioners.length} practitioners)`
+  );
 
-    // Filter out cancelled and no show visits
-    const activeAppointments = appointments.filter((appointment) => {
-      if (!appointment.id) return false;
-      const encounter = encounterMap.get(`Appointment/${appointment.id}`);
-      if (!encounter) return false;
-      const visitStatus = getInPersonVisitStatus(appointment, encounter);
-      return visitStatus !== 'cancelled' && visitStatus !== 'no show';
-    });
-
-    console.log(
-      `Filtered appointments: ${appointments.length} total, ${activeAppointments.length} active (excluded ${
-        appointments.length - activeAppointments.length
-      } cancelled/no show visits)`
-    );
-
-    if (activeAppointments.length === 0) {
-      const response: VisitsOverviewReportZambdaOutput = {
-        message: 'No active appointments found for the specified date range',
-        totalAppointments: 0,
-        appointmentTypes: [
-          { type: 'In-Person', count: 0, percentage: 0 },
-          { type: 'Telemed', count: 0, percentage: 0 },
-        ],
-        dailyVisits: [],
-        locationVisits: [],
-        practitionerVisits: [],
-        visitsByTypeCount: [],
-        dateRange,
-      };
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify(response),
-      };
-    }
-
-    // Count appointments by type and by date
-    const typeCounts = {
-      'In-Person': 0,
-      Telemed: 0,
-    };
-
-    // Group appointments by date and type for chart data
-    const dailyVisitsMap = new Map<string, { inPerson: number; telemed: number }>();
-
-    activeAppointments.forEach((appointment) => {
-      // Determine appointment type based on meta tags
-      const isTelemedicine = isTelemedAppointment(appointment);
-      const isInPerson = isInPersonAppointment(appointment);
-
-      // Extract date from appointment
-      let appointmentDate = 'unknown';
-      if (appointment.start) {
-        try {
-          // extract date and format as YYYY-MM-DD
-          const appointmentDateTime = new Date(appointment.start);
-          const year = appointmentDateTime.getFullYear();
-          const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
-          const day = String(appointmentDateTime.getDate()).padStart(2, '0');
-          appointmentDate = `${year}-${month}-${day}`;
-        } catch (error) {
-          console.warn('Failed to parse appointment date:', appointment.start, error);
-          captureException(error);
-          appointmentDate = 'unknown';
-        }
-      }
-
-      // Initialize date entry if it doesn't exist
-      if (!dailyVisitsMap.has(appointmentDate)) {
-        dailyVisitsMap.set(appointmentDate, { inPerson: 0, telemed: 0 });
-      }
-
-      const dayData = dailyVisitsMap.get(appointmentDate)!;
-
-      if (isTelemedicine) {
-        typeCounts.Telemed++;
-        dayData.telemed++;
-      } else if (isInPerson) {
-        typeCounts['In-Person']++;
-        dayData.inPerson++;
-      }
-      // Note: Skip appointments that don't have a clear type - they won't be counted
-    });
-
-    const totalAppointments = activeAppointments.length;
-
-    // Process location-based visit counts
-    const locationVisitsMap = new Map<string, { locationId: string; inPerson: number; telemed: number }>();
-
-    activeAppointments.forEach((appointment) => {
-      // Get location reference from appointment
-      const participantWithLocation = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'));
-
-      // Check if appointment is telemedicine or in-person (using same logic as daily visits)
-      const isTelemedicine = isTelemedAppointment(appointment);
-      const isInPerson = isInPersonAppointment(appointment);
-
-      let locationKey = 'Unknown Location';
-      let locationId = 'unknown';
-
-      if (participantWithLocation?.actor?.reference) {
-        locationId = participantWithLocation.actor.reference.replace('Location/', '');
-        // Find the location resource by ID
-        const location = locations.find((loc) => loc.id === locationId);
-        locationKey = location?.name || 'Unknown Location';
-      }
-
-      const currentData = locationVisitsMap.get(locationKey) || { locationId, inPerson: 0, telemed: 0 };
-
-      if (isTelemedicine) {
-        currentData.telemed++;
-      } else if (isInPerson) {
-        currentData.inPerson++;
-      }
-      // Note: Skip appointments that don't have a clear type - they won't be counted
-
-      locationVisitsMap.set(locationKey, currentData);
-    });
-
-    console.log(
-      'Location visits summary:',
-      Array.from(locationVisitsMap.entries()).map(
-        ([location, data]) =>
-          `${location}: ${data.inPerson} in-person, ${data.telemed} telemed, total: ${data.inPerson + data.telemed}`
-      )
-    );
-
-    // Convert location visits map to sorted array
-    const locationVisits: LocationVisitCount[] = Array.from(locationVisitsMap.entries())
-      .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
-      .map(([locationName, data]) => ({
-        locationName,
-        locationId: data.locationId,
-        inPerson: data.inPerson,
-        telemed: data.telemed,
-        total: data.inPerson + data.telemed,
-      }));
-
-    // Process practitioner-based visit counts
-    const practitionerVisitsMap = new Map<
-      string,
-      { practitionerId: string; role: 'Attending Provider' | 'Intake Performer'; inPerson: number; telemed: number }
-    >();
-
-    // Create practitioner map for quick lookups
-    const practitionerMap = new Map<string, Practitioner>();
-    practitioners.forEach((practitioner) => {
-      if (practitioner.id) {
-        practitionerMap.set(practitioner.id, practitioner);
+  // Create encounter map for quick lookups to determine visit status
+  const encounterMap = new Map<string, Encounter>();
+  encounters
+    .filter((encounter) => !isAnnotationFollowupEncounter(encounter))
+    .forEach((encounter) => {
+      const appointmentRef = encounter.appointment?.[0]?.reference;
+      if (appointmentRef && encounter.id) {
+        encounterMap.set(appointmentRef, encounter);
       }
     });
 
-    activeAppointments.forEach((appointment) => {
-      if (!appointment.id) return;
+  // Filter out cancelled and no show visits
+  const activeAppointments = appointments.filter((appointment) => {
+    if (!appointment.id) return false;
+    const encounter = encounterMap.get(`Appointment/${appointment.id}`);
+    if (!encounter) return false;
+    const visitStatus = getInPersonVisitStatus(appointment, encounter);
+    return visitStatus !== 'cancelled' && visitStatus !== 'no show';
+  });
 
-      // Check if appointment is telemedicine or in-person (using same logic as daily visits)
-      const isTelemedicine = isTelemedAppointment(appointment);
-      const isInPerson = isInPersonAppointment(appointment);
+  console.log(
+    `Filtered appointments: ${appointments.length} total, ${activeAppointments.length} active (excluded ${
+      appointments.length - activeAppointments.length
+    } cancelled/no show visits)`
+  );
 
-      // Skip appointments without clear type
-      if (!isTelemedicine && !isInPerson) return;
-
-      // Find the encounter for this appointment
-      const encounter = encounterMap.get(`Appointment/${appointment.id}`);
-      if (!encounter) return;
-
-      // Get attending provider and intake performer
-      const attendingProviderId = getAttendingPractitionerId(encounter);
-      const admitterProviderId = getAdmitterPractitionerId(encounter);
-
-      // For telemed encounters, practitioners may not have specific role types (Attender/Admitter)
-      // In this case, find any practitioner participant
-      let telemedPractitionerId: string | undefined;
-      if (isTelemedicine && !attendingProviderId && !admitterProviderId) {
-        const practitionerParticipant = encounter.participant?.find(
-          (part) => part.individual?.reference?.includes('Practitioner/')
-        );
-        if (practitionerParticipant?.individual?.reference) {
-          telemedPractitionerId = practitionerParticipant.individual.reference.replace('Practitioner/', '');
-        }
-      }
-
-      // Process attending provider
-      if (attendingProviderId) {
-        const key = `${attendingProviderId}-Attending Provider`;
-        const currentData = practitionerVisitsMap.get(key) || {
-          practitionerId: attendingProviderId,
-          role: 'Attending Provider' as const,
-          inPerson: 0,
-          telemed: 0,
-        };
-
-        if (isTelemedicine) {
-          currentData.telemed++;
-        } else if (isInPerson) {
-          currentData.inPerson++;
-        }
-
-        practitionerVisitsMap.set(key, currentData);
-      }
-
-      // Process intake performer
-      if (admitterProviderId && admitterProviderId !== attendingProviderId) {
-        const key = `${admitterProviderId}-Intake Performer`;
-        const currentData = practitionerVisitsMap.get(key) || {
-          practitionerId: admitterProviderId,
-          role: 'Intake Performer' as const,
-          inPerson: 0,
-          telemed: 0,
-        };
-
-        if (isTelemedicine) {
-          currentData.telemed++;
-        } else if (isInPerson) {
-          currentData.inPerson++;
-        }
-
-        practitionerVisitsMap.set(key, currentData);
-      }
-
-      // Process telemed practitioner if no attending/admitter found
-      if (telemedPractitionerId) {
-        const key = `${telemedPractitionerId}-Attending Provider`;
-        const currentData = practitionerVisitsMap.get(key) || {
-          practitionerId: telemedPractitionerId,
-          role: 'Attending Provider' as const,
-          inPerson: 0,
-          telemed: 0,
-        };
-
-        currentData.telemed++;
-        practitionerVisitsMap.set(key, currentData);
-      }
-    });
-
-    // Convert practitioner visits map to sorted array
-    const practitionerVisits: PractitionerVisitCount[] = Array.from(practitionerVisitsMap.entries())
-      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-      .map(([_key, data]) => {
-        const practitioner = practitionerMap.get(data.practitionerId);
-        const practitionerName = practitioner?.name?.[0]
-          ? `${practitioner.name[0].given?.join(' ') || ''} ${practitioner.name[0].family || ''}`.trim()
-          : 'Unknown Provider';
-
-        return {
-          practitionerId: data.practitionerId,
-          practitionerName,
-          role: data.role,
-          inPerson: data.inPerson,
-          telemed: data.telemed,
-          total: data.inPerson + data.telemed,
-        };
-      });
-
-    // Convert daily visits map to sorted array
-    const dailyVisits: DailyVisitCount[] = Array.from(dailyVisitsMap.entries())
-      .filter(([date]) => date !== 'unknown') // Filter out appointments without valid dates
-      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB)) // Sort by date
-      .map(([date, counts]) => ({
-        date,
-        inPerson: counts.inPerson,
-        telemed: counts.telemed,
-        unknown: 0, // Always 0 since we're not tracking unknown appointments
-        total: counts.inPerson + counts.telemed,
-      }));
-
-    // Calculate percentages and create response
-    const appointmentTypes: AppointmentTypeCount[] = Object.entries(typeCounts).map(([type, count]) => ({
-      type: type as 'In-Person' | 'Telemed',
-      count,
-      percentage: totalAppointments > 0 ? Math.round((count / totalAppointments) * 100) : 0,
-    }));
-
-    const visitsByTypeCount = Array.from(
-      activeAppointments
-        .reduce<Map<string, VisitsByTypeCount>>((acc: Map<string, VisitsByTypeCount>, appointment: Appointment) => {
-          const location = findLocation(appointment, locations);
-          const serviceCategoryCode = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-          const serviceCategoryName =
-            BOOKING_CONFIG.serviceCategories.find((category) => category.code === serviceCategoryCode)?.display ??
-            serviceCategoryCode ??
-            'Unknown';
-          const key = location.id + '-' + serviceCategoryName;
-          const entry = acc.get(key) ?? {
-            locationName: location.name,
-            locationId: location.id,
-            serviceCategory: serviceCategoryName,
-            inPerson: 0,
-            telemed: 0,
-            total: 0,
-          };
-          if (isInPersonAppointment(appointment)) {
-            entry.inPerson++;
-          }
-          if (isTelemedAppointment(appointment)) {
-            entry.telemed++;
-          }
-          entry.total++;
-          acc.set(key, entry);
-          return acc;
-        }, new Map<string, VisitsByTypeCount>())
-        .values()
-    );
-
+  if (activeAppointments.length === 0) {
     const response: VisitsOverviewReportZambdaOutput = {
-      message: `Found ${totalAppointments} appointments: ${typeCounts['In-Person']} in-person, ${typeCounts.Telemed} telemed`,
-      totalAppointments,
-      appointmentTypes,
-      dailyVisits,
-      locationVisits,
-      practitionerVisits,
-      visitsByTypeCount,
+      message: 'No active appointments found for the specified date range',
+      totalAppointments: 0,
+      appointmentTypes: [
+        { type: 'In-Person', count: 0, percentage: 0 },
+        { type: 'Telemed', count: 0, percentage: 0 },
+      ],
+      dailyVisits: [],
+      locationVisits: [],
+      practitionerVisits: [],
+      visitsByTypeCount: [],
       dateRange,
     };
 
@@ -438,10 +147,292 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       statusCode: 200,
       body: JSON.stringify(response),
     };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
+
+  // Count appointments by type and by date
+  const typeCounts = {
+    'In-Person': 0,
+    Telemed: 0,
+  };
+
+  // Group appointments by date and type for chart data
+  const dailyVisitsMap = new Map<string, { inPerson: number; telemed: number }>();
+
+  activeAppointments.forEach((appointment) => {
+    // Determine appointment type based on meta tags
+    const isTelemedicine = isTelemedAppointment(appointment);
+    const isInPerson = isInPersonAppointment(appointment);
+
+    // Extract date from appointment
+    let appointmentDate = 'unknown';
+    if (appointment.start) {
+      try {
+        // extract date and format as YYYY-MM-DD
+        const appointmentDateTime = new Date(appointment.start);
+        const year = appointmentDateTime.getFullYear();
+        const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
+        const day = String(appointmentDateTime.getDate()).padStart(2, '0');
+        appointmentDate = `${year}-${month}-${day}`;
+      } catch (error) {
+        console.warn('Failed to parse appointment date:', appointment.start, error);
+        captureException(error);
+        appointmentDate = 'unknown';
+      }
+    }
+
+    // Initialize date entry if it doesn't exist
+    if (!dailyVisitsMap.has(appointmentDate)) {
+      dailyVisitsMap.set(appointmentDate, { inPerson: 0, telemed: 0 });
+    }
+
+    const dayData = dailyVisitsMap.get(appointmentDate)!;
+
+    if (isTelemedicine) {
+      typeCounts.Telemed++;
+      dayData.telemed++;
+    } else if (isInPerson) {
+      typeCounts['In-Person']++;
+      dayData.inPerson++;
+    }
+    // Note: Skip appointments that don't have a clear type - they won't be counted
+  });
+
+  const totalAppointments = activeAppointments.length;
+
+  // Process location-based visit counts
+  const locationVisitsMap = new Map<string, { locationId: string; inPerson: number; telemed: number }>();
+
+  activeAppointments.forEach((appointment) => {
+    // Get location reference from appointment
+    const participantWithLocation = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'));
+
+    // Check if appointment is telemedicine or in-person (using same logic as daily visits)
+    const isTelemedicine = isTelemedAppointment(appointment);
+    const isInPerson = isInPersonAppointment(appointment);
+
+    let locationKey = 'Unknown Location';
+    let locationId = 'unknown';
+
+    if (participantWithLocation?.actor?.reference) {
+      locationId = participantWithLocation.actor.reference.replace('Location/', '');
+      // Find the location resource by ID
+      const location = locations.find((loc) => loc.id === locationId);
+      locationKey = location?.name || 'Unknown Location';
+    }
+
+    const currentData = locationVisitsMap.get(locationKey) || { locationId, inPerson: 0, telemed: 0 };
+
+    if (isTelemedicine) {
+      currentData.telemed++;
+    } else if (isInPerson) {
+      currentData.inPerson++;
+    }
+    // Note: Skip appointments that don't have a clear type - they won't be counted
+
+    locationVisitsMap.set(locationKey, currentData);
+  });
+
+  console.log(
+    'Location visits summary:',
+    Array.from(locationVisitsMap.entries()).map(
+      ([location, data]) =>
+        `${location}: ${data.inPerson} in-person, ${data.telemed} telemed, total: ${data.inPerson + data.telemed}`
+    )
+  );
+
+  // Convert location visits map to sorted array
+  const locationVisits: LocationVisitCount[] = Array.from(locationVisitsMap.entries())
+    .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+    .map(([locationName, data]) => ({
+      locationName,
+      locationId: data.locationId,
+      inPerson: data.inPerson,
+      telemed: data.telemed,
+      total: data.inPerson + data.telemed,
+    }));
+
+  // Process practitioner-based visit counts
+  const practitionerVisitsMap = new Map<
+    string,
+    { practitionerId: string; role: 'Attending Provider' | 'Intake Performer'; inPerson: number; telemed: number }
+  >();
+
+  // Create practitioner map for quick lookups
+  const practitionerMap = new Map<string, Practitioner>();
+  practitioners.forEach((practitioner) => {
+    if (practitioner.id) {
+      practitionerMap.set(practitioner.id, practitioner);
+    }
+  });
+
+  activeAppointments.forEach((appointment) => {
+    if (!appointment.id) return;
+
+    // Check if appointment is telemedicine or in-person (using same logic as daily visits)
+    const isTelemedicine = isTelemedAppointment(appointment);
+    const isInPerson = isInPersonAppointment(appointment);
+
+    // Skip appointments without clear type
+    if (!isTelemedicine && !isInPerson) return;
+
+    // Find the encounter for this appointment
+    const encounter = encounterMap.get(`Appointment/${appointment.id}`);
+    if (!encounter) return;
+
+    // Get attending provider and intake performer
+    const attendingProviderId = getAttendingPractitionerId(encounter);
+    const admitterProviderId = getAdmitterPractitionerId(encounter);
+
+    // For telemed encounters, practitioners may not have specific role types (Attender/Admitter)
+    // In this case, find any practitioner participant
+    let telemedPractitionerId: string | undefined;
+    if (isTelemedicine && !attendingProviderId && !admitterProviderId) {
+      const practitionerParticipant = encounter.participant?.find(
+        (part) => part.individual?.reference?.includes('Practitioner/')
+      );
+      if (practitionerParticipant?.individual?.reference) {
+        telemedPractitionerId = practitionerParticipant.individual.reference.replace('Practitioner/', '');
+      }
+    }
+
+    // Process attending provider
+    if (attendingProviderId) {
+      const key = `${attendingProviderId}-Attending Provider`;
+      const currentData = practitionerVisitsMap.get(key) || {
+        practitionerId: attendingProviderId,
+        role: 'Attending Provider' as const,
+        inPerson: 0,
+        telemed: 0,
+      };
+
+      if (isTelemedicine) {
+        currentData.telemed++;
+      } else if (isInPerson) {
+        currentData.inPerson++;
+      }
+
+      practitionerVisitsMap.set(key, currentData);
+    }
+
+    // Process intake performer
+    if (admitterProviderId && admitterProviderId !== attendingProviderId) {
+      const key = `${admitterProviderId}-Intake Performer`;
+      const currentData = practitionerVisitsMap.get(key) || {
+        practitionerId: admitterProviderId,
+        role: 'Intake Performer' as const,
+        inPerson: 0,
+        telemed: 0,
+      };
+
+      if (isTelemedicine) {
+        currentData.telemed++;
+      } else if (isInPerson) {
+        currentData.inPerson++;
+      }
+
+      practitionerVisitsMap.set(key, currentData);
+    }
+
+    // Process telemed practitioner if no attending/admitter found
+    if (telemedPractitionerId) {
+      const key = `${telemedPractitionerId}-Attending Provider`;
+      const currentData = practitionerVisitsMap.get(key) || {
+        practitionerId: telemedPractitionerId,
+        role: 'Attending Provider' as const,
+        inPerson: 0,
+        telemed: 0,
+      };
+
+      currentData.telemed++;
+      practitionerVisitsMap.set(key, currentData);
+    }
+  });
+
+  // Convert practitioner visits map to sorted array
+  const practitionerVisits: PractitionerVisitCount[] = Array.from(practitionerVisitsMap.entries())
+    .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+    .map(([_key, data]) => {
+      const practitioner = practitionerMap.get(data.practitionerId);
+      const practitionerName = practitioner?.name?.[0]
+        ? `${practitioner.name[0].given?.join(' ') || ''} ${practitioner.name[0].family || ''}`.trim()
+        : 'Unknown Provider';
+
+      return {
+        practitionerId: data.practitionerId,
+        practitionerName,
+        role: data.role,
+        inPerson: data.inPerson,
+        telemed: data.telemed,
+        total: data.inPerson + data.telemed,
+      };
+    });
+
+  // Convert daily visits map to sorted array
+  const dailyVisits: DailyVisitCount[] = Array.from(dailyVisitsMap.entries())
+    .filter(([date]) => date !== 'unknown') // Filter out appointments without valid dates
+    .sort(([dateA], [dateB]) => dateA.localeCompare(dateB)) // Sort by date
+    .map(([date, counts]) => ({
+      date,
+      inPerson: counts.inPerson,
+      telemed: counts.telemed,
+      unknown: 0, // Always 0 since we're not tracking unknown appointments
+      total: counts.inPerson + counts.telemed,
+    }));
+
+  // Calculate percentages and create response
+  const appointmentTypes: AppointmentTypeCount[] = Object.entries(typeCounts).map(([type, count]) => ({
+    type: type as 'In-Person' | 'Telemed',
+    count,
+    percentage: totalAppointments > 0 ? Math.round((count / totalAppointments) * 100) : 0,
+  }));
+
+  const visitsByTypeCount = Array.from(
+    activeAppointments
+      .reduce<Map<string, VisitsByTypeCount>>((acc: Map<string, VisitsByTypeCount>, appointment: Appointment) => {
+        const location = findLocation(appointment, locations);
+        // Use the Coding's own display/code from the resource rather than looking up
+        // BOOKING_CONFIG — this keeps historical reports stable across config changes
+        // (renamed or removed categories) and reflects what was recorded at booking time.
+        // "Unknown" now indicates a genuinely missing SERVICE_CATEGORY_SYSTEM coding.
+        const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
+        const serviceCategoryName = serviceCategoryCoding?.display ?? serviceCategoryCoding?.code ?? 'Unknown';
+        const key = location.id + '-' + serviceCategoryName;
+        const entry = acc.get(key) ?? {
+          locationName: location.name,
+          locationId: location.id,
+          serviceCategory: serviceCategoryName,
+          inPerson: 0,
+          telemed: 0,
+          total: 0,
+        };
+        if (isInPersonAppointment(appointment)) {
+          entry.inPerson++;
+        }
+        if (isTelemedAppointment(appointment)) {
+          entry.telemed++;
+        }
+        entry.total++;
+        acc.set(key, entry);
+        return acc;
+      }, new Map<string, VisitsByTypeCount>())
+      .values()
+  );
+
+  const response: VisitsOverviewReportZambdaOutput = {
+    message: `Found ${totalAppointments} appointments: ${typeCounts['In-Person']} in-person, ${typeCounts.Telemed} telemed`,
+    totalAppointments,
+    appointmentTypes,
+    dailyVisits,
+    locationVisits,
+    practitionerVisits,
+    visitsByTypeCount,
+    dateRange,
+  };
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 function findLocation(appointment: Appointment, locations: Location[]): { id: string; name: string } {

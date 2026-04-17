@@ -25,7 +25,7 @@ import {
 import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -41,12 +41,12 @@ import {
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
+  DataEntryTestItem,
   getAttendingPractitionerId,
   isApiError,
   LabListsDTO,
   LabType,
   REPEAT_TEST_CPT_CODE_MODIFIER,
-  TestItem,
 } from 'utils';
 import { CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data';
 import { createInHouseLabOrder, getOrCreateVisitLabel } from '../../../api/api';
@@ -59,9 +59,10 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
+  const { id: appointmentIdFromUrl } = useParams();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
-  const [selectedTests, setSelectedTests] = useState<TestItem[]>([]);
+  const [selectedTests, setSelectedTests] = useState<DataEntryTestItem[]>([]);
   const [notes, setNotes] = useState<string>('');
   const [error, setError] = useState<string[] | undefined>(undefined);
 
@@ -73,7 +74,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     type?: 'repeat' | 'reflex';
   };
 
-  const { encounter, appointment } = useAppointmentData();
+  const { encounter } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
   const didPrimaryDiagnosisInit = useRef(false);
   const didPrefillInit = useRef(false);
@@ -129,7 +130,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const labSets = createInHouseLabResources?.labSets;
 
   useEffect(() => {
-    if (!prefillData || didPrefillInit.current) {
+    if (!prefillData || didPrefillInit.current || !availableTests.length) {
       return;
     }
 
@@ -137,13 +138,17 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
     if (testItemName) {
       const found = availableTests.find((test) => test.name === testItemName);
-      if (found) {
-        if (prefillData.type === 'repeat') {
-          found.orderMode = 'repeat';
-        }
-        setSelectedTests([found]);
+      if (!found) {
+        console.log(`Cannot find test ${testItemName} in available tests`, availableTests);
+        return;
       }
+      if (prefillData.type === 'repeat') {
+        found.orderMode = 'repeat';
+      }
+      console.log('"found" test', found);
+      setSelectedTests([found]);
     }
+
     if (diagnoses) {
       setSelectedAssessmentDiagnoses(diagnoses);
     }
@@ -157,7 +162,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
   const canBeSubmitted = !!(encounter?.id && selectedTests.length > 0);
 
-  const formatCptCodesForCell = (cptCodes: CPTCodeDTO[], orderMode: TestItem['orderMode']): string => {
+  const formatCptCodesForCell = (cptCodes: CPTCodeDTO[], orderMode: DataEntryTestItem['orderMode']): string => {
     const cptCodesFormatted = cptCodes.map((c) => {
       // these modifiers are pulled from the activity definition are specific to the test (ex: alcohol confirmation test)
       let modifier = c.modifier ? c.modifier.map((m) => `-${m.code}`).join(',') : '';
@@ -216,9 +221,9 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
         if (res.serviceRequestIds.length === 1) {
           // we will only nav forward if one test was created, else we will direct the user back to the table
-          navigate(`/in-person/${appointment?.id}/in-house-lab-orders/${res.serviceRequestIds[0]}/order-details`);
+          navigate(`/in-person/${appointmentIdFromUrl}/in-house-lab-orders/${res.serviceRequestIds[0]}/order-details`);
         } else {
-          navigate(`/in-person/${appointment?.id}/in-house-lab-orders`);
+          navigate(`/in-person/${appointmentIdFromUrl}/in-house-lab-orders`);
         }
       } catch (e) {
         const sdkError = e as Oystehr.OystehrSdkError;

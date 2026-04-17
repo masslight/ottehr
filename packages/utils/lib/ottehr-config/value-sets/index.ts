@@ -1,5 +1,5 @@
 // cSpell:ignore AUTOPOL, Champus, LIAB, MCPOL, medib, PUBLICPOL, WCBPOL
-import { NetworkType } from 'candidhealth/api';
+import { NetworkType } from 'candidhealth/api/index.js';
 import { type InsurancePlanType as BaseInsurancePlanType, type ValueSetsConfig } from 'config-types';
 import { deepFreezeObject } from '../../utils/objects';
 
@@ -325,38 +325,6 @@ export const formValueSetsData = {
     { label: 'White', value: 'White' },
     { label: 'Decline to Specify', value: 'Decline to Specify' },
   ],
-  reasonForVisitOptions: [
-    { label: 'Cough and/or congestion', value: 'Cough and/or congestion' },
-    { label: 'Throat pain', value: 'Throat pain' },
-    { label: 'Eye concern', value: 'Eye concern' },
-    { label: 'Fever', value: 'Fever' },
-    { label: 'Ear pain', value: 'Ear pain' },
-    { label: 'Vomiting and/or diarrhea', value: 'Vomiting and/or diarrhea' },
-    { label: 'Abdominal (belly) pain', value: 'Abdominal (belly) pain' },
-    { label: 'Rash or skin issue', value: 'Rash or skin issue' },
-    { label: 'Urinary problem', value: 'Urinary problem' },
-    { label: 'Breathing problem', value: 'Breathing problem' },
-    { label: 'Injury to arm', value: 'Injury to arm' },
-    { label: 'Injury to leg', value: 'Injury to leg' },
-    { label: 'Injury to head', value: 'Injury to head' },
-    { label: 'Injury (Other)', value: 'Injury (Other)' },
-    { label: 'Cut to arm or leg', value: 'Cut to arm or leg' },
-    { label: 'Cut to face or head', value: 'Cut to face or head' },
-    { label: 'Removal of sutures/stitches/staples', value: 'Removal of sutures/stitches/staples' },
-    { label: 'Choked or swallowed something', value: 'Choked or swallowed something' },
-    { label: 'Allergic reaction to medication or food', value: 'Allergic reaction to medication or food' },
-    { label: 'Auto accident', value: 'Auto accident' },
-    { label: 'Other', value: 'Other' },
-  ],
-  reasonForVisitOptionsOccMed: [
-    { label: 'Injury', value: 'Injury' },
-    { label: 'Testing', value: 'Testing' },
-    { label: 'Physical', value: 'Physical' },
-  ],
-  reasonForVisitOptionsWorkersComp: [
-    { label: 'New injury', value: 'New injury' },
-    { label: 'Follow-up', value: 'Follow-up' },
-  ],
   relationshipOptions: [
     { label: 'Self', value: 'Self' },
     { label: 'Spouse', value: 'Spouse' },
@@ -658,3 +626,16 @@ const formValueSets: ValueSetsConfig = {
 };
 
 export const VALUE_SETS = deepFreezeObject(formValueSets);
+
+// Convenience constants for comparing against specific value set options.
+// These live here (alongside the arrays they derive from) rather than in config-helpers,
+// because ottehr-config modules use them in trigger definitions — importing them from
+// config-helpers would create a circular dependency (ottehr-config → config-helpers → ottehr-config).
+export const INSURANCE_PAY_OPTION = VALUE_SETS.patientPaymentPageOptions[0].value; // 'I have insurance'
+export const SELF_PAY_OPTION = VALUE_SETS.patientPaymentPageOptions[1].value; // 'I will pay without insurance'
+export const OCC_MED_SELF_PAY_OPTION = VALUE_SETS.patientOccMedPaymentPageOptions[0].value; // 'Self'
+export const OCC_MED_EMPLOYER_PAY_OPTION = VALUE_SETS.patientOccMedPaymentPageOptions[1].value; // 'Employer'
+export const ALLERGIES_YES_OPTION = VALUE_SETS.allergiesYesNoOptions[1].value;
+export const SURGICAL_HISTORY_YES_OPTION = VALUE_SETS.surgicalHistoryYesNoOptions[1].value;
+export const HAS_ATTORNEY_OPTION = VALUE_SETS.attorneyOptions[0].value; // 'I have an attorney'
+export const DOES_NOT_HAVE_ATTORNEY_OPTION = VALUE_SETS.attorneyOptions[1].value; // 'I do not have an attorney'

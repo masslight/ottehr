@@ -65,7 +65,7 @@ export const UserMenu: FC = () => {
 
       const { data } = await refetchPractitionerEnrollmentStatus();
 
-      if (data?.registered && !data?.confirmed && data?.identityVerified) {
+      if (data?.registered && !data?.confirmed) {
         setPendingReviewOpen(true);
 
         safelyCaptureMessage('DoseSpot enrollment pending review', {
