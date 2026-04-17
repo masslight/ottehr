@@ -1,9 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { DocumentReference } from 'fhir/r4b';
 import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, PROVIDER_CONFIG } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { loadAndParseIcd10Data } from '../../shared/icd-10-search';
 import { validateRequestParameters } from './validateRequestParameters';
+
+export const AI_CODING_SUGGESTION_SYSTEM = 'https://ottehr.com/CodeSystem/document-types';
+export const AI_CODING_SUGGESTION_CODE = 'ai-coding-suggestion';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -14,6 +18,7 @@ export const index = wrapHandler(
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     const {
+      encounterId,
       newPatient,
       patientAge,
       patientSex,
@@ -261,6 +266,56 @@ export const index = wrapHandler(
     }
     if (suggestions?.emCode) {
       suggestions.emCode = emCodeSuggestions;
+    }
+
+    // Persist suggestions as a DocumentReference for accuracy reporting
+    if (encounterId && suggestions) {
+      try {
+        const oystehrForSave = createOystehrClient(m2mToken, secrets);
+        const suggestionRecord = {
+          suggestions: {
+            icdCodes: suggestions.icdCodes,
+            cptCodes: suggestions.cptCodes,
+            emCode: suggestions.emCode,
+            codingSuggestions: suggestions.codingSuggestions,
+          },
+          inputSnapshot: {
+            diagnoses,
+            billing,
+          },
+          prompt,
+          timestamp: new Date().toISOString(),
+        };
+        const docRef: DocumentReference = {
+          resourceType: 'DocumentReference',
+          status: 'current',
+          type: {
+            coding: [
+              {
+                system: AI_CODING_SUGGESTION_SYSTEM,
+                code: AI_CODING_SUGGESTION_CODE,
+                display: 'AI Coding Suggestion',
+              },
+            ],
+          },
+          date: new Date().toISOString(),
+          description: 'AI billing coding suggestions',
+          context: {
+            encounter: [{ reference: `Encounter/${encounterId}` }],
+          },
+          content: [
+            {
+              attachment: {
+                contentType: 'application/json',
+                data: Buffer.from(JSON.stringify(suggestionRecord)).toString('base64'),
+              },
+            },
+          ],
+        };
+        await oystehrForSave.fhir.create<DocumentReference>(docRef);
+      } catch (err) {
+        console.warn('Failed to persist AI coding suggestion DocumentReference:', err);
+      }
     }
 
     return {

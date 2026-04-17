@@ -25,13 +25,14 @@ export interface BillingSuggestionsResult {
 // ── Pure data-shaping function ──────────────────────────────────────────────
 
 export function buildBillingSuggestionInput(params: {
+  encounterId: string;
   chartData: ReturnType<typeof useChartData>['chartData'];
   chartDataFields: any;
   radiologyOrders: any[] | undefined;
   appointment: any;
   patient: any;
 }): BillingSuggestionInput | null {
-  const { chartData, chartDataFields, radiologyOrders, appointment, patient } = params;
+  const { encounterId, chartData, chartDataFields, radiologyOrders, appointment, patient } = params;
 
   // External lab results
   const externalLabOrderParts: string[] = [];
@@ -131,6 +132,7 @@ export function buildBillingSuggestionInput(params: {
   }
 
   return {
+    encounterId,
     newPatient,
     patientAge,
     patientSex: patient?.gender,
@@ -191,13 +193,14 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
   const billingInput = useMemo(() => {
     if (!inputsReady) return null;
     return buildBillingSuggestionInput({
+      encounterId,
       chartData,
       chartDataFields,
       radiologyOrders,
       appointment,
       patient,
     });
-  }, [inputsReady, chartData, chartDataFields, radiologyOrders, appointment, patient]);
+  }, [inputsReady, encounterId, chartData, chartDataFields, radiologyOrders, appointment, patient]);
 
   const inputHash = useMemo(() => (billingInput ? hashInput(billingInput) : ''), [billingInput]);
 

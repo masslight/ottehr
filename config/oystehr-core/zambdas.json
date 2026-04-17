@@ -43,6 +43,13 @@
       "src": "src/ehr/ai-assisted-encounters-report/index",
       "zip": ".dist/zips/ai-assisted-encounters-report.zip"
     },
+    "GET-AI-CODING-ACCURACY-REPORT": {
+      "name": "get-ai-coding-accuracy-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-ai-coding-accuracy-report/index",
+      "zip": ".dist/zips/get-ai-coding-accuracy-report.zip"
+    },
     "DAILY-PAYMENTS-REPORT": {
       "name": "daily-payments-report",
       "type": "http_auth",

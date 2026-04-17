@@ -477,6 +477,7 @@ export const followUpInOptions = [
 ];
 
 export interface BillingSuggestionInput {
+  encounterId?: string;
   newPatient: boolean | undefined;
   patientAge?: string;
   patientSex?: string;

@@ -2,6 +2,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import InsightsIcon from '@mui/icons-material/Insights';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
@@ -105,6 +106,12 @@ export default function Reports(): React.ReactElement {
       description: 'View encounters with AI-generated documentation and assistant interactions',
       icon: <PsychologyIcon />,
       path: '/reports/ai-assisted-encounters',
+    },
+    {
+      title: 'AI Coding Accuracy',
+      description: 'Compare AI-suggested billing codes against actual provider-coded values per visit',
+      icon: <CompareArrowsIcon />,
+      path: '/reports/ai-coding-accuracy',
     },
     {
       title: 'Daily Payments',

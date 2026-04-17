@@ -200,6 +200,7 @@ const SUBMIT_LAB_ORDER_ZAMBDA_ID = 'submit-lab-order';
 const GET_APPOINTMENTS_ZAMBDA_ID = 'get-appointments';
 const ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
 const AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID = 'ai-assisted-encounters-report';
+const AI_CODING_ACCURACY_REPORT_ZAMBDA_ID = 'get-ai-coding-accuracy-report';
 const DAILY_PAYMENTS_REPORT_ZAMBDA_ID = 'daily-payments-report';
 const PRACTICE_KPIS_REPORT_ZAMBDA_ID = 'practice-kpis-report';
 const VISITS_OVERVIEW_REPORT_ZAMBDA_ID = 'visits-overview-report';
@@ -443,6 +444,22 @@ export const getAiAssistedEncountersReport = async (
 
     const response = await oystehr.zambda.execute({
       id: AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getAiCodingAccuracyReport = async (
+  oystehr: Oystehr,
+  parameters: { dateRange: { start: string; end: string }; locationIds?: string[] }
+): Promise<any> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: AI_CODING_ACCURACY_REPORT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

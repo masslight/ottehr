@@ -53,6 +53,7 @@ import PaymentLocationDetailPage from './pages/PaymentLocationDetailPage';
 import Reports from './pages/Reports';
 import {
   AiAssistedEncounters,
+  AiCodingAccuracy,
   CompleteEncounters,
   DailyPayments,
   DataExports,
@@ -204,6 +205,7 @@ function App(): ReactElement {
                   <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
                   <Route path="/reports/complete-encounters" element={<CompleteEncounters />} />
                   <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
+                  <Route path="/reports/ai-coding-accuracy" element={<AiCodingAccuracy />} />
                   <Route path="/reports/daily-payments" element={<DailyPayments />} />
                   <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
                   <Route path="/reports/data-exports" element={<DataExports />} />
