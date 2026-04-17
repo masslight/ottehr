@@ -33,12 +33,9 @@ import {
   FhirAppointmentType,
   formatDateToMDYWithTime,
   getAdmitterPractitionerId,
-  getAnnotationFollowupStatusLabel,
   getAppointmentServiceCategoryAbbreviation,
   getAttendingPractitionerId,
-  getEncounterLocationId,
   getFullestAvailableName,
-  getInitialEncounterIdForFollowUp,
   getInsuranceNameFromCoverage,
   isInPersonAppointment,
   PaymentVariant,
@@ -152,7 +149,6 @@ export const Header = (): JSX.Element => {
     location,
     locations,
     encounter,
-    followUpOriginEncounter,
     appointmentRefetch,
     selectedEncounterId,
   } = useAppointmentData();
@@ -176,9 +172,11 @@ export const Header = (): JSX.Element => {
   let optionalVisitLabel = '';
 
   if (isFollowup) {
-    const locationId = getEncounterLocationId(encounter);
-    if (locationId) {
+    const locationRef = encounter?.location?.[0]?.location?.reference;
+    if (locationRef) {
+      const locationId = locationRef.split('/')[1];
       const matchedLocation = locations.find((location) => location?.id === locationId);
+
       optionalVisitLabel = matchedLocation?.name ?? '';
     }
   } else {
@@ -375,7 +373,7 @@ export const Header = (): JSX.Element => {
                 <Grid container alignItems="center" spacing={2}>
                   <Grid item>
                     {isFollowup ? (
-                      getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter?.status))
+                      getFollowupStatusChip(encounter?.status === 'in-progress' ? 'OPEN' : 'RESOLVED')
                     ) : (
                       <ChangeStatusDropdown
                         appointmentID={appointmentID}
@@ -576,10 +574,7 @@ export const Header = (): JSX.Element => {
                     onClick={() => {
                       setHeaderMenuAnchorEl(null);
                       if (patient?.id) {
-                        const initialEncounterId = getInitialEncounterIdForFollowUp(encounter, followUpOriginEncounter);
-                        navigate(`/patient/${patient.id}/followup/add`, {
-                          state: { initialEncounterId },
-                        });
+                        navigate(`/patient/${patient.id}/followup/add`);
                       }
                     }}
                     disabled={!patient?.id}

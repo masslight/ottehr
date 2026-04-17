@@ -5,7 +5,7 @@ import {
   appointmentTypeForAppointment,
   getInPersonVisitStatus,
   getVisitStatusHistory,
-  isAnnotationFollowupEncounter,
+  isFollowupEncounter,
   isInPersonAppointment,
   LocationKpiMetrics,
   OTTEHR_MODULE,
@@ -337,8 +337,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     (resource): resource is Appointment => resource.resourceType === 'Appointment'
   );
   const encounters = allResources.filter(
-    (resource): resource is Encounter =>
-      resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource)
+    (resource): resource is Encounter => resource.resourceType === 'Encounter' && !isFollowupEncounter(resource)
   );
 
   console.log(

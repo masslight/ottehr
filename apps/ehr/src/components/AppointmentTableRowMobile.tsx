@@ -3,7 +3,6 @@ import { Box, capitalize, Grid, Modal, TableCell, TableRow, Typography } from '@
 import { CSSProperties, ReactElement, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RecordAudioContainer } from 'src/features/visits/in-person/components/progress-note/RecordAudioContainer';
-import { getAppointmentVisitDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
 import { InPersonAppointmentInformation } from 'utils';
 import { MOBILE_MODAL_STYLE } from '../constants';
 import { ApptTab } from './AppointmentTabs';
@@ -51,7 +50,7 @@ export default function AppointmentTableRowMobile({
       }}
     >
       <TableCell colSpan={9}>
-        <Link to={getAppointmentVisitDetailsUrl(appointment)} style={linkStyle}>
+        <Link to={`/visit/${appointment.id}`} style={linkStyle}>
           <Grid container spacing={1}>
             <Grid item xs={12} justifyContent="space-between">
               <Grid

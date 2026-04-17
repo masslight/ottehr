@@ -11,7 +11,6 @@ export interface CreateAppointmentInputParams {
   locationState?: string;
   unconfirmedDateOfBirth?: string | undefined;
   appointmentMetadata?: Appointment['meta'];
-  parentEncounterId?: string;
 }
 
 export interface CreateAppointmentResponse {

@@ -31,8 +31,6 @@ import {
   FHIR_EXTENSION,
   FhirAppointmentStatus,
   FhirEncounterStatus,
-  FOLLOWUP_SUBTYPE_SYSTEM,
-  FOLLOWUP_SYSTEMS,
   formatPhoneNumber,
   formatPhoneNumberDisplay,
   getAppointmentDurationFromSlot,
@@ -82,7 +80,6 @@ interface CreateAppointmentInput {
   locationState?: string;
   unconfirmedDateOfBirth?: string;
   appointmentMetadata?: Appointment['meta'];
-  parentEncounterId?: string;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -118,7 +115,6 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     questionnaireCanonical,
     visitType,
     appointmentMetadata: maybeMetadata,
-    parentEncounterId,
   } = effectInput;
   console.log('effectInput', effectInput);
   console.timeEnd('performing-complex-validation');
@@ -152,7 +148,6 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       unconfirmedDateOfBirth,
       questionnaireCanonical,
       appointmentMetadata,
-      parentEncounterId,
     },
     oystehr
   );
@@ -283,7 +278,6 @@ export async function createAppointment(
     createdBy,
     slot,
     appointmentMetadata,
-    parentEncounterId: input.parentEncounterId,
   });
 
   let relatedPersonId = '';
@@ -375,7 +369,6 @@ interface TransactionInput {
   formUser?: string;
   slot?: Slot;
   appointmentMetadata?: Appointment['meta'];
-  parentEncounterId?: string;
 }
 interface TransactionOutput {
   appointment: Appointment;
@@ -409,19 +402,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     serviceMode,
     slot,
     appointmentMetadata,
-    parentEncounterId,
   } = input;
-
-  // Validate parent encounter for scheduled follow-ups — no nesting allowed
-  if (parentEncounterId) {
-    const parentEncounter = await oystehr.fhir.get<Encounter>({
-      resourceType: 'Encounter',
-      id: parentEncounterId,
-    });
-    if (parentEncounter.partOf) {
-      throw new Error('Cannot create a follow-up of a follow-up. Please select a top-level encounter as the parent.');
-    }
-  }
 
   if (!patient && !createPatientRequest?.fullUrl) {
     throw new Error('Unexpectedly have no patient and no request to make one');
@@ -573,26 +554,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
           ]
         : [],
     extension: encExtensions,
-    ...(parentEncounterId && {
-      partOf: { reference: `Encounter/${parentEncounterId}` },
-      type: [
-        {
-          coding: [
-            {
-              system: FOLLOWUP_SYSTEMS.type.url,
-              code: FOLLOWUP_SYSTEMS.type.code,
-              display: 'Follow-up Encounter',
-            },
-            {
-              system: FOLLOWUP_SUBTYPE_SYSTEM,
-              code: 'scheduled',
-              display: 'scheduled',
-            },
-          ],
-          text: 'Follow-up Encounter',
-        },
-      ],
-    }),
   };
 
   const { documents, accountInfo } = await getRelatedResources(oystehr, patient?.id);
