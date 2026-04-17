@@ -49,9 +49,11 @@ interface CodingAccuracyRow {
   actualCpt: string;
   suggestedEm: string;
   actualEm: string;
-  icdHit: boolean;
-  cptHit: boolean;
-  emHit: boolean;
+  icdValidRate: string;
+  icdInvalidRate: string;
+  cptValidRate: string;
+  cptInvalidRate: string;
+  emMatch: boolean;
 }
 
 type DateRangeFilter = 'today' | 'yesterday' | 'last-7-days' | 'last-30-days' | 'custom' | 'customRange';
@@ -145,26 +147,59 @@ const useAiCodingAccuracy = (
         actualCpt: (enc.actualCpt || []).join(', '),
         suggestedEm: (enc.suggestedEm || []).join(', '),
         actualEm: enc.actualEm || '',
-        icdHit: enc.icdHit,
-        cptHit: enc.cptHit,
-        emHit: enc.emHit,
+        icdValidRate: enc.icdValidRate || '',
+        icdInvalidRate: enc.icdInvalidRate || '',
+        cptValidRate: enc.cptValidRate || '',
+        cptInvalidRate: enc.cptInvalidRate || '',
+        emMatch: enc.emMatch,
       }));
 
       rows.sort(
         (a, b) => DateTime.fromISO(b.appointmentStart).toMillis() - DateTime.fromISO(a.appointmentStart).toMillis()
       );
 
-      // Compute hit rates client-side from the aggregated rows
-      const withIcd = rows.filter((r) => r.suggestedIcd);
-      const withCpt = rows.filter((r) => r.suggestedCpt);
-      const withEm = rows.filter((r) => r.suggestedEm);
+      // Compute coverage rates client-side
+      const withActualIcd = rows.filter((r) => r.icdValidRate);
+      const withActualCpt = rows.filter((r) => r.cptValidRate);
+      const withActualEm = rows.filter((r) => r.actualEm);
+      const parseCoverage = (c: string): number => {
+        const [matched, total] = c.split('/').map(Number);
+        return total > 0 ? matched / total : 0;
+      };
+      const withSuggestedIcd = rows.filter((r) => r.icdInvalidRate);
+      const withSuggestedCpt = rows.filter((r) => r.cptInvalidRate);
       const summary = {
         totalEncounters: rows.length,
-        icdHitRate:
-          withIcd.length > 0 ? Math.round((withIcd.filter((r) => r.icdHit).length / withIcd.length) * 100) : 0,
-        cptHitRate:
-          withCpt.length > 0 ? Math.round((withCpt.filter((r) => r.cptHit).length / withCpt.length) * 100) : 0,
-        emHitRate: withEm.length > 0 ? Math.round((withEm.filter((r) => r.emHit).length / withEm.length) * 100) : 0,
+        icdValidRate:
+          withActualIcd.length > 0
+            ? Math.round(
+                (withActualIcd.reduce((s, r) => s + parseCoverage(r.icdValidRate), 0) / withActualIcd.length) * 100
+              )
+            : 0,
+        icdInvalidRate:
+          withSuggestedIcd.length > 0
+            ? Math.round(
+                (withSuggestedIcd.reduce((s, r) => s + parseCoverage(r.icdInvalidRate), 0) / withSuggestedIcd.length) *
+                  100
+              )
+            : 0,
+        cptValidRate:
+          withActualCpt.length > 0
+            ? Math.round(
+                (withActualCpt.reduce((s, r) => s + parseCoverage(r.cptValidRate), 0) / withActualCpt.length) * 100
+              )
+            : 0,
+        cptInvalidRate:
+          withSuggestedCpt.length > 0
+            ? Math.round(
+                (withSuggestedCpt.reduce((s, r) => s + parseCoverage(r.cptInvalidRate), 0) / withSuggestedCpt.length) *
+                  100
+              )
+            : 0,
+        emMatchRate:
+          withActualEm.length > 0
+            ? Math.round((withActualEm.filter((r) => r.emMatch).length / withActualEm.length) * 100)
+            : 0,
       };
       return { rows, summary };
     },
@@ -277,19 +312,8 @@ export default function AiCodingAccuracy(): React.ReactElement {
           return <CodeList codes={params.value} matchedCodes={suggestedCodes} />;
         },
       },
-      {
-        field: 'icdHit',
-        headerName: 'ICD Hit',
-        width: 70,
-        align: 'center',
-        headerAlign: 'center',
-        renderCell: (params: GridRenderCellParams) =>
-          !params.row.suggestedIcd ? null : params.value ? (
-            <CheckCircleIcon sx={{ color: 'success.main', fontSize: 20 }} />
-          ) : (
-            <HighlightOffIcon sx={{ color: 'error.main', fontSize: 20 }} />
-          ),
-      },
+      { field: 'icdValidRate', headerName: 'ICD Valid', width: 70, align: 'center', headerAlign: 'center' },
+      { field: 'icdInvalidRate', headerName: 'ICD Invalid', width: 70, align: 'center', headerAlign: 'center' },
       {
         field: 'suggestedCpt',
         headerName: 'Suggested CPT',
@@ -308,29 +332,18 @@ export default function AiCodingAccuracy(): React.ReactElement {
           return <CodeList codes={params.value} matchedCodes={suggestedCodes} />;
         },
       },
-      {
-        field: 'cptHit',
-        headerName: 'CPT Hit',
-        width: 70,
-        align: 'center',
-        headerAlign: 'center',
-        renderCell: (params: GridRenderCellParams) =>
-          !params.row.suggestedCpt ? null : params.value ? (
-            <CheckCircleIcon sx={{ color: 'success.main', fontSize: 20 }} />
-          ) : (
-            <HighlightOffIcon sx={{ color: 'error.main', fontSize: 20 }} />
-          ),
-      },
+      { field: 'cptValidRate', headerName: 'CPT Valid', width: 70, align: 'center', headerAlign: 'center' },
+      { field: 'cptInvalidRate', headerName: 'CPT Invalid', width: 75, align: 'center', headerAlign: 'center' },
       { field: 'suggestedEm', headerName: 'Suggested E&M', width: 120 },
       { field: 'actualEm', headerName: 'Actual E&M', width: 100 },
       {
-        field: 'emHit',
-        headerName: 'E&M Hit',
-        width: 70,
+        field: 'emMatch',
+        headerName: 'E&M',
+        width: 60,
         align: 'center',
         headerAlign: 'center',
         renderCell: (params: GridRenderCellParams) =>
-          !params.row.suggestedEm ? null : params.value ? (
+          !params.row.actualEm ? null : params.value ? (
             <CheckCircleIcon sx={{ color: 'success.main', fontSize: 20 }} />
           ) : (
             <HighlightOffIcon sx={{ color: 'error.main', fontSize: 20 }} />
@@ -366,35 +379,57 @@ export default function AiCodingAccuracy(): React.ReactElement {
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">
-                ICD Hit Rate
+                ICD Valid Suggestion Rate
               </Typography>
               <Typography
                 variant="h6"
-                sx={{ fontWeight: 700, color: summary.icdHitRate >= 50 ? 'success.main' : 'error.main' }}
+                sx={{ fontWeight: 700, color: summary.icdValidRate >= 50 ? 'success.main' : 'error.main' }}
               >
-                {summary.icdHitRate}%
+                {summary.icdValidRate}%
               </Typography>
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">
-                CPT Hit Rate
+                ICD Invalid Suggestion Rate
               </Typography>
               <Typography
                 variant="h6"
-                sx={{ fontWeight: 700, color: summary.cptHitRate >= 50 ? 'success.main' : 'error.main' }}
+                sx={{ fontWeight: 700, color: summary.icdInvalidRate <= 50 ? 'success.main' : 'error.main' }}
               >
-                {summary.cptHitRate}%
+                {summary.icdInvalidRate}%
               </Typography>
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">
-                E&M Hit Rate
+                CPT Valid Suggestion Rate
               </Typography>
               <Typography
                 variant="h6"
-                sx={{ fontWeight: 700, color: summary.emHitRate >= 50 ? 'success.main' : 'error.main' }}
+                sx={{ fontWeight: 700, color: summary.cptValidRate >= 50 ? 'success.main' : 'error.main' }}
               >
-                {summary.emHitRate}%
+                {summary.cptValidRate}%
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                CPT Invalid Suggestion Rate
+              </Typography>
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 700, color: summary.cptInvalidRate <= 50 ? 'success.main' : 'error.main' }}
+              >
+                {summary.cptInvalidRate}%
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                E&M Match Rate
+              </Typography>
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 700, color: summary.emMatchRate >= 50 ? 'success.main' : 'error.main' }}
+              >
+                {summary.emMatchRate}%
               </Typography>
             </Box>
           </Paper>

@@ -43,9 +43,11 @@ export interface AiCodingAccuracyRow {
   actualCpt: string[];
   suggestedEm: string[];
   actualEm: string;
-  icdHit: boolean;
-  cptHit: boolean;
-  emHit: boolean;
+  icdValidRate: string;
+  icdInvalidRate: string;
+  cptValidRate: string;
+  cptInvalidRate: string;
+  emMatch: boolean;
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -180,10 +182,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const actualCptCodes = new Set(actualBilling.filter((b) => !EM_CODE_SET.has(b.code)).map((b) => b.code));
     const actualEmCode = actualBilling.find((b) => EM_CODE_SET.has(b.code))?.code || '';
 
-    // Hit = at least one suggested code appears in the actual codes
-    const icdHit = allSuggestedIcd.size > 0 && [...allSuggestedIcd].some((c) => actualIcdCodes.has(c));
-    const cptHit = allSuggestedCpt.size > 0 && [...allSuggestedCpt].some((c) => actualCptCodes.has(c));
-    const emHit = allSuggestedEm.size > 0 && allSuggestedEm.has(actualEmCode);
+    // For ICD codes, consider a match if the base code (before the period) matches
+    // e.g. S42.001A and S42.002A both have base "S42" and count as a match
+    const icdBaseMatch = (code: string, codeSet: Set<string>): boolean => {
+      if (codeSet.has(code)) return true;
+      const base = code.split('.')[0];
+      if (base && base !== code) {
+        return [...codeSet].some((c) => c.split('.')[0] === base);
+      }
+      return false;
+    };
+
+    // Coverage = what % of actual codes were suggested by the AI at any point
+    const icdMatched = [...actualIcdCodes].filter((c) => icdBaseMatch(c, allSuggestedIcd)).length;
+    const icdValidRate = actualIcdCodes.size > 0 ? `${icdMatched}/${actualIcdCodes.size}` : '';
+    const icdSuggestedMatched = [...allSuggestedIcd].filter((c) => icdBaseMatch(c, actualIcdCodes)).length;
+    const icdMissed = allSuggestedIcd.size > 0 ? allSuggestedIcd.size - icdSuggestedMatched : 0;
+    const icdInvalidRate = allSuggestedIcd.size > 0 ? `${icdMissed}/${allSuggestedIcd.size}` : '';
+    const cptMatched = [...actualCptCodes].filter((c) => allSuggestedCpt.has(c)).length;
+    const cptValidRate = actualCptCodes.size > 0 ? `${cptMatched}/${actualCptCodes.size}` : '';
+    const cptMissed = allSuggestedCpt.size > 0 ? allSuggestedCpt.size - cptMatched : 0;
+    const cptInvalidRate = allSuggestedCpt.size > 0 ? `${cptMissed}/${allSuggestedCpt.size}` : '';
+    const emMatch = actualEmCode ? allSuggestedEm.has(actualEmCode) : false;
 
     // Find the appointment for this encounter
     const appointmentRef = encounter.appointment?.[0]?.reference;
@@ -215,29 +235,52 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       actualCpt: [...actualCptCodes],
       suggestedEm: [...allSuggestedEm],
       actualEm: actualEmCode,
-      icdHit,
-      cptHit,
-      emHit,
+      icdValidRate,
+      icdInvalidRate,
+      cptValidRate,
+      cptInvalidRate,
+      emMatch,
     });
   }
 
-  // Summary: hit rates
+  // Summary: average coverage (% of actual codes that were suggested)
   const totalEncounters = rows.length;
-  const encountersWithIcdSuggestions = rows.filter((r) => r.suggestedIcd.length > 0);
-  const encountersWithCptSuggestions = rows.filter((r) => r.suggestedCpt.length > 0);
-  const encountersWithEmSuggestions = rows.filter((r) => r.suggestedEm.length > 0);
-  const icdHitRate =
-    encountersWithIcdSuggestions.length > 0
-      ? encountersWithIcdSuggestions.filter((r) => r.icdHit).length / encountersWithIcdSuggestions.length
+  const rowsWithActualIcd = rows.filter((r) => r.actualIcd.length > 0);
+  const rowsWithActualCpt = rows.filter((r) => r.actualCpt.length > 0);
+  const rowsWithActualEm = rows.filter((r) => r.actualEm);
+
+  const avgIcdCoverage =
+    rowsWithActualIcd.length > 0
+      ? rowsWithActualIcd.reduce((sum, r) => {
+          const [matched, total] = r.icdValidRate.split('/').map(Number);
+          return sum + (total > 0 ? matched / total : 0);
+        }, 0) / rowsWithActualIcd.length
       : 0;
-  const cptHitRate =
-    encountersWithCptSuggestions.length > 0
-      ? encountersWithCptSuggestions.filter((r) => r.cptHit).length / encountersWithCptSuggestions.length
+  const rowsWithSuggestedIcd = rows.filter((r) => r.icdInvalidRate);
+  const rowsWithSuggestedCpt = rows.filter((r) => r.cptInvalidRate);
+  const avgIcdMissRate =
+    rowsWithSuggestedIcd.length > 0
+      ? rowsWithSuggestedIcd.reduce((sum, r) => {
+          const [missed, total] = r.icdInvalidRate.split('/').map(Number);
+          return sum + (total > 0 ? missed / total : 0);
+        }, 0) / rowsWithSuggestedIcd.length
       : 0;
-  const emHitRate =
-    encountersWithEmSuggestions.length > 0
-      ? encountersWithEmSuggestions.filter((r) => r.emHit).length / encountersWithEmSuggestions.length
+  const avgCptCoverage =
+    rowsWithActualCpt.length > 0
+      ? rowsWithActualCpt.reduce((sum, r) => {
+          const [matched, total] = r.cptValidRate.split('/').map(Number);
+          return sum + (total > 0 ? matched / total : 0);
+        }, 0) / rowsWithActualCpt.length
       : 0;
+  const avgCptMissRate =
+    rowsWithSuggestedCpt.length > 0
+      ? rowsWithSuggestedCpt.reduce((sum, r) => {
+          const [missed, total] = r.cptInvalidRate.split('/').map(Number);
+          return sum + (total > 0 ? missed / total : 0);
+        }, 0) / rowsWithSuggestedCpt.length
+      : 0;
+  const emMatchRate =
+    rowsWithActualEm.length > 0 ? rowsWithActualEm.filter((r) => r.emMatch).length / rowsWithActualEm.length : 0;
 
   return {
     statusCode: 200,
@@ -245,9 +288,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounters: rows,
       summary: {
         totalEncounters,
-        icdHitRate: Math.round(icdHitRate * 100),
-        cptHitRate: Math.round(cptHitRate * 100),
-        emHitRate: Math.round(emHitRate * 100),
+        icdValidRate: Math.round(avgIcdCoverage * 100),
+        icdInvalidRate: Math.round(avgIcdMissRate * 100),
+        cptValidRate: Math.round(avgCptCoverage * 100),
+        cptInvalidRate: Math.round(avgCptMissRate * 100),
+        emMatchRate: Math.round(emMatchRate * 100),
       },
     }),
   };
