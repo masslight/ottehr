@@ -23,6 +23,7 @@ export const dataTestIds = {
     providerPractitionerInput: 'provider-practitioner-input',
     changeStatusDropdown: 'change-status-dropdown-in-header',
     allergies: 'header-allergies',
+    weight: 'header-weight',
   },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
@@ -716,5 +717,11 @@ export const dataTestIds = {
     codeRow: (code: string) => `procedure-code-row-${code}`,
     editButton: (code: string) => `procedure-code-edit-${code}`,
     deleteButton: (code: string) => `procedure-code-delete-${code}`,
+  },
+
+  globalTemplates: {
+    admin: {
+      scanForStaleBtn: 'global-template-scan-staleness-btn',
+    },
   },
 };

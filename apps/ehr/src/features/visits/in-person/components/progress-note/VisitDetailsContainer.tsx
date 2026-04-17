@@ -1,6 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { FC } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ActionsList } from 'src/components/ActionsList';
 import { VisitNoteItem } from 'src/features/visits/shared/components/VisitNoteItem';
 import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
@@ -16,7 +16,6 @@ import { ButtonRounded } from '../RoundedButton';
 
 export const VisitDetailsContainer: FC = () => {
   const navigate = useNavigate();
-  const { id: appointmentIdFromUrl } = useParams();
   const { appointment, location, questionnaireResponse, encounter } = useAppointmentData();
 
   const { data: chartFields } = useChartFields({
@@ -61,7 +60,7 @@ export const VisitDetailsContainer: FC = () => {
           Visit information
         </Typography>
         <ButtonRounded
-          onClick={() => navigate(`/visit/${appointmentIdFromUrl}`)}
+          onClick={() => navigate(`/visit/${appointment?.id}`)}
           variant="outlined"
           sx={{
             whiteSpace: 'nowrap',

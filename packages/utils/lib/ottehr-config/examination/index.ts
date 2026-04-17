@@ -1,5 +1,5 @@
 import { createSimpleHash, validateExamConfig } from '../../config-helpers/examination';
-import { InPersonExamConfig } from './in-person.config';
+import { InPersonExamConfig, NORMAL_LABELS } from './in-person.config';
 import { TelemedExamConfig } from './telemed.config';
 
 export const ExamConfig = {
@@ -13,6 +13,7 @@ export const ExamConfig = {
     default: {
       version: createSimpleHash(JSON.stringify(InPersonExamConfig)),
       components: InPersonExamConfig,
+      constants: { normalLabels: NORMAL_LABELS },
     },
   },
 };

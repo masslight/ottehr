@@ -1,5 +1,4 @@
 import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
-import CallSplitIcon from '@mui/icons-material/CallSplit';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -31,7 +30,6 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { getTelemedQuickTexts } from 'src/features/visits/telemed/utils/appointments';
@@ -577,7 +575,7 @@ export default function AppointmentTableRow({
         },
         oystehrZambda
       );
-      navigate(getInPersonUrlByAppointmentType(appointment, 'patient-info'));
+      navigate(`/in-person/${appointment.id}/patient-info`);
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
@@ -604,7 +602,7 @@ export default function AppointmentTableRow({
   const handleProgressNoteButton = async (): Promise<void> => {
     setProgressNoteButtonLoading(true);
     try {
-      navigate(getInPersonUrlByAppointmentType(appointment, ROUTER_PATH.REVIEW_AND_SIGN));
+      navigate(`/in-person/${appointment.id}/${ROUTER_PATH.REVIEW_AND_SIGN}`);
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
@@ -614,13 +612,11 @@ export default function AppointmentTableRow({
 
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
-      (!isVirtual(appointment) &&
-        (appointment.status === 'ready for provider' ||
-          appointment.status === 'provider' ||
-          appointment.status === 'awaiting supervisor approval' ||
-          appointment.status === 'completed' ||
-          appointment.status === 'discharged')) ||
-      isVirtual(appointment)
+      appointment.status === 'ready for provider' ||
+      appointment.status === 'provider' ||
+      appointment.status === 'awaiting supervisor approval' ||
+      appointment.status === 'completed' ||
+      appointment.status === 'discharged'
     ) {
       return (
         <GoToButton
@@ -867,22 +863,15 @@ export default function AppointmentTableRow({
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center', wordWrap: 'break-word' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Link
-              to={`/patient/${appointment.patient.id}`}
-              style={{ textDecoration: 'none' }}
-              data-testid={dataTestIds.dashboard.patientName}
-            >
-              <Typography variant="subtitle2" sx={{ fontSize: '16px', color: '#000' }}>
-                {patientName}
-              </Typography>
-            </Link>
-            {appointment.isFollowUp && (
-              <Tooltip title="Follow-up visit">
-                <CallSplitIcon sx={{ fontSize: 16, color: 'text.secondary', transform: 'rotate(180deg)' }} />
-              </Tooltip>
-            )}
-          </Box>
+          <Link
+            to={`/patient/${appointment.patient.id}`}
+            style={{ textDecoration: 'none' }}
+            data-testid={dataTestIds.dashboard.patientName}
+          >
+            <Typography variant="subtitle2" sx={{ fontSize: '16px', color: '#000' }}>
+              {patientName}
+            </Typography>
+          </Link>
           {appointment.needsDOBConfirmation ? (
             <GenericToolTip title="Date of birth for returning patient was not confirmed" customWidth="170px">
               <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>
@@ -1031,7 +1020,7 @@ export default function AppointmentTableRow({
         <Stack direction={'row'} spacing={1} alignItems="center">
           <GoToButton
             text="Visit Details"
-            onClick={() => navigate(getInPersonUrlByAppointmentType(appointment, 'review-and-sign'))}
+            onClick={() => navigate(`/visit/${appointment.id}`)}
             dataTestId={dataTestIds.dashboard.visitDetailsButton}
           >
             <MedicalInformationIcon />

@@ -1,4 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { waitForSnackbar } from '../../e2e-utils/helpers/tests-utils';
 
 const DEFAULT_TIMEOUT = { timeout: 30000 };
@@ -68,6 +69,17 @@ export class GlobalTemplatesAdminPage {
 
     await dialog.getByRole('button', { name: 'Delete' }).click();
     await waitForSnackbar(this.#page);
+  }
+
+  async clickScanForStaleTemplates(): Promise<void> {
+    const btn = this.#page.getByTestId(dataTestIds.globalTemplates.admin.scanForStaleBtn);
+    await btn.click();
+
+    // wait until button is disabled (loading started)
+    await expect(btn).toBeDisabled();
+
+    // then wait until it's enabled again (loading finished)
+    await expect(btn).toBeEnabled();
   }
 }
 

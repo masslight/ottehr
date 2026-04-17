@@ -1,6 +1,6 @@
 import { Box, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import ListViewContainer from 'src/features/common/ListViewContainer';
 import { getInHouseLabOrderCreateUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -14,9 +14,8 @@ const inHouseLabsColumns: InHouseLabsTableColumn[] = ['testType', 'orderAdded', 
 
 export const InHouseLabsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { id: appointmentIdFromUrl } = useParams();
-  const { encounter } = useAppointmentData();
-  const appointmentId = appointmentIdFromUrl;
+  const { appointment, encounter } = useAppointmentData();
+  const appointmentId = appointment?.id;
   const encounterId = encounter?.id;
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 

@@ -11,6 +11,8 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ImmunizationContainer } from 'src/features/visits/in-person/components/ImmunizationContainer';
 import { LabResultsReviewContainer } from 'src/features/visits/in-person/components/LabResultsReviewContainer';
+import { ExamMigrationWarning } from 'src/features/visits/shared/components/exam-tab/ExamMigrationWarning';
+import { useUnmatchedExamFields } from 'src/features/visits/shared/components/exam-tab/useUnmatchedExamFields';
 import { AdditionalQuestionsContainer } from 'src/features/visits/shared/components/review-tab/components/AdditionalQuestionsContainer';
 import { AllergiesContainer } from 'src/features/visits/shared/components/review-tab/components/AllergiesContainer';
 import { AssessmentContainer } from 'src/features/visits/shared/components/review-tab/components/AssessmentContainer';
@@ -59,6 +61,8 @@ export const ProgressNoteDetails: FC = () => {
   const { appointment, encounter, appointmentSetState } = useAppointmentData();
   const apiClient = useOystehrAPIClient();
   const { isInPerson } = useAppFlags();
+  const examConfigComponents = examConfig[isInPerson ? 'inPerson' : 'telemed'].default.components;
+  const unmatchedExamFields = useUnmatchedExamFields(examConfigComponents);
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
 
   const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
@@ -158,6 +162,7 @@ export const ProgressNoteDetails: FC = () => {
   ].filter(Boolean);
 
   const sections = [
+    unmatchedExamFields.length > 0 && <ExamMigrationWarning unmatchedFields={unmatchedExamFields} />,
     showChiefComplaint && <ChiefComplaintContainer />,
     showHpi && <HistoryOfPresentIllnessContainer />,
     showMechanismOfInjury && <MechanismOfInjuryContainer />,

@@ -121,7 +121,10 @@ const CptCodeInHouseLabDefinitionSchema = z.object({
 
 export const AdminInHouseLabItemDefinitionSchema = z.object({
   name: nonEmptyString('Must include a non-empty name'),
-  device: nonEmptyString('Device name must be non-empty if provided').optional(),
+  device: nonEmptyString('Device name must be non-empty if provided')
+    .nullable()
+    .transform((val) => val ?? undefined) // the FE will pass null if the field is cleared
+    .optional(),
   methods: z
     .object({
       manual: z.object({ device: nonEmptyString('Device must be non-empty if provided') }).optional(),
