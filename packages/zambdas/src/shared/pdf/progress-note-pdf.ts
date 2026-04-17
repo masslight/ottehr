@@ -28,6 +28,7 @@ import {
   composeProcedures,
   composeProgressNoteVisitDetails,
   composeReviewOfSystems,
+  composeRosObservations,
   composeSurgicalHistory,
   composeVitals,
   createAdditionalQuestionsSection,
@@ -55,6 +56,7 @@ import {
   createProgressNotePatientInfoSection,
   createProgressNoteVisitDetailsSection,
   createReviewOfSystemsSection,
+  createRosObservationsSection,
   createSurgicalHistorySection,
   createVitalsSection,
 } from './sections';
@@ -115,6 +117,10 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
       allChartData,
     }),
     vitals: composeVitals({
+      allChartData,
+      appointmentPackage,
+    }),
+    rosObservations: composeRosObservations({
       allChartData,
       appointmentPackage,
     }),
@@ -315,6 +321,7 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
     createAdditionalQuestionsSection(),
     createIntakeNotesSection(),
     createVitalsSection(),
+    createRosObservationsSection(),
     createExaminationSection(),
     createAssessmentSection(),
     createMedicalDecisionSection(),

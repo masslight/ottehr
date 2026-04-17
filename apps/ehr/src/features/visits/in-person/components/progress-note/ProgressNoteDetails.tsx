@@ -31,6 +31,7 @@ import { PrivacyPolicyAcknowledgement } from 'src/features/visits/shared/compone
 import { ProceduresContainer } from 'src/features/visits/shared/components/review-tab/components/ProceduresContainer';
 import { ReviewOfSystemsContainer } from 'src/features/visits/shared/components/review-tab/components/ReviewOfSystemsContainer';
 import { SurgicalHistoryContainer } from 'src/features/visits/shared/components/review-tab/components/SurgicalHistoryContainer';
+import { RosReviewContainer } from 'src/features/visits/shared/components/ros-tab/RosReviewContainer';
 import { SectionList } from 'src/features/visits/shared/components/SectionList';
 import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -167,6 +168,7 @@ export const ProgressNoteDetails: FC = () => {
     showHpi && <HistoryOfPresentIllnessContainer />,
     showMechanismOfInjury && <MechanismOfInjuryContainer />,
     showReviewOfSystems && <ReviewOfSystemsContainer />,
+    <RosReviewContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer notes={screeningNotes} />,
     showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,
     <Stack spacing={1}>

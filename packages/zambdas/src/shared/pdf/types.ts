@@ -969,6 +969,7 @@ export interface ProgressNoteData extends PdfData {
   screening: AdditionalQuestions;
   intakeNotes: IntakeNotes;
   vitals: Vitals;
+  rosObservations: import('./sections/visit-note/rosObservations').RosObservationsData;
   examination: Examination;
   assessment?: Assessment;
   medicalDecision: MedicalDecision;
