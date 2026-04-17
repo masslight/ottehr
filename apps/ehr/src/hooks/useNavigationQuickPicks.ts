@@ -5,9 +5,8 @@ import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import PeopleIcon from '@mui/icons-material/People';
 import PersonSearchIcon from '@mui/icons-material/PersonSearch';
 import SettingsIcon from '@mui/icons-material/Settings';
-import VideocamIcon from '@mui/icons-material/Videocam';
 import { useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { RoleType } from 'utils';
 import { CommandPaletteItem } from '../state/command-palette.store';
 import { useCommandPaletteSource } from './useCommandPaletteSource';
@@ -18,6 +17,8 @@ interface NavigationDestination {
   label: string;
   path: string;
   icon: typeof AssignmentIcon;
+  /** React Router state to pass with navigation */
+  state?: Record<string, unknown>;
   /** Roles that can see this destination. If empty, all roles can see it. */
   roles?: RoleType[];
   /** Keywords for search matching beyond the label */
@@ -28,11 +29,44 @@ const ADMIN_ROLES = [RoleType.Administrator, RoleType.Manager, RoleType.Customer
 
 const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
   {
-    id: 'nav-visits',
-    label: 'In Person Visits',
+    id: 'nav-tracking-board',
+    label: 'Tracking Board',
     path: '/visits',
     icon: LocalHospitalIcon,
-    keywords: ['tracking board', 'appointments', 'in-person'],
+    state: { tab: 'in-office' },
+    keywords: ['visits', 'appointments', 'in-person', 'active'],
+  },
+  {
+    id: 'nav-tracking-prebooked',
+    label: 'Tracking Board — Pre-booked',
+    path: '/visits',
+    icon: LocalHospitalIcon,
+    state: { tab: 'prebooked' },
+    keywords: ['scheduled', 'upcoming', 'booked'],
+  },
+  {
+    id: 'nav-tracking-active',
+    label: 'Tracking Board — Active',
+    path: '/visits',
+    icon: LocalHospitalIcon,
+    state: { tab: 'in-office' },
+    keywords: ['in office', 'current', 'waiting'],
+  },
+  {
+    id: 'nav-tracking-discharged',
+    label: 'Tracking Board — Discharged',
+    path: '/visits',
+    icon: LocalHospitalIcon,
+    state: { tab: 'completed' },
+    keywords: ['completed', 'done', 'finished'],
+  },
+  {
+    id: 'nav-tracking-cancelled',
+    label: 'Tracking Board — Cancelled',
+    path: '/visits',
+    icon: LocalHospitalIcon,
+    state: { tab: 'cancelled' },
+    keywords: ['canceled', 'no show'],
   },
   {
     id: 'nav-add-visit',
@@ -50,16 +84,9 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
     keywords: ['find patient', 'look up', 'search'],
   },
   {
-    id: 'nav-telemedicine',
-    label: 'Telemedicine',
-    path: '/telemed/appointments',
-    icon: VideocamIcon,
-    keywords: ['telemed', 'video', 'virtual visit'],
-  },
-  {
     id: 'nav-schedules',
     label: 'Schedules',
-    path: '/schedules',
+    path: '/admin/schedules',
     icon: CalendarMonthIcon,
     roles: ADMIN_ROLES,
     keywords: ['calendar', 'availability', 'slots'],
@@ -67,7 +94,7 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
   {
     id: 'nav-employees',
     label: 'Employees',
-    path: '/employees',
+    path: '/admin/employees',
     icon: GroupIcon,
     roles: ADMIN_ROLES,
     keywords: ['staff', 'providers', 'team', 'users'],
@@ -82,7 +109,7 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
   {
     id: 'nav-admin',
     label: 'Admin Settings',
-    path: '/telemed-admin',
+    path: '/admin',
     icon: SettingsIcon,
     roles: ADMIN_ROLES,
     keywords: ['insurance', 'virtual locations', 'quick picks', 'templates', 'configuration'],
@@ -90,7 +117,7 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
   {
     id: 'nav-admin-quick-picks',
     label: 'Quick Picks Admin',
-    path: '/telemed-admin/quick-picks',
+    path: '/admin/quick-picks',
     icon: SettingsIcon,
     roles: ADMIN_ROLES,
     keywords: ['manage quick picks', 'configure'],
@@ -98,18 +125,18 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
   {
     id: 'nav-admin-templates',
     label: 'Global Templates Admin',
-    path: '/telemed-admin/global-templates',
+    path: '/admin/global-templates',
     icon: SettingsIcon,
     roles: ADMIN_ROLES,
     keywords: ['manage templates', 'configure'],
   },
   {
-    id: 'nav-admin-insurance',
-    label: 'Insurance Admin',
-    path: '/telemed-admin/insurances',
+    id: 'nav-admin-billing',
+    label: 'Billing Configuration',
+    path: '/admin/billing',
     icon: SettingsIcon,
     roles: ADMIN_ROLES,
-    keywords: ['payers', 'coverage'],
+    keywords: ['payers', 'coverage', 'insurance', 'fee schedule', 'charge master'],
   },
   {
     id: 'nav-profile',
@@ -132,6 +159,7 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
 export function useNavigationQuickPicks(): void {
   const navigate = useNavigate();
   const location = useLocation();
+  const [, setSearchParams] = useSearchParams();
   const currentUser = useEvolveUser();
 
   const navItems = useMemo((): CommandPaletteItem[] => {
@@ -140,17 +168,32 @@ export function useNavigationQuickPicks(): void {
       if (dest.roles && currentUser) {
         if (!currentUser.hasRole?.(dest.roles)) return false;
       }
-      // Don't show the current page
-      if (location.pathname === dest.path) return false;
+      // Don't show the current page (only hide exact match for items without state)
+      if (location.pathname === dest.path && !dest.state) return false;
       return true;
     }).map((dest) => ({
       id: dest.id,
       label: dest.label,
       category: 'Go to',
       keywords: dest.keywords,
-      onSelect: () => navigate(dest.path),
+      onSelect: () => {
+        if (dest.state?.tab && location.pathname === dest.path) {
+          // Already on the same page — just update the query param
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.set('tab', dest.state!.tab as string);
+              return next;
+            },
+            { replace: true }
+          );
+        } else {
+          const params = dest.state?.tab ? `?tab=${dest.state.tab}` : '';
+          navigate(`${dest.path}${params}`);
+        }
+      },
     }));
-  }, [currentUser, location.pathname, navigate]);
+  }, [currentUser, location.pathname, navigate, setSearchParams]);
 
   useCommandPaletteSource('navigation', navItems);
 }

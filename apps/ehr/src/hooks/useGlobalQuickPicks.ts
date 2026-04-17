@@ -1,12 +1,13 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ExamType, MEDICAL_HISTORY_CONFIG } from 'utils';
+import { ExamType } from 'utils';
 import { useListTemplates } from '../features/visits/shared/components/templates/useListTemplates';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
 import { useCommandPaletteSource } from './useCommandPaletteSource';
 import {
   useMergedAllergyQuickPicks,
   useMergedImmunizationQuickPicks,
+  useMergedInHouseMedicationQuickPicks,
   useMergedMedicalConditionQuickPicks,
   useMergedMedicationHistoryQuickPicks,
   useMergedProcedureQuickPicks,
@@ -39,6 +40,7 @@ export function useGlobalQuickPicks(): void {
   const { quickPicks: medicationQuickPicks } = useMergedMedicationHistoryQuickPicks();
   const { quickPicks: immunizationQuickPicks } = useMergedImmunizationQuickPicks();
   const { quickPicks: radiologyQuickPicks } = useMergedRadiologyQuickPicks();
+  const { quickPicks: inHouseMedQuickPicks } = useMergedInHouseMedicationQuickPicks();
 
   // Extract the in-person base path (e.g., "/in-person/abc123")
   const inPersonBase = useMemo(() => {
@@ -141,17 +143,15 @@ export function useGlobalQuickPicks(): void {
       }
     }
 
-    // In-House Medications (hardcoded — no FHIR admin for this category yet)
+    // In-House Medications (FHIR-based)
     if (!isOnInHouseOrderNew) {
-      const filtered = MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks.filter(
-        (qp) => qp.dosespotId != null || qp.ndc != null
-      );
-      for (const qp of filtered) {
+      for (const qp of inHouseMedQuickPicks) {
         items.push({
-          id: `global-in-house-med-${qp.name}`,
+          id: `global-in-house-med-${qp.id ?? qp.name}`,
           label: qp.name,
           category: 'Add In-House Medication',
-          onSelect: () => navigateAndDefer('in-house-medication/order/new', 'in-house-medications', qp.name, qp),
+          onSelect: () =>
+            navigateAndDefer('in-house-medication/order/new', 'in-house-medications', qp.id ?? qp.name, qp),
         });
       }
     }
@@ -210,6 +210,7 @@ export function useGlobalQuickPicks(): void {
     navigateAndDefer,
     allergyQuickPicks,
     immunizationQuickPicks,
+    inHouseMedQuickPicks,
     radiologyQuickPicks,
     conditionQuickPicks,
     medicationQuickPicks,

@@ -231,29 +231,6 @@ export const EditableMedicationCard: React.FC<{
     [selectsOptions.medicationId, isOrderType]
   );
 
-  // Register in-house medication quick picks in the command palette
-  const commandPaletteItems = useMemo(() => {
-    if (typeFromProps !== 'order-new' || isReadOnly) return [];
-    return MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks
-      .filter((qp) => qp.dosespotId != null || qp.ndc != null)
-      .map((qp) => ({
-        id: `in-house-med-${qp.name}`,
-        label: qp.name,
-        category: 'Add In-House Medication',
-        onSelect: () => handleQuickPickSelect(qp),
-      }));
-  }, [typeFromProps, isReadOnly, handleQuickPickSelect]);
-  useCommandPaletteSource('in-house-medication-quick-picks', commandPaletteItems);
-
-  const handlePendingInHouseMed = useCallback(
-    (payload: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number]) => {
-      if (isReadOnly) return;
-      handleQuickPickSelect(payload);
-    },
-    [handleQuickPickSelect, isReadOnly]
-  );
-  usePendingQuickPick('in-house-medications', handlePendingInHouseMed);
-
   const handleFhirQuickPickSelect = useCallback(
     (quickPick: InHouseMedicationQuickPickData): void => {
       // Resolve medicationId: use the stored ID, or look up by name if not available
@@ -282,6 +259,27 @@ export const EditableMedicationCard: React.FC<{
     },
     [isOrderType, selectsOptions.medicationId.options]
   );
+
+  // Register in-house medication quick picks in the command palette
+  const commandPaletteItems = useMemo(() => {
+    if (typeFromProps !== 'order-new' || isReadOnly) return [];
+    return fhirQuickPicks.map((qp) => ({
+      id: `in-house-med-${qp.id ?? qp.name}`,
+      label: qp.name,
+      category: 'Add In-House Medication',
+      onSelect: () => handleFhirQuickPickSelect(qp),
+    }));
+  }, [typeFromProps, isReadOnly, fhirQuickPicks, handleFhirQuickPickSelect]);
+  useCommandPaletteSource('in-house-medication-quick-picks', commandPaletteItems);
+
+  const handlePendingInHouseMed = useCallback(
+    (payload: InHouseMedicationQuickPickData) => {
+      if (isReadOnly) return;
+      handleFhirQuickPickSelect(payload);
+    },
+    [handleFhirQuickPickSelect, isReadOnly]
+  );
+  usePendingQuickPick('in-house-medications', handlePendingInHouseMed);
 
   const openQuickPickDialog = async (): Promise<void> => {
     if (!oystehrZambda) return;

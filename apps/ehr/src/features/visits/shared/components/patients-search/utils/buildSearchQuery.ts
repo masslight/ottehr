@@ -82,19 +82,23 @@ export const buildSearchQuery = (filter: Partial<SearchOptionsFilters>): string 
     params.push(`address:contains=${encodeURIComponent(filter.address)}`);
   }
 
-  if (filter.pid) params.push(`_id=${encodeURIComponent(filter.pid)}`);
-  if (filter.dob) params.push(`birthdate=${encodeURIComponent(filter.dob)}`);
-  if (filter.email) params.push(`email=${encodeURIComponent(filter.email)}`);
-
   if (filter.pid) {
-    const friendlyValue = filter.pid.trim();
-    if (friendlyValue) {
+    const trimmedPid = filter.pid.trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedPid);
+    if (isUuid) {
+      // FHIR resource ID — search by _id only
+      params.push(`_id=${encodeURIComponent(trimmedPid)}`);
+    } else {
+      // Friendly patient identifier — search by both _id and identifier system
+      params.push(`_id=${encodeURIComponent(trimmedPid)}`);
       const system = getFriendlyPatientIdSystem();
       if (system) {
-        params.push(`identifier=${encodeURIComponent(`${system}|${friendlyValue}`)}`);
+        params.push(`identifier=${encodeURIComponent(`${system}|${trimmedPid}`)}`);
       }
     }
   }
+  if (filter.dob) params.push(`birthdate=${encodeURIComponent(filter.dob)}`);
+  if (filter.email) params.push(`email=${encodeURIComponent(filter.email)}`);
 
   params.push('_total=accurate');
 

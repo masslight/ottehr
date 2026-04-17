@@ -3,8 +3,8 @@ import FmdBadOutlinedIcon from '@mui/icons-material/FmdBadOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Grid, Tab, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import React, { ReactElement, useCallback, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { ReactElement, useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import {
   GetVitalsForListOfEncountersResponseData,
@@ -51,15 +51,32 @@ export default function AppointmentTabs({
   orders,
   vitals,
 }: AppointmentsTabProps): ReactElement {
-  const routeLocation = useLocation();
-  const initialTab = (routeLocation.state?.tab as ApptTab) || ApptTab['in-office'];
-
-  const [value, setValue] = useState<ApptTab>(initialTab);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') as ApptTab | null;
+  const [value, setValue] = useState<ApptTab>(tabFromUrl || ApptTab['in-office']);
   const [now, setNow] = useState<DateTime>(DateTime.now());
 
-  const handleChange = (event: any, newValue: ApptTab): any => {
-    setValue(newValue);
-  };
+  // Sync tab when URL query param changes
+  useEffect(() => {
+    if (tabFromUrl && tabFromUrl !== value && Object.values(ApptTab).includes(tabFromUrl)) {
+      setValue(tabFromUrl);
+    }
+  }, [tabFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleChange = useCallback(
+    (_event: any, newValue: ApptTab): void => {
+      setValue(newValue);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', newValue);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
 
   React.useEffect(() => {
     function updateTime(): void {

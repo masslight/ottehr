@@ -35,6 +35,7 @@ export const CommandPalette: FC = () => {
     for (const source of Object.values(sources)) {
       items.push(...source.items);
     }
+    items.sort((a, b) => a.label.localeCompare(b.label));
     return items;
   }, [sources]);
 

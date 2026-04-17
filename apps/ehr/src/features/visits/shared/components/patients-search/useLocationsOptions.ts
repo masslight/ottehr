@@ -30,10 +30,10 @@ export const useLocationsOptions = (): {
           params: [{ name: '_count', value: '1000' }],
         });
         const locationsResults = Array.from(new Set(locations.entry))
-          ?.filter((loc: any) => !isLocationVirtual(loc.resource))
+          ?.filter((loc: any) => !isLocationVirtual(loc.resource) && loc.resource?.name)
           .map((loc: any) => ({
-            value: loc.resource?.name as string,
-            label: loc.resource?.name as string,
+            value: loc.resource.name as string,
+            label: loc.resource.name as string,
           }))
           .sort((a, b) => a.label.localeCompare(b.label));
         setLocationsOptions(locationsResults);
