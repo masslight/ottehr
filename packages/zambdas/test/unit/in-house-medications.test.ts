@@ -125,6 +125,7 @@ describe('create-in-house-medication - performEffect', () => {
       oystehr,
       'Ibuprofen 200mg',
       '12345-678-90',
+      '12345-678-90',
       'DRUG123',
       [{ code: '99213', display: 'Office visit' }],
       [{ code: 'J0696', display: 'Ceftriaxone injection' }]
@@ -171,7 +172,7 @@ describe('create-in-house-medication - performEffect', () => {
 
   it('creates medication with multiple CPT codes', async () => {
     const oystehr = makeMockOystehr();
-    await createPerformEffect(oystehr, 'Drug', undefined, 'DRUG123', [
+    await createPerformEffect(oystehr, 'Drug', undefined, 'DRUG123', undefined, [
       { code: '99213', display: 'Office visit, est' },
       { code: '99214', display: 'Office visit, est' },
       { code: '99215', display: 'Office visit, est' },
