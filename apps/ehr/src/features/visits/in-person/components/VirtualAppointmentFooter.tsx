@@ -79,7 +79,7 @@ export const VirtualAppointmentFooter: FC = () => {
       });
     } else {
       if (!apiClient || !user || !appointment?.id || !encounter.id) {
-        throw new Error('api client not defined or userId not provided');
+        throw new Error('apiClient or user or appointment.id or encounter.id is undefined');
       }
       const encounterId = encounter.id;
       initTelemedSession.mutate(
