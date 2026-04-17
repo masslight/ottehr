@@ -18,8 +18,8 @@ const ROW_STYLING = { paddingLeft: 0 };
 export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ component, disabled, isLastRow }) => {
   const [isAbnormal, setIsAbnormal] = useState<boolean>(false);
   const { control } = useFormContext();
-  const nullOptionAvailable = component.displayType === 'Numeric';
-  const nullCode = nullOptionAvailable ? component.nullOption?.code : undefined;
+  const nullOptionExistsInData = component.displayType === 'Numeric'; // a typing thing - we don't have nullOption defined StringDataEntryComponent
+  const nullCode = nullOptionExistsInData ? component.nullOption?.code : undefined;
   console.log('component', component.result);
 
   useEffect(() => {
@@ -88,7 +88,7 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
     );
   };
 
-  const displayBottomBorder = isLastRow || nullOptionAvailable;
+  const displayBottomBorder = isLastRow || nullCode;
   const rowStyling: SxProps<Theme> = displayBottomBorder
     ? { ...ROW_STYLING, borderBottom: 'none', paddingBottom: 0 }
     : ROW_STYLING;
@@ -109,7 +109,7 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
             </TableCell>
             {renderTableCellsForDisplayType(field)}
           </TableRow>
-          {nullOptionAvailable && (
+          {nullOptionExistsInData && nullCode && (
             <TableRow>
               <TableCell colSpan={4} sx={{ paddingLeft: 0 }}>
                 <NullOptionCheckbox
