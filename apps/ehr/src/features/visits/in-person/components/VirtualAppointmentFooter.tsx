@@ -96,10 +96,6 @@ export const VirtualAppointmentFooter: FC = () => {
     }
   }, [apiClient, appointment?.id, appointmentStatus, getMeetingData, initTelemedSession, user]);
 
-  const providerAllowedToConnect =
-    appointmentAccessibility.isPractitionerLicensedInState &&
-    appointmentAccessibility.isEncounterAssignedToCurrentPractitioner;
-
   return (
     <AppBar
       position="sticky"
@@ -151,7 +147,7 @@ export const VirtualAppointmentFooter: FC = () => {
         </Stack>
         <Stack direction="row" spacing={2} alignItems="center">
           {['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(appointmentStatus) &&
-            providerAllowedToConnect && (
+            appointmentAccessibility.isPractitionerLicensedInState && (
               <FooterButton
                 onClick={() => setIsInviteParticipantOpen(true)}
                 variant="contained"
@@ -161,7 +157,7 @@ export const VirtualAppointmentFooter: FC = () => {
               </FooterButton>
             )}
           {['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(appointmentStatus) &&
-            providerAllowedToConnect &&
+            appointmentAccessibility.isPractitionerLicensedInState &&
             !meetingData && (
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <ConfirmationDialog
