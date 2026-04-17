@@ -889,7 +889,13 @@ export const createQuestionnaireFromConfig = (config: QuestionnaireConfigType): 
  * - triggers: enable when appointment-service-category matches any category
  * - answerDisplayFilters: one filter per category+mode combo, specifying which options to show
  */
-export const buildReasonForVisitFromConfig = (serviceCategories: ServiceCategoryConfig[]): Record<string, unknown> => {
+interface ReasonForVisitFieldConfig {
+  reasonForVisit: FormFieldsItem;
+  isHidden: boolean;
+}
+export const buildReasonForVisitFromConfig = (
+  serviceCategories: ServiceCategoryConfig[]
+): ReasonForVisitFieldConfig => {
   const allOptions = new Map<string, { label: string; value: string }>();
   const displayFilters: {
     conditions: { question: string; operator: string; answer: string }[];
@@ -928,16 +934,18 @@ export const buildReasonForVisitFromConfig = (serviceCategories: ServiceCategory
     }
   }
 
+  const options = [...allOptions.values()];
   return {
     reasonForVisit: {
       key: 'reason-for-visit',
       label: 'Reason for visit',
       type: 'choice',
-      options: [...allOptions.values()],
-      triggers: enableTriggers,
+      options,
+      triggers: options.length > 1 ? enableTriggers : undefined,
       disabledDisplay: 'hidden',
       enableBehavior: 'any',
       answerDisplayFilters: displayFilters,
     },
+    isHidden: options.length > 1,
   };
 };

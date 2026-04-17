@@ -215,7 +215,9 @@ describe('display filter round-trip: config → questionnaire → parse', () => 
       }),
     ])!;
 
-    const questionnaire = createQuestionnaireFromConfig(makeQuestionnaireConfig(rfvField));
+    const questionnaire = createQuestionnaireFromConfig(
+      makeQuestionnaireConfig({ reasonForVisit: rfvField.reasonForVisit })
+    );
     const rfvItem = questionnaire.item
       ?.find((i) => i.linkId === 'test-page')
       ?.item?.find((i) => i.linkId === 'reason-for-visit');
@@ -254,7 +256,9 @@ describe('display filter round-trip: config → questionnaire → parse', () => 
       }),
     ])!;
 
-    const questionnaire = createQuestionnaireFromConfig(makeQuestionnaireConfig(rfvField));
+    const questionnaire = createQuestionnaireFromConfig(
+      makeQuestionnaireConfig({ reasonForVisit: rfvField.reasonForVisit })
+    );
     const rfvItem = questionnaire.item
       ?.find((i) => i.linkId === 'test-page')
       ?.item?.find((i) => i.linkId === 'reason-for-visit');
@@ -281,7 +285,9 @@ describe('display filter round-trip: config → questionnaire → parse', () => 
       }),
     ])!;
 
-    const questionnaire = createQuestionnaireFromConfig(makeQuestionnaireConfig(rfvField));
+    const questionnaire = createQuestionnaireFromConfig(
+      makeQuestionnaireConfig({ reasonForVisit: rfvField.reasonForVisit })
+    );
     const items = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
     const rfvItem = items.find((i) => i.linkId === 'test-page')?.item?.find((i) => i.linkId === 'reason-for-visit');
 
@@ -324,7 +330,9 @@ describe('display filter round-trip: config → questionnaire → parse', () => 
       }),
     ])!;
 
-    const questionnaire = createQuestionnaireFromConfig(makeQuestionnaireConfig(rfvField));
+    const questionnaire = createQuestionnaireFromConfig(
+      makeQuestionnaireConfig({ reasonForVisit: rfvField.reasonForVisit })
+    );
     const items = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
     const rfvItem = items.find((i) => i.linkId === 'test-page')?.item?.find((i) => i.linkId === 'reason-for-visit');
 
