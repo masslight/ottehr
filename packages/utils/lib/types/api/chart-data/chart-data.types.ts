@@ -195,10 +195,21 @@ export const REFUSAL_OF_EMS_TRANSPORT_LABEL = 'Refusal of EMS Transport';
 export const PATIENT_INSTRUCTIONS_TEMPLATE_CODE = 'patient-instruction-template';
 export const IN_PERSON_NOTE_ID = 'css-note';
 
+export interface ExamObservationComponentDTO {
+  code: string;
+  label: string;
+  value: boolean;
+  groupLabel: string;
+  columnLabel?: string;
+  abnormal?: boolean;
+}
+
 export interface ExamObservationDTO extends SaveableDTO {
   field: string;
+  label?: string;
   note?: string;
   value?: boolean;
+  components?: ExamObservationComponentDTO[];
 }
 export interface VitalsBaseObservationDTO extends SaveableDTO {
   field: VitalFieldNames;
@@ -326,6 +337,7 @@ export enum NOTE_TYPE {
   VITALS = 'vitals',
   SCREENING = 'screening',
   MEDICATION = 'medication',
+  IMMUNIZATION = 'immunization',
   ALLERGY = 'allergy',
   INTAKE_MEDICATION = 'intake-medication',
   MEDICAL_CONDITION = 'medical-condition',
@@ -536,4 +548,14 @@ export interface AccidentDTO extends SaveableDTO {
   type: string[];
   date?: string;
   state?: string;
+}
+
+export interface MigrateExamDataInput {
+  encounterId: string;
+}
+
+export interface MigrateExamDataOutput {
+  message: string;
+  migratedCount: number;
+  chartData: GetChartDataResponse;
 }

@@ -62,12 +62,6 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab.providers}`)}
                 />
                 <Tab
-                  label="Global Templates"
-                  value={PageTab['global-templates']}
-                  sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab['global-templates']}`)}
-                />
-                <Tab
                   label="In-House Medications"
                   value={PageTab.medications}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
@@ -84,6 +78,12 @@ export function AdminPage(): JSX.Element {
                   value={PageTab['quick-picks']}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['quick-picks']}`)}
+                />
+                <Tab
+                  label="Global Templates"
+                  value={PageTab['global-templates']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['global-templates']}`)}
                 />
                 <Tab
                   label="In-House Labs"
@@ -115,9 +115,6 @@ export function AdminPage(): JSX.Element {
           <TabPanel value={PageTab.providers} sx={{ padding: 0 }}>
             <EmployeesPage employeeType={EmployeeTypes.providers} />
           </TabPanel>
-          <TabPanel value={PageTab['global-templates']} sx={{ padding: 0 }}>
-            <GlobalTemplatesAdminPage />
-          </TabPanel>
           <TabPanel value={PageTab.medications} sx={{ padding: 0 }}>
             <MedicationsConfigurationPage />
           </TabPanel>
@@ -126,6 +123,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['global-templates']} sx={{ padding: 0 }}>
+            <GlobalTemplatesAdminPage />
           </TabPanel>
           <TabPanel value={PageTab['in-house-labs']} sx={{ padding: 0 }}>
             <InHouseLabAdminPage />

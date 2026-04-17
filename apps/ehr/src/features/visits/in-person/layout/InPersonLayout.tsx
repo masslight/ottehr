@@ -65,7 +65,7 @@ export const InPersonLayout: React.FC = () => {
                 color="primary"
                 aria-label=""
                 aria-describedby={recordingElementID}
-                sx={{ position: 'fixed', right: 8, bottom: 130 }}
+                sx={{ position: 'fixed', right: 8, bottom: virtual ? 130 : 8 }}
                 onClick={(event) =>
                   recordingOpen ? setRecordingAnchorElement(null) : setRecordingAnchorElement(event.currentTarget)
                 }
