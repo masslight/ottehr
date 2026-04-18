@@ -42,16 +42,16 @@ export function useRosObservations(field?: string): {
     (observations: ExamObservationDTO[], noFetch?: boolean) => {
       const prevState = useRosObservationsStore.getState();
 
-      // Apply to store
-      useRosObservationsStore.setState(arrayToObject(observations));
+      // Apply to store (replace mode to avoid stale keys from previous encounters)
+      useRosObservationsStore.setState(arrayToObject(observations), true);
 
       if (noFetch) {
         useRosObservationsInitializationStore.setState({ hasInitialData: true });
         return;
       }
 
-      // Separate saves and deletes: value=true or has resourceId → save, value=false without resourceId → skip
-      const toSave = observations.filter((o) => o.value || o.resourceId);
+      // Separate saves and deletes — mutually exclusive filters
+      const toSave = observations.filter((o) => o.value === true);
       const toDelete = observations.filter((o) => !o.value && o.resourceId);
 
       if (toSave.length > 0) {
@@ -60,12 +60,12 @@ export function useRosObservations(field?: string): {
           {
             onSuccess: (data) => {
               if (data.chartData.rosObservations) {
-                useRosObservationsStore.setState(arrayToObject(data.chartData.rosObservations));
+                useRosObservationsStore.setState(arrayToObject(data.chartData.rosObservations), true);
               }
             },
             onError: () => {
               enqueueSnackbar('An error occurred while saving ROS data. Please try again.', { variant: 'error' });
-              useRosObservationsStore.setState(prevState);
+              useRosObservationsStore.setState(prevState, true);
             },
           }
         );

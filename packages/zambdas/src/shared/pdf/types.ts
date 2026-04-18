@@ -530,6 +530,18 @@ export interface Examination extends PdfData {
   };
 }
 
+export interface RosObservations extends PdfData {
+  rosObservations: {
+    [group: string]: {
+      items: Array<{
+        field: string;
+        label: string;
+        abnormal: boolean;
+      }>;
+    };
+  };
+}
+
 export interface Prescriptions extends PdfData {
   prescriptions: string[];
 }
@@ -969,7 +981,7 @@ export interface ProgressNoteData extends PdfData {
   screening: AdditionalQuestions;
   intakeNotes: IntakeNotes;
   vitals: Vitals;
-  rosObservations: import('./sections/visit-note/rosObservations').RosObservationsData;
+  rosObservations: RosObservations;
   examination: Examination;
   assessment?: Assessment;
   medicalDecision: MedicalDecision;

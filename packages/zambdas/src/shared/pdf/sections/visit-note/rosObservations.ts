@@ -1,65 +1,83 @@
-import { Content } from 'pdfmake/interfaces';
-import { ExamObservationDTO, InPersonRosConfig } from 'utils';
-import { PdfDataComposerInput, ProgressNoteSectionCreator } from '../../types';
+import { InPersonRosConfig } from 'utils';
+import { createConfiguredSection, DataComposer } from '../../pdf-common';
+import { EncounterInfo, PdfSection, ProgressNoteVisitDataInput, RosObservations } from '../../types';
 
-export interface RosObservationsData {
-  systems: { label: string; denies: string[]; reports: string[] }[];
-}
+export const composeRosObservations: DataComposer<ProgressNoteVisitDataInput, RosObservations> = ({ allChartData }) => {
+  const observations = allChartData.chartData.rosObservations || [];
+  const obsMap = new Map(observations.filter((o) => o.value).map((o) => [o.field, o]));
 
-export function composeRosObservations({ allChartData }: PdfDataComposerInput): RosObservationsData {
-  const observations = allChartData.rosObservations || [];
-  const obsMap = new Map<string, ExamObservationDTO>();
-  for (const obs of observations) {
-    if (obs.value) obsMap.set(obs.field, obs);
-  }
+  const rosObservations: RosObservations['rosObservations'] = {};
 
-  const systems: { label: string; denies: string[]; reports: string[] }[] = [];
   for (const [_systemKey, system] of Object.entries(InPersonRosConfig)) {
-    const denies: string[] = [];
-    const reports: string[] = [];
+    const items: Array<{ field: string; label: string; abnormal: boolean }> = [];
 
     for (const [fieldKey, item] of Object.entries(system.items)) {
-      if (obsMap.has(`${fieldKey}-denies`)) denies.push(item.label);
-      if (obsMap.has(`${fieldKey}-reports`)) reports.push(item.label);
+      if (obsMap.has(`${fieldKey}-denies`)) {
+        items.push({ field: `${fieldKey}-denies`, label: item.label, abnormal: false });
+      }
+      if (obsMap.has(`${fieldKey}-reports`)) {
+        items.push({ field: `${fieldKey}-reports`, label: item.label, abnormal: true });
+      }
     }
 
-    if (denies.length > 0 || reports.length > 0) {
-      systems.push({ label: system.label, denies, reports });
+    if (items.length > 0) {
+      rosObservations[system.label] = { items };
     }
   }
 
-  return { systems };
-}
+  return { rosObservations };
+};
 
-export function createRosObservationsSection(): ProgressNoteSectionCreator<'rosObservations'> {
-  return {
-    key: 'rosObservations',
-    create: (data: RosObservationsData): Content[] => {
-      if (data.systems.length === 0) return [];
+export const createRosObservationsSection = <
+  TData extends { encounter?: EncounterInfo; rosObservations?: RosObservations },
+>(): PdfSection<TData, RosObservations> => {
+  return createConfiguredSection(null, () => ({
+    title: 'Review of Systems',
+    dataSelector: (data) => data.rosObservations,
+    shouldRender: (_sectionData, rootData) => !rootData?.encounter?.isFollowup,
+    render: (client, data, styles, assets) => {
+      const rosData = data.rosObservations;
 
-      const content: Content[] = [
-        {
-          text: 'REVIEW OF SYSTEMS',
-          style: 'sectionHeader',
-          margin: [0, 10, 0, 4],
-        },
-      ];
+      if (rosData && Object.keys(rosData).length > 0) {
+        Object.entries(rosData).forEach(([sectionLabel, section]) => {
+          if (section.items && section.items.length > 0) {
+            client.drawTextSequential(`${sectionLabel}:   `, styles.textStyles.examCardHeader);
+            const headerDims = client.getTextDimensions(`${sectionLabel}:   `, styles.textStyles.examCardHeader);
+            client.setLeftBound(client.getLeftBound() + headerDims.width);
 
-      for (const system of data.systems) {
-        const parts: any[] = [{ text: `${system.label}: `, bold: true, fontSize: 9 }];
-        if (system.denies.length > 0) {
-          parts.push({ text: `Denies ${system.denies.join(', ')}`, fontSize: 9, color: '#2e7d32' });
-        }
-        if (system.denies.length > 0 && system.reports.length > 0) {
-          parts.push({ text: '; ', fontSize: 9 });
-        }
-        if (system.reports.length > 0) {
-          parts.push({ text: `Reports ${system.reports.join(', ')}`, fontSize: 9, color: '#d32f2f' });
-        }
-        content.push({ text: parts, margin: [0, 2, 0, 0] });
+            section.items.forEach((item) => {
+              const itemText = ` ${item.label}   `;
+              const textDimensions = client.getTextDimensions(itemText, styles.textStyles.examBoldField);
+              if (
+                textDimensions.width + styles.imageStyles!.examColorDotsStyle.width + client.getX() >
+                client.getRightBound()
+              ) {
+                client.newLine(textDimensions.height + styles.textStyles.examBoldField.spacing);
+              }
+              if (item.abnormal) {
+                client.drawImage(
+                  assets.icons!.redDot,
+                  styles.imageStyles!.examColorDotsStyle,
+                  styles.textStyles.examBoldField
+                );
+                client.drawTextSequential(itemText, styles.textStyles.examBoldField);
+              } else {
+                client.drawImage(
+                  assets.icons!.greenDot,
+                  styles.imageStyles!.examColorDotsStyle,
+                  styles.textStyles.examRegularField
+                );
+                client.drawTextSequential(itemText, styles.textStyles.examRegularField);
+              }
+            });
+
+            client.setLeftBound(client.getLeftBound() - headerDims.width);
+            client.newLine(client.getTextDimensions('a', styles.textStyles.examRegularField).height + 2);
+          }
+        });
       }
 
-      return content;
+      client.drawSeparatedLine(styles.lineStyles.separator);
     },
-  };
-}
+  }));
+};
