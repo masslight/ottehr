@@ -112,12 +112,8 @@ const performEffect = async (
       ],
     })
   ).unbundle();
-  // Temporary workaround: ROS_TEMPLATE_GENERAL should not delete existing resources.
-  // We skip delete requests for this template to preserve current data.
-  // TODO: move this behavior to a more generic logic.
-  const isRosTemplate = templateList.title === 'ROS : 14 Systems';
-  // Make 1 transaction to delete old resources exam resources that are being replaced and write the new ones
-  const deleteRequests = await makeDeleteRequests(encounterBundle, { skipDelete: isRosTemplate });
+  // Make 1 transaction to delete old resources that are being replaced and write the new ones
+  const deleteRequests = await makeDeleteRequests(encounterBundle);
   const deleteBatches = chunkThings(deleteRequests, 5).map((chunk) =>
     oystehr.fhir.batch({
       requests: chunk,
@@ -180,12 +176,7 @@ const performEffect = async (
   // console.log('Transaction Bundle:', transactionBundle);
 };
 
-const makeDeleteRequests = async (
-  encounterBundle: FhirResource[],
-  options?: { skipDelete?: boolean }
-): Promise<BatchInputDeleteRequest[]> => {
-  if (options?.skipDelete) return [];
-
+const makeDeleteRequests = async (encounterBundle: FhirResource[]): Promise<BatchInputDeleteRequest[]> => {
   const deleteResourcesRequests: BatchInputDeleteRequest[] = [];
 
   const resourcesToDelete = encounterBundle.filter(

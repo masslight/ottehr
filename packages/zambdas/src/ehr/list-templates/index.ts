@@ -5,6 +5,7 @@ import {
   chartDataTagSystem,
   chunkThings,
   collectKnownExamFields,
+  collectKnownRosFields,
   examConfig,
   ExamType,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
@@ -84,7 +85,8 @@ const performEffect = async (
   const codeSystem =
     examType === ExamType.IN_PERSON ? GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM : GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM;
   const examTypeConfig = examType === ExamType.IN_PERSON ? examConfig.inPerson.default : examConfig.telemed.default;
-  const knownFields = collectKnownExamFields(examTypeConfig.components);
+  const knownExamFields = collectKnownExamFields(examTypeConfig.components);
+  const knownRosFields = collectKnownRosFields();
 
   // Filter to templates matching the requested exam type code system
   const examTypeTemplates = filteredTemplates.filter(
@@ -92,28 +94,35 @@ const performEffect = async (
   );
 
   const examTagSystem = chartDataTagSystem('exam-observation-field');
+  const rosTagSystem = chartDataTagSystem('ros-observation-field');
 
   const templateInfos: TemplateInfo[] = examTypeTemplates
     .map((template) => {
       const coding = template.code?.coding?.find((c) => c.system === codeSystem);
       const examVersion = coding?.version ?? '';
 
-      // Check if the template contains any exam fields that no longer exist in the
-      // current config. A template is "current" if all its exam fields are recognized.
-      // This is the same approach used by useUnmatchedExamFields for visit exam data.
+      // Check if the template contains any exam or ROS fields that no longer exist in the
+      // current config. A template is "current" if all its fields are recognized.
       const contained = (template.contained || []) as Resource[];
       const examObs = contained.filter(
         (r) => r.resourceType === 'Observation' && r.meta?.tag?.some((t) => t.system === examTagSystem)
       ) as Observation[];
-      const unmatchedFields = examObs
+      const unmatchedExamFields = examObs
         .map((obs) => obs.meta?.tag?.find((t) => t.system === examTagSystem)?.code)
-        .filter((code): code is string => !!code && !knownFields.has(code));
+        .filter((code): code is string => !!code && !knownExamFields.has(code));
+
+      const rosObs = contained.filter(
+        (r) => r.resourceType === 'Observation' && r.meta?.tag?.some((t) => t.system === rosTagSystem)
+      ) as Observation[];
+      const unmatchedRosFields = rosObs
+        .map((obs) => obs.meta?.tag?.find((t) => t.system === rosTagSystem)?.code)
+        .filter((code): code is string => !!code && !knownRosFields.has(code));
 
       return {
         id: template.id!,
         title: template.title ?? '',
         examVersion,
-        isCurrentVersion: unmatchedFields.length === 0,
+        isCurrentVersion: unmatchedExamFields.length === 0 && unmatchedRosFields.length === 0,
       };
     })
     .filter((info) => info.title !== '');

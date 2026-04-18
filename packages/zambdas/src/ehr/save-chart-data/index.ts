@@ -19,6 +19,7 @@ import {
   DispositionFollowUpType,
   ExamObservationDTO,
   getPatchBinary,
+  InPersonRosConfig,
   isInPersonAppointment,
   PATIENT_VITALS_META_SYSTEM,
   SCHOOL_WORK_NOTE,
@@ -295,8 +296,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // 8b. convert ROS observations to Observation (FHIR)
     rosObservations?.forEach((element) => {
+      // Look up display label from ROS config (same pattern as exam)
+      const baseField = element.field.replace(/-denies$/, '').replace(/-reports$/, '');
+      const suffix = element.field.endsWith('-denies') ? 'Denies' : element.field.endsWith('-reports') ? 'Reports' : '';
+      let label = element.label;
+      for (const system of Object.values(InPersonRosConfig)) {
+        const item = system.items[baseField];
+        if (item) {
+          label = suffix ? `${item.label} (${suffix})` : item.label;
+          break;
+        }
+      }
       saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeRosObservationResource(encounterId, patient.id!, element, element.label))
+        saveOrUpdateResourceRequest(makeRosObservationResource(encounterId, patient.id!, element, label))
       );
     });
 

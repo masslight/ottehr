@@ -500,6 +500,7 @@ export interface BillingSuggestionInput {
   radiologyOrders: any;
   radiologyReports?: string;
   procedures: any;
+  rosFindings?: string;
   diagnoses: DiagnosisDTO[] | undefined;
   billing: CPTCodeDTO[] | undefined;
 }

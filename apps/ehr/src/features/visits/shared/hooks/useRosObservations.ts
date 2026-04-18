@@ -40,17 +40,21 @@ export function useRosObservations(field?: string): {
 
   const update = useCallback(
     (observations: ExamObservationDTO[], noFetch?: boolean) => {
+      // Capture previous values for the fields being changed (for rollback)
       const prevState = useRosObservationsStore.getState();
+      const prevValues = observations.reduce((acc, obs) => {
+        acc[obs.field] = prevState[obs.field];
+        return acc;
+      }, {} as RosRecord);
 
-      // Apply to store (replace mode to avoid stale keys from previous encounters)
-      useRosObservationsStore.setState(arrayToObject(observations), true);
+      // Merge into store (same pattern as useExamObservations)
+      useRosObservationsStore.setState(arrayToObject(observations));
 
       if (noFetch) {
         useRosObservationsInitializationStore.setState({ hasInitialData: true });
         return;
       }
 
-      // Separate saves and deletes — mutually exclusive filters
       const toSave = observations.filter((o) => o.value === true);
       const toDelete = observations.filter((o) => !o.value && o.resourceId);
 
@@ -60,12 +64,14 @@ export function useRosObservations(field?: string): {
           {
             onSuccess: (data) => {
               if (data.chartData.rosObservations) {
-                useRosObservationsStore.setState(arrayToObject(data.chartData.rosObservations), true);
+                // Merge server response (with resourceIds) into existing store
+                useRosObservationsStore.setState(arrayToObject(data.chartData.rosObservations));
               }
             },
             onError: () => {
               enqueueSnackbar('An error occurred while saving ROS data. Please try again.', { variant: 'error' });
-              useRosObservationsStore.setState(prevState, true);
+              // Restore only the changed fields (merge, not replace)
+              useRosObservationsStore.setState(prevValues);
             },
           }
         );
