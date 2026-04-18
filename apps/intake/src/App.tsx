@@ -24,6 +24,7 @@ import PrebookVisit from './pages/PrebookVisit';
 import Review from './pages/Review';
 import ReviewPaperwork from './pages/ReviewPaperwork';
 import SelectServiceCategoryPage from './pages/SelectServiceCategory';
+import StandaloneFormPage from './pages/StandaloneFormPage';
 import StartVirtualVisit from './pages/StartVirtualVisit';
 import ThankYou from './pages/ThankYou';
 import VisitDetails from './pages/VisitDetails';
@@ -120,6 +121,10 @@ export const intakeFlowPageRoute = {
   PracticeManagedPaperwork: {
     path: `${paperworkBasePath}/custom/:questionnaireId/:returnSlug`,
     getPage: () => <PracticeManagedPaperwork />,
+  },
+  StandaloneForm: {
+    path: '/forms/:appointmentId/:questionnaireId',
+    getPage: () => <StandaloneFormPage />,
   },
   ReviewPaperwork: {
     path: `${paperworkBasePath}/review`,
@@ -401,6 +406,10 @@ function App(): JSX.Element {
                   <Route
                     path={intakeFlowPageRoute.PracticeManagedPaperwork.path}
                     element={intakeFlowPageRoute.PracticeManagedPaperwork.getPage()}
+                  />
+                  <Route
+                    path={intakeFlowPageRoute.StandaloneForm.path}
+                    element={intakeFlowPageRoute.StandaloneForm.getPage()}
                   />
                   <Route
                     path={intakeFlowPageRoute.PaperworkHomeRoute.path}

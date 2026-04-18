@@ -3,6 +3,7 @@ import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined
 import CancelIcon from '@mui/icons-material/Cancel';
 import DownloadIcon from '@mui/icons-material/Download';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import SendIcon from '@mui/icons-material/Send';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -43,6 +44,7 @@ import {
   updatePatientVisitDetails,
   updateVisitFiles,
 } from 'src/api/api';
+import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
 import ImageUploader from 'src/components/ImageUploader';
 import PatientBalances from 'src/components/PatientBalances';
@@ -301,6 +303,9 @@ export default function VisitDetailsPage(): ReactElement {
     },
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
   });
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in JSX below
+  const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
 
   const { fullCardPdfs, consentPdfUrls } = imageFileData || {
     fullCardPdfs: [],
@@ -1421,6 +1426,17 @@ export default function VisitDetailsPage(): ReactElement {
                         />
                       </Grid>
                     )}
+                    <Grid item>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<SendIcon />}
+                        onClick={() => setSendFormDialogOpen(true)}
+                        sx={{ mt: 1 }}
+                      >
+                        Send Form to Patient
+                      </Button>
+                    </Grid>
                   </Grid>
                   <Grid container item xs={12} sm={6} direction="column">
                     {!patientBalancesLoading &&
@@ -1954,6 +1970,14 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
             )
           )}
       </Grid>
+      {appointmentID && (
+        <SendFormDialog
+          open={sendFormDialogOpen}
+          onClose={() => setSendFormDialogOpen(false)}
+          appointmentId={appointmentID}
+          questionnaires={(practiceManagedData?.questionnaires || []).map((q: any) => ({ id: q.id, title: q.title }))}
+        />
+      )}
     </Grid>
   );
 };
