@@ -59,22 +59,28 @@ const complexValidation = async (
     })
   ).unbundle();
 
-  const globalTemplatesList = lists.filter(
+  const globalTemplatesHolders = lists.filter(
     (list) => list.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
   );
-  if (!globalTemplatesList) {
-    // By searching on the template name, and not finding the global templates List on revinclude
-    // We demonstrated that even if there is a List with that title, it's not a global template.
+  if (globalTemplatesHolders.length === 0) {
     throw new Error(`No global template found with title: ${templateName}`);
   }
 
-  const templateLists = lists.filter((list) => list.title === templateName);
-  if (templateLists.length === 0) {
-    throw new Error(`No template found with title: ${templateName}`);
+  // Collect IDs referenced by any global template holder
+  const holderReferencedIds = new Set<string>();
+  for (const holder of globalTemplatesHolders) {
+    for (const entry of holder.entry || []) {
+      const ref = entry.item?.reference?.replace('List/', '');
+      if (ref) holderReferencedIds.add(ref);
+    }
   }
 
-  if (templateLists.length > 1) {
-    throw new Error(`Multiple templates found with the same title: ${templateName}`);
+  // Only consider templates that match the title AND are referenced by the holder
+  const templateLists = lists.filter(
+    (list) => list.title === templateName && list.id && holderReferencedIds.has(list.id)
+  );
+  if (templateLists.length === 0) {
+    throw new Error(`No template found with title: ${templateName}`);
   }
 
   const encounter = await oystehr.fhir.get<Encounter>({
