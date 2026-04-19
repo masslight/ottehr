@@ -28,6 +28,7 @@ export const StandaloneFormPage: FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [qrId, setQrId] = useState<string | undefined>(undefined);
   const [encounterId, setEncounterId] = useState<string>('');
@@ -40,8 +41,17 @@ export const StandaloneFormPage: FC = () => {
 
     const fetchData = async (): Promise<void> => {
       try {
-        const response = await (zambdaClient as ZambdaClient).execute(GET_PM_ZAMBDA, { appointmentId });
+        const response = await (zambdaClient as ZambdaClient).execute(GET_PM_ZAMBDA, {
+          appointmentId,
+          questionnaireId,
+        });
         const data = typeof response.output === 'string' ? JSON.parse(response.output) : response.output;
+
+        if (data?.error === 'ACCESS_DENIED') {
+          setAccessDeniedMessage(data.message);
+          return;
+        }
+
         const questionnaires = (data?.questionnaires || []) as PracticeManagedQ[];
         setEncounterId(data?.encounterId || '');
         setPatientId(data?.patientId || '');
@@ -51,8 +61,13 @@ export const StandaloneFormPage: FC = () => {
           setQuestionnaire(current);
           setQrId(current.questionnaireResponseId);
         }
-      } catch (err) {
-        console.error('Failed to fetch questionnaire:', err);
+      } catch (err: any) {
+        const errBody = err?.cause || err;
+        if (errBody?.error === 'ACCESS_DENIED') {
+          setAccessDeniedMessage(errBody.message);
+        } else {
+          console.error('Failed to fetch questionnaire:', err);
+        }
       } finally {
         setLoading(false);
       }
@@ -111,6 +126,21 @@ export const StandaloneFormPage: FC = () => {
       <PageContainer>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
           <CircularProgress />
+        </Box>
+      </PageContainer>
+    );
+  }
+
+  if (accessDeniedMessage) {
+    return (
+      <PageContainer>
+        <Box sx={{ textAlign: 'center', py: 6 }}>
+          <Typography variant="h6" color="error" sx={{ mb: 2 }}>
+            Access Denied
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            {accessDeniedMessage}
+          </Typography>
         </Box>
       </PageContainer>
     );

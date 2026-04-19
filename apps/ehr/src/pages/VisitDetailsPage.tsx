@@ -55,6 +55,7 @@ import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPa
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { QuestionnaireResponseViewer } from 'ui-components';
 import {
   BOOKING_CONFIG,
   DocumentInfo,
@@ -304,7 +305,6 @@ export default function VisitDetailsPage(): ReactElement {
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in JSX below
   const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
 
   const { fullCardPdfs, consentPdfUrls } = imageFileData || {
@@ -1367,54 +1367,21 @@ export default function VisitDetailsPage(): ReactElement {
                     {(practiceManagedData?.questionnaires || []).length > 0 ? (
                       (practiceManagedData?.questionnaires || []).map((pmQ: any) => (
                         <Grid item key={pmQ.id}>
-                          <PatientInformation
-                            title={pmQ.title}
-                            loading={loading}
-                            patientDetails={(() => {
-                              if (!pmQ.questionnaireResponseItems) {
-                                return { Status: 'Not Started' };
-                              }
-                              // Build a linkId→text map from the questionnaire items
-                              const labelMap: Record<string, string> = {};
-                              const mapItems = (items: any[]): void => {
-                                for (const item of items || []) {
-                                  if (item.text && item.linkId) labelMap[item.linkId] = item.text;
-                                  if (item.item) mapItems(item.item);
-                                }
-                              };
-                              mapItems(pmQ.item || []);
-
-                              // Extract answers from QR items
-                              const details: Record<string, string> = {};
-                              const extractAnswers = (qrItems: any[]): void => {
-                                for (const qrItem of qrItems || []) {
-                                  if (qrItem.answer?.length > 0) {
-                                    const answer = qrItem.answer[0];
-                                    const value =
-                                      answer.valueString ??
-                                      answer.valueBoolean?.toString() ??
-                                      answer.valueInteger?.toString() ??
-                                      answer.valueDate ??
-                                      answer.valueCoding?.display ??
-                                      '';
-                                    const label = labelMap[qrItem.linkId] || qrItem.linkId;
-                                    if (value) details[label] = value;
-                                  }
-                                  if (qrItem.item) extractAnswers(qrItem.item);
-                                }
-                              };
-                              extractAnswers(pmQ.questionnaireResponseItems);
-
-                              return Object.keys(details).length > 0
-                                ? details
-                                : {
-                                    Status:
-                                      pmQ.questionnaireResponseStatus === 'completed'
-                                        ? 'Completed (no answers)'
-                                        : 'In Progress',
-                                  };
-                            })()}
-                          />
+                          <Paper sx={{ p: 2 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>
+                              {pmQ.title}
+                            </Typography>
+                            {!pmQ.questionnaireResponseItems ? (
+                              <Typography variant="body2" color="text.secondary">
+                                Not Started
+                              </Typography>
+                            ) : (
+                              <QuestionnaireResponseViewer
+                                questionnaire={{ item: pmQ.item, title: pmQ.title }}
+                                responseItems={pmQ.questionnaireResponseItems}
+                              />
+                            )}
+                          </Paper>
                         </Grid>
                       ))
                     ) : (
@@ -1741,6 +1708,13 @@ export default function VisitDetailsPage(): ReactElement {
           onScanComplete={handleScanComplete}
         />
       </>
+      {appointmentID && (
+        <SendFormDialog
+          open={sendFormDialogOpen}
+          onClose={() => setSendFormDialogOpen(false)}
+          appointmentId={appointmentID}
+        />
+      )}
     </PageContainer>
   );
 }
@@ -1970,14 +1944,6 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
             )
           )}
       </Grid>
-      {appointmentID && (
-        <SendFormDialog
-          open={sendFormDialogOpen}
-          onClose={() => setSendFormDialogOpen(false)}
-          appointmentId={appointmentID}
-          questionnaires={(practiceManagedData?.questionnaires || []).map((q: any) => ({ id: q.id, title: q.title }))}
-        />
-      )}
     </Grid>
   );
 };

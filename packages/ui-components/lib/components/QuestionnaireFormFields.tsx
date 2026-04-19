@@ -466,3 +466,120 @@ export const QuestionnaireFormPage: FC<QuestionnaireFormPageProps> = ({
     </FormProvider>
   );
 };
+
+// ── QuestionnaireResponseViewer: read-only display of completed responses ────
+
+export interface QuestionnaireResponseViewerProps {
+  /** The questionnaire definition (with items, answerOptions, extensions) */
+  questionnaire: { item?: QuestionnaireItem[]; title?: string };
+  /** The completed response items */
+  responseItems: QuestionnaireResponseItem[];
+}
+
+export const QuestionnaireResponseViewer: FC<QuestionnaireResponseViewerProps> = ({ questionnaire, responseItems }) => {
+  // Build a flat map of linkId → answer from the response
+  const answerMap = useMemo(() => {
+    const map = new Map<string, any>();
+    const walkItems = (items: QuestionnaireResponseItem[]): void => {
+      for (const item of items) {
+        if (item.answer && item.answer.length > 0) {
+          map.set(item.linkId, item.answer[0]);
+        }
+        if (item.item) walkItems(item.item);
+      }
+    };
+    walkItems(responseItems);
+    return map;
+  }, [responseItems]);
+
+  // Flatten questionnaire items (handle both grouped and flat)
+  const allItems = useMemo(() => {
+    const items = questionnaire.item || [];
+    const flat: QuestionnaireItem[] = [];
+    const walk = (list: QuestionnaireItem[]): void => {
+      for (const item of list) {
+        if (item.type === 'group' && item.item) {
+          walk(item.item);
+        } else {
+          flat.push(item);
+        }
+      }
+    };
+    walk(items);
+    return flat;
+  }, [questionnaire.item]);
+
+  // Calculate total score if there are scored items
+  const totalScore = useMemo(() => {
+    let hasScoring = false;
+    let score = 0;
+    for (const item of allItems) {
+      if (isScoreItem(item)) {
+        hasScoring = true;
+        continue;
+      }
+      if (item.type !== 'choice' || !item.answerOption) continue;
+      const hasWeights = item.answerOption.some((o: any) => getOptionWeight(o) !== undefined);
+      if (!hasWeights) continue;
+      hasScoring = true;
+
+      const answer = answerMap.get(item.linkId);
+      if (!answer) continue;
+      const selectedCode = answer.valueCoding?.code || answer.valueString;
+      if (!selectedCode) continue;
+
+      const matchingOpt = item.answerOption.find((o: any) => (o.valueCoding?.code || o.valueString) === selectedCode);
+      if (matchingOpt) {
+        const weight = getOptionWeight(matchingOpt);
+        if (weight !== undefined) score += weight;
+      }
+    }
+    return hasScoring ? score : null;
+  }, [allItems, answerMap]);
+
+  return (
+    <Box>
+      {allItems
+        .filter((item) => !isScoreItem(item))
+        .map((item) => {
+          const answer = answerMap.get(item.linkId);
+          if (!answer) return null;
+
+          let displayValue = '';
+          if (answer.valueCoding?.display) {
+            displayValue = answer.valueCoding.display;
+          } else if (answer.valueString) {
+            displayValue = answer.valueString;
+          } else if (answer.valueBoolean !== undefined) {
+            displayValue = answer.valueBoolean ? 'Yes' : 'No';
+          } else if (answer.valueInteger !== undefined) {
+            displayValue = String(answer.valueInteger);
+          } else if (answer.valueDecimal !== undefined) {
+            displayValue = String(answer.valueDecimal);
+          } else if (answer.valueDate) {
+            displayValue = answer.valueDate;
+          }
+
+          if (!displayValue) return null;
+
+          return (
+            <Box key={item.linkId} sx={{ py: 0.5 }}>
+              <Typography variant="body2">
+                <Box component="span" sx={{ fontWeight: 600, color: COLORS.primaryMain }}>
+                  {item.text}:
+                </Box>{' '}
+                {displayValue}
+              </Typography>
+            </Box>
+          );
+        })}
+      {totalScore !== null && (
+        <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: COLORS.border }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.primaryMain }}>
+            Total Score: {totalScore}
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+};

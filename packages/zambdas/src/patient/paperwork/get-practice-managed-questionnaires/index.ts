@@ -1,6 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import { getSecret, SecretsKeys } from 'utils';
+import { createOystehrClient, getAuth0Token, getUser, wrapHandler, ZambdaInput } from '../../../shared';
+import { userHasAccessToPatient } from '../../../shared/auth';
 
 const PRACTICE_MANAGED_TAG_CODE = 'practice-managed';
 const ASSOCIATED_QUESTIONNAIRE_EXTENSION_URL = 'https://fhir.ottehr.com/StructureDefinitions/associated-questionnaire';
@@ -50,9 +52,14 @@ export const index = wrapHandler(
   'get-practice-managed-questionnaires',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     if (!input.body) throw new Error('No request body provided');
-    const { appointmentId, intakeQuestionnaireUrl } = JSON.parse(input.body) as {
+    const {
+      appointmentId,
+      intakeQuestionnaireUrl,
+      questionnaireId: directQuestionnaireId,
+    } = JSON.parse(input.body) as {
       appointmentId: string;
       intakeQuestionnaireUrl?: string;
+      questionnaireId?: string;
     };
 
     if (!appointmentId) throw new Error('appointmentId is required');
@@ -73,6 +80,27 @@ export const index = wrapHandler(
     const encounter = encounters[0];
     const encounterId = encounter?.id || '';
     const patientId = encounter?.subject?.reference?.replace('Patient/', '') || '';
+
+    // Verify the authenticated user has access to this patient
+    const userToken = input.headers?.Authorization?.replace('Bearer ', '');
+    if (userToken && patientId) {
+      try {
+        const user = await getUser(userToken, input.secrets);
+        const hasAccess = await userHasAccessToPatient(user, patientId, oystehr);
+        if (!hasAccess) {
+          const projectId = getSecret(SecretsKeys.PROJECT_ID, input.secrets);
+          return {
+            statusCode: 403,
+            body: JSON.stringify({
+              error: 'ACCESS_DENIED',
+              message: `Your account does not have access to this link. Contact support@ottehr.com with the appointment id: ${appointmentId} and project id: ${projectId}`,
+            }),
+          };
+        }
+      } catch (authError) {
+        console.warn('Could not verify user access, proceeding with M2M auth:', authError);
+      }
+    }
 
     // If the caller didn't provide the intake questionnaire URL, look it up from the encounter's QR
     let intakeUrl = intakeQuestionnaireUrl;
@@ -130,19 +158,16 @@ export const index = wrapHandler(
       })
     ).unbundle();
 
-    const associated = allPracticeManaged.filter(
-      (q) =>
-        q.extension?.some((ext) => ext.url === ASSOCIATED_QUESTIONNAIRE_EXTENSION_URL && ext.valueUri === intakeUrl)
-    );
+    // If a specific questionnaire was requested (standalone form), find it directly
+    // Otherwise filter to questionnaires associated with the intake flow
+    const associated = directQuestionnaireId
+      ? allPracticeManaged.filter((q) => q.id === directQuestionnaireId)
+      : allPracticeManaged.filter(
+          (q) =>
+            q.extension?.some((ext) => ext.url === ASSOCIATED_QUESTIONNAIRE_EXTENSION_URL && ext.valueUri === intakeUrl)
+        );
 
-    if (associated.length === 0) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ questionnaires: [] }),
-      };
-    }
-
-    // Check for existing QRs for each practice-managed questionnaire on this encounter
+    // Check for existing QRs on this encounter
     const existingQrs = encounterId
       ? (
           await oystehr.fhir.search<QuestionnaireResponse>({
@@ -152,7 +177,16 @@ export const index = wrapHandler(
         ).unbundle()
       : [];
 
-    const questionnaires = associated.map((q) => {
+    // Also include any practice-managed questionnaires that have existing QRs on this
+    // encounter but aren't in the associated set (e.g. standalone forms sent to patient)
+    const associatedIds = new Set(associated.map((q) => q.id));
+    const withExistingQrs = allPracticeManaged.filter((q) => {
+      if (associatedIds.has(q.id!)) return false;
+      return existingQrs.some((qr) => qr.questionnaire?.split('|')[0] === q.url);
+    });
+    const allRelevant = [...associated, ...withExistingQrs];
+
+    const questionnaires = allRelevant.map((q) => {
       const matchingQr = existingQrs.find((qr) => qr.questionnaire?.split('|')[0] === q.url);
       return {
         id: q.id,
