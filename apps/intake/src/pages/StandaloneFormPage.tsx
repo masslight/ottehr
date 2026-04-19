@@ -4,7 +4,12 @@ import { QuestionnaireItem } from 'fhir/r4b';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
-import { buildQuestionnairePages, formDataToResponseItem, QuestionnaireFormPage } from 'ui-components';
+import {
+  buildQuestionnairePages,
+  evaluateCalculatedExpressions,
+  formDataToResponseItem,
+  QuestionnaireFormPage,
+} from 'ui-components';
 import { PageContainer } from '../components';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 
@@ -30,6 +35,7 @@ export const StandaloneFormPage: FC = () => {
   const [completed, setCompleted] = useState(false);
   const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [allAnswers, setAllAnswers] = useState<Record<string, any>>({});
   const [qrId, setQrId] = useState<string | undefined>(undefined);
   const [encounterId, setEncounterId] = useState<string>('');
   const [patientId, setPatientId] = useState<string>('');
@@ -89,6 +95,9 @@ export const StandaloneFormPage: FC = () => {
 
       setSaving(true);
       try {
+        const updatedAnswers = { ...allAnswers, ...data };
+        setAllAnswers(updatedAnswers);
+
         const pageItem = formDataToResponseItem(data, currentPage);
 
         const response = await (zambdaClient as ZambdaClient).execute(SAVE_PM_ZAMBDA, {
@@ -102,14 +111,43 @@ export const StandaloneFormPage: FC = () => {
         });
         const result = typeof response.output === 'string' ? JSON.parse(response.output) : response.output;
 
-        if (result?.questionnaireResponseId) {
-          setQrId(result.questionnaireResponseId);
+        const currentQrId = result?.questionnaireResponseId || qrId;
+        if (currentQrId) {
+          setQrId(currentQrId);
         }
 
         if (!isLastPage) {
           setCurrentPageIndex((prev) => prev + 1);
           methods.reset();
         } else {
+          // Evaluate calculated expressions and save computed values
+          const qItems = questionnaire.item || [];
+          const computedValues = evaluateCalculatedExpressions(qItems, updatedAnswers);
+          const computedEntries = Object.entries(computedValues).filter(([, v]) => v !== undefined);
+
+          if (computedEntries.length > 0) {
+            const computedQrItems = computedEntries.map(([linkId, value]) => ({
+              linkId,
+              answer: [
+                typeof value === 'boolean'
+                  ? { valueBoolean: value }
+                  : typeof value === 'number'
+                  ? { valueDecimal: value }
+                  : { valueString: String(value) },
+              ],
+            }));
+
+            await (zambdaClient as ZambdaClient).execute(SAVE_PM_ZAMBDA, {
+              questionnaireResponseId: currentQrId,
+              questionnaireUrl: questionnaire.url,
+              questionnaireVersion: questionnaire.version,
+              encounterId,
+              patientId,
+              pageIndex: currentPageIndex + 1,
+              answers: { linkId: 'results', item: computedQrItems },
+            });
+          }
+
           setCompleted(true);
         }
       } catch (err) {
@@ -118,7 +156,18 @@ export const StandaloneFormPage: FC = () => {
         setSaving(false);
       }
     },
-    [zambdaClient, questionnaire, currentPage, qrId, encounterId, patientId, currentPageIndex, isLastPage, methods]
+    [
+      zambdaClient,
+      questionnaire,
+      currentPage,
+      qrId,
+      encounterId,
+      patientId,
+      currentPageIndex,
+      isLastPage,
+      methods,
+      allAnswers,
+    ]
   );
 
   if (loading) {
