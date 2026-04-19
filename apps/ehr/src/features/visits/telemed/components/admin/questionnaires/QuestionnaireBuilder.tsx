@@ -349,6 +349,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({
             open={testDialogOpen}
             onClose={() => setTestDialogOpen(false)}
             questionnaire={questionnaire}
+            rawItems={items}
           />
 
           <Paper

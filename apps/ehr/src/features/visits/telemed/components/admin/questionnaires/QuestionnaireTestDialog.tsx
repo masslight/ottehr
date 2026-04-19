@@ -13,7 +13,10 @@ function toFhirItems(items: BuilderItem[]): QuestionnaireItem[] {
     delete fhirItem._key;
     delete fhirItem.dataType;
     delete fhirItem.inputWidth;
-    if (item.item) {
+    // Ensure group items always have an item array (toFhirJson may strip empty arrays)
+    if (item.type === ('group' as any)) {
+      fhirItem.item = item.item ? toFhirItems(item.item) : [];
+    } else if (item.item) {
       fhirItem.item = toFhirItems(item.item);
     }
     return fhirItem as QuestionnaireItem;
@@ -24,10 +27,17 @@ interface QuestionnaireTestDialogProps {
   open: boolean;
   onClose: () => void;
   questionnaire: FhirQuestionnaire;
+  /** Raw builder items (before toFhirJson processing which may strip empty arrays) */
+  rawItems?: BuilderItem[];
 }
 
-export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({ open, onClose, questionnaire }) => {
-  const fhirItems = useMemo(() => toFhirItems(questionnaire.item || []), [questionnaire.item]);
+export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({
+  open,
+  onClose,
+  questionnaire,
+  rawItems,
+}) => {
+  const fhirItems = useMemo(() => toFhirItems(rawItems || questionnaire.item || []), [rawItems, questionnaire.item]);
   const pages = useMemo(
     () => buildQuestionnairePages(fhirItems, questionnaire.title),
     [fhirItems, questionnaire.title]

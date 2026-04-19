@@ -26,6 +26,64 @@ function getExtension(extensions: any[] | undefined, url: string): any | undefin
   return extensions?.find((e: any) => e.url === url);
 }
 
+export function isHiddenItem(item: QuestionnaireItem): boolean {
+  const ext = getExtension(item.extension, 'http://hl7.org/fhir/StructureDefinition/questionnaire-hidden');
+  return ext?.valueBoolean === true;
+}
+
+export function getCalculatedExpression(item: QuestionnaireItem): string | undefined {
+  const ext = getExtension(
+    item.extension,
+    'http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression'
+  );
+  if (ext?.valueExpression?.language === 'text/javascript') {
+    return ext.valueExpression.expression;
+  }
+  return undefined;
+}
+
+/**
+ * Evaluates all calculated expressions in a questionnaire against the current answers.
+ * Returns a map of linkId → computed value for items with JavaScript calculated expressions.
+ */
+export function evaluateCalculatedExpressions(
+  items: QuestionnaireItem[],
+  answers: Record<string, any>
+): Record<string, any> {
+  const results: Record<string, any> = {};
+  const allItems: QuestionnaireItem[] = [];
+
+  // Flatten all items (including nested groups)
+  const walk = (list: QuestionnaireItem[]): void => {
+    for (const item of list) {
+      allItems.push(item);
+      if (item.item) walk(item.item);
+    }
+  };
+  walk(items);
+
+  // First pass: evaluate expressions that depend only on answers
+  // Second pass: evaluate expressions that depend on other computed values
+  // Two passes handles one level of dependency (computed item referencing another computed item)
+  for (let pass = 0; pass < 2; pass++) {
+    for (const item of allItems) {
+      const expression = getCalculatedExpression(item);
+      if (!expression) continue;
+
+      try {
+        // Build a combined context: raw answers + previously computed results
+        const context = { ...answers, ...results };
+        const fn = new Function('answers', `with(answers) { return (${expression}); }`);
+        results[item.linkId] = fn(context);
+      } catch (e) {
+        console.warn(`Failed to evaluate expression for ${item.linkId}:`, e);
+      }
+    }
+  }
+
+  return results;
+}
+
 export function getItemControl(item: QuestionnaireItem): string | undefined {
   const ext = getExtension(item.extension, 'http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl');
   return ext?.valueCodeableConcept?.coding?.[0]?.code;
@@ -319,6 +377,32 @@ export const QuestionnaireFormField: FC<QuestionnaireFormFieldProps> = ({ item, 
         </Typography>
       );
 
+    case 'group' as any:
+      return (
+        <Box sx={{ mb: 1 }}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontWeight: 700,
+              color: COLORS.primaryMain,
+              mb: 1,
+              borderBottom: '1px solid',
+              borderColor: COLORS.border,
+              pb: 0.5,
+            }}
+          >
+            {item.text}
+          </Typography>
+          <Grid container spacing={2}>
+            {(item.item || []).map((child) => (
+              <Grid item xs={12} key={child.linkId}>
+                <QuestionnaireFormField item={child} control={control} siblingItems={item.item || []} />
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      );
+
     default:
       return (
         <Box>
@@ -394,7 +478,7 @@ export const QuestionnaireFormPage: FC<QuestionnaireFormPageProps> = ({
   saving,
   submitLabel,
 }) => {
-  const items = (page.item || []).filter((item) => item.type !== 'display' || item.text);
+  const items = (page.item || []).filter((item) => !isHiddenItem(item) && (item.type !== 'display' || item.text));
 
   return (
     <FormProvider {...methods}>
@@ -509,7 +593,26 @@ export const QuestionnaireResponseViewer: FC<QuestionnaireResponseViewerProps> =
     return flat;
   }, [questionnaire.item]);
 
-  // Calculate total score if there are scored items
+  // Build raw answers for expression evaluation (linkId → numeric code)
+  const rawAnswers = useMemo(() => {
+    const raw: Record<string, any> = {};
+    answerMap.forEach((answer, linkId) => {
+      if (answer.valueCoding?.code) raw[linkId] = parseInt(answer.valueCoding.code, 10) || answer.valueCoding.code;
+      else if (answer.valueString) raw[linkId] = answer.valueString;
+      else if (answer.valueBoolean !== undefined) raw[linkId] = answer.valueBoolean;
+      else if (answer.valueInteger !== undefined) raw[linkId] = answer.valueInteger;
+      else if (answer.valueDecimal !== undefined) raw[linkId] = answer.valueDecimal;
+    });
+    return raw;
+  }, [answerMap]);
+
+  // Evaluate calculated expressions for computed items
+  const computedValues = useMemo(
+    () => evaluateCalculatedExpressions(questionnaire.item || [], rawAnswers),
+    [questionnaire.item, rawAnswers]
+  );
+
+  // Calculate total score if there are scored items (sum-based like GAD-7)
   const totalScore = useMemo(() => {
     let hasScoring = false;
     let score = 0;
@@ -537,47 +640,73 @@ export const QuestionnaireResponseViewer: FC<QuestionnaireResponseViewerProps> =
     return hasScoring ? score : null;
   }, [allItems, answerMap]);
 
+  // Separate visible answer items from computed items
+  const answerItems = allItems.filter((item) => !isScoreItem(item) && !isHiddenItem(item));
+  const computedItems = allItems.filter((item) => isHiddenItem(item) && getCalculatedExpression(item));
+
   return (
     <Box>
-      {allItems
-        .filter((item) => !isScoreItem(item))
-        .map((item) => {
-          const answer = answerMap.get(item.linkId);
-          if (!answer) return null;
+      {answerItems.map((item) => {
+        const answer = answerMap.get(item.linkId);
+        if (!answer) return null;
 
-          let displayValue = '';
-          if (answer.valueCoding?.display) {
-            displayValue = answer.valueCoding.display;
-          } else if (answer.valueString) {
-            displayValue = answer.valueString;
-          } else if (answer.valueBoolean !== undefined) {
-            displayValue = answer.valueBoolean ? 'Yes' : 'No';
-          } else if (answer.valueInteger !== undefined) {
-            displayValue = String(answer.valueInteger);
-          } else if (answer.valueDecimal !== undefined) {
-            displayValue = String(answer.valueDecimal);
-          } else if (answer.valueDate) {
-            displayValue = answer.valueDate;
-          }
+        let displayValue = '';
+        if (answer.valueCoding?.display) {
+          displayValue = answer.valueCoding.display;
+        } else if (answer.valueString) {
+          displayValue = answer.valueString;
+        } else if (answer.valueBoolean !== undefined) {
+          displayValue = answer.valueBoolean ? 'Yes' : 'No';
+        } else if (answer.valueInteger !== undefined) {
+          displayValue = String(answer.valueInteger);
+        } else if (answer.valueDecimal !== undefined) {
+          displayValue = String(answer.valueDecimal);
+        } else if (answer.valueDate) {
+          displayValue = answer.valueDate;
+        }
 
-          if (!displayValue) return null;
+        if (!displayValue) return null;
 
-          return (
-            <Box key={item.linkId} sx={{ py: 0.5 }}>
-              <Typography variant="body2">
-                <Box component="span" sx={{ fontWeight: 600, color: COLORS.primaryMain }}>
-                  {item.text}:
-                </Box>{' '}
-                {displayValue}
-              </Typography>
-            </Box>
-          );
-        })}
+        return (
+          <Box key={item.linkId} sx={{ py: 0.5 }}>
+            <Typography variant="body2">
+              <Box component="span" sx={{ fontWeight: 600, color: COLORS.primaryMain }}>
+                {item.text}:
+              </Box>{' '}
+              {displayValue}
+            </Typography>
+          </Box>
+        );
+      })}
       {totalScore !== null && (
         <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: COLORS.border }}>
           <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.primaryMain }}>
             Total Score: {totalScore}
           </Typography>
+        </Box>
+      )}
+      {computedItems.length > 0 && (
+        <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: COLORS.border }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.primaryMain, mb: 0.5 }}>
+            Screening Results
+          </Typography>
+          {computedItems.map((item) => {
+            const value = computedValues[item.linkId];
+            if (value === undefined) return null;
+            const displayValue = typeof value === 'boolean' ? (value ? 'Positive' : 'Negative') : String(value);
+            return (
+              <Box key={item.linkId} sx={{ py: 0.25 }}>
+                <Typography variant="body2">
+                  <Box component="span" sx={{ fontWeight: 600, color: COLORS.primaryMain }}>
+                    {item.text}:
+                  </Box>{' '}
+                  <Box component="span" sx={{ color: value === true ? 'error.main' : 'success.main', fontWeight: 600 }}>
+                    {displayValue}
+                  </Box>
+                </Typography>
+              </Box>
+            );
+          })}
         </Box>
       )}
     </Box>
