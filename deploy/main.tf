@@ -1,10 +1,18 @@
 terraform {
+  # Remote S3 backend (recommended for team/shared environments).
+  # Comment this block out and uncomment the `backend "local"` block below
+  # to use a local state file instead — useful during initial setup or
+  # when exploring the project without configuring an S3 bucket.
   backend "s3" {
     bucket  = "YOUR_TF_BUCKET_NAME"
     region  = "us-east-1"
     profile = "YOUR_AWS_PROFILE_NAME"
     key     = "terraform.tfstate"
   }
+  # Local backend (stores state in ./terraform.tfstate on disk).
+  # backend "local" {
+  #   path = "terraform.tfstate"
+  # }
   required_version = ">= 1.12.0"
   required_providers {
     sendgrid = {
