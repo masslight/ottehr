@@ -112,6 +112,10 @@ const PARENT_FIELD_TO_LABEL_MAP: Record<string, string> = {
   'murmur-grade': 'Murmur',
 };
 
+// this field previously existing under a unified 'GU, Rectal' section which has now been split into male / female
+// we will prompt the user to pick before migrating
+export const NORMAL_EXTERNAL_GENITAL_EXAM_FIELD = 'normal-external-genital-exam';
+
 export interface MigrationResult {
   migrated: boolean;
   observations: ExamObservationDTO[];
@@ -181,6 +185,33 @@ export function migrateV0ToV1(observations: ExamObservationDTO[]): MigrationResu
 }
 
 /**
+ * Migration for the 'normal-external-genital-exam' field, which was split into
+ * sex-specific fields. Requires the user to specify which section applies.
+ */
+export function migrateNormalExternalGenitalExam(
+  observations: ExamObservationDTO[],
+  sex: 'male' | 'female'
+): { migrated: boolean; observations: ExamObservationDTO[]; migratedResourceId?: string } {
+  const targetField =
+    sex === 'male' ? 'normal-external-genital-testicular-exam' : 'normal-external-genital-exam-female';
+  const targetLabel = sex === 'male' ? 'Normal external genital/testicular exam' : 'Normal external genital exam';
+
+  let migrated = false;
+  let migratedResourceId: string | undefined;
+
+  const result = observations.map((obs) => {
+    if (obs.field === NORMAL_EXTERNAL_GENITAL_EXAM_FIELD) {
+      migrated = true;
+      migratedResourceId = obs.resourceId;
+      return { ...obs, field: targetField, label: targetLabel };
+    }
+    return obs;
+  });
+
+  return { migrated, observations: result, migratedResourceId };
+}
+
+/**
  * Run all pending exam migrations for an encounter.
  * Returns the migrated observations and list of old resource IDs to delete.
  */
@@ -189,52 +220,57 @@ export async function runExamMigrations(
   encounter: Encounter,
   patientId: string,
   encounterId: string,
-  examObservations: ExamObservationDTO[]
+  examObservations: ExamObservationDTO[],
+  normalExternalGenitalExamSex?: 'male' | 'female'
 ): Promise<ExamObservationDTO[]> {
   const currentVersion = getExamMigrationVersion(encounter);
+  const needsVersionMigration = currentVersion < CURRENT_EXAM_MIGRATION_VERSION;
+  const needsGenitalMigration =
+    !!normalExternalGenitalExamSex &&
+    examObservations.some((obs) => obs.field === NORMAL_EXTERNAL_GENITAL_EXAM_FIELD && obs.value === true);
 
-  if (currentVersion >= CURRENT_EXAM_MIGRATION_VERSION) {
+  if (!needsVersionMigration && !needsGenitalMigration) {
     return examObservations;
   }
 
   let result = examObservations;
-  let didMigrate = false;
+  let didV1Migration = false;
+  let genitalMigration: ReturnType<typeof migrateNormalExternalGenitalExam> | undefined;
 
   // Run migration 0 → 1
-  if (currentVersion < 1) {
+  if (needsVersionMigration && currentVersion < 1) {
     const migration = migrateV0ToV1(result);
     if (migration.migrated) {
-      didMigrate = true;
+      didV1Migration = true;
       result = migration.observations;
     }
   }
 
-  // Persist if any migration ran
-  if (didMigrate) {
-    console.log(`Running exam migration from version ${currentVersion} to ${CURRENT_EXAM_MIGRATION_VERSION}`);
+  // Run user-directed genital exam migration
+  if (needsGenitalMigration) {
+    genitalMigration = migrateNormalExternalGenitalExam(result, normalExternalGenitalExamSex!);
+    if (genitalMigration.migrated) {
+      result = genitalMigration.observations;
+    }
+  }
 
-    try {
+  const didMigrate = didV1Migration || genitalMigration?.migrated;
+
+  try {
+    const requests: any[] = [];
+
+    if (didV1Migration) {
+      console.log(`Running exam migration from version ${currentVersion} to ${CURRENT_EXAM_MIGRATION_VERSION}`);
+
       // Collect old standalone observation IDs to delete
-      const oldResourceIds: string[] = [];
       for (const obs of examObservations) {
         if (obs.value === true && MIGRATION_V1_FIELD_MAP[obs.field] && obs.resourceId) {
-          oldResourceIds.push(obs.resourceId);
+          requests.push({ method: 'DELETE', url: `/Observation/${obs.resourceId}` });
         }
-      }
-
-      const requests: any[] = [];
-
-      // Delete old standalone observations
-      for (const resourceId of oldResourceIds) {
-        requests.push({
-          method: 'DELETE',
-          url: `/Observation/${resourceId}`,
-        });
       }
 
       // Create/update parent observations with components
       for (const obs of result) {
-        // Only persist observations that were part of migration (have components from migrated data)
         if (obs.components && obs.components.length > 0) {
           console.log('Obs to be migrated', JSON.stringify(obs));
           const fhirObs = makeExamObservationResource(encounterId, patientId, obs, undefined, obs.label || obs.field);
@@ -245,48 +281,55 @@ export async function runExamMigrations(
           }
         }
       }
+    }
 
-      // Update encounter with new migration version
+    if (genitalMigration?.migrated) {
+      const targetField =
+        normalExternalGenitalExamSex === 'male'
+          ? 'normal-external-genital-testicular-exam'
+          : 'normal-external-genital-exam-female';
+      const migratedObs = result.find((obs) => obs.field === targetField);
+      if (migratedObs) {
+        console.log('Migrating normal-external-genital-exam to', targetField, JSON.stringify(migratedObs));
+        const fhirObs = makeExamObservationResource(
+          encounterId,
+          patientId,
+          migratedObs,
+          undefined,
+          migratedObs.label || migratedObs.field
+        );
+        if (genitalMigration.migratedResourceId) {
+          requests.push({
+            method: 'PUT',
+            url: `/Observation/${genitalMigration.migratedResourceId}`,
+            resource: fhirObs,
+          });
+        } else {
+          requests.push({ method: 'POST', url: '/Observation', resource: fhirObs });
+        }
+      }
+    }
+
+    // Update encounter migration version if version-based migration was pending
+    if (needsVersionMigration) {
       const updatedExtensions = (encounter.extension ?? []).filter((e) => e.url !== EXAM_MIGRATION_VERSION_URL);
-      updatedExtensions.push({
-        url: EXAM_MIGRATION_VERSION_URL,
-        valueInteger: CURRENT_EXAM_MIGRATION_VERSION,
-      });
-
+      updatedExtensions.push({ url: EXAM_MIGRATION_VERSION_URL, valueInteger: CURRENT_EXAM_MIGRATION_VERSION });
       requests.push({
         method: 'PUT',
         url: `/Encounter/${encounterId}`,
-        resource: {
-          ...encounter,
-          extension: updatedExtensions,
-        },
+        resource: { ...encounter, extension: updatedExtensions },
       });
+    }
 
-      if (requests.length > 0) {
-        await oystehr.fhir.transaction({ requests });
-        console.log(
-          `Exam migration complete: deleted ${oldResourceIds.length} old observations, updated encounter version to ${CURRENT_EXAM_MIGRATION_VERSION}`
-        );
+    if (requests.length > 0) {
+      await oystehr.fhir.transaction({ requests });
+      if (didMigrate) {
+        console.log(`Exam migration complete, updated encounter version to ${CURRENT_EXAM_MIGRATION_VERSION}`);
       }
-    } catch (error) {
-      console.error('Exam migration failed, returning unmigrated data:', error);
-      return examObservations;
     }
-  } else {
-    // No data needed migration but version needs updating
-    try {
-      const updatedExtensions = (encounter.extension ?? []).filter((e) => e.url !== EXAM_MIGRATION_VERSION_URL);
-      updatedExtensions.push({
-        url: EXAM_MIGRATION_VERSION_URL,
-        valueInteger: CURRENT_EXAM_MIGRATION_VERSION,
-      });
-      await oystehr.fhir.update({
-        ...encounter,
-        extension: updatedExtensions,
-      } as Encounter);
-    } catch (error) {
-      console.error('Failed to update encounter migration version:', error);
-    }
+  } catch (error) {
+    console.error('Exam migration failed, returning un-migrated data:', error);
+    return examObservations;
   }
 
   return result;

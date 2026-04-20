@@ -16,7 +16,7 @@ const ZAMBDA_NAME = 'migrate-exam-data';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const { encounterId, secrets } = validateInput(input);
+    const { encounterId, normalExternalGenitalExamSex, secrets } = validateInput(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
@@ -37,7 +37,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounter,
       patient.id!,
       encounterId,
-      examObservations
+      examObservations,
+      normalExternalGenitalExamSex
     );
 
     const response: MigrateExamDataOutput = {
@@ -60,5 +61,6 @@ function validateInput(input: ZambdaInput): MigrateExamDataInput & { secrets: Za
   const parsedBody = typeof body === 'string' ? JSON.parse(body) : body;
   const encounterId = parsedBody?.encounterId;
   if (!encounterId) throw new Error('encounterId is required');
-  return { encounterId, secrets };
+  const normalExternalGenitalExamSex = parsedBody?.normalExternalGenitalExamSex as 'male' | 'female' | undefined;
+  return { encounterId, normalExternalGenitalExamSex, secrets };
 }
