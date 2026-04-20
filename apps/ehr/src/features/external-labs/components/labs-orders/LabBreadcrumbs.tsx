@@ -1,6 +1,6 @@
 import { FC, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 
 interface LabBreadcrumbsProps {
   sectionName: string;
@@ -8,14 +8,14 @@ interface LabBreadcrumbsProps {
 }
 
 export const LabBreadcrumbs: FC<LabBreadcrumbsProps> = ({ sectionName, children }) => {
-  const { id: appointmentIdFromUrl } = useParams();
+  const { appointment } = useAppointmentData();
 
   const baseCrumb = useMemo(
     () => ({
       label: 'External Labs',
-      path: appointmentIdFromUrl ? `/in-person/${appointmentIdFromUrl}/external-lab-orders` : null,
+      path: appointment?.id ? `/in-person/${appointment.id}/external-lab-orders` : null,
     }),
-    [appointmentIdFromUrl]
+    [appointment?.id]
   );
 
   return (

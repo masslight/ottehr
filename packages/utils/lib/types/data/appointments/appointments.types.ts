@@ -131,9 +131,6 @@ export interface InPersonAppointmentInformation
   waitingMinutes?: number;
   serviceCategory?: string;
   location?: Location;
-  isFollowUp?: boolean;
-  parentEncounterId?: string;
-  parentAppointmentId?: string;
 }
 
 export interface TelemedAppointmentInformation extends Omit<AppointmentInformation, 'status' | 'statusHistory'> {

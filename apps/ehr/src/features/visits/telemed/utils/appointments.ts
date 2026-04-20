@@ -180,25 +180,10 @@ export const extractPhotoUrlsFromAppointmentData = (appointment: AppointmentReso
   );
 };
 
-const findMainAppointment = (appointments: Appointment[], encounters: Encounter[]): Appointment | undefined => {
-  return (
-    appointments.find((apt) =>
-      encounters.some((enc) => !enc.partOf && enc.appointment?.some((ref) => ref.reference === `Appointment/${apt.id}`))
-    ) ?? appointments[0]
-  );
-};
-
-export const extractReviewAndSignAppointmentData = (
-  data: AppointmentResources[],
-  context?: { appointmentId?: string; encounterId?: string }
-): ReviewAndSignData | undefined => {
-  const appointments = data.filter(
+export const extractReviewAndSignAppointmentData = (data: AppointmentResources[]): ReviewAndSignData | undefined => {
+  const appointment = data?.find(
     (resource: FhirResource) => resource.resourceType === 'Appointment'
-  ) as Appointment[];
-  const encounters = data.filter((resource: FhirResource) => resource.resourceType === 'Encounter') as Encounter[];
-  const appointment = context?.appointmentId
-    ? appointments.find((resource) => resource.id === context.appointmentId)
-    : findMainAppointment(appointments, encounters);
+  ) as unknown as Appointment;
 
   if (!appointment) {
     return;
@@ -206,12 +191,9 @@ export const extractReviewAndSignAppointmentData = (
 
   const appointmentStatus = appointment.status;
 
-  const encounter = context?.encounterId
-    ? encounters.find((resource) => resource.id === context.encounterId)
-    : encounters.find(
-        (resource) =>
-          resource.appointment?.some((appointmentRef) => appointmentRef.reference === `Appointment/${appointment.id}`)
-      ) ?? encounters[0];
+  const encounter = data?.find(
+    (resource: FhirResource) => resource.resourceType === 'Encounter'
+  ) as unknown as Encounter;
 
   if (!encounter) {
     return;
