@@ -538,6 +538,14 @@ function consolidateGroupedOperationsForNewPaths(group: GroupedOperation): Opera
   const consolidatedValue = operations.reduce((result: any, op: Operation) => {
     if (op.op !== 'add') return result;
     const relativePath = op.path.slice(rootPath.length).replace(/^\//, '');
+
+    // OTR-2283: For scalar fields (primitive values like gender, birthDate) or
+    // values that are already arrays, return directly without wrapping.
+    // Single object values (like one communication entry) get wrapped in array.
+    if (relativePath === '' && (typeof op.value !== 'object' || op.value === null || Array.isArray(op.value))) {
+      return op.value;
+    }
+
     const pathParts = relativePath.split('/'); // Break into parts
 
     // Build nested structure
