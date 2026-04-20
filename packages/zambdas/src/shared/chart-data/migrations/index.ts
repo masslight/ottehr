@@ -112,8 +112,8 @@ const PARENT_FIELD_TO_LABEL_MAP: Record<string, string> = {
   'murmur-grade': 'Murmur',
 };
 
-// this field previously existing under a unified 'GU, Rectal' section which has now been split into male / female
-// we will prompt the user to pick before migrating
+// This field previously existed under a unified 'GU, Rectal' section, which has now been split into male/female sections.
+// We will prompt the user to choose before migrating.
 export const NORMAL_EXTERNAL_GENITAL_EXAM_FIELD = 'normal-external-genital-exam';
 
 export interface MigrationResult {
@@ -187,6 +187,7 @@ export function migrateV0ToV1(observations: ExamObservationDTO[]): MigrationResu
 /**
  * Migration for the 'normal-external-genital-exam' field, which was split into
  * sex-specific fields. Requires the user to specify which section applies.
+ * Also operates under the assumption that there will ever only be one of these in an exam to be migrated
  */
 export function migrateNormalExternalGenitalExam(
   observations: ExamObservationDTO[],
@@ -253,8 +254,6 @@ export async function runExamMigrations(
       result = genitalMigration.observations;
     }
   }
-
-  const didMigrate = didV1Migration || genitalMigration?.migrated;
 
   try {
     const requests: any[] = [];
@@ -323,8 +322,11 @@ export async function runExamMigrations(
 
     if (requests.length > 0) {
       await oystehr.fhir.transaction({ requests });
-      if (didMigrate) {
+      if (didV1Migration) {
         console.log(`Exam migration complete, updated encounter version to ${CURRENT_EXAM_MIGRATION_VERSION}`);
+      }
+      if (genitalMigration && genitalMigration.migrated) {
+        console.log(`Genital exam migration complete, updated applied observation-only migration changes`);
       }
     }
   } catch (error) {

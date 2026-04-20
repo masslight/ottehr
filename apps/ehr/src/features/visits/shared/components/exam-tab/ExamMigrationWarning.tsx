@@ -88,6 +88,7 @@ export const ExamMigrationWarning: FC<ExamMigrationWarningProps> = ({ unmatchedF
           </Typography>
           <FormControl>
             <RadioGroup
+              aria-label="Migration options for Normal external genital exam"
               row
               value={genitalExamSex ?? ''}
               onChange={(e) => setGenitalExamSex(e.target.value as 'male' | 'female')}
