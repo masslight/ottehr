@@ -255,7 +255,7 @@ const ItemFields: FC<{ item: QuestionnaireItem; dispatch: React.Dispatch<ItemAct
 
 export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({ item, dispatch, depth = 0 }) => {
   const isGroup = item.type === 'group';
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   // Child items render as plain boxes, no accordion
   if (depth > 0) {
@@ -274,6 +274,7 @@ export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({ item
     <Accordion
       expanded={expanded}
       onChange={(_, isExpanded) => setExpanded(isExpanded)}
+      TransitionProps={{ unmountOnExit: true, mountOnEnter: true }}
       sx={{
         '&:before': { display: 'none' },
         border: '2px solid #1976d2',
@@ -281,11 +282,24 @@ export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({ item
         mb: 1.5,
       }}
     >
-      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', mr: 1 }}>
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        sx={{ '& .MuiAccordionSummary-content': { minWidth: 0, overflow: 'hidden' } }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', minWidth: 0, mr: 1 }}>
           {!expanded && (
-            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-              <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>
+            <Box sx={{ flexGrow: 1, minWidth: 0, overflow: 'hidden' }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 500,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  wordBreak: 'break-word',
+                }}
+              >
                 {item.text || '(untitled)'}
               </Typography>
               {isGroup && (item.item?.length ?? 0) > 0 && (

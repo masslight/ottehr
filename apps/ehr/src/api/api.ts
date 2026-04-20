@@ -306,6 +306,7 @@ const ADMIN_RENAME_TEMPLATE_ZAMBDA_ID = 'admin-rename-template';
 const ADMIN_DELETE_TEMPLATE_ZAMBDA_ID = 'admin-delete-template';
 const ADMIN_GET_TEMPLATE_DETAIL_ZAMBDA_ID = 'admin-get-template-detail';
 const ADMIN_LIST_QUESTIONNAIRES_ZAMBDA_ID = 'admin-list-questionnaires';
+const ADMIN_GET_QUESTIONNAIRE_ZAMBDA_ID = 'admin-get-questionnaire';
 const ADMIN_CREATE_QUESTIONNAIRE_ZAMBDA_ID = 'admin-create-questionnaire';
 const ADMIN_UPDATE_QUESTIONNAIRE_ZAMBDA_ID = 'admin-update-questionnaire';
 const ADMIN_DELETE_QUESTIONNAIRE_ZAMBDA_ID = 'admin-delete-questionnaire';
@@ -2575,6 +2576,17 @@ export const listPracticeManagedQuestionnaires = async (
   systemQuestionnaires: { id: string; url: string; title: string }[];
 }> => {
   const response = await oystehr.zambda.execute({ id: ADMIN_LIST_QUESTIONNAIRES_ZAMBDA_ID });
+  return chooseJson(response);
+};
+
+export const getPracticeManagedQuestionnaire = async (
+  oystehr: Oystehr,
+  questionnaireId: string
+): Promise<{ questionnaire: any }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_GET_QUESTIONNAIRE_ZAMBDA_ID,
+    questionnaireId,
+  } as any);
   return chooseJson(response);
 };
 

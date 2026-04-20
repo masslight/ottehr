@@ -8,37 +8,44 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 export const index = wrapHandler('send-patient-form', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { appointmentId, questionnaireId, questionnaireName, secrets } = validateRequestParameters(input);
+  const { appointmentId, patientId, questionnaireId, questionnaireName, secrets } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
-  // Find the encounter for this appointment
-  const encounters = (
-    await oystehr.fhir.search({
-      resourceType: 'Encounter',
-      params: [{ name: 'appointment', value: `Appointment/${appointmentId}` }],
-    })
-  ).unbundle();
-
-  if (encounters.length === 0) {
-    throw new Error(`No encounter found for appointment ${appointmentId}`);
+  // Resolve the patient from either an appointment's encounter or a direct patientId.
+  let resolvedPatientId = patientId;
+  if (!resolvedPatientId && appointmentId) {
+    const encounters = (
+      await oystehr.fhir.search({
+        resourceType: 'Encounter',
+        params: [{ name: 'appointment', value: `Appointment/${appointmentId}` }],
+      })
+    ).unbundle();
+    if (encounters.length === 0) {
+      throw new Error(`No encounter found for appointment ${appointmentId}`);
+    }
+    const patientRef = encounters[0].subject?.reference;
+    if (!patientRef) {
+      throw new Error('Encounter has no patient reference');
+    }
+    resolvedPatientId = patientRef.replace('Patient/', '');
   }
 
-  const encounter = encounters[0];
-  const patientRef = encounter.subject?.reference;
-  if (!patientRef) {
-    throw new Error('Encounter has no patient reference');
+  if (!resolvedPatientId) {
+    throw new Error('Could not resolve patient');
   }
 
   const patient = await oystehr.fhir.get<Patient>({
     resourceType: 'Patient',
-    id: patientRef.replace('Patient/', ''),
+    id: resolvedPatientId,
   });
 
-  // Build the form URL
+  // Build the form URL. Patient-level links omit the appointment segment.
   const websiteUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  const formUrl = `${websiteUrl}/forms/${appointmentId}/${questionnaireId}`;
+  const formUrl = appointmentId
+    ? `${websiteUrl}/forms/${appointmentId}/${questionnaireId}`
+    : `${websiteUrl}/forms/patient/${resolvedPatientId}/${questionnaireId}`;
 
   // Send SMS to the patient
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);

@@ -17,27 +17,29 @@ export const AnswerOptionEditor: FC<AnswerOptionEditorProps> = ({ itemKey, optio
       <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
         Answer Options
       </Typography>
-      {options.map((option, index) => (
-        <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <TextField
-            size="small"
-            value={option.valueString || ''}
-            onChange={(e) =>
-              dispatch({
-                type: 'UPDATE_ANSWER_OPTION',
-                key: itemKey,
-                index,
-                option: { ...option, valueString: e.target.value },
-              })
-            }
-            placeholder={`Option ${index + 1}`}
-            fullWidth
-          />
-          <IconButton size="small" onClick={() => dispatch({ type: 'REMOVE_ANSWER_OPTION', linkId, index })}>
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Box>
-      ))}
+      {options.map((option, index) => {
+        const currentLabel = option.valueCoding?.display ?? option.valueString ?? '';
+        const handleChange = (newLabel: string): void => {
+          const next = option.valueCoding
+            ? { ...option, valueCoding: { ...option.valueCoding, display: newLabel } }
+            : { ...option, valueString: newLabel };
+          dispatch({ type: 'UPDATE_ANSWER_OPTION', key: itemKey, index, option: next });
+        };
+        return (
+          <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <TextField
+              size="small"
+              value={currentLabel}
+              onChange={(e) => handleChange(e.target.value)}
+              placeholder={`Option ${index + 1}`}
+              fullWidth
+            />
+            <IconButton size="small" onClick={() => dispatch({ type: 'REMOVE_ANSWER_OPTION', key: itemKey, index })}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        );
+      })}
       <IconButton size="small" color="primary" onClick={() => dispatch({ type: 'ADD_ANSWER_OPTION', key: itemKey })}>
         <AddIcon fontSize="small" />
       </IconButton>

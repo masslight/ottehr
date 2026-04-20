@@ -1461,12 +1461,26 @@
       "src": "src/patient/paperwork/get-practice-managed-questionnaires/index",
       "zip": ".dist/zips/get-practice-managed-questionnaires.zip"
     },
+    "FINALIZE-PRACTICE-MANAGED-RESPONSE": {
+      "name": "finalize-practice-managed-response",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/paperwork/finalize-practice-managed-response/index",
+      "zip": ".dist/zips/finalize-practice-managed-response.zip"
+    },
     "ADMIN-LIST-QUESTIONNAIRES": {
       "name": "admin-list-questionnaires",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-list-questionnaires/index",
       "zip": ".dist/zips/admin-list-questionnaires.zip"
+    },
+    "ADMIN-GET-QUESTIONNAIRE": {
+      "name": "admin-get-questionnaire",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-questionnaire/index",
+      "zip": ".dist/zips/admin-get-questionnaire.zip"
     },
     "ADMIN-CREATE-QUESTIONNAIRE": {
       "name": "admin-create-questionnaire",

@@ -6,6 +6,7 @@ import { FC, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   createPracticeManagedQuestionnaire,
+  getPracticeManagedQuestionnaire,
   listPracticeManagedQuestionnaires,
   updatePracticeManagedQuestionnaire,
 } from 'src/api/api';
@@ -14,7 +15,14 @@ import PageContainer from 'src/layout/PageContainer';
 import { FhirQuestionnaire, fromFhirResource, IntakeQuestionnaireOption } from './questionnaire.types';
 import { QuestionnaireBuilder } from './QuestionnaireBuilder';
 
-const QUERY_KEY = ['practice-managed-questionnaires'];
+const LIST_QUERY_KEY = ['practice-managed-questionnaires'];
+const DETAIL_QUERY_KEY = 'practice-managed-questionnaire';
+const SYSTEM_QUERY_KEY = ['practice-managed-questionnaires-system'];
+
+interface ListCache {
+  questionnaires: any[];
+  systemQuestionnaires: IntakeQuestionnaireOption[];
+}
 
 export const QuestionnaireBuilderPage: FC = () => {
   const { questionnaireId } = useParams();
@@ -23,18 +31,42 @@ export const QuestionnaireBuilderPage: FC = () => {
   const queryClient = useQueryClient();
   const isNew = !questionnaireId || questionnaireId === 'new';
 
-  const { data, isLoading } = useQuery({
-    queryKey: [...QUERY_KEY, questionnaireId],
+  // Fetch the single questionnaire being edited. Uses list-cache placeholder for
+  // instant paint when the user navigated here from the admin list, and falls
+  // back to a lightweight single-resource fetch on deep link or stale cache.
+  const { data: editing, isLoading: isEditingLoading } = useQuery({
+    queryKey: [DETAIL_QUERY_KEY, questionnaireId],
     queryFn: async () => {
-      if (!oystehrZambda) return null;
+      if (!oystehrZambda || isNew || !questionnaireId) return null;
+      const result = await getPracticeManagedQuestionnaire(oystehrZambda, questionnaireId);
+      return result.questionnaire ? fromFhirResource(result.questionnaire) : null;
+    },
+    placeholderData: () => {
+      // The list page already runs fromFhirResource on its cached entries, so
+      // we can return the hit directly without re-converting.
+      if (isNew || !questionnaireId) return undefined;
+      const cached = queryClient.getQueryData<ListCache>(LIST_QUERY_KEY);
+      return cached?.questionnaires.find((q: any) => q.id === questionnaireId);
+    },
+    enabled: !!oystehrZambda && !isNew,
+  });
+
+  // System questionnaires (for association dropdown) aren't per-Q — cache them
+  // separately so the detail page doesn't need to re-fetch the full admin list.
+  const { data: systemQuestionnaires } = useQuery({
+    queryKey: SYSTEM_QUERY_KEY,
+    queryFn: async (): Promise<IntakeQuestionnaireOption[]> => {
+      if (!oystehrZambda) return [];
+      const cached = queryClient.getQueryData<ListCache>(LIST_QUERY_KEY);
+      if (cached?.systemQuestionnaires) return cached.systemQuestionnaires;
       const result = await listPracticeManagedQuestionnaires(oystehrZambda);
-      const questionnaires = (result.questionnaires || []).map((r: any) => fromFhirResource(r));
-      const systemQuestionnaires: IntakeQuestionnaireOption[] = result.systemQuestionnaires || [];
-      const editing = isNew ? undefined : questionnaires.find((q: FhirQuestionnaire) => q.id === questionnaireId);
-      return { editing, systemQuestionnaires };
+      return result.systemQuestionnaires || [];
     },
     enabled: !!oystehrZambda,
   });
+
+  const data = { editing, systemQuestionnaires: systemQuestionnaires || [] };
+  const isLoading = !isNew && isEditingLoading && editing === undefined;
 
   const handleSave = useCallback(
     async (q: FhirQuestionnaire) => {
@@ -45,7 +77,8 @@ export const QuestionnaireBuilderPage: FC = () => {
         } else {
           await createPracticeManagedQuestionnaire(oystehrZambda, q as unknown as Record<string, unknown>);
         }
-        void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+        void queryClient.invalidateQueries({ queryKey: LIST_QUERY_KEY });
+        void queryClient.invalidateQueries({ queryKey: [DETAIL_QUERY_KEY] });
         enqueueSnackbar('Questionnaire saved', { variant: 'success' });
         navigate('/admin/questionnaires');
       } catch (err) {

@@ -1,4 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Questionnaire } from 'fhir/r4b';
 import { wrapHandler, ZambdaInput } from '../../shared';
 import { getClient } from '../admin-questionnaires/helpers';
 
@@ -11,10 +12,17 @@ export const index = wrapHandler(
 
     if (!parsed.questionnaireId) throw new Error('questionnaireId is required');
 
-    await oystehr.fhir.delete({ resourceType: 'Questionnaire', id: parsed.questionnaireId });
+    // Soft delete: mark as retired so existing QuestionnaireResponses remain
+    // viewable in the EHR and the canonical reference stays resolvable.
+    const existing = await oystehr.fhir.get<Questionnaire>({
+      resourceType: 'Questionnaire',
+      id: parsed.questionnaireId,
+    });
+    const updated = await oystehr.fhir.update<Questionnaire>({ ...existing, status: 'retired' });
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Questionnaire deleted' }),
+      body: JSON.stringify({ message: 'Questionnaire retired', questionnaire: updated }),
     };
   }
 );

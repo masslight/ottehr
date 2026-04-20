@@ -25,13 +25,16 @@ import { useApiClients } from 'src/hooks/useAppClients';
 interface SendFormDialogProps {
   open: boolean;
   onClose: () => void;
-  appointmentId: string;
+  /** Appointment-scoped send: link is tied to an encounter. */
+  appointmentId?: string;
+  /** Patient-scoped send (no encounter): link is tied to the patient record only. */
+  patientId?: string;
 }
 
 const SEND_FORM_ZAMBDA = 'send-patient-form';
 const PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL || '';
 
-export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appointmentId }) => {
+export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appointmentId, patientId }) => {
   const { oystehrZambda } = useApiClients();
   const [selectedId, setSelectedId] = useState('');
   const [sending, setSending] = useState(false);
@@ -57,8 +60,10 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
 
   const formUrl = useMemo(() => {
     if (!selectedId || !PATIENT_APP_URL) return '';
-    return `${PATIENT_APP_URL}/forms/${appointmentId}/${selectedId}`;
-  }, [selectedId, appointmentId]);
+    if (appointmentId) return `${PATIENT_APP_URL}/forms/${appointmentId}/${selectedId}`;
+    if (patientId) return `${PATIENT_APP_URL}/forms/patient/${patientId}/${selectedId}`;
+    return '';
+  }, [selectedId, appointmentId, patientId]);
 
   const handleCopyUrl = useCallback(() => {
     if (!formUrl) return;
@@ -77,10 +82,10 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
     try {
       await oystehrZambda.zambda.execute({
         id: SEND_FORM_ZAMBDA,
-        appointmentId,
+        ...(appointmentId ? { appointmentId } : { patientId }),
         questionnaireId: selectedId,
         questionnaireName: selected.title,
-      });
+      } as any);
       enqueueSnackbar('Form link sent to patient', { variant: 'success' });
       onClose();
       setSelectedId('');
@@ -90,7 +95,7 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
     } finally {
       setSending(false);
     }
-  }, [oystehrZambda, selectedId, appointmentId, questionnaires, onClose]);
+  }, [oystehrZambda, selectedId, appointmentId, patientId, questionnaires, onClose]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>

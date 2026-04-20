@@ -15,6 +15,7 @@ import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 
 const GET_PM_ZAMBDA = 'get-practice-managed-questionnaires';
 const SAVE_PM_ZAMBDA = 'save-practice-managed-response';
+const FINALIZE_PM_ZAMBDA = 'finalize-practice-managed-response';
 
 interface PracticeManagedQ {
   id: string;
@@ -26,7 +27,10 @@ interface PracticeManagedQ {
 }
 
 export const StandaloneFormPage: FC = () => {
-  const { appointmentId, questionnaireId } = useParams();
+  // Two route shapes converge here:
+  //   /forms/:appointmentId/:questionnaireId   (visit-scoped)
+  //   /forms/patient/:patientId/:questionnaireId  (patient-scoped, no encounter)
+  const { appointmentId, patientId: patientIdParam, questionnaireId } = useParams();
   const zambdaClient = useUCZambdaClient({ tokenless: false });
 
   const [questionnaire, setQuestionnaire] = useState<PracticeManagedQ | null>(null);
@@ -43,12 +47,12 @@ export const StandaloneFormPage: FC = () => {
   const methods = useForm();
 
   useEffect(() => {
-    if (!zambdaClient || !appointmentId) return;
+    if (!zambdaClient || (!appointmentId && !patientIdParam)) return;
 
     const fetchData = async (): Promise<void> => {
       try {
         const response = await (zambdaClient as ZambdaClient).execute(GET_PM_ZAMBDA, {
-          appointmentId,
+          ...(appointmentId ? { appointmentId } : { patientId: patientIdParam }),
           questionnaireId,
         });
         const data = typeof response.output === 'string' ? JSON.parse(response.output) : response.output;
@@ -80,7 +84,7 @@ export const StandaloneFormPage: FC = () => {
     };
 
     void fetchData();
-  }, [zambdaClient, appointmentId, questionnaireId]);
+  }, [zambdaClient, appointmentId, patientIdParam, questionnaireId]);
 
   const pages = useMemo(
     () => buildQuestionnairePages(questionnaire?.item || [], questionnaire?.title),
@@ -146,6 +150,17 @@ export const StandaloneFormPage: FC = () => {
               pageIndex: currentPageIndex + 1,
               answers: { linkId: 'results', item: computedQrItems },
             });
+          }
+
+          // Finalize: mark complete, render PDF, and file into the patient's Paperwork folder.
+          if (currentQrId) {
+            try {
+              await (zambdaClient as ZambdaClient).execute(FINALIZE_PM_ZAMBDA, {
+                questionnaireResponseId: currentQrId,
+              });
+            } catch (finalizeErr) {
+              console.error('Failed to finalize form:', finalizeErr);
+            }
           }
 
           setCompleted(true);

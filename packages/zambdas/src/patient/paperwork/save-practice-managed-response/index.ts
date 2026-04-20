@@ -34,8 +34,9 @@ export const index = wrapHandler(
     };
 
     if (!questionnaireUrl) throw new Error('questionnaireUrl is required');
-    if (!encounterId) throw new Error('encounterId is required');
     if (!patientId) throw new Error('patientId is required');
+    // encounterId is optional — patient-level forms (sent from the patient
+    // profile, not a specific visit) have no associated encounter.
 
     if (!oystehrToken) {
       oystehrToken = await getAuth0Token(input.secrets);
@@ -79,7 +80,7 @@ export const index = wrapHandler(
         questionnaire: canonicalRef,
         status: 'in-progress',
         subject: { reference: `Patient/${patientId}` },
-        encounter: { reference: `Encounter/${encounterId}` },
+        ...(encounterId ? { encounter: { reference: `Encounter/${encounterId}` } } : {}),
         item: [answers],
       };
 

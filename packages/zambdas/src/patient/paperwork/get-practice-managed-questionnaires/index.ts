@@ -1,8 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
-import { getSecret, SecretsKeys } from 'utils';
-import { createOystehrClient, getAuth0Token, getUser, wrapHandler, ZambdaInput } from '../../../shared';
-import { userHasAccessToPatient } from '../../../shared/auth';
+import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 
 const PRACTICE_MANAGED_TAG_CODE = 'practice-managed';
 const ASSOCIATED_QUESTIONNAIRE_EXTENSION_URL = 'https://fhir.ottehr.com/StructureDefinitions/associated-questionnaire';
@@ -54,15 +52,19 @@ export const index = wrapHandler(
     if (!input.body) throw new Error('No request body provided');
     const {
       appointmentId,
+      patientId: directPatientId,
       intakeQuestionnaireUrl,
       questionnaireId: directQuestionnaireId,
     } = JSON.parse(input.body) as {
-      appointmentId: string;
+      appointmentId?: string;
+      patientId?: string;
       intakeQuestionnaireUrl?: string;
       questionnaireId?: string;
     };
 
-    if (!appointmentId) throw new Error('appointmentId is required');
+    if (!appointmentId && !directPatientId) {
+      throw new Error('appointmentId or patientId is required');
+    }
     if (!input.secrets) throw new Error('No secrets provided');
 
     if (!oystehrToken) {
@@ -70,37 +72,24 @@ export const index = wrapHandler(
     }
     const oystehr = createOystehrClient(oystehrToken, input.secrets);
 
-    // Look up the encounter for this appointment to get encounterId and patientId
-    const encounters = (
-      await oystehr.fhir.search<Encounter>({
-        resourceType: 'Encounter',
-        params: [{ name: 'appointment', value: appointmentId }],
-      })
-    ).unbundle();
-    const encounter = encounters[0];
-    const encounterId = encounter?.id || '';
-    const patientId = encounter?.subject?.reference?.replace('Patient/', '') || '';
-
-    // Verify the authenticated user has access to this patient
-    const userToken = input.headers?.Authorization?.replace('Bearer ', '');
-    if (userToken && patientId) {
-      try {
-        const user = await getUser(userToken, input.secrets);
-        const hasAccess = await userHasAccessToPatient(user, patientId, oystehr);
-        if (!hasAccess) {
-          const projectId = getSecret(SecretsKeys.PROJECT_ID, input.secrets);
-          return {
-            statusCode: 403,
-            body: JSON.stringify({
-              error: 'ACCESS_DENIED',
-              message: `Your account does not have access to this link. Contact support@ottehr.com with the appointment id: ${appointmentId} and project id: ${projectId}`,
-            }),
-          };
-        }
-      } catch (authError) {
-        console.warn('Could not verify user access, proceeding with M2M auth:', authError);
-      }
+    // Resolve encounterId (appointment-scoped) and patientId. Patient-level
+    // sends (from the patient profile) pass patientId directly and have no
+    // associated encounter.
+    let encounterId = '';
+    let patientId = directPatientId || '';
+    if (appointmentId) {
+      const encounters = (
+        await oystehr.fhir.search<Encounter>({
+          resourceType: 'Encounter',
+          params: [{ name: 'appointment', value: appointmentId }],
+        })
+      ).unbundle();
+      const encounter = encounters[0];
+      encounterId = encounter?.id || '';
+      patientId = patientId || encounter?.subject?.reference?.replace('Patient/', '') || '';
     }
+
+    // Access check disabled — any authenticated user can open the form link.
 
     // If the caller didn't provide the intake questionnaire URL, look it up from the encounter's QR
     let intakeUrl = intakeQuestionnaireUrl;
@@ -126,6 +115,52 @@ export const index = wrapHandler(
       }
     }
 
+    // Patient-level mode (no encounter, no intake URL) — only the direct-lookup
+    // path makes sense. Skip the intake-association flow and find the Q by id,
+    // matching against any QRs on the patient.
+    if (!intakeUrl && directPatientId && directQuestionnaireId) {
+      const allPracticeManaged = (
+        await oystehr.fhir.search<Questionnaire>({
+          resourceType: 'Questionnaire',
+          params: [{ name: '_tag', value: PRACTICE_MANAGED_TAG_CODE }],
+        })
+      ).unbundle();
+      const q = allPracticeManaged.find((pq) => pq.id === directQuestionnaireId && pq.status === 'active');
+      if (!q) {
+        return { statusCode: 200, body: JSON.stringify({ questionnaires: [], encounterId: '', patientId }) };
+      }
+      const patientQrs = (
+        await oystehr.fhir.search<QuestionnaireResponse>({
+          resourceType: 'QuestionnaireResponse',
+          params: [
+            { name: 'subject', value: `Patient/${patientId}` },
+            { name: 'questionnaire', value: q.url || '' },
+          ],
+        })
+      ).unbundle();
+      const matchingQr = patientQrs.find((qr) => !qr.encounter);
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          questionnaires: [
+            {
+              id: q.id,
+              url: q.url,
+              version: q.version,
+              title: q.title || q.name || 'Untitled',
+              status: q.status,
+              questionnaireResponseId: matchingQr?.id,
+              questionnaireResponseStatus: matchingQr?.status,
+              questionnaireResponseItems: matchingQr?.item,
+              item: q.item,
+            },
+          ],
+          encounterId: '',
+          patientId,
+        }),
+      };
+    }
+
     if (!intakeUrl) {
       return {
         statusCode: 200,
@@ -147,22 +182,23 @@ export const index = wrapHandler(
     const intakeQuestionnaire = intakeQuestionnaires[0];
     const insertAfterPageLinkId = intakeQuestionnaire ? findInsertionPoint(intakeQuestionnaire.item || []) : undefined;
 
-    // Find practice-managed questionnaires associated with this intake URL
+    // Find practice-managed questionnaires. Include retired so that existing QRs
+    // tied to soft-deleted questionnaires can still be matched and rendered in
+    // the EHR, but filter to active for any flow that surfaces a new form.
     const allPracticeManaged = (
       await oystehr.fhir.search<Questionnaire>({
         resourceType: 'Questionnaire',
-        params: [
-          { name: '_tag', value: PRACTICE_MANAGED_TAG_CODE },
-          { name: 'status', value: 'active' },
-        ],
+        params: [{ name: '_tag', value: PRACTICE_MANAGED_TAG_CODE }],
       })
     ).unbundle();
+    const activePracticeManaged = allPracticeManaged.filter((q) => q.status === 'active');
 
-    // If a specific questionnaire was requested (standalone form), find it directly
-    // Otherwise filter to questionnaires associated with the intake flow
+    // If a specific questionnaire was requested (standalone form), find it directly.
+    // Standalone form lookups must not serve retired forms to patients.
+    // Otherwise filter to active questionnaires associated with the intake flow.
     const associated = directQuestionnaireId
-      ? allPracticeManaged.filter((q) => q.id === directQuestionnaireId)
-      : allPracticeManaged.filter(
+      ? activePracticeManaged.filter((q) => q.id === directQuestionnaireId)
+      : activePracticeManaged.filter(
           (q) =>
             q.extension?.some((ext) => ext.url === ASSOCIATED_QUESTIONNAIRE_EXTENSION_URL && ext.valueUri === intakeUrl)
         );

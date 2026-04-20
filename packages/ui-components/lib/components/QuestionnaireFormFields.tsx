@@ -640,9 +640,16 @@ export const QuestionnaireResponseViewer: FC<QuestionnaireResponseViewerProps> =
     return hasScoring ? score : null;
   }, [allItems, answerMap]);
 
-  // Separate visible answer items from computed items
+  // Separate visible answer items from computed items.
+  // Rationale items (linkId ending in -rationale) are rendered inline beneath their parent result.
   const answerItems = allItems.filter((item) => !isScoreItem(item) && !isHiddenItem(item));
-  const computedItems = allItems.filter((item) => isHiddenItem(item) && getCalculatedExpression(item));
+  const computedItems = allItems.filter(
+    (item) => isHiddenItem(item) && getCalculatedExpression(item) && !item.linkId.endsWith('-rationale')
+  );
+  const rationaleFor = (linkId: string): string | undefined => {
+    const val = computedValues[`${linkId}-rationale`];
+    return typeof val === 'string' && val.length > 0 ? val : undefined;
+  };
 
   return (
     <Box>
@@ -694,6 +701,7 @@ export const QuestionnaireResponseViewer: FC<QuestionnaireResponseViewerProps> =
             const value = computedValues[item.linkId];
             if (value === undefined) return null;
             const displayValue = typeof value === 'boolean' ? (value ? 'Positive' : 'Negative') : String(value);
+            const rationale = rationaleFor(item.linkId);
             return (
               <Box key={item.linkId} sx={{ py: 0.25 }}>
                 <Typography variant="body2">
@@ -704,6 +712,14 @@ export const QuestionnaireResponseViewer: FC<QuestionnaireResponseViewerProps> =
                     {displayValue}
                   </Box>
                 </Typography>
+                {rationale && (
+                  <Typography
+                    variant="caption"
+                    sx={{ display: 'block', color: COLORS.textSecondary, fontFamily: 'monospace', ml: 1 }}
+                  >
+                    {rationale}
+                  </Typography>
+                )}
               </Box>
             );
           })}
