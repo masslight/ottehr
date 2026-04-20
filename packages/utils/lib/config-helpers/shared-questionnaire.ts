@@ -901,16 +901,9 @@ export const buildReasonForVisitFromConfig = (
     conditions: { question: string; operator: string; answer: string }[];
     includeValues: string[];
   }[] = [];
-  const enableTriggers: FormFieldTrigger[] = [];
 
   for (const sc of serviceCategories) {
     const rfv = sc.reasonsForVisit;
-    enableTriggers.push({
-      targetQuestionLinkId: 'appointment-service-category',
-      effect: ['enable', 'require'],
-      operator: '=',
-      answerString: sc.category.code,
-    });
 
     for (const mode of sc.serviceModes) {
       const modeOptions = rfv[mode] ?? rfv.default;
@@ -941,9 +934,6 @@ export const buildReasonForVisitFromConfig = (
       label: 'Reason for visit',
       type: 'choice',
       options,
-      triggers: options.length > 1 ? enableTriggers : undefined,
-      disabledDisplay: 'hidden',
-      enableBehavior: 'any',
       answerDisplayFilters: displayFilters,
     },
     isHidden: options.length <= 1,

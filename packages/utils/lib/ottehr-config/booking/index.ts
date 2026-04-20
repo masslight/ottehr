@@ -108,10 +108,13 @@ export const SERVICE_CATEGORIES_AVAILABLE: ServiceCategoryConfig[] = [
 const getFormFields = (
   serviceCategories: ServiceCategoryConfig[] = SERVICE_CATEGORIES_AVAILABLE
 ): Record<string, FormFieldSection> => {
-  const hiddenFields = [];
+  const hiddenFields: string[] = [];
+  const requiredFields = ['patient-birth-sex', 'patient-email'];
   const { reasonForVisit, isHidden } = buildReasonForVisitFromConfig(serviceCategories);
   if (isHidden) {
     hiddenFields.push(reasonForVisit.key);
+  } else {
+    requiredFields.push(reasonForVisit.key);
   }
   return {
     patientInfo: {
@@ -252,7 +255,7 @@ const getFormFields = (
         },
       },
       hiddenFields,
-      requiredFields: ['patient-birth-sex', 'patient-email'],
+      requiredFields,
     },
   };
 };

@@ -54,8 +54,6 @@ describe('buildReasonForVisitFromConfig', () => {
     const field = (result as any).reasonForVisit;
     expect(field.key).toBe('reason-for-visit');
     expect(field.type).toBe('choice');
-    expect(field.disabledDisplay).toBe('hidden');
-    expect(field.enableBehavior).toBe('any');
   });
 
   it('deduplicates options across categories and modes', () => {
@@ -91,29 +89,6 @@ describe('buildReasonForVisitFromConfig', () => {
     const result = buildReasonForVisitFromConfig(categories);
     const field = (result as any).reasonForVisit;
     expect(field.options).toEqual([{ label: 'Injury', value: 'Injury' }]);
-  });
-
-  it('generates one enable trigger per category', () => {
-    const categories = [
-      makeCategory('urgent-care', 'Urgent Care', {
-        reasonsForVisit: { default: [{ label: 'Fever', value: 'Fever' }] },
-      }),
-      makeCategory('workers-comp', 'Workers Comp', {
-        reasonsForVisit: { default: [{ label: 'Injury', value: 'Injury' }] },
-      }),
-      makeCategory('occ-med', 'Occ Med'),
-    ];
-    const result = buildReasonForVisitFromConfig(categories);
-    const field = (result as any).reasonForVisit;
-    expect(field.triggers).toHaveLength(3);
-    expect(field.triggers[0].answerString).toBe('urgent-care');
-    expect(field.triggers[1].answerString).toBe('workers-comp');
-    expect(field.triggers[2].answerString).toBe('occ-med');
-    field.triggers.forEach((t: any) => {
-      expect(t.targetQuestionLinkId).toBe('appointment-service-category');
-      expect(t.effect).toEqual(['enable', 'require']);
-      expect(t.operator).toBe('=');
-    });
   });
 
   it('generates one display filter per category+mode combo', () => {
@@ -195,8 +170,8 @@ describe('buildReasonForVisitFromConfig', () => {
     const values = field.options.map((o: any) => o.value);
     expect(values).toEqual(['Fever', 'Rash', 'Injury']);
 
-    // 2 enable triggers: UC and WC
-    expect(field.triggers).toHaveLength(2);
+    // No triggers — field visibility and requiredness handled by hiddenFields/requiredFields
+    expect(field.triggers).toBeUndefined();
   });
 });
 
