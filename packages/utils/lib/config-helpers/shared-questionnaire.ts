@@ -946,6 +946,6 @@ export const buildReasonForVisitFromConfig = (
       enableBehavior: 'any',
       answerDisplayFilters: displayFilters,
     },
-    isHidden: options.length > 1,
+    isHidden: options.length <= 1,
   };
 };
