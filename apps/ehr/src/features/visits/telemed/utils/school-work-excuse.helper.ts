@@ -197,7 +197,7 @@ export const mapValuesToExcuse = (
     type: params.isSchool ? 'school' : 'work',
     documentHeader: params.isSchool
       ? `School note for ${params.patientName || 'Unknown'}`
-      : `Work note for ${values.parentName}`,
+      : `Work note for ${params.patientName || 'Unknown'}`,
     parentGuardianName: values.parentName || 'Unknown',
     headerNote: values.headerNote,
     footerNote: values.footerNote,
