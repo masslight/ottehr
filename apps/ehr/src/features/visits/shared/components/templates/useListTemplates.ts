@@ -8,6 +8,7 @@ export interface TemplateOption {
   value: string;
   label: string;
   id: string;
+  isCurrentVersion: boolean;
 }
 
 export interface UseListTemplatesResult {
@@ -38,6 +39,7 @@ export const useListTemplates = (examType: ExamType): UseListTemplatesResult => 
           value: template.title,
           label: template.title,
           id: template.id,
+          isCurrentVersion: template.isCurrentVersion ?? true,
         }))
     : [];
 

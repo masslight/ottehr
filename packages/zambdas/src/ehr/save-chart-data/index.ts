@@ -533,7 +533,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       statusCode: 200,
     };
   } catch (error) {
-    console.log(JSON.stringify(error, null, 2));
+    console.log('Save chart data error', error, JSON.stringify(error, null, 2));
     return {
       body: JSON.stringify({ message: 'Error saving encounter data...' }),
       statusCode: 500,

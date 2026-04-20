@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
 import {
+  BillingSuggestionInput,
+  BillingSuggestionOutput,
   CPTCodeDTO,
   DiagnosisDTO,
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
   PROVIDER_CONFIG,
 } from 'utils';
-import { useRecommendBillingSuggestions } from '../stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 import { useChartFields } from './useChartFields';
+import { useOystehrAPIClient } from './useOystehrAPIClient';
 
 export interface BillingSuggestionsResult {
   icdCodesSuggest: { code: string; description: string; reason: string }[] | undefined;
@@ -19,18 +22,146 @@ export interface BillingSuggestionsResult {
   isLoading: boolean;
 }
 
+// ── Pure data-shaping function ──────────────────────────────────────────────
+
+export function buildBillingSuggestionInput(params: {
+  chartData: ReturnType<typeof useChartData>['chartData'];
+  chartDataFields: any;
+  radiologyOrders: any[] | undefined;
+  appointment: any;
+  patient: any;
+}): BillingSuggestionInput | null {
+  const { chartData, chartDataFields, radiologyOrders, appointment, patient } = params;
+
+  // External lab results
+  const externalLabOrderParts: string[] = [];
+  if (chartDataFields?.externalLabResults?.labOrderResults) {
+    chartDataFields.externalLabResults.labOrderResults.forEach((result: any) => {
+      if (result.resultValues?.length) {
+        externalLabOrderParts.push(`Test: ${result.name} | Results: ${result.resultValues.join(', ')}`);
+      } else {
+        externalLabOrderParts.push(`Test: ${result.name} | Result: received`);
+      }
+    });
+  }
+  if (chartDataFields?.externalLabResults?.resultsPending?.length) {
+    chartDataFields.externalLabResults.resultsPending.forEach((name: string) => {
+      externalLabOrderParts.push(`Test: ${name} | Result: PENDING`);
+    });
+  }
+
+  // In-house lab results
+  const inHouseLabOrderParts: string[] = [];
+  if (chartDataFields?.inHouseLabResults?.labOrderResults) {
+    chartDataFields.inHouseLabResults.labOrderResults.forEach((result: any) => {
+      if (result.resultValues?.length) {
+        inHouseLabOrderParts.push(`Test: ${result.name} | Results: ${result.resultValues.join(', ')}`);
+      } else {
+        const resultValue = result.simpleResultValue ?? 'completed';
+        inHouseLabOrderParts.push(`Test: ${result.name} | Result: ${resultValue}`);
+      }
+    });
+  }
+  if (chartDataFields?.inHouseLabResults?.resultsPending?.length) {
+    chartDataFields.inHouseLabResults.resultsPending.forEach((name: string) => {
+      inHouseLabOrderParts.push(`Test: ${name} | Result: PENDING`);
+    });
+  }
+
+  // Radiology
+  const radiologyOrdersString = radiologyOrders?.map((order: any) => order.studyType).join(', ');
+  const radiologyReportsString =
+    radiologyOrders
+      ?.filter((order: any) => order.finalReport || order.preliminaryReport)
+      .map((order: any) => {
+        const report = order.finalReport || order.preliminaryReport;
+        const reportType = order.finalReport ? 'Final' : 'Preliminary';
+        try {
+          return `${order.studyType} (${reportType}): ${atob(report!)}`;
+        } catch {
+          return `${order.studyType} (${reportType}): ${report}`;
+        }
+      })
+      .join('\n') || '';
+
+  // Procedures
+  const proceduresParts: string[] = [];
+  if (chartData?.procedures) {
+    chartData.procedures.forEach((procedure) => {
+      const parts = [`Procedure: ${procedure.procedureType || 'Unknown'}`];
+      if (procedure.bodySite)
+        parts.push(`Body Site: ${procedure.bodySite}${procedure.bodySide ? ` (${procedure.bodySide})` : ''}`);
+      if (procedure.technique?.length) parts.push(`Technique: ${procedure.technique.join(', ')}`);
+      if (procedure.cptCodes?.length) parts.push(`CPT: ${procedure.cptCodes.map((c) => c.code).join(', ')}`);
+      if (procedure.diagnoses?.length) parts.push(`Dx: ${procedure.diagnoses.map((d) => d.code).join(', ')}`);
+      if (procedure.medicationUsed) parts.push(`Medication: ${procedure.medicationUsed}`);
+      if (procedure.suppliesUsed) parts.push(`Supplies: ${procedure.suppliesUsed}`);
+      if (procedure.procedureDetails) parts.push(`Details: ${procedure.procedureDetails}`);
+      if (procedure.complications) parts.push(`Complications: ${procedure.complications}`);
+      if (procedure.specimenSent) parts.push('Specimen Sent: Yes');
+      proceduresParts.push(parts.join(' | '));
+    });
+  }
+
+  // Patient status (new vs established)
+  let newPatient = undefined;
+  const newPatientFromChart = chartData?.observations?.find(
+    (observation) => observation.field === 'seen-in-last-three-years' || observation.field === 'seen-in-last-3-years'
+  );
+  const newPatientFromAppointmentCreation = appointment?.meta?.tag?.some(
+    (tag: any) =>
+      tag.system === PATIENT_INFO_META_DATA_SYSTEM && tag.code !== PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE
+  );
+  if (newPatientFromChart) {
+    newPatient = newPatientFromChart?.value === 'no';
+  } else if (newPatientFromAppointmentCreation) {
+    newPatient = newPatientFromAppointmentCreation;
+  }
+
+  // Patient demographics
+  let patientAge: string | undefined;
+  if (patient?.birthDate) {
+    const birth = new Date(patient.birthDate);
+    const now = new Date();
+    let years = now.getFullYear() - birth.getFullYear();
+    if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) {
+      years--;
+    }
+    patientAge = `${years} years`;
+  }
+
+  return {
+    newPatient,
+    patientAge,
+    patientSex: patient?.gender,
+    hpi: chartDataFields?.chiefComplaint?.text ?? '',
+    mdm: chartDataFields?.medicalDecision?.text ?? '',
+    diagnoses: chartData?.diagnosis,
+    billing: chartData?.cptCodes
+      ? [...chartData.cptCodes, ...(chartData.emCode ? [chartData.emCode] : [])]
+      : chartData?.emCode
+      ? [chartData.emCode]
+      : undefined,
+    externalLabOrders: externalLabOrderParts.join('\n'),
+    internalLabOrders: inHouseLabOrderParts.join('\n'),
+    radiologyOrders: radiologyOrdersString,
+    radiologyReports: radiologyReportsString,
+    procedures: proceduresParts.join('\n'),
+  };
+}
+
+// ── Stable hash of the input for use as a React Query cache key ─────────────
+
+function hashInput(input: BillingSuggestionInput): string {
+  return JSON.stringify(input);
+}
+
+// ── Main hook ───────────────────────────────────────────────────────────────
+
 export const useBillingSuggestions = (): BillingSuggestionsResult => {
   const { chartData, isLoading: chartDataLoading } = useChartData();
   const { appointment, encounter, patient } = useAppointmentData();
   const encounterId = encounter.id;
-  const currentDiagnoses: DiagnosisDTO[] | undefined = chartData?.diagnosis;
-  const currentCptCodes: CPTCodeDTO[] | undefined = [];
-  if (chartData?.cptCodes) {
-    currentCptCodes.push(...chartData.cptCodes);
-  }
-  if (chartData?.emCode) {
-    currentCptCodes.push(chartData.emCode);
-  }
 
   const {
     data: chartDataFields,
@@ -53,187 +184,59 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
     encounterIds: encounterId,
   });
 
-  const { mutateAsync: recommendBillingSuggestions } = useRecommendBillingSuggestions();
-  const [icdCodes, setIcdCodes] = useState<{ code: string; description: string; reason: string }[] | undefined>(
-    undefined
-  );
-  const [cptCodes, setCptCodes] = useState<{ code: string; description: string; reason: string }[] | undefined>(
-    undefined
-  );
-  const [emCode, setEmCode] = useState<{ code: string; description: string; upcodingSuggestion: string }[] | undefined>(
-    undefined
-  );
-  const [codingSuggestions, setCodingSuggestions] = useState<string | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const apiClient = useOystehrAPIClient();
 
-  const icdCodesSuggest = icdCodes?.filter(
+  const inputsReady = !chartDataLoading && !chartDataFieldsLoading && !chartDataFieldsFetching;
+
+  const billingInput = useMemo(() => {
+    if (!inputsReady) return null;
+    return buildBillingSuggestionInput({
+      chartData,
+      chartDataFields,
+      radiologyOrders,
+      appointment,
+      patient,
+    });
+  }, [inputsReady, chartData, chartDataFields, radiologyOrders, appointment, patient]);
+
+  const inputHash = useMemo(() => (billingInput ? hashInput(billingInput) : ''), [billingInput]);
+
+  const { data, isLoading: queryLoading } = useQuery<BillingSuggestionOutput>({
+    queryKey: ['billing-suggestions', encounterId, inputHash],
+    queryFn: async () => {
+      if (!apiClient || !billingInput) {
+        throw new Error('api client or billing input is not defined');
+      }
+      return apiClient.recommendBillingSuggestions(billingInput);
+    },
+    enabled: !!apiClient && !!billingInput && !!encounterId,
+    staleTime: Infinity,
+    retry: 0,
+  });
+
+  const currentDiagnoses: DiagnosisDTO[] | undefined = chartData?.diagnosis;
+  const currentCptCodes: CPTCodeDTO[] = [];
+  if (chartData?.cptCodes) {
+    currentCptCodes.push(...chartData.cptCodes);
+  }
+  if (chartData?.emCode) {
+    currentCptCodes.push(chartData.emCode);
+  }
+
+  const emCodeSet = new Set(PROVIDER_CONFIG.assessment.emCodeOptions.map((option) => option.code));
+
+  const icdCodesSuggest = data?.icdCodes?.filter(
     (code) => !currentDiagnoses?.some((diagnosis) => diagnosis.code === code.code)
   );
-  const emCodeSet = new Set(PROVIDER_CONFIG.assessment.emCodeOptions.map((option) => option.code));
-  const cptCodesSuggest = cptCodes?.filter(
+  const cptCodesSuggest = data?.cptCodes?.filter(
     (code) => !currentCptCodes?.some((cptCode) => cptCode.code === code.code) && !emCodeSet.has(code.code)
   );
-
-  React.useEffect(() => {
-    const fetchRecommendedBillingSuggestions = async (): Promise<void> => {
-      if (chartDataLoading) {
-        return;
-      }
-      if (chartDataFieldsLoading || chartDataFieldsFetching) {
-        return;
-      }
-      setIsLoading(true);
-
-      const externalLabOrderParts: string[] = [];
-      if (chartDataFields?.externalLabResults?.labOrderResults) {
-        chartDataFields.externalLabResults.labOrderResults.forEach((result) => {
-          if (result.resultValues?.length) {
-            externalLabOrderParts.push(`Test: ${result.name} | Results: ${result.resultValues.join(', ')}`);
-          } else {
-            externalLabOrderParts.push(`Test: ${result.name} | Result: received`);
-          }
-        });
-      }
-      if (chartDataFields?.externalLabResults?.resultsPending?.length) {
-        chartDataFields.externalLabResults.resultsPending.forEach((name) => {
-          externalLabOrderParts.push(`Test: ${name} | Result: PENDING`);
-        });
-      }
-      const externalLabOrders = externalLabOrderParts.join('\n');
-
-      const inHouseLabOrderParts: string[] = [];
-      if (chartDataFields?.inHouseLabResults?.labOrderResults) {
-        chartDataFields.inHouseLabResults.labOrderResults.forEach((result) => {
-          if (result.resultValues?.length) {
-            inHouseLabOrderParts.push(`Test: ${result.name} | Results: ${result.resultValues.join(', ')}`);
-          } else {
-            const resultValue = result.simpleResultValue ?? 'completed';
-            inHouseLabOrderParts.push(`Test: ${result.name} | Result: ${resultValue}`);
-          }
-        });
-      }
-      if (chartDataFields?.inHouseLabResults?.resultsPending?.length) {
-        chartDataFields.inHouseLabResults.resultsPending.forEach((name) => {
-          inHouseLabOrderParts.push(`Test: ${name} | Result: PENDING`);
-        });
-      }
-      const inHouseLabOrders = inHouseLabOrderParts.join('\n');
-
-      const radiologyOrdersString = radiologyOrders?.map((order) => order.studyType).join(', ');
-
-      const radiologyReportsString =
-        radiologyOrders
-          ?.filter((order) => order.finalReport || order.preliminaryReport)
-          .map((order) => {
-            const report = order.finalReport || order.preliminaryReport;
-            const reportType = order.finalReport ? 'Final' : 'Preliminary';
-            try {
-              return `${order.studyType} (${reportType}): ${atob(report!)}`;
-            } catch {
-              return `${order.studyType} (${reportType}): ${report}`;
-            }
-          })
-          .join('\n') || '';
-
-      const proceduresParts: string[] = [];
-      if (chartData?.procedures) {
-        chartData.procedures.forEach((procedure) => {
-          const parts = [`Procedure: ${procedure.procedureType || 'Unknown'}`];
-          if (procedure.bodySite)
-            parts.push(`Body Site: ${procedure.bodySite}${procedure.bodySide ? ` (${procedure.bodySide})` : ''}`);
-          if (procedure.technique?.length) parts.push(`Technique: ${procedure.technique.join(', ')}`);
-          if (procedure.cptCodes?.length) parts.push(`CPT: ${procedure.cptCodes.map((c) => c.code).join(', ')}`);
-          if (procedure.diagnoses?.length) parts.push(`Dx: ${procedure.diagnoses.map((d) => d.code).join(', ')}`);
-          if (procedure.medicationUsed) parts.push(`Medication: ${procedure.medicationUsed}`);
-          if (procedure.suppliesUsed) parts.push(`Supplies: ${procedure.suppliesUsed}`);
-          if (procedure.procedureDetails) parts.push(`Details: ${procedure.procedureDetails}`);
-          if (procedure.complications) parts.push(`Complications: ${procedure.complications}`);
-          if (procedure.specimenSent) parts.push('Specimen Sent: Yes');
-          proceduresParts.push(parts.join(' | '));
-        });
-      }
-      const proceduresString = proceduresParts.join('\n');
-
-      let newPatient = undefined;
-      const newPatientFromChart = chartData?.observations?.find(
-        (observation) =>
-          observation.field === 'seen-in-last-three-years' || observation.field === 'seen-in-last-3-years'
-      );
-      const newPatientFromAppointmentCreation = appointment?.meta?.tag?.some(
-        (tag) =>
-          tag.system === PATIENT_INFO_META_DATA_SYSTEM && tag.code !== PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE
-      );
-
-      if (newPatientFromChart) {
-        newPatient = newPatientFromChart?.value === 'no';
-      } else if (newPatientFromAppointmentCreation) {
-        newPatient = newPatientFromAppointmentCreation;
-      }
-
-      let patientAge: string | undefined;
-      if (patient?.birthDate) {
-        const birth = new Date(patient.birthDate);
-        const now = new Date();
-        let years = now.getFullYear() - birth.getFullYear();
-        if (
-          now.getMonth() < birth.getMonth() ||
-          (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())
-        ) {
-          years--;
-        }
-        patientAge = `${years} years`;
-      }
-      const patientSex = patient?.gender;
-
-      const billingInput = {
-        newPatient,
-        patientAge,
-        patientSex,
-        hpi: chartDataFields?.chiefComplaint?.text ?? '',
-        mdm: chartDataFields?.medicalDecision?.text ?? '',
-        diagnoses: currentDiagnoses,
-        billing: currentCptCodes,
-        externalLabOrders: externalLabOrders,
-        internalLabOrders: inHouseLabOrders,
-        radiologyOrders: radiologyOrdersString,
-        radiologyReports: radiologyReportsString,
-        procedures: proceduresString,
-      };
-      const billingSuggestionTemp = await recommendBillingSuggestions(billingInput);
-      setIcdCodes(billingSuggestionTemp.icdCodes);
-      setCptCodes(billingSuggestionTemp.cptCodes);
-      setEmCode(billingSuggestionTemp.emCode);
-      setCodingSuggestions(billingSuggestionTemp.codingSuggestions);
-      setIsLoading(false);
-    };
-    fetchRecommendedBillingSuggestions().catch((error) => {
-      console.error(error);
-      setIsLoading(false);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    // chartData?.diagnosis,
-    // chartData?.cptCodes,
-    // chartData?.emCode,
-    recommendBillingSuggestions,
-    chartDataFieldsFetching,
-    // chartDataFields?.chiefComplaint,
-    chartDataFields?.medicalDecision,
-    // chartData?.procedures,
-    // groupedLabOrdersForChartTable?.hasResults,
-    // groupedLabOrdersForChartTable?.pendingActionOrResults,
-    // labOrders,
-    // radiologyOrders,
-    // chartData,
-    // chartDataLoading,
-    // chartDataFieldsLoading,
-  ]);
 
   return {
     icdCodesSuggest,
     cptCodesSuggest,
-    emCode,
-    codingSuggestions,
-    isLoading,
+    emCode: data?.emCode,
+    codingSuggestions: data?.codingSuggestions,
+    isLoading: !inputsReady || queryLoading,
   };
 };
