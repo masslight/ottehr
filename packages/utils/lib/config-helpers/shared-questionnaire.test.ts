@@ -173,6 +173,56 @@ describe('buildReasonForVisitFromConfig', () => {
     // No triggers — field visibility and requiredness handled by hiddenFields/requiredFields
     expect(field.triggers).toBeUndefined();
   });
+
+  it('isHidden is true when all categories resolve to a single option', () => {
+    const categories = [
+      makeCategory('workers-comp', 'Workers Comp', {
+        serviceModes: ['in-person'],
+        reasonsForVisit: {
+          default: [{ label: 'Injury', value: 'Injury' }],
+        },
+      }),
+    ];
+    const result = buildReasonForVisitFromConfig(categories);
+    expect(result.isHidden).toBe(true);
+  });
+
+  it('isHidden is true when all categories share the same single option', () => {
+    const categories = [
+      makeCategory('urgent-care', 'Urgent Care', {
+        reasonsForVisit: { default: [{ label: 'Injury', value: 'Injury' }] },
+      }),
+      makeCategory('workers-comp', 'Workers Comp', {
+        reasonsForVisit: { default: [{ label: 'Injury', value: 'Injury' }] },
+      }),
+    ];
+    const result = buildReasonForVisitFromConfig(categories);
+    // Deduplicated superset has 1 option
+    expect(result.reasonForVisit.options).toHaveLength(1);
+    expect(result.isHidden).toBe(true);
+  });
+
+  it('isHidden is false when superset has multiple options', () => {
+    const categories = [
+      makeCategory('urgent-care', 'Urgent Care', {
+        reasonsForVisit: {
+          default: [
+            { label: 'Fever', value: 'Fever' },
+            { label: 'Cough', value: 'Cough' },
+          ],
+        },
+      }),
+    ];
+    const result = buildReasonForVisitFromConfig(categories);
+    expect(result.isHidden).toBe(false);
+  });
+
+  it('isHidden is true when all options are empty', () => {
+    const categories = [makeCategory('urgent-care', 'Urgent Care')];
+    const result = buildReasonForVisitFromConfig(categories);
+    expect(result.reasonForVisit.options).toHaveLength(0);
+    expect(result.isHidden).toBe(true);
+  });
 });
 
 describe('display filter round-trip: config → questionnaire → parse', () => {

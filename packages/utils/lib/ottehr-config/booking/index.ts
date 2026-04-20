@@ -109,7 +109,7 @@ const getFormFields = (
   serviceCategories: ServiceCategoryConfig[] = SERVICE_CATEGORIES_AVAILABLE
 ): Record<string, FormFieldSection> => {
   const hiddenFields: string[] = [];
-  const requiredFields = ['patient-birth-sex', 'patient-email'];
+  const requiredFields: string[] = ['patient-birth-sex', 'patient-email'];
   const { reasonForVisit, isHidden } = buildReasonForVisitFromConfig(serviceCategories);
   if (isHidden) {
     hiddenFields.push(reasonForVisit.key);
