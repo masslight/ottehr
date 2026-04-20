@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 // cSpell:ignore Providerid
-import { CandidApi, CandidApiClient, CandidApiEnvironment } from 'candidhealth';
+import { CandidApi, CandidApiClient } from 'candidhealth';
 import {
   AppointmentId as CandidAppointmentId,
   Decimal,
@@ -63,10 +63,8 @@ import {
   FHIR_IDENTIFIER_NPI,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
-  getOptionalSecret,
   getPayerId,
   getPaymentVariantFromEncounter,
-  getSecret,
   getTimezone,
   INVALID_INPUT_ERROR,
   isAppointmentOccupationalMedicine,
@@ -76,8 +74,6 @@ import {
   OrderedCoveragesWithSubscribers,
   PaymentVariant,
   PROVIDER_CONFIG,
-  Secrets,
-  SecretsKeys,
   TIMEZONES,
 } from 'utils';
 import {
@@ -105,8 +101,6 @@ export const CANDID_NON_INSURANCE_PAYER_ID_IDENTIFIER_SYSTEM =
 
 const CANDID_TAG_WORKERS_COMP = 'workers-comp';
 const CANDID_TAG_OCCUPATIONAL_MEDICINE = 'occupational-medicine';
-
-let candidApiClient: CandidApiClient;
 
 interface BillingProviderData {
   organizationName?: string;
@@ -168,20 +162,6 @@ const SERVICE_FACILITY_LOCATION: Location = {
     },
   ],
 };
-
-function createCandidApiClient(secrets: Secrets | null): CandidApiClient {
-  if (candidApiClient == null) {
-    candidApiClient = new CandidApiClient({
-      clientId: getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets),
-      clientSecret: getSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets),
-      environment:
-        getSecret(SecretsKeys.CANDID_ENV, secrets) === 'PROD'
-          ? CandidApiEnvironment.Production
-          : CandidApiEnvironment.Staging,
-    });
-  }
-  return candidApiClient;
-}
 
 const createCandidCreateEncounterInput = async (
   visitResources: FullAppointmentResourcePackage,
@@ -587,7 +567,7 @@ export async function createAppointment(
 export interface PerformCandidPreEncounterSyncInput {
   encounterId: string;
   oystehr: Oystehr;
-  secrets: Secrets;
+  candidApiClient: CandidApiClient;
   amountCents?: number; // When amountCents is not provided, no payment will be recorded
 }
 
@@ -604,8 +584,7 @@ export interface PerformCandidPreEncounterSyncInput {
 // 4. record patient payment in candid (amount in cents, allocation of type "appointment", appointment ID noted above)
 
 export const performCandidPreEncounterSync = async (input: PerformCandidPreEncounterSyncInput): Promise<void> => {
-  const { encounterId, oystehr, secrets, amountCents } = input;
-  const candidApiClient = createCandidApiClient(secrets);
+  const { encounterId, oystehr, candidApiClient, amountCents } = input;
 
   const { patient: ourPatient, appointment: ourAppointment } = await fetchFHIRPatientAndAppointmentFromEncounter(
     encounterId,
@@ -679,24 +658,29 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
 
   let candidPreEncounterAppointment: CandidPreEncounterAppointment;
   if (existingCandidPreEncounterAppointmentId) {
-    candidPreEncounterAppointment = await fetchPreEncounterAppointment(existingCandidPreEncounterAppointmentId);
+    candidPreEncounterAppointment = await fetchPreEncounterAppointment(
+      existingCandidPreEncounterAppointmentId,
+      candidApiClient
+    );
   } else {
     candidPreEncounterAppointment = await createPreEncounterAppointment(
       candidPreEncounterPatient,
       ourAppointment,
-      oystehr
+      oystehr,
+      candidApiClient
     );
   }
 
   if (amountCents) {
-    await createPreEncounterPatientPayment(ourPatient, candidPreEncounterAppointment, amountCents);
+    await createPreEncounterPatientPayment(ourPatient, candidPreEncounterAppointment, amountCents, candidApiClient);
   }
 };
 
 const createPreEncounterPatientPayment = async (
   ourPatient: Patient,
   candidAppointment: CandidPreEncounterAppointment,
-  amountCents: number
+  amountCents: number,
+  candidApiClient: CandidApiClient
 ): Promise<void> => {
   if (!ourPatient.id) {
     throw new Error(`Patient ID is not defined for patient ${JSON.stringify(ourPatient)}`);
@@ -721,7 +705,8 @@ const createPreEncounterPatientPayment = async (
 const createPreEncounterAppointment = async (
   candidPatient: CandidPreEncounterPatient,
   appointment: Appointment,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  candidApiClient: CandidApiClient
 ): Promise<CandidPreEncounterAppointment> => {
   if (!appointment.start) {
     throw new Error(`Appointment period start is not defined for appointment ${appointment.id}`);
@@ -764,7 +749,10 @@ const createPreEncounterAppointment = async (
   return response.body;
 };
 
-const fetchPreEncounterAppointment = async (candidAppointmentId: string): Promise<CandidPreEncounterAppointment> => {
+const fetchPreEncounterAppointment = async (
+  candidAppointmentId: string,
+  candidApiClient: CandidApiClient
+): Promise<CandidPreEncounterAppointment> => {
   const response = await candidApiClient.preEncounter.appointments.v1.get(
     CandidPreEncounterAppointmentId(candidAppointmentId)
   );
@@ -1019,16 +1007,10 @@ const fetchFHIRPatientAndAppointmentFromEncounter = async (
 
 export async function createEncounterFromAppointment(
   visitResources: FullAppointmentResourcePackage,
-  secrets: Secrets,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  candidApiClient: CandidApiClient
 ): Promise<string | undefined> {
   console.log('[CLAIM SUBMISSION] Starting encounter submission to candid');
-  const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
-  if (candidClientId == null || candidClientId.length === 0) {
-    console.log('CANDID_CLIENT_ID is not set, skipping encounter submission to candid');
-    return undefined;
-  }
-  const apiClient = createCandidApiClient(secrets);
   let createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
 
   if (
@@ -1046,16 +1028,16 @@ export async function createEncounterFromAppointment(
     await performCandidPreEncounterSync({
       encounterId: visitResources.encounter.id,
       oystehr,
-      secrets,
+      candidApiClient,
     });
     console.log(`[CLAIM SUBMISSION] Sync completed for encounter  ${visitResources.encounter.id}`);
     createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
   }
 
-  const request = await candidCreateEncounterFromAppointmentRequest(createEncounterInput, apiClient);
+  const request = await candidCreateEncounterFromAppointmentRequest(createEncounterInput, candidApiClient);
   console.log('Candid request:' + JSON.stringify(request, null, 2));
   console.log(`[CLAIM SUBMISSION] Sending encounter to candid`);
-  const response = await apiClient.encounters.v4.createFromPreEncounterPatient(request);
+  const response = await candidApiClient.encounters.v4.createFromPreEncounterPatient(request);
   console.log(`[CLAIM SUBMISSION] Encounter sent to candid, response from candid ${JSON.stringify(response)}`);
   if (!response.ok) {
     throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
@@ -1071,7 +1053,7 @@ export async function createEncounterFromAppointment(
       ? ResponsiblePartyType.SelfPay
       : ResponsiblePartyType.InsurancePay;
   if (candidResponsibleParty) {
-    const updateResponse = await apiClient.encounters.v4.update(encounter.encounterId, {
+    const updateResponse = await candidApiClient.encounters.v4.update(encounter.encounterId, {
       responsibleParty: candidResponsibleParty,
     });
     if (!updateResponse.ok) {
