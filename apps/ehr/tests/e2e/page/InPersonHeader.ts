@@ -41,4 +41,16 @@ export class InPersonHeader {
       this.#page.getByTestId(dataTestIds.inPersonHeader.providerPractitionerInput).locator('input')
     ).toBeEnabled();
   }
+
+  async verifyWeight(weight: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.weight)).toHaveText(`${weight}kg`, {
+      timeout: 30000,
+    });
+  }
+
+  async verifyWeightNotShown(): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.weight)).toHaveCount(0, {
+      timeout: 30000,
+    });
+  }
 }

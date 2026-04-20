@@ -20,15 +20,21 @@ export default function AddMedicationPage(): ReactElement {
   const [selectedMedication, setSelectedMedication] = useState<ExtractObjectType<ErxSearchMedicationsResponse> | null>(
     null
   );
+  const [selectedMedicationForPrecheck, setSelectedMedicationForPrecheck] =
+    useState<ExtractObjectType<ErxSearchMedicationsResponse> | null>(null);
   const [cptCodes, setCptCodes] = useState<CPTCodeDTO[]>([]);
   const [hcpcsCodes, setHcpcsCodes] = useState<CPTCodeDTO[]>([]);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [debouncedSearchTermForPrecheck, setDebouncedSearchTermForPrecheck] = useState('');
   const [debouncedCptSearch, setDebouncedCptSearch] = useState('');
   const [debouncedHcpcsSearch, setDebouncedHcpcsSearch] = useState('');
   const navigate = useNavigate();
 
   const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
-  const medSearchOptions = data || [];
+  const medSearchOptions = data ?? [];
+  const { isFetching: isSearchingForPrecheck, data: dataForPrecheck } =
+    useGetMedicationsSearch(debouncedSearchTermForPrecheck);
+  const nonObsoleteMedSearchOptions = dataForPrecheck?.filter((option) => !option.isObsolete) || [];
 
   const { isFetching: isCptSearching, data: cptData } = useGetCPTHCPCSSearch({
     search: debouncedCptSearch,
@@ -46,6 +52,16 @@ export default function AddMedicationPage(): ReactElement {
     debounce((value: string) => {
       if (value.length > 2) {
         setDebouncedSearchTerm(value);
+      }
+    }, 800),
+    []
+  );
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedHandleInputChangeForPrecheck = useCallback(
+    debounce((value: string) => {
+      if (value.length > 2) {
+        setDebouncedSearchTermForPrecheck(value);
       }
     }, 800),
     []
@@ -73,6 +89,7 @@ export default function AddMedicationPage(): ReactElement {
     const name = `${selectedMedication.name}${selectedMedication.strength ? ` (${selectedMedication.strength})` : ''}`;
     const ndc = selectedMedication.ndc ?? undefined;
     const medispanID = selectedMedication.id.toString();
+    const medispanIDForInteractions = selectedMedicationForPrecheck?.id.toString() || undefined;
     const finalCptCodes = cptCodes.map(({ code, display }) => ({ code, display }));
     const finalHcpcsCodes = hcpcsCodes.map(({ code, display }) => ({ code, display }));
 
@@ -81,6 +98,7 @@ export default function AddMedicationPage(): ReactElement {
         name,
         ndc,
         medispanID,
+        medispanIDForInteractions,
         cptCodes: finalCptCodes.length ? finalCptCodes : undefined,
         hcpcsCodes: finalHcpcsCodes.length ? finalHcpcsCodes : undefined,
       });
@@ -126,7 +144,7 @@ export default function AddMedicationPage(): ReactElement {
                   <TextField
                     {...params}
                     onChange={(e) => debouncedHandleInputChange(e.target.value)}
-                    label="Name"
+                    label="Medication Name"
                     placeholder="Search"
                     required
                   />
@@ -134,6 +152,41 @@ export default function AddMedicationPage(): ReactElement {
               />
             </Grid>
             <Grid item xs={6} />
+            {selectedMedication?.isObsolete === true ? (
+              <>
+                <Grid item xs={6}>
+                  <Autocomplete
+                    value={selectedMedicationForPrecheck}
+                    getOptionLabel={(option) => `${option.name}${option.strength ? ` (${option.strength})` : ''}`}
+                    fullWidth
+                    isOptionEqualToValue={(option, value) => value.id === option.id}
+                    loading={isSearchingForPrecheck}
+                    disablePortal
+                    noOptionsText={
+                      debouncedSearchTermForPrecheck &&
+                      debouncedSearchTermForPrecheck.length > 2 &&
+                      nonObsoleteMedSearchOptions.length === 0
+                        ? 'Nothing found for this search criteria'
+                        : 'Start typing to load results'
+                    }
+                    options={nonObsoleteMedSearchOptions}
+                    onChange={(_e, value) => setSelectedMedicationForPrecheck(value)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        onChange={(e) => debouncedHandleInputChangeForPrecheck(e.target.value)}
+                        label="Medication Name for Interactions"
+                        placeholder="Search"
+                        required
+                      />
+                    )}
+                  />
+                </Grid>
+                <Grid item xs={6} />
+              </>
+            ) : (
+              <></>
+            )}
             <Grid item xs={6}>
               <Autocomplete
                 multiple

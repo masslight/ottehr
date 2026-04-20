@@ -168,7 +168,7 @@ export class VitalsPage {
       .getByTestId(dataTestIds.dialog.proceedButton)
       .click();
     await waitForChartDataDeletion(this.#page);
-    await expect(this.#page.getByText(new RegExp(`${weight}.*kg`))).not.toBeVisible();
+    await expect(this.#page.getByTestId(dataTestIds.vitalsPage.weightItem).filter({ hasText: weight })).toHaveCount(0);
   }
 
   async removePatientRefusedWeightObservationFromHistory(weight: string): Promise<void> {

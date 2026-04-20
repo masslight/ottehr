@@ -8,6 +8,8 @@ import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
+import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   diffInMinutes,
@@ -30,7 +32,7 @@ export const VirtualAppointmentFooter: FC = () => {
   const theme = useTheme();
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
   const appointmentAccessibility = useGetAppointmentAccessibility();
-  const { appointment, encounter, mappedData, questionnaireResponse } = useAppointmentData();
+  const { appointment, encounter, mappedData, questionnaireResponse, appointmentRefetch } = useAppointmentData();
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
   const appointmentStatus = (appointment && getInPersonVisitStatus(appointment, encounter)) ?? 'unknown';
   const statusHistory = getVisitStatusHistory(encounter);
@@ -68,6 +70,7 @@ export const VirtualAppointmentFooter: FC = () => {
       });
     }
   );
+  const { oystehrZambda } = useApiClients();
   const onConnect = useCallback(async (): Promise<void> => {
     if (appointmentStatus === 'provider') {
       const meetingDataResponse = await getMeetingData.refetch({ throwOnError: true });
@@ -75,9 +78,10 @@ export const VirtualAppointmentFooter: FC = () => {
         meetingData: meetingDataResponse.data,
       });
     } else {
-      if (!apiClient || !user || !appointment?.id) {
-        throw new Error('api client not defined or userId not provided');
+      if (!apiClient || !user || !appointment?.id || !encounter.id) {
+        throw new Error('apiClient or user or appointment.id or encounter.id is undefined');
       }
+      const encounterId = encounter.id;
       initTelemedSession.mutate(
         { apiClient, appointmentId: appointment.id, userId: user?.id },
         {
@@ -85,6 +89,14 @@ export const VirtualAppointmentFooter: FC = () => {
             useVideoCallStore.setState({
               meetingData: response.meetingData,
             });
+            await handleChangeInPersonVisitStatus(
+              {
+                encounterId: encounterId,
+                updatedStatus: 'provider',
+              },
+              oystehrZambda
+            );
+            await appointmentRefetch();
           },
           onError: () => {
             enqueueSnackbar('Error trying to connect to a patient.', {
@@ -94,7 +106,17 @@ export const VirtualAppointmentFooter: FC = () => {
         }
       );
     }
-  }, [apiClient, appointment?.id, appointmentStatus, getMeetingData, initTelemedSession, user]);
+  }, [
+    apiClient,
+    appointment?.id,
+    appointmentRefetch,
+    appointmentStatus,
+    encounter.id,
+    getMeetingData,
+    initTelemedSession,
+    oystehrZambda,
+    user,
+  ]);
 
   const providerAllowedToConnect =
     appointmentAccessibility.isPractitionerLicensedInState &&
