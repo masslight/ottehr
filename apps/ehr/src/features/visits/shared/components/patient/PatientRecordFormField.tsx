@@ -8,6 +8,7 @@ import InputMask from 'src/components/InputMask';
 import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  AnswerOptionSource,
   dedupeObjectsByKey,
   FormFieldsDisplayItem,
   FormFieldsGroupItem,
@@ -306,7 +307,7 @@ type ValueSetStrategy = {
 // todo: these types already exist somewhere
 type AnswerSourceStrategy = {
   type: 'answerSource';
-  answerSource: { resourceType: string; query: string; prependedIdentifier?: string };
+  answerSource: AnswerOptionSource;
 };
 
 interface DynamicReferenceFieldProps {
@@ -340,6 +341,7 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
     }
     return {
       ...base,
+      id: optionStrategy.answerSource.zambdaId,
       answerSource: optionStrategy.answerSource,
     };
   })();

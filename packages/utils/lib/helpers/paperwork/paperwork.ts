@@ -274,6 +274,8 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
         const [resourceType, query] = expression.split('?');
         if (resourceType && query) {
           option.answerSource = {
+            // CW TODO: make this config driven
+            zambdaId: 'get-answer-options',
             resourceType: resourceType as FhirResource['resourceType'],
             query,
           };

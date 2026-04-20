@@ -130,8 +130,8 @@ import {
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
-import { getInsuranceOverrideList, ListName } from '../../../patient/get-insurance-override-list';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
+import { getInsuranceOverrideList, ListName } from '../../../rcm/get-insurance-override-list/handler';
 import { createPdfBytes } from '../../../shared';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';

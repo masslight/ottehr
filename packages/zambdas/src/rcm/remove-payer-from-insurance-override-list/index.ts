@@ -12,7 +12,7 @@ import {
 } from 'utils';
 import { z } from 'zod';
 import { formatZodError, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
-import { getInsuranceOverrideList, ListName } from '../get-insurance-override-list';
+import { getInsuranceOverrideList, ListName } from '../get-insurance-override-list/handler';
 
 const payerInfoSchema = z.object({
   listName: z.literal(ListName.EHR),

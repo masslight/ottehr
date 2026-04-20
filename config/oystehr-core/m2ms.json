@@ -105,6 +105,11 @@
           "action": ["Terminology:SearchCodes"],
           "effect": "Allow",
           "resource": ["Terminology:Code:*"]
+        },
+        {
+          "action": ["RCM:SearchPayer", "RCM:GetPayer"],
+          "effect": "Allow",
+          "resource": ["RCM:Payer"]
         }
       ]
     },

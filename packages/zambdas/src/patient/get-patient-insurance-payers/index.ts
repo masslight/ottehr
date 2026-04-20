@@ -12,9 +12,9 @@ import {
   SecretsKeys,
 } from 'utils';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { getInsuranceOverrideList, ListName } from '../../rcm/get-insurance-override-list/handler';
 import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import { getAllInsurancePayers } from '../get-all-insurance-payers';
-import { getInsuranceOverrideList, ListName } from '../get-insurance-override-list';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;

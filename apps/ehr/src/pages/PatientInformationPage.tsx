@@ -368,6 +368,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   const { otherPatientsWithSameName, setOtherPatientsWithSameName } = useGetPatient(id);
 
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
+  // CW TODO: this throws 403
   useGetInsurancePlans((data) => {
     if (!data) return;
 

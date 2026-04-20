@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Extension, List } from 'fhir/r4b';
+import { Extension, List, ListEntry } from 'fhir/r4b';
 import {
   createOystehrClient,
   getSecret,
@@ -13,7 +13,7 @@ import {
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { z } from 'zod';
 import { formatZodError, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
-import { getInsuranceOverrideList, ListName } from '../get-insurance-override-list';
+import { getInsuranceOverrideList, ListName } from '../get-insurance-override-list/handler';
 
 const payerInfoSchema = z.discriminatedUnion('listName', [
   z.object({
@@ -39,7 +39,7 @@ interface Input {
 let oystehrToken: string;
 
 export const index = wrapHandler(
-  'edit-payer-in-insurance-override-list',
+  'add-payer-to-insurance-override-list',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { secrets } = input;
     const validatedInput = validateInput(input);
@@ -63,7 +63,7 @@ export const index = wrapHandler(
     console.groupEnd();
     console.debug('createOystehrClient success');
 
-    const list: List = await editPayerInInsuranceOverrideList(oystehr, validatedInput.payerInfo);
+    const list: List = await addPayerToInsuranceOverrideList(oystehr, validatedInput.payerInfo);
 
     return {
       statusCode: 200,
@@ -72,18 +72,8 @@ export const index = wrapHandler(
   }
 );
 
-async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: PayerInfo): Promise<List> {
+async function addPayerToInsuranceOverrideList(oystehr: Oystehr, payerInfo: PayerInfo): Promise<List> {
   const list = await getInsuranceOverrideList(oystehr, payerInfo.listName);
-  if (!list.entry) {
-    throw INVALID_INPUT_ERROR('Cannot find insurance override list');
-  }
-  const entryIndex = list.entry.findIndex(
-    (entry) => entry.item.reference === oystehr.rcm.constructPayerUrl({ id: payerInfo.payerId })
-  );
-  if (entryIndex < 0) {
-    throw INVALID_INPUT_ERROR('Cannot find insurance override list entry');
-  }
-
   const extensionValue: Extension | undefined =
     payerInfo.listName === ListName.EHR
       ? {
@@ -96,7 +86,12 @@ async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: Pay
           valueString: payerInfo.payerNameOverride,
         }
       : undefined;
-
+  const entryValue: ListEntry = {
+    item: {
+      reference: oystehr.rcm.constructPayerUrl({ id: payerInfo.payerId }),
+    },
+    extension: extensionValue ? [extensionValue] : [],
+  };
   try {
     return await oystehr.fhir.patch<List>(
       {
@@ -104,9 +99,9 @@ async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: Pay
         id: list.id,
         operations: [
           {
-            op: 'replace',
-            path: `/entry/${entryIndex}/extension`,
-            value: [extensionValue],
+            op: 'add',
+            path: list.entry?.length ?? 0 > 0 ? '/entry/-' : '/entry',
+            value: entryValue,
           },
         ],
       },
@@ -118,15 +113,6 @@ async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: Pay
     if (err instanceof Oystehr.OystehrFHIRError && err.code === 412) {
       // requery and try again
       const list = await getInsuranceOverrideList(oystehr, payerInfo.listName);
-      if (!list.entry) {
-        throw INVALID_INPUT_ERROR('Cannot find insurance override list');
-      }
-      const entryIndex = list.entry.findIndex(
-        (entry) => entry.item.reference === oystehr.rcm.constructPayerUrl({ id: payerInfo.payerId })
-      );
-      if (entryIndex < 0) {
-        throw INVALID_INPUT_ERROR('Cannot find insurance override list entry');
-      }
       try {
         return await oystehr.fhir.patch<List>(
           {
@@ -134,9 +120,9 @@ async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: Pay
             id: list.id,
             operations: [
               {
-                op: 'replace',
-                path: `/entry/${entryIndex}/extension`,
-                value: [extensionValue],
+                op: 'add',
+                path: list.entry?.length ?? 0 > 0 ? '/entry/-' : '/entry',
+                value: entryValue,
               },
             ],
           },

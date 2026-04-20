@@ -45,7 +45,6 @@ import {
   CoverageCheckWithDetails,
   CPT_CODE_SYSTEM,
   CPT_MODIFIER_EXTENSION_URL,
-  FHIR_EXTENSION,
   getCoding,
   getLocationIdFromAppointment,
   getPaymentVariantFromEncounter,
@@ -61,6 +60,7 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   updateEncounterPaymentVariantExtension,
 } from 'utils';
+import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { sendReceiptByEmail } from '../api/api';
 import PaymentDialog from './dialogs/PaymentDialog';
 import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendReceiptByEmailDialog';
@@ -624,15 +624,17 @@ export default function PatientPaymentList({
     return null;
   })();
 
+  // CW TODO: whaaaaaaaat is this lookup? why not use coverage.payor????
   const insurance = insuranceCoverages?.coverages?.primary?.identifier?.find(
     (temp) => temp.type?.coding?.find((temp) => temp.code === 'MB')
   )?.assigner;
+  // CW TODO: nope, need to use id / url
   const insuranceOrganization = insuranceCoverages?.insuranceOrgs?.find(
     (organization) => organization.id === insurance?.reference?.replace('Organization/', '')
   );
   const insuranceName = insuranceOrganization?.name;
   const insuranceNotes = insuranceOrganization?.extension?.find(
-    (extensionTemp) => extensionTemp.url === FHIR_EXTENSION.InsurancePlan.notes.url
+    (extensionTemp) => extensionTemp.url === ottehrExtensionUrl('insurance-override-note')
   )?.valueString;
 
   let coverageCheck: CoverageCheckWithDetails | undefined = undefined;
