@@ -64,24 +64,44 @@ export const useUpdatePaperworkMutation = () => {
 };
 
 export const useAnswerOptionsQuery = (
+  queryKey: string,
   enabled = true,
   params: GetAnswerOptionsRequest | undefined,
   onSuccess?: (data: QuestionnaireItemAnswerOption[] | null) => void
 ): UseQueryResult<QuestionnaireItemAnswerOption[], Error> => {
   const apiClient = useOystehrAPIClient();
 
-  // CW TODO: wow big frowny face on this query key lol
   const queryResult = useQuery({
-    queryKey: ['insurances', { apiClient }],
+    queryKey: [queryKey, { apiClient }],
 
     queryFn: async () => {
       if (!apiClient) {
         throw new Error('App client is not provided');
       }
 
-      // CW TODO: this uses a zambda???
-      const resources = await apiClient.getAnswerOptions(params as GetAnswerOptionsRequest);
-      return resources;
+      if (params && params.answerSource) {
+        let f:
+          | typeof apiClient.getAnswerOptions
+          | typeof apiClient.getAllInsuranceOptions
+          | typeof apiClient.getPatientInsuranceOptions;
+        switch (params.answerSource.zambdaId) {
+          case 'get-answer-options':
+            f = apiClient.getAnswerOptions;
+            break;
+          case 'get-all-insurance-payers':
+            f = apiClient.getAllInsuranceOptions;
+            break;
+          case 'get-patient-insurance-payers':
+            f = apiClient.getPatientInsuranceOptions;
+            break;
+          default:
+            // @ts-expect-error this is handling a failure of the type system
+            throw new Error(`Unknown zambdaId "${params.answerSource.zambdaId}" for queryKey "${queryKey}"`);
+        }
+        const resources = await f(params);
+        return resources;
+      }
+      throw new Error(`Missing params or answerSource for queryKey "${queryKey}"`);
     },
 
     enabled: !!apiClient && enabled && params !== undefined,

@@ -25,6 +25,8 @@ const makeOystehrAPI = (zambdaClient: Oystehr): ReturnType<typeof getOystehrAPI>
       getEligibilityZambdaID: 'get-eligibility',
       getVisitDetailsZambdaID: 'get-visit-details',
       getAnswerOptionsZambdaID: 'get-answer-options',
+      getPatientInsuranceOptionsZambdaID: 'get-patient-insurance-payers',
+      getAllInsuranceOptionsZambdaID: 'get-all-insurance-payers',
       getPaperworkZambdaID: 'get-paperwork',
       getPatientsZambdaID: 'telemed-get-patients',
       getPaymentMethodsZambdaID: 'payment-methods-list',

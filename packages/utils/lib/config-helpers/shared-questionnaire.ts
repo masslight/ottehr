@@ -116,12 +116,12 @@ const createAnswerLoadingOptionsExtension = (
   return {
     url: 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options',
     extension: [
+      // CW TODO: need an extension to control zambda used
       {
         url: 'https://fhir.zapehr.com/r4/StructureDefinitions/strategy',
         valueString: 'dynamic',
       },
       {
-        // CW TODO: likely need a `nested` attribute to control re-querying
         url: 'https://fhir.zapehr.com/r4/StructureDefinitions/source',
         valueExpression: {
           language: 'application/x-fhir-query',

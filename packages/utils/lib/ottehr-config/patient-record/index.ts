@@ -248,11 +248,9 @@ const FormFields: PatientRecordFormFields = {
           type: 'reference',
           label: 'Insurance carrier',
           dataSource: {
-            // CW TODO: likely need a `nested` attribute to control re-querying
             answerSource: {
-              resourceType: 'Organization',
-              query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
-              prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+              zambdaId: 'get-all-insurance-payers',
+              prependIdentifier: true,
             },
           },
         },
@@ -383,11 +381,9 @@ const FormFields: PatientRecordFormFields = {
           type: 'reference',
           label: 'Insurance carrier',
           dataSource: {
-            // CW TODO: likely need a `nested` attribute to control re-querying
             answerSource: {
-              resourceType: 'Organization',
-              query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
-              prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+              zambdaId: 'get-all-insurance-payers',
+              prependIdentifier: true,
             },
           },
         },
@@ -887,11 +883,9 @@ const FormFields: PatientRecordFormFields = {
         type: 'reference',
         label: 'Insurance carrier',
         dataSource: {
-          // CW TODO: likely need a `nested` attribute to control re-querying
           answerSource: {
-            resourceType: 'Organization',
-            query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
-            prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+            zambdaId: 'get-all-insurance-payers',
+            prependIdentifier: true,
           },
         },
         triggers: [
@@ -942,6 +936,7 @@ const FormFields: PatientRecordFormFields = {
         label: 'Employer name',
         dataSource: {
           answerSource: {
+            zambdaId: 'get-answer-options',
             resourceType: 'Organization',
             query: `active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer`,
             prependedIdentifier: '1',

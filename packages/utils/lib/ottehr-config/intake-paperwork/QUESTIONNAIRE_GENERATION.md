@@ -318,7 +318,7 @@ textWhen: [
 
 ### Reference Fields (Dynamic Data Loading)
 
-Load options from an API:
+Load options from an Zambda. Valid options are `get-all-insurance-options`, `get-patient-insurance-options`, and `get-answer-options`. `get-answer-options` takes `resourceType` and `query` parameters such that you can perform any arbitrary FHIR query.
 
 ```typescript
 {
@@ -326,8 +326,8 @@ Load options from an API:
   label: 'Preferred location',
   type: 'reference',
   dataSource: {
-    // CW TODO: likely need a `nested` attribute to control re-querying
     answerSource: {
+      zambdaId: 'get-answer-options',
       resourceType: 'Location',
       query: 'status=active&_tag=urgent-care'
     }

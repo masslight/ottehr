@@ -1852,13 +1852,6 @@
       "src": "src/ehr/lab/in-house/get-patient-insurance-payers/index",
       "zip": ".dist/zips/get-patient-insurance-payers.zip"
     },
-    "GET_EHR_INSURANCE_PAYERS": {
-      "name": "get-ehr-insurance-payers",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/lab/in-house/get-ehr-insurance-payers/index",
-      "zip": ".dist/zips/get-ehr-insurance-payers.zip"
-    },
     "GET_INSURANCE_OVERRIDE_LIST": {
       "name": "get-insurance-override-list",
       "type": "http_auth",

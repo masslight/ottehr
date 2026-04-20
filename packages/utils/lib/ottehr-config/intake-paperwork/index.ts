@@ -512,15 +512,13 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           ],
           disabledDisplay: 'hidden',
         },
-        // CW TODO: this logic must change
         insuranceCarrier: {
           key: 'insurance-carrier',
           label: 'Insurance carrier',
           type: 'reference',
           dataSource: {
             answerSource: {
-              resourceType: 'Organization',
-              query: 'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|pay',
+              zambdaId: 'get-patient-insurance-payers',
             },
           },
           triggers: [
@@ -931,15 +929,13 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               text: 'Secondary insurance details',
               type: 'display',
             },
-            // CW TODO: this logic must change
             insuranceCarrier: {
               key: 'insurance-carrier-2',
               label: 'Insurance carrier',
               type: 'reference',
               dataSource: {
                 answerSource: {
-                  resourceType: 'Organization',
-                  query: 'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|pay',
+                  zambdaId: 'get-patient-insurance-payers',
                 },
               },
               triggers: [
@@ -1189,6 +1185,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           type: 'reference',
           dataSource: {
             answerSource: {
+              zambdaId: 'get-answer-options',
               resourceType: 'Organization',
               query:
                 'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer',

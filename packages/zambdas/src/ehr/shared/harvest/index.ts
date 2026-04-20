@@ -130,6 +130,7 @@ import {
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
+import { getInsuranceOverrideList, ListName } from '../../../patient/get-insurance-override-list';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { createPdfBytes } from '../../../shared';
 
@@ -1606,32 +1607,10 @@ export async function searchInsuranceInformation(
   oystehr: Oystehr,
   insuranceOrgRefs: string[]
 ): Promise<Organization[]> {
-  const orgIds = insuranceOrgRefs
-    .map((ref) => {
-      const [resType, id] = ref.split('/');
-      if (resType === 'Organization' && id) {
-        return id;
-      }
-      return '';
-    })
-    .filter((id) => !!id);
-  if (orgIds.length !== insuranceOrgRefs.length) {
-    console.log('searchInsuranceInformation: some Organization references were invalid:', insuranceOrgRefs);
-  }
-  if (orgIds.length === 0) {
+  if (insuranceOrgRefs.length === 0) {
     return [];
   }
-  // CW TODO: this needs to use oystehr payer lookup
-  const searchResults = await oystehr.fhir.search<Organization>({
-    resourceType: 'Organization',
-    params: [
-      {
-        name: '_id',
-        value: orgIds.join(','),
-      },
-    ],
-  });
-  return searchResults.unbundle();
+  return await Promise.all(insuranceOrgRefs.map((ref) => oystehr.rcm.getPayerByUrl({ url: ref })));
 }
 
 const getCoverageGroups = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[][] => {
@@ -3900,6 +3879,8 @@ export const getAccountAndCoverageResourcesForPatient = async (
   }
 
   const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
+
+  // Get payer info for coverages
   const insuranceRefUrls = coverageResources
     .flatMap((cov) =>
       cov.payor.map((ref) => (ref.reference?.startsWith('https://rcm-api.zapehr.com') ? ref.reference : undefined))
@@ -3908,6 +3889,18 @@ export const getAccountAndCoverageResourcesForPatient = async (
   const insuranceOrgs: Organization[] = await Promise.all(
     insuranceRefUrls.map(async (url) => await oystehr.rcm.getPayerByUrl({ url }))
   );
+  // Get EHR-facing payer notes
+  const ehrPayerList = await getInsuranceOverrideList(oystehr, ListName.EHR);
+  for (const org of insuranceOrgs) {
+    const override = ehrPayerList.entry?.find(
+      (override) => override.item.reference === oystehr.rcm.constructPayerUrl({ id: org.id! })
+    );
+    if (override) {
+      // CW TODO: i'm not sure if this puts the extension on the right resource
+      const extensions = [...(org.extension ?? []), ...(override.extension ?? [])];
+      org.extension = extensions;
+    }
+  }
 
   return getCoverageUpdateResourcesFromUnbundled({
     patient: patientResource,

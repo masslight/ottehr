@@ -63,8 +63,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
   const usesDynamicOptions = fetchOptionsInput !== undefined;
   const valueType = dynamicAnswerOptions?.answerSource !== undefined ? 'Reference' : 'String';
 
-  // CW TODO: add nested lookup logic and handling here
-  const { data } = useAnswerOptionsQuery(usesDynamicOptions, fetchOptionsInput);
+  const { data } = useAnswerOptionsQuery(name, usesDynamicOptions, fetchOptionsInput);
 
   const { getValues } = useFormContext();
 
@@ -103,7 +102,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
   const options = useMemo(() => {
     let baseOptions: QuestionnaireItemAnswerOption[] = [];
     if (usesDynamicOptions) {
-      baseOptions = (data ?? []) as QuestionnaireItemAnswerOption[];
+      baseOptions = data ?? [];
     } else {
       baseOptions = staticOptions;
     }

@@ -1,7 +1,16 @@
 import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
-import { createOystehrClient, getSecret, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, SecretsKeys } from 'utils';
+import {
+  createOystehrClient,
+  getSecret,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
+  SecretsKeys,
+} from 'utils';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 
 export enum ListName {
@@ -55,21 +64,34 @@ export async function getInsuranceOverrideList(
   oystehr: Oystehr,
   listName: string
 ): Promise<FhirResourceReturnValue<List>> {
-  console.group('getPatientInsuranceList');
+  console.group('get insurance override list');
   const lists = (
     await oystehr.fhir.search<List>({
       resourceType: 'List',
       params: [
         {
           name: 'identifier',
-          value: `...|${listName}`, // CW TODO
+          value: `${ottehrIdentifierSystem('insurance-override')}|${listName}`,
         },
       ],
     })
   ).unbundle();
   if (!lists.length) {
-    // CW TODO: actually, create it
-    throw new Error('could not find patient-facing payer list'); // CW TODO APIError
+    // Create if not found
+    console.group('create insurance override list');
+    const list = await oystehr.fhir.create<List>({
+      resourceType: 'List',
+      identifier: [
+        {
+          system: ottehrIdentifierSystem('insurance-override'),
+          value: listName,
+        },
+      ],
+      mode: 'working',
+      status: 'current',
+    });
+    console.groupEnd();
+    return list;
   }
   console.groupEnd();
   return lists[0] as FhirResourceReturnValue<List>;
@@ -86,10 +108,10 @@ function validateInput(input: ZambdaInput): Input {
 
   const { listName } = JSON.parse(body);
   if (!listName) {
-    throw new Error(''); // CW TODO
+    throw MISSING_REQUIRED_PARAMETERS(['listName']);
   }
   if (listName !== ListName.EHR && listName !== ListName.Patient) {
-    throw new Error(''); // CW TODO
+    throw INVALID_INPUT_ERROR('`listName` must be either `patient` or `ehr`');
   }
 
   return {

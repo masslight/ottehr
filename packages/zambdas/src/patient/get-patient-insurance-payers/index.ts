@@ -11,7 +11,9 @@ import {
   MISSING_REQUEST_SECRETS,
   SecretsKeys,
 } from 'utils';
+import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { getAllInsurancePayers } from '../get-all-insurance-payers';
 import { getInsuranceOverrideList, ListName } from '../get-insurance-override-list';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -60,7 +62,8 @@ const performEffect = async (oystehr: Oystehr): Promise<QuestionnaireItemAnswerO
 
   console.group('getPayers');
   if (!patientPayerList.entry || !patientPayerList.entry.length) {
-    return [];
+    // If no entries, return all options
+    return getAllInsurancePayers(oystehr);
   }
   const payers = await Promise.all(
     patientPayerList.entry.map(async (entry) => {
@@ -68,7 +71,7 @@ const performEffect = async (oystehr: Oystehr): Promise<QuestionnaireItemAnswerO
         return undefined;
       }
       const payer = await oystehr.rcm.getPayerByUrl({ url: entry.item.reference });
-      const nameOverride = entry.extension?.find((ext) => ext.url === ''); // CW TODO
+      const nameOverride = entry.extension?.find((ext) => ext.url === ottehrExtensionUrl('insurance-override-name'));
       if (nameOverride) {
         payer.name = nameOverride.valueString;
       }

@@ -10,6 +10,7 @@ import {
   PRECONDITION_FAILED,
   SecretsKeys,
 } from 'utils';
+import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { z } from 'zod';
 import { formatZodError, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import { getInsuranceOverrideList, ListName } from '../get-insurance-override-list';
@@ -76,12 +77,12 @@ async function addPayerToInsuranceOverrideList(oystehr: Oystehr, payerInfo: Paye
   const extensionValue: Extension | undefined =
     payerInfo.listName === ListName.EHR
       ? {
-          url: 'payer note url', // CW TODO
+          url: ottehrExtensionUrl('insurance-override-note'),
           valueString: payerInfo.payerNote,
         }
       : payerInfo.payerNameOverride
       ? {
-          url: 'payer name url', // CW TODO
+          url: ottehrExtensionUrl('insurance-override-name'),
           valueString: payerInfo.payerNameOverride,
         }
       : undefined;

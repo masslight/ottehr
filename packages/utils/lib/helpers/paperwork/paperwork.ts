@@ -263,6 +263,7 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
 
   let answerLoadingOptions: AnswerLoadingOptions | undefined;
 
+  // CW TODO: need an extension to control zambda used
   if (answerLoadingStrategy && (answerLoadingStrategy === 'prefetch' || answerLoadingStrategy === 'dynamic')) {
     const option: AnswerLoadingOptions = {
       strategy: answerLoadingStrategy,
@@ -273,7 +274,6 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
         const [resourceType, query] = expression.split('?');
         if (resourceType && query) {
           option.answerSource = {
-            // CW TODO: likely need nested querying
             resourceType: resourceType as FhirResource['resourceType'],
             query,
           };

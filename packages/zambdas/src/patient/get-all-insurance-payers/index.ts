@@ -8,10 +8,16 @@ import {
   getPayerId,
   getSecret,
   isApiError,
+  MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
   SecretsKeys,
 } from 'utils';
 import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+
+interface Input {
+  secrets: ZambdaInput['secrets'];
+  prependIdentifier?: boolean;
+}
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
@@ -19,15 +25,12 @@ let oystehrToken: string;
 export const index = wrapHandler(
   'get-all-insurance-payers',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { secrets } = input;
-    if (!secrets) {
-      throw MISSING_REQUEST_SECRETS;
-    }
+    const validatedInput = validateInput(input);
 
     console.group('getAuth0Token');
     if (!oystehrToken) {
       console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(validatedInput.secrets);
     } else {
       console.log('already have token');
     }
@@ -37,13 +40,16 @@ export const index = wrapHandler(
     console.group('createOystehrClient');
     const oystehr = createOystehrClient(
       oystehrToken,
-      getSecret(SecretsKeys.FHIR_API, secrets),
-      getSecret(SecretsKeys.PROJECT_API, secrets)
+      getSecret(SecretsKeys.FHIR_API, validatedInput.secrets),
+      getSecret(SecretsKeys.PROJECT_API, validatedInput.secrets)
     );
     console.groupEnd();
     console.debug('createOystehrClient success');
 
-    const answerOptions: QuestionnaireItemAnswerOption[] = await getAllInsurancePayers(oystehr);
+    const answerOptions: QuestionnaireItemAnswerOption[] = await getAllInsurancePayers(
+      oystehr,
+      validatedInput.prependIdentifier
+    );
 
     return {
       statusCode: 200,
@@ -52,7 +58,10 @@ export const index = wrapHandler(
   }
 );
 
-export async function getAllInsurancePayers(oystehr: Oystehr): Promise<QuestionnaireItemAnswerOption[]> {
+export async function getAllInsurancePayers(
+  oystehr: Oystehr,
+  prependIdentifier?: boolean
+): Promise<QuestionnaireItemAnswerOption[]> {
   console.group('listPayers');
   const payers = [];
   let hasMore = true;
@@ -69,7 +78,7 @@ export async function getAllInsurancePayers(oystehr: Oystehr): Promise<Questionn
   const mappedResults = payers
     .map((payer) => {
       try {
-        return formatPayerAsAnswerOption(oystehr, payer);
+        return formatPayerAsAnswerOption(oystehr, payer, prependIdentifier);
       } catch (e) {
         if (isApiError(e)) {
           error = e as APIError;
@@ -89,11 +98,17 @@ export async function getAllInsurancePayers(oystehr: Oystehr): Promise<Questionn
   });
 }
 
-const formatPayerAsAnswerOption = (oystehr: Oystehr, payer: Organization): QuestionnaireItemAnswerOption => {
+const formatPayerAsAnswerOption = (
+  oystehr: Oystehr,
+  payer: Organization,
+  prependIdentifier?: boolean
+): QuestionnaireItemAnswerOption => {
   let name = payer.alias?.[0] ?? payer.name;
   const payerId = getPayerId(payer);
-  if (payerId) {
-    name = `${payerId} - ${name}`;
+  if (prependIdentifier) {
+    if (payerId) {
+      name = `${payerId} - ${name}`;
+    }
   }
   if (name && payerId && typeof name === 'string' && typeof payerId === 'string') {
     return {
@@ -106,3 +121,20 @@ const formatPayerAsAnswerOption = (oystehr: Oystehr, payer: Organization): Quest
   }
   throw ANSWER_OPTION_FROM_RESOURCE_UNDEFINED('Organization');
 };
+
+function validateInput(input: ZambdaInput): Input {
+  const { body, secrets } = input;
+  if (!body) {
+    throw MISSING_REQUEST_BODY;
+  }
+  if (!secrets) {
+    throw MISSING_REQUEST_SECRETS;
+  }
+
+  const { prependIdentifier } = JSON.parse(body);
+
+  return {
+    secrets,
+    prependIdentifier: prependIdentifier === 'true',
+  };
+}

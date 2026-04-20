@@ -31,10 +31,13 @@ export interface GetVisitDetailsRequest {
 }
 
 export interface GetAnswerOptionsRequest {
-  // CW TODO: likely need a `nested` attribute to control re-querying
   answerSource?: AnswerOptionSource;
   valueSet?: string;
 }
+
+export type GetPatientInsuranceOptionsRequest = object;
+
+export type GetAllInsuranceOptionsRequest = object;
 
 export interface PrescribedMedication {
   resourceId?: string;
