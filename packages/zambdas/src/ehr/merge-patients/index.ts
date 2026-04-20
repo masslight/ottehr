@@ -10,6 +10,7 @@ import {
   DocumentReference,
   Encounter,
   FhirResource,
+  List,
   MedicationAdministration,
   Patient,
   QuestionnaireResponse,
@@ -32,14 +33,15 @@ import {
   PATIENT_RECORD_QUESTIONNAIRE,
   PRIVATE_EXTENSION_BASE_URL,
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
+  RoleType,
   Secrets,
   SecretsKeys,
-  userMe,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getStripeClient,
+  getUser,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -232,8 +234,13 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
 
 const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
   const { secrets, userToken } = input;
-  const user = await userMe(userToken, secrets);
+  const user = await getUser(userToken, secrets);
   if (!user) {
+    throw NOT_AUTHORIZED;
+  }
+  const userRoles = (user as any).roles as { name?: string }[] | undefined;
+  const isAdmin = userRoles?.some((role) => role.name === RoleType.Administrator) ?? false;
+  if (!isAdmin) {
     throw NOT_AUTHORIZED;
   }
   const providerProfileReference = user.profile;
@@ -520,6 +527,68 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     processedIds.add(`DocumentReference/${docRef.id}`);
     docRef.subject = { reference: newPatientRef };
     requests.push({ method: 'PUT', url: `/DocumentReference/${docRef.id}`, resource: docRef as FhirResource });
+  }
+
+  // Document folders (List with code 'patient-docs-folder') — move entries
+  // from old patient's folders into main patient's matching folders so
+  // transferred DocumentReferences appear in the correct folders on the UI.
+  const [oldPatientLists, mainPatientLists] = await Promise.all([
+    oystehr.fhir
+      .search<List>({
+        resourceType: 'List',
+        params: [
+          { name: 'subject', value: oldPatientRef },
+          { name: 'code', value: 'patient-docs-folder' },
+          { name: '_count', value: '100' },
+        ],
+      })
+      .then((r) => r.unbundle()),
+    oystehr.fhir
+      .search<List>({
+        resourceType: 'List',
+        params: [
+          { name: 'subject', value: newPatientRef },
+          { name: 'code', value: 'patient-docs-folder' },
+          { name: '_count', value: '100' },
+        ],
+      })
+      .then((r) => r.unbundle()),
+  ]);
+
+  const mainListsToPatch = new Map<string, List>();
+  for (const oldList of oldPatientLists) {
+    if (!oldList.id || processedIds.has(`List/${oldList.id}`)) continue;
+    const entries = (oldList.entry ?? []).filter((e) => e.item?.reference);
+    if (entries.length === 0) {
+      processedIds.add(`List/${oldList.id}`);
+      continue;
+    }
+
+    const mainList = mainPatientLists.find((l) => l.title && l.title === oldList.title);
+    if (mainList?.id) {
+      const working = mainListsToPatch.get(mainList.id) ?? { ...mainList, entry: [...(mainList.entry ?? [])] };
+      const existingRefs = new Set((working.entry ?? []).map((e) => e.item?.reference).filter(Boolean));
+      for (const entry of entries) {
+        if (!existingRefs.has(entry.item.reference)) {
+          working.entry = [...(working.entry ?? []), entry];
+          existingRefs.add(entry.item.reference);
+        }
+      }
+      mainListsToPatch.set(mainList.id, working);
+
+      processedIds.add(`List/${oldList.id}`);
+      oldList.entry = [];
+      requests.push({ method: 'PUT', url: `/List/${oldList.id}`, resource: oldList as FhirResource });
+    } else {
+      processedIds.add(`List/${oldList.id}`);
+      oldList.subject = { reference: newPatientRef };
+      requests.push({ method: 'PUT', url: `/List/${oldList.id}`, resource: oldList as FhirResource });
+    }
+  }
+
+  for (const [listId, list] of mainListsToPatch) {
+    processedIds.add(`List/${listId}`);
+    requests.push({ method: 'PUT', url: `/List/${listId}`, resource: list as FhirResource });
   }
 
   // RelatedPerson (non-user — guarantor, emergency contact, etc.)
