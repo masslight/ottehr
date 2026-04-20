@@ -67,8 +67,7 @@ export async function getAllInsurancePayers(
   let hasMore = true;
   let nextCursor: string | null = null;
   while (hasMore) {
-    // CW TODO: remove '' hack once sdk ships
-    const result: RcmListPayersResponse = await oystehr.rcm.listPayers({ cursor: nextCursor ?? '' });
+    const result: RcmListPayersResponse = await oystehr.rcm.listPayers({ cursor: nextCursor ?? undefined });
     payers.push(...result.data);
     nextCursor = result.metadata.nextCursor;
     hasMore = !!nextCursor;
