@@ -118,6 +118,14 @@ export function getAllExamFieldsMetadata(isInPersonAppointment?: boolean): (Exam
             bodySite: option.bodySite,
           });
         });
+      } else if (component.type === 'checkbox-with-modal') {
+        observations.push({
+          field: fieldName,
+          value: component.defaultValue || false,
+          label: component.label,
+          code: component.code,
+          bodySite: component.bodySite,
+        });
       }
     });
   };

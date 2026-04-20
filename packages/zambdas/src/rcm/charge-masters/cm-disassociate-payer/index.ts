@@ -7,7 +7,7 @@ let m2mToken: string;
 export const index = wrapHandler(
   'cm-disassociate-payer',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { chargeMasterId, organizationId, secrets } = validateRequestParameters(input);
+    const { chargeMasterId, organizationId, locationId, secrets } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
@@ -17,9 +17,15 @@ export const index = wrapHandler(
       id: chargeMasterId,
     });
 
-    const updatedUseContext = (existing.useContext || []).filter(
-      (uc) => uc.valueReference?.reference !== `Organization/${organizationId}`
-    );
+    const updatedUseContext = (existing.useContext || []).filter((uc) => {
+      if (organizationId && uc.valueReference?.reference === `Organization/${organizationId}`) {
+        return false;
+      }
+      if (locationId && uc.code?.code === 'venue' && uc.valueReference?.reference === `Location/${locationId}`) {
+        return false;
+      }
+      return true;
+    });
 
     const updated = await oystehr.fhir.update<ChargeItemDefinition>(
       {

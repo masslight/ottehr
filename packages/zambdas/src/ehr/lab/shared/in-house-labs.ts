@@ -1290,6 +1290,9 @@ function parseQuantityComponent(base: BaseComponent, obsDef: ObservationDefiniti
     );
 
   const precision = obsDef.quantitativeDetails?.decimalPrecision;
+
+  const nullOptionExt = obsDef.extension?.find((ext) => ext.url === IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM);
+
   return {
     ...base,
     dataType: 'Quantity',
@@ -1299,7 +1302,7 @@ function parseQuantityComponent(base: BaseComponent, obsDef: ObservationDefiniti
       ...(precision !== undefined ? { precision } : {}),
       unit,
     },
-    display: { type: 'Numeric', nullOption: false },
+    display: { type: 'Numeric', nullOption: nullOptionExt !== undefined },
   };
 }
 

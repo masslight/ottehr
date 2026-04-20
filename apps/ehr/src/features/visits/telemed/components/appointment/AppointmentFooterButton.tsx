@@ -35,7 +35,7 @@ import {
   unassignWaitingRoomTasksFromProvider,
 } from '../../utils/waitingRoomNotifications';
 
-const FooterButton = styled(LoadingButton)(({ theme }) => ({
+export const FooterButton = styled(LoadingButton)(({ theme }) => ({
   textTransform: 'none',
   fontSize: '15px',
   fontWeight: 500,

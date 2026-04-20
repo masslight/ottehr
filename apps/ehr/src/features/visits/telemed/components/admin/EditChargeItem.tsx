@@ -54,6 +54,7 @@ import {
   useUpdateFeeScheduleMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { CASE_RATE_CODE, ChargeMasterDesignation, RCM_TAG_SYSTEM } from 'utils';
+import LocationAssociations from './charge-items/LocationAssociations';
 import PayerAssociations from './charge-items/PayerAssociations';
 import ProcedureCodes from './charge-items/ProcedureCodes';
 import { ChargeItemMode } from './ChargeItemList';
@@ -353,6 +354,11 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                   {!(isChargeMaster && currentDesignation) && (
                     <Tab label="Payer Associations" value="payers" sx={{ textTransform: 'none', fontWeight: 500 }} />
                   )}
+                  <Tab
+                    label="Location Associations"
+                    value="locations"
+                    sx={{ textTransform: 'none', fontWeight: 500 }}
+                  />
                   {!(!isChargeMaster && isCaseRate) && (
                     <Tab label="Procedure Codes" value="procedures" sx={{ textTransform: 'none', fontWeight: 500 }} />
                   )}
@@ -785,6 +791,9 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                   <ProcedureCodes feeSchedule={feeSchedule} isFetching={isFetching} mode={mode} />
                 </TabPanel>
               )}
+              <TabPanel value="locations" sx={{ p: 0 }}>
+                <LocationAssociations feeSchedule={feeSchedule} isFetching={isFetching} mode={mode} />
+              </TabPanel>
             </TabContext>
           </Grid>
         </Grid>
