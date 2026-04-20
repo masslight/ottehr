@@ -358,13 +358,11 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
     reset(newValues);
   };
 
-  const onSave = async (values: FormValues): Promise<void> => {
+  const onSave = (values: FormValues): void => {
     if (!mainFormVals || !otherFormVals) return;
 
     const mainPid = mainPatientId;
 
-    // Build merged form values: for each questionnaire field, take the value
-    // from whichever patient was selected in the radio
     const mergedFormValues: Record<string, any> = {};
     for (const { linkId } of questionnaireFields) {
       const selectedPatientId = values[linkId] || mainPid;
@@ -374,9 +372,6 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
       }
     }
 
-    // Build a dirtyFields map: mark as dirty any field where a non-main
-    // patient's value was selected (i.e. field value differs from what main
-    // patient already has)
     const dirtyFields: Record<string, boolean> = {};
     for (const { linkId } of questionnaireFields) {
       const selectedPatientId = values[linkId] || mainPid;
@@ -385,21 +380,17 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
       }
     }
 
-    // Build the QuestionnaireResponse the same way PatientInformationPage does
     const qr = pruneEmptySections(
       structureQuestionnaireResponse(questionnaire, mergedFormValues, mainPid, dirtyFields)
     );
 
-    try {
-      await mergeMutation.mutateAsync({
-        mainPatientId: mainPid,
-        otherPatientId,
-        questionnaireResponse: qr,
-      });
-      close();
-    } catch {
-      // Error handled by the mutation hook (snackbar)
-    }
+    close();
+
+    mergeMutation.mutate({
+      mainPatientId: mainPid,
+      otherPatientId,
+      questionnaireResponse: qr,
+    });
   };
 
   // ── Render ──
@@ -544,22 +535,26 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
               <Stack direction="row" spacing={2} justifyContent="space-between">
                 <RoundedButton onClick={close}>Cancel</RoundedButton>
                 <ConfirmationDialog
-                  title="Merge Patients"
+                  title="Merge Patient"
                   description={
                     <Stack spacing={2}>
                       <Typography>
-                        Are you sure you want to merge? The selected values will be saved to the main patient record
-                        (PID: {mainPatientId}).
+                        Are you sure you want to merge patient records? Merged records will be deactivated.
                       </Typography>
                       <Stack>
-                        <Typography fontWeight={600}>Other patient record PID: {otherPatientId}</Typography>
+                        <Typography fontWeight={600}>Merged patient record PID:</Typography>
+                        <Typography sx={{ wordBreak: 'break-all' }}>{otherPatientId}</Typography>
+                      </Stack>
+                      <Stack>
+                        <Typography fontWeight={600}>Main patient record PID:</Typography>
+                        <Typography sx={{ wordBreak: 'break-all' }}>{mainPatientId}</Typography>
                       </Stack>
                     </Stack>
                   }
                   response={handleSubmit(onSave)}
                   actionButtons={{
-                    proceed: { text: 'Confirm Merge' },
-                    back: { text: 'Back' },
+                    proceed: { text: 'Confirm merge' },
+                    back: { text: 'Cancel' },
                     reverse: true,
                   }}
                 >

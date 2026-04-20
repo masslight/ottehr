@@ -32,14 +32,15 @@ import {
   PATIENT_RECORD_QUESTIONNAIRE,
   PRIVATE_EXTENSION_BASE_URL,
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
+  RoleType,
   Secrets,
   SecretsKeys,
-  userMe,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getStripeClient,
+  getUser,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -232,8 +233,13 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
 
 const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
   const { secrets, userToken } = input;
-  const user = await userMe(userToken, secrets);
+  const user = await getUser(userToken, secrets);
   if (!user) {
+    throw NOT_AUTHORIZED;
+  }
+  const userRoles = (user as any).roles as { name?: string }[] | undefined;
+  const isAdmin = userRoles?.some((role) => role.name === RoleType.Administrator) ?? false;
+  if (!isAdmin) {
     throw NOT_AUTHORIZED;
   }
   const providerProfileReference = user.profile;
