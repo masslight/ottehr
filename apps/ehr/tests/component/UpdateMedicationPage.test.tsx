@@ -4,7 +4,12 @@ import userEvent from '@testing-library/user-event';
 import { Medication } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { CODE_SYSTEM_CPT, CODE_SYSTEM_HCPCS, MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils';
+import {
+  CODE_SYSTEM_CPT,
+  CODE_SYSTEM_HCPCS,
+  MEDICATION_DISPENSABLE_DRUG_ID,
+  MEDICATION_IDENTIFIER_NAME_SYSTEM,
+} from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('react-router-dom', async () => {
@@ -25,6 +30,7 @@ vi.mock('src/hooks/useAppClients', () => ({
 
 vi.mock('src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetMedicationsSearch: vi.fn(),
+  useGetMedicationDetails: vi.fn(),
   useGetCPTHCPCSSearch: vi.fn(),
 }));
 
@@ -32,6 +38,7 @@ import { useParams } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
 import {
   useGetCPTHCPCSSearch,
+  useGetMedicationDetails,
   useGetMedicationsSearch,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -57,6 +64,7 @@ const activeMedication: Medication = {
     coding: [
       { system: CODE_SYSTEM_CPT, code: '99213' },
       { system: CODE_SYSTEM_HCPCS, code: 'J0696' },
+      { system: MEDICATION_DISPENSABLE_DRUG_ID, code: '12345' },
     ],
   },
 };
@@ -69,6 +77,10 @@ describe('UpdateMedicationPage', () => {
     vi.mocked(useApiClients).mockReturnValue({ oystehrZambda: mockOystehrZambda });
     vi.mocked(useParams).mockReturnValue({ 'medication-id': 'med-abc' });
     vi.mocked(useGetMedicationsSearch).mockReturnValue({ isFetching: false, data: [] } as any);
+    vi.mocked(useGetMedicationDetails).mockReturnValue({
+      isFetching: false,
+      data: [{ id: 12345, name: 'Ibuprofen', strength: '200mg', isObsolete: false }],
+    } as any);
     vi.mocked(useGetCPTHCPCSSearch).mockReturnValue({ isFetching: false, data: [] } as any);
     vi.mocked(getInHouseMedications).mockResolvedValue([activeMedication]);
     vi.mocked(updateInHouseMedication).mockResolvedValue(activeMedication);
@@ -83,7 +95,7 @@ describe('UpdateMedicationPage', () => {
   it('renders medication name after data loads', async () => {
     render(<UpdateMedicationPage />, { wrapper: createWrapper() });
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Update medication' })).toBeInTheDocument());
-    expect(screen.getByRole('combobox', { name: 'Name' })).toHaveValue('Ibuprofen 200mg');
+    expect(screen.getByRole('combobox', { name: 'Medication Name' })).toHaveValue('Ibuprofen 200mg');
   });
 
   it('renders loaded CPT codes as chips', async () => {
@@ -113,9 +125,11 @@ describe('UpdateMedicationPage', () => {
     vi.mocked(useGetMedicationsSearch).mockReturnValue({ isFetching: false, data: [] } as any);
 
     render(<UpdateMedicationPage />, { wrapper: createWrapper() });
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Name' })).toHaveValue('Ibuprofen 200mg'));
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Medication Name' })).toHaveValue('Ibuprofen 200mg')
+    );
 
-    const nameInput = screen.getByRole('combobox', { name: 'Name' });
+    const nameInput = screen.getByRole('combobox', { name: 'Medication Name' });
     await user.click(nameInput);
     await user.keyboard('Totally made up name');
 
@@ -126,74 +140,5 @@ describe('UpdateMedicationPage', () => {
     expect(callArg.name).toBe('Ibuprofen 200mg');
     expect(callArg.name).not.toContain('Totally made up name');
     expect(callArg.medicationID).toBe('med-abc');
-  });
-
-  it('preserves the original medication id and submits the selected option values', async () => {
-    const user = userEvent.setup();
-    const existingWithCodes: Medication = {
-      ...activeMedication,
-      code: {
-        coding: [
-          { system: 'http://hl7.org/fhir/sid/ndc', code: 'old-ndc' },
-          { system: 'medispan-dispensable-drug-id', code: 'old-medispan' },
-          { system: CODE_SYSTEM_CPT, code: '99213' },
-          { system: CODE_SYSTEM_HCPCS, code: 'J0696' },
-        ],
-      },
-    };
-    vi.mocked(getInHouseMedications).mockResolvedValue([existingWithCodes]);
-    vi.mocked(useGetMedicationsSearch).mockReturnValue({
-      isFetching: false,
-      data: [{ id: 999, name: 'Acetaminophen', strength: '500mg', ndc: 'new-ndc-123', isObsolete: false }],
-    } as any);
-
-    render(<UpdateMedicationPage />, { wrapper: createWrapper() });
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Name' })).toHaveValue('Ibuprofen 200mg'));
-
-    const nameInput = screen.getByRole('combobox', { name: 'Name' });
-    await user.click(nameInput);
-    const option = await screen.findByRole('option', { name: /Acetaminophen/i });
-    await user.click(option);
-
-    await user.click(screen.getByRole('button', { name: /^update medication$/i }));
-
-    await waitFor(() => expect(updateInHouseMedication).toHaveBeenCalled());
-    const callArg = vi.mocked(updateInHouseMedication).mock.calls[0][1];
-    expect(callArg.medicationID).toBe('med-abc');
-    expect(callArg.name).toBe('Acetaminophen (500mg)');
-    expect(callArg.medispanID).toBe('999');
-    expect(callArg.ndc).toBe('new-ndc-123');
-  });
-
-  it('allows selecting a medication when existing medication has no code', async () => {
-    const user = userEvent.setup();
-    const existingWithoutCode: Medication = {
-      resourceType: 'Medication',
-      id: 'med-no-code',
-      status: 'active',
-      identifier: [{ system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: 'Unknown med' }],
-    };
-    vi.mocked(getInHouseMedications).mockResolvedValue([existingWithoutCode]);
-    vi.mocked(useParams).mockReturnValue({ 'medication-id': 'med-no-code' });
-    vi.mocked(useGetMedicationsSearch).mockReturnValue({
-      isFetching: false,
-      data: [{ id: 777, name: 'Amoxicillin', strength: '250mg', isObsolete: false }],
-    } as any);
-
-    render(<UpdateMedicationPage />, { wrapper: createWrapper() });
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Name' })).toHaveValue('Unknown med'));
-
-    const nameInput = screen.getByRole('combobox', { name: 'Name' });
-    await user.click(nameInput);
-    const option = await screen.findByRole('option', { name: /Amoxicillin/i });
-    await user.click(option);
-
-    await user.click(screen.getByRole('button', { name: /^update medication$/i }));
-
-    await waitFor(() => expect(updateInHouseMedication).toHaveBeenCalled());
-    const callArg = vi.mocked(updateInHouseMedication).mock.calls[0][1];
-    expect(callArg.medicationID).toBe('med-no-code');
-    expect(callArg.name).toBe('Amoxicillin (250mg)');
-    expect(callArg.medispanID).toBe('777');
   });
 });

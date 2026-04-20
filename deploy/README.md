@@ -30,7 +30,7 @@ The following config files must be in place before running Terraform:
 
 - `deploy/backend.config` with the S3 backend configuration values for your project
 - `deploy/${env}.tfvars` for the environment you wish to deploy to
-- `packages/zambda/.env/${env}.json` for the environment you wish to deploy to
+- `config/.env/${env}.json` for the environment you wish to deploy to
 
 ## Scripts
 

@@ -66,6 +66,7 @@ interface HighlightedTextProps {
   searchCache?: Map<string, SearchResult[]>;
   emptySearchItems?: Set<string>;
   addedItems?: Set<string>;
+  pendingItems?: Set<string>;
 }
 
 const HighlightedText = memo(function HighlightedText({
@@ -77,6 +78,7 @@ const HighlightedText = memo(function HighlightedText({
   searchCache,
   emptySearchItems,
   addedItems,
+  pendingItems,
 }: HighlightedTextProps): React.ReactElement {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -186,16 +188,17 @@ const HighlightedText = memo(function HighlightedText({
       fragments.push(text.slice(cursor, range.start));
     }
     const isAdded = addedItems?.has(range.item.display);
+    const isPending = pendingItems?.has(range.item.display);
     fragments.push(
       <Box
         component="span"
         key={range.start}
-        onClick={isClickable ? (e) => handleHighlightClick(e, range.item) : undefined}
+        onClick={isClickable && !isPending ? (e) => handleHighlightClick(e, range.item) : undefined}
         sx={{
           backgroundColor: isAdded ? 'rgba(76, 175, 80, 0.15)' : 'rgba(25, 118, 210, 0.15)',
           borderRadius: '3px',
           padding: '1px 2px',
-          ...(isClickable
+          ...(isClickable && !isPending
             ? {
                 cursor: 'pointer',
                 '&:hover': {
@@ -203,10 +206,15 @@ const HighlightedText = memo(function HighlightedText({
                 },
               }
             : {}),
+          ...(isPending ? { cursor: 'wait', opacity: 0.7 } : {}),
         }}
       >
         {text.slice(range.start, range.end)}
-        {isAdded && <CheckCircle sx={{ fontSize: 12, color: 'success.main', ml: 0.25, verticalAlign: 'middle' }} />}
+        {isPending ? (
+          <CircularProgress size={12} sx={{ ml: 0.25, verticalAlign: 'middle' }} />
+        ) : (
+          isAdded && <CheckCircle sx={{ fontSize: 12, color: 'success.main', ml: 0.25, verticalAlign: 'middle' }} />
+        )}
       </Box>
     );
     cursor = range.end;
@@ -420,6 +428,8 @@ export default function AiSuggestion({
 
   // Track which highlighted items have been added to the chart
   const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
+  // Track items whose save is in flight, so we can show a spinner
+  const [pendingItems, setPendingItems] = useState<Set<string>>(new Set());
 
   // Stable callback for adding a result to the chart — passed to HighlightedText
   const handleAddResult = useCallback(
@@ -429,9 +439,8 @@ export default function AiSuggestion({
       dosageUnconfirmed: boolean,
       itemDisplay?: string
     ): Promise<void> => {
-      // Optimistic: show green check immediately
       if (itemDisplay) {
-        setAddedItems((prev) => new Set(prev).add(itemDisplay));
+        setPendingItems((prev) => new Set(prev).add(itemDisplay));
       }
       try {
         if (fieldType === 'medications') {
@@ -465,11 +474,14 @@ export default function AiSuggestion({
           const addFn = fieldType === 'surgicalHistory' ? addSurgicalHistory : addHospitalization;
           await addFn({ code: result.code, display: result.name } as CPTCodeDTO & HospitalizationDTO);
         }
+        if (itemDisplay) {
+          setAddedItems((prev) => new Set(prev).add(itemDisplay));
+        }
       } catch (err) {
         console.error('Failed to add item:', err);
-        // Rollback on failure
+      } finally {
         if (itemDisplay) {
-          setAddedItems((prev) => {
+          setPendingItems((prev) => {
             const next = new Set(prev);
             next.delete(itemDisplay);
             return next;
@@ -559,6 +571,7 @@ export default function AiSuggestion({
                     searchCache={searchCache}
                     emptySearchItems={emptySearchItems}
                     addedItems={addedItems}
+                    pendingItems={pendingItems}
                   />
                 </Typography>
               </Box>

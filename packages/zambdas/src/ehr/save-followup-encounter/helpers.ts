@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, Coding, Encounter, EncounterParticipant, Location, Reference } from 'fhir/r4b';
 import {
-  FOLLOWUP_SUBTYPE_SYSTEM,
   FOLLOWUP_SYSTEMS,
   FollowupReason,
   formatFhirEncounterToPatientFollowupDetails,
@@ -29,7 +28,7 @@ export async function createEncounterResource(
       start: encounterDetails.start,
       end: encounterDetails?.end,
     },
-    type: createEncounterType(encounterDetails.followupType, encounterDetails.followupSubtype || 'annotation'),
+    type: createEncounterType(encounterDetails.followupType),
   };
 
   if (encounterDetails.location) {
@@ -141,7 +140,7 @@ export async function updateEncounterResource(
     operations.push({
       op: 'replace',
       path: '/type',
-      value: createEncounterType(encounterDetails.followupType, encounterDetails.followupSubtype || 'annotation'),
+      value: createEncounterType(encounterDetails.followupType),
     });
   }
 
@@ -323,7 +322,7 @@ export async function updateEncounterResource(
   }
 }
 
-const createEncounterType = (type: string, subtype: string = 'annotation'): Encounter['type'] => {
+const createEncounterType = (type: string): Encounter['type'] => {
   return [
     {
       coding: [
@@ -331,11 +330,6 @@ const createEncounterType = (type: string, subtype: string = 'annotation'): Enco
           system: FOLLOWUP_SYSTEMS.type.url,
           code: FOLLOWUP_SYSTEMS.type.code,
           display: type,
-        },
-        {
-          system: FOLLOWUP_SUBTYPE_SYSTEM,
-          code: subtype,
-          display: subtype,
         },
       ],
       text: type,

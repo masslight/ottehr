@@ -92,7 +92,7 @@ export const VitalsIconTooltip: React.FC<VitalsIconTooltipProps> = ({ appointmen
     >
       <Box sx={{ display: 'flex', width: '100%' }}>
         <Link
-          to={`/in-person/${appointment.parentAppointmentId || appointment.id}/${ROUTER_PATH.VITALS}`}
+          to={`/in-person/${appointment.id}/${ROUTER_PATH.VITALS}`}
           style={{ textDecoration: 'none' }}
           key={'vitals-link-' + appointment.id}
         >
