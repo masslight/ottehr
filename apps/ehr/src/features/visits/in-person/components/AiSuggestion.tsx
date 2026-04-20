@@ -122,9 +122,9 @@ const HighlightedText = memo(function HighlightedText({
   }, []);
 
   const handleSelectResult = useCallback(
-    (result: SearchResult) => {
+    async (result: SearchResult) => {
       if (fieldType) {
-        void onAddResult(fieldType, result, dosageUnconfirmed, activeItem || undefined);
+        await onAddResult(fieldType, result, dosageUnconfirmed, activeItem || undefined);
       }
       handleClose();
     },
@@ -188,7 +188,7 @@ const HighlightedText = memo(function HighlightedText({
       fragments.push(text.slice(cursor, range.start));
     }
     const isAdded = addedItems?.has(range.item.display);
-    const isPending = !isAdded && pendingItems?.has(range.item.display);
+    const isPending = pendingItems?.has(range.item.display);
     fragments.push(
       <Box
         component="span"
@@ -210,8 +210,11 @@ const HighlightedText = memo(function HighlightedText({
         }}
       >
         {text.slice(range.start, range.end)}
-        {isPending && <CircularProgress size={12} sx={{ ml: 0.25, verticalAlign: 'middle' }} />}
-        {isAdded && <CheckCircle sx={{ fontSize: 12, color: 'success.main', ml: 0.25, verticalAlign: 'middle' }} />}
+        {isPending ? (
+          <CircularProgress size={12} sx={{ ml: 0.25, verticalAlign: 'middle' }} />
+        ) : (
+          isAdded && <CheckCircle sx={{ fontSize: 12, color: 'success.main', ml: 0.25, verticalAlign: 'middle' }} />
+        )}
       </Box>
     );
     cursor = range.end;
