@@ -6,6 +6,7 @@ import {
   type FormFieldsInputItem,
   type FormFieldsItem,
   type FormFieldsLogicalItem,
+  type FormFieldsValueType,
   type FormFieldTrigger,
   FormSectionArraySchema,
   FormSectionSimpleSchema,
@@ -890,7 +891,7 @@ export const createQuestionnaireFromConfig = (config: QuestionnaireConfigType): 
  * - answerDisplayFilters: one filter per category+mode combo, specifying which options to show
  */
 interface ReasonForVisitFieldConfig {
-  reasonForVisit: FormFieldsItem;
+  reasonForVisit: FormFieldsValueType;
   isHidden: boolean;
 }
 export const buildReasonForVisitFromConfig = (
