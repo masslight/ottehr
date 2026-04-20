@@ -110,7 +110,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const status = getInPersonVisitStatus(appointment, videoEncounter);
 
-  if (['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(status)) {
+  if (['pending', 'arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(status)) {
     const appointments = await getAppointmentsForLocation(oystehr, locationId);
 
     const estimatedTime = calculateEstimatedTime(appointments);
