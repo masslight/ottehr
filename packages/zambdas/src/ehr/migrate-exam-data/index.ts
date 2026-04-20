@@ -61,6 +61,15 @@ function validateInput(input: ZambdaInput): MigrateExamDataInput & { secrets: Za
   const parsedBody = typeof body === 'string' ? JSON.parse(body) : body;
   const encounterId = parsedBody?.encounterId;
   if (!encounterId) throw new Error('encounterId is required');
-  const normalExternalGenitalExamSex = parsedBody?.normalExternalGenitalExamSex as 'male' | 'female' | undefined;
+
+  let normalExternalGenitalExamSex: 'male' | 'female' | undefined;
+  const normalExternalGenitalExamSexParsed = parsedBody?.normalExternalGenitalExamSex;
+
+  if (normalExternalGenitalExamSexParsed === 'male' || normalExternalGenitalExamSexParsed === 'female') {
+    normalExternalGenitalExamSex = normalExternalGenitalExamSexParsed;
+  } else if (normalExternalGenitalExamSexParsed !== undefined) {
+    throw new Error('normalExternalGenitalExamSex must be either "male" or "female"');
+  }
+
   return { encounterId, normalExternalGenitalExamSex, secrets };
 }
