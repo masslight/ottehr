@@ -8,6 +8,7 @@ import { TermsAndConditions } from 'src/components/TermsAndConditions';
 import {
   APIError,
   APPOINTMENT_CANT_BE_IN_PAST_ERROR,
+  getReasonForVisitOptionsForServiceCategory,
   mapBookingQRItemToPatientInfo,
   normalizeFormDataToQRItems,
   PatientInfo,
@@ -71,7 +72,24 @@ const Review = (): JSX.Element => {
     try {
       const parsedData = JSON.parse(storedData) as Record<string, Record<string, unknown>>;
       const storedItems = Object.values(parsedData).flatMap((pageData) => normalizeFormDataToQRItems(pageData));
-      return mapBookingQRItemToPatientInfo(storedItems);
+      const info = mapBookingQRItemToPatientInfo(storedItems);
+
+      // When reason-for-visit is hidden (single option per category+mode),
+      // the field isn't in the form, so we fill it in from config.
+      if (!info.reasonForVisit) {
+        const serviceCategoryCode = storedItems.find((i) => i.linkId === 'appointment-service-category')?.answer?.[0]
+          ?.valueString;
+        const serviceModeValue = storedItems.find((i) => i.linkId === 'appointment-service-mode')?.answer?.[0]
+          ?.valueString;
+        if (serviceCategoryCode) {
+          const options = getReasonForVisitOptionsForServiceCategory(serviceCategoryCode, serviceModeValue);
+          if (options.length === 1) {
+            info.reasonForVisit = options[0].value;
+          }
+        }
+      }
+
+      return info;
     } catch (error) {
       console.error('Error parsing stored patient information:', error);
     }
