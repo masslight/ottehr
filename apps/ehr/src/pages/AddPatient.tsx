@@ -176,60 +176,22 @@ export default function AddPatient(): JSX.Element {
       return;
     }
 
-    // first name, last name, and phone are empty strings if empty
-    if (patientInfo.firstName != null && patientInfo.firstName.length === 0) {
-      setErrors({ firstName: true });
+    const validations: Array<{ invalid: boolean; field: keyof AddVisitErrorState }> = [
+      // first name, last name, and phone are empty strings when untouched
+      { field: 'firstName', invalid: patientInfo.firstName != null && patientInfo.firstName.length === 0 },
+      { field: 'lastName', invalid: patientInfo.lastName != null && patientInfo.lastName.length === 0 },
+      { field: 'phone', invalid: patientInfo.phoneNumber != null && patientInfo.phoneNumber.length !== 10 },
+      { field: 'dateOfBirth', invalid: !patientInfo.dateOfBirth && !birthDate },
+      { field: 'sexAtBirth', invalid: !patientInfo.sex },
+      { field: 'visitType', invalid: !visitType },
+      { field: 'serviceCategory', invalid: !serviceCategory },
+      { field: 'location', invalid: !!visitType && !selectedLocation },
+      { field: 'reasonForVisit', invalid: shouldShowReasonForVisitFields && !reasonForVisit },
+    ];
+    const fieldErrors = Object.fromEntries(validations.map((v) => [v.field, v.invalid]));
+    setErrors({ ...errors, ...fieldErrors });
+    if (validations.some((v) => v.invalid)) {
       return;
-    } else {
-      setErrors({ ...errors, firstName: false });
-    }
-    if (patientInfo.lastName != null && patientInfo.lastName.length === 0) {
-      setErrors({ lastName: true });
-      return;
-    } else {
-      setErrors({ ...errors, lastName: false });
-    }
-    if (patientInfo.phoneNumber != null && patientInfo.phoneNumber.length !== 10) {
-      setErrors({ phone: true });
-      return;
-    } else {
-      setErrors({ ...errors, phone: false });
-    }
-    if (!patientInfo.dateOfBirth && !birthDate) {
-      setErrors({ dateOfBirth: true });
-      return;
-    } else {
-      setErrors({ ...errors, dateOfBirth: false });
-    }
-    if (!patientInfo.sex) {
-      setErrors({ sexAtBirth: true });
-      return;
-    } else {
-      setErrors({ ...errors, sexAtBirth: false });
-    }
-    if (!visitType) {
-      setErrors({ visitType: true });
-      return;
-    } else {
-      setErrors({ ...errors, visitType: false });
-    }
-    if (!serviceCategory) {
-      setErrors({ serviceCategory: true });
-      return;
-    } else {
-      setErrors({ ...errors, serviceCategory: false });
-    }
-    if (!selectedLocation) {
-      setErrors({ location: true });
-      return;
-    } else {
-      setErrors({ ...errors, location: false });
-    }
-    if (shouldShowReasonForVisitFields && !reasonForVisit) {
-      setErrors({ reasonForVisit: true });
-      return;
-    } else {
-      setErrors({ ...errors, reasonForVisit: false });
     }
 
     if (
