@@ -192,7 +192,7 @@ export default function AddPatient(): JSX.Element {
       { field: 'reasonForVisit', invalid: shouldShowReasonForVisitFields && !reasonForVisit },
     ];
     const fieldErrors = Object.fromEntries(validations.map((v) => [v.field, v.invalid]));
-    setErrors({ ...errors, ...fieldErrors });
+    setErrors((prev) => ({ ...prev, ...fieldErrors }));
     if (validations.some((v) => v.invalid)) {
       return;
     }
