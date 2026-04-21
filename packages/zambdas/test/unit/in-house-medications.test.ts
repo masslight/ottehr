@@ -6,6 +6,7 @@ import {
   CODE_SYSTEM_NDC,
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
+  MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from 'utils';
@@ -126,6 +127,7 @@ describe('create-in-house-medication - performEffect', () => {
       'Ibuprofen 200mg',
       '12345-678-90',
       'DRUG123',
+      'DRUG456',
       [{ code: '99213', display: 'Office visit' }],
       [{ code: 'J0696', display: 'Ceftriaxone injection' }]
     );
@@ -144,6 +146,7 @@ describe('create-in-house-medication - performEffect', () => {
     const codings = callArg.code?.coding ?? [];
     expect(codings).toContainEqual({ system: CODE_SYSTEM_NDC, code: '12345-678-90' });
     expect(codings).toContainEqual({ system: MEDICATION_DISPENSABLE_DRUG_ID, code: 'DRUG123' });
+    expect(codings).toContainEqual({ system: MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS, code: 'DRUG456' });
     expect(codings).toContainEqual({ system: CODE_SYSTEM_CPT, code: '99213', display: 'Office visit' });
     expect(codings).toContainEqual({ system: CODE_SYSTEM_HCPCS, code: 'J0696', display: 'Ceftriaxone injection' });
     expect(result.id).toBe('new-med-id');
@@ -171,7 +174,7 @@ describe('create-in-house-medication - performEffect', () => {
 
   it('creates medication with multiple CPT codes', async () => {
     const oystehr = makeMockOystehr();
-    await createPerformEffect(oystehr, 'Drug', undefined, 'DRUG123', [
+    await createPerformEffect(oystehr, 'Drug', undefined, 'DRUG123', undefined, [
       { code: '99213', display: 'Office visit, est' },
       { code: '99214', display: 'Office visit, est' },
       { code: '99215', display: 'Office visit, est' },
@@ -290,5 +293,102 @@ describe('update-in-house-medication - performEffect', () => {
     const oystehr = { fhir: { get: mockGet } } as unknown as Oystehr;
 
     await expect(updatePerformEffect(oystehr, { medicationID: 'nonexistent' })).rejects.toThrow('nonexistent');
+  });
+
+  it('adds /code when the existing medication has no code field', async () => {
+    const medicationWithoutCode: Medication = {
+      resourceType: 'Medication',
+      id: 'med-no-code',
+      status: 'active',
+      identifier: [
+        { system: MEDICATION_TYPE_SYSTEM, value: INVENTORY_MEDICATION_TYPE_CODE },
+        { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: 'Dummy Med' },
+      ],
+      // no code field
+    };
+    const oystehr = makeMockOystehr(medicationWithoutCode);
+
+    await updatePerformEffect(oystehr, {
+      medicationID: 'med-no-code',
+      ndc: 'new-ndc',
+      medispanID: 'new-medispan',
+      cptCodes: [],
+      hcpcsCodes: [],
+    });
+
+    expect(oystehr.fhir.patch).toHaveBeenCalledOnce();
+    const { operations } = vi.mocked(oystehr.fhir.patch).mock.calls[0][0] as any;
+    // exactly one /code-related op, using `add` (not `replace` or append)
+    const codeOps = operations.filter((op: any) => op.path === '/code' || op.path.startsWith('/code/'));
+    expect(codeOps).toHaveLength(1);
+    expect(codeOps[0]).toEqual({
+      op: 'add',
+      path: '/code',
+      value: {
+        coding: [
+          { system: CODE_SYSTEM_NDC, code: 'new-ndc' },
+          { system: MEDICATION_DISPENSABLE_DRUG_ID, code: 'new-medispan' },
+        ],
+      },
+    });
+    // verify no legacy append-style op snuck in
+    expect(operations.some((op: any) => op.path === '/code/coding/-')).toBe(false);
+  });
+
+  it('narrows to /code/coding (preserving code.text) when clearing the last CPT leaves an empty coding', async () => {
+    const medicationWithText: Medication = {
+      resourceType: 'Medication',
+      id: 'med-cpt-only',
+      status: 'active',
+      identifier: [
+        { system: MEDICATION_TYPE_SYSTEM, value: INVENTORY_MEDICATION_TYPE_CODE },
+        { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: 'CPT-only med' },
+      ],
+      code: {
+        text: 'Human-readable description',
+        coding: [{ system: CODE_SYSTEM_CPT, code: '99213' }],
+      },
+    };
+    const oystehr = makeMockOystehr(medicationWithText);
+
+    await updatePerformEffect(oystehr, { medicationID: 'med-cpt-only', cptCodes: [] });
+
+    expect(oystehr.fhir.patch).toHaveBeenCalledOnce();
+    const { operations } = vi.mocked(oystehr.fhir.patch).mock.calls[0][0] as any;
+    // must not wipe /code wholesale — that would take code.text with it
+    expect(operations).not.toContainEqual(expect.objectContaining({ op: 'remove', path: '/code' }));
+    expect(operations).toContainEqual({ op: 'remove', path: '/code/coding' });
+  });
+
+  it('adds /code/coding when the existing medication has code but no coding array', async () => {
+    const medicationWithEmptyCode: Medication = {
+      resourceType: 'Medication',
+      id: 'med-empty-code',
+      status: 'active',
+      identifier: [
+        { system: MEDICATION_TYPE_SYSTEM, value: INVENTORY_MEDICATION_TYPE_CODE },
+        { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: 'Dummy Med' },
+      ],
+      code: {}, // code present but no coding array
+    };
+    const oystehr = makeMockOystehr(medicationWithEmptyCode);
+
+    await updatePerformEffect(oystehr, {
+      medicationID: 'med-empty-code',
+      ndc: 'new-ndc',
+      medispanID: 'new-medispan',
+    });
+
+    const { operations } = vi.mocked(oystehr.fhir.patch).mock.calls[0][0] as any;
+    const codeOps = operations.filter((op: any) => op.path === '/code' || op.path.startsWith('/code/'));
+    expect(codeOps).toHaveLength(1);
+    expect(codeOps[0]).toEqual({
+      op: 'add',
+      path: '/code/coding',
+      value: [
+        { system: CODE_SYSTEM_NDC, code: 'new-ndc' },
+        { system: MEDICATION_DISPENSABLE_DRUG_ID, code: 'new-medispan' },
+      ],
+    });
   });
 });

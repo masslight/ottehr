@@ -334,8 +334,6 @@ export const PaperworkPage: FC = () => {
   } = usePaperworkContext();
 
   const questionnaireResponseId = questionnaireResponse?.id;
-  // this is just for avoiding duplicates in the mixpanel tracking
-  const [lastLoggedPageName, setLastLoggedPageName] = useState<string>();
 
   const patientFullName = useGetFullName(paperworkPatient);
 
@@ -381,12 +379,6 @@ export const PaperworkPage: FC = () => {
     },
     [allItems, currentIndex, paperworkPages, questionnaireResponse]
   );
-
-  useEffect(() => {
-    if (pageName !== lastLoggedPageName) {
-      setLastLoggedPageName(pageName);
-    }
-  }, [lastLoggedPageName, pageName]);
 
   const [loading, setLoading] = useState<boolean>(false);
   // when the page changes, update continue label

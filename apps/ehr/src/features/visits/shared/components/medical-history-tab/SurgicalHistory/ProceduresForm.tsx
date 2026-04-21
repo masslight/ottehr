@@ -6,11 +6,13 @@ import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { surgicalHistoryOptions } from 'src/constants/surgical-history-options';
 import { CPTCodeDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
+import { SURGICAL_HISTORY_OPTIONS } from './surgicalHistoryOptions';
+
+const surgicalHistoryOptions = SURGICAL_HISTORY_OPTIONS;
 
 export const ProceduresForm: FC = () => {
   const methods = useForm<{

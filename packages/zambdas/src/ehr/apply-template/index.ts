@@ -5,8 +5,15 @@ import Oystehr, {
   FhirResource,
 } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
 import { ClinicalImpression, Communication, Condition, Encounter, List, Observation, Procedure } from 'fhir/r4b';
-import { ApplyTemplateZambdaInput, chartDataTagSystem, chunkThings, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils';
+import {
+  ApplyTemplateZambdaInput,
+  chartDataTagSystem,
+  chunkThings,
+  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
+  ICD_10_CODE_SYSTEM,
+} from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
@@ -183,7 +190,8 @@ const makeDeleteRequests = async (
           tag.system === chartDataTagSystem('medical-decision') ||
           tag.system === chartDataTagSystem('patient-instruction') ||
           // E&M code is replaced (one per visit); CPT codes are additive (like ICD diagnoses)
-          tag.system === chartDataTagSystem('em-code')
+          tag.system === chartDataTagSystem('em-code') ||
+          tag.system === chartDataTagSystem('mechanism-of-injury')
         // tag.system === chartDataTagSystem('chief-complaint')
       )
   );
@@ -231,13 +239,20 @@ const makeCreateRequests = (
     (resource) => resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('chief-complaint'))
   );
 
+  const existingMoiCondition = encounterBundle.find(
+    (resource) => resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('mechanism-of-injury'))
+  );
+
   const existingRosCondition = encounterBundle.find(
     (resource) => resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('ros'))
   );
 
-  const templateEncounterDiagnoses = templateList.contained?.find((r) => r.resourceType === 'Encounter')?.diagnosis;
+  const templateEncounter = templateList.contained?.find((r) => r.resourceType === 'Encounter');
+  const templateEncounterDiagnoses = templateEncounter?.diagnosis;
+  const templateEncounterExtensions = templateEncounter?.extension ?? [];
   let templateHpiCondition: Condition | undefined;
   let templateRosCondition: Condition | undefined;
+  let moiHandled = false;
 
   for (const resource of templateList.entry) {
     // grab contained resource from resource.id in entry
@@ -258,6 +273,14 @@ const makeCreateRequests = (
 
     if (containedResource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('ros')) && existingRosCondition) {
       templateRosCondition = containedResource as Condition;
+      continue;
+    }
+
+    // Skip duplicate MOI Conditions from the template (only the first one is used)
+    if (
+      containedResource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('mechanism-of-injury')) &&
+      moiHandled
+    ) {
       continue;
     }
 
@@ -286,7 +309,7 @@ const makeCreateRequests = (
     // For Condition resources that are ICD-10 codes, we need to update the Encounter.diagnosis references
     if (
       resourceToCreate.resourceType === 'Condition' &&
-      resourceToCreate.code?.coding?.find((c) => c.system === 'http://hl7.org/fhir/sid/icd-10')
+      resourceToCreate.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM)
     ) {
       const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
         return d.condition.reference?.split('/')[1] === containedResource.id;
@@ -297,6 +320,21 @@ const makeCreateRequests = (
       });
     }
 
+    // For MOI, append existing text to the template text (existing MOI Conditions are deleted separately)
+    if (
+      resourceToCreate.resourceType === 'Condition' &&
+      resourceToCreate.meta?.tag?.some((t) => t.system === chartDataTagSystem('mechanism-of-injury'))
+    ) {
+      moiHandled = true;
+      if (existingMoiCondition) {
+        const existingText = (existingMoiCondition as Condition).note?.[0]?.text;
+        const templateText = (containedResource as Condition).note?.[0]?.text;
+        if (existingText) {
+          resourceToCreate.note = [{ text: `${existingText}\n\n${templateText || ''}` }];
+        }
+      }
+    }
+
     createResourcesRequests.push({
       method: 'POST',
       url: `${resourceToCreate.resourceType}`,
@@ -305,20 +343,36 @@ const makeCreateRequests = (
     });
   }
 
+  const encounterPatchOperations: Operation[] = [];
+
   // Patch the encounter.diagnoses with our new diagnosis references.
   if (encounterDiagnoses.length > 0) {
-    const encounterDiagnosisPatch: BatchInputJSONPatchRequest = {
+    encounterPatchOperations.push({
+      op: encounter.diagnosis ? 'replace' : 'add',
+      path: '/diagnosis',
+      value: encounterDiagnoses,
+    });
+  }
+
+  if (templateEncounterExtensions.length > 0) {
+    const newExtensions = (encounter.extension ?? []).filter(
+      (extension) =>
+        templateEncounterExtensions.find((templateExtension) => templateExtension.url === extension.url) == null
+    );
+    newExtensions.push(...templateEncounterExtensions);
+    encounterPatchOperations.push({
+      op: encounter.extension ? 'replace' : 'add',
+      path: '/extension',
+      value: newExtensions,
+    });
+  }
+
+  if (encounterPatchOperations.length > 0) {
+    createResourcesRequests.push({
       method: 'PATCH',
       url: `Encounter/${encounter.id}`,
-      operations: [
-        {
-          op: encounter.diagnosis ? 'replace' : 'add',
-          path: '/diagnosis',
-          value: encounterDiagnoses,
-        },
-      ],
-    };
-    createResourcesRequests.push(encounterDiagnosisPatch);
+      operations: encounterPatchOperations,
+    });
   }
 
   // Patch HPI Condition note if it already exists

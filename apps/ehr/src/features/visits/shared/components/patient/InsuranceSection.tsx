@@ -1,6 +1,7 @@
 import { Button } from '@mui/material';
 import { Coverage, Patient } from 'fhir/r4b';
 import { FC } from 'react';
+import { Section } from 'src/components/layout';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { checkCoverageMatchesDetails, CoverageCheckWithDetails, CoverageWithPriority } from 'utils';
 import { InsuranceContainer } from './InsuranceContainer';
@@ -18,9 +19,22 @@ export const InsuranceSection: FC<{
   accountData: any;
   removeCoverage: any;
   onRemoveCoverage: (coverageId: string) => void;
-  onAddInsurance: () => void;
-}> = ({ coverages, patient, accountData, removeCoverage, onRemoveCoverage, onAddInsurance }) => (
-  <>
+  isAddingInsurance: boolean;
+  onStartAddInsurance: () => void;
+  onCancelAddInsurance: () => void;
+  newInsuranceOrdinal: number;
+}> = ({
+  coverages,
+  patient,
+  accountData,
+  removeCoverage,
+  onRemoveCoverage,
+  isAddingInsurance,
+  onStartAddInsurance,
+  onCancelAddInsurance,
+  newInsuranceOrdinal,
+}) => (
+  <Section title="Insurance information">
     {coverages.map((coverage) => (
       <InsuranceContainer
         key={coverage.resource.id}
@@ -30,18 +44,28 @@ export const InsuranceSection: FC<{
           coverage.resource,
           accountData?.coverageChecks ?? []
         )}
-        removeInProgress={removeCoverage.isLoading}
+        removeInProgress={removeCoverage.isPending}
         handleRemoveClick={
           coverage.resource.id !== undefined ? () => onRemoveCoverage(coverage.resource.id!) : undefined
         }
+        renderWithoutSection
       />
     ))}
-    {coverages.length < 2 && (
+    {isAddingInsurance && (
+      <InsuranceContainer
+        patientId={patient.id ?? ''}
+        ordinal={newInsuranceOrdinal}
+        isNew
+        onCancelAdd={onCancelAddInsurance}
+        renderWithoutSection
+      />
+    )}
+    {coverages.length < 2 && !isAddingInsurance && (
       <Button
         data-testid={dataTestIds.patientInformationPage.addInsuranceButton}
         variant="outlined"
         color="primary"
-        onClick={onAddInsurance}
+        onClick={onStartAddInsurance}
         sx={{
           borderRadius: 25,
           textTransform: 'none',
@@ -52,5 +76,5 @@ export const InsuranceSection: FC<{
         + Add Insurance
       </Button>
     )}
-  </>
+  </Section>
 );

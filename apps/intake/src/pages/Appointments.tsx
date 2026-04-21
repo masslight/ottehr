@@ -17,7 +17,6 @@ import { ottehrApi } from '../api';
 import { LinkedButtonWithIcon, PageContainer } from '../components';
 import { useIntakeCommonStore } from '../features/common';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
-import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors, palette } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
@@ -29,18 +28,6 @@ const Appointments = (): JSX.Element => {
 
   const { lastUsedLocationPath } = useIntakeCommonStore();
   const { isAuthenticated, isLoading } = useAuth0();
-
-  // Track event in Mixpanel only for authenticated page views since
-  // user will immediately be redirected to login if unauthenticated
-  // there is no specific appointment/location/visit type associated with this page so
-  // we send undefined for visitType, bookingCity, bookingState
-  useTrackMixpanelEvents({
-    eventName: 'Appointments',
-    visitType: undefined,
-    loading: isAuthenticated && !isLoading ? false : true,
-    bookingCity: undefined,
-    bookingState: undefined,
-  });
 
   useEffect(() => {
     async function getAppointments(zambdaClient: ZambdaClient): Promise<void> {

@@ -192,8 +192,17 @@ export const extractUrlsFromAppointmentData = (resourceBundle: FhirResource[], d
     );
 };
 
+const findMainAppointment = (appointments: Appointment[], encounters: Encounter[]): Appointment | undefined => {
+  return (
+    appointments.find((apt) =>
+      encounters.some((enc) => !enc.partOf && enc.appointment?.some((ref) => ref.reference === `Appointment/${apt.id}`))
+    ) ?? appointments[0]
+  );
+};
+
 export const getResources = (
-  resourceBundle: FhirResource[] | null
+  resourceBundle: FhirResource[] | null,
+  context?: { appointmentId?: string; encounterId?: string }
 ): Partial<{
   appointment: Appointment;
   patient: Patient;
@@ -208,16 +217,32 @@ export const getResources = (
     resourceBundle.filter((resource: FhirResource) => resource.resourceType === resourceType) as T[] | undefined;
 
   const locations = findResources<Location>('Location');
+  const appointments = findResources<Appointment>('Appointment') ?? [];
+  const encounters = findResources<Encounter>('Encounter') ?? [];
+  const questionnaireResponses = findResources<QuestionnaireResponse>('QuestionnaireResponse') ?? [];
   const virtualLocation = locations?.find(isLocationVirtual);
   const physicalLocation = locations?.find((location) => !isLocationVirtual(location));
+  const appointment = context?.appointmentId
+    ? appointments.find((resource) => resource.id === context.appointmentId)
+    : findMainAppointment(appointments, encounters);
+  const encounter = context?.encounterId
+    ? encounters.find((resource) => resource.id === context.encounterId)
+    : encounters.find(
+        (resource) =>
+          !resource.partOf &&
+          resource.appointment?.some((appointmentRef) => appointmentRef.reference === `Appointment/${appointment?.id}`)
+      ) ?? encounters.find((resource) => !resource.partOf);
+  const questionnaireResponse =
+    questionnaireResponses.find((resource) => resource.encounter?.reference === `Encounter/${encounter?.id}`) ??
+    questionnaireResponses[0];
 
   return {
-    appointment: findResources<Appointment>('Appointment')?.[0],
+    appointment,
     patient: findResources<Patient>('Patient')?.[0],
     location: physicalLocation,
     locationVirtual: virtualLocation,
-    encounter: findResources<Encounter>('Encounter')?.find((encounter) => !encounter.partOf),
-    questionnaireResponse: findResources<QuestionnaireResponse>('QuestionnaireResponse')?.[0],
+    encounter,
+    questionnaireResponse,
   };
 };
 

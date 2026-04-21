@@ -17,6 +17,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { ControlledCheckboxSelect } from './ControlledCheckboxSelect';
 import { ControlledExamCheckbox } from './ControlledExamCheckbox';
 import { ControlledExamCheckboxDropdown } from './ControlledExamCheckboxDropdown';
+import { ExamCheckboxWithModal } from './ExamCheckboxWithModal';
 import { ExamCommentField } from './ExamCommentField';
 import { ExamForm } from './ExamForm';
 
@@ -152,7 +153,7 @@ const ExamTableCellComponent: FC<{
     if (element.type === 'checkbox') {
       return (
         <Box key={key} data-testid={`exam-component-checkbox-${key}`}>
-          <ControlledExamCheckbox name={key} label={element.label} abnormal={abnormal} />
+          <ControlledExamCheckbox name={key} label={element.label} abnormal={abnormal} legacy={element.legacy} />
         </Box>
       );
     } else if (element.type === 'text') {
@@ -204,6 +205,12 @@ const ExamTableCellComponent: FC<{
       return (
         <Box key={key} data-testid={`exam-component-form-${key}`}>
           <ExamForm form={element} abnormal={abnormal} />
+        </Box>
+      );
+    } else if (element.type === 'checkbox-with-modal') {
+      return (
+        <Box key={key} data-testid={`exam-component-checkbox-with-modal-${key}`}>
+          <ExamCheckboxWithModal name={key} config={element} abnormal={abnormal} />
         </Box>
       );
     }

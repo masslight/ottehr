@@ -50,7 +50,6 @@ export const VISIT_ICONS_WIDTH_MIN = '160px';
 export const VITALS_ICON_WIDTH_MIN = '90px';
 export const NOTES_WIDTH_MIN = '220px';
 export const CHAT_WIDTH_MIN = '80px';
-export const GO_TO_ONE_BUTTON_WIDTH_MIN = '160px';
 export const GO_TO_MANY_BUTTONS_WIDTH_MIN = '400px';
 export const ACTION_WIDTH_MIN = '130px';
 
@@ -96,11 +95,6 @@ export const PatientGuarantorFields = [
   FormFields.patientSummary.items.birthDate.key,
   FormFields.patientSummary.items.birthSex.key,
   FormFields.patientContactInformation.items.phone.key,
-];
-
-export const InsurancePriorityFields = [
-  FormFields.insurance.items[0].insurancePriority.key,
-  FormFields.insurance.items[1].insurancePriority.key,
 ];
 
 // Generate additional questions from configuration

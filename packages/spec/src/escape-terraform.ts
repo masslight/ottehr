@@ -46,7 +46,9 @@ export function escapeTerraformTemplateSyntax(
     // Check if this is a Terraform function call (e.g., replace(...), join(...), etc.)
     const isFunctionCall = afterBrace.match(/^[a-zA-Z_][a-zA-Z0-9_]*\s*\(/) !== null;
 
-    if ((isValidReference || isFunctionCall) && dollars.length === 1) {
+    const isTernary = afterBrace.match(/^.+ \? .+ : .+/) !== null;
+
+    if ((isValidReference || isFunctionCall || isTernary) && dollars.length === 1) {
       // Single $ with valid prefix - preserve as-is
       return match;
     }

@@ -20,10 +20,12 @@ export type BackendFeatureFlags = 'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHE
 /**
  * Check if a feature flag is enabled.
  * The backend and frontend feature flags have a single source of truth - zambda env files.
- * Returns true only if the value is exactly 'true', false otherwise.
+ * FeatureFlags accepts both the string "true" and the boolean true
  */
 export const isFeatureFlagEnabled = (flagKey: BackendFeatureFlags, secrets: Secrets | null): boolean => {
-  return getOptionalSecret(flagKey, secrets) === 'true';
+  const positiveOptions = ['true', true];
+  const flagValue = getOptionalSecret(flagKey, secrets) as string | boolean;
+  return positiveOptions.includes(flagValue);
 };
 
 export enum SecretsKeys {
@@ -39,11 +41,8 @@ export enum SecretsKeys {
   SENDGRID_SEND_EMAIL_API_KEY = 'SENDGRID_SEND_EMAIL_API_KEY',
   SENDGRID_ERROR_REPORT_TEMPLATE_ID = 'SENDGRID_ERROR_REPORT_TEMPLATE_ID',
   ORGANIZATION_ID = 'ORGANIZATION_ID',
-  NLM_API_KEY = 'NLM_API_KEY',
-  SENDGRID_EMAIL_BCC = 'SENDGRID_EMAIL_BCC',
   IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR = 'IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR',
   INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID = 'INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID',
-  SENTRY_INTAKE_API_AUTH_TOKEN = 'SENTRY_INTAKE_API_AUTH_TOKEN',
   PROJECT_ID = 'PROJECT_ID',
   SENTRY_AUTH_TOKEN = 'SENTRY_AUTH_TOKEN',
   SENTRY_ORG = 'SENTRY_ORG',

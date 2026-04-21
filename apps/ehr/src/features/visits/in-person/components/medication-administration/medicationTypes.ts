@@ -29,8 +29,8 @@ export const reasonListValues: Record<ReasonListCodes, string> = {
 
 export const statusTransitions: Record<MedicationOrderStatusesType, MedicationOrderStatusesType[]> = {
   pending: ['administered-partly', 'administered-not', 'administered', 'cancelled'],
-  'administered-partly': [],
-  'administered-not': [],
-  administered: [],
+  'administered-partly': ['administered', 'administered-not', 'cancelled'],
+  'administered-not': ['administered', 'administered-partly', 'cancelled'],
+  administered: ['administered-partly', 'administered-not', 'cancelled'],
   cancelled: [],
 };

@@ -75,6 +75,7 @@ export const ApplyTemplate: React.FC = () => {
     id: ADD_NEW_SENTINEL,
     value: ADD_NEW_SENTINEL,
     label: isAdmin ? ADD_OR_UPDATE_LABEL : 'Add Template Requires Admin Role',
+    isCurrentVersion: true,
   };
   const allOptions: TemplateOption[] = [addNewOption, ...templates];
 
@@ -89,6 +90,14 @@ export const ApplyTemplate: React.FC = () => {
       if (newValue.value === ADD_NEW_SENTINEL) {
         if (!isAdmin) return;
         setCreateDialogOpen(true);
+        return;
+      }
+      if (!newValue.isCurrentVersion) {
+        enqueueSnackbar(
+          'This template is out of date and cannot be applied. A user with admin permissions needs to update it in the Admin section.',
+          { variant: 'warning' }
+        );
+        setSelectedTemplate(null);
         return;
       }
       setPendingTemplate(newValue.value);
@@ -290,7 +299,7 @@ export const ApplyTemplate: React.FC = () => {
             <br />
             <strong>Overwritten:</strong> Exam, MDM, Patient Instructions, E&amp;M Code
             <br />
-            <strong>Appended:</strong> HPI, ROS, ICD-10 Diagnoses, CPT Codes
+            <strong>Appended:</strong> HPI, MOI, ROS, ICD-10 Diagnoses, CPT Codes
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>

@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { CandidApiClient } from 'candidhealth';
 import { randomUUID } from 'crypto';
 import { DocumentReference, Encounter, List, Task } from 'fhir/r4b';
 import Handlebars from 'handlebars';
@@ -8,12 +9,11 @@ import path from 'path';
 import pdfmakeModule from 'pdfmake';
 import {
   BUCKET_NAMES,
+  createCandidApiClient,
   createFilesDocumentReferences,
-  getExtension,
   OTTEHR_MODULE,
   Secrets,
   STATEMENT_CODE,
-  USER_TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import {
   assertDefined,
@@ -48,17 +48,20 @@ const RUBIK_ITALIC_FONT_PATH = path.resolve(process.cwd(), 'assets', 'fonts', 'r
 interface GenerateStatementInputValidated {
   task: Task;
   encounterId: string;
-  userTimezone: string;
   secrets: Secrets;
 }
 
 let oystehrToken: string;
 let m2mToken: string;
+let candidApiClient: CandidApiClient | undefined;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { task, encounterId, userTimezone, secrets } = validateInput(input);
+  const { task, encounterId, secrets } = validateInput(input);
   const oystehr = await createOystehr(secrets);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  if (!candidApiClient) {
+    candidApiClient = createCandidApiClient(secrets);
+  }
 
   const encounterReference = `Encounter/${encounterId}`;
   const encounter = await oystehr.fhir.get<Encounter>({
@@ -70,9 +73,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const statementDetails = await getStatementDetails({
     encounterId,
     statementType: 'standard',
-    userTimezone,
     secrets,
     oystehr,
+    candidApiClient,
   });
 
   const pdfTemplateContext = {
@@ -205,7 +208,6 @@ function validateInput(input: ZambdaInput): GenerateStatementInputValidated {
       id: taskId,
     },
     encounterId: validateString(task.encounter?.reference?.split('/')[1], 'encounterId'),
-    userTimezone: getExtension(task, USER_TIMEZONE_EXTENSION_URL)?.valueString ?? 'America/New_York',
     secrets: assertDefined(input.secrets, 'input.secrets'),
   };
 }

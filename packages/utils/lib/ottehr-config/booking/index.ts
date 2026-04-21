@@ -4,6 +4,7 @@ import {
   HomepageOptions,
   type QuestionnaireBase,
   type QuestionnaireConfigType,
+  type ServiceCategoryConfig,
 } from 'config-types';
 import { Coding, Questionnaire, Slot } from 'fhir/r4b';
 import z from 'zod';
@@ -12,10 +13,13 @@ import {
   createProxyConfigObject,
   mergeAndFreezeConfigObjects,
 } from '../../config-helpers/helpers';
+import {
+  buildReasonForVisitFromConfig,
+  createQuestionnaireFromConfig,
+} from '../../config-helpers/shared-questionnaire';
 import { SERVICE_CATEGORY_SYSTEM } from '../../fhir';
 import { CanonicalUrl } from '../../types';
 import { BRANDING_CONFIG } from '../branding';
-import { createQuestionnaireFromConfig } from '../shared-questionnaire';
 import { VALUE_SETS } from '../value-sets';
 
 // --- Data inlined from defaults.ts ---
@@ -45,216 +49,215 @@ const PatientDoesntExistTriggerEnableOnly: FormFieldTrigger = {
   answerBoolean: false,
 };
 
-const FormFields: Record<string, FormFieldSection> = {
-  patientInfo: {
-    linkId: 'patient-information-page',
-    title: 'About the patient',
-    logicalItems: {
-      shouldDisplaySsnField: {
-        key: 'should-display-ssn-field',
-        type: 'boolean',
-        initialValue: false,
-      },
-      ssnFieldRequired: {
-        key: 'ssn-field-required',
-        type: 'boolean',
-      },
-      existingPatientId: {
-        key: 'existing-patient-id',
-        type: 'string',
-      },
-      appointmentServiceCategory: {
-        key: 'appointment-service-category',
-        type: 'string',
-      },
-      appointmentServiceMode: {
-        key: 'appointment-service-mode',
-        type: 'string',
-      },
+export const SERVICE_CATEGORIES_AVAILABLE: ServiceCategoryConfig[] = [
+  {
+    category: { display: 'Urgent Care', code: 'urgent-care', system: SERVICE_CATEGORY_SYSTEM },
+    serviceModes: ['in-person', 'virtual'],
+    visitTypes: ['prebook', 'walk-in'],
+    reasonsForVisit: {
+      default: [
+        { label: 'Cough and/or congestion', value: 'Cough and/or congestion' },
+        { label: 'Throat pain', value: 'Throat pain' },
+        { label: 'Eye concern', value: 'Eye concern' },
+        { label: 'Fever', value: 'Fever' },
+        { label: 'Ear pain', value: 'Ear pain' },
+        { label: 'Vomiting and/or diarrhea', value: 'Vomiting and/or diarrhea' },
+        { label: 'Abdominal (belly) pain', value: 'Abdominal (belly) pain' },
+        { label: 'Rash or skin issue', value: 'Rash or skin issue' },
+        { label: 'Urinary problem', value: 'Urinary problem' },
+        { label: 'Breathing problem', value: 'Breathing problem' },
+        { label: 'Injury to arm', value: 'Injury to arm' },
+        { label: 'Injury to leg', value: 'Injury to leg' },
+        { label: 'Injury to head', value: 'Injury to head' },
+        { label: 'Injury (Other)', value: 'Injury (Other)' },
+        { label: 'Cut to arm or leg', value: 'Cut to arm or leg' },
+        { label: 'Cut to face or head', value: 'Cut to face or head' },
+        { label: 'Removal of sutures/stitches/staples', value: 'Removal of sutures/stitches/staples' },
+        { label: 'Choked or swallowed something', value: 'Choked or swallowed something' },
+        { label: 'Allergic reaction to medication or food', value: 'Allergic reaction to medication or food' },
+        { label: 'Auto accident', value: 'Auto accident' },
+        { label: 'Other', value: 'Other' },
+      ],
     },
-    items: {
-      firstName: {
-        key: 'patient-first-name',
-        label: 'First name (legal)',
-        type: 'string',
-        disabledDisplay: 'hidden',
-        triggers: [PatientDoesntExistTriggerEnableAndRequire],
-      },
-      middleName: {
-        key: 'patient-middle-name',
-        label: 'Middle name (legal)',
-        type: 'string',
-        disabledDisplay: 'hidden',
-        triggers: [PatientDoesntExistTriggerEnableOnly],
-      },
-      lastName: {
-        key: 'patient-last-name',
-        label: 'Last name (legal)',
-        type: 'string',
-        disabledDisplay: 'hidden',
-        triggers: [PatientDoesntExistTriggerEnableAndRequire],
-      },
-      preferredName: {
-        key: 'patient-preferred-name',
-        label: 'Chosen or preferred name (optional)',
-        type: 'string',
-      },
-      dateOfBirth: {
-        key: 'patient-birthdate',
-        label: 'Date of birth',
-        type: 'date',
-        dataType: 'DOB',
-        triggers: [PatientDoesntExistTriggerEnableAndRequire],
-      },
-      birthSex: {
-        key: 'patient-birth-sex',
-        label: 'Birth sex',
-        type: 'choice',
-        options: VALUE_SETS.birthSexOptions,
-      },
-      weight: {
-        key: 'patient-weight',
-        label: 'Weight (lbs)',
-        type: 'decimal',
-        triggers: [
-          {
-            targetQuestionLinkId: 'appointment-service-mode',
-            effect: ['enable'],
-            operator: '=',
-            answerString: 'virtual',
-          },
-        ],
-        disabledDisplay: 'hidden',
-      },
-      ssn: {
-        key: 'patient-ssn',
-        label: 'SSN',
-        type: 'string',
-        dataType: 'SSN',
-        disabledDisplay: 'hidden',
-        triggers: [
-          {
-            targetQuestionLinkId: 'should-display-ssn-field',
-            effect: ['enable'],
-            operator: '=',
-            answerBoolean: true,
-          },
-          {
-            targetQuestionLinkId: 'ssn-field-required',
-            effect: ['require'],
-            operator: '=',
-            answerBoolean: true,
-          },
-        ],
-      },
-      email: {
-        key: 'patient-email',
-        label: 'Email',
-        type: 'string',
-        dataType: 'Email',
-      },
-      returnPatientCheck: {
-        key: 'return-patient-check',
-        label: `Have you been to ${BRANDING_CONFIG.projectName} in the past 3 years?`,
-        type: 'choice',
-        disabledDisplay: 'hidden',
-        options: VALUE_SETS.yesNoOptions,
-        triggers: [PatientDoesntExistTriggerEnableAndRequire],
-      },
-      reasonForVisit: {
-        key: 'reason-for-visit',
-        label: 'Reason for visit',
-        type: 'choice',
-        options: VALUE_SETS.reasonForVisitOptions,
-        triggers: [
-          {
-            targetQuestionLinkId: 'appointment-service-category',
-            effect: ['enable', 'require'],
-            operator: '=',
-            answerString: 'urgent-care',
-          },
-          {
-            targetQuestionLinkId: 'appointment-service-category',
-            effect: ['enable', 'require'],
-            operator: 'exists',
-            answerBoolean: false,
-          },
-        ],
-        disabledDisplay: 'hidden',
-        enableBehavior: 'any',
-      },
-      reasonForVisitOccMed: {
-        key: 'reason-for-visit-om',
-        label: 'Reason for visit',
-        type: 'choice',
-        options: VALUE_SETS.reasonForVisitOptionsOccMed,
-        triggers: [
-          {
-            targetQuestionLinkId: 'appointment-service-category',
-            effect: ['enable', 'require'],
-            operator: '=',
-            answerString: 'occupational-medicine',
-          },
-        ],
-        disabledDisplay: 'hidden',
-      },
-      reasonForVisitWorkersComp: {
-        key: 'reason-for-visit-wc',
-        label: 'Reason for visit',
-        type: 'choice',
-        options: VALUE_SETS.reasonForVisitOptionsWorkersComp,
-        triggers: [
-          {
-            targetQuestionLinkId: 'appointment-service-category',
-            effect: ['enable', 'require'],
-            operator: '=',
-            answerString: 'workers-comp',
-          },
-        ],
-        disabledDisplay: 'hidden',
-      },
-      ...(VALUE_SETS.reasonForVisitOptionsPreOp
-        ? {
-            reasonForVisitPreOp: {
-              key: 'reason-for-visit-po',
-              label: 'Reason for visit',
-              type: 'choice',
-              options: VALUE_SETS.reasonForVisitOptionsPreOp,
-              triggers: [
-                {
-                  targetQuestionLinkId: 'appointment-service-category',
-                  effect: ['enable', 'require'],
-                  operator: '=',
-                  answerString: 'pre-op',
-                },
-              ],
-              disabledDisplay: 'hidden',
-            },
-          }
-        : {}),
-      tellUsMore: {
-        key: 'tell-us-more',
-        label: 'Tell us more',
-        type: 'string',
-        triggers: [
-          {
-            targetQuestionLinkId: 'reason-for-visit',
-            effect: ['require'],
-            operator: '=',
-            answerString: 'Other',
-          },
-        ],
-        enableBehavior: 'any',
-      },
-      authorizedNonLegalGuardians: {
-        key: 'authorized-non-legal-guardian',
-        label: 'Who, besides the parent or legal guardian, is allowed to bring in the patient?',
-        type: 'string',
-      },
-    },
-    hiddenFields: [],
-    requiredFields: ['patient-birth-sex', 'patient-email'],
   },
+  {
+    category: { display: 'Occupational Medicine', code: 'occupational-medicine', system: SERVICE_CATEGORY_SYSTEM },
+    serviceModes: ['in-person', 'virtual'],
+    visitTypes: ['prebook', 'walk-in'],
+    reasonsForVisit: {
+      default: [
+        { label: 'Injury', value: 'Injury' },
+        { label: 'Testing', value: 'Testing' },
+        { label: 'Physical', value: 'Physical' },
+      ],
+    },
+  },
+  {
+    category: { display: 'Workers Comp', code: 'workers-comp', system: SERVICE_CATEGORY_SYSTEM },
+    serviceModes: ['in-person', 'virtual'],
+    visitTypes: ['prebook', 'walk-in'],
+    reasonsForVisit: {
+      default: [
+        { label: 'New injury', value: 'New injury' },
+        { label: 'Follow-up', value: 'Follow-up' },
+      ],
+    },
+  },
+];
+
+const getFormFields = (
+  serviceCategories: ServiceCategoryConfig[] = SERVICE_CATEGORIES_AVAILABLE
+): Record<string, FormFieldSection> => {
+  const hiddenFields: string[] = [];
+  const requiredFields: string[] = ['patient-birth-sex', 'patient-email'];
+  const { reasonForVisit, isHidden } = buildReasonForVisitFromConfig(serviceCategories);
+  if (isHidden) {
+    hiddenFields.push(reasonForVisit.key);
+  } else {
+    requiredFields.push(reasonForVisit.key);
+  }
+  return {
+    patientInfo: {
+      linkId: 'patient-information-page',
+      title: 'About the patient',
+      logicalItems: {
+        shouldDisplaySsnField: {
+          key: 'should-display-ssn-field',
+          type: 'boolean',
+          initialValue: false,
+        },
+        ssnFieldRequired: {
+          key: 'ssn-field-required',
+          type: 'boolean',
+        },
+        existingPatientId: {
+          key: 'existing-patient-id',
+          type: 'string',
+        },
+        appointmentServiceCategory: {
+          key: 'appointment-service-category',
+          type: 'string',
+        },
+        appointmentServiceMode: {
+          key: 'appointment-service-mode',
+          type: 'string',
+        },
+      },
+      items: {
+        firstName: {
+          key: 'patient-first-name',
+          label: 'First name (legal)',
+          type: 'string',
+          disabledDisplay: 'hidden',
+          triggers: [PatientDoesntExistTriggerEnableAndRequire],
+        },
+        middleName: {
+          key: 'patient-middle-name',
+          label: 'Middle name (legal)',
+          type: 'string',
+          disabledDisplay: 'hidden',
+          triggers: [PatientDoesntExistTriggerEnableOnly],
+        },
+        lastName: {
+          key: 'patient-last-name',
+          label: 'Last name (legal)',
+          type: 'string',
+          disabledDisplay: 'hidden',
+          triggers: [PatientDoesntExistTriggerEnableAndRequire],
+        },
+        preferredName: {
+          key: 'patient-preferred-name',
+          label: 'Chosen or preferred name (optional)',
+          type: 'string',
+        },
+        dateOfBirth: {
+          key: 'patient-birthdate',
+          label: 'Date of birth',
+          type: 'date',
+          dataType: 'DOB',
+          triggers: [PatientDoesntExistTriggerEnableAndRequire],
+        },
+        birthSex: {
+          key: 'patient-birth-sex',
+          label: 'Birth sex',
+          type: 'choice',
+          options: VALUE_SETS.birthSexOptions,
+        },
+        weight: {
+          key: 'patient-weight',
+          label: 'Weight (lbs)',
+          type: 'decimal',
+          triggers: [
+            {
+              targetQuestionLinkId: 'appointment-service-mode',
+              effect: ['enable'],
+              operator: '=',
+              answerString: 'virtual',
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        ssn: {
+          key: 'patient-ssn',
+          label: 'SSN',
+          type: 'string',
+          dataType: 'SSN',
+          disabledDisplay: 'hidden',
+          triggers: [
+            {
+              targetQuestionLinkId: 'should-display-ssn-field',
+              effect: ['enable'],
+              operator: '=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'ssn-field-required',
+              effect: ['require'],
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+        },
+        email: {
+          key: 'patient-email',
+          label: 'Email',
+          type: 'string',
+          dataType: 'Email',
+        },
+        returnPatientCheck: {
+          key: 'return-patient-check',
+          label: `Have you been to ${BRANDING_CONFIG.projectName} in the past 3 years?`,
+          type: 'choice',
+          disabledDisplay: 'hidden',
+          options: VALUE_SETS.yesNoOptions,
+          triggers: [PatientDoesntExistTriggerEnableAndRequire],
+        },
+        // Single RFV field with display filters, auto-generated from service category config
+        reasonForVisit,
+        tellUsMore: {
+          key: 'tell-us-more',
+          label: 'Tell us more',
+          type: 'string',
+          triggers: [
+            {
+              targetQuestionLinkId: 'reason-for-visit',
+              effect: ['require'],
+              operator: '=',
+              answerString: 'Other',
+            },
+          ],
+          enableBehavior: 'any',
+        },
+        authorizedNonLegalGuardians: {
+          key: 'authorized-non-legal-guardian',
+          label: 'Who, besides the parent or legal guardian, is allowed to bring in the patient?',
+          type: 'string',
+        },
+      },
+      hiddenFields,
+      requiredFields,
+    },
+  };
 };
 
 const hiddenFormSections: string[] = [];
@@ -268,21 +271,11 @@ const questionnaireBaseDefaults: QuestionnaireBase = {
   status: 'active',
 };
 
-const FORM_DEFAULTS = {
+const getFormDefaults = (serviceCategories?: ServiceCategoryConfig[]): QuestionnaireConfigType => ({
   questionnaireBase: questionnaireBaseDefaults,
   hiddenFormSections,
-  FormFields,
-};
-
-export const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
-  { display: 'Urgent Care', code: 'urgent-care', system: SERVICE_CATEGORY_SYSTEM },
-  {
-    display: 'Occupational Medicine',
-    code: 'occupational-medicine',
-    system: SERVICE_CATEGORY_SYSTEM,
-  },
-  { display: 'Workers Comp', code: 'workers-comp', system: SERVICE_CATEGORY_SYSTEM },
-];
+  FormFields: getFormFields(serviceCategories),
+});
 
 export const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
   { key: 'bookingOn', value: 'visit-followup-group' },
@@ -298,10 +291,6 @@ enum VisitType {
 }
 
 const BOOKING_DEFAULTS_DATA = {
-  serviceCategoriesEnabled: {
-    serviceModes: ['in-person', 'virtual'],
-    visitType: ['prebook', 'walk-in'],
-  },
   homepageOptions: [
     { id: HomepageOptions.StartInPersonVisit, label: 'In-Person Check-In' },
     { id: HomepageOptions.ScheduleInPersonVisit, label: 'Schedule In-Person Visit' },
@@ -337,10 +326,8 @@ const BOOKING_DEFAULTS_DATA = {
 
 // --- End inlined data ---
 
-const formConfig = FORM_DEFAULTS;
-
 const BOOKING_QUESTIONNAIRE = (): Questionnaire =>
-  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(formConfig)));
+  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(getFormDefaults())));
 
 export const selectBookingQuestionnaire: (_slot?: Slot) => {
   url: string;
@@ -357,13 +344,9 @@ export const selectBookingQuestionnaire: (_slot?: Slot) => {
 };
 
 export interface BookingConfig {
-  serviceCategoriesEnabled: {
-    serviceModes: string[];
-    visitType: string[];
-  };
   homepageOptions: BookingOption[];
   ehrBookingOptions: BookingOption[];
-  serviceCategories: StrongCoding[];
+  serviceCategories: ServiceCategoryConfig[];
   formConfig: QuestionnaireConfigType;
   inPersonPrebookRoutingParams: { key: string; value: string }[];
   defaultWalkinLocationName?: string;
@@ -378,9 +361,18 @@ export interface BookingConfig {
   inPersonQuestionnaireCanonical?: CanonicalUrl;
 }
 
-const BOOKING_DEFAULTS: BookingConfig = {
-  ...BOOKING_DEFAULTS_DATA,
-  formConfig,
+// Cached defaults — built lazily on first access, then reused for all subsequent
+// proxy reads. This preserves referential stability and avoids rebuilding
+// FormFields/formConfig on every BOOKING_CONFIG property access.
+let _bookingDefaults: BookingConfig | undefined;
+const getBookingDefaults = (): BookingConfig => {
+  if (!_bookingDefaults) {
+    _bookingDefaults = Object.freeze({
+      ...BOOKING_DEFAULTS_DATA,
+      formConfig: getFormDefaults(),
+    }) as BookingConfig;
+  }
+  return _bookingDefaults;
 };
 
 /**
@@ -391,51 +383,49 @@ const BOOKING_DEFAULTS: BookingConfig = {
  */
 export function getBookingConfig(testOverrides?: Partial<BookingConfig>): BookingConfig {
   if (!testOverrides) {
-    return BOOKING_DEFAULTS;
+    return getBookingDefaults();
   }
-  // Type assertion needed: DeepMerge with Partial<T> produces T | undefined properties,
-  // but lodash merge skips undefined values so the base config properties are preserved.
-  return mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, testOverrides) as BookingConfig;
+  // If overrides include serviceCategories, rebuild formConfig to match
+  // so the RFV field's options and display filters stay consistent.
+  const merged = mergeAndFreezeConfigObjects(getBookingDefaults(), testOverrides) as BookingConfig;
+  if (testOverrides.serviceCategories) {
+    return mergeAndFreezeConfigObjects(merged, {
+      formConfig: getFormDefaults(merged.serviceCategories),
+    }) as BookingConfig;
+  }
+  return merged;
 }
 
 // todo: it would be nice to use zod to validate the merged booking config shape here
 // Export as a getter property to allow runtime config injection in tests
 export const BOOKING_CONFIG = createProxyConfigObject<BookingConfig>(getBookingConfig, CONFIG_INJECTION_KEYS.BOOKING);
 
-export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
-  return (
-    (BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes as string[]).includes(params.serviceMode) &&
-    (BOOKING_CONFIG.serviceCategoriesEnabled.visitType as string[]).includes(params.visitType) &&
-    BOOKING_CONFIG.serviceCategories.length > 1
-  );
+// Lazy schemas — computed on each call to stay consistent with BOOKING_CONFIG,
+// which may reflect runtime-injected overrides via the proxy.
+// Defined as functions (not module-scope constants) to avoid eagerly accessing
+// BOOKING_CONFIG during module initialization.
+export const getServiceCategoryCodeSchema = (): z.ZodEnum<[string, ...string[]]> => {
+  return z.enum(BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code) as [string, ...string[]]);
 };
+/** @deprecated Use getServiceCategoryCodeSchema() — eager access can cause circular init issues */
+export const ServiceCategoryCodeSchema = new Proxy({} as z.ZodEnum<[string, ...string[]]>, {
+  get(_target, prop) {
+    return (getServiceCategoryCodeSchema() as any)[prop];
+  },
+});
 
-export const ServiceCategoryCodeSchema = z.enum(
-  BOOKING_CONFIG.serviceCategories.map((category: { code: string }) => category.code) as [string, ...string[]]
-);
+export type ServiceCategoryCode = z.infer<ReturnType<typeof getServiceCategoryCodeSchema>>;
 
-export type ServiceCategoryCode = z.infer<typeof ServiceCategoryCodeSchema>;
-
-export const HomepageOptionSchema = z.enum(
-  BOOKING_CONFIG.homepageOptions.map((opt) => opt.id) as [string, ...string[]]
-);
-
-export type HomepageOption = z.infer<typeof HomepageOptionSchema>;
-
-export const getReasonForVisitOptionsForServiceCategory = (
-  serviceCategory: string
-): { value: string; label: string }[] => {
-  if (serviceCategory === 'occupational-medicine') {
-    return [...VALUE_SETS.reasonForVisitOptionsOccMed];
-  }
-  if (serviceCategory === 'workers-comp') {
-    return [...VALUE_SETS.reasonForVisitOptionsWorkersComp];
-  }
-  if (serviceCategory === 'pre-op') {
-    return VALUE_SETS.reasonForVisitOptionsPreOp ? [...VALUE_SETS.reasonForVisitOptionsPreOp] : [];
-  }
-  if (serviceCategory === 'urgent-care') {
-    return [...VALUE_SETS.reasonForVisitOptions];
-  }
-  return [];
+export const getHomepageOptionSchema = (): z.ZodEnum<[string, ...string[]]> => {
+  return z.enum(BOOKING_CONFIG.homepageOptions.map((opt) => opt.id) as [string, ...string[]]);
 };
+/** @deprecated Use getHomepageOptionSchema() — eager access can cause circular init issues */
+export const HomepageOptionSchema = new Proxy({} as z.ZodEnum<[string, ...string[]]>, {
+  get(_target, prop) {
+    return (getHomepageOptionSchema() as any)[prop];
+  },
+});
+
+export type HomepageOption = z.infer<ReturnType<typeof getHomepageOptionSchema>>;
+
+// getReasonForVisitOptionsForServiceCategory is exported from config-helpers/booking.ts

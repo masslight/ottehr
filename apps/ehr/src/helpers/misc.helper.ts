@@ -12,7 +12,11 @@ export function cleanupProperties(object: any): any | undefined {
   for (const propertyName in object) {
     if (Object.prototype.hasOwnProperty.call(object, propertyName)) {
       const property = object[propertyName];
-      if (typeof property === 'object') {
+      if (Array.isArray(property)) {
+        if (property.length > 0) {
+          result[propertyName] = property;
+        }
+      } else if (typeof property === 'object') {
         result[propertyName] = cleanupProperties(property);
       } else if (typeof property === 'string') {
         if (property.length > 0) {
@@ -27,10 +31,4 @@ export function cleanupProperties(object: any): any | undefined {
     return undefined;
   }
   return result;
-}
-
-export function makeAbbreviation(str: string): string {
-  return str.split(' ').reduce((previousValue: string, currentValue: string) => {
-    return previousValue + currentValue.charAt(0).toUpperCase();
-  }, '');
 }

@@ -9,13 +9,14 @@ import {
   ExamType,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
   GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
+  ICD_10_CODE_SYSTEM,
   SecretsKeys,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { findHolderList } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -126,9 +127,23 @@ const performEffect = async (
 
   const seenTags = new Set<string>();
   encounterBundle.entry = encounterBundle.entry.filter((entry) => {
-    if (entry.resource?.resourceType === 'Condition') return true;
+    // ICD-10 diagnoses are additive (multiple per encounter), so skip deduplication for them
+    if (
+      entry.resource?.resourceType === 'Condition' &&
+      (entry.resource as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
+    ) {
+      return true;
+    }
     const tags = entry.resource?.meta?.tag?.map((tag) => `${tag.system}|${tag.code}`);
     if (!tags) return true;
+    // CPT codes and patient instructions are additive (multiple per encounter), so skip deduplication for them
+    if (
+      tags.some(
+        (tag) =>
+          tag?.includes(chartDataTagSystem('cpt-code')) || tag?.includes(chartDataTagSystem('patient-instruction'))
+      )
+    )
+      return true;
     const isDuplicate = tags.some((tag) => seenTags.has(tag!));
     if (!isDuplicate) tags.forEach((tag) => seenTags.add(tag!));
     return !isDuplicate;
@@ -151,7 +166,7 @@ const performEffect = async (
     // Keep ICD-10 Conditions (Assessment / Diagnoses)
     if (
       entry.resource.resourceType === 'Condition' &&
-      (entry.resource as Condition).code?.coding?.some((c) => c.system === 'http://hl7.org/fhir/sid/icd-10')
+      (entry.resource as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
     ) {
       return true;
     }
@@ -236,16 +251,7 @@ const performEffect = async (
   console.log('Created template:', createdList.id, createdList.title);
 
   // Add the new template to the global templates holder list so it's discoverable
-  const holderLists = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [{ name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` }],
-    })
-  ).unbundle();
-
-  const holderList = holderLists.find(
-    (l) => l.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
-  );
+  const holderList = await findHolderList(oystehr);
 
   if (holderList) {
     const updatedEntries = [...(holderList.entry ?? []), { item: { reference: `List/${createdList.id}` } }];

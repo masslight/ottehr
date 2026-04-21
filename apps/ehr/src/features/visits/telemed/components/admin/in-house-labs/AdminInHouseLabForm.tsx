@@ -41,6 +41,7 @@ export default function AdminInHouseLabform(props: AdminInHouseLabFormProps): Re
   });
   const formErrors = methods.formState.errors;
   const hasFormErrors = Object.keys(formErrors).length > 0;
+  console.log('formErrors', formErrors, JSON.stringify(formErrors));
 
   const formLabel = formMode === 'add' ? 'Add New In-House Lab' : 'Edit In-House Lab';
   const submitButtonText = formMode === 'add' ? 'Submit' : 'Save changes';
@@ -84,7 +85,8 @@ export default function AdminInHouseLabform(props: AdminInHouseLabFormProps): Re
                 id="device-input"
                 label="Device"
                 value={value ?? ''}
-                onChange={onChange}
+                // use null instead of undefined because of RHF internal behavior. undefined re-renders the default value and the field cannot be cleared
+                onChange={(e) => onChange(e.target.value || null)}
                 sx={{ marginTop: 2, marginBottom: 1, width: '100%' }}
                 margin="dense"
                 error={!!fieldState.error}
