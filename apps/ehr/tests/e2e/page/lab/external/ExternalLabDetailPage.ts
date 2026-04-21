@@ -89,7 +89,7 @@ export class ExternalLabDetailPage {
     }
   }
 
-  async validateSampleCollectionInstructions(specimens: OrderableItemSpecimen[]): Promise<void> {
+  async validateSampleCollectionInstructions(specimens: OrderableItemSpecimen[], timezone?: string): Promise<void> {
     const expectField = async (locator: Locator, label: string, value?: string | null): Promise<void> => {
       const expectedText = `${label}: ${value ?? 'Not specified'}`;
       await expect(locator, `Confirming sample collection card displays ${expectedText}`).toHaveText(expectedText);
@@ -103,8 +103,9 @@ export class ExternalLabDetailPage {
     ).toHaveCount(specimens.length);
 
     for (let i = 0; i < specimens.length; i++) {
-      const today = DateTime.now().toFormat('yyyy-MM-dd');
-      const now = DateTime.now().toFormat('hh:mm a');
+      const now = timezone ? DateTime.now().setZone(timezone) : DateTime.now();
+      const today = now.toFormat('yyyy-MM-dd');
+      const expectedTime = now.toFormat('HH:mm');
 
       const card = sampleCollectionCards.nth(i);
       const specimen = specimens[i];
@@ -128,11 +129,13 @@ export class ExternalLabDetailPage {
       );
 
       const dateInput = card.getByTestId(detailPgTestIds.samples.collectionDate);
-      await expect(dateInput, `Confirming date input is ${today}`).toHaveValue(today);
+      await expect(dateInput, `Confirming date input is ${today} (timezone: ${timezone})`).toHaveValue(today);
       await expect(dateInput).toBeEnabled();
 
       const timeInput = card.getByTestId(detailPgTestIds.samples.collectionTime);
-      await expect(timeInput, `Confirming time input is ${now}`).toHaveValue(now);
+      await expect(timeInput, `Confirming time input is ${expectedTime} (timezone: ${timezone})`).toHaveValue(
+        expectedTime
+      );
       await expect(timeInput).toBeEnabled();
     }
   }

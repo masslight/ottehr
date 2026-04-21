@@ -36,6 +36,7 @@ import {
   CPTCodeDTO,
   DataEntryTestItem,
   ExternalLabsStatus,
+  getTimezone,
   LabPaymentMethod,
   makeCptCodeDisplay,
   REPEAT_TEST_CPT_CODE_MODIFIER,
@@ -729,6 +730,9 @@ test.describe('External labs page', async () => {
   );
   test('External labs. Tests Various Functionality.', async () => {
     await test.step('EXL-1 Create a single self pay lab', async () => {
+      const timezone = resourceHandler.appointmentLocation
+        ? getTimezone(resourceHandler.appointmentLocation)
+        : undefined;
       const mockResults = MOCK_LAB_RESULTS.withAoe;
       const orderingOfficeName = ENV_LOCATION_NAME;
       const note = 'hey! im a note :)';
@@ -795,7 +799,7 @@ test.describe('External labs page', async () => {
         await detailsPage.confirmRequisitionNumberIsDisplayed();
         await detailsPage.confirmOrderingOfficeIsDisplayed(orderingOfficeName || 'unknown');
         await detailsPage.confirmClinicalNoteIsDisplayed(note);
-        await detailsPage.validateSampleCollectionInstructions(mockResults.labsData.item.specimens);
+        await detailsPage.validateSampleCollectionInstructions(mockResults.labsData.item.specimens, timezone);
 
         // start clicking / typing
         const aoeAnswers = mockResults.aoeAnswers;
