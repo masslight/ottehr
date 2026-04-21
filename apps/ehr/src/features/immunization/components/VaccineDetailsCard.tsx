@@ -182,7 +182,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <TextInput
                     name="administrationDetails.lot"
                     label="LOT number"
-                    required
                     validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.lotNumber}
                   />
@@ -191,7 +190,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <TextInput
                     name="administrationDetails.ndc"
                     label="NDC code"
-                    required
                     validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.ndcCode}
                   />
@@ -208,7 +206,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <TextInput
                     name="administrationDetails.mvx"
                     label="MVX code"
-                    required
                     validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.mvxCode}
                   />
@@ -217,7 +214,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <TextInput
                     name="administrationDetails.cvx"
                     label="CVX code"
-                    required
                     validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.cvxCode}
                   />
@@ -258,7 +254,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     <CheckboxInput
                       name="visGiven"
                       label="VIS was given to the patient"
-                      required
                       validate={requiredForAdministration}
                       dataTestId={dataTestIds.vaccineDetailsPage.visCheckbox}
                     />
@@ -268,7 +263,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <DateInput
                     name="administrationDetails.visGivenDate"
                     label="VIS given date"
-                    required
                     validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.visGivenDate}
                   />
