@@ -104,7 +104,7 @@ export class ExternalLabDetailPage {
 
     for (let i = 0; i < specimens.length; i++) {
       const today = DateTime.now().toFormat('yyyy-MM-dd');
-      const now = DateTime.now().toFormat('HH:mm');
+      const now = DateTime.now().toFormat('hh:mm a');
 
       const card = sampleCollectionCards.nth(i);
       const specimen = specimens[i];
