@@ -42,8 +42,8 @@ export const AOEYesNoQuestion: React.FC<YesNoQuestionProps> = (props) => {
     <>
       <FormLabel id={labelId}>{questionText}</FormLabel>
       <RadioGroup
-        data-testid={configAoeRadioEntryTestId(linkId)}
         {...field}
+        data-testid={configAoeRadioEntryTestId(linkId)}
         row
         aria-labelledby={labelId}
         name={`${labelId}-row-radio-buttons-group`}
