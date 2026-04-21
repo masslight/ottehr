@@ -200,6 +200,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <DateInput
                     name="administrationDetails.expDate"
                     label="Exp. Date"
+                    required
                     validate={requiredForAdministration}
                     dataTestId={dataTestIds.vaccineDetailsPage.expiredDate}
                   />
