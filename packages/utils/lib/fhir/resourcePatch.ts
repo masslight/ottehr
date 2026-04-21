@@ -556,7 +556,7 @@ function consolidateGroupedOperationsForNewPaths(group: GroupedOperation): Opera
 
     // OTR-2283: For known FHIR scalar fields (like gender, birthDate) that target
     // root path directly, return value without wrapping in array.
-    // This handles edge case where scalar field is missing from resource (a bug, but possible).
+    // This handles edge case where scalar field is missing from resource.
     const rootFieldName = rootPath.replace(/^\//, '');
     const isRootFieldUpdate = relativePath === '';
     if (isRootFieldUpdate && FHIR_SCALAR_FIELDS.has(rootFieldName)) {

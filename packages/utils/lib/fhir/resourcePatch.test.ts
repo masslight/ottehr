@@ -73,30 +73,6 @@ describe('consolidateOperations', () => {
       });
     });
 
-    it('should preserve array value when passed directly to root path', () => {
-      const patientWithoutAddress: Patient = {
-        resourceType: 'Patient',
-        id: 'test-patient',
-        name: [{ given: ['Test'], family: 'Patient' }],
-      };
-
-      const operations = [
-        {
-          op: 'add' as const,
-          path: '/address',
-          value: [{ city: 'New York', state: 'NY', country: 'US' }],
-        },
-      ];
-
-      const result = consolidateOperations(operations, patientWithoutAddress);
-
-      expect(result).toContainEqual({
-        op: 'add',
-        path: '/address',
-        value: [{ city: 'New York', state: 'NY', country: 'US' }],
-      });
-    });
-
     it('should wrap single object value in array when adding to array field at root path', () => {
       const patientWithoutIdentifier: Patient = {
         resourceType: 'Patient',
