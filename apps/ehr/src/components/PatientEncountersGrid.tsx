@@ -316,13 +316,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       }
       case 'note':
         return (
-          <RoundedButton
-            to={
-              row.serviceMode === ServiceMode.virtual
-                ? `/telemed/appointments/${row.appointmentId}?tab=sign`
-                : `/in-person/${row.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`
-            }
-          >
+          <RoundedButton to={`/in-person/${row.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`}>
             Progress Note
           </RoundedButton>
         );
