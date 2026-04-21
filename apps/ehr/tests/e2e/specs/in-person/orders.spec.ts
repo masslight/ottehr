@@ -2,6 +2,7 @@ import { BatchInputPostRequest } from '@oystehr/sdk';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { ActivityDefinition, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import {
   DocumentProcedurePage,
   expectDocumentProcedurePage,
@@ -237,6 +238,11 @@ test.describe('Procedures Page', () => {
 });
 
 test.describe('In-house labs page', async () => {
+  test.skip(
+    !FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED,
+    'In-house labs feature flag is false (aka inhouse labs are not enabled), skipping tests'
+  );
+
   const DIAGNOSIS = 'Situs inversus';
   const SOURCE = 'Nasopharyngeal swab';
   const SECTION_TITLE = 'In-House Labs';
@@ -717,6 +723,10 @@ test.describe('In-house labs page', async () => {
 });
 
 test.describe('External labs page', async () => {
+  test.skip(
+    !FEATURE_FLAGS.LAB_ORDERS_ENABLED,
+    'External labs feature flag is false (aka labs are not enabled), skipping tests'
+  );
   test('External labs. Tests Various Functionality.', async () => {
     await test.step('EXL-1 Create a single self pay lab', async () => {
       const mockResults = MOCK_LAB_RESULTS.withAoe;

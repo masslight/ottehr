@@ -74,9 +74,14 @@ export class CreateExternalLabPage {
     const mockedLabSearchResult = mockedLabSearch.labsData;
     const searchTerm = mockedLabSearch.searchTerm;
 
+    // first register the interception of the request to get-create-lab-order-resources
+    // meaning “From now on, if a request matches this pattern, run this handler.”
     await this.#page.route(routePattern, async (route) => {
+      // grab the body of the request
       const body = route.request().postDataJSON();
+
       if (body?.search) {
+        // return our mockedLabSearchResult in place of a real response
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -91,11 +96,13 @@ export class CreateExternalLabPage {
           }),
         });
       } else {
+        // we only want to intercept the call to oystehr search orderable items (aka the search)
         await route.continue();
       }
     });
 
     const labInput = this.#page.getByTestId(createPgTestIds.labsSearchAutoComplete);
+    // this will ultimately trigger our mocked call to get resources with a search
     await labInput.fill(searchTerm);
 
     const fillerLabName = mockedLabSearchResult.lab.labName;
@@ -105,6 +112,7 @@ export class CreateExternalLabPage {
 
     await this.#page.getByRole('option', { name: displayName }).click();
 
+    // clean up the interception - no more mocking if this some how gets hit again (it shouldn't tho)
     await this.#page.unroute(routePattern);
 
     return { fillerLabName, testName };
