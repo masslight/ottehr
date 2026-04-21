@@ -53,10 +53,10 @@ export interface sampleDTO {
 
 // todo: maybe rename to OrderableItemSpecimenDefinition to fit the FHIR terms
 export interface OrderableItemSpecimen {
-  container: string;
-  volume: string;
+  container: string | null;
+  volume: string | null;
   minimumVolume: string | null;
-  storageRequirements: string;
+  storageRequirements: string | null;
   collectionInstructions: string | null;
 }
 

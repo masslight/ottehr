@@ -69,7 +69,7 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
             <BoldedTitleText
               dataTestId={dataTestIds.externalLabs.detailsPg.samples.minVolume}
               title="Minimum Volume"
-              description={definition.minimumVolume || ''}
+              description={definition.minimumVolume}
             />
             <BoldedTitleText
               dataTestId={dataTestIds.externalLabs.detailsPg.samples.storage}
@@ -79,7 +79,7 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
             <BoldedTitleText
               dataTestId={dataTestIds.externalLabs.detailsPg.samples.instructions}
               title="Collection Instructions"
-              description={definition.collectionInstructions || ''}
+              description={definition.collectionInstructions}
             />
           </Stack>
 
