@@ -65,11 +65,10 @@ export const getAppointmentAccessibilityData = ({
   const isAppointmentLockedByMetaTag = appointment ? isAppointmentLocked(appointment) : false;
   const visitType = getEncounterVisitType(encounter);
   const isFollowup = visitType === 'follow-up';
-  const isScheduledFollowup = visitType === 'scheduled-follow-up';
 
   const isAppointmentReadOnly = (() => {
     if (appFlags.isInPerson) {
-      return isAppointmentLockedByMetaTag && !isFollowup && !isScheduledFollowup;
+      return isAppointmentLockedByMetaTag && !isFollowup;
     }
 
     return (

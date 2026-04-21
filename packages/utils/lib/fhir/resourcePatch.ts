@@ -532,12 +532,37 @@ function groupAddOperationsForExistingPath(
   return groups;
 }
 
+/**
+ * FHIR R4B scalar fields that should NOT be wrapped in arrays.
+ * These are primitive value fields (string, code, date, boolean, integer)
+ * at the root level of resources.
+ * See: https://www.hl7.org/fhir/R4B/patient.html
+ */
+const FHIR_SCALAR_FIELDS = new Set([
+  // Patient:
+  'gender', // code
+  'birthDate', // date
+  'deceasedBoolean', // boolean
+  'deceasedDateTime', // dateTime
+  'active', // boolean
+]);
+
 function consolidateGroupedOperationsForNewPaths(group: GroupedOperation): Operation {
   const { rootPath, operations } = group;
 
   const consolidatedValue = operations.reduce((result: any, op: Operation) => {
     if (op.op !== 'add') return result;
     const relativePath = op.path.slice(rootPath.length).replace(/^\//, '');
+
+    // OTR-2283: For known FHIR scalar fields (like gender, birthDate) that target
+    // root path directly, return value without wrapping in array.
+    // This handles edge case where scalar field is missing from resource.
+    const rootFieldName = rootPath.replace(/^\//, '');
+    const isRootFieldUpdate = relativePath === '';
+    if (isRootFieldUpdate && FHIR_SCALAR_FIELDS.has(rootFieldName)) {
+      return op.value;
+    }
+
     const pathParts = relativePath.split('/'); // Break into parts
 
     // Build nested structure

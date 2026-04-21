@@ -23,6 +23,7 @@ export const dataTestIds = {
     providerPractitionerInput: 'provider-practitioner-input',
     changeStatusDropdown: 'change-status-dropdown-in-header',
     allergies: 'header-allergies',
+    weight: 'header-weight',
   },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,

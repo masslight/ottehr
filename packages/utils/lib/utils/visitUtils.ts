@@ -164,7 +164,7 @@ const getInProgressVisitHistories = (
     if (isAdmitter && participantDetails?.period && participantDetails?.period?.start) {
       acc.push({
         status: 'intake',
-        period: participantDetails.period,
+        period: { ...participantDetails.period },
       });
       // add a status history for 'ready for provider' with a start time == intake end time
       if (participantDetails.period?.end) {
@@ -177,7 +177,7 @@ const getInProgressVisitHistories = (
     } else if (isAttender && participantDetails?.period && participantDetails?.period?.start) {
       acc.push({
         status: 'provider',
-        period: participantDetails.period,
+        period: { ...participantDetails.period },
       });
       // add a status history for 'discharged' with a start time == provider end time
       if (participantDetails.period?.end) {

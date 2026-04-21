@@ -5,6 +5,15 @@ This directory contains per-environment configuration files for Ottehr. The file
 - **`local.template.json`** — Checked-in template with placeholder values. Copy to `local.json` and fill in real values.
 - **`local.json`** — Your actual local config. Gitignored; never commit this file.
 
+## How Configuration Flows
+
+1. **Source**: `config/.env/{env}.json` — You maintain this file manually or via setup scripts
+2. **Terraform reads it**: During `terraform apply`, values are read from this file
+3. **Zambda Secrets generated**: Terraform automatically creates `packages/zambdas/.env/zambda-secrets-{env}.json` with a subset of secrets needed by zambdas at runtime
+4. **App env files**: Some values are also written to `apps/ehr/env/.env.{env}` and `apps/intake/env/.env.{env}` for frontend use
+
+**Note**: Direct editing of `packages/zambdas/.env/zambda-secrets-*.json` is not recommended — it's auto-generated and will be overwritten on next terraform apply.
+
 ---
 
 ## Configuration Reference
