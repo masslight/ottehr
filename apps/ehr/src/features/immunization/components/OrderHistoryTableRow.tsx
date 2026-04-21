@@ -105,7 +105,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions, show
       </TableCell>
       {showGiven && (
         <TableCell>
-          {order.status === 'administered' && (
+          {(order.status === 'administered-partly' || order.status === 'administered') && (
             <>
               <span data-testid={dataTestIds.immunizationPage.marTableGivenDateCell}>
                 {formatDateTime(order.administrationDetails?.administeredDateTime)}
