@@ -24,6 +24,8 @@ interface DateSearchProps {
   handleSubmit?: CustomFormEventHandler;
   small?: boolean;
   setIsValidDate?: (isValid: boolean) => void;
+  error?: boolean;
+  helperText?: string;
   'data-testid'?: string;
 }
 
@@ -42,10 +44,14 @@ export default function DateSearch({
   handleSubmit,
   small,
   setIsValidDate: setValidDate,
+  error: externalError,
+  helperText: externalHelperText,
   'data-testid': dataTestId,
 }: DateSearchProps): ReactElement {
   const [error, setError] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const combinedError = error || !!externalError;
+  const combinedHelperText = error ? errorMessage : externalError ? externalHelperText : '';
   const formatDate = typeof date === 'object' ? date?.toISODate() : date;
   const searchDate = queryParams?.get('searchDate') || formatDate;
   const navigate = useNavigate();
@@ -96,8 +102,8 @@ export default function DateSearch({
           textField: {
             style: { width: '100%' },
             required: required,
-            error: error,
-            helperText: errorMessage,
+            error: combinedError,
+            helperText: combinedHelperText,
             name: 'date',
             id: 'appointment-date',
             label: label ?? 'Date',

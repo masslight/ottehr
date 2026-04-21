@@ -29,6 +29,8 @@ interface LocationSelectProps {
   handleSubmit?: CustomFormEventHandler;
   renderInputProps?: Partial<AutocompleteRenderInputParams>;
   locationType?: LocationType[];
+  error?: boolean;
+  helperText?: string;
 }
 
 enum LoadingState {
@@ -48,6 +50,8 @@ export default function LocationSelect({
   required,
   renderInputProps,
   locationType = [LocationType.IN_PERSON],
+  error,
+  helperText,
 }: LocationSelectProps): ReactElement {
   const { oystehr } = useApiClients();
   const [locations, setLocations] = useState<LocationWithWalkinSchedule[]>([]);
@@ -171,7 +175,15 @@ export default function LocationSelect({
       }}
       fullWidth
       renderInput={(params) => (
-        <TextField placeholder="Search location" name="location" {...params} label="Location" required={required} />
+        <TextField
+          placeholder="Search location"
+          name="location"
+          {...params}
+          label="Location"
+          required={required}
+          error={error}
+          helperText={error ? helperText : undefined}
+        />
       )}
     />
   );
