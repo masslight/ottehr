@@ -181,7 +181,10 @@ export default function AddPatient(): JSX.Element {
       { field: 'firstName', invalid: patientInfo.firstName != null && patientInfo.firstName.length === 0 },
       { field: 'lastName', invalid: patientInfo.lastName != null && patientInfo.lastName.length === 0 },
       { field: 'phone', invalid: patientInfo.phoneNumber != null && patientInfo.phoneNumber.length !== 10 },
-      { field: 'dateOfBirth', invalid: !patientInfo.dateOfBirth && !birthDate },
+      {
+        field: 'dateOfBirth',
+        invalid: patientInfo.newPatient ? !birthDate : !patientInfo.dateOfBirth,
+      },
       { field: 'sexAtBirth', invalid: !patientInfo.sex },
       { field: 'visitType', invalid: !visitType },
       { field: 'serviceCategory', invalid: !serviceCategory },
