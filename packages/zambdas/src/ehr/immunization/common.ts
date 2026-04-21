@@ -20,15 +20,13 @@ export const IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL = ottehrExtension
   'immunization-order-created-date-time'
 );
 export const IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL = ottehrExtensionUrl('immunization-order-medication-id');
-export const IMMUNIZATION_ORDER_MANUFACTURER_EXTENSION_URL = ottehrExtensionUrl('immunization-order-manufacturer');
 
 export async function updateOrderDetails(
   medicationAdministration: MedicationAdministration,
   orderDetails: InputImmunizationOrderDetails,
   oystehr: Oystehr
 ): Promise<void> {
-  const { medication, dose, units, orderedProvider, route, location, instructions, associatedDx, manufacturer } =
-    orderDetails;
+  const { medication, dose, units, orderedProvider, route, location, instructions } = orderDetails;
 
   const containedMedication = getContainedMedication(medicationAdministration);
   const currentMedicationId = containedMedication?.extension?.find(
@@ -115,15 +113,6 @@ export async function updateOrderDetails(
         ],
       },
     },
-  ];
-
-  medicationAdministration.reasonCode = associatedDx ? [{ text: associatedDx }] : undefined;
-
-  medicationAdministration.extension = [
-    ...(medicationAdministration.extension ?? []).filter(
-      (e) => e.url !== IMMUNIZATION_ORDER_MANUFACTURER_EXTENSION_URL
-    ),
-    ...(manufacturer ? [{ url: IMMUNIZATION_ORDER_MANUFACTURER_EXTENSION_URL, valueString: manufacturer }] : []),
   ];
 }
 

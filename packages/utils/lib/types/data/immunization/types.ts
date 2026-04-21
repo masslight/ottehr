@@ -16,8 +16,6 @@ export interface ImmunizationOrderDetails {
     code: string;
   };
   instructions?: string;
-  associatedDx?: string;
-  manufacturer?: string;
 }
 
 export interface ImmunizationEmergencyContact {
