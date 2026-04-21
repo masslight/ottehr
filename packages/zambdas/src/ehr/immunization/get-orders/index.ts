@@ -32,6 +32,7 @@ import {
   CONTAINED_EMERGENCY_CONTACT_ID,
   getContainedMedication,
   IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
+  IMMUNIZATION_ORDER_MANUFACTURER_EXTENSION_URL,
   IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL,
 } from '../common';
 
@@ -146,6 +147,10 @@ function mapMedicationAdministrationToImmunizationOrder(
           }
         : undefined,
       instructions: medicationAdministration.dosage?.text,
+      associatedDx: medicationAdministration.reasonCode?.[0]?.text,
+      manufacturer: medicationAdministration.extension?.find(
+        (e) => e.url === IMMUNIZATION_ORDER_MANUFACTURER_EXTENSION_URL
+      )?.valueString,
     },
     administrationDetails:
       isAdministered && medication
