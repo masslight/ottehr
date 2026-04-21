@@ -114,6 +114,7 @@ module "ottehr_apps" {
     PATIENT_APP_NAME              = module.oystehr.PATIENT_APP_NAME
     OYSTEHR_APPLICATION_CLIENT_ID = module.oystehr.app_patient_portal_client_id
     PROJECT_API_URL               = local.is_local ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
+    PROJECT_API_ZAMBDA_URL        = local.is_local ? "http://localhost:3000/local" : ""
     DEFAULT_WALKIN_LOCATION_NAME  = module.oystehr.DEFAULT_WALKIN_LOCATION_NAME
     MIXPANEL_TOKEN                = module.oystehr.MIXPANEL_TOKEN
     GTM_ID                        = module.oystehr.GTM_ID

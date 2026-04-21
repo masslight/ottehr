@@ -1,6 +1,7 @@
 import {
   ErxConnectPractitionerParams,
   ErxEnrollPractitionerParams,
+  ErxGetMedicationResponse,
   ErxSearchAllergensResponse,
   ErxSearchMedicationsResponse,
 } from '@oystehr/sdk';
@@ -210,6 +211,35 @@ export const useGetMedicationsSearch = (
   useEffect(() => {
     if (queryResult.error) {
       enqueueSnackbar('An error occurred during the search. Please try again in a moment', {
+        variant: 'error',
+      });
+    }
+  }, [queryResult.error]);
+
+  return queryResult;
+};
+
+export const useGetMedicationDetails = (medicationId: number): UseQueryResult<ErxGetMedicationResponse, Error> => {
+  const { oystehr } = useApiClients();
+
+  const queryResult = useQuery({
+    queryKey: ['medication-details', medicationId],
+
+    queryFn: async () => {
+      if (oystehr) {
+        return oystehr.erx.getMedication({ drugId: medicationId });
+      }
+      throw new Error('api client not defined');
+    },
+
+    enabled: Boolean(medicationId),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+
+  useEffect(() => {
+    if (queryResult.error) {
+      enqueueSnackbar(`An error occurred during looking up medication details: ${queryResult.error.message}`, {
         variant: 'error',
       });
     }

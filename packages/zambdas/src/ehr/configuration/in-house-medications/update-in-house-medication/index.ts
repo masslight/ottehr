@@ -8,6 +8,7 @@ import {
   CODE_SYSTEM_NDC,
   getMedicationName,
   MEDICATION_DISPENSABLE_DRUG_ID,
+  MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   UpdateInHouseMedicationInput,
 } from 'utils';
@@ -19,7 +20,7 @@ let m2mToken: string;
 export const index = wrapHandler(
   'admin-update-in-house-medication',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { medicationID, status, name, ndc, medispanID, cptCodes, hcpcsCodes, secrets } =
+    const { medicationID, status, name, ndc, medispanID, medispanIDForInteractions, cptCodes, hcpcsCodes, secrets } =
       validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
@@ -31,6 +32,7 @@ export const index = wrapHandler(
       name,
       ndc,
       medispanID,
+      medispanIDForInteractions,
       cptCodes,
       hcpcsCodes,
       status,
@@ -46,7 +48,7 @@ export const performEffect = async (
   oystehr: Oystehr,
   updateDetail: UpdateInHouseMedicationInput
 ): Promise<Medication> => {
-  const { medicationID, name, ndc, medispanID, cptCodes, hcpcsCodes, status } = updateDetail;
+  const { medicationID, name, ndc, medispanID, medispanIDForInteractions, cptCodes, hcpcsCodes, status } = updateDetail;
   const medication = await oystehr.fhir.get<Medication>({
     resourceType: 'Medication',
     id: medicationID,
@@ -71,14 +73,18 @@ export const performEffect = async (
   const existingCodings = medication.code?.coding ?? [];
   const existingNdc = existingCodings.find((c) => c.system === CODE_SYSTEM_NDC)?.code ?? '';
   const existingMedispanID = existingCodings.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)?.code ?? '';
+  const existingMedispanIDForInteractions =
+    existingCodings.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS)?.code ?? '';
 
   const ndcChanged = ndc !== undefined && ndc !== existingNdc;
   const medispanChanged = medispanID !== undefined && medispanID !== existingMedispanID;
+  const medispanForInteractionsChanged =
+    medispanIDForInteractions !== undefined && medispanIDForInteractions !== existingMedispanIDForInteractions;
   const codesChanged = cptCodes !== undefined || hcpcsCodes !== undefined;
 
   // Rebuild /code/coding as a single op so we don't rely on /code or /code/coding
   // already existing on the resource (append-style ops fail otherwise).
-  if (ndcChanged || medispanChanged || codesChanged) {
+  if (ndcChanged || medispanChanged || medispanForInteractionsChanged || codesChanged) {
     const otherCodings = existingCodings.filter(
       (c) =>
         c.system !== CODE_SYSTEM_NDC &&
@@ -88,11 +94,23 @@ export const performEffect = async (
     );
     const hadNdc = existingCodings.some((c) => c.system === CODE_SYSTEM_NDC);
     const hadMedispan = existingCodings.some((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID);
+    const hadMedispanForInteractions = existingCodings.some(
+      (c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS
+    );
     const resolvedNdcCoding =
       ndcChanged || hadNdc ? [{ system: CODE_SYSTEM_NDC, code: ndcChanged ? ndc! : existingNdc }] : [];
     const resolvedMedispanCoding =
       medispanChanged || hadMedispan
         ? [{ system: MEDICATION_DISPENSABLE_DRUG_ID, code: medispanChanged ? medispanID! : existingMedispanID }]
+        : [];
+    const resolvedMedispanForInteractionsCoding =
+      medispanForInteractionsChanged || hadMedispanForInteractions
+        ? [
+            {
+              system: MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
+              code: medispanForInteractionsChanged ? medispanIDForInteractions! : existingMedispanIDForInteractions,
+            },
+          ]
         : [];
     const resolvedCptCodings = (
       cptCodes ??
@@ -110,6 +128,7 @@ export const performEffect = async (
       ...otherCodings,
       ...resolvedNdcCoding,
       ...resolvedMedispanCoding,
+      ...resolvedMedispanForInteractionsCoding,
       ...resolvedCptCodings,
       ...resolvedHcpcsCodings,
     ];

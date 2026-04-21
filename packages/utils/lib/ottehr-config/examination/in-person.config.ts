@@ -1280,6 +1280,18 @@ export const InPersonExamConfig: ExamItemConfig = {
         },
       },
       abnormal: {
+        'right-cervical-node-easily-mobile-non-tender-not-erythematous': {
+          label: 'Right cervical node, easily mobile, non-tender, not erythematous',
+          defaultValue: false,
+          type: 'checkbox',
+          legacy: true,
+        },
+        'left-cervical-node-easily-mobile-non-tender-not-erythematous': {
+          label: 'Left cervical node, easily mobile, non-tender, not erythematous',
+          defaultValue: false,
+          type: 'checkbox',
+          legacy: true,
+        },
         'lymph-anterior-cervical': createLymphNodeModalExam('lymph-anterior-cervical', 'Anterior cervical', LR_COLUMNS),
         'lymph-posterior-cervical': createLymphNodeModalExam(
           'lymph-posterior-cervical',
@@ -2496,6 +2508,12 @@ export const InPersonExamConfig: ExamItemConfig = {
     label: 'GU (Male)',
     components: {
       normal: {
+        'normal-testicular-exam': {
+          label: 'Normal testicular exam, no tenderness, no erythema, cremasteric reflexes present',
+          defaultValue: false,
+          type: 'checkbox',
+          legacy: true,
+        },
         'normal-external-genital-testicular-exam': {
           label: 'Normal external genital/testicular exam',
           defaultValue: false,
@@ -2513,6 +2531,12 @@ export const InPersonExamConfig: ExamItemConfig = {
         },
       },
       abnormal: {
+        'scrotal-edema-swelling': {
+          label: 'Scrotal edema / swelling',
+          defaultValue: false,
+          type: 'checkbox',
+          legacy: true,
+        },
         'right-side-scrotal-edema-swelling': {
           label: 'Right side - scrotal edema / swelling',
           defaultValue: false,
