@@ -146,6 +146,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
               showAddOption
               isAdmin={isAdmin}
               onAddOrUpdate={() => void openQuickPickDialog()}
+              searchable
             />
           )}
 

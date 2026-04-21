@@ -175,6 +175,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                       showAddOption
                       isAdmin={isAdmin}
                       onAddOrUpdate={() => void openQuickPickDialog()}
+                      searchable
                     />
                   )}
                 </Grid>
