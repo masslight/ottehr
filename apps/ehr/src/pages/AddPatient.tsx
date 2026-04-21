@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   FormControl,
+  FormHelperText,
   Grid,
   InputLabel,
   MenuItem,
@@ -56,7 +57,15 @@ export type AddVisitFormState =
 
 export interface AddVisitErrorState {
   submit?: boolean;
+  visitType?: boolean;
+  serviceCategory?: boolean;
+  location?: boolean;
+  firstName?: boolean;
+  lastName?: boolean;
   phone?: boolean;
+  dateOfBirth?: boolean;
+  sexAtBirth?: boolean;
+  reasonForVisit?: boolean;
   search?: boolean;
   searchEntry?: boolean;
 }
@@ -93,7 +102,15 @@ export default function AddPatient(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<AddVisitErrorState>({
     submit: false,
+    visitType: false,
+    serviceCategory: false,
+    location: false,
+    firstName: false,
+    lastName: false,
     phone: false,
+    dateOfBirth: false,
+    sexAtBirth: false,
+    reasonForVisit: false,
     search: false,
     searchEntry: false,
   });
@@ -159,11 +176,60 @@ export default function AddPatient(): JSX.Element {
       return;
     }
 
-    if (patientInfo.phoneNumber && patientInfo.phoneNumber.length !== 10) {
+    // first name, last name, and phone are empty strings if empty
+    if (patientInfo.firstName != null && patientInfo.firstName.length === 0) {
+      setErrors({ firstName: true });
+      return;
+    } else {
+      setErrors({ ...errors, firstName: false });
+    }
+    if (patientInfo.lastName != null && patientInfo.lastName.length === 0) {
+      setErrors({ lastName: true });
+      return;
+    } else {
+      setErrors({ ...errors, lastName: false });
+    }
+    if (patientInfo.phoneNumber != null && patientInfo.phoneNumber.length !== 10) {
       setErrors({ phone: true });
       return;
     } else {
       setErrors({ ...errors, phone: false });
+    }
+    if (!patientInfo.dateOfBirth && !birthDate) {
+      setErrors({ dateOfBirth: true });
+      return;
+    } else {
+      setErrors({ ...errors, dateOfBirth: false });
+    }
+    if (!patientInfo.sex) {
+      setErrors({ sexAtBirth: true });
+      return;
+    } else {
+      setErrors({ ...errors, sexAtBirth: false });
+    }
+    if (!visitType) {
+      setErrors({ visitType: true });
+      return;
+    } else {
+      setErrors({ ...errors, visitType: false });
+    }
+    if (!serviceCategory) {
+      setErrors({ serviceCategory: true });
+      return;
+    } else {
+      setErrors({ ...errors, serviceCategory: false });
+    }
+    if (!selectedLocation) {
+      setErrors({ location: true });
+      return;
+    } else {
+      setErrors({ ...errors, location: false });
+    }
+    if (shouldShowReasonForVisitFields && !reasonForVisit) {
+      setErrors({ reasonForVisit: true });
+      return;
+    } else {
+      setErrors({ ...errors, reasonForVisit: false });
     }
 
     if (
@@ -283,7 +349,7 @@ export default function AddPatient(): JSX.Element {
           <Paper>
             <form noValidate onSubmit={(e) => handleFormSubmit(e)}>
               <Stack spacing={2} padding={4}>
-                <FormControl fullWidth>
+                <FormControl fullWidth error={!!errors.visitType}>
                   <InputLabel id="visit-type-label">Visit type *</InputLabel>
                   <Select
                     data-testid={dataTestIds.addPatientPage.visitTypeDropdown}
@@ -303,9 +369,10 @@ export default function AddPatient(): JSX.Element {
                       </MenuItem>
                     ))}
                   </Select>
+                  {errors.visitType && <FormHelperText>Visit type is required</FormHelperText>}
                 </FormControl>
 
-                <FormControl fullWidth>
+                <FormControl fullWidth error={!!errors.serviceCategory}>
                   <InputLabel id="service-category-label">Service category *</InputLabel>
                   <Select
                     data-testid={dataTestIds.addPatientPage.serviceCategoryDropdown}
@@ -327,6 +394,7 @@ export default function AddPatient(): JSX.Element {
                       );
                     })}
                   </Select>
+                  {errors.serviceCategory && <FormHelperText>Service category is required</FormHelperText>}
                 </FormControl>
 
                 <LocationSelect
@@ -342,6 +410,8 @@ export default function AddPatient(): JSX.Element {
                       ? [LocationType.IN_PERSON]
                       : [LocationType.VIRTUAL]
                   }
+                  error={!!errors.location}
+                  helperText="Location is required"
                 />
 
                 <AddVisitPatientInformationCard
@@ -363,7 +433,7 @@ export default function AddPatient(): JSX.Element {
                       Visit information
                     </Typography>
                     <Box marginTop={2}>
-                      <FormControl fullWidth>
+                      <FormControl fullWidth error={!!errors.reasonForVisit}>
                         <InputLabel id="reason-for-visit-label">Reason for visit *</InputLabel>
                         <Select
                           data-testid={dataTestIds.addPatientPage.reasonForVisitDropdown}
@@ -380,6 +450,7 @@ export default function AddPatient(): JSX.Element {
                             </MenuItem>
                           ))}
                         </Select>
+                        {errors.reasonForVisit && <FormHelperText>Reason for visit is required</FormHelperText>}
                       </FormControl>
                     </Box>
                     <Box marginTop={2}>
