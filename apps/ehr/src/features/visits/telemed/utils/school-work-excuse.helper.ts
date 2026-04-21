@@ -70,9 +70,12 @@ export type ExcuseFormValues = { [key in WorkExcuseFields]: boolean } & { [key i
   [key in DateExcuseFields]: DateTime | null;
 } & {
   [key in NoteExcuseFields]: string;
+} & {
+  patientOrRelatedPerson: 'patient' | 'related-person';
 };
 
 export const mapExcuseFieldsToLabels = {
+  patientOrRelatedPerson: 'this note is for the',
   wereWithThePatientAtTheTimeOfTheVisit: 'were with the patient at the time of the visit',
   areNeededAtHomeToCareForChildDuringThisIllness: 'are needed at home to care for child during this illness',
   schoolExcusedFromWorkFromTo: 'excused from work from - to',
@@ -159,9 +162,7 @@ export const getDefaultExcuseFormValues = (params: {
     defaultFormValues.parentName = params.parentName;
   }
 
-  const headerNoteName = params.isSchool
-    ? `${params.patientName || '{Patient name}'}, the child of ${params.parentName || '{Parent/Guardian name}'},`
-    : `${params.patientName || '{Patient name}'},`;
+  const headerNoteName = `${params.patientName || '{Patient name}'},`;
 
   const headerNoteEnding = params.isSchool ? 'They are:' : 'They:';
   defaultFormValues.headerNote = `To whom it may concern:\n${headerNoteName} was treated by ${BRANDING_CONFIG.projectName} on ${currentDate}. ${headerNoteEnding}`;
@@ -193,13 +194,19 @@ export const mapValuesToExcuse = (
     suffix?: string;
   }
 ): SchoolWorkNoteExcuseDocDTO => {
+  const patientName = params.patientName || 'Unknown';
+  const parentName = values.parentName || 'Unknown';
+
+  const noteRecipient = values.patientOrRelatedPerson === 'patient' ? patientName : parentName;
+  const headerNote = values.headerNote;
+  const headerNoteSuffix =
+    values.patientOrRelatedPerson === 'patient' ? '' : `, the child of ${parentName || '{Parent/Guardian name}'}`;
+
   const excuse: SchoolWorkNoteExcuseDocDTO = {
     type: params.isSchool ? 'school' : 'work',
-    documentHeader: params.isSchool
-      ? `School note for ${params.patientName || 'Unknown'}`
-      : `Work note for ${params.patientName || 'Unknown'}`,
-    parentGuardianName: values.parentName || 'Unknown',
-    headerNote: values.headerNote,
+    documentHeader: params.isSchool ? `School note for ${noteRecipient}` : `Work note for ${noteRecipient}`,
+    parentGuardianName: parentName,
+    headerNote: headerNote + headerNoteSuffix,
     footerNote: values.footerNote,
     providerDetails: {
       credentials: params.suffix || '',

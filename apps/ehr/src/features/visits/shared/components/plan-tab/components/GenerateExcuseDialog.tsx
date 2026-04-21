@@ -15,6 +15,7 @@ import {
 import { useAppointmentData, useChartData, useSaveChartData } from '../../../stores/appointment/appointment.store';
 import { ControlledExcuseCheckbox } from './ControlledExcuseCheckbox';
 import { ControlledExcuseDatePicker } from './ControlledExcuseDatePicker';
+import { ControlledExcuseDropdown } from './ControlledExcuseDropdown';
 import { ControlledExcuseTextField } from './ControlledExcuseTextField';
 import { GenerateExcuseDialogContainer } from './GenerateExcuseDialogContainer';
 
@@ -58,6 +59,7 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
       providerName: user?.userName,
       suffix: user?.profileResource?.name?.[0]?.suffix?.join(' '),
       phoneNumber: supportPhoneNumber,
+      // patientOrRelatedPerson?
     }),
   });
   const { handleSubmit, getValues, setValue } = methods;
@@ -119,6 +121,11 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
               <FormGroup>
                 {fields.includes('workFields') && (
                   <>
+                    <ControlledExcuseDropdown
+                      name="patientOrRelatedPerson"
+                      label={mapExcuseFieldsToLabels['patientOrRelatedPerson']}
+                      sx={{ alignSelf: 'flex-start', mx: 0, mb: 1, gap: 1 }}
+                    />
                     <ControlledExcuseCheckbox
                       name="wereWithThePatientAtTheTimeOfTheVisit"
                       label={mapExcuseFieldsToLabels['wereWithThePatientAtTheTimeOfTheVisit']}
@@ -176,6 +183,11 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
 
                 {fields.includes('schoolFields') && (
                   <>
+                    <ControlledExcuseDropdown
+                      name="patientOrRelatedPerson"
+                      label={mapExcuseFieldsToLabels['patientOrRelatedPerson']}
+                      sx={{ alignSelf: 'flex-start', mx: 0, mb: 1, gap: 1 }}
+                    />
                     <Box sx={{ display: 'flex' }}>
                       <ControlledExcuseCheckbox
                         name="excusedFromSchoolFromTo"
