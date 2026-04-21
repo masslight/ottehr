@@ -272,8 +272,7 @@ export default function AddPatient(): JSX.Element {
         response = await createAppointment(oystehrZambda, zambdaParams);
       } catch (error) {
         console.error(`Failed to add patient: ${error}`);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred, please try again.';
-        enqueueSnackbar(errorMessage, { variant: 'error' });
+        enqueueSnackbar('An unexpected error occurred, please try again.', { variant: 'error' });
         apiErr = true;
       } finally {
         setLoading(false);
