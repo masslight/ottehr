@@ -99,7 +99,6 @@ const getDisplayWeight = (
   historicalObservations: { value?: number | string }[],
   patientWeight: string | undefined
 ): string | undefined => {
-  // Prefer the current encounter weight, then the most recent historical weight, then the patient profile fallback.
   const numericObs = [...currentObservations, ...historicalObservations].find((o) => typeof o.value === 'number');
   if (numericObs) {
     return `${formatWeightKg(numericObs.value as number)}kg`;
