@@ -118,6 +118,10 @@ test.describe('Global Templates E2E', () => {
       await adminPage.verifyTemplateExists(TEMPLATE_NAME);
     });
 
+    await test.step('Click Scan for Stale Templates btn', async () => {
+      await adminPage.clickScanForStaleTemplates();
+    });
+
     await test.step('Verify version status chip', async () => {
       const row = adminPage.findTemplateRow(TEMPLATE_NAME);
       const currentChip = row.getByText('Current');

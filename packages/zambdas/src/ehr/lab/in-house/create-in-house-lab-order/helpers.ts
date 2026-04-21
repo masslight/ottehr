@@ -76,7 +76,14 @@ export const makeRequestsForCreateInHouseLabs = (
 
     const provenanceConfig = makeProvenanceConfig(resources, serviceRequestFullUrl);
 
-    const procedureConfig = makeProcedureConfig(resources, activityDefinition, orderMode);
+    const procedureConfigs = makeProcedureConfig(resources, activityDefinition, orderMode);
+    procedureConfigs.forEach((procedureConfig) => {
+      requests.push({
+        method: 'POST',
+        url: '/Procedure',
+        resource: procedureConfig,
+      });
+    });
 
     requests.push(
       {
@@ -94,11 +101,6 @@ export const makeRequestsForCreateInHouseLabs = (
         method: 'POST',
         url: '/Provenance',
         resource: provenanceConfig,
-      },
-      {
-        method: 'POST',
-        url: '/Procedure',
-        resource: procedureConfig,
       }
     );
   });
@@ -263,50 +265,55 @@ const makeProcedureConfig = (
   resources: CreateInHouseLabResources,
   activityDefinition: ActivityDefinition,
   orderMode: TestItemResources['orderMode']
-): Procedure => {
+): Procedure[] => {
   const { encounter, patient, attendingPractitionerId } = resources;
 
-  let procedureCodeExtension = {};
+  const procedureConfigs: Procedure[] = [];
 
-  if (orderMode === 'repeat') {
-    // this logic will cover if we add a test that is repeatable and has an extra modifier on it
-    // otherwise it will be spread below
-    const additionalModifierExt =
-      activityDefinition.code?.coding
-        ?.find((coding) => coding.system === CODE_SYSTEM_CPT)
-        ?.extension?.filter((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept) ?? [];
+  const cptCodings = activityDefinition.code?.coding?.filter((coding) => coding.system === CODE_SYSTEM_CPT);
 
-    const repeatModifier = makeCptModifierExtension([REPEAT_TEST_CPT_CODE_MODIFIER]);
-    procedureCodeExtension = { extension: [repeatModifier, ...additionalModifierExt] };
-  }
+  cptCodings?.forEach((cptCoding) => {
+    let procedureCodeExtension = {};
 
-  const procedureConfig: Procedure = {
-    resourceType: 'Procedure',
-    status: 'completed',
-    subject: {
-      reference: `Patient/${patient.id}`,
-    },
-    encounter: {
-      reference: `Encounter/${encounter.id}`,
-    },
-    performer: [
-      {
-        actor: {
-          reference: `Practitioner/${attendingPractitionerId}`,
-        },
+    if (orderMode === 'repeat') {
+      // this logic will cover if we add a test that is repeatable and has an extra modifier on it
+      // otherwise it will be spread below
+      const additionalModifierExt =
+        cptCoding?.extension?.filter((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCodeableConcept) ?? [];
+
+      const repeatModifier = makeCptModifierExtension([REPEAT_TEST_CPT_CODE_MODIFIER]);
+      procedureCodeExtension = { extension: [repeatModifier, ...additionalModifierExt] };
+    }
+
+    const procedureConfig: Procedure = {
+      resourceType: 'Procedure',
+      status: 'completed',
+      subject: {
+        reference: `Patient/${patient.id}`,
       },
-    ],
-    code: {
-      coding: [
+      encounter: {
+        reference: `Encounter/${encounter.id}`,
+      },
+      performer: [
         {
-          ...activityDefinition.code?.coding?.find((coding) => coding.system === CODE_SYSTEM_CPT),
-          display: activityDefinition.name,
-          ...procedureCodeExtension,
+          actor: {
+            reference: `Practitioner/${attendingPractitionerId}`,
+          },
         },
       ],
-    },
-    meta: fillMeta('cpt-code', 'cpt-code'), // This is necessary to get the Assessment part of the chart showing the CPT codes. It is some kind of save-chart-data feature that this meta is used to find and save the CPT codes instead of just looking at the FHIR Procedure resources code values.
-  };
+      code: {
+        coding: [
+          {
+            ...cptCoding,
+            display: activityDefinition.name,
+            ...procedureCodeExtension,
+          },
+        ],
+      },
+      meta: fillMeta('cpt-code', 'cpt-code'), // This is necessary to get the Assessment part of the chart showing the CPT codes. It is some kind of save-chart-data feature that this meta is used to find and save the CPT codes instead of just looking at the FHIR Procedure resources code values.
+    };
+    procedureConfigs.push(procedureConfig);
+  });
 
-  return procedureConfig;
+  return procedureConfigs;
 };

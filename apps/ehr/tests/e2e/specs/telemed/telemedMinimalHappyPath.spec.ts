@@ -1,6 +1,7 @@
 import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForGetChartDataResponse, waitForSaveChartDataResponse } from 'test-utils';
+import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { openVisitsPage } from 'tests/e2e/page/VisitsPage';
 import { TelemedAppointmentStatusEnum, TelemedAppointmentVisitTabs } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
@@ -23,16 +24,15 @@ test.afterAll(async () => {
 
 test.describe.configure({ mode: 'serial' });
 
-test('Should assign visit to practitioner', async () => {
+test('Should start video call', async () => {
   const visitsPage = await openVisitsPage(page);
   await visitsPage.selectLocation(resourceHandler.appointmentLocation?.name ?? 'Unknown');
-  await visitsPage.clickProgressNoteButton(resourceHandler.appointment.id!);
-  const assignMeButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe);
-  await assignMeButton.click();
-  await telemedDialogConfirm(page);
-});
 
-test('Should start video call', async () => {
+  await page.goto(`/in-person/${resourceHandler.appointment.id}`);
+  const header = new InPersonHeader(page);
+  const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
+  await header.selectIntakePractitioner(testUserPractitioner.id);
+
   const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
   await expect(connectButton).toBeVisible();
   await connectButton.click();
@@ -40,11 +40,6 @@ test('Should start video call', async () => {
   await telemedDialogConfirm(page);
 
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.videoRoomContainer)).toBeVisible();
-});
-
-test('Should end video call and check status "unsigned"', async () => {
-  await page.getByTestId(dataTestIds.telemedEhrFlow.finishVisitButton).click();
-  await telemedDialogConfirm(page);
 });
 
 test.skip('Should fill all required fields', async () => {

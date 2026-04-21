@@ -88,6 +88,10 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
     }
     const params = [
       {
+        name: 'active',
+        value: 'true',
+      },
+      {
         name: '_revinclude:iterate',
         value: 'RelatedPerson:patient',
       },

@@ -1,4 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { CandidApiClient } from 'candidhealth';
 import { Organization } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
 import {
@@ -20,6 +21,7 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
+let candid: CandidApiClient | null | undefined;
 export const index = wrapHandler('create-employer', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { name, active, category, identifier, address, contact, secrets } = validateRequestParameters(input);
@@ -42,7 +44,9 @@ export const index = wrapHandler('create-employer', async (input: ZambdaInput): 
     });
 
     // Step 2: Sync to Candid (best-effort — errors are logged, not re-thrown)
-    const candid = createCandidClientIfConfigured(secrets);
+    if (candid === undefined) {
+      candid = createCandidClientIfConfigured(secrets);
+    }
     if (candid) {
       const candidPayerId = await createCandidEmployerPayer(candid, name, categoryText, organization.address);
       if (candidPayerId) {

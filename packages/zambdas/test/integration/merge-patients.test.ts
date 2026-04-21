@@ -21,6 +21,7 @@ import {
   FOLLOWUP_SYSTEMS,
   M2MClientMockType,
   MergePatientsResponse,
+  RoleType,
   SaveChartDataRequest,
   SaveChartDataResponse,
 } from 'utils';
@@ -131,6 +132,23 @@ describe('merge-patients integration tests', () => {
     oystehrAdmin = setup.oystehr;
     processId = setup.processId;
     cleanup = setup.cleanup;
+
+    // merge-patients requires Administrator role; grant it to the test M2M client.
+    const projectRoles = await oystehrAdmin.role.list();
+    const adminRoleId = projectRoles.find((r) => r.name === RoleType.Administrator)?.id;
+    if (adminRoleId) {
+      const testM2M = (await oystehrAdmin.m2m.listV2({ name: 'merge-patients.test.ts' })).data[0];
+      if (testM2M) {
+        const m2mDetails = await oystehrAdmin.m2m.get({ id: testM2M.id });
+        const existingRoleIds = (m2mDetails.roles ?? []).map((r: { id: string }) => r.id);
+        if (!existingRoleIds.includes(adminRoleId)) {
+          await oystehrAdmin.m2m.update({
+            id: testM2M.id,
+            roles: [...existingRoleIds, adminRoleId],
+          });
+        }
+      }
+    }
   }, 60_000);
 
   afterAll(async () => {
@@ -449,11 +467,17 @@ describe('merge-patients integration tests', () => {
     });
 
     it('should transfer non-user RelatedPerson to main patient', async () => {
-      const updated = await oystehrAdmin.fhir.get<RelatedPerson>({
-        resourceType: 'RelatedPerson',
-        id: otherResources.relatedPerson.id!,
-      });
-      expect(updated.patient?.reference).toEqual(`Patient/${mainResources.patient.id}`);
+      const rps = (
+        await oystehrAdmin.fhir.search<RelatedPerson>({
+          resourceType: 'RelatedPerson',
+          params: [{ name: 'patient', value: `Patient/${mainResources.patient.id}` }],
+        })
+      ).unbundle();
+      const nonUser = rps.find(
+        (rp) => rp.relationship?.every((rel) => rel.coding?.every((c) => c.code !== 'user-relatedperson'))
+      );
+      expect(nonUser).toBeDefined();
+      expect(nonUser?.patient?.reference).toEqual(`Patient/${mainResources.patient.id}`);
     });
 
     // ── Step 4: Billing resources ──
