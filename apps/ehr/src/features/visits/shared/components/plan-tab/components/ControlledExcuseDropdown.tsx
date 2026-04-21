@@ -5,7 +5,7 @@ import { Controller, useFormContext } from 'react-hook-form';
 type ControlledExcuseDropdownProps = {
   label: string;
   name: 'patientOrRelatedPerson';
-  onChange?: (newValue: boolean) => void;
+  onChange?: (newValue: ExcuseFormValues['patientOrRelatedPerson']) => void;
   sx?: FormControlLabelProps['sx'];
 };
 
