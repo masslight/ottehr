@@ -15,6 +15,13 @@
       "src": "src/ehr/create-user/index",
       "zip": ".dist/zips/create-user.zip"
     },
+    "DELETE-USER": {
+      "name": "delete-user",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-user/index",
+      "zip": ".dist/zips/delete-user.zip"
+    },
     "USER-ACTIVATION": {
       "name": "user-activation",
       "type": "http_auth",

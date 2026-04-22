@@ -189,7 +189,7 @@ export const dataTestIds = {
     assignRoleDialog: 'employee-assign-role-dialog',
     assignRoleSelect: 'employee-assign-role-select',
     assignRoleSave: 'employee-assign-role-save',
-    quickDeactivateButton: 'employee-quick-deactivate-button',
+    quickDeleteButton: 'employee-quick-delete-button',
   },
   telemedEhrFlow: {
     trackingBoardLocationsSelect: 'telemed-tracking-board-location-select',

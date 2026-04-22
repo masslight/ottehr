@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetEmployees = vi.fn<(...args: any[]) => Promise<GetEmployeesResponse>>();
 const mockUpdateUser = vi.fn<(...args: any[]) => Promise<{ message: string }>>();
+const mockDeleteUser = vi.fn<(...args: any[]) => Promise<{ message: string }>>();
 
 vi.mock('src/api/api', async (importOriginal) => {
   const actual = (await importOriginal()) as any;
@@ -19,6 +20,7 @@ vi.mock('src/api/api', async (importOriginal) => {
     ...actual,
     getEmployees: (...args: any[]) => mockGetEmployees(...args),
     updateUser: (...args: any[]) => mockUpdateUser(...args),
+    deleteUser: (...args: any[]) => mockDeleteUser(...args),
   };
 });
 
@@ -28,6 +30,7 @@ vi.mock('../../src/api/api', async (importOriginal) => {
     ...actual,
     getEmployees: (...args: any[]) => mockGetEmployees(...args),
     updateUser: (...args: any[]) => mockUpdateUser(...args),
+    deleteUser: (...args: any[]) => mockDeleteUser(...args),
   };
 });
 
@@ -131,7 +134,7 @@ describe('EmployeesPage', () => {
     await waitFor(() => expect(screen.getByText('Adams, Alice')).toBeInTheDocument());
     expect(screen.queryByTestId(dataTestIds.employeesPage.needsReviewChip)).not.toBeInTheDocument();
     expect(screen.queryByTestId(dataTestIds.employeesPage.assignRoleButton)).not.toBeInTheDocument();
-    expect(screen.queryByTestId(dataTestIds.employeesPage.quickDeactivateButton)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(dataTestIds.employeesPage.quickDeleteButton)).not.toBeInTheDocument();
   });
 
   it('sorts needsReview rows to the top and shows the Needs Review chip', async () => {
@@ -202,9 +205,9 @@ describe('EmployeesPage', () => {
     });
   });
 
-  it('deactivating calls updateUser with Inactive role', async () => {
+  it('deleting calls deleteUser with the user id', async () => {
     const user = userEvent.setup();
-    mockUpdateUser.mockResolvedValue({ message: 'ok' });
+    mockDeleteUser.mockResolvedValue({ message: 'ok' });
     mockGetEmployees.mockResolvedValue({
       message: 'ok',
       employees: [
@@ -222,16 +225,13 @@ describe('EmployeesPage', () => {
 
     render(<EmployeesPage employeeType={EmployeeTypes.employees} />, { wrapper: createWrapper() });
 
-    await waitFor(() =>
-      expect(screen.getByTestId(dataTestIds.employeesPage.quickDeactivateButton)).toBeInTheDocument()
-    );
-    await user.click(screen.getByTestId(dataTestIds.employeesPage.quickDeactivateButton));
+    await waitFor(() => expect(screen.getByTestId(dataTestIds.employeesPage.quickDeleteButton)).toBeInTheDocument());
+    await user.click(screen.getByTestId(dataTestIds.employeesPage.quickDeleteButton));
     await user.click(await screen.findByTestId(dataTestIds.dialog.proceedButton));
 
-    await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledTimes(1));
-    expect(mockUpdateUser).toHaveBeenCalledWith(expect.anything(), {
+    await waitFor(() => expect(mockDeleteUser).toHaveBeenCalledTimes(1));
+    expect(mockDeleteUser).toHaveBeenCalledWith(expect.anything(), {
       userId: 'u-review',
-      selectedRoles: [RoleType.Inactive],
     });
   });
 

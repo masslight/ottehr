@@ -36,12 +36,13 @@ import {
   AVAILABLE_EMPLOYEE_ROLES,
   EmployeeDetails,
   formatDateForDisplay,
+  getApiError,
   GetEmployeesResponse,
   RoleType,
   State,
   useSuccessQuery,
 } from 'utils';
-import { getEmployees, updateUser } from '../api/api';
+import { deleteUser, getEmployees, updateUser } from '../api/api';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
 import { CustomDialog } from '../components/dialogs/CustomDialog';
 import Loading from '../components/Loading';
@@ -320,7 +321,7 @@ function EmployeesTable({
                     <TableCell sx={{ maxWidth: '150px' }}>Seen patient last 30 mins</TableCell>
                   </>
                 )}
-                {showReviewColumn && <TableCell sx={{ width: '260px', whiteSpace: 'nowrap' }}>Actions</TableCell>}
+                {showReviewColumn && <TableCell sx={{ width: '220px', whiteSpace: 'nowrap' }}>Actions</TableCell>}
               </TableRow>
             </TableHead>
 
@@ -526,16 +527,13 @@ function PendingReviewActions({ employee }: PendingReviewActionsProps): ReactEle
     },
   });
 
-  const deactivateMutation = useMutation({
+  const deleteMutation = useMutation({
     mutationFn: async () => {
       if (!oystehrZambda) throw new Error('Zambda Client not found');
-      return updateUser(oystehrZambda, {
-        userId: employee.id,
-        selectedRoles: [RoleType.Inactive],
-      });
+      return deleteUser(oystehrZambda, { userId: employee.id });
     },
     onSuccess: async () => {
-      enqueueSnackbar('User deactivated.', { variant: 'success' });
+      enqueueSnackbar('User deleted.', { variant: 'success' });
       await queryClient.invalidateQueries({ queryKey: ['get-employees'] });
     },
   });
@@ -551,16 +549,22 @@ function PendingReviewActions({ employee }: PendingReviewActionsProps): ReactEle
           Assign Role
         </RoundedButton>
         <ConfirmationDialog
-          title="Deactivate user?"
-          description={`This will remove all roles from ${employee.email || employee.name} and block EHR access.`}
+          title="Delete user?"
+          description={`This will permanently delete ${
+            employee.email || employee.name
+          } and block EHR access. This cannot be undone.`}
           response={async () => {
-            await deactivateMutation.mutateAsync();
+            try {
+              await deleteMutation.mutateAsync();
+            } catch (error) {
+              enqueueSnackbar(getApiError({ error, defaultError: 'Failed to delete user.' }), { variant: 'error' });
+            }
           }}
           actionButtons={{
             proceed: {
-              text: 'Deactivate',
+              text: 'Delete',
               color: 'error',
-              loading: deactivateMutation.isPending,
+              loading: deleteMutation.isPending,
             },
           }}
         >
@@ -568,10 +572,10 @@ function PendingReviewActions({ employee }: PendingReviewActionsProps): ReactEle
             <RoundedButton
               size="small"
               color="error"
-              data-testid={dataTestIds.employeesPage.quickDeactivateButton}
+              data-testid={dataTestIds.employeesPage.quickDeleteButton}
               onClick={showDialog}
             >
-              Deactivate
+              Delete
             </RoundedButton>
           )}
         </ConfirmationDialog>

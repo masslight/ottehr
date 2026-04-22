@@ -17,12 +17,7 @@
         },
         {
           "resource": ["App:User"],
-          "action": [
-            "App:CreateUser",
-            "App:GetUser",
-            "App:UpdateUser",
-            "App:ListAllUsers"
-          ],
+          "action": ["App:CreateUser", "App:DeleteUser", "App:GetUser", "App:UpdateUser", "App:ListAllUsers"],
           "effect": "Allow"
         },
         {
@@ -42,12 +37,7 @@
         },
         {
           "resource": ["IAM:Role"],
-          "action": [
-            "IAM:GetRole",
-            "IAM:ListAllRoles",
-            "IAM:CreateRole",
-            "IAM:UpdateRole"
-          ],
+          "action": ["IAM:GetRole", "IAM:ListAllRoles", "IAM:CreateRole", "IAM:UpdateRole"],
           "effect": "Allow"
         },
         {
