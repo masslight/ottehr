@@ -226,7 +226,8 @@ const useFormData = (
   insuranceData: any,
   accountData: any,
   isAddingInsurance?: boolean,
-  newInsuranceOrdinal?: number
+  newInsuranceOrdinal?: number,
+  patientId?: string
 ): {
   methods: ReturnType<typeof useForm>;
   coveragesFormValues: any;
@@ -305,6 +306,7 @@ const useFormData = (
   useEffect(() => {
     if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
     const coverageKey = [
+      patientId ?? 'none',
       insuranceData?.coverages?.primary?.id ?? 'none',
       insuranceData?.coverages?.secondary?.id ?? 'none',
     ].join(':');
@@ -314,7 +316,7 @@ const useFormData = (
     Object.entries(coveragesFormValues).forEach(([key, value]) => {
       methods.resetField(key, { defaultValue: value });
     });
-  }, [coveragesFormValues, methods, insuranceData?.coverages]);
+  }, [coveragesFormValues, methods, insuranceData?.coverages, patientId]);
 
   return { methods, coveragesFormValues };
 };
@@ -374,7 +376,8 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     insuranceData,
     accountData,
     isAddingInsurance,
-    newInsuranceOrdinal
+    newInsuranceOrdinal,
+    id
   );
 
   const { submitQR, removeCoverage, queryClient } = useMutations();
