@@ -1451,6 +1451,7 @@
       "name": "create-invoices-tasks",
       "type": "cron",
       "runtime": "nodejs22.x",
+      "timeout": "300",
       "src": "src/cron/create-invoices-tasks/index",
       "zip": ".dist/zips/create-invoices-tasks.zip",
       "schedule": {

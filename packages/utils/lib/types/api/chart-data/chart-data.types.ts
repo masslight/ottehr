@@ -552,6 +552,7 @@ export interface AccidentDTO extends SaveableDTO {
 
 export interface MigrateExamDataInput {
   encounterId: string;
+  normalExternalGenitalExamSex?: 'male' | 'female';
 }
 
 export interface MigrateExamDataOutput {

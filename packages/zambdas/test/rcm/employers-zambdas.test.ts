@@ -38,15 +38,11 @@ vi.mock('../../src/rcm/employers/candid-sync', () => ({
   toggleCandidEmployerPayer: mockToggleCandidEmployerPayer,
 }));
 
-const { index: createEmployerHandler } = (await import('../../src/rcm/employers/create-employer/index')) as {
-  index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
-};
-const { index: updateEmployerHandler } = (await import('../../src/rcm/employers/update-employer/index')) as {
-  index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
-};
-const { index: listEmployersHandler } = (await import('../../src/rcm/employers/list-employers/index')) as {
-  index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
-};
+type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
+
+let createEmployerHandler!: ZambdaHandler;
+let updateEmployerHandler!: ZambdaHandler;
+let listEmployersHandler!: ZambdaHandler;
 
 const employerType = [
   {
@@ -75,9 +71,20 @@ function makeEmployer(overrides?: Partial<Organization>): Organization {
 }
 
 describe('RCM employer zambdas', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    vi.resetModules();
     mockCreateCandidClientIfConfigured.mockReturnValue(null);
+
+    ({ index: createEmployerHandler } = (await import('../../src/rcm/employers/create-employer/index')) as {
+      index: ZambdaHandler;
+    });
+    ({ index: updateEmployerHandler } = (await import('../../src/rcm/employers/update-employer/index')) as {
+      index: ZambdaHandler;
+    });
+    ({ index: listEmployersHandler } = (await import('../../src/rcm/employers/list-employers/index')) as {
+      index: ZambdaHandler;
+    });
   });
 
   it('create-employer creates org and persists Candid payer id when Candid sync succeeds', async () => {

@@ -24,6 +24,7 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
+let candid: CandidApiClient | undefined;
 const ZAMBDA_NAME = 'sub-refresh-invoice-task';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -32,7 +33,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
-  const candid = createCandidApiClient(secrets);
+  if (!candid) {
+    candid = createCandidApiClient(secrets);
+  }
 
   const inventoryRecord = await getCandidInventoryRecordForTask(oystehr, candid, taskId);
   if (inventoryRecord) {

@@ -266,6 +266,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
 
+  // TODO: Once billable follow-up visits are available (with their own Appointment and full visit workflow),
+  // ensure this report includes them as independent visits on their follow-up date.
+  // Currently, follow-up encounters without their own Appointment are excluded from reports.
+
   console.log('Searching for appointments in date range:', dateRange);
 
   // First, fetch all locations
@@ -312,6 +316,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             'Location.id',
             'Location.name',
             'Encounter.id',
+            'Encounter.type',
             'Encounter.status',
             'Encounter.appointment',
             'Encounter.participant',
@@ -370,8 +375,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return dischargedStatuses.includes(visitStatus);
   });
 
+  // Count unsigned visits: appointment is fulfilled but encounter was never signed (status != finished)
+  const unsignedVisitCount = appointments.filter((appointment) => {
+    if (!appointment.id || !isInPersonAppointment(appointment)) return false;
+    if (appointment.status !== 'fulfilled') return false;
+    const encounter = encounterMap.get(`Appointment/${appointment.id}`);
+    if (!encounter) return false;
+    return encounter.status !== 'finished';
+  }).length;
+
   console.log(
-    `Filtered to ${dischargedAppointments.length} discharged in-person visits out of ${appointments.length} total appointments`
+    `Filtered to ${dischargedAppointments.length} discharged in-person visits out of ${appointments.length} total appointments (${unsignedVisitCount} unsigned visits excluded)`
   );
 
   // Calculate metrics per location
@@ -601,6 +615,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const response: PracticeKpisReportZambdaOutput = {
     message: `Found ${totalVisits} discharged in-person visits across ${locationMetrics.length} locations`,
     locations: locationMetrics,
+    unsignedVisitCount,
     dateRange,
   };
 
