@@ -584,22 +584,24 @@ function PendingReviewActions({ employee }: PendingReviewActionsProps): ReactEle
         dataTestId={dataTestIds.employeesPage.assignRoleDialog}
         title="Assign role"
         description={
-          <FormControl fullWidth sx={{ mt: 1 }}>
-            <InputLabel id="assign-role-label">Role</InputLabel>
-            <Select
-              labelId="assign-role-label"
-              label="Role"
-              value={selectedRole}
-              inputProps={{ 'data-testid': dataTestIds.employeesPage.assignRoleSelect }}
-              onChange={(e) => setSelectedRole(e.target.value as RoleType)}
-            >
-              {AVAILABLE_EMPLOYEE_ROLES.map((role) => (
-                <MenuItem key={role.value} value={role.value}>
-                  {role.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Box sx={{ width: 360 }}>
+            <FormControl fullWidth sx={{ mt: 1 }}>
+              <InputLabel id="assign-role-label">Role</InputLabel>
+              <Select
+                labelId="assign-role-label"
+                label="Role"
+                value={selectedRole}
+                inputProps={{ 'data-testid': dataTestIds.employeesPage.assignRoleSelect }}
+                onChange={(e) => setSelectedRole(e.target.value as RoleType)}
+              >
+                {AVAILABLE_EMPLOYEE_ROLES.map((role) => (
+                  <MenuItem key={role.value} value={role.value}>
+                    {role.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
         }
         closeButtonText="Cancel"
         confirmText="Save"
