@@ -346,9 +346,10 @@ function EmployeesTable({
                               backgroundColor: otherColors.orange100,
                               color: otherColors.orange800,
                               borderRadius: '4px',
-                              height: '17px',
+                              height: '18px',
                               '& .MuiChip-label': {
-                                padding: '2px 8px 0px 8px',
+                                padding: '0 8px',
+                                lineHeight: '18px',
                               },
                               ...theme.typography.subtitle2,
                             }}
@@ -411,9 +412,10 @@ function EmployeesTable({
                               ? otherColors.employeeActiveText
                               : otherColors.employeeDeactivatedText,
                           borderRadius: '4px',
-                          height: '17px',
+                          height: '18px',
                           '& .MuiChip-label': {
-                            padding: '2px 8px 0px 8px',
+                            padding: '0 8px',
+                            lineHeight: '18px',
                           },
                           ...theme.typography.subtitle2,
                         }}
@@ -434,9 +436,10 @@ function EmployeesTable({
                                 borderRadius: '4px',
                                 bgcolor: 'info.light',
                                 color: 'info.dark',
-                                height: '17px',
+                                height: '18px',
                                 '& .MuiChip-label': {
-                                  padding: '2px 8px 0px 8px',
+                                  padding: '0 8px',
+                                  lineHeight: '18px',
                                 },
                                 ...theme.typography.subtitle2,
                               }}
@@ -455,9 +458,10 @@ function EmployeesTable({
                                 backgroundColor: otherColors.employeeBeenSeenChip,
                                 color: otherColors.employeeBeenSeenText,
                                 borderRadius: '4px',
-                                height: '17px',
+                                height: '18px',
                                 '& .MuiChip-label': {
-                                  padding: '2px 8px 0px 8px',
+                                  padding: '0 8px',
+                                  lineHeight: '18px',
                                 },
                                 ...theme.typography.subtitle2,
                               }}
