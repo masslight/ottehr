@@ -45,6 +45,7 @@ import { getEmployees, updateUser } from '../api/api';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
 import { CustomDialog } from '../components/dialogs/CustomDialog';
 import Loading from '../components/Loading';
+import { RoundedButton } from '../components/RoundedButton';
 import { EMPLOYEE_ROWS_PER_PAGE, PROVIDER_ROWS_PER_PAGE } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
@@ -531,14 +532,13 @@ function PendingReviewActions({ employee }: PendingReviewActionsProps): ReactEle
   return (
     <>
       <Stack direction="row" spacing={1}>
-        <Button
+        <RoundedButton
           size="small"
-          variant="outlined"
           data-testid={dataTestIds.employeesPage.assignRoleButton}
           onClick={() => setAssignOpen(true)}
         >
           Assign Role
-        </Button>
+        </RoundedButton>
         <ConfirmationDialog
           title="Deactivate user?"
           description={`This will remove all roles from ${employee.email || employee.name} and block EHR access.`}
@@ -554,15 +554,14 @@ function PendingReviewActions({ employee }: PendingReviewActionsProps): ReactEle
           }}
         >
           {(showDialog) => (
-            <Button
+            <RoundedButton
               size="small"
               color="error"
-              variant="outlined"
               data-testid={dataTestIds.employeesPage.quickDeactivateButton}
               onClick={showDialog}
             >
               Deactivate
-            </Button>
+            </RoundedButton>
           )}
         </ConfirmationDialog>
       </Stack>
