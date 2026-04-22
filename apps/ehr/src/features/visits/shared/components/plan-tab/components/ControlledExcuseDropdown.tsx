@@ -1,12 +1,13 @@
-import { FormControlLabel, FormControlLabelProps, MenuItem, Select } from '@mui/material';
+import { FormControl, FormControlProps, MenuItem, Select, Typography } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { ExcuseFormValues } from 'src/features/visits/telemed/utils/school-work-excuse.helper';
 
 type ControlledExcuseDropdownProps = {
   label: string;
   name: 'patientOrRelatedPerson';
   onChange?: (newValue: ExcuseFormValues['patientOrRelatedPerson']) => void;
-  sx?: FormControlLabelProps['sx'];
+  sx?: FormControlProps['sx'];
 };
 
 export const ControlledExcuseDropdown: FC<ControlledExcuseDropdownProps> = (props) => {
@@ -15,30 +16,29 @@ export const ControlledExcuseDropdown: FC<ControlledExcuseDropdownProps> = (prop
   const { control } = useFormContext();
 
   return (
-    <FormControlLabel
-      sx={sx}
-      control={
-        <Controller
-          name={name}
-          control={control}
-          render={({ field: { value, onChange } }) => (
-            <Select
-              value={value}
-              onChange={(e) => {
-                if (onExternalChange) {
-                  onExternalChange(e.target.value);
-                }
-                onChange(e);
-              }}
-            >
-              <MenuItem value="patient">Patient</MenuItem>
-              <MenuItem value="related-person">Related Person</MenuItem>
-            </Select>
-          )}
-        />
-      }
-      label={label}
-      labelPlacement="start"
-    />
+    <FormControl sx={{ flexDirection: 'row', alignItems: 'center', ...sx }}>
+      <Typography component="label" htmlFor={name}>
+        {label}
+      </Typography>
+      <Controller
+        name={name}
+        control={control}
+        render={({ field: { value, onChange } }) => (
+          <Select
+            id={name}
+            value={value}
+            onChange={(e) => {
+              if (onExternalChange) {
+                onExternalChange(e.target.value);
+              }
+              onChange(e);
+            }}
+          >
+            <MenuItem value="patient">Patient</MenuItem>
+            <MenuItem value="related-person">Related Person</MenuItem>
+          </Select>
+        )}
+      />
+    </FormControl>
   );
 };
