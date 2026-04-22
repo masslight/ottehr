@@ -27,7 +27,10 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
   const { dirtyFields, errors } = formState;
 
   const submitQR = useUpdatePatientAccount(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['patient-account-get'] }),
+      queryClient.invalidateQueries({ queryKey: ['patient-coverages'] }),
+    ]);
   });
 
   const watchedValues = watch(fieldKeys);
