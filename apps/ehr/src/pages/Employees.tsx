@@ -320,7 +320,7 @@ function EmployeesTable({
                     <TableCell sx={{ maxWidth: '150px' }}>Seen patient last 30 mins</TableCell>
                   </>
                 )}
-                {showReviewColumn && <TableCell sx={{ width: '220px' }}>Actions</TableCell>}
+                {showReviewColumn && <TableCell sx={{ width: '260px', whiteSpace: 'nowrap' }}>Actions</TableCell>}
               </TableRow>
             </TableHead>
 
@@ -376,9 +376,19 @@ function EmployeesTable({
                     <TableCell
                       sx={{
                         color: otherColors.tableRow,
+                        maxWidth: '220px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      {employee.email || '-'}
+                      {employee.email ? (
+                        <Tooltip title={employee.email} placement="top">
+                          <span>{employee.email}</span>
+                        </Tooltip>
+                      ) : (
+                        '-'
+                      )}
                     </TableCell>
                     <TableCell
                       sx={{
