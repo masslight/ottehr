@@ -1,9 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ValueSet } from 'fhir/r4b';
-import { CPTCodeOption } from 'utils';
+import { CPTCodeOption, EM_CODES_VALUE_SET_URL } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-
-const EM_CODES_VALUE_SET_URL = 'https://fhir.ottehr.com/ValueSet/em-codes';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;

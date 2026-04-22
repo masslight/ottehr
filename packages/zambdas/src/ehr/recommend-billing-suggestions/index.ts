@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ValueSet } from 'fhir/r4b';
-import { BillingSuggestionOutput, CPTCodeOption, fixAndParseJsonObjectFromString } from 'utils';
+import { BillingSuggestionOutput, CPTCodeOption, EM_CODES_VALUE_SET_URL, fixAndParseJsonObjectFromString } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { loadAndParseIcd10Data } from '../../shared/icd-10-search';
@@ -37,7 +37,7 @@ export const index = wrapHandler(
     const oystehr = createOystehrClient(m2mToken, secrets);
     const emCodesValueSet = await oystehr.fhir.search<ValueSet>({
       resourceType: 'ValueSet',
-      params: [{ name: 'url', value: 'https://fhir.ottehr.com/ValueSet/em-codes' }],
+      params: [{ name: 'url', value: EM_CODES_VALUE_SET_URL }],
     });
     const emCodeOptions: CPTCodeOption[] = (emCodesValueSet.entry?.[0]?.resource?.expansion?.contains ?? [])
       .filter((entry) => entry.code && entry.display)

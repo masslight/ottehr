@@ -62,6 +62,7 @@ import {
   ACCIDENT_TYPE_SYSTEM,
   CPTCodeOption,
   createReference,
+  EM_CODES_VALUE_SET_URL,
   FHIR_IDENTIFIER_NPI,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
@@ -208,7 +209,7 @@ const createCandidCreateEncounterInput = async (
       .then((r) => r.unbundle()),
     oystehr.fhir.search<ValueSet>({
       resourceType: 'ValueSet',
-      params: [{ name: 'url', value: 'https://fhir.ottehr.com/ValueSet/em-codes' }],
+      params: [{ name: 'url', value: EM_CODES_VALUE_SET_URL }],
     }),
   ]);
 
