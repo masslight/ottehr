@@ -1,4 +1,5 @@
 import { Button } from '@mui/material';
+import { FormFieldItemRecord } from 'config-types';
 import { Coverage, Patient } from 'fhir/r4b';
 import { FC, useMemo } from 'react';
 import { Section } from 'src/components/layout';
@@ -10,10 +11,17 @@ import {
   PATIENT_RECORD_CONFIG,
 } from 'utils';
 import { InsuranceContainer } from './InsuranceContainer';
-import { usePatientRecordFormSection } from './PatientRecordFormSection';
 import { SectionSaveButton } from './SectionSaveButton';
 
 const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
+
+const getInsuranceSectionDefinition = (index: number): { items: FormFieldItemRecord; requiredFields: string[] } => {
+  const items = Array.isArray(insuranceSection.items) ? insuranceSection.items[index] : insuranceSection.items;
+  return {
+    items: items ?? {},
+    requiredFields: insuranceSection.requiredFields ?? [],
+  };
+};
 
 export const getEligibilityCheckDetailsForCoverage = (
   coverage: Coverage,
@@ -45,8 +53,8 @@ export const InsuranceSection: FC<{
   newInsuranceOrdinal,
   encounterId,
 }) => {
-  const primary = usePatientRecordFormSection({ formSection: insuranceSection, index: 0 });
-  const secondary = usePatientRecordFormSection({ formSection: insuranceSection, index: 1 });
+  const primary = getInsuranceSectionDefinition(0);
+  const secondary = getInsuranceSectionDefinition(1);
 
   const { fieldKeys, requiredFieldKeys } = useMemo(() => {
     const renderedOrdinals = new Set<number>();
