@@ -66,14 +66,13 @@ export function AdminPage(): JSX.Element {
                 <Tab
                   label={
                     <Badge
-                      badgeContent={pendingReviewCount}
+                      variant="dot"
+                      invisible={pendingReviewCount === 0}
                       data-testid={dataTestIds.employeesPage.needsReviewBadge}
                       sx={{
                         '& .MuiBadge-badge': {
-                          right: -10,
-                          top: 2,
+                          right: -4,
                           bgcolor: otherColors.priorityHighIcon,
-                          color: '#fff',
                         },
                       }}
                     >

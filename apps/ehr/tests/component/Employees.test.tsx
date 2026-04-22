@@ -281,7 +281,7 @@ describe('AdminPage Employees-tab badge', () => {
       { wrapper: createWrapper(path) }
     );
 
-  it('shows the count of pending-review users on the Employees tab', async () => {
+  it('shows a visible dot on the Employees tab when any users need review', async () => {
     mockGetEmployees.mockResolvedValue({
       message: 'ok',
       employees: [
@@ -295,11 +295,13 @@ describe('AdminPage Employees-tab badge', () => {
 
     await waitFor(() => {
       const badge = screen.getByTestId(dataTestIds.employeesPage.needsReviewBadge);
-      expect(badge).toHaveTextContent('2');
+      const badgeContent = badge.querySelector('.MuiBadge-badge');
+      expect(badgeContent).not.toBeNull();
+      expect(badgeContent?.className).not.toMatch(/MuiBadge-invisible/);
     });
   });
 
-  it('shows no visible badge count when there are zero pending-review users', async () => {
+  it('hides the badge dot when there are zero pending-review users', async () => {
     mockGetEmployees.mockResolvedValue({
       message: 'ok',
       employees: [makeEmployee({ id: 'u-n1', needsReview: false })],
@@ -309,9 +311,7 @@ describe('AdminPage Employees-tab badge', () => {
 
     await waitFor(() => expect(screen.getByTestId(dataTestIds.employeesPage.needsReviewBadge)).toBeInTheDocument());
     const badge = screen.getByTestId(dataTestIds.employeesPage.needsReviewBadge);
-    // The inner badge element is hidden / has zero content when invisible
     const badgeContent = badge.querySelector('.MuiBadge-badge');
-    expect(badgeContent?.textContent).toBe('0');
     expect(badgeContent?.className).toMatch(/MuiBadge-invisible/);
   });
 });
