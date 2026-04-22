@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, PROVIDER_CONFIG } from 'utils';
+import { ValueSet } from 'fhir/r4b';
+import { BillingSuggestionOutput, CPTCodeOption, fixAndParseJsonObjectFromString } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { loadAndParseIcd10Data } from '../../shared/icd-10-search';
@@ -32,6 +33,15 @@ export const index = wrapHandler(
     console.debug('validateRequestParameters success');
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+
+    const oystehr = createOystehrClient(m2mToken, secrets);
+    const emCodesValueSet = await oystehr.fhir.search<ValueSet>({
+      resourceType: 'ValueSet',
+      params: [{ name: 'url', value: 'https://fhir.ottehr.com/ValueSet/em-codes' }],
+    });
+    const emCodeOptions: CPTCodeOption[] = (emCodesValueSet.entry?.[0]?.resource?.expansion?.contains ?? [])
+      .filter((entry) => entry.code && entry.display)
+      .map((entry) => ({ code: entry.code!, display: entry.display! }));
 
     let prompt = `You are an expert medical coder for an urgent care clinic. Suggest appropriate ICD-10 and CPT codes for this visit.
 
@@ -75,7 +85,7 @@ export const index = wrapHandler(
 
       Here are the E&M codes:
 
-      ${PROVIDER_CONFIG.assessment.emCodeOptions.map((option) => `${option.code}: ${option.display}`).join('\n')}
+      ${emCodeOptions.map((option) => `${option.code}: ${option.display}`).join('\n')}
 
       Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level, identifying exactly which progress note data were the bottlenecks preventing a higher level and a sample MDM paragraph that would satisfy that level.
 
@@ -196,7 +206,6 @@ export const index = wrapHandler(
 
     // Validate CPT codes and get the descriptions for the codes
     if (suggestions?.cptCodes) {
-      const oystehr = createOystehrClient(m2mToken, secrets);
       await Promise.all(
         suggestions.cptCodes.map(async (code) => {
           const terminologyResponse = await oystehr?.terminology.searchCpt({
@@ -239,7 +248,7 @@ export const index = wrapHandler(
         const codeParts = code.code.split(/\s*\/\s*/);
         for (const codePart of codeParts) {
           const trimmedCode = codePart.trim();
-          const emCodeOption = PROVIDER_CONFIG.assessment.emCodeOptions.find((option) => option.code === trimmedCode);
+          const emCodeOption = emCodeOptions.find((option) => option.code === trimmedCode);
           if (emCodeOption) {
             emCodeSuggestions.push({
               code: trimmedCode,

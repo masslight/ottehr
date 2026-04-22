@@ -8,10 +8,10 @@ import {
   DiagnosisDTO,
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
-  PROVIDER_CONFIG,
 } from 'utils';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 import { useChartFields } from './useChartFields';
+import { useEMCodes } from './useEMCodes';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 
 export interface BillingSuggestionsResult {
@@ -159,6 +159,7 @@ function hashInput(input: BillingSuggestionInput): string {
 // ── Main hook ───────────────────────────────────────────────────────────────
 
 export const useBillingSuggestions = (): BillingSuggestionsResult => {
+  const { emCodes } = useEMCodes();
   const { chartData, isLoading: chartDataLoading } = useChartData();
   const { appointment, encounter, patient } = useAppointmentData();
   const encounterId = encounter.id;
@@ -223,7 +224,7 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
     currentCptCodes.push(chartData.emCode);
   }
 
-  const emCodeSet = new Set(PROVIDER_CONFIG.assessment.emCodeOptions.map((option) => option.code));
+  const emCodeSet = new Set(emCodes.map((option) => option.code));
 
   const icdCodesSuggest = data?.icdCodes?.filter(
     (code) => !currentDiagnoses?.some((diagnosis) => diagnosis.code === code.code)

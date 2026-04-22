@@ -11,7 +11,8 @@ import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { CHART_DATA_QUERY_KEY } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { APIErrorCode, CPTCodeOption, makeCptCodeDisplay, PROVIDER_CONFIG } from 'utils';
+import { APIErrorCode, CPTCodeOption, makeCptCodeDisplay } from 'utils';
+import { useEMCodes } from '../../hooks/useEMCodes';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useGetCPTHCPCSSearch } from '../../stores/appointment/appointment.queries';
 import {
@@ -228,11 +229,12 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
   } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
   const cptSearchOptions = data?.codes || [];
 
+  const { emCodes, isLoading: emCodesLoading } = useEMCodes();
   const { onEMCodeChange, isSaveEMLoading, isDeleteEMLoading } = useUpdateEMCode();
   const { mutate: deleteCPTChartData, isPending: isDeleteCPTLoading } = useDeleteChartData();
 
   const { onAdd, isPending: isSaveCPTLoading } = useAddCptCode();
-  const disabledEM = Boolean(isSaveEMLoading || isDeleteEMLoading || (emCode && !emCode.resourceId));
+  const disabledEM = Boolean(isSaveEMLoading || isDeleteEMLoading || emCodesLoading || (emCode && !emCode.resourceId));
   const disabledCPT = Boolean(isSaveCPTLoading || isDeleteCPTLoading);
 
   const { debounce } = useDebounce(800);
@@ -304,7 +306,7 @@ export const BillingCodesContainer: FC<BillingCodesContainerProps> = ({
         {!isReadOnly && (
           <>
             <Autocomplete
-              options={PROVIDER_CONFIG.assessment.emCodeOptions}
+              options={emCodes}
               disabled={disabledEM}
               isOptionEqualToValue={(option, value) => option.code === value.code}
               value={emCode ? { display: emCode.display, code: emCode.code } : null}
