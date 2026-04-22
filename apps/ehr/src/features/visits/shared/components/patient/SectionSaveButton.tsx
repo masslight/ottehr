@@ -1,7 +1,6 @@
 import { Save } from '@mui/icons-material';
 import { Button, CircularProgress } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { PATIENT_RECORD_QUESTIONNAIRE, pruneEmptySections } from 'utils';
@@ -68,17 +67,13 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
       qr.encounter = { reference: `Encounter/${encounterId}` };
     }
 
-    try {
-      await submitQR.mutateAsync(qr);
-      // Clear dirty state only for this section's fields so unsaved edits in other
-      // sections keep their dirty markers (and their Save buttons).
-      const currentValues = getValues();
-      fieldKeys.forEach((key) => {
-        resetField(key, { defaultValue: currentValues[key], keepError: false });
-      });
-    } catch {
-      enqueueSnackbar('Failed to save. Please try again.', { variant: 'error' });
-    }
+    await submitQR.mutateAsync(qr);
+    // Clear dirty state only for this section's fields so unsaved edits in other
+    // sections keep their dirty markers (and their Save buttons).
+    const currentValues = getValues();
+    fieldKeys.forEach((key) => {
+      resetField(key, { defaultValue: currentValues[key], keepError: false });
+    });
   }, [patientId, encounterId, fieldKeys, dirtyFields, getValues, resetField, submitQR]);
 
   if (!isDirty) return null;
