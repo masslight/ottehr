@@ -92,6 +92,7 @@ const buildZambdaChunk = async (zambdas: ZambdaSpec[], outdir: string, isSentryE
       treeShaking: true,
       minify: true,
       plugins: getSentryPlugins(isSentryEnabled),
+      preserveSymlinks: true,
     });
   } catch (error) {
     console.log('Error bundling zambdas:', error);

@@ -22,5 +22,8 @@ export default ({ mode }: { mode: string }) => {
       target: browserslistToEsbuild(),
       assetsInlineLimit: 0,
     },
+    resolve: {
+      preserveSymlinks: true,
+    },
   });
 };

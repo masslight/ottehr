@@ -60,7 +60,7 @@ async function generateOystehrResourceImports(input: {
   // Read all spec files from the config directory
   const specFiles = await fs.readdir(configDir, { withFileTypes: true });
   const jsonSpecFiles = specFiles
-    .filter((file) => file.isFile() && file.name.endsWith('.json'))
+    .filter((file) => file.name.endsWith('.json'))
     .map((file) => path.join(configDir, file.name));
 
   const specs: SpecFile[] = await Promise.all(

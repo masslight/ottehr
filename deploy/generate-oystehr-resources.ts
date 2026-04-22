@@ -97,14 +97,14 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   // Read all spec files from the config directory
   const specFiles = await fs.readdir(configDir, { withFileTypes: true });
   const jsonSpecFiles = specFiles
-    .filter((file) => file.isFile() && file.name.endsWith('.json'))
+    .filter((file) => file.name.endsWith('.json'))
     .map((file) => path.join(configDir, file.name));
 
   // Read core config spec files if the directory exists
   try {
     const coreSpecFiles = await fs.readdir(coreConfigDir, { withFileTypes: true });
     const coreJsonSpecFiles = coreSpecFiles
-      .filter((file) => file.isFile() && file.name.endsWith('.json'))
+      .filter((file) => file.name.endsWith('.json'))
       .map((file) => path.join(coreConfigDir, file.name));
     jsonSpecFiles.push(...coreJsonSpecFiles);
   } catch (err: any) {
@@ -122,7 +122,7 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
       console.log(`Loading environment-specific configs from: ${envConfigDir}`);
       const envSpecFiles = await fs.readdir(envConfigDir, { withFileTypes: true });
       const envJsonSpecFiles = envSpecFiles
-        .filter((file) => file.isFile() && file.name.endsWith('.json'))
+        .filter((file) => file.name.endsWith('.json'))
         .map((file) => path.join(envConfigDir, file.name));
 
       jsonSpecFiles.push(...envJsonSpecFiles);
