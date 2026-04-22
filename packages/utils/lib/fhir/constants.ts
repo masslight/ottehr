@@ -7,6 +7,7 @@ import {
   Identifier,
   Location,
   Practitioner,
+  PractitionerRole,
   Schedule,
 } from 'fhir/r4b';
 import {
@@ -340,7 +341,7 @@ export enum ScheduleStrategy {
 
 export interface ScheduleAndOwner {
   schedule: Schedule;
-  owner: Location | Practitioner | HealthcareService;
+  owner: Location | Practitioner | PractitionerRole | HealthcareService;
 }
 
 interface BaseScheduleResponse {
@@ -763,6 +764,12 @@ export const DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT = 'Summary of visit from chat'
 export const EMPLOYER_ORG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('organization-type');
 
 export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
+
+// HealthcareService.characteristic coding that controls the cadence at which
+// bookable slot start times are offered for group schedules (e.g. 15/30/60).
+// Codes: '15' | '30' | '60'. Absent → falls back to the generator's default
+// (gcd of slotLength and 60).
+export const GROUP_SLOT_CADENCE_SYSTEM = ottehrCodeSystemUrl('group-slot-cadence');
 
 export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
 

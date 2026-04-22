@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coding, Location, Schedule } from 'fhir/r4b';
+import { HealthcareService } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AvailableLocationInformation,
@@ -14,9 +15,11 @@ import {
   getSecret,
   getTimezone,
   getWaitingMinutesAtSchedule,
+  GROUP_SLOT_CADENCE_SYSTEM,
   isLocationOpen,
   isLocationVirtual,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   SlotListItem,
   Timezone,
 } from 'utils';
@@ -60,17 +63,102 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
 
   const { serviceCategoryCode } = validatedParameters;
 
-  const serviceCategoryConfig = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategoryCode);
-  const serviceCategories: Coding[] | undefined = serviceCategoryConfig
-    ? [
-        {
-          system: serviceCategoryConfig.category.system,
-          code: serviceCategoryConfig.category.code,
-        },
-      ]
-    : undefined;
+  // Resolve service-category metadata. Preference: FHIR-managed HealthcareService
+  // tagged 'booking-service-category' → BOOKING_CONFIG fallback. Used both for
+  // Slot.serviceCategory stamping and for slot duration.
+  let resolvedCoding: Coding | undefined;
+  let slotLengthMinutes: number | undefined;
+  if (serviceCategoryCode) {
+    const fhirMatches = (
+      await oystehr.fhir.search<HealthcareService>({
+        resourceType: 'HealthcareService',
+        params: [
+          { name: '_tag', value: 'booking-service-category' },
+          { name: 'active', value: 'true' },
+        ],
+      })
+    ).unbundle();
+    const fhirHit = fhirMatches.find((hs) => hs.type?.[0]?.coding?.some((c) => c.code === serviceCategoryCode));
+    if (fhirHit) {
+      resolvedCoding = { system: SERVICE_CATEGORY_SYSTEM, code: serviceCategoryCode };
+      try {
+        const raw = fhirHit.extension?.find(
+          (e) => e.url === 'https://fhir.ottehr.com/StructureDefinitions/service-category-config'
+        )?.valueString;
+        if (raw) {
+          const parsed = JSON.parse(raw) as { durationMinutes?: number };
+          if (typeof parsed.durationMinutes === 'number' && parsed.durationMinutes > 0) {
+            slotLengthMinutes = parsed.durationMinutes;
+          }
+        }
+      } catch {
+        // fall through — use default slot length
+      }
+    } else {
+      const configHit = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategoryCode);
+      if (configHit) {
+        resolvedCoding = { system: configHit.category.system, code: configHit.category.code };
+      }
+    }
+  }
+  const serviceCategories: Coding[] | undefined = resolvedCoding ? [resolvedCoding] : undefined;
 
-  console.log('SERVICE CATEGORIES FOR SLOT GENERATION:', JSON.stringify(serviceCategories, null, 2));
+  // Filter PractitionerRole-owned schedules by healthcareService[]. When a
+  // category is requested, drop any schedule whose PractitionerRole owner
+  // doesn't list the category-tagged HealthcareService (matched by code on
+  // the role's healthcareService references resolved through fhirMatches).
+  // Schedules owned by Location / Practitioner / HealthcareService pass through
+  // unchanged — we only use the role's service list to narrow the pool.
+  if (serviceCategoryCode) {
+    const categoryHealthcareServiceIds = new Set<string>();
+    // Resolve the category-tagged HealthcareService(s) to their ids so we can
+    // match against role.healthcareService[].reference.
+    const categoryHits = (
+      await oystehr.fhir.search<HealthcareService>({
+        resourceType: 'HealthcareService',
+        params: [
+          { name: '_tag', value: 'booking-service-category' },
+          { name: 'active', value: 'true' },
+        ],
+      })
+    ).unbundle();
+    for (const hs of categoryHits) {
+      if (hs.type?.[0]?.coding?.some((c) => c.code === serviceCategoryCode) && hs.id) {
+        categoryHealthcareServiceIds.add(hs.id);
+      }
+    }
+
+    const filtered = scheduleList.filter((entry) => {
+      if (entry.owner.resourceType !== 'PractitionerRole') return true;
+      const roleServices = (entry.owner as any).healthcareService || [];
+      return roleServices.some((ref: { reference?: string }) => {
+        const id = ref.reference?.split('/')[1];
+        return id && categoryHealthcareServiceIds.has(id);
+      });
+    });
+    // Mutate in place so the rest of the handler uses the filtered list.
+    scheduleList.length = 0;
+    scheduleList.push(...filtered);
+  }
+
+  // For group schedules, pick up the admin-configured slot cadence from the
+  // root HealthcareService.characteristic (code '15' | '30' | '60'). Other
+  // schedule types don't expose this knob — cadence defaults to gcd(slotLen,60).
+  let cadenceMinutes: number | undefined;
+  if (scheduleOwner.resourceType === 'HealthcareService') {
+    const cadenceCode = (scheduleOwner as HealthcareService).characteristic
+      ?.flatMap((c) => c.coding || [])
+      ?.find((c) => c.system === GROUP_SLOT_CADENCE_SYSTEM)?.code;
+    const parsed = cadenceCode ? parseInt(cadenceCode, 10) : NaN;
+    if (Number.isFinite(parsed) && parsed > 0) {
+      cadenceMinutes = parsed;
+    }
+  }
+
+  console.log(
+    'SERVICE CATEGORIES FOR SLOT GENERATION:',
+    JSON.stringify({ serviceCategories, slotLengthMinutes, cadenceMinutes }, null, 2)
+  );
 
   console.time('synchronous_data_processing');
   const { telemedAvailable: tmSlots, availableSlots: regularSlots } = await getAvailableSlotsForSchedules(
@@ -80,6 +168,8 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
       numDays: selectedDate ? 1 : undefined,
       selectedDate,
       serviceCategories,
+      slotLengthMinutes,
+      cadenceMinutes,
     },
     oystehr
   );

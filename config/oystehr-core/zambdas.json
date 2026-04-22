@@ -1827,6 +1827,41 @@
       "src": "src/ehr/lab/in-house/admin-update-in-house-lab/index",
       "zip": ".dist/zips/admin-update-in-house-lab.zip"
     },
+    "ADMIN_LIST_SERVICE_CATEGORIES": {
+      "name": "admin-list-service-categories",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-list-service-categories/index",
+      "zip": ".dist/zips/admin-list-service-categories.zip"
+    },
+    "ADMIN_CREATE_SERVICE_CATEGORY": {
+      "name": "admin-create-service-category",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-service-category/index",
+      "zip": ".dist/zips/admin-create-service-category.zip"
+    },
+    "ADMIN_UPDATE_SERVICE_CATEGORY": {
+      "name": "admin-update-service-category",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-service-category/index",
+      "zip": ".dist/zips/admin-update-service-category.zip"
+    },
+    "ADMIN_DELETE_SERVICE_CATEGORY": {
+      "name": "admin-delete-service-category",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-delete-service-category/index",
+      "zip": ".dist/zips/admin-delete-service-category.zip"
+    },
+    "GET_SERVICE_CATEGORIES": {
+      "name": "get-service-categories",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/booking/get-service-categories/index",
+      "zip": ".dist/zips/get-service-categories.zip"
+    },
     "ERX_NOTIFICATION": {
       "name": "erx-notification-subscription",
       "type": "subscription",

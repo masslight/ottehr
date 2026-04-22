@@ -2,7 +2,7 @@ import { Autocomplete, Skeleton, Tab, Tabs, TextField, Typography } from '@mui/m
 import { Box, styled } from '@mui/system';
 import { Slot } from 'fhir/r4b';
 import noop from 'lodash/noop';
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { generatePath, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   APIError,
@@ -62,6 +62,10 @@ const findSelectedSlotFromAvailable = (available: SlotListItem[], selectedSlotId
   })?.slot;
 };
 
+// Key used to stash the `atLocation` URL param so it survives navigation from
+// the slot picker through the patient-info flow to Review.
+export const BOOKING_AT_LOCATION_STORAGE_KEY = 'booking-at-location-slug';
+
 const useBookingParams = (
   selectedLocation: BookableItem | null
 ): {
@@ -72,6 +76,7 @@ const useBookingParams = (
   slugToFetch: string | undefined;
   serviceModeFromParam: string | undefined;
   serviceCategoryCode: ServiceCategoryCode | undefined;
+  atLocationSlug: string | null;
 } => {
   const [searchParams] = useSearchParams();
   const pathParams = useParams();
@@ -79,6 +84,7 @@ const useBookingParams = (
   const scheduleTypeFromParam = searchParams.get(BOOKING_SCHEDULE_TYPE_QUERY_PARAM) as ScheduleType | null;
   const serviceModeFromParam = pathParams[BOOKING_SERVICE_MODE_PARAM];
   const serviceCategoryCodeFromParam = searchParams.get(BOOKING_SERVICE_CATEGORY_PARAM);
+  const atLocationSlug = searchParams.get('atLocation');
 
   const typeMap: Record<string, ScheduleType> = {
     HealthcareService: ScheduleType.group,
@@ -95,6 +101,7 @@ const useBookingParams = (
     scheduleType: scheduleTypeFromParam || (selectedLocation && typeMap[selectedLocation.resourceType]),
     slugToFetch: bookingOn ?? selectedLocation?.slug,
     serviceCategoryCode: ServiceCategoryCodeSchema.safeParse(serviceCategoryCodeFromParam)?.data ?? undefined,
+    atLocationSlug,
   };
 };
 
@@ -190,8 +197,17 @@ const PrebookVisit: FC = () => {
   const selectedLocation =
     (serviceModeFromParam ?? serviceMode) === 'in-person' ? selectedInPersonLocation : selectedVirtualLocation;
 
-  const { bookingOn, scheduleType, selectedSlot, slugToFetch, serviceCategoryCode } =
+  const { bookingOn, scheduleType, selectedSlot, slugToFetch, serviceCategoryCode, atLocationSlug } =
     useBookingParams(selectedLocation);
+
+  // Persist atLocation so it survives the nav from slot-pick to Review, where
+  // it gets forwarded to create-appointment.
+  useEffect(() => {
+    if (atLocationSlug) {
+      sessionStorage.setItem(BOOKING_AT_LOCATION_STORAGE_KEY, atLocationSlug);
+    }
+  }, [atLocationSlug]);
+
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
 
   const {

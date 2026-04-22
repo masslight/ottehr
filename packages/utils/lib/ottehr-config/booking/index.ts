@@ -394,17 +394,24 @@ export const BOOKING_CONFIG = createProxyConfigObject<BookingConfig>(getBookingC
 // which may reflect runtime-injected overrides via the proxy.
 // Defined as functions (not module-scope constants) to avoid eagerly accessing
 // BOOKING_CONFIG during module initialization.
-export const getServiceCategoryCodeSchema = (): z.ZodEnum<[string, ...string[]]> => {
-  return z.enum(BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code) as [string, ...string[]]);
-};
-/** @deprecated Use getServiceCategoryCodeSchema() — eager access can cause circular init issues */
-export const ServiceCategoryCodeSchema = new Proxy({} as z.ZodEnum<[string, ...string[]]>, {
-  get(_target, prop) {
-    return (getServiceCategoryCodeSchema() as any)[prop];
-  },
-});
+//
+// Historically this was a strict z.enum built from BOOKING_CONFIG, which broke
+// runtime-added service categories (FHIR HealthcareService records tagged
+// booking-service-category): any code not in the compiled-in BOOKING_CONFIG
+// would fail validation, drop the serviceCategory URL param, and let the slot
+// generator fall back to the 15-min default. Now we accept any URL-safe slug;
+// downstream code validates against the merged FHIR+BOOKING_CONFIG catalog
+// when resolving duration and other metadata.
+const SERVICE_CATEGORY_CODE_SHAPE = z
+  .string()
+  .regex(/^[a-z0-9-]+$/i)
+  .min(1)
+  .max(64);
+export const getServiceCategoryCodeSchema = (): z.ZodString => SERVICE_CATEGORY_CODE_SHAPE;
+/** @deprecated Use getServiceCategoryCodeSchema() */
+export const ServiceCategoryCodeSchema = SERVICE_CATEGORY_CODE_SHAPE;
 
-export type ServiceCategoryCode = z.infer<ReturnType<typeof getServiceCategoryCodeSchema>>;
+export type ServiceCategoryCode = string;
 
 export const getHomepageOptionSchema = (): z.ZodEnum<[string, ...string[]]> => {
   return z.enum(BOOKING_CONFIG.homepageOptions.map((opt) => opt.id) as [string, ...string[]]);

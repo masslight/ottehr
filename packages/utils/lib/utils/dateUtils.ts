@@ -22,19 +22,115 @@ export const isISODateTime = (dateTimeString: string): boolean => {
 export const convertCapacityListToBucketedTimeSlots = (
   scheduleCapacityList: Capacity[],
   startDate: DateTime,
-  slotLength?: number
+  slotLength?: number,
+  cadenceMinutes?: number
 ): SlotCapacityMap => {
   const startOfDate = startDate.startOf('day');
   const timeSlots: { [slot: string]: number } = {};
-  // console.log('scheduleCapacityList', scheduleCapacityList);
-  scheduleCapacityList.forEach((entry) => {
-    const { capacity, hour } = entry;
-    const bucketedCapacity = divideHourlyCapacityBySlotInterval(capacity, slotLength);
-    Object.entries(bucketedCapacity).forEach(([key, value]) => {
-      const time = DateTime.fromISO(startOfDate.toISO()!).plus({ hour: hour, minute: parseInt(key) });
-      timeSlots[time.toISO()!] = value;
+  const effectiveSlotLength = slotLength ?? 15;
+
+  // When the caller supplies an explicit cadence (e.g. group admin picked
+  // "every 15 minutes"), that always wins and we route through the
+  // session-based path — the per-hour bucket fast path can't express a cadence
+  // finer than the slot length.
+  const hasExplicitCadence = cadenceMinutes !== undefined && cadenceMinutes > 0;
+
+  // Two branches:
+  //   - slotLength evenly divides 60 (15/30/60) AND no explicit cadence:
+  //     per-hour bucket math. Each slot fits within one open hour; capacity is
+  //     distributed across sub-hour buckets. Preserves legacy behaviour.
+  //   - everything else (20, 45, 90, 120, …, or explicit cadence): session-
+  //     based math. Slots may straddle hours; offered starts step at the
+  //     caller's cadence (if any) else gcd(slotLength, 60) (e.g. 45-min →
+  //     15-min cadence). Per-slot capacity is the minimum providers count
+  //     across every hour the slot touches (a 45-min visit needs a provider
+  //     free for the whole 45 minutes).
+  // Resolve the effective concurrent-provider count for an hour entry, picking
+  // whichever field the admin filled in. Precedence:
+  //   1. `prebookSlots` (Location semantic): slots × slotLength / 60.
+  //   2. `providers`    (Practitioner semantic): used as-is.
+  //   3. legacy `capacity` (bookings/hr at 15-min cadence): capacity × 15/60
+  //      = capacity/4, which matches the old math for the 15-min-only world.
+  const effectiveProviders = (entry: Capacity): number => {
+    if (entry.prebookSlots !== undefined && entry.prebookSlots !== null) {
+      return (entry.prebookSlots * effectiveSlotLength) / 60;
+    }
+    if (entry.providers !== undefined && entry.providers !== null) {
+      return entry.providers;
+    }
+    return (entry.capacity ?? 0) / 4;
+  };
+
+  if (!hasExplicitCadence && effectiveSlotLength <= 60 && 60 % effectiveSlotLength === 0) {
+    scheduleCapacityList.forEach((entry) => {
+      const providersForHour = effectiveProviders(entry);
+      const totalBookings = Math.max(0, Math.floor((providersForHour * 60) / effectiveSlotLength));
+      const bucketedCapacity = divideHourlyCapacityBySlotInterval(totalBookings, slotLength);
+      Object.entries(bucketedCapacity).forEach(([key, value]) => {
+        const time = DateTime.fromISO(startOfDate.toISO()!).plus({ hour: entry.hour, minute: parseInt(key) });
+        timeSlots[time.toISO()!] = value;
+      });
     });
-  });
+    return timeSlots;
+  }
+
+  // Super-hour / non-divisor path. Build a per-hour providers map.
+  const providersByHour: Record<number, number> = {};
+  for (const entry of scheduleCapacityList) {
+    const p = effectiveProviders(entry);
+    if (p > 0) providersByHour[entry.hour] = p;
+  }
+
+  // Group consecutive open hours into sessions (e.g. [9,10,11] then [13,14]).
+  const openHours = Object.keys(providersByHour)
+    .map(Number)
+    .sort((a, b) => a - b);
+  const sessions: number[][] = [];
+  for (const h of openHours) {
+    const last = sessions[sessions.length - 1];
+    if (last && last[last.length - 1] === h - 1) last.push(h);
+    else sessions.push([h]);
+  }
+
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+  // Explicit cadence wins; otherwise step by gcd(slotLength, 60) — gives legacy
+  // cadence for 15/30/60 (step == slotLength), 15-min cadence for 45 (gcd
+  // 45,60 = 15), 20-min cadence for 20, 30-min for 90, 60-min for 120, etc.
+  const stepMinutes = hasExplicitCadence ? cadenceMinutes! : gcd(effectiveSlotLength, 60);
+
+  for (const sessionHours of sessions) {
+    const sessionStartHour = sessionHours[0];
+    const sessionEndHour = sessionHours[sessionHours.length - 1] + 1; // exclusive
+    const sessionMinutes = (sessionEndHour - sessionStartHour) * 60;
+    if (sessionMinutes < effectiveSlotLength) continue;
+
+    for (let offset = 0; offset + effectiveSlotLength <= sessionMinutes; offset += stepMinutes) {
+      const candidateStart = startOfDate.plus({ hour: sessionStartHour, minute: offset });
+      const candidateEnd = candidateStart.plus({ minutes: effectiveSlotLength });
+
+      // Hours the slot touches. End-exclusive when the slot ends on the hour.
+      const startH = candidateStart.hour;
+      const lastH = candidateEnd.minute === 0 ? candidateEnd.hour - 1 : candidateEnd.hour;
+
+      let minProviders = Infinity;
+      for (let h = startH; h <= lastH; h++) {
+        const p = providersByHour[h];
+        if (p === undefined) {
+          minProviders = 0;
+          break;
+        }
+        minProviders = Math.min(minProviders, p);
+      }
+      // Long-duration concurrent capacity is integer providers (you need a
+      // provider free for the full duration; fractional providers can't
+      // straddle a multi-hour visit).
+      const concurrent = Number.isFinite(minProviders) ? Math.floor(minProviders) : 0;
+      if (concurrent > 0) {
+        timeSlots[candidateStart.toISO()!] = concurrent;
+      }
+    }
+  }
+
   return timeSlots;
 };
 
@@ -91,22 +187,41 @@ export const convertCapacityMapToSlotList = (timeSlots: { [slot: string]: number
 export const distributeTimeSlots = (
   timeSlots: { [slot: string]: number },
   currentAppointments: Appointment[],
-  busySlots: Slot[]
+  busySlots: Slot[],
+  slotLengthMinutes?: number
 ): string[] => {
   const availableSlots = Object.keys(timeSlots).filter((timeSlot) => {
     const numSlots = timeSlots[timeSlot];
     let numAppointments = 0;
     let numBusySlots = 0;
+
+    // Time-window overlap subtraction. A candidate slot [candStart, candEnd) is
+    // consumed by a busy slot if their intervals overlap — not only when start
+    // times match. Matters once visit durations vary (e.g. a 45-min booking at
+    // 1:00 must hide the 1:15 and 1:30 candidate 15-min slots).
+    const candStart = DateTime.fromISO(timeSlot);
+    const candEnd = slotLengthMinutes ? candStart.plus({ minutes: slotLengthMinutes }) : candStart;
+
     currentAppointments.forEach((appointmentTemp) => {
-      if (+DateTime.fromISO(appointmentTemp.start || '') === +DateTime.fromISO(timeSlot)) {
+      const apStart = DateTime.fromISO(appointmentTemp.start || '');
+      if (slotLengthMinutes && appointmentTemp.end) {
+        const apEnd = DateTime.fromISO(appointmentTemp.end);
+        if (+apStart < +candEnd && +apEnd > +candStart) numAppointments++;
+      } else if (+apStart === +candStart) {
         numAppointments++;
       }
     });
+
     busySlots.forEach((slot) => {
-      if (+DateTime.fromISO(slot.start || '') === +DateTime.fromISO(timeSlot)) {
+      const busyStart = DateTime.fromISO(slot.start || '');
+      if (slotLengthMinutes && slot.end) {
+        const busyEnd = DateTime.fromISO(slot.end);
+        if (+busyStart < +candEnd && +busyEnd > +candStart) numBusySlots++;
+      } else if (+busyStart === +candStart) {
         numBusySlots++;
       }
     });
+
     return numSlots > numAppointments + numBusySlots;
   });
 

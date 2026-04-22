@@ -1,4 +1,4 @@
-import { HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
+import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { Closure, Timezone } from '../../../main';
 import { DailySchedule, ScheduleOverrides } from '../../../utils';
 
@@ -18,7 +18,7 @@ export interface CreateScheduleParams extends Omit<UpdateScheduleParams, 'schedu
   schedule: DailySchedule;
 }
 
-export type ScheduleOwnerFhirResource = Location | Practitioner | HealthcareService;
+export type ScheduleOwnerFhirResource = Location | Practitioner | PractitionerRole | HealthcareService;
 
 export interface ListScheduleOwnersParams {
   ownerType: ScheduleOwnerFhirResource['resourceType'];

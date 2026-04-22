@@ -136,9 +136,9 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     console.log('ownerId', ownerId);
     throw INVALID_RESOURCE_ID_ERROR('ownerId');
   }
-  if (createMode && !['Location', 'Practitioner', 'HealthcareService'].includes(ownerType)) {
+  if (createMode && !['Location', 'Practitioner', 'HealthcareService', 'PractitionerRole'].includes(ownerType)) {
     throw INVALID_INPUT_ERROR(
-      '"ownerType" must be a string and one of: "Location", "Practitioner", "HealthcareService"'
+      '"ownerType" must be a string and one of: "Location", "Practitioner", "HealthcareService", "PractitionerRole"'
     );
   }
 
@@ -199,6 +199,10 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
           name: '_include',
           value: 'Schedule:actor:HealthcareService',
         },
+        {
+          name: '_include',
+          value: 'Schedule:actor:PractitionerRole',
+        },
       ],
     })
   ).unbundle();
@@ -216,7 +220,7 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
   const scheduleOwnerRef = schedule.actor?.[0]?.reference ?? '';
   const [scheduleOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
   let owner: Location | Practitioner | HealthcareService | PractitionerRole | undefined = undefined;
-  const permittedScheduleOwnerTypes = ['Location', 'Practitioner', 'HealthcareService'];
+  const permittedScheduleOwnerTypes = ['Location', 'Practitioner', 'HealthcareService', 'PractitionerRole'];
   if (scheduleOwnerId !== undefined && permittedScheduleOwnerTypes.includes(scheduleOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;
@@ -270,7 +274,7 @@ const getEffectInputFromOwner = async (
   const scheduleOwnerRef = schedule?.actor?.[0]?.reference ?? '';
   const [scheduleOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
   let owner: ScheduleOwnerFhirResource | undefined = undefined;
-  const permittedScheduleOwnerTypes = ['Location', 'Practitioner', 'HealthcareService'];
+  const permittedScheduleOwnerTypes = ['Location', 'Practitioner', 'HealthcareService', 'PractitionerRole'];
   if (scheduleOwnerId !== undefined && permittedScheduleOwnerTypes.includes(scheduleOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;

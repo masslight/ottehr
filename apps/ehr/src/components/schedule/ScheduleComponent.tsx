@@ -1,5 +1,4 @@
 import { otherColors } from '@ehrTheme/colors';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Box,
@@ -29,6 +28,7 @@ interface InfoForDayProps {
   dayOfWeek: string;
   updateItem: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   loading: boolean;
+  ownerType?: string;
 }
 
 const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -53,7 +53,7 @@ export function getTimeFromString(time: string): number {
   return Number(timeHour);
 }
 
-function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): ReactElement {
+function InfoForDay({ day, setDay, updateItem, loading, ownerType }: InfoForDayProps): ReactElement {
   const [open, setOpen] = React.useState<number>(day.open);
   const [openingBuffer, setOpeningBuffer] = React.useState<number>(day.openingBuffer);
   const [close, setClose] = React.useState<number>(day.close ?? 24);
@@ -212,31 +212,6 @@ function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): Reac
                 <Typography variant="h4" color="primary.dark">
                   Capacity
                 </Typography>
-
-                {/* Visit duration */}
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                  }}
-                >
-                  <InfoOutlinedIcon
-                    sx={{
-                      marginRight: 1,
-                      marginLeft: 3,
-                      width: 18,
-                      height: 18,
-                    }}
-                    color="secondary"
-                  />
-                  <Typography variant="body1">
-                    <Box component="span" fontWeight="bold" display="inline">
-                      Visit Duration:
-                    </Box>{' '}
-                    15 minutes
-                  </Typography>
-                </Box>
               </Box>
 
               <ScheduleCapacity
@@ -246,6 +221,7 @@ function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): Reac
                 closingHour={close}
                 openingBuffer={openingBuffer}
                 closingBuffer={closingBuffer}
+                ownerType={ownerType}
               />
             </Box>
           )}
@@ -386,6 +362,7 @@ export default function ScheduleComponent({
                     dayOfWeek={dayOfWeek}
                     updateItem={handleScheduleUpdate}
                     loading={loading}
+                    ownerType={item.owner.type}
                   ></InfoForDay>
                 </TabPanel>
               ))}
@@ -412,6 +389,7 @@ export default function ScheduleComponent({
           setToastMessage={setToastMessage}
           setToastType={setToastType}
           setSnackbarOpen={setSnackbarOpen}
+          ownerType={item.owner.type}
         />
       )}
     </>

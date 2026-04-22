@@ -261,6 +261,8 @@ export default function SchedulePage(): ReactElement {
       scheduleId: item.id,
       timezone,
       slug,
+      // Convert empty-string selection to null so the zambda clears the field.
+      serviceCategoryCode: serviceCategoryCode || null,
     };
     saveScheduleChanges.mutate({ ...params });
   };

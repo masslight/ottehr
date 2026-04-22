@@ -9,12 +9,16 @@ import {
   Encounter,
   Extension,
   List,
+  Location,
   Patient,
+  Practitioner,
+  PractitionerRole,
   Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   Reference,
   Resource,
+  Schedule,
   Slot,
   Task,
 } from 'fhir/r4b';
@@ -23,6 +27,7 @@ import { uuid } from 'short-uuid';
 import {
   ACCIDENT_TYPE_SYSTEM,
   CanonicalUrl,
+  checkSlotAvailable,
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
   createUserResourcesForPatient,
@@ -83,6 +88,10 @@ interface CreateAppointmentInput {
   unconfirmedDateOfBirth?: string;
   appointmentMetadata?: Appointment['meta'];
   parentEncounterId?: string;
+  /** Resolved Location for this booking (direct or via group member / role). */
+  bookingLocation?: Location;
+  /** Resolved attending Practitioner (populated for PractitionerRole bookings). */
+  attendingPractitioner?: Practitioner;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -119,6 +128,8 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     visitType,
     appointmentMetadata: maybeMetadata,
     parentEncounterId,
+    bookingLocation,
+    attendingPractitioner,
   } = effectInput;
   console.log('effectInput', effectInput);
   console.timeEnd('performing-complex-validation');
@@ -153,6 +164,8 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       questionnaireCanonical,
       appointmentMetadata,
       parentEncounterId,
+      bookingLocation,
+      attendingPractitioner,
     },
     oystehr
   );
@@ -187,6 +200,48 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
   };
 });
 
+/**
+ * Resolve the list of FHIR Schedules owned by a group's members
+ * (Locations on HealthcareService.location[] and Practitioners linked via
+ * PractitionerRole.healthcareService).
+ */
+async function resolveGroupMemberSchedules(
+  oystehr: Oystehr,
+  group: { id?: string; location?: Array<{ reference?: string }> }
+): Promise<Schedule[]> {
+  if (!group.id) return [];
+  const locationRefs = (group.location || []).map((r) => r.reference).filter((r): r is string => !!r);
+
+  const practitionerRoles = (
+    await oystehr.fhir.search<PractitionerRole>({
+      resourceType: 'PractitionerRole',
+      params: [{ name: 'service', value: `HealthcareService/${group.id}` }],
+    })
+  ).unbundle();
+  const practitionerRefs = practitionerRoles.map((pr) => pr.practitioner?.reference).filter((r): r is string => !!r);
+
+  const memberRefs = [...locationRefs, ...practitionerRefs];
+  if (memberRefs.length === 0) return [];
+
+  // Search Schedule by actor. Oystehr's search doesn't support OR across
+  // different resource types cleanly, so query per-ref and union.
+  const all: Schedule[] = [];
+  for (const ref of memberRefs) {
+    try {
+      const results = (
+        await oystehr.fhir.search<Schedule>({
+          resourceType: 'Schedule',
+          params: [{ name: 'actor', value: ref }],
+        })
+      ).unbundle();
+      all.push(...results);
+    } catch (err) {
+      console.warn(`Failed to fetch schedules for member ${ref}:`, err);
+    }
+  }
+  return all;
+}
+
 export async function createAppointment(
   input: CreateAppointmentInput,
   oystehr: Oystehr
@@ -202,6 +257,8 @@ export async function createAppointment(
     serviceMode,
     questionnaireCanonical: questionnaireUrl,
     appointmentMetadata,
+    bookingLocation,
+    attendingPractitioner,
   } = input;
 
   const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
@@ -268,6 +325,8 @@ export async function createAppointment(
     endTime,
     serviceMode,
     scheduleOwner,
+    bookingLocation,
+    attendingPractitioner,
     visitType,
     secrets,
     verifiedPhoneNumber: verifiedFormattedPhoneNumber,
@@ -357,6 +416,8 @@ interface TransactionInput {
   endTime: string;
   visitType: VisitType;
   scheduleOwner: ScheduleOwnerFhirResource;
+  bookingLocation?: Location;
+  attendingPractitioner?: Practitioner;
   serviceMode: ServiceMode;
   questionnaire: Questionnaire;
   oystehr: Oystehr;
@@ -391,6 +452,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     oystehr,
     patient,
     scheduleOwner,
+    bookingLocation,
+    attendingPractitioner,
     questionnaire,
     reasonForVisit,
     startTime,
@@ -475,6 +538,29 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     },
     status: 'accepted',
   });
+  // When the booking is scoped to a Location (either directly or via a group
+  // member), add it as a participant so consumers that filter by Location
+  // (tracking board, reports) see the booking. Skip if the scheduleOwner
+  // already IS the location — we would just be duplicating the same reference.
+  if (bookingLocation && scheduleOwner.resourceType !== 'Location') {
+    participants.push({
+      actor: {
+        reference: `Location/${bookingLocation.id}`,
+      },
+      status: 'accepted',
+    });
+  }
+  // When the scheduleOwner is a PractitionerRole, add the underlying
+  // Practitioner as a participant too. This keeps Appointment.participant-based
+  // provider readers consistent with direct-Practitioner bookings.
+  if (attendingPractitioner && scheduleOwner.resourceType !== 'Practitioner') {
+    participants.push({
+      actor: {
+        reference: `Practitioner/${attendingPractitioner.id}`,
+      },
+      status: 'accepted',
+    });
+  }
 
   let slotReference: Reference | undefined;
   const postSlotRequests: BatchInputPostRequest<Slot>[] = [];
@@ -543,6 +629,104 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const encUrl = `urn:uuid:${uuid()}`;
 
+  // Capacity guard + group-member fallback. Before touching the busy Slot,
+  // verify that the target Schedule can absorb one more booking in the
+  // requested window. If it can't and this is a group booking, reroute to
+  // another group member with capacity. Only fail if every member is saturated.
+  let slotScheduleRef: string | undefined = slot.schedule?.reference;
+  let memberScheduleForAssignment: Schedule | undefined;
+
+  if (slotScheduleRef) {
+    let targetScheduleId = slotScheduleRef.replace('Schedule/', '');
+    let targetSchedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: targetScheduleId });
+
+    // Exclude the patient's own just-reserved Slot from the busy count —
+    // create-slot persists it with status=busy before create-appointment runs,
+    // so without this exclusion the guard would always see the slot as "taken
+    // by itself".
+    let available = await checkSlotAvailable({ slot, schedule: targetSchedule, excludeSlotId: slot.id }, oystehr);
+
+    if (!available && scheduleOwner.resourceType === 'HealthcareService') {
+      // Group fallback: walk other member Schedules, pick the first free one.
+      const memberSchedules = await resolveGroupMemberSchedules(oystehr, scheduleOwner);
+      for (const memberSchedule of memberSchedules) {
+        if (!memberSchedule.id || memberSchedule.id === targetScheduleId) continue;
+        const candidateSlot = { ...slot, schedule: { reference: `Schedule/${memberSchedule.id}` } };
+        const memberOk = await checkSlotAvailable(
+          { slot: candidateSlot, schedule: memberSchedule, excludeSlotId: slot.id },
+          oystehr
+        );
+        if (memberOk) {
+          targetSchedule = memberSchedule;
+          targetScheduleId = memberSchedule.id;
+          slotScheduleRef = `Schedule/${memberSchedule.id}`;
+          slot.schedule = { reference: slotScheduleRef };
+          // If the patient submitted a specific Slot id, we must now create
+          // a fresh Slot on the new Schedule instead of patching the stale one.
+          slot.id = undefined;
+          available = true;
+          break;
+        }
+      }
+    }
+
+    if (!available) {
+      throw new Error('This time slot is no longer available. Please pick another time.');
+    }
+    memberScheduleForAssignment = targetSchedule;
+  }
+
+  // Group provider-assignment mode: if scheduleOwner is a HealthcareService
+  // (group) with characteristic `group-assignment-mode=provider`, and the
+  // (possibly fallback-redirected) member is a Practitioner, stamp them on
+  // Encounter.participant[ATND]. `anonymous` (default) leaves Encounter
+  // participants empty — tracking board shows the visit as unassigned until
+  // the front desk runs assign-practitioner.
+  let encounterParticipants: Encounter['participant'] = undefined;
+  try {
+    if (scheduleOwner.resourceType === 'HealthcareService' && memberScheduleForAssignment) {
+      const groupMode = (scheduleOwner.characteristic || [])
+        .flatMap((c) => c.coding || [])
+        .find((c) => c.system === 'https://fhir.ottehr.com/CodeSystem/group-assignment-mode')?.code;
+      if (groupMode === 'provider') {
+        const memberRef = memberScheduleForAssignment.actor?.[0]?.reference;
+        if (memberRef && memberRef.startsWith('Practitioner/')) {
+          encounterParticipants = [
+            {
+              type: [
+                {
+                  coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }],
+                },
+              ],
+              individual: { reference: memberRef },
+              period: { start: nowIso },
+            },
+          ];
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Unable to resolve group assignment mode; falling back to unassigned Encounter:', err);
+  }
+
+  // Direct PractitionerRole booking: the attending is known at book time (the
+  // role's Practitioner). Stamp Encounter.participant[ATND] so the tracking
+  // board and progress note pick them up immediately. Skip if the group-mode
+  // block above already set participants.
+  if (!encounterParticipants && attendingPractitioner && scheduleOwner.resourceType === 'PractitionerRole') {
+    encounterParticipants = [
+      {
+        type: [
+          {
+            coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }],
+          },
+        ],
+        individual: { reference: `Practitioner/${attendingPractitioner.id}` },
+        period: { start: nowIso },
+      },
+    ];
+  }
+
   const encResource: Encounter = {
     resourceType: 'Encounter',
     status: initialEncounterStatus,
@@ -562,16 +746,16 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
         reference: apptUrl,
       },
     ],
-    location:
-      scheduleOwner.resourceType === 'Location'
-        ? [
-            {
-              location: {
-                reference: `Location/${scheduleOwner.id}`,
-              },
+    location: bookingLocation
+      ? [
+          {
+            location: {
+              reference: `Location/${bookingLocation.id}`,
             },
-          ]
-        : [],
+          },
+        ]
+      : [],
+    ...(encounterParticipants ? { participant: encounterParticipants } : {}),
     extension: encExtensions,
     ...(parentEncounterId && {
       partOf: { reference: `Encounter/${parentEncounterId}` },

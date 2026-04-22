@@ -11,9 +11,11 @@ import PageContainer from '../layout/PageContainer';
 import MedicationsConfigurationPage from './configuration/MedicationsConfiguration';
 import EmployeesPage, { EmployeeTypes } from './Employees';
 import SchedulesPage from './Schedules';
+import ServiceCategoriesAdminPage from './ServiceCategoriesAdminPage';
 
 enum PageTab {
   schedules = 'schedules',
+  'service-categories' = 'service-categories',
   'virtual-locations' = 'virtual-locations',
   employees = 'employees',
   providers = 'providers',
@@ -42,6 +44,12 @@ export function AdminPage(): JSX.Element {
                   value={PageTab.schedules}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab.schedules}`)}
+                />
+                <Tab
+                  label="Service Categories"
+                  value={PageTab['service-categories']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['service-categories']}`)}
                 />
                 <Tab
                   label="Virtual Locations"
@@ -105,6 +113,9 @@ export function AdminPage(): JSX.Element {
           </Box>
           <TabPanel value={PageTab.schedules} sx={{ padding: 0 }}>
             <SchedulesPage />
+          </TabPanel>
+          <TabPanel value={PageTab['service-categories']} sx={{ padding: 0 }}>
+            <ServiceCategoriesAdminPage />
           </TabPanel>
           <TabPanel value={PageTab['virtual-locations']} sx={{ padding: 0 }}>
             <States />

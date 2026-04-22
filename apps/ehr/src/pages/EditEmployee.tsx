@@ -7,6 +7,7 @@ import { allLicensesForPractitioner, PractitionerLicense, User, UserActivationMo
 import { getUserDetails, userActivation } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import EmployeeInformationForm from '../components/EmployeeInformation';
+import PractitionerRoleList from '../components/schedule/PractitionerRoleList';
 import { dataTestIds } from '../constants/data-test-ids';
 import { checkUserIsActive } from '../helpers/checkUserIsActive';
 import { useApiClients } from '../hooks/useAppClients';
@@ -147,25 +148,29 @@ export default function EditEmployeePage(): JSX.Element {
                 />
               )}
 
-              {isActive && (
-                <Paper sx={{ padding: 3, marginTop: 3 }}>
-                  <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-                    Provider schedule
-                  </Typography>
-                  {scheduleId ? (
-                    <Link to={`/admin/schedule/id/${scheduleId}`}>
-                      <Button variant="contained" sx={{ marginTop: 1 }}>
-                        Edit schedule
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Link to={`/admin/schedule/new/provider/${user?.profileResource?.id}`}>
-                      <Button variant="contained" sx={{ marginTop: 1 }}>
-                        Create schedule
-                      </Button>
-                    </Link>
+              {isActive && user?.profileResource?.id && (
+                <>
+                  {/* Legacy single-schedule section kept for back-compat — shown
+                      only when a Practitioner-owned Schedule already exists.
+                      New roles are managed by PractitionerRoleList below. */}
+                  {scheduleId && (
+                    <Paper sx={{ padding: 3, marginTop: 3 }}>
+                      <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+                        Legacy provider schedule
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        This provider has a schedule attached directly to the Practitioner resource. New scheduling
+                        should go through roles (below); this editor remains available for legacy data.
+                      </Typography>
+                      <Link to={`/admin/schedule/id/${scheduleId}`}>
+                        <Button variant="contained" sx={{ marginTop: 1 }}>
+                          Edit legacy schedule
+                        </Button>
+                      </Link>
+                    </Paper>
                   )}
-                </Paper>
+                  <PractitionerRoleList practitionerId={user.profileResource.id} />
+                </>
               )}
 
               {/* Activate or Deactivate Profile */}

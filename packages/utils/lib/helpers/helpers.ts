@@ -1560,6 +1560,10 @@ export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirR
     location = scheduleResource.name;
   } else if (scheduleResource.resourceType === 'Practitioner') {
     location = getFullName(scheduleResource);
+  } else if (scheduleResource.resourceType === 'PractitionerRole') {
+    // Role doesn't carry a display name; callers that need a human-readable
+    // label should resolve the role's Practitioner separately.
+    location = `Role ${scheduleResource.id ?? ''}`.trim() || undefined;
   } else {
     location = scheduleResource.name;
   }

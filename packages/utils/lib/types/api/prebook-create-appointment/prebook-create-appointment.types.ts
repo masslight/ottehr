@@ -12,6 +12,15 @@ export interface CreateAppointmentInputParams {
   unconfirmedDateOfBirth?: string | undefined;
   appointmentMetadata?: Appointment['meta'];
   parentEncounterId?: string;
+  /**
+   * When booking against a group (HealthcareService) schedule, optionally
+   * scopes the booking to a specific Location that's a member of the group.
+   * The resolved Location is stamped onto Encounter.location and added to
+   * Appointment.participant so billing, tracking-board filtering, and other
+   * location-dependent features behave as if the patient booked the Location
+   * directly. Accepts the Location's slug.
+   */
+  atLocationSlug?: string;
 }
 
 export interface CreateAppointmentResponse {

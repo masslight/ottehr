@@ -101,7 +101,12 @@ export async function getSchedules(
         value: 'PractitionerRole:service',
       },
       { name: '_revinclude:iterate', value: 'Schedule:actor:Practitioner' },
-      { name: '_revinclude:iterate', value: 'Schedule:actor:Location' }
+      { name: '_revinclude:iterate', value: 'Schedule:actor:Location' },
+      // PractitionerRole-as-schedule-actor support: pull in any Schedule whose
+      // actor is one of the PractitionerRoles we included above. This enables
+      // the newer model where a Practitioner's schedule-at-a-location lives on
+      // a PractitionerRole rather than on the Practitioner directly.
+      { name: '_revinclude:iterate', value: 'Schedule:actor:PractitionerRole' }
     );
   }
 
@@ -178,6 +183,13 @@ export async function getSchedules(
       }
     });
 
+    // Also collect PractitionerRoles fetched above so we can match them when a
+    // Schedule's actor is a PractitionerRole rather than a raw Practitioner.
+    const practitionerRoles: PractitionerRole[] = [];
+    scheduleResources.forEach((res) => {
+      if (res.resourceType === 'PractitionerRole') practitionerRoles.push(res);
+    });
+
     schedules.forEach((scheduleObj) => {
       const owner = scheduleObj.actor[0]?.reference ?? '';
       const [ownerResourceType, ownerId] = owner.split('/');
@@ -189,6 +201,20 @@ export async function getSchedules(
           scheduleList.push({
             schedule: scheduleObj,
             owner: practitioner,
+          });
+        }
+      } else if (ownerResourceType === 'PractitionerRole' && ownerId) {
+        const role = practitionerRoles.find((r) => r.id === ownerId);
+        // Only include PractitionerRole schedules whose role references this
+        // group via .healthcareService[] — this is what makes the role a
+        // member of the pool.
+        const isMember = role?.healthcareService?.some(
+          (ref) => ref.reference === `HealthcareService/${scheduleOwner.id}`
+        );
+        if (role && isMember) {
+          scheduleList.push({
+            schedule: scheduleObj,
+            owner: role,
           });
         }
       }

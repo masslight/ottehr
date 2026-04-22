@@ -287,6 +287,10 @@ const ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID = 'admin-list-in-house-labs';
 const ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-add-in-house-lab';
 const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
 const ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-update-in-house-lab';
+const ADMIN_LIST_SERVICE_CATEGORIES_ZAMBDA_ID = 'admin-list-service-categories';
+const ADMIN_CREATE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-create-service-category';
+const ADMIN_UPDATE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-update-service-category';
+const ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-delete-service-category';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -2368,4 +2372,62 @@ export const migrateExamData = async (
     console.log(error);
     throw apiErrorToThrow(error);
   }
+};
+
+// ── Service Categories (FHIR-backed bookable appointment categories) ──
+
+export interface ServiceCategoryRuntimeConfig {
+  durationMinutes: number;
+  serviceModes: Array<'in-person' | 'virtual'>;
+  /** Booking flows for this category — 'prebook' vs 'walk-in'. */
+  visitTypes: Array<'prebook' | 'walk-in'>;
+  reasonsForVisit?: Array<{ label: string; value: string }>;
+}
+
+export interface ServiceCategoryRecord {
+  id?: string;
+  name: string;
+  code: string;
+  active: boolean;
+  config: ServiceCategoryRuntimeConfig;
+}
+
+export const listServiceCategories = async (
+  oystehr: Oystehr
+): Promise<{ serviceCategories: ServiceCategoryRecord[] }> => {
+  const response = await oystehr.zambda.execute({ id: ADMIN_LIST_SERVICE_CATEGORIES_ZAMBDA_ID });
+  return chooseJson(response);
+};
+
+export const createServiceCategory = async (
+  oystehr: Oystehr,
+  serviceCategory: ServiceCategoryRecord
+): Promise<{ serviceCategory: ServiceCategoryRecord }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_CREATE_SERVICE_CATEGORY_ZAMBDA_ID,
+    serviceCategory,
+  } as any);
+  return chooseJson(response);
+};
+
+export const updateServiceCategory = async (
+  oystehr: Oystehr,
+  serviceCategory: ServiceCategoryRecord
+): Promise<{ serviceCategory: ServiceCategoryRecord }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_UPDATE_SERVICE_CATEGORY_ZAMBDA_ID,
+    serviceCategory,
+  } as any);
+  return chooseJson(response);
+};
+
+export const deleteServiceCategory = async (
+  oystehr: Oystehr,
+  serviceCategoryId: string
+): Promise<{ message: string }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID,
+    serviceCategoryId,
+  } as any);
+  return chooseJson(response);
 };

@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Appointment, Location, Schedule, Slot } from 'fhir/r4b';
+import { Appointment, HealthcareService, Location, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AllStates,
@@ -25,6 +25,7 @@ import {
   Secrets,
   ServiceMode,
   SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
+  SLUG_SYSTEM,
   VisitType,
 } from 'utils';
 import { checkIsEHRUser, isTestUser, phoneRegex, userHasAccessToPatient, ZambdaInput } from '../../../shared';
@@ -45,8 +46,16 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   const isEHRUser = user && checkIsEHRUser(user);
 
   const bodyJSON = JSON.parse(input.body);
-  const { slotId, language, patient, unconfirmedDateOfBirth, locationState, appointmentMetadata, parentEncounterId } =
-    bodyJSON;
+  const {
+    slotId,
+    language,
+    patient,
+    unconfirmedDateOfBirth,
+    locationState,
+    appointmentMetadata,
+    parentEncounterId,
+    atLocationSlug,
+  } = bodyJSON;
   console.log('unconfirmedDateOfBirth', unconfirmedDateOfBirth);
   console.log('patient:', patient, 'slotId:', slotId);
   // Check existence of necessary fields
@@ -135,6 +144,10 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     throw INVALID_INPUT_ERROR('if specified, "patient.authorizedNonLegalGuardians" must be a string');
   }
 
+  if (atLocationSlug != null && typeof atLocationSlug !== 'string') {
+    throw INVALID_INPUT_ERROR('if specified, "atLocationSlug" must be a string');
+  }
+
   return {
     slotId,
     user,
@@ -146,6 +159,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     locationState,
     appointmentMetadata,
     parentEncounterId,
+    atLocationSlug,
   };
 }
 
@@ -160,13 +174,30 @@ export interface CreateAppointmentEffectInput {
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
   parentEncounterId?: string;
+  /**
+   * Unified booking-location resolution. Populated when the booking should be
+   * attributed to a specific Location — either because the scheduleOwner IS
+   * the Location (direct-location booking), because the scheduleOwner is a
+   * group and the caller scoped the booking to one of its member Locations,
+   * or because the scheduleOwner is a PractitionerRole that carries a
+   * Location reference. When set, stamped onto Encounter.location[] and
+   * Appointment.participant[].
+   */
+  bookingLocation?: Location;
+  /**
+   * Resolved attending Practitioner for this booking. Populated when the
+   * scheduleOwner is a PractitionerRole (the Practitioner on the role) so
+   * downstream handlers can add them to Appointment.participant and know who
+   * the pre-assigned provider is without re-resolving the PractitionerRole.
+   */
+  attendingPractitioner?: Practitioner;
 }
 
 export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
 ): Promise<CreateAppointmentEffectInput> => {
-  const { slotId, isEHRUser, user, patient, appointmentMetadata } = input;
+  const { slotId, isEHRUser, user, patient, appointmentMetadata, atLocationSlug } = input;
 
   console.log('createAppointmentComplexValidation metadata:', appointmentMetadata);
 
@@ -268,6 +299,64 @@ export const createAppointmentComplexValidation = async (
     throw INVALID_INPUT_ERROR('"locationState" is required for virtual appointments');
   }
 
+  // Resolve the unified bookingLocation (and, when relevant, the attending
+  // Practitioner).
+  //   - Direct Location booking → owner IS the Location.
+  //   - Group booking with atLocationSlug → resolve the Location by slug and
+  //     verify it's actually a member of the group.
+  //   - PractitionerRole booking → fetch the role, use its first location as
+  //     bookingLocation and its practitioner as attendingPractitioner.
+  let bookingLocation: Location | undefined;
+  let attendingPractitioner: Practitioner | undefined;
+  if (scheduleOwner.resourceType === 'Location') {
+    bookingLocation = scheduleOwner as Location;
+  } else if (scheduleOwner.resourceType === 'HealthcareService' && atLocationSlug) {
+    const candidateLocations = (
+      await oystehrClient.fhir.search<Location>({
+        resourceType: 'Location',
+        params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${atLocationSlug}` }],
+      })
+    ).unbundle();
+    const candidate = candidateLocations[0];
+    if (!candidate) {
+      throw INVALID_INPUT_ERROR(`"atLocationSlug" did not match any Location: ${atLocationSlug}`);
+    }
+    const group = scheduleOwner as HealthcareService;
+    const isMember = (group.location || []).some((ref) => ref.reference === `Location/${candidate.id}`);
+    if (!isMember) {
+      throw INVALID_INPUT_ERROR(
+        `"atLocationSlug" resolves to a Location that is not a member of the group: ${atLocationSlug}`
+      );
+    }
+    bookingLocation = candidate;
+  } else if (scheduleOwner.resourceType === 'PractitionerRole') {
+    const role = scheduleOwner as PractitionerRole;
+    const practitionerId = role.practitioner?.reference?.split('/')[1];
+    const locationId = role.location?.[0]?.reference?.split('/')[1];
+    const [practitionerHit, locationHit] = await Promise.all([
+      practitionerId
+        ? oystehrClient.fhir
+            .search<Practitioner>({
+              resourceType: 'Practitioner',
+              params: [{ name: '_id', value: practitionerId }],
+            })
+            .then((b) => b.unbundle()[0])
+            .catch(() => undefined)
+        : Promise.resolve(undefined),
+      locationId
+        ? oystehrClient.fhir
+            .search<Location>({
+              resourceType: 'Location',
+              params: [{ name: '_id', value: locationId }],
+            })
+            .then((b) => b.unbundle()[0])
+            .catch(() => undefined)
+        : Promise.resolve(undefined),
+    ]);
+    attendingPractitioner = practitionerHit;
+    bookingLocation = locationHit;
+  }
+
   return {
     slot,
     scheduleOwner,
@@ -279,5 +368,7 @@ export const createAppointmentComplexValidation = async (
     locationState,
     appointmentMetadata,
     parentEncounterId: input.parentEncounterId,
+    bookingLocation,
+    attendingPractitioner,
   };
 };
