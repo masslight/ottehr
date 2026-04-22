@@ -2810,10 +2810,10 @@ describe('Harvest Module', () => {
       { linkId: `policy-holder-birth-sex${suffix}`, answer: [{ valueString: 'Female' }] },
       { linkId: `patient-relationship-to-insured${suffix}`, answer: [{ valueString: 'Self' }] },
       { linkId: `insurance-member-id${suffix}`, answer: [{ valueString: 'MEM123' }] },
-      { linkId: `policy-holder-address${suffix}`, answer: [{ valueString: '10 Other St' }] },
-      { linkId: `policy-holder-city${suffix}`, answer: [{ valueString: 'Rockville' }] },
-      { linkId: `policy-holder-state${suffix}`, answer: [{ valueString: 'MD' }] },
-      { linkId: `policy-holder-zip${suffix}`, answer: [{ valueString: '20850' }] },
+      { linkId: `policy-holder-address${suffix}`, answer: [{ valueString: fieldAddress.line[0] }] },
+      { linkId: `policy-holder-city${suffix}`, answer: [{ valueString: fieldAddress.city }] },
+      { linkId: `policy-holder-state${suffix}`, answer: [{ valueString: fieldAddress.state }] },
+      { linkId: `policy-holder-zip${suffix}`, answer: [{ valueString: fieldAddress.postalCode }] },
       { linkId: `policy-holder-address-as-patient${suffix}`, answer: [{ valueBoolean: sameAsPatient }] },
     ];
 
@@ -2823,10 +2823,10 @@ describe('Harvest Module', () => {
       { linkId: 'responsible-party-date-of-birth', answer: [{ valueString: '1980-01-01' }] },
       { linkId: 'responsible-party-birth-sex', answer: [{ valueString: 'Female' }] },
       { linkId: 'responsible-party-relationship', answer: [{ valueString: 'Self' }] },
-      { linkId: 'responsible-party-address', answer: [{ valueString: '10 Other St' }] },
-      { linkId: 'responsible-party-city', answer: [{ valueString: 'Rockville' }] },
-      { linkId: 'responsible-party-state', answer: [{ valueString: 'MD' }] },
-      { linkId: 'responsible-party-zip', answer: [{ valueString: '20850' }] },
+      { linkId: 'responsible-party-address', answer: [{ valueString: fieldAddress.line[0] }] },
+      { linkId: 'responsible-party-city', answer: [{ valueString: fieldAddress.city }] },
+      { linkId: 'responsible-party-state', answer: [{ valueString: fieldAddress.state }] },
+      { linkId: 'responsible-party-zip', answer: [{ valueString: fieldAddress.postalCode }] },
       { linkId: 'responsible-party-address-as-patient', answer: [{ valueBoolean: sameAsPatient }] },
     ];
 
@@ -2835,10 +2835,10 @@ describe('Harvest Module', () => {
       { linkId: 'emergency-contact-last-name', answer: [{ valueString: 'Contact' }] },
       { linkId: 'emergency-contact-relationship', answer: [{ valueString: 'Parent' }] },
       { linkId: 'emergency-contact-number', answer: [{ valueString: '(555) 555-1234' }] },
-      { linkId: 'emergency-contact-address', answer: [{ valueString: '10 Other St' }] },
-      { linkId: 'emergency-contact-city', answer: [{ valueString: 'Rockville' }] },
-      { linkId: 'emergency-contact-state', answer: [{ valueString: 'MD' }] },
-      { linkId: 'emergency-contact-zip', answer: [{ valueString: '20850' }] },
+      { linkId: 'emergency-contact-address', answer: [{ valueString: fieldAddress.line[0] }] },
+      { linkId: 'emergency-contact-city', answer: [{ valueString: fieldAddress.city }] },
+      { linkId: 'emergency-contact-state', answer: [{ valueString: fieldAddress.state }] },
+      { linkId: 'emergency-contact-zip', answer: [{ valueString: fieldAddress.postalCode }] },
       { linkId: 'emergency-contact-address-as-patient', answer: [{ valueBoolean: sameAsPatient }] },
     ];
 
