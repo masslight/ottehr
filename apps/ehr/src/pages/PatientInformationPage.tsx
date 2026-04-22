@@ -295,15 +295,18 @@ const useFormData = (
     return { coveragesFormValues };
   }, [accountData, coveragesFetching, insuranceData?.coverages, insuranceData?.insuranceOrgs]);
 
+  // Use resetField (not setValue) so the loaded coverage values become the form's
+  // defaultValues. Without this, RHF's dirty comparison (value vs defaultValue)
+  // marks fields dirty whenever masked inputs re-emit their value on mount.
+  const coveragesInitializedRef = useRef(false);
   useEffect(() => {
+    if (coveragesInitializedRef.current) return;
     if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
 
     Object.entries(coveragesFormValues).forEach(([key, value]) => {
-      methods.setValue(key, value, {
-        shouldDirty: false,
-        shouldTouch: false,
-      });
+      methods.resetField(key, { defaultValue: value });
     });
+    coveragesInitializedRef.current = true;
   }, [coveragesFormValues, methods]);
 
   return { methods, coveragesFormValues };
@@ -358,7 +361,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
 
   const [isAddingInsurance, setIsAddingInsurance] = useState(false);
 
-  const { methods, coveragesFormValues } = useFormData(
+  const { methods } = useFormData(
     defaultFormVals,
     coveragesFetching,
     insuranceData,
@@ -384,17 +387,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
 
   const { handleSubmit, formState } = methods;
   const { dirtyFields } = formState;
-
-  useEffect(() => {
-    if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
-
-    Object.entries(coveragesFormValues).forEach(([key, value]) => {
-      methods.setValue(key, value, {
-        shouldDirty: false,
-        shouldTouch: false,
-      });
-    });
-  }, [coveragesFormValues, methods, appointmentContext]);
 
   const insuranceItems = PATIENT_RECORD_CONFIG.FormFields.insurance.items;
 
