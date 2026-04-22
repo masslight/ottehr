@@ -298,16 +298,23 @@ const useFormData = (
   // Use resetField (not setValue) so the loaded coverage values become the form's
   // defaultValues. Without this, RHF's dirty comparison (value vs defaultValue)
   // marks fields dirty whenever masked inputs re-emit their value on mount.
-  const coveragesInitializedRef = useRef(false);
+  // Re-run when the set of coverages changes (e.g. primary removed) so removed
+  // coverages' fields get cleared; keying on coverage IDs avoids clobbering
+  // in-progress edits on unrelated refetches.
+  const coveragesInitKeyRef = useRef<string>('');
   useEffect(() => {
-    if (coveragesInitializedRef.current) return;
     if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
+    const coverageKey = [
+      insuranceData?.coverages?.primary?.id ?? 'none',
+      insuranceData?.coverages?.secondary?.id ?? 'none',
+    ].join(':');
+    if (coveragesInitKeyRef.current === coverageKey) return;
+    coveragesInitKeyRef.current = coverageKey;
 
     Object.entries(coveragesFormValues).forEach(([key, value]) => {
       methods.resetField(key, { defaultValue: value });
     });
-    coveragesInitializedRef.current = true;
-  }, [coveragesFormValues, methods]);
+  }, [coveragesFormValues, methods, insuranceData?.coverages]);
 
   return { methods, coveragesFormValues };
 };
