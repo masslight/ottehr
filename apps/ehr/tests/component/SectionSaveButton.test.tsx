@@ -10,16 +10,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // MOCKS
 // ============================================================================
 
-const mutateAsyncMock = vi.fn<(qr: QuestionnaireResponse) => Promise<void>>();
-let mutationPending = false;
-
-vi.mock('../../src/hooks/useGetPatient', () => ({
-  useUpdatePatientAccount: () => ({
-    mutateAsync: mutateAsyncMock,
-    isPending: mutationPending,
-  }),
-}));
-
 const snackbarMock = vi.fn();
 vi.mock('notistack', async () => {
   const actual = await vi.importActual<typeof import('notistack')>('notistack');
@@ -28,6 +18,31 @@ vi.mock('notistack', async () => {
     enqueueSnackbar: (...args: unknown[]) => snackbarMock(...args),
   };
 });
+
+const mutateAsyncMock = vi.fn<(qr: QuestionnaireResponse) => Promise<void>>();
+let mutationPending = false;
+
+// Mirror the real useUpdatePatientAccount hook's behavior: it surfaces
+// mutation errors as a snackbar via its onError handler. The component
+// relies on that contract rather than catching errors itself.
+vi.mock('../../src/hooks/useGetPatient', () => ({
+  useUpdatePatientAccount: (onSuccess?: () => void) => ({
+    mutateAsync: async (qr: QuestionnaireResponse) => {
+      try {
+        const result = await mutateAsyncMock(qr);
+        snackbarMock('Patient information updated successfully', { variant: 'success' });
+        onSuccess?.();
+        return result;
+      } catch (error) {
+        snackbarMock('Save operation failed. The server encountered an error while processing your request.', {
+          variant: 'error',
+        });
+        throw error;
+      }
+    },
+    isPending: mutationPending,
+  }),
+}));
 
 import { SectionSaveButton } from '../../src/features/visits/shared/components/patient/SectionSaveButton';
 

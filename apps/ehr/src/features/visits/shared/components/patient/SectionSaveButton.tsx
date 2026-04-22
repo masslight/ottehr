@@ -70,7 +70,14 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
       qr.encounter = { reference: `Encounter/${encounterId}` };
     }
 
-    await submitQR.mutateAsync(qr);
+    try {
+      await submitQR.mutateAsync(qr);
+    } catch {
+      // useUpdatePatientAccount's onError already surfaces a snackbar; swallow
+      // here to keep the section dirty (so the Save button stays visible) and
+      // avoid an unhandled promise rejection from the click handler.
+      return;
+    }
     // Clear dirty state only for this section's fields so unsaved edits in other
     // sections keep their dirty markers (and their Save buttons).
     const currentValues = getValues();
