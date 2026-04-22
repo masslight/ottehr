@@ -23,6 +23,7 @@ export const InsuranceSection: FC<{
   onStartAddInsurance: () => void;
   onCancelAddInsurance: () => void;
   newInsuranceOrdinal: number;
+  encounterId?: string;
 }> = ({
   coverages,
   patient,
@@ -33,6 +34,7 @@ export const InsuranceSection: FC<{
   onStartAddInsurance,
   onCancelAddInsurance,
   newInsuranceOrdinal,
+  encounterId,
 }) => (
   <Section title="Insurance information">
     {coverages.map((coverage) => (
@@ -49,6 +51,7 @@ export const InsuranceSection: FC<{
           coverage.resource.id !== undefined ? () => onRemoveCoverage(coverage.resource.id!) : undefined
         }
         renderWithoutSection
+        encounterId={encounterId}
       />
     ))}
     {isAddingInsurance && (
@@ -58,6 +61,7 @@ export const InsuranceSection: FC<{
         isNew
         onCancelAdd={onCancelAddInsurance}
         renderWithoutSection
+        encounterId={encounterId}
       />
     )}
     {coverages.length < 2 && !isAddingInsurance && (

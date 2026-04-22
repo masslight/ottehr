@@ -538,6 +538,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     onStartAddInsurance={handleStartAddInsurance}
                     onCancelAddInsurance={handleCancelAddInsurance}
                     newInsuranceOrdinal={newInsuranceOrdinal}
+                    encounterId={appointmentContext?.encounterId}
                   />
                   <ResponsibleInformationContainer
                     isLoading={isFetching || submitQR.isPending}

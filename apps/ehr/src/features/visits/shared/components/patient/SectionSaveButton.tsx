@@ -24,7 +24,7 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
   encounterId,
 }) => {
   const queryClient = useQueryClient();
-  const { watch, formState, reset, getValues } = useFormContext();
+  const { watch, formState, resetField, getValues } = useFormContext();
   const { dirtyFields, errors } = formState;
 
   const submitQR = useUpdatePatientAccount(async () => {
@@ -70,12 +70,16 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
 
     try {
       await submitQR.mutateAsync(qr);
+      // Clear dirty state only for this section's fields so unsaved edits in other
+      // sections keep their dirty markers (and their Save buttons).
       const currentValues = getValues();
-      reset(currentValues, { keepValues: true });
+      fieldKeys.forEach((key) => {
+        resetField(key, { defaultValue: currentValues[key], keepError: false });
+      });
     } catch {
       enqueueSnackbar('Failed to save. Please try again.', { variant: 'error' });
     }
-  }, [patientId, encounterId, fieldKeys, dirtyFields, getValues, reset, submitQR]);
+  }, [patientId, encounterId, fieldKeys, dirtyFields, getValues, resetField, submitQR]);
 
   if (!isDirty) return null;
 

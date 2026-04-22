@@ -1472,7 +1472,7 @@ function areArraysDifferent(source: string[], target: string[]): boolean {
 
 interface GetCoveragesInput {
   questionnaireResponse: QuestionnaireResponse;
-  patientId: string;
+  patient: Patient;
   organizationResources: Organization[];
 }
 
@@ -1484,20 +1484,21 @@ interface GetCoverageResourcesResult {
 // this function is exported for testing purposes
 export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResourcesResult => {
   const newCoverages: OrderedCoverages = {};
-  const { questionnaireResponse, organizationResources, patientId } = input;
+  const { questionnaireResponse, organizationResources, patient } = input;
+  const patientId = patient.id ?? '';
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponse.item as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
   const isSecondaryOnly = checkIsSecondaryOnly(flattenedPaperwork);
   let firstPolicyHolder: PolicyHolder | undefined;
   let firstInsuranceDetails: InsuranceDetails | undefined;
-  let secondPolicyHolder = getSecondaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
+  let secondPolicyHolder = getSecondaryPolicyHolderFromAnswers(questionnaireResponse.item ?? [], patient);
   let secondInsuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources, '-2');
   if (!isSecondaryOnly) {
-    firstPolicyHolder = getPrimaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
+    firstPolicyHolder = getPrimaryPolicyHolderFromAnswers(questionnaireResponse.item ?? [], patient);
     firstInsuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);
   } else if (secondPolicyHolder === undefined || secondInsuranceDetails === undefined) {
-    secondPolicyHolder = secondPolicyHolder ?? getPrimaryPolicyHolderFromAnswers(flattenedPaperwork);
+    secondPolicyHolder = secondPolicyHolder ?? getPrimaryPolicyHolderFromAnswers(flattenedPaperwork, patient);
     secondInsuranceDetails =
       secondInsuranceDetails ?? getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);
   }
@@ -1684,7 +1685,10 @@ const tagCoverageGroupWithPriority = (items: QuestionnaireResponseItem[]): Prior
 };
 
 // the following 3 functions are exported for testing purposes; not expected to be called outside this file but for unit testing
-export const getPrimaryPolicyHolderFromAnswers = (items: QuestionnaireResponseItem[]): PolicyHolder | undefined => {
+export const getPrimaryPolicyHolderFromAnswers = (
+  items: QuestionnaireResponseItem[],
+  patient: Patient
+): PolicyHolder | undefined => {
   // group the coverage-related items into their respective group(s)
   // if there is some indication in the answers within each group that the group should be treated as primary,
   // use that group here, regardless of the suffix used within that group
@@ -1697,14 +1701,17 @@ export const getPrimaryPolicyHolderFromAnswers = (items: QuestionnaireResponseIt
   const foundPrimaryGroup = prioritizedCoverageGroups.find((group) => group.priority === 'Primary');
 
   if (foundPrimaryGroup) {
-    return extractPolicyHolder(foundPrimaryGroup.items, foundPrimaryGroup.suffix);
+    return extractPolicyHolder(foundPrimaryGroup.items, patient, foundPrimaryGroup.suffix);
   }
 
   const flattenedItems = flattenIntakeQuestionnaireItems(items as IntakeQuestionnaireItem[]);
-  return extractPolicyHolder(flattenedItems);
+  return extractPolicyHolder(flattenedItems, patient);
 };
 
-export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponseItem[]): PolicyHolder | undefined => {
+export const getSecondaryPolicyHolderFromAnswers = (
+  items: QuestionnaireResponseItem[],
+  patient: Patient
+): PolicyHolder | undefined => {
   // group the coverage-related items into their respective group(s)
   // if there is some indication in the answers within each group that the group should be treated as secondary,
   // use that group here, regardless of the suffix used within that group
@@ -1716,10 +1723,10 @@ export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponse
     .filter(Boolean) as PrioritizedCoverageGroup[];
   const foundSecondaryGroup = prioritizedCoverageGroups.find((group) => group.priority === 'Secondary');
   if (foundSecondaryGroup) {
-    return extractPolicyHolder(foundSecondaryGroup.items, foundSecondaryGroup.suffix);
+    return extractPolicyHolder(foundSecondaryGroup.items, patient, foundSecondaryGroup.suffix);
   }
   const flattenedItems = flattenIntakeQuestionnaireItems(items as IntakeQuestionnaireItem[]);
-  return extractPolicyHolder(flattenedItems, '-2');
+  return extractPolicyHolder(flattenedItems, patient, '-2');
 };
 
 // EHR design calls for tertiary insurance to be handled in addition to secondary - will need some changes to support this
@@ -1736,9 +1743,15 @@ const checkIsSecondaryOnly = (items: QuestionnaireResponseItem[]): boolean => {
 };
 
 // note: this function assumes items have been flattened before being passed in
-const extractPolicyHolder = (items: QuestionnaireResponseItem[], keySuffix?: string): PolicyHolder | undefined => {
+const extractPolicyHolder = (
+  items: QuestionnaireResponseItem[],
+  patient: Patient,
+  keySuffix?: string
+): PolicyHolder | undefined => {
   const findAnswer = (linkId: string): string | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+  const findBooleanAnswer = (linkId: string): boolean | undefined =>
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueBoolean;
 
   const suffix = keySuffix ? `${keySuffix}` : '';
   const contact: any = {
@@ -1757,18 +1770,25 @@ const extractPolicyHolder = (items: QuestionnaireResponseItem[], keySuffix?: str
       | 'Legal Guardian'
       | 'Other',
   };
-  const address = {
-    line: [
-      findAnswer(`policy-holder-address${suffix}`) ?? '',
-      findAnswer(`policy-holder-address-additional-line${suffix}`) ?? '',
-    ].filter(Boolean),
-    city: findAnswer(`policy-holder-city${suffix}`) ?? '',
-    state: findAnswer(`policy-holder-state${suffix}`) ?? '',
-    postalCode: findAnswer(`policy-holder-zip${suffix}`) ?? '',
-  };
 
-  if (address.line.length > 0 || address.city || address.state || address.postalCode) {
-    contact.address = address as Address;
+  const sameAsPatient = findBooleanAnswer(`policy-holder-address-as-patient${suffix}`) === true;
+  const patientAddress = patient.address?.[0];
+  if (sameAsPatient && patientAddress) {
+    contact.address = _.cloneDeep(patientAddress);
+  } else {
+    const address = {
+      line: [
+        findAnswer(`policy-holder-address${suffix}`) ?? '',
+        findAnswer(`policy-holder-address-additional-line${suffix}`) ?? '',
+      ].filter(Boolean),
+      city: findAnswer(`policy-holder-city${suffix}`) ?? '',
+      state: findAnswer(`policy-holder-state${suffix}`) ?? '',
+      postalCode: findAnswer(`policy-holder-zip${suffix}`) ?? '',
+    };
+
+    if (address.line.length > 0 || address.city || address.state || address.postalCode) {
+      contact.address = address as Address;
+    }
   }
   if (
     contact.firstName &&
@@ -1785,24 +1805,37 @@ const extractPolicyHolder = (items: QuestionnaireResponseItem[], keySuffix?: str
 
 // note: this function assumes items have been flattened before being passed in
 // this function is exported for testing purposes; not expected to be called outside this file but for unit testing
-export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): ResponsiblePartyContact | undefined {
+export function extractAccountGuarantor(
+  items: QuestionnaireResponseItem[],
+  patient: Patient
+): ResponsiblePartyContact | undefined {
   const findAnswer = (linkId: string): string | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+  const findBooleanAnswer = (linkId: string): boolean | undefined =>
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueBoolean;
 
-  const city = findAnswer('responsible-party-city');
-  const addressLine = findAnswer('responsible-party-address');
-  const line = addressLine ? [addressLine] : undefined;
-  const addressLine2 = findAnswer('responsible-party-address-2');
-  if (addressLine2) line?.push(addressLine2);
-  const state = findAnswer('responsible-party-state');
-  const postalCode = findAnswer('responsible-party-zip');
+  const sameAsPatient = findBooleanAnswer('responsible-party-address-as-patient') === true;
+  const patientAddress = patient.address?.[0];
 
-  const guarantorAddress: Address = {
-    city,
-    line,
-    state,
-    postalCode,
-  };
+  let guarantorAddress: Address;
+  if (sameAsPatient && patientAddress) {
+    guarantorAddress = _.cloneDeep(patientAddress);
+  } else {
+    const city = findAnswer('responsible-party-city');
+    const addressLine = findAnswer('responsible-party-address');
+    const line = addressLine ? [addressLine] : undefined;
+    const addressLine2 = findAnswer('responsible-party-address-2');
+    if (addressLine2) line?.push(addressLine2);
+    const state = findAnswer('responsible-party-state');
+    const postalCode = findAnswer('responsible-party-zip');
+
+    guarantorAddress = {
+      city,
+      line,
+      state,
+      postalCode,
+    };
+  }
 
   const contact: ResponsiblePartyContact = {
     birthSex: findAnswer('responsible-party-birth-sex') as 'Male' | 'Female' | 'Intersex',
@@ -1852,9 +1885,16 @@ export function extractEmergencyContact(items: QuestionnaireResponseItem[]): Eme
   return undefined;
 }
 
-const buildEmergencyContactAddress = (contact: EmergencyContact): Address | undefined => {
-  // The frontend auto-fills the address fields when "same as patient" is selected,
-  // so we always read directly from the emergency contact's own fields.
+// exported for testing
+export const buildEmergencyContactAddress = (contact: EmergencyContact, patient: Patient): Address | undefined => {
+  // When "same as patient" is true, resolve the address from the (already-patched) Patient
+  // resource so the dependent address tracks the patient's current address — regardless of
+  // whether the frontend managed to copy the values into the emergency-contact fields.
+  const patientAddress = patient.address?.[0];
+  if (contact.addressSameAsPatient && patientAddress) {
+    return _.cloneDeep(patientAddress);
+  }
+
   const { addressLine, addressLine2, city, state, zip } = contact;
   const hasAddressData = addressLine || addressLine2 || city || state || zip;
   if (!hasAddressData) {
@@ -2529,11 +2569,11 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
 
   const flattenedItems = flattenItems(questionnaireResponseItem ?? []);
 
-  const guarantorData = extractAccountGuarantor(flattenedItems);
+  const guarantorData = extractAccountGuarantor(flattenedItems, patient);
 
   const emergencyContactData = extractEmergencyContact(flattenedItems);
   const emergencyContactAddress =
-    emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData) : undefined;
+    emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData, patient) : undefined;
 
   const employerInformation = getEmployerInformation(flattenedItems);
   const shouldClearEmployerInformation =
@@ -2559,7 +2599,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     questionnaireResponse: {
       item: flattenedItems,
     } as QuestionnaireResponse,
-    patientId: patient.id,
+    patient,
     organizationResources,
   });
 

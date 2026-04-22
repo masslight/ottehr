@@ -33,6 +33,7 @@ import { CopayWidget } from './CopayWidget';
 import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
+import { SectionSaveButton } from './SectionSaveButton';
 
 type InsuranceContainerProps = {
   ordinal: number;
@@ -43,6 +44,7 @@ type InsuranceContainerProps = {
   isNew?: boolean;
   onCancelAdd?: () => void;
   renderWithoutSection?: boolean;
+  encounterId?: string;
 };
 
 export const STATUS_TO_STYLE_MAP: Record<EligibilityCheckSimpleStatus, StatusStyleObject> = {
@@ -123,6 +125,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   isNew,
   onCancelAdd,
   renderWithoutSection,
+  encounterId,
 }) => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
@@ -140,6 +143,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     hiddenFields,
     requiredFields,
   } = usePatientRecordFormSection({ formSection: insuranceSection, index: ordinal - 1 });
+
+  const sectionFieldKeys = Object.values(FormFields).map((item) => item.key);
+  const sectionRequiredFieldKeys = requiredFields.filter((key) => sectionFieldKeys.includes(key));
 
   const insurancePriority = watch(FormFields.insurancePriority.key);
 
@@ -276,8 +282,14 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-        {/* Status badge and View Details button in same row */}
+        {/* Section Save button, Status badge and View Details button in same row */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <SectionSaveButton
+            fieldKeys={sectionFieldKeys}
+            requiredFieldKeys={sectionRequiredFieldKeys}
+            patientId={patientId}
+            encounterId={encounterId}
+          />
           <Chip
             label={eligibilityStatus?.status ?? 'UNKNOWN'}
             sx={{
