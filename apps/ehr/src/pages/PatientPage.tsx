@@ -26,6 +26,8 @@ import { useGetPatient } from '../hooks/useGetPatient';
 import { useGetPatientVisitHistory } from '../hooks/useGetPatientVisitHistory';
 import PageContainer from '../layout/PageContainer';
 
+const MERGE_PATIENTS_ENABLED = false;
+
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
   const location = useLocation();
@@ -128,7 +130,7 @@ export default function PatientPage(): JSX.Element {
 
           {!isMergedPatient && (
             <>
-              {duplicatePatients.length > 0 && id && (
+              {MERGE_PATIENTS_ENABLED && duplicatePatients.length > 0 && id && (
                 <Alert
                   severity="warning"
                   action={
@@ -146,7 +148,7 @@ export default function PatientPage(): JSX.Element {
                 </Alert>
               )}
 
-              {mergePatientIds && (
+              {MERGE_PATIENTS_ENABLED && mergePatientIds && (
                 <PatientsMergeDifference
                   open
                   close={() => setMergePatientIds(null)}
