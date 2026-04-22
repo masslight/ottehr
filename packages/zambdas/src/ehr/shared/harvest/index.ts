@@ -1485,7 +1485,10 @@ interface GetCoverageResourcesResult {
 export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResourcesResult => {
   const newCoverages: OrderedCoverages = {};
   const { questionnaireResponse, organizationResources, patient } = input;
-  const patientId = patient.id ?? '';
+  if (!patient.id) {
+    throw new Error('Patient ID is required to create coverage resources');
+  }
+  const patientId = patient.id;
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponse.item as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
