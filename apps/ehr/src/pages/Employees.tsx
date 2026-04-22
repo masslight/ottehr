@@ -538,9 +538,6 @@ function PendingReviewActions({ employee }: PendingReviewActionsProps): ReactEle
       enqueueSnackbar('User deactivated.', { variant: 'success' });
       await queryClient.invalidateQueries({ queryKey: ['get-employees'] });
     },
-    onError: () => {
-      enqueueSnackbar('Failed to deactivate user. Please try again.', { variant: 'error' });
-    },
   });
 
   return (
