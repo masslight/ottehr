@@ -7,9 +7,14 @@ import {
   Button,
   Checkbox,
   Chip,
+  FormControl,
   FormControlLabel,
   Grid,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -21,12 +26,14 @@ import {
   Tooltip,
   useTheme,
 } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { default as React, ReactElement, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AllStates,
+  AVAILABLE_EMPLOYEE_ROLES,
   EmployeeDetails,
   formatDateForDisplay,
   GetEmployeesResponse,
@@ -34,7 +41,9 @@ import {
   State,
   useSuccessQuery,
 } from 'utils';
-import { getEmployees } from '../api/api';
+import { getEmployees, updateUser } from '../api/api';
+import { ConfirmationDialog } from '../components/ConfirmationDialog';
+import { CustomDialog } from '../components/dialogs/CustomDialog';
 import Loading from '../components/Loading';
 import { EMPLOYEE_ROWS_PER_PAGE, PROVIDER_ROWS_PER_PAGE } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -151,34 +160,48 @@ function EmployeesTable({
   onPageStateChange,
 }: EmployeesTableProps): ReactElement {
   const theme = useTheme();
+  const canEditRoles = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
 
   // Filter the employees based on the search text
-  const filteredEmployees: EmployeeDetails[] = useMemo(
-    () =>
-      employees.filter((employee: EmployeeDetails) => {
-        const name = (function () {
-          if (employee.firstName && employee.lastName) return [employee.lastName, employee.firstName].join(', ');
-          else if (employee.name) return employee.name;
-          else return '';
-        })();
+  const filteredEmployees: EmployeeDetails[] = useMemo(() => {
+    const filtered = employees.filter((employee: EmployeeDetails) => {
+      const name = (function () {
+        if (employee.firstName && employee.lastName) return [employee.lastName, employee.firstName].join(', ');
+        else if (employee.name) return employee.name;
+        else return '';
+      })();
 
-        const lastLoginFilter = (function () {
-          if (!lastLoginFilterChecked) return true;
-          if (employee.lastLogin) return DateTime.fromISO(employee.lastLogin) > DateTime.now().minus({ days: 90 });
-          else return false;
-        })();
+      const lastLoginFilter = (function () {
+        if (!lastLoginFilterChecked) return true;
+        if (employee.lastLogin) return DateTime.fromISO(employee.lastLogin) > DateTime.now().minus({ days: 90 });
+        else return false;
+      })();
 
-        return (
-          name.toLowerCase().includes(searchText.toLowerCase()) &&
-          (currentTab === EmployeeTypes.providers ? employee.isProvider : true) &&
-          (currentTab === EmployeeTypes.providers && selectedState && selectedState.value !== ''
-            ? employee.licenses.some((license) => license.state === selectedState.value)
-            : true) &&
-          lastLoginFilter
-        );
-      }),
-    [employees, searchText, currentTab, selectedState, lastLoginFilterChecked]
-  );
+      return (
+        name.toLowerCase().includes(searchText.toLowerCase()) &&
+        (currentTab === EmployeeTypes.providers ? employee.isProvider : true) &&
+        (currentTab === EmployeeTypes.providers && selectedState && selectedState.value !== ''
+          ? employee.licenses.some((license) => license.state === selectedState.value)
+          : true) &&
+        lastLoginFilter
+      );
+    });
+
+    // On the Employees tab, surface pending-review users at the top while preserving existing order otherwise.
+    if (currentTab === EmployeeTypes.employees) {
+      return filtered
+        .map((employee, index) => ({ employee, index }))
+        .sort((a, b) => {
+          const aReview = a.employee.needsReview ? 0 : 1;
+          const bReview = b.employee.needsReview ? 0 : 1;
+          if (aReview !== bReview) return aReview - bReview;
+          return a.index - b.index;
+        })
+        .map(({ employee }) => employee);
+    }
+
+    return filtered;
+  }, [employees, searchText, currentTab, selectedState, lastLoginFilterChecked]);
 
   // For pagination, only include the rows that are on the current page
   const pageEmployees: EmployeeDetails[] = React.useMemo(
@@ -228,6 +251,8 @@ function EmployeesTable({
     [onPageStateChange]
   );
 
+  const showReviewColumn = currentTab === EmployeeTypes.employees;
+
   return (
     <>
       <Paper sx={{ padding: 2 }}>
@@ -261,7 +286,7 @@ function EmployeesTable({
               />
             </Box>
             {/* todo reduce code duplicate */}
-            {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ? (
+            {canEditRoles ? (
               <Link to={`/admin/employees/add`}>
                 <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
                   Add user
@@ -294,6 +319,7 @@ function EmployeesTable({
                     <TableCell sx={{ maxWidth: '150px' }}>Seen patient last 30 mins</TableCell>
                   </>
                 )}
+                {showReviewColumn && <TableCell sx={{ width: '220px' }}>Actions</TableCell>}
               </TableRow>
             </TableHead>
 
@@ -309,15 +335,35 @@ function EmployeesTable({
                 return (
                   <TableRow key={employee.id} sx={{ '& .MuiTableCell-body': { textAlign: 'left' } }}>
                     <TableCell>
-                      <Link
-                        to={`/admin/employee/${employee.id}`}
-                        style={{
-                          display: 'contents',
-                          color: theme.palette.primary.main,
-                        }}
-                      >
-                        {name}
-                      </Link>
+                      {employee.needsReview ? (
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <span>{name}</span>
+                          <Chip
+                            label="NEEDS REVIEW"
+                            data-testid={dataTestIds.employeesPage.needsReviewChip}
+                            sx={{
+                              backgroundColor: otherColors.orange100,
+                              color: otherColors.orange800,
+                              borderRadius: '4px',
+                              height: '17px',
+                              '& .MuiChip-label': {
+                                padding: '2px 8px 0px 8px',
+                              },
+                              ...theme.typography.subtitle2,
+                            }}
+                          />
+                        </Stack>
+                      ) : (
+                        <Link
+                          to={`/admin/employee/${employee.id}`}
+                          style={{
+                            display: 'contents',
+                            color: theme.palette.primary.main,
+                          }}
+                        >
+                          {name}
+                        </Link>
+                      )}
                     </TableCell>
                     <TableCell
                       sx={{
@@ -409,6 +455,11 @@ function EmployeesTable({
                         </TableCell>
                       </>
                     )}
+                    {showReviewColumn && (
+                      <TableCell>
+                        {employee.needsReview && canEditRoles && <PendingReviewActions employee={employee} />}
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}
@@ -427,6 +478,130 @@ function EmployeesTable({
           />
         </TableContainer>
       </Paper>
+    </>
+  );
+}
+
+interface PendingReviewActionsProps {
+  employee: EmployeeDetails;
+}
+
+function PendingReviewActions({ employee }: PendingReviewActionsProps): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<RoleType | ''>('');
+
+  const assignMutation = useMutation({
+    mutationFn: async (role: RoleType) => {
+      if (!oystehrZambda) throw new Error('Zambda Client not found');
+      return updateUser(oystehrZambda, {
+        userId: employee.id,
+        selectedRoles: [role],
+      });
+    },
+    onSuccess: async () => {
+      enqueueSnackbar('Role assigned successfully.', { variant: 'success' });
+      setAssignOpen(false);
+      setSelectedRole('');
+      await queryClient.invalidateQueries({ queryKey: ['get-employees'] });
+    },
+    onError: () => {
+      enqueueSnackbar('Failed to assign role. Please try again.', { variant: 'error' });
+    },
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: async () => {
+      if (!oystehrZambda) throw new Error('Zambda Client not found');
+      return updateUser(oystehrZambda, {
+        userId: employee.id,
+        selectedRoles: [RoleType.Inactive],
+      });
+    },
+    onSuccess: async () => {
+      enqueueSnackbar('User deactivated.', { variant: 'success' });
+      await queryClient.invalidateQueries({ queryKey: ['get-employees'] });
+    },
+    onError: () => {
+      enqueueSnackbar('Failed to deactivate user. Please try again.', { variant: 'error' });
+    },
+  });
+
+  return (
+    <>
+      <Stack direction="row" spacing={1}>
+        <Button
+          size="small"
+          variant="outlined"
+          data-testid={dataTestIds.employeesPage.assignRoleButton}
+          onClick={() => setAssignOpen(true)}
+        >
+          Assign Role
+        </Button>
+        <ConfirmationDialog
+          title="Deactivate user?"
+          description={`This will remove all roles from ${employee.email || employee.name} and block EHR access.`}
+          response={async () => {
+            await deactivateMutation.mutateAsync();
+          }}
+          actionButtons={{
+            proceed: {
+              text: 'Deactivate',
+              color: 'error',
+              loading: deactivateMutation.isPending,
+            },
+          }}
+        >
+          {(showDialog) => (
+            <Button
+              size="small"
+              color="error"
+              variant="outlined"
+              data-testid={dataTestIds.employeesPage.quickDeactivateButton}
+              onClick={showDialog}
+            >
+              Deactivate
+            </Button>
+          )}
+        </ConfirmationDialog>
+      </Stack>
+      <CustomDialog
+        open={assignOpen}
+        handleClose={() => {
+          setAssignOpen(false);
+          setSelectedRole('');
+        }}
+        dataTestId={dataTestIds.employeesPage.assignRoleDialog}
+        title="Assign role"
+        description={
+          <FormControl fullWidth sx={{ mt: 1 }}>
+            <InputLabel id="assign-role-label">Role</InputLabel>
+            <Select
+              labelId="assign-role-label"
+              label="Role"
+              value={selectedRole}
+              inputProps={{ 'data-testid': dataTestIds.employeesPage.assignRoleSelect }}
+              onChange={(e) => setSelectedRole(e.target.value as RoleType)}
+            >
+              {AVAILABLE_EMPLOYEE_ROLES.map((role) => (
+                <MenuItem key={role.value} value={role.value}>
+                  {role.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        }
+        closeButtonText="Cancel"
+        confirmText="Save"
+        disabled={!selectedRole}
+        confirmLoading={assignMutation.isPending}
+        handleConfirm={() => {
+          if (selectedRole) {
+            assignMutation.mutate(selectedRole);
+          }
+        }}
+      />
     </>
   );
 }
