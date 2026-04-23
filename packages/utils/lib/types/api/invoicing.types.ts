@@ -6,6 +6,9 @@ import { Secrets } from '../../secrets';
 export const INVOICEABLE_PATIENTS_PAGE_SIZE = 40;
 export const GET_INVOICES_TASKS_ZAMBDA_KEY = 'get-invoices-tasks';
 export const EXPORT_INVOICES_TASKS_CSV_ZAMBDA_KEY = 'export-invoices-tasks-csv';
+export const EXPORT_INVOICES_CSV_TASK_CODE = 'export-invoices-csv';
+export const EXPORT_INVOICES_CSV_TASK_SYSTEM = ottehrCodeSystemUrl('export-task');
+export const EXPORT_CSV_OUTPUT_URL_CODE = 'export-csv-output-url';
 
 export const INVOICE_TASK_BUSINESS_STATUS_SYSTEM = ottehrCodeSystemUrl('invoice-task-business-status');
 export const ZERO_BALANCE_BUSINESS_STATUS_CODE = 'zero-balance';
@@ -138,4 +141,21 @@ export const ExportInvoicesTasksCsvZambdaValidatedInputSchema = ExportInvoicesTa
 });
 export type ExportInvoicesTasksCsvInput = z.infer<typeof ExportInvoicesTasksCsvZambdaInputSchema>;
 export type ExportInvoicesTasksCsvValidatedInput = z.infer<typeof ExportInvoicesTasksCsvZambdaValidatedInputSchema>;
-export type ExportInvoicesTasksCsvResponse = { csv: string };
+
+export const GetExportInvoicesCsvStatusZambdaInputSchema = z.object({
+  taskId: z.string(),
+});
+export const GetExportInvoicesCsvStatusZambdaValidatedInputSchema = GetExportInvoicesCsvStatusZambdaInputSchema.extend({
+  secrets: z.custom<Secrets>().nullable(),
+});
+export type GetExportInvoicesCsvStatusInput = z.infer<typeof GetExportInvoicesCsvStatusZambdaInputSchema>;
+export type GetExportInvoicesCsvStatusValidatedInput = z.infer<
+  typeof GetExportInvoicesCsvStatusZambdaValidatedInputSchema
+>;
+
+export type ExportInvoicesCsvKickOffResponse = { taskId: string };
+export type ExportInvoicesCsvStatusResponse = {
+  status: 'requested' | 'in-progress' | 'completed' | 'failed';
+  downloadUrl?: string;
+  error?: string;
+};

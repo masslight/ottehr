@@ -30,8 +30,9 @@ import { SendInvoiceToPatientDialog, SendStatementToPatientDialog } from 'src/co
 import {
   chooseJson,
   EXPORT_INVOICES_TASKS_CSV_ZAMBDA_KEY,
+  ExportInvoicesCsvKickOffResponse,
+  ExportInvoicesCsvStatusResponse,
   ExportInvoicesTasksCsvInput,
-  ExportInvoicesTasksCsvResponse,
   formatDateConfigurable,
   GET_INVOICES_TASKS_ZAMBDA_KEY,
   GetInvoicesTasksInput,
@@ -282,24 +283,57 @@ export default function InvoiceablePatients(): React.ReactElement {
     if (!oystehrZambda) return;
     setIsExporting(true);
     try {
+      // Step 1: Kick off export by creating a Task
       const params: ExportInvoicesTasksCsvInput = {
         status: statusSP ? mapDisplayToInvoiceTaskStatus(statusSP as InvoiceTaskDisplayStatus) : undefined,
         sortField: sortFieldSP,
         sortDirection: sortDirectionSP,
         hideZeroBalance: hideZeroBalanceSP,
       };
-      const response = await oystehrZambda.zambda.execute({
+      const kickOffResponse = await oystehrZambda.zambda.execute({
         id: EXPORT_INVOICES_TASKS_CSV_ZAMBDA_KEY,
         ...params,
       });
-      const data = chooseJson(response) as ExportInvoicesTasksCsvResponse;
-      const blob = new Blob([data.csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `invoiceable-patients-report.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const { taskId } = chooseJson(kickOffResponse) as ExportInvoicesCsvKickOffResponse;
+
+      // Step 2: Poll for completion
+      const POLL_INTERVAL_MS = 2000;
+      const MAX_POLLS = 150; // 5 minutes max
+      let polls = 0;
+
+      const pollForResult = async (): Promise<ExportInvoicesCsvStatusResponse> => {
+        while (polls < MAX_POLLS) {
+          polls++;
+          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+          const statusResponse = await oystehrZambda.zambda.execute({
+            id: EXPORT_INVOICES_TASKS_CSV_ZAMBDA_KEY,
+            taskId,
+          });
+          const statusData = chooseJson(statusResponse) as ExportInvoicesCsvStatusResponse;
+
+          if (statusData.status === 'completed' || statusData.status === 'failed') {
+            return statusData;
+          }
+        }
+        throw new Error('Export timed out');
+      };
+
+      const result = await pollForResult();
+
+      if (result.status === 'completed' && result.downloadUrl) {
+        // Step 3: Download the CSV via the presigned URL
+        const csvResponse = await fetch(result.downloadUrl);
+        const csvText = await csvResponse.text();
+        const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `invoiceable-patients-report.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+      } else {
+        enqueueSnackbar(result.error ?? 'Export failed', { variant: 'error' });
+      }
     } catch {
       enqueueSnackbar('Failed to export CSV', { variant: 'error' });
     } finally {

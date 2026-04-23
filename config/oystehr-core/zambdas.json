@@ -1507,6 +1507,13 @@
       "src": "src/ehr/export-invoices-tasks-csv/index",
       "zip": ".dist/zips/export-invoices-tasks-csv.zip"
     },
+    "SUB-EXPORT-INVOICES-CSV": {
+      "name": "sub-export-invoices-csv",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/sub-export-invoices-csv/index",
+      "zip": ".dist/zips/sub-export-invoices-csv.zip"
+    },
     "GET-STATEMENT-TEMPLATE": {
       "name": "get-statement-template",
       "type": "http_auth",
@@ -2060,6 +2067,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-HARVEST-PAPERWORK-PAGE/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_EXPORT_INVOICES_CSV_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Export invoiceable patients report as CSV",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/export-task|export-invoices-csv&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-EXPORT-INVOICES-CSV/id}"
         },
         "extension": [
           {
