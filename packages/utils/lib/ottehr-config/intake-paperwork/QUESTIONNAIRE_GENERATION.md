@@ -20,9 +20,12 @@ Used by Frontend & Backend
 
 ### Key Files
 
-- **`intake-paperwork/index.ts`**: Defines the config object structure
+- **`intake-paperwork/index.ts`**: Defines the config object structure (assembles FormFields from the value sets, consent forms, etc.)
+- **`intake-paperwork/canonical.ts`**: Lightweight `{url, version}` literals, imported by `index.ts` when building `questionnaireBaseDefaults` and by hot-path callers that only need the canonical identifier without triggering the full config build
 - **`shared-questionnaire.ts`**: Contains the transformation logic and extension creators
-- **`/config/oystehr/in-person-intake-questionnaire.json`**: Generated FHIR resource (auto-generated, don't edit directly)
+- **`/config/oystehr/in-person-intake-questionnaire-archive.json`**: Historical record of each released canonical version. This is the source of truth deployed by Terraform — the current TS config, when its version is bumped, gets recorded as a new entry here. Updated by HOB's `scripts/questionnaire/update-archive.ts` (see [hosted-ottehr-builds](https://github.com/masslight/hosted-ottehr-builds)'s scripts/questionnaire/ for the automation around version validation and archive writes).
+
+> **Note on the old flow:** earlier revisions of this codebase wrote a standalone `/config/oystehr/in-person-intake-questionnaire.json` (and a virtual counterpart) as a "current version" mirror of the TS config. That flow is retired — the standalone files have been removed. The TS config is the source for the current version, and the archive JSON records released versions. `packages/zambdas/scripts/regenerate-questionnaire-json.ts` now only regenerates fixtures under `packages/zambdas/test/data/` for the Ottehr branded tests.
 
 ## Configuration Structure
 
@@ -380,25 +383,19 @@ Core transformation functions in `shared-questionnaire.ts`:
 - `packages/zambdas/test/questionnaire-generation.test.ts`: Validates generation
 - `packages/zambdas/test/data/intake-paperwork-questionnaire.json`: Expected output
 
-### Validation Test
+### Validation Tests
 
-```typescript
-test('intake paperwork config JSON matches generated questionnaire', () => {
-  const generatedQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
-  const actualConfigQuestionnaire = InPersonIntakeQuestionnaireConfig
-    .fhirResources['questionnaire-in-person-previsit-paperwork'].resource;
+Ottehr-branded tests under `packages/zambdas/test/questionnaire-generation.test.ts` compare generator output against the test-data fixtures (`packages/zambdas/test/data/intake-paperwork-questionnaire.json`, etc.), checking item structure, ordering rules, and extension content.
 
-  expect(generatedQuestionnaire).toEqual(actualConfigQuestionnaire);
-});
-```
+For cross-project content-drift detection (the "bumped-the-TS-but-didn't-bump-the-version" case), see HOB's `scripts/questionnaire/validate-version.ts`. For deploy-time proof that the current version is archived, see `validate-archive.ts` in the same directory. Both are wired into HOB CI.
 
-### Regenerating JSON Files
+### Regenerating test-data fixtures
 
-When config changes:
+When config changes affect the generator output shape:
 
-1. Config is the source of truth
-2. Regenerate JSON file from config
-3. Update tests to match new output
+1. TS config (`intake-paperwork/index.ts` + `canonical.ts`) is the source of truth
+2. From `packages/zambdas/`, run `npm run regenerate-questionnaire-json` to refresh the `test/data/*.json` fixtures
+3. Commit the TS config change, the bumped canonical version, the archive entry, and the refreshed fixtures together
 4. Never manually edit the generated JSON
 
 ## Common Patterns in Intake Paperwork
@@ -526,15 +523,20 @@ employerInformationPage: {
 - Generation logic changes significantly
 - New special patterns emerge in usage
 
-### Keeping JSON in Sync
+### Keeping the archive in sync
 
 The authoritative flow is:
 
 ```
-Config (TypeScript) → Generation Function → JSON File → Frontend/Backend
+TS config → generator → archive JSON (released versions) → Frontend/Backend
 ```
 
-Never edit the JSON directly. Always:
-1. Edit the config in `intake-paperwork/index.ts`
-2. Run tests to regenerate JSON
-3. Commit both config and generated JSON together
+The TS config (`intake-paperwork/index.ts` + its `canonical.ts`) is the source of truth for the *current* version. The archive JSON (`config/oystehr/in-person-intake-questionnaire-archive.json`) is the source of truth for every *released* version. Deploys provision FHIR resources from the archive.
+
+To ship a new version:
+
+1. Edit the config in `intake-paperwork/index.ts` (or dependencies like value-sets, consent forms, etc.).
+2. Bump the `version:` literal in `intake-paperwork/canonical.ts` (and/or the virtual counterpart).
+3. Run HOB's `scripts/questionnaire/update-archive.ts` — or let HOB's `./dev restore <project>` save-back do it automatically — to record the bumped version as a new archive entry. Both flows run validate-version first and refuse to persist unbumped content changes.
+
+`packages/zambdas/scripts/regenerate-questionnaire-json.ts` is only used to regenerate the Ottehr test fixtures under `packages/zambdas/test/data/` — it no longer writes the standalone current-Q JSON files (those are retired).
