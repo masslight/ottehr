@@ -1,5 +1,6 @@
+import MergeIcon from '@mui/icons-material/MergeType';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
+import { Alert, Box, Button, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
@@ -12,16 +13,20 @@ import { FullNameDisplay } from 'src/features/visits/shared/components/patient/i
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import Summary from 'src/features/visits/shared/components/patient/info/Summary';
 import { PatientFollowupEncountersGrid } from 'src/features/visits/shared/components/patient/PatientFollowupEncountersGrid';
-import { getFirstName, getLastName, ServiceMode } from 'utils';
+import { getFirstName, getLastName } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
 import { PatientLabsTab } from '../components/PatientLabsTab';
+import { PatientMergedBanner } from '../components/PatientMergedBanner';
+import { PatientsMergeDifference } from '../components/patients-merge/PatientsMergeDifference';
 import { RoundedButton } from '../components/RoundedButton';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { useGetPatient } from '../hooks/useGetPatient';
 import { useGetPatientVisitHistory } from '../hooks/useGetPatientVisitHistory';
 import PageContainer from '../layout/PageContainer';
+
+const MERGE_PATIENTS_ENABLED = false;
 
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
@@ -32,8 +37,11 @@ export default function PatientPage(): JSX.Element {
     !isLegacyPatientFollowupsEnabled && defaultTab === 'followups' ? 'encounters' : defaultTab || 'encounters'
   );
   const [showAccountSettingsDialog, setShowAccountSettingsDialog] = useState(false);
+  const [mergePatientIds, setMergePatientIds] = useState<[string, string] | null>(null);
 
-  const { loading, patient } = useGetPatient(id);
+  const { loading, patient, duplicatePatients } = useGetPatient(id);
+
+  const isMergedPatient = patient?.active === false && patient?.link?.some((l) => l.type === 'replaced-by');
 
   const { firstName, lastName } = useMemo(() => {
     if (!patient) return {};
@@ -84,7 +92,7 @@ export default function PatientPage(): JSX.Element {
             <PatientAvatar id={id} />
 
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <IdentifiersRow id={id} />
+              <IdentifiersRow patient={patient} loading={loading} />
               <FullNameDisplay patient={patient} loading={loading} />
               <Summary patient={patient} loading={loading} />
               <Contacts patient={patient} loading={loading} />
@@ -104,11 +112,7 @@ export default function PatientPage(): JSX.Element {
                 <RoundedButton
                   target="_blank"
                   sx={{ width: '100%' }}
-                  to={
-                    latestAppointment.serviceMode === ServiceMode.virtual
-                      ? `/telemed/appointments/${latestAppointment.appointmentId}?tab=sign`
-                      : `/in-person/${latestAppointment.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`
-                  }
+                  to={`/in-person/${latestAppointment.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`}
                 >
                   Recent Progress Note
                 </RoundedButton>
@@ -122,94 +126,129 @@ export default function PatientPage(): JSX.Element {
             </Box>
           </Paper>
 
-          <TabContext value={tab}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <TabList onChange={(_, newTab) => setTab(newTab)}>
-                <Tab
-                  value="encounters"
-                  label={
-                    <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
-                      Visits - {appointments?.length || 0}
-                    </Typography>
+          <PatientMergedBanner patient={patient} />
+
+          {!isMergedPatient && (
+            <>
+              {MERGE_PATIENTS_ENABLED && duplicatePatients.length > 0 && id && (
+                <Alert
+                  severity="warning"
+                  action={
+                    <Button
+                      color="warning"
+                      size="small"
+                      startIcon={<MergeIcon />}
+                      onClick={() => setMergePatientIds([id, duplicatePatients[0].id!])}
+                    >
+                      Merge Patients
+                    </Button>
                   }
+                >
+                  Potential duplicate patients found
+                </Alert>
+              )}
+
+              {MERGE_PATIENTS_ENABLED && mergePatientIds && (
+                <PatientsMergeDifference
+                  open
+                  close={() => setMergePatientIds(null)}
+                  patientIds={mergePatientIds}
+                  onSuccess={() => setMergePatientIds(null)}
                 />
-                {isLegacyPatientFollowupsEnabled && (
-                  <Tab
-                    value="followups"
-                    label={
-                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
-                        Patient Follow-ups
-                      </Typography>
-                    }
+              )}
+
+              <TabContext value={tab}>
+                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                  <TabList onChange={(_, newTab) => setTab(newTab)}>
+                    <Tab
+                      value="encounters"
+                      label={
+                        <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                          Visits - {appointments?.length || 0}
+                        </Typography>
+                      }
+                    />
+                    {isLegacyPatientFollowupsEnabled && (
+                      <Tab
+                        value="followups"
+                        label={
+                          <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                            Patient Follow-ups
+                          </Typography>
+                        }
+                      />
+                    )}
+                    {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
+                      <Tab
+                        value="labs"
+                        label={
+                          <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                            Labs
+                          </Typography>
+                        }
+                      />
+                    )}
+                    {FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED && (
+                      <Tab
+                        value="in-house-labs"
+                        label={
+                          <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                            In-House Labs
+                          </Typography>
+                        }
+                      />
+                    )}
+                    {FEATURE_FLAGS.RADIOLOGY_ENABLED && (
+                      <Tab
+                        value="radiology"
+                        label={
+                          <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                            Radiology
+                          </Typography>
+                        }
+                      />
+                    )}
+                  </TabList>
+                </Box>
+
+                <TabPanel value="encounters" sx={{ p: 0 }}>
+                  <PatientEncountersGrid
+                    patient={patient}
+                    totalCount={appointments.length}
+                    latestVisitDate={latestAppointment?.dateTime ?? null}
                   />
+                </TabPanel>
+                {isLegacyPatientFollowupsEnabled && (
+                  <TabPanel value="followups" sx={{ p: 0 }}>
+                    <PatientFollowupEncountersGrid patient={patient} loading={loading}></PatientFollowupEncountersGrid>
+                  </TabPanel>
                 )}
                 {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
-                  <Tab
-                    value="labs"
-                    label={
-                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>Labs</Typography>
-                    }
-                  />
+                  <TabPanel value="labs" sx={{ p: 0 }}>
+                    <PatientLabsTab patientId={id || ''} />
+                  </TabPanel>
                 )}
                 {FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED && (
-                  <Tab
-                    value="in-house-labs"
-                    label={
-                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
-                        In-House Labs
-                      </Typography>
-                    }
-                  />
+                  <TabPanel value="in-house-labs" sx={{ p: 0 }}>
+                    <PatientInHouseLabsTab titleText="In-House Labs" patientId={id || ''} />
+                  </TabPanel>
                 )}
                 {FEATURE_FLAGS.RADIOLOGY_ENABLED && (
-                  <Tab
-                    value="radiology"
-                    label={
-                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
-                        Radiology
-                      </Typography>
-                    }
-                  />
+                  <TabPanel value="radiology" sx={{ p: 0 }}>
+                    <PatientRadiologyTab patientId={id || ''} />
+                  </TabPanel>
                 )}
-              </TabList>
-            </Box>
-
-            <TabPanel value="encounters" sx={{ p: 0 }}>
-              <PatientEncountersGrid
-                patient={patient}
-                totalCount={appointments.length}
-                latestVisitDate={latestAppointment?.dateTime ?? null}
-              />
-            </TabPanel>
-            {isLegacyPatientFollowupsEnabled && (
-              <TabPanel value="followups" sx={{ p: 0 }}>
-                <PatientFollowupEncountersGrid patient={patient} loading={loading}></PatientFollowupEncountersGrid>
-              </TabPanel>
-            )}
-            {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
-              <TabPanel value="labs" sx={{ p: 0 }}>
-                <PatientLabsTab patientId={id || ''} />
-              </TabPanel>
-            )}
-            {FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED && (
-              <TabPanel value="in-house-labs" sx={{ p: 0 }}>
-                <PatientInHouseLabsTab titleText="In-House Labs" patientId={id || ''} />
-              </TabPanel>
-            )}
-            {FEATURE_FLAGS.RADIOLOGY_ENABLED && (
-              <TabPanel value="radiology" sx={{ p: 0 }}>
-                <PatientRadiologyTab patientId={id || ''} />
-              </TabPanel>
-            )}
-          </TabContext>
-          {showAccountSettingsDialog ? (
-            <AccountSettingsDialog
-              patientId={id ?? ''}
-              handleClose={(): void => {
-                setShowAccountSettingsDialog(false);
-              }}
-            />
-          ) : null}
+              </TabContext>
+              {showAccountSettingsDialog ? (
+                <AccountSettingsDialog
+                  patientId={id ?? ''}
+                  handleClose={(): void => {
+                    setShowAccountSettingsDialog(false);
+                  }}
+                />
+              ) : null}
+            </>
+          )}
         </Stack>
       </PageContainer>
     </>

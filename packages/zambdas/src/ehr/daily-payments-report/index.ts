@@ -1,13 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, PaymentNotice } from 'fhir/r4b';
-import { DailyPaymentsReportZambdaOutput, getSecret, PaymentItem, PaymentMethodSummary, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { DailyPaymentsReportZambdaOutput, PaymentItem, PaymentMethodSummary } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -51,208 +45,207 @@ function formatGMTToLocalDate(gmtDateString: string): string {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
-    const { dateRange, locationId } = validatedParameters;
+  const validatedParameters = validateRequestParameters(input);
+  const { dateRange, locationId } = validatedParameters;
 
-    // Get M2M token for FHIR access
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  // Get M2M token for FHIR access
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
 
-    console.log('Searching for payment notices in date range:', dateRange);
-    if (locationId) {
-      console.log('Filtering by location ID:', locationId);
-    }
+  // TODO: Once billable follow-up visits are available (with their own Appointment and full visit workflow),
+  // ensure this report includes them as independent visits on their follow-up date.
+  // Currently, follow-up encounters without their own Appointment are excluded from reports.
 
-    // Search for payment notices within the date range with related resources
-    const searchParams: { name: string; value: string }[] = [
+  console.log('Searching for payment notices in date range:', dateRange);
+  if (locationId) {
+    console.log('Filtering by location ID:', locationId);
+  }
+
+  // Search for payment notices within the date range with related resources
+  const searchParams: { name: string; value: string }[] = [
+    {
+      name: 'created',
+      value: `ge${dateRange.start}`,
+    },
+    {
+      name: 'created',
+      value: `le${dateRange.end}`,
+    },
+    {
+      name: '_count',
+      value: '1000',
+    },
+  ];
+
+  // Add _include parameters to get related resources for location filtering
+  if (locationId) {
+    searchParams.push(
       {
-        name: 'created',
-        value: `ge${dateRange.start}`,
+        name: '_include',
+        value: 'PaymentNotice:request',
       },
       {
-        name: 'created',
-        value: `le${dateRange.end}`,
+        name: '_include:iterate',
+        value: 'Encounter:appointment',
       },
       {
-        name: '_count',
-        value: '1000',
-      },
-    ];
-
-    // Add _include parameters to get related resources for location filtering
-    if (locationId) {
-      searchParams.push(
-        {
-          name: '_include',
-          value: 'PaymentNotice:request',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Encounter:appointment',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Appointment:location',
-        }
-      );
-    }
-
-    const paymentNoticeSearchResult = await oystehr.fhir.search<PaymentNotice | Encounter | Appointment>({
-      resourceType: 'PaymentNotice',
-      params: searchParams,
-    });
-
-    // Get all resources from the search
-    const allResources = paymentNoticeSearchResult.unbundle();
-
-    // Separate resources by type
-    let paymentNotices = allResources.filter((r) => r.resourceType === 'PaymentNotice');
-    console.log(`Found ${paymentNotices.length} payment notices`);
-
-    // If locationId filter is provided, filter payment notices by location
-    if (locationId && paymentNotices.length > 0) {
-      const encounters = allResources.filter((r) => r.resourceType === 'Encounter');
-      const appointments = allResources.filter((r) => r.resourceType === 'Appointment');
-
-      // Create maps for quick lookups
-      const encounterMap = new Map<string, Encounter>();
-      encounters.forEach((encounter) => {
-        if (encounter.id) {
-          encounterMap.set(encounter.id, encounter);
-        }
-      });
-
-      const appointmentMap = new Map<string, Appointment>();
-      appointments.forEach((appointment) => {
-        if (appointment.id) {
-          appointmentMap.set(appointment.id, appointment);
-        }
-      });
-
-      // Filter payment notices by location
-      paymentNotices = paymentNotices.filter((payment) => {
-        // Get the encounter reference from payment notice
-        if (!payment.request?.reference || !payment.request.reference.startsWith('Encounter/')) {
-          return false;
-        }
-
-        const encounterId = payment.request.reference.replace('Encounter/', '');
-        const encounter = encounterMap.get(encounterId);
-
-        if (!encounter || !encounter.appointment || encounter.appointment.length === 0) {
-          return false;
-        }
-
-        // Get the appointment reference from encounter
-        const appointmentRef = encounter.appointment[0].reference;
-        if (!appointmentRef) {
-          return false;
-        }
-
-        const appointmentId = appointmentRef.replace('Appointment/', '');
-        const appointment = appointmentMap.get(appointmentId);
-
-        if (!appointment || !appointment.participant) {
-          return false;
-        }
-
-        // Check if appointment has the specified location
-        return appointment.participant.some((participant) => {
-          const locationRef = participant.actor?.reference;
-          return locationRef && locationRef === `Location/${locationId}`;
-        });
-      });
-
-      console.log(`After location filtering: ${paymentNotices.length} payment notices`);
-    }
-
-    if (paymentNotices.length === 0) {
-      const response: DailyPaymentsReportZambdaOutput = {
-        message: 'No payment notices found for the specified date range',
-        totalAmount: 0,
-        totalTransactions: 0,
-        currencies: [],
-        paymentMethods: [],
-      };
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify(response),
-      };
-    }
-
-    // Process payment notices into structured data
-    const paymentItems: PaymentItem[] = paymentNotices.map((payment) => {
-      // Extract payment method from extension
-      const paymentMethodExtension = payment.extension?.find(
-        (ext) => ext.url === 'https://extensions.fhir.zapehr.com/payment-method'
-      );
-      const paymentMethod = paymentMethodExtension?.valueString || 'N/A';
-
-      // Extract amount and currency
-      const amount = parseAsNumber(payment.amount?.value);
-      const currency = payment.amount?.currency || 'USD';
-
-      // Format created date
-      const createdDate = formatGMTToLocalDate(payment.created || '');
-
-      return {
-        id: payment.id || '',
-        paymentMethod,
-        amount,
-        currency,
-        createdDate,
-        // TODO: Add patient name and appointment ID if needed
-        patientName: undefined,
-        appointmentId: undefined,
-      };
-    });
-
-    // Group payments by payment method
-    const paymentsByMethod = new Map<string, PaymentItem[]>();
-    let totalAmount = 0;
-    const allCurrencies = new Set<string>();
-
-    paymentItems.forEach((payment) => {
-      if (!paymentsByMethod.has(payment.paymentMethod)) {
-        paymentsByMethod.set(payment.paymentMethod, []);
+        name: '_include:iterate',
+        value: 'Appointment:location',
       }
-      paymentsByMethod.get(payment.paymentMethod)!.push(payment);
-      totalAmount += payment.amount;
-      allCurrencies.add(payment.currency);
+    );
+  }
+
+  const paymentNoticeSearchResult = await oystehr.fhir.search<PaymentNotice | Encounter | Appointment>({
+    resourceType: 'PaymentNotice',
+    params: searchParams,
+  });
+
+  // Get all resources from the search
+  const allResources = paymentNoticeSearchResult.unbundle();
+
+  // Separate resources by type
+  let paymentNotices = allResources.filter((r) => r.resourceType === 'PaymentNotice');
+  console.log(`Found ${paymentNotices.length} payment notices`);
+
+  // If locationId filter is provided, filter payment notices by location
+  if (locationId && paymentNotices.length > 0) {
+    const encounters = allResources.filter((r) => r.resourceType === 'Encounter');
+    const appointments = allResources.filter((r) => r.resourceType === 'Appointment');
+
+    // Create maps for quick lookups
+    const encounterMap = new Map<string, Encounter>();
+    encounters.forEach((encounter) => {
+      if (encounter.id) {
+        encounterMap.set(encounter.id, encounter);
+      }
     });
 
-    // Create payment method summaries
-    const paymentMethods: PaymentMethodSummary[] = Array.from(paymentsByMethod.entries())
-      .map(([method, payments]) => {
-        const methodTotal = payments.reduce((sum, payment) => sum + payment.amount, 0);
-        const methodCurrency = payments[0]?.currency || 'USD'; // Assume same currency per method
+    const appointmentMap = new Map<string, Appointment>();
+    appointments.forEach((appointment) => {
+      if (appointment.id) {
+        appointmentMap.set(appointment.id, appointment);
+      }
+    });
 
-        return {
-          paymentMethod: method,
-          totalAmount: methodTotal,
-          currency: methodCurrency,
-          transactionCount: payments.length,
-          payments,
-        };
-      })
-      .sort((a, b) => a.paymentMethod.localeCompare(b.paymentMethod));
+    // Filter payment notices by location
+    paymentNotices = paymentNotices.filter((payment) => {
+      // Get the encounter reference from payment notice
+      if (!payment.request?.reference || !payment.request.reference.startsWith('Encounter/')) {
+        return false;
+      }
 
+      const encounterId = payment.request.reference.replace('Encounter/', '');
+      const encounter = encounterMap.get(encounterId);
+
+      if (!encounter || !encounter.appointment || encounter.appointment.length === 0) {
+        return false;
+      }
+
+      // Get the appointment reference from encounter
+      const appointmentRef = encounter.appointment[0].reference;
+      if (!appointmentRef) {
+        return false;
+      }
+
+      const appointmentId = appointmentRef.replace('Appointment/', '');
+      const appointment = appointmentMap.get(appointmentId);
+
+      if (!appointment || !appointment.participant) {
+        return false;
+      }
+
+      // Check if appointment has the specified location
+      return appointment.participant.some((participant) => {
+        const locationRef = participant.actor?.reference;
+        return locationRef && locationRef === `Location/${locationId}`;
+      });
+    });
+
+    console.log(`After location filtering: ${paymentNotices.length} payment notices`);
+  }
+
+  if (paymentNotices.length === 0) {
     const response: DailyPaymentsReportZambdaOutput = {
-      message: `Found ${paymentNotices.length} payment notices with total amount ${totalAmount.toFixed(2)}`,
-      totalAmount,
-      totalTransactions: paymentNotices.length,
-      currencies: Array.from(allCurrencies),
-      paymentMethods,
+      message: 'No payment notices found for the specified date range',
+      totalAmount: 0,
+      totalTransactions: 0,
+      currencies: [],
+      paymentMethods: [],
     };
 
     return {
       statusCode: 200,
       body: JSON.stringify(response),
     };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
+
+  // Process payment notices into structured data
+  const paymentItems: PaymentItem[] = paymentNotices.map((payment) => {
+    // Extract payment method from extension
+    const paymentMethodExtension = payment.extension?.find(
+      (ext) => ext.url === 'https://extensions.fhir.zapehr.com/payment-method'
+    );
+    const paymentMethod = paymentMethodExtension?.valueString || 'N/A';
+
+    // Extract amount and currency
+    const amount = parseAsNumber(payment.amount?.value);
+    const currency = payment.amount?.currency || 'USD';
+
+    // Format created date
+    const createdDate = formatGMTToLocalDate(payment.created || '');
+
+    return {
+      id: payment.id || '',
+      paymentMethod,
+      amount,
+      currency,
+      createdDate,
+      // TODO: Add patient name and appointment ID if needed
+      patientName: undefined,
+      appointmentId: undefined,
+    };
+  });
+
+  // Group payments by payment method
+  const paymentsByMethod = new Map<string, PaymentItem[]>();
+  let totalAmount = 0;
+  const allCurrencies = new Set<string>();
+
+  paymentItems.forEach((payment) => {
+    if (!paymentsByMethod.has(payment.paymentMethod)) {
+      paymentsByMethod.set(payment.paymentMethod, []);
+    }
+    paymentsByMethod.get(payment.paymentMethod)!.push(payment);
+    totalAmount += payment.amount;
+    allCurrencies.add(payment.currency);
+  });
+
+  // Create payment method summaries
+  const paymentMethods: PaymentMethodSummary[] = Array.from(paymentsByMethod.entries())
+    .map(([method, payments]) => {
+      const methodTotal = payments.reduce((sum, payment) => sum + payment.amount, 0);
+      const methodCurrency = payments[0]?.currency || 'USD'; // Assume same currency per method
+
+      return {
+        paymentMethod: method,
+        totalAmount: methodTotal,
+        currency: methodCurrency,
+        transactionCount: payments.length,
+        payments,
+      };
+    })
+    .sort((a, b) => a.paymentMethod.localeCompare(b.paymentMethod));
+
+  const response: DailyPaymentsReportZambdaOutput = {
+    message: `Found ${paymentNotices.length} payment notices with total amount ${totalAmount.toFixed(2)}`,
+    totalAmount,
+    totalTransactions: paymentNotices.length,
+    currencies: Array.from(allCurrencies),
+    paymentMethods,
+  };
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });

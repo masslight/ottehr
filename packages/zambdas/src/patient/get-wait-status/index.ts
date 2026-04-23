@@ -6,22 +6,15 @@ import {
   appointmentTypeForAppointment,
   createOystehrClient,
   getAppointmentResourceById,
+  getInPersonVisitStatus,
   getLocationIdFromAppointment,
   getSecret,
-  getTelemedVisitStatus,
   PROJECT_WEBSITE,
   SecretsKeys,
   TelemedAppointmentStatusEnum,
   WaitingRoomResponse,
 } from 'utils';
-import {
-  getAuth0Token,
-  getUser,
-  getVideoEncounterForAppointment,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { getAuth0Token, getUser, getVideoEncounterForAppointment, wrapHandler, ZambdaInput } from '../../shared';
 import { estimatedTimeStatesGroups } from '../../shared/appointment/constants';
 import { convertStatesAbbreviationsToLocationIds, getAllAppointmentsByLocations } from './utils/fhir';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -31,125 +24,120 @@ let oystehrToken: string;
 
 const ZAMBDA_NAME = 'get-wait-status';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.log(JSON.stringify(validatedParameters, null, 4));
+  const { appointmentID, secrets, authorization } = validatedParameters;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  // for now, require patient to log in
+  if (!authorization) {
+    console.log('User is not authenticated yet');
+    // TODO: not sure what to do with yet
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ message: 'Unauthorized' }),
+    };
+  }
+
+  const websiteUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  const telemedClientSecret = getSecret(SecretsKeys.AUTH0_SECRET, secrets);
+
+  const jwt = authorization.replace('Bearer ', '');
+  let claims;
   try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.log(JSON.stringify(validatedParameters, null, 4));
-    const { appointmentID, secrets, authorization } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-
-    // for now, require patient to log in
-    if (!authorization) {
-      console.log('User is not authenticated yet');
-      // TODO: not sure what to do with yet
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
-
-    const websiteUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-    const telemedClientSecret = getSecret(SecretsKeys.AUTH0_SECRET, secrets);
-
-    const jwt = authorization.replace('Bearer ', '');
-    let claims;
-    try {
-      claims = decodeJwt(jwt);
-      console.log('JWT claims:', claims);
-      // invited participant case
-      if (claims.iss === PROJECT_WEBSITE) {
-        const secret = new TextEncoder().encode(telemedClientSecret);
-        await jwtVerify(jwt, secret, {
-          audience: `${websiteUrl}/waiting-room/appointment/${appointmentID}`,
-        });
-      } else {
-        console.log('getting user');
-        const user = await getUser(jwt, secrets);
-        console.log(`user: ${user.name}`);
-      }
-    } catch (error) {
-      console.log('User verification error:', error);
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Unauthorized' }),
-      };
-    }
-
-    if (!oystehrToken) {
-      console.log('getting m2m token for service calls');
-      oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
+    claims = decodeJwt(jwt);
+    console.log('JWT claims:', claims);
+    // invited participant case
+    if (claims.iss === PROJECT_WEBSITE) {
+      const secret = new TextEncoder().encode(telemedClientSecret);
+      await jwtVerify(jwt, secret, {
+        audience: `${websiteUrl}/waiting-room/appointment/${appointmentID}`,
+      });
     } else {
-      console.log('already have a token, no need to update');
-      // TODO: wonder if we need to check if it's expired at some point?
+      console.log('getting user');
+      const user = await getUser(jwt, secrets);
+      console.log(`user: ${user.name}`);
     }
+  } catch (error) {
+    console.log('User verification error:', error);
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ message: 'Unauthorized' }),
+    };
+  }
 
-    const oystehr = createOystehrClient(
-      oystehrToken,
-      getSecret(SecretsKeys.FHIR_API, secrets),
-      getSecret(SecretsKeys.PROJECT_API, secrets)
-    );
+  if (!oystehrToken) {
+    console.log('getting m2m token for service calls');
+    oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
+  } else {
+    console.log('already have a token, no need to update');
+    // TODO: wonder if we need to check if it's expired at some point?
+  }
 
-    console.log(`getting appointment resource for id ${appointmentID}`);
-    const [appointment, videoEncounter] = await Promise.all([
-      getAppointmentResourceById(appointmentID, oystehr),
-      getVideoEncounterForAppointment(appointmentID || 'Unknown', oystehr),
-    ]);
+  const oystehr = createOystehrClient(
+    oystehrToken,
+    getSecret(SecretsKeys.FHIR_API, secrets),
+    getSecret(SecretsKeys.PROJECT_API, secrets)
+  );
 
-    if (!appointment || !videoEncounter) {
-      console.log(`Appointment/Encounter is not found for appointment id ${appointmentID}`);
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: 'Appointment is not found' }),
-      };
-    }
+  console.log(`getting appointment resource for id ${appointmentID}`);
+  const [appointment, videoEncounter] = await Promise.all([
+    getAppointmentResourceById(appointmentID, oystehr),
+    getVideoEncounterForAppointment(appointmentID || 'Unknown', oystehr),
+  ]);
 
-    console.log(`Encounter found for appointment id ${appointmentID}: `, JSON.stringify(videoEncounter));
+  if (!appointment || !videoEncounter) {
+    console.log(`Appointment/Encounter is not found for appointment id ${appointmentID}`);
+    return {
+      statusCode: 404,
+      body: JSON.stringify({ message: 'Appointment is not found' }),
+    };
+  }
 
-    const locationId = getLocationIdFromAppointment(appointment);
+  console.log(`Encounter found for appointment id ${appointmentID}: `, JSON.stringify(videoEncounter));
 
-    if (!locationId) {
-      console.log(`Location ID is not found in appointment: ${JSON.stringify(appointment)}`);
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: 'Location ID not found in appointment' }),
-      };
-    }
+  const locationId = getLocationIdFromAppointment(appointment);
 
-    const telemedStatus = getTelemedVisitStatus(videoEncounter.status, appointment.status);
+  if (!locationId) {
+    console.log(`Location ID is not found in appointment: ${JSON.stringify(appointment)}`);
+    return {
+      statusCode: 404,
+      body: JSON.stringify({ message: 'Location ID not found in appointment' }),
+    };
+  }
 
-    if (telemedStatus === 'ready' || telemedStatus === 'pre-video' || telemedStatus === 'on-video') {
-      const appointments = await getAppointmentsForLocation(oystehr, locationId);
+  const status = getInPersonVisitStatus(appointment, videoEncounter);
 
-      const estimatedTime = calculateEstimatedTime(appointments);
-      const numberInLine = getNumberInLine(appointments, appointmentID);
+  if (['pending', 'arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(status)) {
+    const appointments = await getAppointmentsForLocation(oystehr, locationId);
 
-      const response = {
-        statusCode: 200,
-        body: JSON.stringify(<WaitingRoomResponse>{
-          status: telemedStatus === 'on-video' ? telemedStatus : TelemedAppointmentStatusEnum.ready,
-          estimatedTime: estimatedTime,
-          numberInLine: numberInLine,
-          encounterId: telemedStatus === 'on-video' ? videoEncounter?.id : undefined,
-          appointmentType: appointmentTypeForAppointment(appointment),
-        }),
-      };
-      console.log(JSON.stringify(response, null, 4));
-      return response;
-    } else {
-      console.log(videoEncounter.status, appointment.status);
-      const response = {
-        statusCode: 200,
-        body: JSON.stringify({
-          status: telemedStatus === 'cancelled' ? telemedStatus : TelemedAppointmentStatusEnum.complete,
-        }),
-      };
-      console.log(JSON.stringify(response, null, 4));
-      return response;
-    }
-  } catch (error: any) {
-    console.log(error, JSON.stringify(error));
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
+    const estimatedTime = calculateEstimatedTime(appointments);
+    const numberInLine = getNumberInLine(appointments, appointmentID);
+
+    const response = {
+      statusCode: 200,
+      body: JSON.stringify(<WaitingRoomResponse>{
+        status: status === 'provider' ? TelemedAppointmentStatusEnum['on-video'] : TelemedAppointmentStatusEnum.ready,
+        estimatedTime: estimatedTime,
+        numberInLine: numberInLine,
+        encounterId: status === 'provider' ? videoEncounter?.id : undefined,
+        appointmentType: appointmentTypeForAppointment(appointment),
+      }),
+    };
+    console.log(JSON.stringify(response, null, 4));
+    return response;
+  } else {
+    console.log(videoEncounter.status, appointment.status);
+    const response = {
+      statusCode: 200,
+      body: JSON.stringify({
+        status: status === 'cancelled' ? status : TelemedAppointmentStatusEnum.complete,
+      }),
+    };
+    console.log(JSON.stringify(response, null, 4));
+    return response;
   }
 });
 

@@ -10,123 +10,117 @@ import {
   createInvoiceTaskInput,
   findClaimsBy,
   getLatestTaskOutput,
-  getSecret,
   getStartTimeFromEncounterStatusHistory,
   mapDisplayToInvoiceTaskStatus,
-  SecretsKeys,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
+let candid: CandidApiClient | undefined;
 const ZAMBDA_NAME = 'sub-refresh-invoice-task';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParams = validateRequestParameters(input);
-    const { task, secrets, invoiceTaskInput, taskId } = validatedParams;
+  const validatedParams = validateRequestParameters(input);
+  const { task, secrets, invoiceTaskInput, taskId } = validatedParams;
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const candid = createCandidApiClient(secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  if (!candid) {
+    candid = createCandidApiClient(secrets);
+  }
 
-    const inventoryRecord = await getCandidInventoryRecordForTask(oystehr, candid, taskId);
-    if (inventoryRecord) {
-      console.log(`Found inventory record for task, ${JSON.stringify(inventoryRecord)}`);
+  const inventoryRecord = await getCandidInventoryRecordForTask(oystehr, candid, taskId);
+  if (inventoryRecord) {
+    console.log(`Found inventory record for task, ${JSON.stringify(inventoryRecord)}`);
 
-      invoiceTaskInput.finalizationDate = inventoryRecord.timestamp.toISOString();
-      console.log('Updating finalization date: ', invoiceTaskInput.finalizationDate);
+    invoiceTaskInput.finalizationDate = inventoryRecord.timestamp.toISOString();
+    console.log('Updating finalization date: ', invoiceTaskInput.finalizationDate);
 
-      if (!invoiceTaskInput.claimId) {
-        invoiceTaskInput.claimId = inventoryRecord.claimId.toString();
-        console.log('Updating claim id: ', invoiceTaskInput.claimId);
-      }
-
-      const itemization = await getItemizationForClaim(candid, inventoryRecord.claimId);
-      if (itemization) {
-        console.log(`Found itemization for claim`);
-        invoiceTaskInput.amountCents = itemization.patientBalanceCents;
-        console.log('Updating amount cents: ', invoiceTaskInput.amountCents);
-      }
-      console.log('Updating task input...', JSON.stringify(createInvoiceTaskInput(invoiceTaskInput), null, 2));
-
-      const isZeroBalance = invoiceTaskInput.amountCents === 0;
-      const updateOperations: Operation[] = [
-        { op: 'replace', path: '/input', value: createInvoiceTaskInput(invoiceTaskInput) },
-        {
-          op: task.authoredOn ? 'replace' : 'add',
-          path: '/authoredOn',
-          value: invoiceTaskInput.finalizationDate,
-        },
-      ];
-
-      // Ensure executionPeriod.end stays in sync with start (appointment date).
-      // executionPeriod encodes the appointment date on both bounds so FHIR _sort=period
-      // FHIR sorts Period by lower bound (asc) and upper bound (desc) — setting start == end makes
-      // both directions sort by the appointment date correctly.
-      if (task.executionPeriod?.start && task.executionPeriod.end !== task.executionPeriod.start) {
-        updateOperations.push({
-          op: task.executionPeriod.end ? 'replace' : 'add',
-          path: '/executionPeriod/end',
-          value: task.executionPeriod.start,
-        });
-      }
-
-      if (isZeroBalance) {
-        updateOperations.push({
-          op: task.businessStatus ? 'replace' : 'add',
-          path: '/businessStatus',
-          value: ZERO_BALANCE_BUSINESS_STATUS,
-        });
-      } else if (invoiceTaskInput.amountCents !== undefined && task.businessStatus) {
-        updateOperations.push({ op: 'remove', path: '/businessStatus' });
-      }
-
-      const getLastTaskOutput = getLatestTaskOutput(task);
-      if (getLastTaskOutput?.type === 'success') {
-        updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('sent') });
-      } else if (getLastTaskOutput?.type === 'error') {
-        updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('error') });
-      } else {
-        updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('ready') });
-      }
-
-      await oystehr.fhir.patch({
-        resourceType: 'Task',
-        id: taskId,
-        operations: updateOperations,
-      });
-      console.log(`Updated task input for task id: "${taskId}"`);
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: 'Task was successfully updated.' }),
-      };
+    if (!invoiceTaskInput.claimId) {
+      invoiceTaskInput.claimId = inventoryRecord.claimId.toString();
+      console.log('Updating claim id: ', invoiceTaskInput.claimId);
     }
 
-    console.warn('Task was not updated because no inventory record was found for the task.'); // todo how i can better manage this situation
+    const itemization = await getItemizationForClaim(candid, inventoryRecord.claimId);
+    if (itemization) {
+      console.log(`Found itemization for claim`);
+      invoiceTaskInput.amountCents = itemization.patientBalanceCents;
+      console.log('Updating amount cents: ', invoiceTaskInput.amountCents);
+    }
+    console.log('Updating task input...', JSON.stringify(createInvoiceTaskInput(invoiceTaskInput), null, 2));
+
+    const isZeroBalance = invoiceTaskInput.amountCents === 0;
+    const updateOperations: Operation[] = [
+      { op: 'replace', path: '/input', value: createInvoiceTaskInput(invoiceTaskInput) },
+      {
+        op: task.authoredOn ? 'replace' : 'add',
+        path: '/authoredOn',
+        value: invoiceTaskInput.finalizationDate,
+      },
+    ];
+
+    // Ensure executionPeriod.end stays in sync with start (appointment date).
+    // executionPeriod encodes the appointment date on both bounds so FHIR _sort=period
+    // FHIR sorts Period by lower bound (asc) and upper bound (desc) — setting start == end makes
+    // both directions sort by the appointment date correctly.
+    if (task.executionPeriod?.start && task.executionPeriod.end !== task.executionPeriod.start) {
+      updateOperations.push({
+        op: task.executionPeriod.end ? 'replace' : 'add',
+        path: '/executionPeriod/end',
+        value: task.executionPeriod.start,
+      });
+    }
+
+    if (isZeroBalance) {
+      updateOperations.push({
+        op: task.businessStatus ? 'replace' : 'add',
+        path: '/businessStatus',
+        value: ZERO_BALANCE_BUSINESS_STATUS,
+      });
+    } else if (invoiceTaskInput.amountCents !== undefined && task.businessStatus) {
+      updateOperations.push({ op: 'remove', path: '/businessStatus' });
+    }
+
+    const getLastTaskOutput = getLatestTaskOutput(task);
+    if (getLastTaskOutput?.type === 'success') {
+      updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('sent') });
+    } else if (getLastTaskOutput?.type === 'error') {
+      updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('error') });
+    } else {
+      updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('ready') });
+    }
+
     await oystehr.fhir.patch({
       resourceType: 'Task',
       id: taskId,
-      operations: [{ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('error') }],
+      operations: updateOperations,
     });
-
+    console.log(`Updated task input for task id: "${taskId}"`);
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Task was not updated because no inventory record was found for the task.' }),
+      body: JSON.stringify({ message: 'Task was successfully updated.' }),
     };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    console.log('Error occurred:', error);
-    return await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
+
+  console.warn('Task was not updated because no inventory record was found for the task.'); // todo how i can better manage this situation
+  await oystehr.fhir.patch({
+    resourceType: 'Task',
+    id: taskId,
+    operations: [{ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('error') }],
+  });
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ message: 'Task was not updated because no inventory record was found for the task.' }),
+  };
 });
 
 async function getCandidInventoryRecordForTask(

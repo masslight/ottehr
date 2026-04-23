@@ -47,6 +47,7 @@ import {
   CPT_MODIFIER_EXTENSION_URL,
   FHIR_EXTENSION,
   getCoding,
+  getLocationIdFromAppointment,
   getPaymentVariantFromEncounter,
   isApiError,
   ListPatientPaymentResponse,
@@ -125,21 +126,45 @@ function buildLineItems(
   const items: LineItem[] = [];
 
   for (const cpt of allCodes) {
+    const cptModifier = cpt.modifier?.[0]?.code;
+    let noModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
+    let anyModifierFallbackPg: (typeof feeSchedule.propertyGroup)[number] | undefined;
+
     for (const pg of feeSchedule.propertyGroup) {
       const pc = pg.priceComponent?.[0];
       if (!pc) continue;
       const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
       if (!fsCoding || fsCoding.code !== cpt.code) continue;
       const fsModifier = pc.extension?.find((ext) => ext.url === CPT_MODIFIER_EXTENSION_URL)?.valueCode;
-      const cptModifier = cpt.modifier?.[0]?.code;
-      if ((fsModifier || '') !== (cptModifier || '')) continue;
+      if ((fsModifier || '') === (cptModifier || '')) {
+        // Exact code + modifier match — use it immediately
+        items.push({
+          code: cpt.code,
+          modifier: cptModifier,
+          description: cpt.display || fsCoding.display || '',
+          amount: pc.amount?.value ?? 0,
+        });
+        noModifierFallbackPg = undefined;
+        anyModifierFallbackPg = undefined;
+        break;
+      }
+      // Code matches but modifier doesn't — prefer no-modifier entry as fallback
+      if (!fsModifier && !noModifierFallbackPg) noModifierFallbackPg = pg;
+      else if (fsModifier && !anyModifierFallbackPg) anyModifierFallbackPg = pg;
+    }
+
+    const fallbackPg = noModifierFallbackPg ?? anyModifierFallbackPg;
+
+    // No exact match found — fall back to first entry with matching code
+    if (fallbackPg) {
+      const pc = fallbackPg.priceComponent![0];
+      const fsCoding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
       items.push({
         code: cpt.code,
         modifier: cptModifier,
-        description: cpt.display || fsCoding.display || '',
+        description: cpt.display || fsCoding?.display || '',
         amount: pc.amount?.value ?? 0,
       });
-      break;
     }
   }
 
@@ -241,10 +266,23 @@ export default function PatientPaymentList({
     ?.find((id) => id.type?.coding?.find((c) => c.code === 'MB'))
     ?.assigner?.reference?.replace('Organization/', '');
 
+  const employerOrgId = useMemo(() => {
+    if (paymentVariant !== PaymentVariant.employer) return undefined;
+    return insuranceData?.occupationalMedicineEmployerOrganization?.id ?? insuranceData?.employerOrganization?.id;
+  }, [
+    paymentVariant,
+    insuranceData?.occupationalMedicineEmployerOrganization?.id,
+    insuranceData?.employerOrganization?.id,
+  ]);
+
   const dateOfService = useMemo(() => {
     const start = appointment?.start;
     return start ? start.split('T')[0] : undefined;
   }, [appointment?.start]);
+
+  const locationId = useMemo(() => {
+    return appointment ? getLocationIdFromAppointment(appointment) : undefined;
+  }, [appointment]);
 
   const {
     data: selfPayResult,
@@ -253,13 +291,14 @@ export default function PatientPaymentList({
   } = useGetChargeMasterEntryQuery(
     paymentVariant === PaymentVariant.selfPay ? 'self-pay' : undefined,
     undefined,
-    dateOfService
+    dateOfService,
+    locationId
   );
   const selfPayFeeSchedule = selfPayResult?.chargeMaster;
 
   // For non-self-pay, non-default variants: first try fee schedule, then fall back to charge master
   const isPayerVariant = paymentVariant === PaymentVariant.insurance || paymentVariant === PaymentVariant.employer;
-  const canQueryFeeSchedule = isPayerVariant && !!insuranceOrgId && !!dateOfService;
+  const canQueryFeeSchedule = isPayerVariant && (!!insuranceOrgId || !!employerOrgId) && !!dateOfService;
 
   const {
     data: feeScheduleResult,
@@ -267,7 +306,9 @@ export default function PatientPaymentList({
     isFetched: feeScheduleFetched,
   } = useFindApplicableFeeScheduleQuery(
     canQueryFeeSchedule ? insuranceOrgId : undefined,
-    canQueryFeeSchedule ? dateOfService : undefined
+    canQueryFeeSchedule ? dateOfService : undefined,
+    locationId,
+    employerOrgId
   );
   const payerFeeSchedule = feeScheduleResult?.feeSchedule ?? undefined;
 
@@ -278,7 +319,13 @@ export default function PatientPaymentList({
     data: insurancePayResult,
     isLoading: insurancePayLoading,
     isFetched: insurancePayFetched,
-  } = useGetChargeMasterEntryQuery(shouldFallbackToCm ? 'default-insurance' : undefined, insuranceOrgId, dateOfService);
+  } = useGetChargeMasterEntryQuery(
+    shouldFallbackToCm ? 'default-insurance' : undefined,
+    insuranceOrgId,
+    dateOfService,
+    locationId,
+    employerOrgId
+  );
   const insuranceChargeMaster = insurancePayResult?.chargeMaster;
   const insuranceChargeMasterSource = insurancePayResult?.source;
 
@@ -290,7 +337,8 @@ export default function PatientPaymentList({
   } = useGetChargeMasterEntryQuery(
     paymentVariant === undefined ? 'default-insurance' : undefined,
     undefined,
-    dateOfService
+    dateOfService,
+    locationId
   );
   const defaultChargeMaster = defaultCmResult?.chargeMaster;
 

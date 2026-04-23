@@ -1,5 +1,5 @@
 import { Coding } from 'fhir/r4b';
-import { ottehrExtensionUrl } from '../fhir/systemUrls';
+import { ottehrCodeSystemUrl, ottehrExtensionUrl } from '../fhir/systemUrls';
 
 // NOTE: PROJECT_WEBSITE was moved to ottehr-config/branding to avoid circular dependencies.
 // Import it from 'utils' or 'utils/lib/ottehr-config/branding' directly.
@@ -43,6 +43,9 @@ export const E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM = 'E2E_TEST_RESOURCE_PROCESS_ID
 
 export const MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM =
   'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';
+export const MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM_FOR_INTERACTIONS = ottehrCodeSystemUrl(
+  'medispan-dispensable-drug-id-for-interactions'
+);
 
 export const INSURANCE_REQ_EXTENSION_URL = 'https://extensions.fhir.zapehr.com/insurance-requirements';
 export const ORG_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/organization-type';
@@ -66,3 +69,15 @@ export const RETURNING_PATIENT_META_TAG = (): Coding => ({
   system: PATIENT_INFO_META_DATA_SYSTEM,
   code: PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
 });
+
+// ---------------------------------------------------------------------------
+// Invoice configuration defaults
+// ---------------------------------------------------------------------------
+
+export const DEFAULT_INVOICE_SMS_TEMPLATE =
+  "Thank you, {{patient-full-name}}, for visiting {{clinic}} at {{location}} on {{visit-date}}! You have a balance due of {{amount}}.\n\n\ud83d\udcb3 If we have your card on file, it will be billed on {{due-date}}, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before due date: {{invoice-link}}";
+
+export const DEFAULT_INVOICE_MEMO_TEMPLATE =
+  "Thank you, {{patient-full-name}}, for visiting {{clinic}} at {{location}} on {{visit-date}}! You have a balance due of {{amount}}.\n\n\ud83d\udcb3 If we have your card on file, it will be billed on {{due-date}}, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before the due date. For more details about the visit, please, visit your patient portal, {{patient-portal-link}}";
+
+export const DEFAULT_INVOICE_DUE_DAYS = 7;

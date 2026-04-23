@@ -5,16 +5,14 @@ import {
   appointmentTypeForAppointment,
   createSmsModel,
   FHIR_ZAPEHR_URL,
-  getSecret,
   GetTelemedAppointmentsInput,
   GetTelemedAppointmentsResponseEhr,
   getVisitStatusHistory,
   relatedPersonAndCommunicationMaps,
-  SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
   TelemedAppointmentInformation,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { filterAppointmentsAndCreatePackages, filterPatientForAppointment } from './helpers/fhir-resources-filters';
 import { getAllPartiallyPreFilteredFhirResources, getAllVirtualLocationsMap } from './helpers/fhir-utils';
@@ -31,25 +29,19 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'get-telemed-appointments';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters: ReturnType<typeof validateRequestParameters> = validateRequestParameters(input);
-    console.log('Parameters: ' + JSON.stringify(validatedParameters));
+  const validatedParameters: ReturnType<typeof validateRequestParameters> = validateRequestParameters(input);
+  console.log('Parameters: ' + JSON.stringify(validatedParameters));
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-    const oystehrM2m = createOystehrClient(m2mToken, validatedParameters.secrets);
-    console.log('Created zapToken, fhir and app clients.');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
+  const oystehrM2m = createOystehrClient(m2mToken, validatedParameters.secrets);
+  console.log('Created zapToken, fhir and app clients.');
 
-    const response = await performEffect(validatedParameters, oystehrM2m, oystehrCurrentUser);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.log(error);
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  const response = await performEffect(validatedParameters, oystehrM2m, oystehrCurrentUser);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export const performEffect = async (

@@ -3,36 +3,48 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
-import { Encounter, Task } from 'fhir/r4b';
+import { Encounter, Resource, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createCandidApiClient,
   createReference,
   getCandidInventoryPages,
   getResourcesFromBatchInlineRequests,
-  getSecret,
   InvoiceTaskInput,
   mapDisplayToInvoiceTaskStatus,
   RcmTaskCodings,
-  SecretsKeys,
-  TEXTING_CONFIG,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
+import {
+  getOrCreateInvoicingConfig,
+  ParsedInvoicingConfig,
+  parseInvoicingConfig,
+} from '../../rcm/invoice-config/helpers';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
 
 let m2mToken: string;
+let candid: CandidApiClient | undefined;
 
 const ZAMBDA_NAME = 'create-invoices-tasks';
 const readyTaskStatus = mapDisplayToInvoiceTaskStatus('ready');
+const BATCH_CHUNK_SIZE = 25;
+
+async function getResourcesFromParallelBatches(oystehr: Oystehr, requests: string[]): Promise<Resource[]> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < requests.length; i += BATCH_CHUNK_SIZE) {
+    chunks.push(requests.slice(i, i + BATCH_CHUNK_SIZE));
+  }
+  const results = await Promise.all(chunks.map((chunk) => getResourcesFromBatchInlineRequests(oystehr, chunk)));
+  return results.flat();
+}
 
 interface EncounterPackage {
   encounter: Encounter;
@@ -42,75 +54,73 @@ interface EncounterPackage {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const { secrets } = input;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const candid = createCandidApiClient(secrets);
-
-    const twoDaysAgo = DateTime.now().minus({ days: 2 });
-    console.log('Fetching invoiceable Candid claims since:', twoDaysAgo.toISO());
-    const candidClaims = await getAllCandidClaims(candid, twoDaysAgo);
-
-    const packagesToCreate = await getEncountersWithoutTaskFhir(oystehr, candid, candidClaims);
-
-    console.log(
-      `Packages to create tasks for: ${packagesToCreate.length} ${JSON.stringify(
-        packagesToCreate.map((p) => ({
-          encounterId: p.encounter.id,
-          claimId: p.claim.claimId,
-          amountCents: p.amountCents,
-        }))
-      )}`
-    );
-
-    await Promise.all(packagesToCreate.map((pkg) => createTaskForEncounter(oystehr, pkg)));
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Successfully created tasks for encounters' }),
-    };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    console.log('Error occurred:', error);
-    return await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+  const { secrets } = input;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  if (!candid) {
+    candid = createCandidApiClient(secrets);
   }
+
+  console.log('Fetching invoicing config from FHIR');
+  const { questionnaireResponse } = await getOrCreateInvoicingConfig(oystehr);
+  const invoicingConfig = parseInvoicingConfig(questionnaireResponse);
+  console.log('Invoicing config loaded, dueDays:', invoicingConfig.dueDaysFromGeneration);
+
+  const twoDaysAgo = DateTime.now().minus({ days: 2 });
+  console.log('Fetching invoiceable Candid claims since:', twoDaysAgo.toISO());
+  const candidClaims = await getAllCandidClaims(candid, twoDaysAgo);
+
+  const packagesToCreate = await getEncountersWithoutTaskFhir(oystehr, candid, candidClaims);
+
+  console.log(
+    `Packages to create tasks for: ${packagesToCreate.length} ${JSON.stringify(
+      packagesToCreate.map((p) => ({
+        encounterId: p.encounter.id,
+        claimId: p.claim.claimId,
+        amountCents: p.amountCents,
+      }))
+    )}`
+  );
+
+  await Promise.all(packagesToCreate.map((pkg) => createTaskForEncounter(oystehr, pkg, invoicingConfig)));
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ message: 'Successfully created tasks for encounters' }),
+  };
 });
 
-async function getInvoiceTaskInput(
+function getInvoiceTaskInput(
   claimId: string,
   finalizationDate: Date,
-  patientBalanceInCents: number
-): Promise<InvoiceTaskInput> {
-  try {
-    const smsMessageFromSecret = TEXTING_CONFIG.invoicing.smsMessage;
-    const memoFromSecret = TEXTING_CONFIG.invoicing.stripeMemoMessage;
-    const dueDateFromSecret = TEXTING_CONFIG.invoicing.dueDateInDays;
-    const dueDate = DateTime.now().plus({ days: dueDateFromSecret }).toISODate();
-    const finalizationDateIso = finalizationDate.toISOString();
+  patientBalanceInCents: number,
+  config: ParsedInvoicingConfig
+): InvoiceTaskInput {
+  const dueDate = DateTime.now().plus({ days: config.dueDaysFromGeneration }).toISODate();
+  const finalizationDateIso = finalizationDate.toISOString();
 
-    return {
-      smsTextMessage: smsMessageFromSecret,
-      memo: memoFromSecret,
-      dueDate,
-      amountCents: patientBalanceInCents,
-      claimId,
-      finalizationDate: finalizationDateIso,
-    };
-  } catch (error) {
-    console.error('Error fetching prefilled invoice info: ', error);
-    throw new Error('Error fetching prefilled invoice info: ' + error);
-  }
+  return {
+    smsTextMessage: config.defaultSmsTemplate,
+    memo: config.defaultInvoiceMemo,
+    dueDate,
+    amountCents: patientBalanceInCents,
+    claimId,
+    finalizationDate: finalizationDateIso,
+  };
 }
 
-export async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterPackage): Promise<void> {
+export async function createTaskForEncounter(
+  oystehr: Oystehr,
+  encounterPkg: EncounterPackage,
+  config: ParsedInvoicingConfig
+): Promise<void> {
   try {
     const { encounter, claim, amountCents } = encounterPkg;
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
 
     if (!patientId) throw new Error('Patient ID not found in encounter: ' + encounter.id);
 
-    const prefilledInvoiceInfo = await getInvoiceTaskInput(claim.claimId, claim.timestamp, amountCents);
+    const prefilledInvoiceInfo = getInvoiceTaskInput(claim.claimId, claim.timestamp, amountCents, config);
 
     console.log(
       `Creating task. patient: ${claim.patientExternalId}, claim: ${claim.claimId}, encounter: ${encounter.id}, balance (cents): ${amountCents}`
@@ -164,7 +174,7 @@ export async function getEncountersWithoutTaskFhir(
 
   console.log(`Checking ${claims.length} Candid claims for existing FHIR tasks`);
 
-  const fhirResources = await getResourcesFromBatchInlineRequests(
+  const fhirResources = await getResourcesFromParallelBatches(
     oystehr,
     claims.map(
       (claim) =>
@@ -188,7 +198,7 @@ export async function getEncountersWithoutTaskFhir(
     return [];
   }
 
-  const encountersWithoutTasksResponse = await getResourcesFromBatchInlineRequests(
+  const encountersWithoutTasksResponse = await getResourcesFromParallelBatches(
     oystehr,
     candidEncountersIdsWithoutTasks.map(
       (claimId) => `Encounter?identifier=${CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM}|${claimId}`
@@ -286,7 +296,6 @@ export async function populateAmountInPackages(
 async function getAllCandidClaims(candid: CandidApiClient, sinceDate: DateTime): Promise<InventoryRecord[]> {
   const inventoryPages = await getCandidInventoryPages({
     candid,
-    limitPerPage: 100,
     onlyInvoiceable: true,
     since: sinceDate,
   });

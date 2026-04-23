@@ -1,12 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets, SecretsKeys } from 'utils';
+import { CandidApiClient } from 'candidhealth';
+import { createCandidApiClient, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
 import {
   createOystehrClient,
   getAuth0Token,
   getStatementDetails,
   StatementType,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -21,6 +21,7 @@ interface GetStatementTypeInput {
 
 const validStatementTypes = new Set<StatementType>(['standard', 'past-due', 'final-notice']);
 let oystehrToken: string;
+let candidApiClient: CandidApiClient | undefined;
 
 function validateRequestParameters(input: ZambdaInput): GetStatementTypeInput {
   if (!input.body) throw MISSING_REQUEST_BODY;
@@ -53,22 +54,21 @@ async function createOystehr(secrets: Secrets): Promise<Oystehr> {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedInput = validateRequestParameters(input);
-    const oystehr = await createOystehr(validatedInput.secrets);
-    const statementDetails = await getStatementDetails({
-      encounterId: validatedInput.encounterId,
-      statementType: validatedInput.statementType,
-      secrets: validatedInput.secrets,
-      oystehr,
-    });
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(statementDetails),
-    };
-  } catch (error: unknown) {
-    const environment = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, environment);
+  const validatedInput = validateRequestParameters(input);
+  const oystehr = await createOystehr(validatedInput.secrets);
+  if (!candidApiClient) {
+    candidApiClient = createCandidApiClient(validatedInput.secrets);
   }
+  const statementDetails = await getStatementDetails({
+    encounterId: validatedInput.encounterId,
+    statementType: validatedInput.statementType,
+    secrets: validatedInput.secrets,
+    oystehr,
+    candidApiClient,
+  });
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(statementDetails),
+  };
 });

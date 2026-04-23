@@ -432,16 +432,25 @@ export function makeObservationResource(
   // and date fields also have string values.
   const textData = data as ObservationTextFieldDTO;
   if (isObservationTextFieldDTO(data)) {
+    const component =
+      'items' in textData && Array.isArray(textData.items) && textData.items.length > 0
+        ? textData.items.map((item) => ({
+            code: { text: textData.field },
+            valueString: JSON.stringify(item),
+          }))
+        : undefined;
     if ('note' in textData && textData.note) {
       return {
         ...base,
         valueString: textData.value,
         note: [{ text: textData.note }],
+        ...(component ? { component } : {}),
       };
     } else {
       return {
         ...base,
         valueString: textData.value,
+        ...(component ? { component } : {}),
       };
     }
   }
@@ -542,7 +551,7 @@ export function makeExamObservationResource(
   snomedCodes?: SNOMEDCodeConceptInterface,
   label?: string
 ): Observation {
-  return {
+  const observation: Observation = {
     resourceType: 'Observation',
     id: data.resourceId,
     subject: { reference: `Patient/${patientId}` },
@@ -554,15 +563,59 @@ export function makeExamObservationResource(
     code: snomedCodes?.code || { text: label || 'unknown' },
     meta: fillMeta(data.field, EXAM_OBSERVATION_META_SYSTEM),
   };
+
+  if (data.components && data.components.length > 0) {
+    observation.component = data.components
+      .filter((c) => c.value)
+      .map((c) => ({
+        code: { text: c.code },
+        valueBoolean: c.value,
+        extension: [
+          { url: FHIR_EXTENSION.Observation.examComponentLabel.url, valueString: c.label },
+          { url: FHIR_EXTENSION.Observation.examComponentGroupLabel.url, valueString: c.groupLabel },
+          ...(c.columnLabel
+            ? [{ url: FHIR_EXTENSION.Observation.examComponentColumnLabel.url, valueString: c.columnLabel }]
+            : []),
+          ...(c.abnormal !== undefined
+            ? [{ url: FHIR_EXTENSION.Observation.examComponentAbnormal.url, valueBoolean: c.abnormal }]
+            : []),
+        ],
+      }));
+  }
+
+  return observation;
 }
 
 export function makeExamObservationDTO(observation: Observation): ExamObservationDTO {
-  return {
+  const dto: ExamObservationDTO = {
     resourceId: observation.id,
     field: observation.meta?.tag?.[0]?.code || 'unknown',
+    label: observation.code?.text,
     note: observation.note?.[0]?.text,
     value: observation.valueBoolean,
   };
+
+  if (observation.component && observation.component.length > 0) {
+    dto.components = observation.component.map((c) => {
+      const abnormalExt = c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentAbnormal.url);
+      return {
+        code: c.code?.text || 'unknown',
+        label:
+          c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentLabel.url)?.valueString ||
+          c.code?.text ||
+          'unknown',
+        groupLabel:
+          c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentGroupLabel.url)?.valueString ||
+          'unknown',
+        columnLabel: c.extension?.find((e) => e.url === FHIR_EXTENSION.Observation.examComponentColumnLabel.url)
+          ?.valueString,
+        value: c.valueBoolean ?? false,
+        abnormal: abnormalExt?.valueBoolean,
+      };
+    });
+  }
+
+  return dto;
 }
 
 export function makeClinicalImpressionResource(
@@ -771,6 +824,7 @@ export function makeDispositionDTO(
   const labServices = filterCodeableConcepts(followUp.orderDetail, 'lab-service');
   const virusTests = filterCodeableConcepts(followUp.orderDetail, 'virus-test');
   const reasonForTransfer = filterCodeableConcepts(followUp.orderDetail, 'reason-for-transfer')[0];
+  const specialtyTransfer = filterCodeableConcepts(followUp.orderDetail, 'specialty-transfer')[0];
 
   const followUpArr = subFollowUp?.map((element) => {
     const performerCode = element.performerType?.coding?.[0].code;
@@ -794,6 +848,7 @@ export function makeDispositionDTO(
     labService: labServices,
     virusTest: virusTests,
     reason: reasonForTransfer,
+    specialty: specialtyTransfer,
     followUp: followUpArr ?? undefined,
     followUpIn: typeof followUpTime === 'number' ? Math.floor(followUpTime / 1440) : undefined,
     [NOTHING_TO_EAT_OR_DRINK_FIELD]: followUp.extension?.some(
@@ -1178,12 +1233,32 @@ export function makeObservationDTO(observation: Observation): null | Observation
       value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
     } as ObservationDateRangeFieldDTO;
   } else if (typeof observation.valueString === 'string') {
+    const items = observation.component
+      ?.map((c) => {
+        if (typeof c.valueString !== 'string') return undefined;
+        try {
+          const parsed = JSON.parse(c.valueString);
+          if (parsed && typeof parsed === 'object' && typeof parsed.display === 'string') {
+            const searchTerms =
+              Array.isArray(parsed.searchTerms) && parsed.searchTerms.every((t: unknown) => typeof t === 'string')
+                ? parsed.searchTerms
+                : [];
+            return { display: parsed.display, searchTerms };
+          }
+        } catch {
+          // Legacy plain-string component — use as display, leave searchTerms empty
+          // (do not echo the display/prose into searchTerms).
+        }
+        return { display: c.valueString, searchTerms: [] };
+      })
+      .filter((v): v is { display: string; searchTerms: string[] } => v != null);
     return {
       resourceId: observation.id,
       field,
       value: observation.valueString,
       note: observation.note?.[0]?.text,
       derivedFrom: observation.derivedFrom?.[0].reference,
+      ...(items && items.length > 0 ? { items } : {}),
     } as ObservationTextFieldDTO;
   }
 
@@ -1538,6 +1613,18 @@ export const createDispositionServiceRequest = ({
         {
           code: disposition.reason,
           system: 'reason-for-transfer', // TODO phony Coding system
+        },
+      ])
+    );
+  }
+
+  if (disposition.type === 'specialty' && disposition.specialty) {
+    if (!orderDetail) orderDetail = [];
+    orderDetail.push(
+      createCodeableConcept([
+        {
+          code: disposition.specialty,
+          system: 'specialty-transfer', // TODO phony Coding system
         },
       ])
     );

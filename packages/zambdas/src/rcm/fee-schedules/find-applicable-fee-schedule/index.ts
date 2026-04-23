@@ -1,11 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   RCM_TAG_SYSTEM,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -26,44 +24,76 @@ let m2mToken: string;
 export const index = wrapHandler(
   'find-applicable-fee-schedule',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    try {
-      const { payerOrganizationId, dateOfService, secrets } = validateRequestParameters(input);
+    const { payerOrganizationId, dateOfService, locationId, employerOrganizationId, secrets } =
+      validateRequestParameters(input);
 
-      m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      const oystehr = createOystehrClient(m2mToken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
-      // Fetch all fee schedules (active and inactive) for historical lookups
-      const allResults = await oystehr.fhir.search<ChargeItemDefinition>({
-        resourceType: 'ChargeItemDefinition',
-        params: [{ name: '_tag', value: `${RCM_TAG_SYSTEM}|fee-schedule` }],
-      });
+    // Fetch all fee schedules (active and inactive) for historical lookups
+    const allResults = await oystehr.fhir.search<ChargeItemDefinition>({
+      resourceType: 'ChargeItemDefinition',
+      params: [{ name: '_tag', value: `${RCM_TAG_SYSTEM}|fee-schedule` }],
+    });
 
-      const allFeeSchedules = allResults.unbundle();
+    const allFeeSchedules = allResults.unbundle();
 
-      // Filter to those associated with this payer
+    // Helper: given a set of org-filtered fee schedules, apply date + location filtering
+    const findBestMatch = (orgFeeSchedules: ChargeItemDefinition[]): ChargeItemDefinition | null => {
+      const dateFiltered = orgFeeSchedules
+        .filter((fs) => fs.date && fs.date <= dateOfService)
+        .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+
+      if (dateFiltered.length === 0) return null;
+
+      if (locationId) {
+        const locationMatch = dateFiltered.find(
+          (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
+        );
+        if (locationMatch) return locationMatch;
+
+        // No location match — fall back to fee schedules with no location associations at all
+        const noLocationAssociations = dateFiltered.filter(
+          (fs) => !fs.useContext?.some((uc) => uc.valueReference?.reference?.startsWith('Location/'))
+        );
+        return noLocationAssociations[0] ?? null;
+      }
+
+      return dateFiltered[0] ?? null;
+    };
+
+    // 1. If employer org provided, try employer-specific fee schedule first
+    if (employerOrganizationId) {
+      const employerFeeSchedules = allFeeSchedules.filter(
+        (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employerOrganizationId}`)
+      );
+      const employerMatch = findBestMatch(employerFeeSchedules);
+      if (employerMatch) {
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ feeSchedule: employerMatch }),
+        };
+      }
+    }
+
+    // 2. Fall back to payer (insurance) fee schedule
+    if (payerOrganizationId) {
       const payerFeeSchedules = allFeeSchedules.filter(
         (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`)
       );
 
-      if (payerFeeSchedules.length === 0) {
+      const payerMatch = findBestMatch(payerFeeSchedules);
+      if (payerMatch) {
         return {
           statusCode: 200,
-          body: JSON.stringify({ feeSchedule: null }),
+          body: JSON.stringify({ feeSchedule: payerMatch }),
         };
       }
-
-      // Find the one with the most recent effective date on or before the date of service
-      const applicable = payerFeeSchedules
-        .filter((fs) => fs.date && fs.date <= dateOfService)
-        .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ feeSchedule: applicable[0] ?? null }),
-      };
-    } catch (error: unknown) {
-      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      return topLevelCatch('find-applicable-fee-schedule', error, ENVIRONMENT);
     }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ feeSchedule: null }),
+    };
   }
 );

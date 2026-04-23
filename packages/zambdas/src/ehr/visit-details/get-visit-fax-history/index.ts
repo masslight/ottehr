@@ -3,22 +3,22 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner, Provenance } from 'fhir/r4b';
 import {
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  getSecret,
   GetVisitFaxHistoryInput,
   GetVisitFaxHistoryInputSchema,
   GetVisitFaxHistoryInputValidated,
   GetVisitFaxHistoryInputValidatedSchema,
   GetVisitFaxHistoryOutput,
+  INVALID_INPUT_ERROR,
+  MISSING_AUTH_TOKEN,
+  MISSING_REQUEST_BODY,
   PROVENANCE_FAX_ACTIVITY_CODES,
   PROVENANCE_FAX_SYSTEM,
-  SecretsKeys,
 } from 'utils';
 import { ZodError } from 'zod';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   formatZodError,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -28,29 +28,23 @@ const ZAMBDA_NAME = 'get-visit-fax-history';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-    const { secrets } = validatedParameters;
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  console.groupEnd();
+  console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+  const { secrets } = validatedParameters;
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    console.group('performEffect');
-    const resources = await performEffect(validatedParameters, oystehr);
-    console.groupEnd();
-    console.debug('performEffect success', JSON.stringify(resources));
+  console.group('performEffect');
+  const resources = await performEffect(validatedParameters, oystehr);
+  console.groupEnd();
+  console.debug('performEffect success', JSON.stringify(resources));
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(resources),
-    };
-  } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(resources),
+  };
 });
 
 const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): Promise<GetVisitFaxHistoryOutput> => {
@@ -103,18 +97,18 @@ const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): 
 
 function validateRequestParameters(input: ZambdaInput): GetVisitFaxHistoryInputValidated {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   if (!input.headers?.Authorization) {
-    throw new Error('Authorization header is required');
+    throw MISSING_AUTH_TOKEN;
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(input.body);
   } catch {
-    throw new Error('Invalid JSON in request body.');
+    throw INVALID_INPUT_ERROR('Invalid JSON in request body.');
   }
 
   try {
@@ -128,7 +122,7 @@ function validateRequestParameters(input: ZambdaInput): GetVisitFaxHistoryInputV
     return validated;
   } catch (err) {
     if (err instanceof ZodError) {
-      throw new Error(`Invalid request parameters: ${formatZodError(err)}`);
+      throw INVALID_INPUT_ERROR(`Invalid request parameters: ${formatZodError(err)}`);
     }
     throw err;
   }

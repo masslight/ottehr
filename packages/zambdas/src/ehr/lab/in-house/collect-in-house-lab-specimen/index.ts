@@ -8,10 +8,9 @@ import {
   getAttendingPractitionerId,
   getCoding,
   getFullestAvailableName,
-  getSecret,
+  IN_HOUSE_LAB_ERROR,
   IN_HOUSE_LAB_TASK,
   Secrets,
-  SecretsKeys,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
   TASK_INPUT_SYSTEM,
 } from 'utils';
@@ -19,7 +18,6 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -43,191 +41,185 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   }
 
-  try {
-    secrets = validatedParameters.secrets;
+  secrets = validatedParameters.secrets;
 
-    console.log('validateRequestParameters success');
+  console.log('validateRequestParameters success');
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
-    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
-    const { encounterId, serviceRequestId, data } = validatedParameters;
+  const { encounterId, serviceRequestId, data } = validatedParameters;
 
-    const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+  const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
 
-    const [serviceRequestResources, tasksCSTResources, userPractitioner, encounter] = await Promise.all([
-      oystehr.fhir.get<ServiceRequest>({
-        resourceType: 'ServiceRequest',
-        id: serviceRequestId,
-      }),
-      oystehr.fhir
-        .search<Task>({
-          resourceType: 'Task',
-          params: [
-            {
-              name: 'based-on',
-              value: `ServiceRequest/${serviceRequestId}`,
-            },
-            {
-              name: 'code',
-              value: `${IN_HOUSE_LAB_TASK.system}|${IN_HOUSE_LAB_TASK.code.collectSampleTask}`,
-            },
-          ],
-        })
-        .then((bundle) => bundle.unbundle()),
-      oystehr.fhir.get<Practitioner>({
-        resourceType: 'Practitioner',
-        id: userPractitionerId,
-      }),
-      oystehr.fhir.get<Encounter>({
-        resourceType: 'Encounter',
-        id: encounterId,
-      }),
-    ]);
+  const [serviceRequestResources, tasksCSTResources, userPractitioner, encounter] = await Promise.all([
+    oystehr.fhir.get<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: serviceRequestId,
+    }),
+    oystehr.fhir
+      .search<Task>({
+        resourceType: 'Task',
+        params: [
+          {
+            name: 'based-on',
+            value: `ServiceRequest/${serviceRequestId}`,
+          },
+          {
+            name: 'code',
+            value: `${IN_HOUSE_LAB_TASK.system}|${IN_HOUSE_LAB_TASK.code.collectSampleTask}`,
+          },
+        ],
+      })
+      .then((bundle) => bundle.unbundle()),
+    oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: userPractitionerId,
+    }),
+    oystehr.fhir.get<Encounter>({
+      resourceType: 'Encounter',
+      id: encounterId,
+    }),
+  ]);
 
-    const practitionerFromEncounterId = getAttendingPractitionerId(encounter);
+  const practitionerFromEncounterId = getAttendingPractitionerId(encounter);
 
-    if (
-      practitionerFromEncounterId !== validatedParameters.data.specimen.collectedBy.id &&
-      userPractitionerId !== validatedParameters.data.specimen.collectedBy.id
-    ) {
-      // todo: not sure about this check, but looks better to have it, without this any participant may be set with custom request
-      throw Error('Practitioner mismatch');
-    }
-
-    const serviceRequestEncounterId = serviceRequestResources?.encounter?.reference?.replace('Encounter/', '');
-
-    if (!serviceRequestEncounterId || serviceRequestEncounterId !== encounterId) {
-      throw Error(`ServiceRequest with id ${serviceRequestId} is not associated with encounter ${encounterId}`);
-    }
-
-    const serviceRequest = serviceRequestResources as ServiceRequest;
-
-    if (tasksCSTResources.length !== 1) {
-      throw Error(`Expected 1 collection task, found ${tasksCSTResources.length}`);
-    }
-
-    console.log('These are the tasksCSTResources', JSON.stringify(tasksCSTResources));
-    const collectionTask = tasksCSTResources[0];
-
-    if (!collectionTask.id) {
-      throw Error('Collection task has no ID');
-    }
-
-    if (collectionTask.status === 'completed') {
-      console.error('Detected completed CST task');
-      throw Error('Collection task has already been completed. Refresh the page before continuing.');
-    }
-
-    const specimenFullUrl = `urn:uuid:${randomUUID()}`;
-
-    const specimenConfig: Specimen = {
-      resourceType: 'Specimen',
-      status: 'available',
-      request: [
-        {
-          reference: `ServiceRequest/${serviceRequestId}`,
-        },
-      ],
-      subject: {
-        reference: serviceRequest.subject?.reference || '',
-      },
-      collection: {
-        collector: {
-          reference: `Practitioner/${data.specimen.collectedBy.id}`,
-          display: data.specimen.collectedBy.name,
-        },
-        collectedDateTime: data.specimen.collectionDate,
-        ...(data.specimen.source
-          ? {
-              bodySite: {
-                coding: [
-                  {
-                    // todo when we have a standardize input we should switch this system
-                    system: SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
-                    display: data.specimen.source,
-                  },
-                ],
-              },
-            }
-          : {}),
-      },
-    };
-
-    const serviceRequestUpdateConfig: ServiceRequest = {
-      ...serviceRequest,
-      status: 'active',
-      specimen: [{ reference: specimenFullUrl }],
-    };
-
-    const collectionTaskUpdateConfig: Task = {
-      ...collectionTask,
-      status: 'completed',
-      owner: collectionTask.owner
-        ? collectionTask.owner
-        : createOwnerReference(userPractitioner.id ?? '', getFullestAvailableName(userPractitioner) ?? ''),
-    };
-
-    const testName = collectionTask.input?.find(
-      (input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === IN_HOUSE_LAB_TASK.input.testName
-    )?.valueString;
-    const patientName = collectionTask.input?.find(
-      (input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === IN_HOUSE_LAB_TASK.input.patientName
-    )?.valueString;
-
-    const inputResultTaskConfig = createTask({
-      category: IN_HOUSE_LAB_TASK.category,
-      title: `Perform test & enter results for “${testName}” for ${patientName}`,
-      code: {
-        system: IN_HOUSE_LAB_TASK.system,
-        code: IN_HOUSE_LAB_TASK.code.inputResultsTask,
-      },
-      encounterId: encounterId,
-      location: getTaskLocation(collectionTask),
-      input: collectionTask.input,
-      basedOn: [`ServiceRequest/${serviceRequestId}`],
-    });
-
-    const transactionResponse = await oystehr.fhir.transaction({
-      requests: [
-        {
-          method: 'POST',
-          url: '/Specimen',
-          resource: specimenConfig,
-          fullUrl: specimenFullUrl,
-        },
-        {
-          method: 'PUT',
-          url: `/ServiceRequest/${serviceRequestId}`,
-          resource: serviceRequestUpdateConfig,
-        },
-        {
-          method: 'PUT',
-          url: `/Task/${collectionTask.id}`,
-          resource: collectionTaskUpdateConfig,
-        },
-        {
-          method: 'POST',
-          url: '/Task',
-          resource: inputResultTaskConfig,
-        },
-      ] as BatchInputRequest<FhirResource>[],
-    });
-
-    if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
-      throw Error('Error collecting in-house lab specimen in transaction');
-    }
-
-    const response: CollectInHouseLabSpecimenZambdaOutput = {};
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.error('Error collecting in-house lab specimen:', error);
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('collect-in-house-lab-specimen', error, ENVIRONMENT);
+  if (
+    practitionerFromEncounterId !== validatedParameters.data.specimen.collectedBy.id &&
+    userPractitionerId !== validatedParameters.data.specimen.collectedBy.id
+  ) {
+    // todo: not sure about this check, but looks better to have it, without this any participant may be set with custom request
+    throw Error('Practitioner mismatch');
   }
+
+  const serviceRequestEncounterId = serviceRequestResources?.encounter?.reference?.replace('Encounter/', '');
+
+  if (!serviceRequestEncounterId || serviceRequestEncounterId !== encounterId) {
+    throw Error(`ServiceRequest with id ${serviceRequestId} is not associated with encounter ${encounterId}`);
+  }
+
+  const serviceRequest = serviceRequestResources as ServiceRequest;
+
+  if (tasksCSTResources.length !== 1) {
+    throw Error(`Expected 1 collection task, found ${tasksCSTResources.length}`);
+  }
+
+  console.log('These are the tasksCSTResources', JSON.stringify(tasksCSTResources));
+  const collectionTask = tasksCSTResources[0];
+
+  if (!collectionTask.id) {
+    throw Error('Collection task has no ID');
+  }
+
+  if (collectionTask.status === 'completed') {
+    console.error('Detected completed CST task');
+    throw IN_HOUSE_LAB_ERROR('Collection task has already been completed. Refresh the page before continuing.');
+  }
+
+  const specimenFullUrl = `urn:uuid:${randomUUID()}`;
+
+  const specimenConfig: Specimen = {
+    resourceType: 'Specimen',
+    status: 'available',
+    request: [
+      {
+        reference: `ServiceRequest/${serviceRequestId}`,
+      },
+    ],
+    subject: {
+      reference: serviceRequest.subject?.reference || '',
+    },
+    collection: {
+      collector: {
+        reference: `Practitioner/${data.specimen.collectedBy.id}`,
+        display: data.specimen.collectedBy.name,
+      },
+      collectedDateTime: data.specimen.collectionDate,
+      ...(data.specimen.source
+        ? {
+            bodySite: {
+              coding: [
+                {
+                  // todo when we have a standardize input we should switch this system
+                  system: SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
+                  display: data.specimen.source,
+                },
+              ],
+            },
+          }
+        : {}),
+    },
+  };
+
+  const serviceRequestUpdateConfig: ServiceRequest = {
+    ...serviceRequest,
+    status: 'active',
+    specimen: [{ reference: specimenFullUrl }],
+  };
+
+  const collectionTaskUpdateConfig: Task = {
+    ...collectionTask,
+    status: 'completed',
+    owner: collectionTask.owner
+      ? collectionTask.owner
+      : createOwnerReference(userPractitioner.id ?? '', getFullestAvailableName(userPractitioner) ?? ''),
+  };
+
+  const testName = collectionTask.input?.find(
+    (input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === IN_HOUSE_LAB_TASK.input.testName
+  )?.valueString;
+  const patientName = collectionTask.input?.find(
+    (input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === IN_HOUSE_LAB_TASK.input.patientName
+  )?.valueString;
+
+  const inputResultTaskConfig = createTask({
+    category: IN_HOUSE_LAB_TASK.category,
+    title: `Perform test & enter results for “${testName}” for ${patientName}`,
+    code: {
+      system: IN_HOUSE_LAB_TASK.system,
+      code: IN_HOUSE_LAB_TASK.code.inputResultsTask,
+    },
+    encounterId: encounterId,
+    location: getTaskLocation(collectionTask),
+    input: collectionTask.input,
+    basedOn: [`ServiceRequest/${serviceRequestId}`],
+  });
+
+  const transactionResponse = await oystehr.fhir.transaction({
+    requests: [
+      {
+        method: 'POST',
+        url: '/Specimen',
+        resource: specimenConfig,
+        fullUrl: specimenFullUrl,
+      },
+      {
+        method: 'PUT',
+        url: `/ServiceRequest/${serviceRequestId}`,
+        resource: serviceRequestUpdateConfig,
+      },
+      {
+        method: 'PUT',
+        url: `/Task/${collectionTask.id}`,
+        resource: collectionTaskUpdateConfig,
+      },
+      {
+        method: 'POST',
+        url: '/Task',
+        resource: inputResultTaskConfig,
+      },
+    ] as BatchInputRequest<FhirResource>[],
+  });
+
+  if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
+    throw Error('Error collecting in-house lab specimen in transaction');
+  }
+
+  const response: CollectInHouseLabSpecimenZambdaOutput = {};
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });

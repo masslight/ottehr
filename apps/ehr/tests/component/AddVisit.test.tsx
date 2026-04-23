@@ -14,13 +14,43 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+const mockLocation = {
+  resourceType: 'Location',
+  id: 'test-location-1',
+  name: 'Test Location',
+  identifier: [
+    {
+      system: 'https://fhir.ottehr.com/r4/slug',
+      value: 'test-location',
+    },
+  ],
+};
+const mockSchedule = {
+  resourceType: 'Schedule',
+  id: 'test-schedule-1',
+  actor: [
+    {
+      reference: 'Location/test-location-1',
+    },
+  ],
+};
+
 // Mock the API client hooks to avoid authentication errors
 vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => ({
     oystehr: {
       fhir: {
         search: vi.fn().mockResolvedValue({
-          unbundle: () => [],
+          entry: [
+            {
+              resource: mockLocation,
+              search: {
+                mode: 'match',
+              },
+            },
+          ],
+          total: 1,
+          unbundle: () => [mockLocation, mockSchedule],
         }),
       },
     },
@@ -45,11 +75,11 @@ describe('AddVisit', () => {
     const serviceCategoryDropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
     const serviceCategoryButton = serviceCategoryDropdown.querySelector('[role="combobox"]');
     await user.click(serviceCategoryButton!);
-    let serviceCategoryOption = BOOKING_CONFIG.serviceCategories[0].display;
+    let serviceCategoryOption = BOOKING_CONFIG.serviceCategories[0].category.display;
     if (category) {
-      const matchingOption = BOOKING_CONFIG.serviceCategories.find((sc) => sc.code === category);
+      const matchingOption = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === category);
       expect(matchingOption).toBeDefined();
-      serviceCategoryOption = matchingOption!.display;
+      serviceCategoryOption = matchingOption!.category.display;
     }
     const generalOption = await screen.findByText(serviceCategoryOption);
     await user.click(generalOption);
@@ -296,6 +326,13 @@ describe('AddVisit', () => {
         const prebookOption = await screen.findByText('Pre-booked In Person Visit');
         await user.click(prebookOption);
 
+        // Select location
+        const locationSelect = screen.getByTestId(dataTestIds.dashboard.locationSelect);
+        const locationInput = locationSelect.querySelector('input')!;
+        await user.click(locationInput);
+        const locationOption = await screen.findByText('Test Location');
+        await user.click(locationOption);
+
         // Try to submit without selecting a slot
         const addButton = screen.getByTestId(dataTestIds.addPatientPage.addButton);
         await user.click(addButton);
@@ -365,6 +402,13 @@ describe('AddVisit', () => {
         const postTelemedOption = await screen.findByText('Post Telemed Lab Only');
         await user.click(postTelemedOption);
 
+        // Select location
+        const locationSelect = screen.getByTestId(dataTestIds.dashboard.locationSelect);
+        const locationInput = locationSelect.querySelector('input')!;
+        await user.click(locationInput);
+        const locationOption = await screen.findByText('Test Location');
+        await user.click(locationOption);
+
         // Try to submit without selecting a slot
         const addButton = screen.getByTestId(dataTestIds.addPatientPage.addButton);
         await user.click(addButton);
@@ -398,9 +442,9 @@ describe('AddVisit', () => {
       await waitForElementToBeRemoved(notFoundButton);
 
       // Test each service category
-      for (const serviceCategory of BOOKING_CONFIG.serviceCategories) {
+      for (const serviceCategoryConfig of BOOKING_CONFIG.serviceCategories) {
         // Select the service category
-        await selectServiceCategory(user, screen, serviceCategory.code);
+        await selectServiceCategory(user, screen, serviceCategoryConfig.category.code);
 
         // Wait for reason for visit dropdown to appear
         const reasonDropdown = await screen.findByTestId(
@@ -414,7 +458,7 @@ describe('AddVisit', () => {
         await user.click(reasonButton!);
 
         // Get the expected options for this service category
-        const expectedOptions = getReasonForVisitOptionsForServiceCategory(serviceCategory.code);
+        const expectedOptions = getReasonForVisitOptionsForServiceCategory(serviceCategoryConfig.category.code);
         expect(expectedOptions.length).toBeGreaterThan(0);
 
         // Get all visible options in the dropdown
@@ -439,7 +483,7 @@ describe('AddVisit', () => {
         await user.keyboard('{Escape}');
 
         // Select a different service category for the next iteration (unless it's the last one)
-        if (serviceCategory !== BOOKING_CONFIG.serviceCategories[BOOKING_CONFIG.serviceCategories.length - 1]) {
+        if (serviceCategoryConfig !== BOOKING_CONFIG.serviceCategories[BOOKING_CONFIG.serviceCategories.length - 1]) {
           const serviceCategoryDropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
           const serviceCategoryButton = serviceCategoryDropdown.querySelector('[role="combobox"]');
           await user.click(serviceCategoryButton!);

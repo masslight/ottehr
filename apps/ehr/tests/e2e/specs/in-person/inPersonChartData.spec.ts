@@ -205,6 +205,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         });
         await test.step('VIT-1.6 Add weight observation', async () => {
           await vitalsPage.addWeightObservation(WEIGHT_KG);
+          await new InPersonHeader(page).verifyWeight(WEIGHT_KG);
         });
         await test.step('VIT-1.7 Add weight observation with Patient Refused', async () => {
           await vitalsPage.addWeightObservationPatientRefused();
@@ -401,6 +402,7 @@ test.describe('In-Person Visit Chart Data', async () => {
 
         await test.step('VIT-3.7 Delete Patient Refused weight observation', async () => {
           await vitalsPage.removeWeightObservationFromHistory('Patient Refused');
+          await new InPersonHeader(page).verifyWeightNotShown();
         });
 
         await test.step('VIT-3.8 Delete height observation', async () => {
@@ -672,11 +674,11 @@ test.describe('In-Person Visit Chart Data', async () => {
       // Check default text
       await assessmentPage.expectMdmField({ text: '' });
 
-      // Edit the text
+      // Edit the text and wait for the debounced save to complete
       const newText = 'Updated medical decision making text';
+      const saveResponsePromise = page.waitForResponse((resp) => resp.url().includes('save-chart-data'));
       await assessmentPage.fillMdmField(newText);
-      await page.getByTestId(dataTestIds.assessmentCard.medicalDecisionLoading).waitFor({ state: 'visible' });
-      await page.getByTestId(dataTestIds.assessmentCard.medicalDecisionLoading).waitFor({ state: 'hidden' });
+      await saveResponsePromise;
 
       // Verify text is updated
       await assessmentPage.expectMdmField({ text: newText });

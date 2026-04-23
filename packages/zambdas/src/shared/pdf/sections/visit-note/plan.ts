@@ -35,6 +35,7 @@ export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanD
   const virusTest = disposition?.virusTest?.join(', ') ?? '';
   const followUpIn = typeof disposition?.followUpIn === 'number' ? disposition.followUpIn : undefined;
   const reason = disposition?.reason;
+  const specialty = disposition?.specialty;
 
   const subSpecialtyFollowup =
     additionalChartData?.disposition?.followUp?.map((followUp) => {
@@ -62,6 +63,7 @@ export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanD
       virusTest,
       followUpIn,
       reason,
+      specialty,
     },
     subSpecialtyFollowup,
     workSchoolExcuse,
@@ -77,7 +79,8 @@ const hasDisposition = (data: PlanData): boolean =>
     data.disposition?.labService ||
     data.disposition?.virusTest ||
     typeof data.disposition?.followUpIn === 'number' ||
-    data.disposition?.reason
+    data.disposition?.reason ||
+    data.disposition?.specialty
   );
 
 const hasPatientInstructions = (data: PlanData): boolean =>
@@ -116,6 +119,9 @@ export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSecti
       if (hasDisposition(data)) {
         drawBlockHeader(client, styles, data.disposition.header, styles.textStyles.blockSubHeader);
 
+        if (data.disposition.specialty) {
+          drawRegularText(client, styles, data.disposition.specialty);
+        }
         if (data.disposition.text) {
           drawRegularText(client, styles, data.disposition.text);
         }

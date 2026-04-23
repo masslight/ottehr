@@ -18,10 +18,12 @@ export const composeDisposition: DataComposer<{ allChartData: AllChartData }, Di
   let instruction = '';
   let followUpIn: string | undefined;
   let reason: string | undefined;
+  let specialty: string | undefined;
   if (disposition?.type) {
     label = mapDispositionTypeToLabel[disposition.type];
     instruction = disposition.note || getDefaultNote(disposition.type);
     reason = disposition.reason;
+    specialty = disposition.specialty;
 
     followUpIn = followUpInOptions.find((opt) => opt.value === disposition.followUpIn)?.label;
   }
@@ -32,6 +34,7 @@ export const composeDisposition: DataComposer<{ allChartData: AllChartData }, Di
     instruction,
     reason,
     followUpIn,
+    specialty,
     [NOTHING_TO_EAT_OR_DRINK_FIELD]: disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD],
     [REFUSAL_OF_EMS_TRANSPORT_FIELD]: disposition?.[REFUSAL_OF_EMS_TRANSPORT_FIELD],
     labService,
@@ -42,6 +45,7 @@ export const composeDisposition: DataComposer<{ allChartData: AllChartData }, Di
 const hasDisposition = (data: DispositionData): boolean =>
   !!(
     data.instruction ||
+    data.specialty ||
     data[NOTHING_TO_EAT_OR_DRINK_FIELD] ||
     data[REFUSAL_OF_EMS_TRANSPORT_FIELD] ||
     data.labService ||
@@ -59,6 +63,9 @@ export const createDispositionSection = <TData extends { disposition?: Dispositi
     dataSelector: (data) => data.disposition,
     shouldRender: hasDisposition,
     render: (client, data, styles) => {
+      if (data.specialty) {
+        client.drawText(data.specialty, styles.textStyles.regular);
+      }
       if (data.instruction) {
         client.drawText(data.instruction, styles.textStyles.regular);
       }

@@ -71,7 +71,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (Boolean(patient.reasonForVisit) === undefined) {
     missingRequiredPatientFields.push('reasonForVisit');
   }
-  if (!isEHRUser && Boolean(patient.sex) === false) {
+  if (Boolean(patient.sex) === false) {
     missingRequiredPatientFields.push('sex');
   }
   if (!isEHRUser && Boolean(patient.email === undefined)) {

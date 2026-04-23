@@ -1,10 +1,13 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { CandidApiClient } from 'candidhealth';
 import { ChargeItem, Encounter, Task } from 'fhir/r4b';
 import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
+  createCandidApiClient,
+  getOptionalSecret,
   getPatientContactEmail,
   getQuestionnaireResponseByLinkId,
   getSecret,
@@ -25,7 +28,6 @@ import {
   getMyPractitionerId,
   parseCreatedResourcesBundle,
   saveResourceRequest,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -41,28 +43,23 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
+let candidApiClient: CandidApiClient | undefined;
 const ZAMBDA_NAME = 'change-telemed-appointment-status';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-    console.log('Created Oystehr client');
+  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
+  console.log('Created Oystehr client');
 
-    const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.error('Stringified error: ' + JSON.stringify(error));
-    console.error('Error: ' + error);
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 export const performEffect = async (
@@ -172,8 +169,16 @@ export const performEffect = async (
     let candidEncounterId: string | undefined;
     try {
       if (!secrets) throw new Error('Secrets are not defined, cannot create Candid encounter.');
-      console.log('[CLAIM SUBMISSION] Attempting to create telemed encounter in candid...');
-      candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
+      const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
+      if (candidClientId == null || candidClientId.length === 0) {
+        console.log('CANDID_CLIENT_ID is not set, skipping encounter submission to candid');
+      } else {
+        if (!candidApiClient) {
+          candidApiClient = createCandidApiClient(secrets);
+        }
+        console.log('[CLAIM SUBMISSION] Attempting to create telemed encounter in candid...');
+        candidEncounterId = await createEncounterFromAppointment(visitResources, oystehr, candidApiClient);
+      }
     } catch (error) {
       console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
       captureException(error, {

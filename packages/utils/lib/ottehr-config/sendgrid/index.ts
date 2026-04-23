@@ -228,7 +228,6 @@ const DefaultTemplates = z.object({
 
 const SENDGRID_CONFIG_SCHEMA = z.object({
   templates: DefaultTemplates,
-  featureFlag: z.boolean().default(false),
 });
 
 export const SENDGRID_CONFIG = Object.freeze(SENDGRID_CONFIG_SCHEMA.parse(SENDGRID_DATA));

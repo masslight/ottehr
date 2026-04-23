@@ -1,4 +1,3 @@
-import mixpanel from 'mixpanel-browser';
 import { useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -20,7 +19,6 @@ import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
-import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { useVisitContext } from './ThankYou';
 
@@ -40,27 +38,9 @@ const CancellationReason = (): JSX.Element => {
 
   const cancelTelemedAppointment = useCancelTelemedAppointmentMutation();
 
-  const visitType = useMemo(() => {
-    return appointmentData?.appointment?.visitType;
-  }, [appointmentData?.appointment?.visitType]);
-
-  const selectedLocation = useMemo(() => {
-    return appointmentData?.appointment?.location;
-  }, [appointmentData?.appointment?.location]);
-
   const isVirtualAppt = useMemo(() => {
     return appointmentData?.appointment?.serviceMode === ServiceMode.virtual;
   }, [appointmentData?.appointment?.serviceMode]);
-
-  // Track event in Mixpanel
-  const eventName = 'Cancellation Reason';
-  useTrackMixpanelEvents({
-    eventName: eventName,
-    visitType: visitType,
-    loading: !visitType,
-    bookingCity: selectedLocation?.address?.city,
-    bookingState: selectedLocation?.address?.state,
-  });
 
   const onSubmit = async (data: FieldValues): Promise<void> => {
     try {
@@ -187,7 +167,6 @@ const CancellationReason = (): JSX.Element => {
           loading: loading || cancelTelemedAppointment.isPending,
           submitLabel: t('cancel.cancelButton'),
           onBack: () => {
-            mixpanel.track(eventName, { patientFlow: visitType });
             navigate(-1);
           },
         }}

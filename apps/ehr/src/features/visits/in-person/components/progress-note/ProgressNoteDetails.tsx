@@ -11,6 +11,8 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ImmunizationContainer } from 'src/features/visits/in-person/components/ImmunizationContainer';
 import { LabResultsReviewContainer } from 'src/features/visits/in-person/components/LabResultsReviewContainer';
+import { ExamMigrationWarning } from 'src/features/visits/shared/components/exam-tab/ExamMigrationWarning';
+import { useUnmatchedExamFields } from 'src/features/visits/shared/components/exam-tab/useUnmatchedExamFields';
 import { AdditionalQuestionsContainer } from 'src/features/visits/shared/components/review-tab/components/AdditionalQuestionsContainer';
 import { AllergiesContainer } from 'src/features/visits/shared/components/review-tab/components/AllergiesContainer';
 import { AssessmentContainer } from 'src/features/visits/shared/components/review-tab/components/AssessmentContainer';
@@ -44,6 +46,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   examConfig,
   getSupervisorApprovalStatus,
+  isInPersonAppointment,
   LabType,
   NOTE_TYPE,
   progressNoteChartDataRequestedFields,
@@ -58,7 +61,13 @@ import { PatientVitalsContainer } from './PatientVitalsContainer';
 export const ProgressNoteDetails: FC = () => {
   const { appointment, encounter, appointmentSetState } = useAppointmentData();
   const apiClient = useOystehrAPIClient();
+  // Route-scoped: which UI is open (drives in-person vs telemed signing flow).
   const { isInPerson } = useAppFlags();
+  // Appointment-scoped: must match how save-chart-data picks the config, otherwise
+  // telemed appointments opened under /in-person/:id/* mismatch the backend.
+  const examConfigComponents =
+    examConfig[isInPersonAppointment(appointment) ? 'inPerson' : 'telemed'].default.components;
+  const unmatchedExamFields = useUnmatchedExamFields(examConfigComponents);
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
 
   const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
@@ -158,6 +167,7 @@ export const ProgressNoteDetails: FC = () => {
   ].filter(Boolean);
 
   const sections = [
+    unmatchedExamFields.length > 0 && <ExamMigrationWarning unmatchedFields={unmatchedExamFields} />,
     showChiefComplaint && <ChiefComplaintContainer />,
     showHpi && <HistoryOfPresentIllnessContainer />,
     showMechanismOfInjury && <MechanismOfInjuryContainer />,
@@ -168,7 +178,7 @@ export const ProgressNoteDetails: FC = () => {
       <Typography variant="h5" color="primary.dark">
         Examination
       </Typography>
-      <ExaminationContainer examConfig={examConfig.inPerson.default.components} />
+      <ExaminationContainer examConfig={examConfigComponents} />
     </Stack>,
     ...(!(approvalStatus === 'waiting-for-approval') ? medicalHistorySections : []),
     showAssessment && <AssessmentContainer />,

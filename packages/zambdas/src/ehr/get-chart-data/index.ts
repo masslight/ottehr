@@ -1,20 +1,8 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Practitioner, Resource } from 'fhir/r4b';
-import {
-  ChartDataRequestedFields,
-  GetChartDataResponse,
-  getSecret,
-  PUBLIC_EXTENSION_BASE_URL,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  getPatientEncounter,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { ChartDataRequestedFields, GetChartDataResponse, PUBLIC_EXTENSION_BASE_URL } from 'utils';
+import { checkOrCreateM2MClientToken, getPatientEncounter, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { configLabRequestsForGetChartData } from '../lab/shared/labs';
 import {
@@ -32,23 +20,18 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-chart-data';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log(`Input: ${JSON.stringify(input)}`);
-    console.log('Validating input');
-    const { encounterId, secrets, requestedFields } = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  console.log(`Input: ${JSON.stringify(input)}`);
+  console.log('Validating input');
+  const { encounterId, secrets, requestedFields } = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const output = (await getChartData(oystehr, m2mToken, encounterId, requestedFields)).response;
+  const output = (await getChartData(oystehr, m2mToken, encounterId, requestedFields)).response;
 
-    return {
-      body: JSON.stringify(output),
-      statusCode: 200,
-    };
-  } catch (error) {
-    console.log(error);
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  return {
+    body: JSON.stringify(output),
+    statusCode: 200,
+  };
 });
 
 export async function getChartData(
@@ -324,6 +307,7 @@ export async function getChartData(
     oystehr
   );
   console.timeLog('check', 'after converting to response');
+
   if (chartDataResult.chartData.aiChat) {
     const practitionerIDs = chartDataResult.chartData.aiChat.documents
       .filter((document) => document.resourceType === 'DocumentReference')

@@ -148,6 +148,13 @@
       "src": "src/ehr/delete-chart-data/index",
       "zip": ".dist/zips/delete-chart-data.zip"
     },
+    "MIGRATE-EXAM-DATA": {
+      "name": "migrate-exam-data",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/migrate-exam-data/index",
+      "zip": ".dist/zips/migrate-exam-data.zip"
+    },
     "BULK-UPDATE-INSURANCE-STATUS": {
       "name": "bulk-update-insurance-status",
       "type": "http_auth",
@@ -294,6 +301,62 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-remove-medication-history-quick-pick/index",
       "zip": ".dist/zips/admin-remove-medication-history-quick-pick.zip"
+    },
+    "ADMIN-GET-IMMUNIZATION-QUICK-PICKS": {
+      "name": "admin-get-immunization-quick-picks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-immunization-quick-picks/index",
+      "zip": ".dist/zips/admin-get-immunization-quick-picks.zip"
+    },
+    "ADMIN-CREATE-IMMUNIZATION-QUICK-PICK": {
+      "name": "admin-create-immunization-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-immunization-quick-pick/index",
+      "zip": ".dist/zips/admin-create-immunization-quick-pick.zip"
+    },
+    "ADMIN-UPDATE-IMMUNIZATION-QUICK-PICK": {
+      "name": "admin-update-immunization-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-immunization-quick-pick/index",
+      "zip": ".dist/zips/admin-update-immunization-quick-pick.zip"
+    },
+    "ADMIN-REMOVE-IMMUNIZATION-QUICK-PICK": {
+      "name": "admin-remove-immunization-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-remove-immunization-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-immunization-quick-pick.zip"
+    },
+    "ADMIN-GET-IN-HOUSE-MEDICATION-QUICK-PICKS": {
+      "name": "admin-get-in-house-medication-quick-picks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-in-house-medication-quick-picks/index",
+      "zip": ".dist/zips/admin-get-in-house-medication-quick-picks.zip"
+    },
+    "ADMIN-CREATE-IN-HOUSE-MEDICATION-QUICK-PICK": {
+      "name": "admin-create-in-house-medication-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-in-house-medication-quick-pick/index",
+      "zip": ".dist/zips/admin-create-in-house-medication-quick-pick.zip"
+    },
+    "ADMIN-UPDATE-IN-HOUSE-MEDICATION-QUICK-PICK": {
+      "name": "admin-update-in-house-medication-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-in-house-medication-quick-pick/index",
+      "zip": ".dist/zips/admin-update-in-house-medication-quick-pick.zip"
+    },
+    "ADMIN-REMOVE-IN-HOUSE-MEDICATION-QUICK-PICK": {
+      "name": "admin-remove-in-house-medication-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-remove-in-house-medication-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-in-house-medication-quick-pick.zip"
     },
     "UPDATE-USER": {
       "name": "update-user",
@@ -511,6 +574,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/remove-coverage/index",
       "zip": ".dist/zips/remove-patient-coverage.zip"
+    },
+    "MERGE-PATIENTS": {
+      "name": "merge-patients",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/merge-patients/index",
+      "zip": ".dist/zips/merge-patients.zip"
     },
     "CANCEL-APPOINTMENT": {
       "name": "cancel-appointment",
@@ -1381,6 +1451,7 @@
       "name": "create-invoices-tasks",
       "type": "cron",
       "runtime": "nodejs22.x",
+      "timeout": "300",
       "src": "src/cron/create-invoices-tasks/index",
       "zip": ".dist/zips/create-invoices-tasks.zip",
       "schedule": {
@@ -1630,6 +1701,27 @@
       "src": "src/rcm/charge-masters/list-charge-masters/index",
       "zip": ".dist/zips/list-charge-masters.zip"
     },
+    "CREATE-EMPLOYER": {
+      "name": "create-employer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/employers/create-employer/index",
+      "zip": ".dist/zips/create-employer.zip"
+    },
+    "LIST-EMPLOYERS": {
+      "name": "list-employers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/employers/list-employers/index",
+      "zip": ".dist/zips/list-employers.zip"
+    },
+    "UPDATE-EMPLOYER": {
+      "name": "update-employer",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/employers/update-employer/index",
+      "zip": ".dist/zips/update-employer.zip"
+    },
     "DESIGNATE-CHARGE-MASTER-ENTRY": {
       "name": "designate-charge-master-entry",
       "type": "http_auth",
@@ -1692,6 +1784,20 @@
       "runtime": "nodejs22.x",
       "src": "src/rcm/charge-masters/cm-bulk-add-procedure-codes/index",
       "zip": ".dist/zips/cm-bulk-add-procedure-codes.zip"
+    },
+    "GET-INVOICE-CONFIG": {
+      "name": "get-invoice-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/invoice-config/get-invoice-config/index",
+      "zip": ".dist/zips/get-invoice-config.zip"
+    },
+    "SAVE-INVOICE-CONFIG": {
+      "name": "save-invoice-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/invoice-config/save-invoice-config/index",
+      "zip": ".dist/zips/save-invoice-config.zip"
     },
     "ADMIN_LIST_IN_HOUSE_LABS": {
       "name": "admin-list-in-house-labs",

@@ -30,7 +30,6 @@ import { PageContainer } from '../components';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
-import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
@@ -149,15 +148,6 @@ const ThankYou = (): JSX.Element => {
     marginTop: 16,
     marginBottom: 25,
   };
-
-  // Only start tracking Thank You page after the visit type is finished loading
-  useTrackMixpanelEvents({
-    eventName: 'Thank You',
-    visitType: visitType,
-    loading: loading,
-    bookingCity: selectedLocation?.address?.city,
-    bookingState: selectedLocation?.address?.state,
-  });
 
   useEffect(() => {
     async function updateData(): Promise<void> {

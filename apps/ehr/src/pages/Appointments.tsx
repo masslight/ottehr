@@ -20,14 +20,21 @@ import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
 import DateSearch from '../components/DateSearch';
-import LocationSelect from '../components/LocationSelect';
+import LocationSelect, { LocationType } from '../components/LocationSelect';
 import ProvidersSelect from '../components/ProvidersSelect';
 import { dataTestIds } from '../constants/data-test-ids';
 import { adjustTopForBannerHeight } from '../helpers/misc.helper';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { VisitType, visitTypeToInPersonLabel } from '../types/types';
 import { LocationWithWalkinSchedule } from './AddPatient';
+
+export const visitTypeToLabel: Record<string, string> = {
+  'in-person-walk-in': 'Walk-in In Person Visit',
+  'in-person-pre-booked': 'Pre-booked In Person Visit',
+  'in-person-post-telemed': 'Post Telemed Lab Only',
+  'virtual-walk-in': 'On-demand Telemed',
+  'virtual-pre-booked': 'Pre-booked Telemed',
+};
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -122,7 +129,7 @@ export default function Appointments(): ReactElement {
       queryParams?.set('visitType', JSON.parse(selectedVisitTypes) ?? '');
       navigate(`?${queryParams?.toString()}`);
     } else {
-      queryParams?.set('visitType', Object.keys(visitTypeToInPersonLabel).join(','));
+      queryParams?.set('visitType', Object.keys(visitTypeToLabel).join(','));
     }
   }, [navigate, queryParams]);
 
@@ -366,6 +373,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                     updateURL={true}
                     storeLocationInLocalStorage={true}
                     setLocation={setLocationSelected}
+                    locationType={[LocationType.IN_PERSON, LocationType.VIRTUAL]}
                   />
                 </Box>
                 <Autocomplete
@@ -377,9 +385,9 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                   }}
                   style={{ flex: 1.5 }}
                   value={visitType}
-                  options={Object.keys(visitTypeToInPersonLabel)}
+                  options={Object.keys(visitTypeToLabel)}
                   getOptionLabel={(option) => {
-                    return visitTypeToInPersonLabel[option as VisitType];
+                    return visitTypeToLabel[option];
                   }}
                   onChange={(event, value) => {
                     if (value) {
@@ -405,9 +413,10 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                   }}
                   style={{ flex: 1 }}
                   value={serviceCategories}
-                  options={BOOKING_CONFIG.serviceCategories.map((category) => category.code)}
+                  options={BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code)}
                   getOptionLabel={(option) =>
-                    BOOKING_CONFIG.serviceCategories.find((category) => category.code === option)?.display ?? 'Unknown'
+                    BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === option)?.category.display ??
+                    'Unknown'
                   }
                   onChange={(event, value) => {
                     if (value) {

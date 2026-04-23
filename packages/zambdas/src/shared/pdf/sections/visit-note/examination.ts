@@ -1,11 +1,10 @@
-import type { ExamCardComponent } from 'config-types';
 import {
+  collectKnownExamFields,
   examConfig,
   ExamObservationDTO,
+  extractObservationsFromExamComponents,
   GetChartDataResponse,
-  isDropdownComponent,
   isInPersonAppointment,
-  isMultiSelectComponent,
 } from 'utils';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import {
@@ -138,7 +137,8 @@ function parseExamFieldsFromExamObservations(
   });
 
   // Get exam configuration based on whether it's in-person or telemed
-  const examConfigComponents = examConfig[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
+  const examConfigType = isInPersonAppointment ? 'inPerson' : 'telemed';
+  const examConfigComponents = examConfig[examConfigType].default.components;
 
   // If no exam config or observations, return empty examination
   if (!examConfigComponents || !chartData.examObservations || chartData.examObservations.length === 0) {
@@ -147,118 +147,7 @@ function parseExamFieldsFromExamObservations(
     };
   }
 
-  const formatElementName = (elementName: string): string => {
-    return elementName
-      .split('-')
-      .map((word) => {
-        return word
-          .replace(/([A-Z])/g, ' $1')
-          .toLowerCase()
-          .replace(/^./, (str) => str.toUpperCase())
-          .trim();
-      })
-      .join(' | ');
-  };
-
-  const extractObservationsFromComponents = (
-    components: Record<string, ExamCardComponent>,
-    section: 'normal' | 'abnormal'
-  ): Array<{ field: string; label: string; abnormal: boolean }> => {
-    const items: Array<{ field: string; label: string; abnormal: boolean }> = [];
-
-    Object.entries(components).forEach(([fieldName, component]) => {
-      if (component.type === 'text') return;
-
-      switch (component.type) {
-        case 'checkbox': {
-          const observation = examObservations[fieldName];
-          if (observation && typeof observation.value === 'boolean' && observation.value === true) {
-            items.push({
-              field: fieldName,
-              label: component.label,
-              abnormal: section === 'abnormal',
-            });
-          }
-          break;
-        }
-
-        case 'dropdown': {
-          if (isDropdownComponent(component)) {
-            Object.entries(component.components).forEach(([optionName, option]) => {
-              const observation = examObservations[optionName];
-              if (observation && typeof observation.value === 'boolean' && observation.value === true) {
-                items.push({
-                  field: optionName,
-                  label: `${component.label}: ${option.label}`,
-                  abnormal: section === 'abnormal',
-                });
-              }
-            });
-          }
-          break;
-        }
-
-        case 'form': {
-          Object.entries(component.components).forEach(([elementName]) => {
-            const observation = examObservations[elementName];
-            if (observation && typeof observation.value === 'boolean' && observation.value === true) {
-              const formattedElementName = formatElementName(elementName);
-              const note = observation.note ? ` | ${observation.note}` : '';
-
-              items.push({
-                field: elementName,
-                label: `${component.label}: ${formattedElementName}${note}`,
-                abnormal: section === 'abnormal',
-              });
-            }
-          });
-          break;
-        }
-
-        case 'multi-select': {
-          if (isMultiSelectComponent(component)) {
-            const selectedOptions: { field: string; label: string; abnormal: boolean }[] = [];
-            Object.entries(component.options).forEach(([optionName, option]) => {
-              const observation = examObservations[optionName];
-              if (observation && typeof observation.value === 'boolean' && observation.value === true) {
-                const description = option.description ? ` (${option.description})` : '';
-                selectedOptions.push({
-                  field: optionName,
-                  label: `${component.label}: ${option.label}${description}`,
-                  abnormal: section === 'abnormal',
-                });
-              }
-            });
-            const observation = examObservations[fieldName];
-            if (observation && observation.value === true && selectedOptions.length === 0) {
-              items.push({
-                field: fieldName,
-                label: component.label,
-                abnormal: section === 'abnormal',
-              });
-            }
-            items.push(...selectedOptions);
-          }
-          break;
-        }
-
-        case 'column': {
-          const nestedItems = extractObservationsFromComponents(component.components, section);
-          const itemsWithColumnLabel = nestedItems.map((item) => ({
-            ...item,
-            label: `${component.label}: ${item.label}`,
-          }));
-          items.push(...itemsWithColumnLabel);
-          break;
-        }
-
-        default:
-          break;
-      }
-    });
-
-    return items;
-  };
+  const matchedFields = collectKnownExamFields(examConfigComponents);
 
   const examinationData: Record<
     string,
@@ -266,8 +155,12 @@ function parseExamFieldsFromExamObservations(
   > = {};
 
   Object.entries(examConfigComponents).forEach(([sectionKey, section]) => {
-    const normalItems = extractObservationsFromComponents(section.components.normal, 'normal');
-    const abnormalItems = extractObservationsFromComponents(section.components.abnormal, 'abnormal');
+    const normalItems = extractObservationsFromExamComponents(section.components.normal, 'normal', examObservations);
+    const abnormalItems = extractObservationsFromExamComponents(
+      section.components.abnormal,
+      'abnormal',
+      examObservations
+    );
     const allItems = [...normalItems, ...abnormalItems];
 
     let comment: string | undefined;
@@ -283,6 +176,21 @@ function parseExamFieldsFromExamObservations(
       comment,
     };
   });
+
+  // Add unmatched observations as "Other findings"
+  const unmatchedItems = Object.values(examObservations)
+    .filter((obs) => obs.value === true && !matchedFields.has(obs.field))
+    .map((obs) => ({
+      field: obs.field,
+      label: obs.label || obs.field,
+      abnormal: true,
+    }));
+
+  if (unmatchedItems.length > 0) {
+    examinationData['other-findings'] = {
+      items: unmatchedItems,
+    };
+  }
 
   return {
     examination: examinationData,

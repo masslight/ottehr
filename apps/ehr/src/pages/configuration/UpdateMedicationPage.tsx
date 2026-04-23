@@ -1,13 +1,15 @@
 import { LoadingButton } from '@mui/lab';
 import { Autocomplete, debounce, Grid, Paper, TextField, Typography } from '@mui/material';
 import { Medication } from 'fhir/r4b';
-import { ReactElement, useCallback, useEffect, useState } from 'react';
+import { enqueueSnackbar } from 'notistack';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import Loading from 'src/components/Loading';
 import {
   useGetCPTHCPCSSearch,
+  useGetMedicationDetails,
   useGetMedicationsSearch,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -17,16 +19,26 @@ import {
   CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_NDC,
   CPTCodeDTO,
+  getMedicationName,
   MEDICATION_DISPENSABLE_DRUG_ID,
-  MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
 } from 'utils';
 
-function getMedispanId(medication: Medication): string | undefined {
-  return medication.code?.coding?.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)?.code;
+function getMedispanId(medication: Medication | null): string | undefined {
+  return medication?.code?.coding?.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)?.code;
+}
+function getMedispanIdForInteractions(medication: Medication | null): string | undefined {
+  return medication?.code?.coding?.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS)?.code;
 }
 
-function getMedicationName(medication: Medication): string {
-  return medication.identifier?.find((i) => i.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value ?? '';
+interface MedicationOption {
+  id: number;
+  name: string;
+  ndc?: string | null;
+  strength?: string;
+  route?: string;
+  doseForm?: string;
+  isObsolete: boolean;
 }
 
 export default function UpdateMedicationPage(): ReactElement {
@@ -34,29 +46,41 @@ export default function UpdateMedicationPage(): ReactElement {
   const medicationId = useParams()['medication-id'];
   const [loading, setLoading] = useState<boolean>(false);
   const [medication, setMedication] = useState<Medication | null>(null);
+  const [selectedMedicationForPrecheck, setSelectedMedicationForPrecheck] = useState<MedicationOption | null>(null);
   const [cptCodes, setCptCodes] = useState<CPTCodeDTO[]>([]);
   const [hcpcsCodes, setHcpcsCodes] = useState<CPTCodeDTO[]>([]);
   const [status, setStatus] = useState<string>('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [debouncedSearchTermForPrecheck, setDebouncedSearchTermForPrecheck] = useState('');
   const [debouncedCptSearch, setDebouncedCptSearch] = useState('');
   const [debouncedHcpcsSearch, setDebouncedHcpcsSearch] = useState('');
 
-  const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
-  const medicationOptions: Medication[] = (data?.filter((option) => !option.isObsolete) ?? []).map((option) => ({
-    resourceType: 'Medication',
-    identifier: [
-      {
-        system: MEDICATION_IDENTIFIER_NAME_SYSTEM,
-        value: `${option.name}${option.strength ? ` (${option.strength})` : ''}`,
-      },
-    ],
-    code: {
-      coding: [
-        { system: MEDICATION_DISPENSABLE_DRUG_ID, code: option.id.toString() },
-        ...(option.ndc ? [{ system: CODE_SYSTEM_NDC, code: option.ndc }] : []),
-      ],
-    },
-  }));
+  const medispanId = getMedispanId(medication);
+  const { isFetching: isSearching, data: medicationDetails } = useGetMedicationDetails(
+    medispanId ? parseInt(medispanId, 10) : 0
+  );
+  const medispanIdForInteractions = getMedispanIdForInteractions(medication);
+  const { isFetching: isFetchingDetailsForInteractions, data: medicationForInteractionsDetails } =
+    useGetMedicationDetails(medispanIdForInteractions ? parseInt(medispanIdForInteractions, 10) : 0);
+  const { isFetching: isFetchingForPrecheck, data: dataForPrecheck } =
+    useGetMedicationsSearch(debouncedSearchTermForPrecheck);
+  const isSearchingForPrecheck = isFetchingDetailsForInteractions || isFetchingForPrecheck;
+  const nonObsoleteMedSearchOptions: MedicationOption[] = useMemo(
+    () =>
+      dataForPrecheck
+        ? dataForPrecheck?.filter((option) => !option.isObsolete)
+        : medicationForInteractionsDetails
+        ? [medicationForInteractionsDetails]
+        : [],
+    [medicationForInteractionsDetails, dataForPrecheck]
+  );
+
+  useEffect(() => {
+    if (medispanIdForInteractions) {
+      setSelectedMedicationForPrecheck(
+        nonObsoleteMedSearchOptions.find((med) => med.id === parseInt(medispanIdForInteractions, 10)) ?? null
+      );
+    }
+  }, [medication, nonObsoleteMedSearchOptions, medispanIdForInteractions]);
 
   const { isFetching: isCptSearching, data: cptData } = useGetCPTHCPCSSearch({
     search: debouncedCptSearch,
@@ -70,10 +94,10 @@ export default function UpdateMedicationPage(): ReactElement {
   const hcpcsOptions = (hcpcsData as { codes?: CPTCodeDTO[] })?.codes ?? [];
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedHandleInputChange = useCallback(
+  const debouncedHandleInputChangeForPrecheck = useCallback(
     debounce((value: string) => {
       if (value.length > 2) {
-        setDebouncedSearchTerm(value);
+        setDebouncedSearchTermForPrecheck(value);
       }
     }, 800),
     []
@@ -116,7 +140,7 @@ export default function UpdateMedicationPage(): ReactElement {
 
   async function update(event: any): Promise<void> {
     event.preventDefault();
-    if (!oystehrZambda || !medication?.id) {
+    if (!oystehrZambda || !medicationId) {
       return;
     }
     setLoading(true);
@@ -124,25 +148,29 @@ export default function UpdateMedicationPage(): ReactElement {
     const name = medication ? getMedicationName(medication) : '';
     const ndc = medication?.code?.coding?.find((c) => c.system === CODE_SYSTEM_NDC)?.code;
     const medispanID = medication ? getMedispanId(medication) : undefined;
+    const medispanIDForInteractions = selectedMedicationForPrecheck?.id.toString() || undefined;
     const finalCptCodes = cptCodes.map(({ code, display }) => ({ code, display }));
     const finalHcpcsCodes = hcpcsCodes.map(({ code, display }) => ({ code, display }));
 
     try {
       await updateInHouseMedication(oystehrZambda, {
-        medicationID: medication.id,
+        medicationID: medicationId,
         name,
         ndc,
         medispanID,
+        medispanIDForInteractions,
         cptCodes: finalCptCodes,
         hcpcsCodes: finalHcpcsCodes,
       });
+      enqueueSnackbar('Medication updated successfully', { variant: 'success' });
     } catch (error) {
       console.log('Error updating medication', error);
+      enqueueSnackbar('Failed to update medication', { variant: 'error' });
     }
     setLoading(false);
   }
 
-  async function updateStatus(status: string): Promise<void> {
+  async function updateStatus(newStatus: string): Promise<void> {
     if (!oystehrZambda || !medication?.id) {
       return;
     }
@@ -151,16 +179,25 @@ export default function UpdateMedicationPage(): ReactElement {
     try {
       const medicationTemp = await updateInHouseMedication(oystehrZambda, {
         medicationID: medication.id,
-        status,
+        status: newStatus,
       });
       setStatus(medicationTemp.status || '');
+      enqueueSnackbar(
+        newStatus === 'active' ? 'Medication activated successfully' : 'Medication removed successfully',
+        {
+          variant: 'success',
+        }
+      );
     } catch (error) {
       console.log('Error updating medication', error);
+      enqueueSnackbar(newStatus === 'active' ? 'Failed to activate medication' : 'Failed to remove medication', {
+        variant: 'error',
+      });
     }
     setLoading(false);
   }
 
-  if (!medication) {
+  if (!medication || !medicationDetails) {
     return <Loading />;
   }
 
@@ -183,30 +220,67 @@ export default function UpdateMedicationPage(): ReactElement {
               <Grid item xs={6}>
                 <Autocomplete
                   value={medication}
-                  getOptionLabel={getMedicationName}
+                  getOptionLabel={() => getMedicationName(medication) ?? ''}
                   fullWidth
                   isOptionEqualToValue={(option, value) => getMedispanId(option) === getMedispanId(value)}
                   loading={isSearching}
                   disableClearable
+                  disabled={true}
                   disablePortal
-                  noOptionsText={
-                    debouncedSearchTerm && debouncedSearchTerm.length > 2 && medicationOptions.length === 0
-                      ? 'Nothing found for this search criteria'
-                      : 'Start typing to load results'
-                  }
-                  options={medicationOptions}
-                  onChange={(_e, value) => setMedication(value)}
+                  noOptionsText={'Start typing to load results'}
+                  options={[medication]}
+                  onChange={(_e, _value) => {}}
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Name"
+                      label="Medication Name"
+                      placeholder="Search"
                       required
-                      onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                      onChange={(_e) => {}}
                     />
                   )}
                 />
               </Grid>
               <Grid item xs={6} />
+              {medicationDetails?.isObsolete === true ? (
+                <>
+                  <Grid item xs={6}>
+                    <Autocomplete
+                      value={selectedMedicationForPrecheck}
+                      getOptionLabel={(option) =>
+                        `${option.name}${option.route ? ` ${option.route}` : ''}${
+                          option.doseForm ? ` ${option.doseForm}` : ''
+                        }${option.strength ? ` (${option.strength})` : ''}`
+                      }
+                      fullWidth
+                      isOptionEqualToValue={(option, value) => value.id === option.id}
+                      loading={isSearchingForPrecheck}
+                      disablePortal
+                      noOptionsText={
+                        debouncedSearchTermForPrecheck &&
+                        debouncedSearchTermForPrecheck.length > 2 &&
+                        nonObsoleteMedSearchOptions.length === 0
+                          ? 'Nothing found for this search criteria'
+                          : 'Start typing to load results'
+                      }
+                      options={nonObsoleteMedSearchOptions}
+                      onChange={(_e, value) => setSelectedMedicationForPrecheck(value)}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Medication Name for Interactions"
+                          placeholder="Search"
+                          required
+                          onChange={(e) => debouncedHandleInputChangeForPrecheck(e.target.value)}
+                        />
+                      )}
+                    />
+                  </Grid>
+                  <Grid item xs={6} />
+                </>
+              ) : (
+                <></>
+              )}
               <Grid item xs={6}>
                 <Autocomplete
                   multiple

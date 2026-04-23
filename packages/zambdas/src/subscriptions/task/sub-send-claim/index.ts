@@ -1,14 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { CandidApiClient } from 'candidhealth';
 import { Operation } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
-import { getSecret, SecretsKeys } from 'utils';
+import { createCandidApiClient, getOptionalSecret, SecretsKeys } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   createEncounterFromAppointment,
   createOystehrClient,
   getAuth0Token,
-  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -31,111 +31,128 @@ type TaskStatus =
 
 let oystehrToken: string;
 let oystehr: Oystehr;
+let candidApiClient: CandidApiClient | undefined;
 let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-send-claim';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { task, secrets } = validatedParameters;
-    console.log('task ID', task.id);
-    if (!task.id) {
-      throw new Error('Task ID is required');
-    }
-    taskId = task.id;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    oystehr = createOystehrClient(oystehrToken, secrets);
-
-    console.log('getting appointment Id from the task');
-    const appointmentId =
-      task.focus?.type === 'Appointment' ? task.focus?.reference?.replace('Appointment/', '') : undefined;
-    console.log('appointment ID parsed: ', appointmentId);
-
-    if (!appointmentId) {
-      console.log('no appointment ID found on task');
-      throw new Error('no appointment ID found on task focus');
-    }
-
-    const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
-    if (!visitResources) {
-      {
-        throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
+    try {
+      console.group('validateRequestParameters');
+      const validatedParameters = validateRequestParameters(input);
+      const { task, secrets } = validatedParameters;
+      console.log('task ID', task.id);
+      if (!task.id) {
+        throw new Error('Task ID is required');
       }
-    }
+      taskId = task.id;
+      console.groupEnd();
+      console.debug('validateRequestParameters success');
 
-    const { encounter } = visitResources;
-
-    // Check if candid encounter ID already exists in encounter identifier
-    const existingCandidEncounterId = encounter.identifier?.find(
-      (identifier) => identifier.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM
-    )?.value;
-
-    if (existingCandidEncounterId) {
-      console.log(
-        `[CLAIM SUBMISSION] Candid encounter already exists with ID ${existingCandidEncounterId}, skipping creation`
-      );
-    } else {
-      console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
-      const candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
-      console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
-
-      // Put candid encounter id on the encounter
-      const encounterPatchOps: Operation[] = [];
-
-      if (candidEncounterId != null) {
-        const identifier = {
-          system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-          value: candidEncounterId,
-        };
-        encounterPatchOps.push({
-          op: 'add',
-          path: encounter.identifier != null ? '/identifier/-' : '/identifier',
-          value: encounter.identifier != null ? identifier : [identifier],
-        });
+      if (!oystehrToken) {
+        console.log('getting token');
+        oystehrToken = await getAuth0Token(secrets);
+      } else {
+        console.log('already have token');
       }
 
-      if (!encounter.id) {
-        throw new Error('Encounter unexpectedly had no id');
+      oystehr = createOystehrClient(oystehrToken, secrets);
+
+      console.log('getting appointment Id from the task');
+      const appointmentId =
+        task.focus?.type === 'Appointment' ? task.focus?.reference?.replace('Appointment/', '') : undefined;
+      console.log('appointment ID parsed: ', appointmentId);
+
+      if (!appointmentId) {
+        console.log('no appointment ID found on task');
+        throw new Error('no appointment ID found on task focus');
       }
 
-      await oystehr.fhir.patch({
-        resourceType: 'Encounter',
-        id: encounter.id,
-        operations: encounterPatchOps,
-      });
+      const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
+      if (!visitResources) {
+        {
+          throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
+        }
+      }
+
+      const { encounter } = visitResources;
+
+      // Check if candid encounter ID already exists in encounter identifier
+      const existingCandidEncounterId = encounter.identifier?.find(
+        (identifier) => identifier.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM
+      )?.value;
+
+      if (existingCandidEncounterId) {
+        console.log(
+          `[CLAIM SUBMISSION] Candid encounter already exists with ID ${existingCandidEncounterId}, skipping creation`
+        );
+      } else {
+        const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
+        if (candidClientId == null || candidClientId.length === 0) {
+          console.log('CANDID_CLIENT_ID is not set, skipping encounter submission to candid');
+        } else {
+          if (!candidApiClient) {
+            candidApiClient = createCandidApiClient(secrets);
+          }
+          console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
+          const candidEncounterId = await createEncounterFromAppointment(visitResources, oystehr, candidApiClient);
+          console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
+
+          // Put candid encounter id on the encounter
+          const encounterPatchOps: Operation[] = [];
+
+          if (candidEncounterId != null) {
+            const identifier = {
+              system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
+              value: candidEncounterId,
+            };
+            encounterPatchOps.push({
+              op: 'add',
+              path: encounter.identifier != null ? '/identifier/-' : '/identifier',
+              value: encounter.identifier != null ? identifier : [identifier],
+            });
+          }
+
+          if (!encounter.id) {
+            throw new Error('Encounter unexpectedly had no id');
+          }
+
+          await oystehr.fhir.patch({
+            resourceType: 'Encounter',
+            id: encounter.id,
+            operations: encounterPatchOps,
+          });
+        }
+      }
+
+      // update task status and status reason
+      console.log('making patch request to update task status');
+      const patchedTask = await patchTaskStatus(oystehr, task.id, 'completed', 'claim sent successfully');
+
+      const response = {
+        taskStatus: patchedTask.status,
+        statusReason: patchedTask.statusReason,
+      };
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify(response),
+      };
+    } catch (error: unknown) {
+      try {
+        if (oystehr && taskId) await patchTaskStatus(oystehr, taskId, 'failed', JSON.stringify(error));
+      } catch (patchError) {
+        console.error('Error patching task status in top level catch:', patchError);
+      }
+      throw error;
     }
-
-    // update task status and status reason
-    console.log('making patch request to update task status');
-    const patchedTask = await patchTaskStatus(oystehr, task.id, 'completed', 'claim sent successfully');
-
-    const response = {
-      taskStatus: patchedTask.status,
-      statusReason: patchedTask.statusReason,
-    };
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
   } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     try {
       if (oystehr && taskId) await patchTaskStatus(oystehr, taskId, 'failed', JSON.stringify(error));
     } catch (patchError) {
       console.error('Error patching task status in top level catch:', patchError);
     }
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+    throw error;
   }
 });
 

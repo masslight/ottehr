@@ -28,7 +28,7 @@ import {
 import { ClearIcon } from '@mui/x-date-pickers';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
@@ -62,6 +62,7 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { useMergedRadiologyQuickPicks } from '../../../hooks/useMergedQuickPicks';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
+import { useRadiologyConsentExists } from '../components/useRadiologyConsentExists';
 
 interface CreateRadiologyOrdersProps {
   appointmentID?: string;
@@ -131,12 +132,13 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const onQuickPickSelect = (quickPick: RadiologyQuickPickData): void => {
     if (quickPick.cptCode && quickPick.cptDisplay) {
       setOrderCpt({ code: quickPick.cptCode, display: quickPick.cptDisplay });
+    } else {
+      setOrderCpt(undefined);
     }
-    if (quickPick.studyName != null) setStudyName(quickPick.studyName);
-    if (quickPick.laterality) setLaterality(quickPick.laterality as LateralityValue);
-    if (quickPick.clinicalHistory != null) setClinicalHistory(quickPick.clinicalHistory);
-    if (quickPick.stat != null) setStat(quickPick.stat);
-    if (quickPick.consentObtained != null) setConsentObtained(quickPick.consentObtained);
+    setStudyName(quickPick.studyName ?? '');
+    setLaterality((quickPick.laterality as LateralityValue) ?? '');
+    setClinicalHistory(quickPick.clinicalHistory ?? '');
+    // stat and consentObtained not applied — encounter-specific
   };
 
   const openQuickPickDialog = async (): Promise<void> => {
@@ -165,8 +167,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     studyName,
     laterality: laterality || undefined,
     clinicalHistory,
-    stat,
-    consentObtained,
+    // stat and consentObtained excluded — encounter-specific
   });
 
   const onSaveAsQuickPick = async (overwriteId?: string): Promise<void> => {
@@ -278,6 +279,8 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
       );
     });
   };
+
+  const consentExists = useRadiologyConsentExists();
 
   return (
     <DetailPageContainer>
@@ -450,7 +453,21 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                 <Grid item xs={12}>
                   <Box style={{ display: 'flex', alignItems: 'center' }}>
                     <Checkbox checked={consentObtained} onChange={() => setConsentObtained(!consentObtained)} />
-                    <Typography>I have obtained the consent for X-ray</Typography>
+                    <Typography>
+                      I have obtained the{' '}
+                      {consentExists ? (
+                        <Link
+                          target="_blank"
+                          to={`/consent_radiology.pdf`}
+                          style={{ color: theme.palette.primary.main }}
+                          rel="noopener noreferrer"
+                        >
+                          consent for X-ray
+                        </Link>
+                      ) : (
+                        'consent for X-ray'
+                      )}
+                    </Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={12}>

@@ -41,7 +41,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { BILLING_URL, CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/App';
+import { BILLING_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
 import {
@@ -54,6 +54,7 @@ import {
   useUpdateFeeScheduleMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { CASE_RATE_CODE, ChargeMasterDesignation, RCM_TAG_SYSTEM } from 'utils';
+import LocationAssociations from './charge-items/LocationAssociations';
 import PayerAssociations from './charge-items/PayerAssociations';
 import ProcedureCodes from './charge-items/ProcedureCodes';
 import { ChargeItemMode } from './ChargeItemList';
@@ -66,7 +67,6 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
   const isChargeMaster = mode === 'charge-master';
   const entityLabel = isChargeMaster ? 'Charge Master' : 'Fee Schedule';
   const entityLabelLower = entityLabel.toLowerCase();
-  const baseUrl = isChargeMaster ? CHARGE_MASTERS_URL : FEE_SCHEDULES_URL;
   const queryKey = isChargeMaster ? 'charge-masters' : 'fee-schedules';
   const billingSubTab = isChargeMaster ? 'charge-masters' : 'fee-schedules';
   const entityLabelPlural = isChargeMaster ? 'Charge Masters' : 'Fee Schedules';
@@ -354,6 +354,11 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                   {!(isChargeMaster && currentDesignation) && (
                     <Tab label="Payer Associations" value="payers" sx={{ textTransform: 'none', fontWeight: 500 }} />
                   )}
+                  <Tab
+                    label="Location Associations"
+                    value="locations"
+                    sx={{ textTransform: 'none', fontWeight: 500 }}
+                  />
                   {!(!isChargeMaster && isCaseRate) && (
                     <Tab label="Procedure Codes" value="procedures" sx={{ textTransform: 'none', fontWeight: 500 }} />
                   )}
@@ -589,7 +594,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                       >
                         Save changes
                       </LoadingButton>
-                      <Link to={baseUrl}>
+                      <Link to={`${BILLING_URL}/${billingSubTab}`}>
                         <Button
                           variant="text"
                           color="primary"
@@ -786,6 +791,9 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                   <ProcedureCodes feeSchedule={feeSchedule} isFetching={isFetching} mode={mode} />
                 </TabPanel>
               )}
+              <TabPanel value="locations" sx={{ p: 0 }}>
+                <LocationAssociations feeSchedule={feeSchedule} isFetching={isFetching} mode={mode} />
+              </TabPanel>
             </TabContext>
           </Grid>
         </Grid>

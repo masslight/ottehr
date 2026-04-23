@@ -1,65 +1,75 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition, UsageContext } from 'fhir/r4b';
-import { getSecret, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 export const index = wrapHandler('cm-associate-payer', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const { chargeMasterId, organizationId, secrets } = validateRequestParameters(input);
+  const { chargeMasterId, organizationId, locationId, secrets } = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const existing = await oystehr.fhir.get<ChargeItemDefinition>({
-      resourceType: 'ChargeItemDefinition',
-      id: chargeMasterId,
-    });
+  const existing = await oystehr.fhir.get<ChargeItemDefinition>({
+    resourceType: 'ChargeItemDefinition',
+    id: chargeMasterId,
+  });
 
-    // Check if this organization is already associated
+  const newContextEntries: UsageContext[] = [];
+
+  if (organizationId) {
     const alreadyAssociated = existing.useContext?.some(
       (uc) => uc.valueReference?.reference === `Organization/${organizationId}`
     );
-
-    if (alreadyAssociated) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify(existing),
-      };
+    if (!alreadyAssociated) {
+      newContextEntries.push({
+        code: {
+          system: 'http://terminology.hl7.org/CodeSystem/usage-context-type',
+          code: 'payer',
+          display: 'Payer',
+        },
+        valueReference: {
+          reference: `Organization/${organizationId}`,
+        },
+      });
     }
+  }
 
-    const newUseContext: UsageContext = {
-      code: {
-        system: 'http://terminology.hl7.org/CodeSystem/usage-context-type',
-        code: 'payer',
-        display: 'Payer',
-      },
-      valueReference: {
-        reference: `Organization/${organizationId}`,
-      },
-    };
-
-    const updated = await oystehr.fhir.update<ChargeItemDefinition>(
-      {
-        ...existing,
-        useContext: [...(existing.useContext || []), newUseContext],
-      },
-      { optimisticLockingVersionId: existing.meta?.versionId }
+  if (locationId) {
+    const alreadyAssociated = existing.useContext?.some(
+      (uc) => uc.code?.code === 'venue' && uc.valueReference?.reference === `Location/${locationId}`
     );
+    if (!alreadyAssociated) {
+      newContextEntries.push({
+        code: {
+          system: 'http://terminology.hl7.org/CodeSystem/usage-context-type',
+          code: 'venue',
+          display: 'Clinical Venue',
+        },
+        valueReference: {
+          reference: `Location/${locationId}`,
+        },
+      });
+    }
+  }
 
+  if (newContextEntries.length === 0) {
     return {
       statusCode: 200,
-      body: JSON.stringify(updated),
+      body: JSON.stringify(existing),
     };
-  } catch (error: unknown) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('cm-associate-payer', error, ENVIRONMENT);
   }
+
+  const updated = await oystehr.fhir.update<ChargeItemDefinition>(
+    {
+      ...existing,
+      useContext: [...(existing.useContext || []), ...newContextEntries],
+    },
+    { optimisticLockingVersionId: existing.meta?.versionId }
+  );
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(updated),
+  };
 });
