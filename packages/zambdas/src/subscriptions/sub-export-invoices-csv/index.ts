@@ -142,11 +142,15 @@ export const index = wrapTaskHandler('sub-export-invoices-csv', async (input, oy
   const presignedUploadUrl = await createPresignedUrl(m2mToken, z3Url, 'upload');
 
   // Upload the CSV with correct content type
-  await fetch(presignedUploadUrl, {
+  const uploadResponse = await fetch(presignedUploadUrl, {
     method: 'PUT',
     headers: { 'Content-Type': 'text/csv' },
     body: csvBytes,
   });
+
+  if (!uploadResponse.ok) {
+    throw new Error(`Failed to upload CSV to Z3: ${uploadResponse.status} ${uploadResponse.statusText}`);
+  }
 
   console.log(`CSV uploaded to Z3: ${z3Url}`);
 

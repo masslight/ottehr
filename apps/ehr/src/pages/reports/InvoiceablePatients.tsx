@@ -323,6 +323,9 @@ export default function InvoiceablePatients(): React.ReactElement {
       if (result.status === 'completed' && result.downloadUrl) {
         // Step 3: Download the CSV via the presigned URL
         const csvResponse = await fetch(result.downloadUrl);
+        if (!csvResponse.ok) {
+          throw new Error(`Failed to download CSV: ${csvResponse.status}`);
+        }
         const csvText = await csvResponse.text();
         const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
