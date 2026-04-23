@@ -486,13 +486,13 @@ export const useAdminUpdateInHouseLab = (
 };
 
 export const useAdminCreateEmCodeMutation = (): UseMutationResult<CPTCodeOption[], Error, CreateEmCodeInput> => {
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: CreateEmCodeInput) => {
-      if (!oystehr) throw new Error('Oystehr client is not defined');
-      const result = await createEmCode(oystehr, data);
+      if (!oystehrZambda) throw new Error('Oystehr client is not defined');
+      const result = await createEmCode(oystehrZambda, data);
       return result.codes;
     },
     onSuccess: () => {
@@ -505,13 +505,13 @@ export const useAdminCreateEmCodeMutation = (): UseMutationResult<CPTCodeOption[
 };
 
 export const useAdminUpdateEmCodeMutation = (): UseMutationResult<CPTCodeOption[], Error, UpdateEmCodeInput> => {
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: UpdateEmCodeInput) => {
-      if (!oystehr) throw new Error('Oystehr client is not defined');
-      const result = await updateEmCode(oystehr, data);
+      if (!oystehrZambda) throw new Error('Oystehr client is not defined');
+      const result = await updateEmCode(oystehrZambda, data);
       return result.codes;
     },
     onSuccess: () => {
@@ -524,13 +524,13 @@ export const useAdminUpdateEmCodeMutation = (): UseMutationResult<CPTCodeOption[
 };
 
 export const useAdminDeleteEmCodeMutation = (): UseMutationResult<CPTCodeOption[], Error, DeleteEmCodeInput> => {
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: DeleteEmCodeInput) => {
-      if (!oystehr) throw new Error('Oystehr client is not defined');
-      const result = await deleteEmCode(oystehr, data);
+      if (!oystehrZambda) throw new Error('Oystehr client is not defined');
+      const result = await deleteEmCode(oystehrZambda, data);
       return result.codes;
     },
     onSuccess: () => {
