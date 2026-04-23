@@ -402,10 +402,15 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
 
   const handleStartAddInsurance = (): void => {
     setIsAddingInsurance(true);
-    // Set the priority default for the new insurance
     const index = newInsuranceOrdinal - 1;
     const fields = insuranceItems[index];
     if (fields) {
+      // RHF keeps field state after DOM unmount, so a removed coverage's
+      // values linger under keys the new inline form will reuse. Clear them
+      // before showing the form.
+      Object.values(fields).forEach((field) => {
+        methods.setValue(field.key, '', { shouldDirty: false });
+      });
       const priorityValue = newInsuranceOrdinal === 1 ? 'Primary' : 'Secondary';
       methods.setValue(fields.insurancePriority.key, priorityValue, { shouldDirty: true });
     }
