@@ -93,8 +93,6 @@ async function getCandidInventoryPageRecursive(input: {
   since?: DateTime;
 }): Promise<{ claims: InventoryRecord[]; pageCount: number } | undefined> {
   const { candid, pageToken, limitPerPage, claims, pageCount, onlyInvoiceable, maxPages, since } = input;
-  if (limitPerPage && limitPerPage > 100)
-    throw new Error('Limit per page cannot be greater than 100 according to Candid API');
 
   if (maxPages && pageCount >= maxPages) return { claims, pageCount };
 

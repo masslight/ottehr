@@ -9,6 +9,8 @@ interface FieldProps {
   required: boolean;
   value: string | undefined;
   additionalProps?: StandardTextFieldProps;
+  error: boolean;
+  errorMessage?: string;
   onChange?: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   dataTestId?: string;
 }
@@ -54,6 +56,8 @@ export const AddVisitPatientSearchFields: FC<AddVisitPatientSearchFieldsProps> =
           label="Last Name"
           placeholder={lastName.displayPlaceholder ? 'Doe' : undefined}
           value={lastName.value}
+          error={lastName.error}
+          helperText={lastName.error ? 'Last name is required' : ''}
           onChange={lastName.onChange}
           {...(lastName.additionalProps ?? {})}
           required={lastName.required}
@@ -67,6 +71,8 @@ export const AddVisitPatientSearchFields: FC<AddVisitPatientSearchFieldsProps> =
           label="Given Names"
           placeholder={firstName.displayPlaceholder ? 'John Henry' : undefined}
           value={firstName.value}
+          error={firstName.error}
+          helperText={firstName.error ? 'First name is required' : ''}
           onChange={firstName.onChange}
           {...(firstName.additionalProps ?? {})}
           required={firstName.required}
@@ -98,6 +104,8 @@ export const AddVisitPatientSearchFields: FC<AddVisitPatientSearchFieldsProps> =
             fullWidth
             label="Date of birth"
             value={dateOfBirth.value}
+            error={dateOfBirth.error}
+            helperText={dateOfBirth.error ? dateOfBirth.errorMessage : undefined}
             {...dateOfBirth.additionalProps}
             data-testid={dateOfBirth.dataTestId}
           />
@@ -109,6 +117,8 @@ export const AddVisitPatientSearchFields: FC<AddVisitPatientSearchFieldsProps> =
             label="Date of birth"
             required={dateOfBirth.required}
             setIsValidDate={dateOfBirth.setValidDate}
+            error={dateOfBirth.error}
+            helperText={dateOfBirth.errorMessage}
           ></DateSearch>
         )}
       </Grid>
