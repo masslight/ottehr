@@ -134,15 +134,6 @@ jobs:
         with:
           environment: ${{ env.ENVIRONMENT }}
 
-      # TODO: Remove this step and references to it once transition to TF is complete
-      # If this succeeds, we will use the import file in the terraform module and deploy apps through Terraform
-      # If it fails, we will use a different deployment method
-      - name: Maybe copy import file into aws_infra module
-        id: copy-import-file
-        continue-on-error: true
-        run: |
-          cp secrets/ottehr/terraform/${{ env.ENVIRONMENT }}_import.tf deploy
-
       - name: Configure AWS Credentials
         id: configure-aws-credentials
         uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3 (v3.0.2)
