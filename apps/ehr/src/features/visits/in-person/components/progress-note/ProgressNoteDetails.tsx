@@ -37,6 +37,7 @@ import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields'
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { usePatientInstructionsVisibility } from 'src/features/visits/shared/hooks/usePatientInstructionsVisibility';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useRosObservationsStore } from 'src/features/visits/shared/stores/appointment/ros-observations.store';
 import { useAppFlags } from 'src/features/visits/shared/stores/contexts/useAppFlags';
 import {
   useChangeTelemedAppointmentStatusMutation,
@@ -65,6 +66,7 @@ export const ProgressNoteDetails: FC = () => {
   const examConfigComponents = examConfig[isInPerson ? 'inPerson' : 'telemed'].default.components;
   const unmatchedExamFields = useUnmatchedExamFields(examConfigComponents);
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
+  const rosState = useRosObservationsStore();
 
   const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
     useChangeTelemedAppointmentStatusMutation();
@@ -118,6 +120,7 @@ export const ProgressNoteDetails: FC = () => {
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
+  const showRosReviewContainer = Object.values(rosState).filter((rosObs) => rosObs.value).length > 0;
 
   const externalLabResultsPending = !!(
     externalLabResults?.resultsPending && externalLabResults?.resultsPending.length > 0
@@ -168,7 +171,7 @@ export const ProgressNoteDetails: FC = () => {
     showHpi && <HistoryOfPresentIllnessContainer />,
     showMechanismOfInjury && <MechanismOfInjuryContainer />,
     showLegacyReviewOfSystems && <ReviewOfSystemsContainer />,
-    <RosReviewContainer />,
+    showRosReviewContainer && <RosReviewContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer notes={screeningNotes} />,
     showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,
     <Stack spacing={1}>

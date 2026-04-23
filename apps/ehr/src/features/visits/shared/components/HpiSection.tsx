@@ -9,11 +9,17 @@ import { HistoryOfPresentIllnessField, HistoryOfPresentIllnessFieldReadOnly } fr
 import { MechanismOfInjuryField, MechanismOfInjuryFieldReadOnly } from '../../MechanismOfInjuryField';
 import { ReasonForVisitFieldReadOnly } from '../../ReasonForVisitField';
 import { RosField, RosFieldReadOnly } from '../../RosField';
+import { useChartFields } from '../hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
 
 export const HPISection: FC = () => {
   const theme = useTheme();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+
+  // new review of system recording has been created as of 1.33
+  // but we will render the field for any old charts that have this data stored
+  const { data: chartDataFields } = useChartFields({ requestedFields: { ros: { _tag: 'ros' } } });
+
   return (
     <Paper elevation={3} sx={{ boxShadow: '0px 2px 4px -1px rgba(0,0,0,0.1)' }}>
       <DoubleColumnContainer
@@ -55,7 +61,7 @@ export const HPISection: FC = () => {
             {isReadOnly ? <HistoryOfPresentIllnessFieldReadOnly /> : <HistoryOfPresentIllnessField />}
             {isReadOnly ? <MechanismOfInjuryFieldReadOnly /> : <MechanismOfInjuryField />}
             <AccidentField readOnly={isReadOnly} />
-            {isReadOnly ? <RosFieldReadOnly /> : <RosField />}
+            {chartDataFields?.ros?.text && (isReadOnly ? <RosFieldReadOnly /> : <RosField />)}
           </Stack>
         }
       />
