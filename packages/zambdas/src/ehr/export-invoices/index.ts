@@ -22,7 +22,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
-  // Mode 2: Check status of an existing export task
+  // Mode 1: Check status of an existing export task
   if ('taskId' in validatedParams && validatedParams.taskId) {
     const task = (await oystehr.fhir.get({
       resourceType: 'Task',
@@ -35,7 +35,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   }
 
-  // Mode 1: Kick off a new export by creating a Task
+  // Mode 2: Kick off a new export by creating a Task
   const filterInputs: FhirTask['input'] = [];
   if ('status' in validatedParams && validatedParams.status) {
     filterInputs.push({

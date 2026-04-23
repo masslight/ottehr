@@ -871,6 +871,16 @@
         "expression": "cron(0 9 * * ? *)"
       }
     },
+    "CLEANUP-INVOICE-EXPORTS": {
+      "name": "cleanup-invoice-exports",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/cron/cleanup-invoice-exports/index",
+      "zip": ".dist/zips/cleanup-invoice-exports.zip",
+      "schedule": {
+        "expression": "cron(4,33 * * * ? *)"
+      }
+    },
     "COMMUNICATION-SUBSCRIPTION": {
       "name": "communication-subscription",
       "type": "subscription",
