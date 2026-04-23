@@ -123,7 +123,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const isWorkersComp = !!createExternalLabResources?.appointmentIsWorkersComp;
   const labSets = createExternalLabResources?.labSets;
 
-  const orderingLocationIdToLocationAndLabGUIDsMap = useMemo(
+  const orderingLocationIdToLocationAndLabOrgIdsMap = useMemo(
     () =>
       new Map<string, LocationMapValue>(
         orderingLocations.map((loc) => [
@@ -140,17 +140,17 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   useEffect(() => {
     if (!apptLocation?.id) return;
 
-    if (orderingLocationIdToLocationAndLabGUIDsMap.has(apptLocation.id) && !selectedOfficeId) {
+    if (orderingLocationIdToLocationAndLabOrgIdsMap.has(apptLocation.id) && !selectedOfficeId) {
       setSelectedOfficeId(apptLocation.id);
       console.log('we did the state set');
     }
-  }, [apptLocation?.id, selectedOfficeId, orderingLocationIdToLocationAndLabGUIDsMap]);
+  }, [apptLocation?.id, selectedOfficeId, orderingLocationIdToLocationAndLabOrgIdsMap]);
 
   useEffect(() => {
-    const labOrgIds = orderingLocationIdToLocationAndLabGUIDsMap.get(selectedOfficeId)?.labOrgIds ?? '';
+    const labOrgIds = orderingLocationIdToLocationAndLabOrgIdsMap.get(selectedOfficeId)?.labOrgIds ?? '';
     console.log(`lab org ids for selectedOfficeId ${selectedOfficeId}`, labOrgIds);
     setLabOrgIdsForSelectedOffice(labOrgIds);
-  }, [selectedOfficeId, orderingLocationIdToLocationAndLabGUIDsMap]);
+  }, [selectedOfficeId, orderingLocationIdToLocationAndLabOrgIdsMap]);
 
   useEffect(() => {
     if (!apptLocation && !selectedOfficeId) {
@@ -158,7 +158,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       setIsOrderingDisabled(true);
     } else if (
       apptLocation &&
-      (!selectedOfficeId || !orderingLocationIdToLocationAndLabGUIDsMap.has(selectedOfficeId))
+      (!selectedOfficeId || !orderingLocationIdToLocationAndLabOrgIdsMap.has(selectedOfficeId))
     ) {
       setError(['Office is not configured to order labs. Please select another office']);
       setIsOrderingDisabled(true);
@@ -166,7 +166,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       setError(undefined);
       setIsOrderingDisabled(false);
     }
-  }, [apptLocation, selectedOfficeId, orderingLocationIdToLocationAndLabGUIDsMap]);
+  }, [apptLocation, selectedOfficeId, orderingLocationIdToLocationAndLabOrgIdsMap]);
 
   useEffect(() => {
     if (isWorkersComp) {
@@ -190,7 +190,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       orderDx.length &&
       selectedLabs.length &&
       selectedOfficeId &&
-      orderingLocationIdToLocationAndLabGUIDsMap.has(selectedOfficeId) &&
+      orderingLocationIdToLocationAndLabOrgIdsMap.has(selectedOfficeId) &&
       selectedPaymentMethod !== '';
     if (oystehrZambda && paramsSatisfied) {
       try {
@@ -203,7 +203,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           encounter,
           orderableItems: selectedLabs,
           psc,
-          orderingLocation: orderingLocationIdToLocationAndLabGUIDsMap.get(selectedOfficeId)!.location,
+          orderingLocation: orderingLocationIdToLocationAndLabOrgIdsMap.get(selectedOfficeId)!.location,
           selectedPaymentMethod: selectedPaymentMethod,
           clinicalInfoNoteByUser: clinicalInfoNotes,
         });
@@ -231,7 +231,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!selectedLabs.length) errorMessage.push('Please select a lab to order');
       if (!attendingPractitionerId) errorMessage.push('No attending practitioner has been assigned to this encounter');
-      if (!(selectedOfficeId && orderingLocationIdToLocationAndLabGUIDsMap.has(selectedOfficeId)))
+      if (!(selectedOfficeId && orderingLocationIdToLocationAndLabOrgIdsMap.has(selectedOfficeId)))
         errorMessage.push('No office selected, or office is not configured to order labs');
       if (errorMessage.length === 0) errorMessage.push('There was an error creating this external lab order');
       setError(errorMessage);
@@ -554,6 +554,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     Lab
                   </Typography>
                   <LabsAutocomplete
+                    selectedOrderingLocationId={selectedOfficeId}
                     labOrgIdsString={labOrgIdsForSelectedOffice}
                     selectedLabs={selectedLabs}
                     setSelectedLabs={setSelectedLabs}

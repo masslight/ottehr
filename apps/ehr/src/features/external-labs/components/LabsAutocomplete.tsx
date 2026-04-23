@@ -6,18 +6,26 @@ import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetCreateExternalLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { LabListsDTO, LabType, nameLabTest, OrderableItemSearchResult } from 'utils';
+import {
+  LabListsDTO,
+  LabType,
+  ModifiedOrderingLocation,
+  nameLabTest,
+  OrderableItemSearchResult,
+  STATIC_COMPENDIUM_LAB_GUID,
+} from 'utils';
 import { LabSets } from './LabSets';
 
 type LabsAutocompleteProps = {
   selectedLabs: OrderableItemSearchResult[];
+  selectedOrderingLocationId: string;
   labOrgIdsString: string;
   setSelectedLabs: React.Dispatch<React.SetStateAction<OrderableItemSearchResult[]>>;
   labSets: LabListsDTO[] | undefined;
 };
 
 export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
-  const { selectedLabs, setSelectedLabs, labOrgIdsString, labSets } = props;
+  const { selectedLabs, setSelectedLabs, labOrgIdsString, labSets, selectedOrderingLocationId } = props;
   const [debouncedLabSearchTerm, setDebouncedLabSearchTerm] = useState<string | undefined>(undefined);
   const apiClient = useOystehrAPIClient();
 
@@ -31,7 +39,12 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
     labOrgIdsString,
   });
 
-  const labs = data?.labs || [];
+  // coming back from the hook, we expect all these locations to have labGuids in their enabledLabs details
+  const orderingLocations = data?.orderingLocations || [];
+  // ATHENA TODO remove
+  // console.log('Ordering locations with labGuids and names', orderingLocations);
+
+  const labs = expandResultsForGeneric(data?.labs || [], orderingLocations, selectedOrderingLocationId);
 
   const { debounce } = useDebounce(800);
   const debouncedHandleLabInputChange = (searchValue: string): void => {
@@ -126,4 +139,70 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
       )}
     </>
   );
+};
+
+const expandResultsForGeneric = (
+  labs: OrderableItemSearchResult[],
+  orderingLocations: ModifiedOrderingLocation[],
+  selectedLocationId: string
+): OrderableItemSearchResult[] => {
+  const selectedLocation = orderingLocations.find((location) => location.id === selectedLocationId);
+  if (!selectedLocation) {
+    console.error('Unable to expand results, returning original labs results');
+    return labs;
+  }
+
+  // find all the enabled labs that are using the generic compendium
+  // sort by the lab name to keep the results sane
+  const genericCompendiumLabDetails = selectedLocation.enabledLabs
+    .map((lab) => {
+      if (lab.labGuid === STATIC_COMPENDIUM_LAB_GUID && lab.labName) return lab;
+      return undefined;
+    })
+    .filter(
+      (
+        lab
+      ): lab is {
+        accountNumber: string;
+        labOrgRef: string;
+        labGuid: string;
+        labName: string;
+      } => lab !== undefined
+    )
+    .sort((a, b) => {
+      const nameA = a.labName.toLowerCase();
+      const nameB = b.labName.toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    });
+
+  if (!genericCompendiumLabDetails.length) {
+    console.log('No generic labs configured for this location, returning original list', selectedLocationId);
+    return labs;
+  }
+
+  const expandedResults: OrderableItemSearchResult[] = [];
+  // go through each of the orderable item results, and any time you find an item using a generic compendium, expand it
+  labs.forEach((orderableItem) => {
+    if (orderableItem.lab.labGuid !== STATIC_COMPENDIUM_LAB_GUID) {
+      expandedResults.push(orderableItem);
+      return;
+    }
+
+    genericCompendiumLabDetails.forEach((genericLab) => {
+      const editedOrderableItem: OrderableItemSearchResult = {
+        ...orderableItem,
+        lab: {
+          ...orderableItem.lab,
+          labName: genericLab.labName,
+        },
+      };
+      expandedResults.push(editedOrderableItem);
+    });
+  });
+
+  console.log('Expanded result count vs original result', expandedResults.length, labs.length);
+
+  return expandedResults;
 };

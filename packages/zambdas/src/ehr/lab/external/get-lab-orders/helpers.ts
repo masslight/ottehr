@@ -60,6 +60,7 @@ import {
   LabOrderUnreceivedHistoryRow,
   LABS_COMMUNICATION_CATEGORY_SYSTEM,
   LabType,
+  OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   Pagination,
@@ -74,6 +75,7 @@ import {
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
   sampleDTO,
   SPECIMEN_CODING_CONFIG,
+  STATIC_COMPENDIUM_LAB_GUID,
 } from 'utils';
 import { sendErrors } from '../../../../shared';
 import {
@@ -296,6 +298,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
       questionnaire: questionnaires,
       samples: parseSamples(serviceRequest, specimens),
       labelPdfUrl: labDocuments?.labelPDF?.presignedURL,
+      isGenericOrder: isGenericOrder(serviceRequest, organizations),
     };
 
     return detailedPageDTO as LabOrderDTO<SearchBy>;
@@ -2665,4 +2668,28 @@ const getContentStringFromCommForSr = (
     .filter(Boolean);
   if (contentStrings.length === 0) return;
   return contentStrings.join('; ');
+};
+
+const isGenericOrder = (serviceRequest: ServiceRequest, organizations: Organization[]): boolean => {
+  if (!serviceRequest.performer) throw EXTERNAL_LAB_ERROR(`ServiceRequest/${serviceRequest.id} has no performer`);
+  const orgRefToOrgMap = new Map<string, Organization>(
+    organizations.map((org) => {
+      return [`Organization/${org.id}`, org];
+    })
+  );
+
+  let performingOrg: Organization | undefined;
+  for (const performer of serviceRequest.performer) {
+    const performerRef = performer.reference;
+    if (performerRef && orgRefToOrgMap.has(performerRef)) {
+      performingOrg = orgRefToOrgMap.get(performerRef)!;
+      break;
+    }
+  }
+
+  return (
+    performingOrg?.identifier?.some(
+      (id) => id.system === OYSTEHR_LAB_GUID_SYSTEM && id.value === STATIC_COMPENDIUM_LAB_GUID
+    ) || false
+  );
 };

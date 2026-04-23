@@ -1,8 +1,8 @@
-import { Grid, Stack, Typography } from '@mui/material';
+import { Alert, Grid, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { PageTitleStyled } from 'src/features/visits/shared/components/PageTitle';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
-import { LabOrderDetailedPageDTO, PSC_LOCALE } from 'utils';
+import { ExternalLabsStatus, LabOrderDetailedPageDTO, PSC_LOCALE } from 'utils';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 import { OrderCollection } from '../OrderCollection';
 
@@ -34,17 +34,14 @@ export const DetailsWithoutResults: React.FC<{
           <Grid item>
             <LabsOrderStatusChip status={labOrder.orderStatus} />
           </Grid>
+          <Grid item sm={12} md={12} lg={12}></Grid>
         </Grid>
       </Stack>
-      {/* {taskStatus === 'pending' && (
-          <TaskBanner
-            orderName={labOrder.testItem}
-            orderingPhysician={labOrder.orderingPhysician}
-            orderedOnDate={labOrder.orderAddedDate}
-            labName={labOrder?.fillerLab}
-            taskStatus={taskStatus}
-          />
-        )} */}
+      {labOrder.isGenericOrder && labOrder.orderStatus === ExternalLabsStatus.sent && (
+        <Alert severity="warning" sx={{ width: '100%' }}>
+          This test will not receive electronic results. Please contact the performing lab for results.
+        </Alert>
+      )}
       <OrderCollection
         labOrder={labOrder}
         showOrderInfo={labOrder.orderStatus.includes('sent') || labOrder.orderStatus === 'ready'}

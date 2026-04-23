@@ -399,3 +399,6 @@ export const LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL = {
   itemCode: 'https://fhir.ottehr.com/Extension/search-field-itemCode',
 } as const;
 export type LabListSearchFieldKey = keyof typeof LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL;
+
+export const STATIC_COMPENDIUM_LAB_GUID = 'oystehr-static-compendium';
+export const STATIC_COMPENDIUM_ACCOUNT_NUMBER = 'oystehr-generic-account';
