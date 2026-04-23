@@ -29,7 +29,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { SendInvoiceToPatientDialog, SendStatementToPatientDialog } from 'src/components/dialogs';
 import {
   chooseJson,
-  EXPORT_INVOICES_TASKS_CSV_ZAMBDA_KEY,
+  EXPORT_INVOICES_ZAMBDA_KEY,
   ExportInvoicesCsvKickOffResponse,
   ExportInvoicesCsvStatusResponse,
   ExportInvoicesTasksCsvInput,
@@ -291,7 +291,7 @@ export default function InvoiceablePatients(): React.ReactElement {
         hideZeroBalance: hideZeroBalanceSP,
       };
       const kickOffResponse = await oystehrZambda.zambda.execute({
-        id: EXPORT_INVOICES_TASKS_CSV_ZAMBDA_KEY,
+        id: EXPORT_INVOICES_ZAMBDA_KEY,
         ...params,
       });
       const { taskId } = chooseJson(kickOffResponse) as ExportInvoicesCsvKickOffResponse;
@@ -306,7 +306,7 @@ export default function InvoiceablePatients(): React.ReactElement {
           polls++;
           await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
           const statusResponse = await oystehrZambda.zambda.execute({
-            id: EXPORT_INVOICES_TASKS_CSV_ZAMBDA_KEY,
+            id: EXPORT_INVOICES_ZAMBDA_KEY,
             taskId,
           });
           const statusData = chooseJson(statusResponse) as ExportInvoicesCsvStatusResponse;

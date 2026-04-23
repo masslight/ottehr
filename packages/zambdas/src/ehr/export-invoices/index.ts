@@ -4,7 +4,7 @@ import {
   EXPORT_CSV_OUTPUT_URL_CODE,
   EXPORT_INVOICES_CSV_TASK_CODE,
   EXPORT_INVOICES_CSV_TASK_SYSTEM,
-  EXPORT_INVOICES_TASKS_CSV_ZAMBDA_KEY,
+  EXPORT_INVOICES_ZAMBDA_KEY,
   ExportInvoicesCsvKickOffResponse,
   ExportInvoicesCsvStatusResponse,
 } from 'utils';
@@ -13,7 +13,7 @@ import { createPresignedUrl } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-const ZAMBDA_NAME = EXPORT_INVOICES_TASKS_CSV_ZAMBDA_KEY;
+const ZAMBDA_NAME = EXPORT_INVOICES_ZAMBDA_KEY;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedParams = validateRequestParameters(input);
