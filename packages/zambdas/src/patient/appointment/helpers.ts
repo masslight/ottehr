@@ -3,12 +3,12 @@ import { Coding, DocumentReference, Extension, Organization, Practitioner, Quest
 import {
   CanonicalUrl,
   getCanonicalQuestionnaire,
-  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
+  INTAKE_PAPERWORK_CONFIG,
   OtherParticipantsExtension,
   PatientAccountResponse,
   ServiceMode,
   TELEMED_VIDEO_ROOM_CODE,
-  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
+  VIRTUAL_INTAKE_PAPERWORK_CONFIG,
 } from 'utils';
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 export const getCurrentQuestionnaireForServiceType = async (
@@ -20,9 +20,13 @@ export const getCurrentQuestionnaireForServiceType = async (
 };
 
 export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode): CanonicalUrl => {
-  const questionnaire =
-    serviceMode === 'in-person' ? IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE() : VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE();
-  const { url, version } = questionnaire;
+  // Read url + version straight from the config's questionnaireBase instead
+  // of generating and deep-cloning the full Questionnaire — this is on the
+  // zambda hot path and the full generator output isn't needed here.
+  const { url, version } =
+    serviceMode === 'in-person'
+      ? INTAKE_PAPERWORK_CONFIG.questionnaireBase
+      : VIRTUAL_INTAKE_PAPERWORK_CONFIG.questionnaireBase;
   if (!url || !version) {
     throw new Error('Questionnaire url missing or malformed');
   }

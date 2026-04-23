@@ -35,7 +35,7 @@ import {
   formatPhoneNumber,
   genderMap,
   GetPaperworkAnswers,
-  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
+  INTAKE_PAPERWORK_CONFIG,
   RelationshipOption,
   SampleAppointmentResponse,
   ServiceMode,
@@ -346,15 +346,14 @@ export class ResourceHandler {
       })
     ).unbundle()[0] as Schedule;
 
-    const questionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
+    // Seed data only needs the canonical URL+version pair, not a full Q body —
+    // read straight from the config's questionnaireBase.
+    const { url, version } = INTAKE_PAPERWORK_CONFIG.questionnaireBase;
 
     let seedDataString = JSON.stringify(fastSeedData);
     seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
     seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
-    seedDataString = seedDataString.replace(
-      /\{\{questionnaireUrl\}\}/g,
-      `${questionnaire.url}|${questionnaire.version}`
-    );
+    seedDataString = seedDataString.replace(/\{\{questionnaireUrl\}\}/g, `${url}|${version}`);
     seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
 
     // TODO do something about the DocumentReference attachments? For the moment all of these tests point to the exact same files. Maybe that's great. Or maybe we should upload images each time?
