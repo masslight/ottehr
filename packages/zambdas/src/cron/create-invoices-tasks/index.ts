@@ -3,7 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
-import { Encounter, Task } from 'fhir/r4b';
+import { Encounter, Resource, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createCandidApiClient,
@@ -35,6 +35,16 @@ let candid: CandidApiClient | undefined;
 
 const ZAMBDA_NAME = 'create-invoices-tasks';
 const readyTaskStatus = mapDisplayToInvoiceTaskStatus('ready');
+const BATCH_CHUNK_SIZE = 25;
+
+async function getResourcesFromParallelBatches(oystehr: Oystehr, requests: string[]): Promise<Resource[]> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < requests.length; i += BATCH_CHUNK_SIZE) {
+    chunks.push(requests.slice(i, i + BATCH_CHUNK_SIZE));
+  }
+  const results = await Promise.all(chunks.map((chunk) => getResourcesFromBatchInlineRequests(oystehr, chunk)));
+  return results.flat();
+}
 
 interface EncounterPackage {
   encounter: Encounter;
@@ -164,7 +174,7 @@ export async function getEncountersWithoutTaskFhir(
 
   console.log(`Checking ${claims.length} Candid claims for existing FHIR tasks`);
 
-  const fhirResources = await getResourcesFromBatchInlineRequests(
+  const fhirResources = await getResourcesFromParallelBatches(
     oystehr,
     claims.map(
       (claim) =>
@@ -188,7 +198,7 @@ export async function getEncountersWithoutTaskFhir(
     return [];
   }
 
-  const encountersWithoutTasksResponse = await getResourcesFromBatchInlineRequests(
+  const encountersWithoutTasksResponse = await getResourcesFromParallelBatches(
     oystehr,
     candidEncountersIdsWithoutTasks.map(
       (claimId) => `Encounter?identifier=${CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM}|${claimId}`
@@ -286,7 +296,6 @@ export async function populateAmountInPackages(
 async function getAllCandidClaims(candid: CandidApiClient, sinceDate: DateTime): Promise<InventoryRecord[]> {
   const inventoryPages = await getCandidInventoryPages({
     candid,
-    limitPerPage: 100,
     onlyInvoiceable: true,
     since: sinceDate,
   });
