@@ -101,7 +101,7 @@ export const ProgressNoteDetails: FC = () => {
   const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
   const mechanismOfInjury = chartFields?.mechanismOfInjury?.text;
   const hpi = chartFields?.chiefComplaint?.text;
-  const ros = chartFields?.ros?.text;
+  const rosLegacyText = chartFields?.ros?.text;
 
   const emCode = chartData?.emCode;
   const cptCodes = chartData?.cptCodes;
@@ -111,7 +111,7 @@ export const ProgressNoteDetails: FC = () => {
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
   const showMechanismOfInjury = !!(mechanismOfInjury && mechanismOfInjury.length > 0);
   const showHpi = !!(hpi && hpi.length > 0);
-  const showReviewOfSystems = !!(ros && ros.length > 0);
+  const showLegacyReviewOfSystems = !!(rosLegacyText && rosLegacyText.length > 0);
   const showAdditionalQuestions =
     !!(observations && observations.length > 0) || !!(screeningNotes && screeningNotes.length > 0);
   const showAssessment = !!(diagnoses && diagnoses.length > 0);
@@ -167,7 +167,7 @@ export const ProgressNoteDetails: FC = () => {
     showChiefComplaint && <ChiefComplaintContainer />,
     showHpi && <HistoryOfPresentIllnessContainer />,
     showMechanismOfInjury && <MechanismOfInjuryContainer />,
-    showReviewOfSystems && <ReviewOfSystemsContainer />,
+    showLegacyReviewOfSystems && <ReviewOfSystemsContainer />,
     <RosReviewContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer notes={screeningNotes} />,
     showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,

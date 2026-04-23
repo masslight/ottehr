@@ -9,6 +9,16 @@ export interface RosCard {
 
 export type RosItemConfig = Record<string, RosCard>;
 
+export enum RosFinding {
+  Reports = 'reports', // abnormal
+  Denies = 'denies', // normal
+}
+
+export const RosItemSuffixes: Record<RosFinding, string> = {
+  [RosFinding.Reports]: `-${RosFinding.Reports}`,
+  [RosFinding.Denies]: `-${RosFinding.Denies}`,
+};
+
 export const InPersonRosConfig: RosItemConfig = {
   constitutional: {
     label: 'Constitutional',

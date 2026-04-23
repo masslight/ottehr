@@ -1,14 +1,20 @@
 import { Checkbox, Grid, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { FC, useCallback } from 'react';
-import { ExamObservationDTO, RosCard, RosItemConfig } from 'utils';
+import { ExamObservationDTO, getRosFindingFieldKeys, RosCard, RosItemConfig } from 'utils';
 import { useRosObservations } from '../../hooks/useRosObservations';
 
 interface RosTableProps {
   config: RosItemConfig;
 }
 
-const deniesField = (field: string): string => `${field}-denies`;
-const reportsField = (field: string): string => `${field}-reports`;
+const ROS_FINDING_CELL_STYLE = {
+  fontWeight: 600,
+  fontSize: 11,
+  width: 32,
+  py: 0.5,
+  px: 0,
+  borderBottom: '2px solid #e0e0e0',
+};
 
 export const RosTable: FC<RosTableProps> = ({ config }) => {
   const { value: allObservations, update } = useRosObservations();
@@ -49,13 +55,8 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
             <TableCell
               align="center"
               sx={{
-                fontWeight: 600,
-                fontSize: 11,
+                ...ROS_FINDING_CELL_STYLE,
                 color: 'success.main',
-                width: 32,
-                py: 0.5,
-                px: 0,
-                borderBottom: '2px solid #e0e0e0',
               }}
             >
               D
@@ -63,13 +64,8 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
             <TableCell
               align="center"
               sx={{
-                fontWeight: 600,
-                fontSize: 11,
+                ...ROS_FINDING_CELL_STYLE,
                 color: 'error.main',
-                width: 32,
-                py: 0.5,
-                px: 0,
-                borderBottom: '2px solid #e0e0e0',
               }}
             >
               R
@@ -77,16 +73,15 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {Object.entries(system.items).map(([fieldKey, item]) => {
-            const dField = deniesField(fieldKey);
-            const rField = reportsField(fieldKey);
-            const deniesObs = observationMap[dField];
-            const reportsObs = observationMap[rField];
+          {Object.entries(system.items).map(([baseKey, item]) => {
+            const { deniesKey, reportsKey } = getRosFindingFieldKeys(baseKey);
+            const deniesObs = observationMap[deniesKey];
+            const reportsObs = observationMap[reportsKey];
             const isDenied = deniesObs?.value === true;
             const isReported = reportsObs?.value === true;
 
             return (
-              <TableRow key={fieldKey} sx={{ '& td': { borderBottom: 'none', py: 0 } }}>
+              <TableRow key={baseKey} sx={{ '& td': { borderBottom: 'none', py: 0 } }}>
                 <TableCell sx={{ pl: 1.5, pr: 0 }}>
                   <Typography variant="body2" sx={{ fontSize: 13 }}>
                     {item.label}
@@ -97,8 +92,8 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
                     checked={isDenied}
                     onChange={() =>
                       isDenied
-                        ? handleUncheck(dField, item.label, deniesObs?.resourceId)
-                        : handleCheck(dField, item.label, rField, deniesObs?.resourceId, reportsObs?.resourceId)
+                        ? handleUncheck(deniesKey, item.label, deniesObs?.resourceId)
+                        : handleCheck(deniesKey, item.label, reportsKey, deniesObs?.resourceId, reportsObs?.resourceId)
                     }
                     size="small"
                     sx={{ p: 0.25, color: 'success.light', '&.Mui-checked': { color: 'success.main' } }}
@@ -109,8 +104,8 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
                     checked={isReported}
                     onChange={() =>
                       isReported
-                        ? handleUncheck(rField, item.label, reportsObs?.resourceId)
-                        : handleCheck(rField, item.label, dField, reportsObs?.resourceId, deniesObs?.resourceId)
+                        ? handleUncheck(reportsKey, item.label, reportsObs?.resourceId)
+                        : handleCheck(reportsKey, item.label, deniesKey, reportsObs?.resourceId, deniesObs?.resourceId)
                     }
                     size="small"
                     sx={{ p: 0.25, color: 'error.light', '&.Mui-checked': { color: 'error.main' } }}

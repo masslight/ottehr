@@ -590,8 +590,7 @@ export function makeExamObservationResource(
 export function makeRosObservationResource(
   encounterId: string,
   patientId: string,
-  data: ExamObservationDTO,
-  label?: string
+  data: ExamObservationDTO
 ): Observation {
   return {
     resourceType: 'Observation',
@@ -600,7 +599,7 @@ export function makeRosObservationResource(
     encounter: { reference: `Encounter/${encounterId}` },
     status: 'final',
     valueBoolean: typeof data.value === 'boolean' ? Boolean(data.value) : undefined,
-    code: { text: label || data.field },
+    code: { text: data.label || data.field },
     meta: fillMeta(data.field, ROS_OBSERVATION_META_SYSTEM),
   };
 }

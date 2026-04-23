@@ -1,4 +1,4 @@
-import { InPersonRosConfig } from 'utils';
+import { getRosFindingFieldKeys, InPersonRosConfig } from 'utils';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { EncounterInfo, PdfSection, ProgressNoteVisitDataInput, RosObservations } from '../../types';
 
@@ -11,12 +11,13 @@ export const composeRosObservations: DataComposer<ProgressNoteVisitDataInput, Ro
   for (const [_systemKey, system] of Object.entries(InPersonRosConfig)) {
     const items: Array<{ field: string; label: string; abnormal: boolean }> = [];
 
-    for (const [fieldKey, item] of Object.entries(system.items)) {
-      if (obsMap.has(`${fieldKey}-denies`)) {
-        items.push({ field: `${fieldKey}-denies`, label: item.label, abnormal: false });
+    for (const [baseKey, item] of Object.entries(system.items)) {
+      const { deniesKey, reportsKey } = getRosFindingFieldKeys(baseKey);
+      if (obsMap.has(deniesKey)) {
+        items.push({ field: deniesKey, label: item.label, abnormal: false });
       }
-      if (obsMap.has(`${fieldKey}-reports`)) {
-        items.push({ field: `${fieldKey}-reports`, label: item.label, abnormal: true });
+      if (obsMap.has(reportsKey)) {
+        items.push({ field: reportsKey, label: item.label, abnormal: true });
       }
     }
 

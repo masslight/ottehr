@@ -1,6 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { FC } from 'react';
-import { InPersonRosConfig } from 'utils';
+import { getRosFindingFieldKeys, InPersonRosConfig } from 'utils';
 import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
 import { ExamReviewGroup } from '../review-tab/components/ExamReviewGroup';
 
@@ -9,22 +9,39 @@ export const RosReviewContainer: FC = () => {
 
   const sections: { key: string; label: string; items: { field: string; label: string; abnormal: boolean }[] }[] = [];
 
+  // gather up / organize the information for stored ros observations to be displayed in inline summaries
   for (const [systemKey, system] of Object.entries(InPersonRosConfig)) {
     const items: { field: string; label: string; abnormal: boolean }[] = [];
 
-    for (const [fieldKey, item] of Object.entries(system.items)) {
-      const deniesObs = state[`${fieldKey}-denies`];
-      const reportsObs = state[`${fieldKey}-reports`];
-      if (deniesObs?.value) {
-        items.push({ field: `${fieldKey}-denies`, label: item.label, abnormal: false });
+    for (const [baseKey, item] of Object.entries(system.items)) {
+      const { deniesKey, reportsKey } = getRosFindingFieldKeys(baseKey);
+
+      const denies = state[deniesKey];
+      const reports = state[reportsKey];
+
+      if (denies?.value) {
+        items.push({
+          field: deniesKey,
+          label: item.label,
+          abnormal: false,
+        });
       }
-      if (reportsObs?.value) {
-        items.push({ field: `${fieldKey}-reports`, label: item.label, abnormal: true });
+
+      if (reports?.value) {
+        items.push({
+          field: reportsKey,
+          label: item.label,
+          abnormal: true,
+        });
       }
     }
 
     if (items.length > 0) {
-      sections.push({ key: systemKey, label: system.label, items });
+      sections.push({
+        key: systemKey,
+        label: system.label,
+        items,
+      });
     }
   }
 
