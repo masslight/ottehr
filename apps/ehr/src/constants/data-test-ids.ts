@@ -724,4 +724,15 @@ export const dataTestIds = {
       scanForStaleBtn: 'global-template-scan-staleness-btn',
     },
   },
+
+  emCodesAdminPage: {
+    addButton: 'em-codes-add-button',
+    codeRow: (code: string) => `em-code-row-${code}`,
+    editButton: (code: string) => `em-code-edit-${code}`,
+    deleteButton: (code: string) => `em-code-delete-${code}`,
+    dialog: 'em-code-dialog',
+    codeField: 'em-code-field',
+    displayField: 'em-code-display-field',
+    saveButton: 'em-code-save-button',
+  },
 };

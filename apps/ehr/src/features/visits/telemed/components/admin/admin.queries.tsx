@@ -8,6 +8,8 @@ import {
   adminListInHouseLabs,
   adminUpdateInHouseLab,
   bulkUpdateInsuranceStatus,
+  createEmCode,
+  deleteEmCode,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
   getProcedureQuickPicks,
@@ -16,6 +18,7 @@ import {
   removeInHouseMedicationQuickPick,
   removeProcedureQuickPick,
   removeRadiologyQuickPick,
+  updateEmCode,
   updateImmunizationQuickPick,
   updateInHouseMedicationQuickPick,
   updateProcedureQuickPick,
@@ -31,6 +34,9 @@ import {
   AdminUpdateInHouseLabInput,
   APIError,
   BulkUpdateInsuranceStatusInput,
+  CPTCodeOption,
+  CreateEmCodeInput,
+  DeleteEmCodeInput,
   FHIR_EXTENSION,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
@@ -41,6 +47,7 @@ import {
   ORG_TYPE_PAYER_CODE,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
+  UpdateEmCodeInput,
 } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { InsuranceData } from './EditInsurance';
@@ -474,6 +481,63 @@ export const useAdminUpdateInHouseLab = (
         message = (error as APIError).message;
       }
       enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminCreateEmCodeMutation = (): UseMutationResult<CPTCodeOption[], Error, CreateEmCodeInput> => {
+  const { oystehr } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateEmCodeInput) => {
+      if (!oystehr) throw new Error('Oystehr client is not defined');
+      const result = await createEmCode(oystehr, data);
+      return result.codes;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
+    },
+    onError: () => {
+      enqueueSnackbar('Failed to create E&M code', { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminUpdateEmCodeMutation = (): UseMutationResult<CPTCodeOption[], Error, UpdateEmCodeInput> => {
+  const { oystehr } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: UpdateEmCodeInput) => {
+      if (!oystehr) throw new Error('Oystehr client is not defined');
+      const result = await updateEmCode(oystehr, data);
+      return result.codes;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
+    },
+    onError: () => {
+      enqueueSnackbar('Failed to update E&M code', { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminDeleteEmCodeMutation = (): UseMutationResult<CPTCodeOption[], Error, DeleteEmCodeInput> => {
+  const { oystehr } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: DeleteEmCodeInput) => {
+      if (!oystehr) throw new Error('Oystehr client is not defined');
+      const result = await deleteEmCode(oystehr, data);
+      return result.codes;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
+    },
+    onError: () => {
+      enqueueSnackbar('Failed to delete E&M code', { variant: 'error' });
     },
   });
 };
