@@ -47,6 +47,14 @@ export const VaccineDetailsCardList: React.FC = () => {
 
   return (
     <Stack spacing={2}>
+      <AccordionCard
+        label="Immunization history"
+        collapsed={isImmunizationHistoryCollapsed}
+        onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
+        withBorder={false}
+      >
+        <OrderHistoryTable showActions={false} administeredOnly immunizationInput={{ patientId: patient?.id }} />
+      </AccordionCard>
       {nonCancelledOrders.map((order) => (
         <Box
           sx={{
@@ -58,14 +66,6 @@ export const VaccineDetailsCardList: React.FC = () => {
           <VaccineDetailsCard order={order} />
         </Box>
       ))}
-      <AccordionCard
-        label="Immunization History"
-        collapsed={isImmunizationHistoryCollapsed}
-        onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
-        withBorder={false}
-      >
-        <OrderHistoryTable showActions={false} administeredOnly immunizationInput={{ patientId: patient?.id }} />
-      </AccordionCard>
       <ImmunizationNotes />
     </Stack>
   );
