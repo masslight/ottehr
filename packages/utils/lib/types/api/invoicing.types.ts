@@ -5,6 +5,7 @@ import { Secrets } from '../../secrets';
 
 export const INVOICEABLE_PATIENTS_PAGE_SIZE = 40;
 export const GET_INVOICES_TASKS_ZAMBDA_KEY = 'get-invoices-tasks';
+export const EXPORT_INVOICES_TASKS_CSV_ZAMBDA_KEY = 'export-invoices-tasks-csv';
 
 export const INVOICE_TASK_BUSINESS_STATUS_SYSTEM = ottehrCodeSystemUrl('invoice-task-business-status');
 export const ZERO_BALANCE_BUSINESS_STATUS_CODE = 'zero-balance';
@@ -125,3 +126,16 @@ export type GetInvoicesTasksValidatedInput = z.infer<typeof GetInvoicesTasksZamb
 export type GetInvoicesTasksInput = z.infer<typeof GetInvoicesTasksZambdaInputSchema>;
 export type InvoiceablePatientReport = z.infer<typeof InvoiceablePatientReportSchema>;
 export type GetInvoicesTasksResponse = z.infer<typeof GetInvoicesTasksZambdaResponseSchema>;
+
+export const ExportInvoicesTasksCsvZambdaInputSchema = z.object({
+  status: z.enum(allowedStatuses).optional(),
+  sortField: z.enum(InvoiceSortFields).optional(),
+  sortDirection: z.enum(InvoiceSortDirections).optional(),
+  hideZeroBalance: z.boolean().optional(),
+});
+export const ExportInvoicesTasksCsvZambdaValidatedInputSchema = ExportInvoicesTasksCsvZambdaInputSchema.extend({
+  secrets: z.custom<Secrets>().nullable(),
+});
+export type ExportInvoicesTasksCsvInput = z.infer<typeof ExportInvoicesTasksCsvZambdaInputSchema>;
+export type ExportInvoicesTasksCsvValidatedInput = z.infer<typeof ExportInvoicesTasksCsvZambdaValidatedInputSchema>;
+export type ExportInvoicesTasksCsvResponse = { csv: string };

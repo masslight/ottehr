@@ -1,6 +1,7 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import SaveAltIcon from '@mui/icons-material/SaveAlt';
 import {
   Button,
   Checkbox,
@@ -28,6 +29,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { SendInvoiceToPatientDialog, SendStatementToPatientDialog } from 'src/components/dialogs';
 import {
   chooseJson,
+  EXPORT_INVOICES_TASKS_CSV_ZAMBDA_KEY,
+  ExportInvoicesTasksCsvInput,
+  ExportInvoicesTasksCsvResponse,
   formatDateConfigurable,
   GET_INVOICES_TASKS_ZAMBDA_KEY,
   GetInvoicesTasksInput,
@@ -126,6 +130,7 @@ export default function InvoiceablePatients(): React.ReactElement {
   const [selectedReportForStatement, setSelectedReportForStatement] = useState<InvoiceablePatientReport | undefined>();
   const [updatingTaskIds, setUpdatingTaskIds] = useState<Set<string>>(new Set());
   const [sendingTaskIds, setSendingTaskIds] = useState<Set<string>>(new Set());
+  const [isExporting, setIsExporting] = useState(false);
 
   const pageParam = searchParams.get(SP.page);
   const parsedPage = pageParam ? parseInt(pageParam, 10) : 0;
@@ -273,6 +278,35 @@ export default function InvoiceablePatients(): React.ReactElement {
       });
   };
 
+  const handleExportCsv = async (): Promise<void> => {
+    if (!oystehrZambda) return;
+    setIsExporting(true);
+    try {
+      const params: ExportInvoicesTasksCsvInput = {
+        status: statusSP ? mapDisplayToInvoiceTaskStatus(statusSP as InvoiceTaskDisplayStatus) : undefined,
+        sortField: sortFieldSP,
+        sortDirection: sortDirectionSP,
+        hideZeroBalance: hideZeroBalanceSP,
+      };
+      const response = await oystehrZambda.zambda.execute({
+        id: EXPORT_INVOICES_TASKS_CSV_ZAMBDA_KEY,
+        ...params,
+      });
+      const data = chooseJson(response) as ExportInvoicesTasksCsvResponse;
+      const blob = new Blob([data.csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoiceable-patients-report.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      enqueueSnackbar('Failed to export CSV', { variant: 'error' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   useEffect(() => {
     setPageInputValue(String(pageSP + 1));
   }, [pageSP]);
@@ -374,6 +408,16 @@ export default function InvoiceablePatients(): React.ReactElement {
                 label="Hide $0 balances"
                 sx={{ whiteSpace: 'nowrap' }}
               />
+              <Button
+                variant="text"
+                size="small"
+                startIcon={isExporting ? <CircularProgress size={16} /> : <SaveAltIcon />}
+                sx={{ textTransform: 'uppercase', whiteSpace: 'nowrap', ml: 'auto' }}
+                disabled={isExporting}
+                onClick={handleExportCsv}
+              >
+                Export
+              </Button>
             </Stack>
           </Paper>
         </FormProvider>
