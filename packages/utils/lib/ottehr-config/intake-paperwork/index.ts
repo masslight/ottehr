@@ -22,13 +22,14 @@ import {
   SELF_PAY_OPTION,
   VALUE_SETS,
 } from '../value-sets';
+import { IN_PERSON_INTAKE_PAPERWORK_URL, IN_PERSON_INTAKE_PAPERWORK_VERSION } from './canonical';
 
 const hiddenFormSections: string[] = [];
 
 const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
-  url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson',
-  version: '1.1.7',
+  url: IN_PERSON_INTAKE_PAPERWORK_URL,
+  version: IN_PERSON_INTAKE_PAPERWORK_VERSION,
   name: 'in-person_pre-visit_paperwork',
   title: 'in-person pre-visit paperwork',
   status: 'active',

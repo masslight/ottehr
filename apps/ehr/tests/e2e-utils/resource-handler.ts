@@ -35,12 +35,12 @@ import {
   formatPhoneNumber,
   genderMap,
   GetPaperworkAnswers,
-  INTAKE_PAPERWORK_CONFIG,
   RelationshipOption,
   SampleAppointmentResponse,
   ServiceMode,
   VALUE_SETS,
 } from 'utils';
+import { IN_PERSON_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork/canonical';
 import { VisitDetailsPage } from '../../tests/e2e/page/VisitDetailsPage';
 import { getAuth0Token } from './auth/getAuth0Token';
 import {
@@ -346,9 +346,8 @@ export class ResourceHandler {
       })
     ).unbundle()[0] as Schedule;
 
-    // Seed data only needs the canonical URL+version pair, not a full Q body —
-    // read straight from the config's questionnaireBase.
-    const { url, version } = INTAKE_PAPERWORK_CONFIG.questionnaireBase;
+    // Seed data only needs the canonical URL+version pair, not a full Q body.
+    const { url, version } = IN_PERSON_INTAKE_PAPERWORK_CANONICAL;
 
     let seedDataString = JSON.stringify(fastSeedData);
     seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);

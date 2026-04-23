@@ -24,13 +24,14 @@ import {
   SURGICAL_HISTORY_YES_OPTION,
   VALUE_SETS,
 } from '../value-sets';
+import { VIRTUAL_INTAKE_PAPERWORK_URL, VIRTUAL_INTAKE_PAPERWORK_VERSION } from './canonical';
 
 const hiddenFormSections: string[] = [];
 
 const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
-  url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual',
-  version: '1.0.22',
+  url: VIRTUAL_INTAKE_PAPERWORK_URL,
+  version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
   name: 'virtual_pre-visit_paperwork',
   title: 'virtual pre-visit paperwork',
   status: 'active',
