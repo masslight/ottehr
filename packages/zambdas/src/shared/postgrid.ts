@@ -143,6 +143,8 @@ async function postgridRequest<T>(
  */
 export async function sendPostGridLetter(input: SendLetterInput, secrets: Secrets | null): Promise<PostGridLetter> {
   const { idempotencyKey, ...bodyFields } = input;
+  // PostGrid's color printing option currently disabled
+  bodyFields.color = false;
 
   const extraHeaders: Record<string, string> = {};
   if (idempotencyKey) {

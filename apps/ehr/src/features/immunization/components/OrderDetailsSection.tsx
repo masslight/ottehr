@@ -6,15 +6,15 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunization';
-import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+// import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { LOCATION_OPTIONS, ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { UNIT_OPTIONS } from 'utils';
 
 export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
   const { data: vaccines, isLoading } = useGetVaccines();
-  const { chartData } = useChartData();
-  const diagnosisOptions = (chartData?.diagnosis ?? []).map((dx) => `${dx.code} - ${dx.display}`);
+  // const { chartData } = useChartData();
+  // const diagnosisOptions = (chartData?.diagnosis ?? []).map((dx) => `${dx.code} - ${dx.display}`);
 
   return (
     <Grid container spacing={2}>
@@ -41,7 +41,7 @@ export const OrderDetailsSection: React.FC = () => {
           dataTestId={dataTestIds.orderVaccinePage.vaccine}
         />
       </Grid>
-      <Grid xs={6} item>
+      {/* <Grid xs={6} item>
         <AutocompleteInput
           name="details.associatedDx"
           label="Associated Dx"
@@ -49,7 +49,7 @@ export const OrderDetailsSection: React.FC = () => {
           freeSolo
           dataTestId={dataTestIds.orderVaccinePage.associatedDx}
         />
-      </Grid>
+      </Grid> */}
       <Grid xs={3} item>
         <TextInput
           name="details.dose"
@@ -79,13 +79,13 @@ export const OrderDetailsSection: React.FC = () => {
           dataTestId={dataTestIds.orderVaccinePage.route}
         />
       </Grid>
-      <Grid xs={6} item>
+      {/* <Grid xs={6} item>
         <TextInput
           name="details.manufacturer"
           label="Manufacturer"
           dataTestId={dataTestIds.orderVaccinePage.manufacturer}
         />
-      </Grid>
+      </Grid> */}
       <Grid xs={6} item>
         <AutocompleteInput
           name="details.location"

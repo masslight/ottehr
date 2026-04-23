@@ -368,6 +368,7 @@ export default function SendStatementToPatientDialog({
                           setUseColor(event.target.checked);
                         }}
                         size="small"
+                        disabled
                       />
                     }
                     label="Color"
