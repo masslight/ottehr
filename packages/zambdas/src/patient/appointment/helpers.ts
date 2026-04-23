@@ -3,13 +3,13 @@ import { Coding, DocumentReference, Extension, Organization, Practitioner, Quest
 import {
   CanonicalUrl,
   getCanonicalQuestionnaire,
+  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   OtherParticipantsExtension,
   PatientAccountResponse,
   ServiceMode,
   TELEMED_VIDEO_ROOM_CODE,
+  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from 'utils';
-import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
-import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,
@@ -20,34 +20,13 @@ export const getCurrentQuestionnaireForServiceType = async (
 };
 
 export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode): CanonicalUrl => {
-  let url = '';
-  let version = '';
-  if (serviceMode === 'in-person') {
-    const questionnaire = Object.values(inPersonIntakeQuestionnaireJson.fhirResources).find(
-      (q) =>
-        q.resource.resourceType === 'Questionnaire' &&
-        q.resource.status === 'active' &&
-        q.resource.url.includes('intake-paperwork-inperson')
-    );
-    url = questionnaire?.resource.url || '';
-    version = questionnaire?.resource.version || '';
-  } else if (serviceMode === 'virtual') {
-    const questionnaire = Object.values(virtualIntakeQuestionnaireJson.fhirResources).find(
-      (q) =>
-        q.resource.resourceType === 'Questionnaire' &&
-        q.resource.status === 'active' &&
-        q.resource.url.includes('intake-paperwork-virtual')
-    );
-    url = questionnaire?.resource.url || '';
-    version = questionnaire?.resource.version || '';
-  }
+  const questionnaire =
+    serviceMode === 'in-person' ? IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE() : VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE();
+  const { url, version } = questionnaire;
   if (!url || !version) {
     throw new Error('Questionnaire url missing or malformed');
   }
-  return {
-    url,
-    version,
-  };
+  return { url, version };
 };
 
 export const getTelemedRequiredAppointmentEncounterExtensions = (
