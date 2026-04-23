@@ -107,30 +107,6 @@ const makeEncounter = (id: string, patientId: string): Encounter => ({
   subject: { reference: `Patient/${patientId}` },
 });
 
-// ── performCandidPreEncounterSync: amountCents guard ───────────────────────────
-// The real function calls `createPreEncounterPatientPayment` only when `amountCents`
-// is truthy. Because the function has deep FHIR-fetching internals we cannot
-// easily call it in isolation, so we verify the guard logic that determines
-// whether payment recording is triggered.
-
-describe('performCandidPreEncounterSync – amountCents guard', () => {
-  it('should call patientPayments.v4.create when amountCents > 0', () => {
-    // The conditional in candid.ts:  if (amountCents) { ... }
-    const amountCents: number | undefined = 2500;
-    expect(!!amountCents).toBe(true);
-  });
-
-  it('should NOT call patientPayments.v4.create when amountCents is undefined', () => {
-    const amountCents: number | undefined = undefined;
-    expect(!!amountCents).toBe(false);
-  });
-
-  it('should NOT call patientPayments.v4.create when amountCents is 0', () => {
-    const amountCents: number | undefined = 0;
-    expect(!!amountCents).toBe(false);
-  });
-});
-
 // ── Stripe payment skip logic (subscription zambda) ────────────────────────────
 
 describe('sub-patient-payment-candid-sync-and-receipt: Stripe payment skip logic', () => {
