@@ -1,10 +1,13 @@
 import { otherColors } from '@ehrTheme/colors';
+import SearchIcon from '@mui/icons-material/Search';
 import SettingsIcon from '@mui/icons-material/Settings';
 import WarningIcon from '@mui/icons-material/Warning';
 import {
   Avatar,
   Box,
+  ButtonBase,
   Divider,
+  InputBase,
   ListItem,
   ListItemAvatar,
   ListItemButton,
@@ -24,6 +27,7 @@ import {
   useEnrollPractitionerToERX,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { getPractitionerMissingFields } from 'src/shared/utils';
+import { useCommandPaletteStore } from 'src/state/command-palette.store';
 import { BRANDING_CONFIG, getFullestAvailableName, RoleType } from 'utils';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { dataTestIds } from '../../constants/data-test-ids';
@@ -99,8 +103,50 @@ export const UserMenu: FC = () => {
     (getFullestAvailableName(user.profileResource, true) ?? `${BRANDING_CONFIG.projectName} Team`);
   const suffix = user?.profileResource?.name?.[0]?.suffix?.[0];
 
+  const openCommandPalette = useCommandPaletteStore((s) => s.open);
+  const shortcutHint = typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘K' : 'Ctrl+K';
+
   return (
     <>
+      {/* Search-as-button: looks like a text field, opens the command palette on click.
+          Mirrors the palette's own search field so the user's mental model is consistent. */}
+      <ButtonBase
+        onClick={() => openCommandPalette()}
+        aria-label="Open command palette"
+        sx={{
+          display: { xs: 'none', sm: 'flex' },
+          alignItems: 'center',
+          gap: 1,
+          px: 1.5,
+          py: 0.75,
+          mr: 2,
+          borderRadius: 1,
+          border: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          color: 'text.secondary',
+          minWidth: 240,
+          transition: 'background-color 120ms',
+          '&:hover': { bgcolor: 'action.hover' },
+        }}
+      >
+        <SearchIcon fontSize="small" />
+        <InputBase
+          placeholder="Search…"
+          readOnly
+          // Swallow focus so the real search input in the palette takes it.
+          inputProps={{ tabIndex: -1, 'aria-hidden': 'true' }}
+          sx={{
+            flexGrow: 1,
+            pointerEvents: 'none',
+            color: 'inherit',
+            fontSize: '0.875rem',
+          }}
+        />
+        <Typography variant="caption" sx={{ opacity: 0.7, fontFamily: 'monospace' }}>
+          {shortcutHint}
+        </Typography>
+      </ButtonBase>
       <UnsolicitedResultsIcon />
       {userIsProvider && <ProviderNotifications />}
       <ListItem disablePadding sx={{ width: 'fit-content' }}>
