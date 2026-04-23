@@ -70,6 +70,33 @@ function validateRequestParameters(
   };
 }
 
+async function complexValidation(oystehr: Oystehr, callerOystehr: Oystehr, userId: string): Promise<void> {
+  const [user, caller] = await Promise.all([oystehr.user.get({ id: userId }), callerOystehr.user.me()]);
+  if (!user) {
+    throw {
+      code: APIErrorCode.INVALID_INPUT,
+      message: `User with ID ${userId} not found`,
+      statusCode: 404,
+    } satisfies APIError;
+  }
+
+  if (caller.id === userId) {
+    throw {
+      code: APIErrorCode.INVALID_INPUT,
+      message: 'You cannot delete your own user.',
+      statusCode: 400,
+    } satisfies APIError;
+  }
+  const callerRoles = caller.roles?.map((role) => role.name) ?? [];
+  if (!callerRoles.some((role) => ALLOWED_CALLER_ROLES.includes(role))) {
+    throw {
+      code: APIErrorCode.NOT_AUTHORIZED,
+      message: 'Caller is not permitted to delete users.',
+      statusCode: 403,
+    } satisfies APIError;
+  }
+}
+
 async function performEffect(oystehr: Oystehr, userId: string): Promise<void> {
   const user = await oystehr.user.get({ id: userId });
 
@@ -101,33 +128,6 @@ async function performEffect(oystehr: Oystehr, userId: string): Promise<void> {
       message: `Failed to delete user: ${error?.message ?? 'Unknown error'}`,
       statusCode:
         error?.code && typeof error.code === 'number' && error.code >= 400 && error.code < 600 ? error.code : 500,
-    } satisfies APIError;
-  }
-}
-
-async function complexValidation(oystehr: Oystehr, callerOystehr: Oystehr, userId: string): Promise<void> {
-  const [user, caller] = await Promise.all([oystehr.user.get({ id: userId }), callerOystehr.user.me()]);
-  if (!user) {
-    throw {
-      code: APIErrorCode.INVALID_INPUT,
-      message: `User with ID ${userId} not found`,
-      statusCode: 404,
-    } satisfies APIError;
-  }
-
-  if (caller.id === userId) {
-    throw {
-      code: APIErrorCode.INVALID_INPUT,
-      message: 'You cannot delete your own user.',
-      statusCode: 400,
-    } satisfies APIError;
-  }
-  const callerRoles = caller.roles?.map((role) => role.name) ?? [];
-  if (!callerRoles.some((role) => ALLOWED_CALLER_ROLES.includes(role))) {
-    throw {
-      code: APIErrorCode.NOT_AUTHORIZED,
-      message: 'Caller is not permitted to delete users.',
-      statusCode: 403,
     } satisfies APIError;
   }
 }
