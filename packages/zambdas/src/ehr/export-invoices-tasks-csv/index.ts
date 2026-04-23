@@ -62,6 +62,7 @@ interface CsvRow {
   responsiblePartyRelationship: string;
   dateOfService: string;
   finalizationDate: string;
+  amount: string;
   invoiceStatus: string;
   stripeInvoiceId: string;
 }
@@ -75,6 +76,7 @@ const CSV_HEADERS: (keyof CsvRow)[] = [
   'responsiblePartyRelationship',
   'dateOfService',
   'finalizationDate',
+  'amount',
   'invoiceStatus',
   'stripeInvoiceId',
 ];
@@ -88,6 +90,7 @@ const CSV_HEADER_LABELS: Record<keyof CsvRow, string> = {
   responsiblePartyRelationship: 'Responsible Party Relationship',
   dateOfService: 'Date of Service',
   finalizationDate: 'Finalization Date',
+  amount: 'Invoice Amount',
   invoiceStatus: 'Invoice Status',
   stripeInvoiceId: 'Stripe Invoice ID',
 };
@@ -149,6 +152,7 @@ function taskGroupsToCsvRows(taskGroups: TaskGroup[]): CsvRow[] {
       responsiblePartyRelationship: relationship,
       dateOfService: visitDate ?? '',
       finalizationDate: formatDateConfigurable({ isoDate: taskInput.finalizationDate }) ?? '',
+      amount: ((taskInput.amountCents ?? 0) / 100).toFixed(2),
       invoiceStatus: displayStatus,
       stripeInvoiceId,
     };
