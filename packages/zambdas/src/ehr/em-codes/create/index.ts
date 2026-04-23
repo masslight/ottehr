@@ -1,13 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ValueSet } from 'fhir/r4b';
-import { CPTCodeOption, CreateEmCodeInput, EM_CODES_VALUE_SET_URL } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  validateJsonBody,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { CPTCodeOption, EM_CODES_VALUE_SET_URL } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { validateRequestParameters } from './validateRequestParameters';
 
 const CPT_SYSTEM = 'http://www.ama-assn.org/go/cpt';
 
@@ -15,11 +10,7 @@ let m2mToken: string;
 
 export const index = wrapHandler('create-em-code', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets } = input;
-  const { code, display } = validateJsonBody(input) as CreateEmCodeInput;
-
-  if (!code || !display) {
-    return { statusCode: 400, body: JSON.stringify({ message: 'code and display are required' }) };
-  }
+  const { code, display } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);

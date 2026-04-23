@@ -1,18 +1,23 @@
+import { z } from 'zod';
 import { CPTCodeOption } from '../../common';
 
-export interface CreateEmCodeInput {
-  code: string;
-  display: string;
-}
+export const CreateEmCodeInputSchema = z.object({
+  code: z.string().trim().min(1, 'code is required'),
+  display: z.string().trim().min(1, 'display is required'),
+});
 
-export interface UpdateEmCodeInput {
-  code: string;
-  display: string;
-}
+export const UpdateEmCodeInputSchema = z.object({
+  code: z.string().trim().min(1, 'code is required'),
+  display: z.string().trim().min(1, 'display is required'),
+});
 
-export interface DeleteEmCodeInput {
-  code: string;
-}
+export const DeleteEmCodeInputSchema = z.object({
+  code: z.string().trim().min(1, 'code is required'),
+});
+
+export type CreateEmCodeInput = z.infer<typeof CreateEmCodeInputSchema>;
+export type UpdateEmCodeInput = z.infer<typeof UpdateEmCodeInputSchema>;
+export type DeleteEmCodeInput = z.infer<typeof DeleteEmCodeInputSchema>;
 
 export interface EmCodeOutput {
   codes: CPTCodeOption[];
