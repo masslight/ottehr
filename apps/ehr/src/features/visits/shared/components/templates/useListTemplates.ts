@@ -4,7 +4,6 @@ import { QUERY_STALE_TIME } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { ExamType, ListTemplatesZambdaOutput } from 'utils';
 
-// todo i feel like this can be reworked to use TemplateInfo (the attribute actually being used in ListTemplatesZambdaOutput)
 export interface TemplateOption {
   value: string;
   label: string;

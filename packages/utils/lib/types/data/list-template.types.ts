@@ -14,6 +14,7 @@ export type TemplateVersionData =
       unmatchedFields: {
         ros: string[];
         exam: string[];
+        legacyRosContained: boolean;
       };
     };
 export interface TemplateInfo {

@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { List, Observation, Resource } from 'fhir/r4b';
+import { List, Resource } from 'fhir/r4b';
 import {
   chartDataTagSystem,
   chunkThings,
@@ -17,7 +17,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { findHolderList } from '../shared/template-helpers';
+import { analyzeTemplateVersionData, findHolderList } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -96,6 +96,7 @@ const performEffect = async (
 
   const examTagSystem = chartDataTagSystem('exam-observation-field');
   const rosTagSystem = chartDataTagSystem('ros-observation-field');
+  const legacyRosTagSystem = chartDataTagSystem('ros');
 
   const templateInfos: TemplateInfo[] = examTypeTemplates
     .map((template) => {
@@ -106,21 +107,15 @@ const performEffect = async (
 
       if (includeVersionData) {
         const contained = (template.contained || []) as Resource[];
-        const examObs = contained.filter(
-          (r) => r.resourceType === 'Observation' && r.meta?.tag?.some((t) => t.system === examTagSystem)
-        ) as Observation[];
-        const unmatchedExamFields = examObs
-          .map((obs) => obs.meta?.tag?.find((t) => t.system === examTagSystem)?.code)
-          .filter((code): code is string => !!code && !knownExamFields.has(code));
 
-        const rosObs = contained.filter(
-          (r) => r.resourceType === 'Observation' && r.meta?.tag?.some((t) => t.system === rosTagSystem)
-        ) as Observation[];
-        const unmatchedRosFields = rosObs
-          .map((obs) => obs.meta?.tag?.find((t) => t.system === rosTagSystem)?.code)
-          .filter((code): code is string => !!code && !knownRosFields.has(code));
-
-        const isCurrentVersion = unmatchedExamFields.length === 0 && unmatchedRosFields.length === 0;
+        const { isCurrentVersion, unmatchedExamFields, unmatchedRosFields, rosNote } = analyzeTemplateVersionData({
+          contained,
+          examTagSystem,
+          rosTagSystem,
+          legacyRosTagSystem,
+          knownExamFields,
+          knownRosFields,
+        });
 
         if (isCurrentVersion) {
           versionData = { isCurrentVersion };
@@ -130,6 +125,7 @@ const performEffect = async (
             unmatchedFields: {
               exam: unmatchedExamFields,
               ros: unmatchedRosFields,
+              legacyRosContained: rosNote !== null,
             },
           };
         }

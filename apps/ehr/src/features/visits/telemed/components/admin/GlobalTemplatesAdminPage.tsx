@@ -61,8 +61,6 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
     staleTime: QUERY_STALE_TIME,
   });
 
-  console.log('data', data); // todo sarah it looks like this query is recalled when the sca for stale templates is clicked
-
   React.useEffect(() => {
     if (error) {
       console.error('Error loading templates:', error);
@@ -89,8 +87,6 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
         examType: ExamType.IN_PERSON,
         includeVersionData: true,
       });
-
-      console.log('list', list);
 
       let staleCount = 0;
 
@@ -195,6 +191,9 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
         : null,
       templateCurrentData.unmatchedFields.exam?.length
         ? `Unrecognized exam fields: ${templateCurrentData.unmatchedFields.exam.join(', ')}`
+        : null,
+      templateCurrentData.unmatchedFields.legacyRosContained
+        ? 'Contains legacy Review of Systems field, please update to utilize new format'
         : null,
     ].filter(Boolean);
 

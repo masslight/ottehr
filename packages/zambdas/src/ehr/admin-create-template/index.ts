@@ -153,7 +153,7 @@ const performEffect = async (
   const TEMPLATE_TAG_SYSTEMS = new Set([
     chartDataTagSystem('chief-complaint'),
     chartDataTagSystem('mechanism-of-injury'),
-    chartDataTagSystem('ros'),
+    chartDataTagSystem('ros'), // legacy
     chartDataTagSystem('exam-observation-field'),
     chartDataTagSystem('ros-observation-field'),
     chartDataTagSystem('medical-decision'),
