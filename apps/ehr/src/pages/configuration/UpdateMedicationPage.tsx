@@ -126,13 +126,13 @@ export default function UpdateMedicationPage(): ReactElement {
       setStatus(medicationTemp?.status ? medicationTemp.status : 'active');
       setCptCodes(
         (medicationTemp?.code?.coding ?? [])
-          .filter((c) => c.system === CODE_SYSTEM_CPT)
-          .map((c) => ({ code: c.code ?? '', display: c.display ?? '' }))
+          .filter((c) => c.system === CODE_SYSTEM_CPT && c.code)
+          .map((c) => ({ code: c.code!, display: c.display! }))
       );
       setHcpcsCodes(
         (medicationTemp?.code?.coding ?? [])
-          .filter((c) => c.system === CODE_SYSTEM_HCPCS)
-          .map((c) => ({ code: c.code ?? '', display: c.display ?? '' }))
+          .filter((c) => c.system === CODE_SYSTEM_HCPCS && c.code)
+          .map((c) => ({ code: c.code!, display: c.display! }))
       );
     }
     fetchMedication().catch((error) => console.log('Error fetching medications', error));
