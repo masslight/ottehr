@@ -10,7 +10,7 @@ import {
   createOystehrClient,
   FHIR_EXTENSION,
   getAppointmentResourceById,
-  getRelatedPersonForPatient,
+  getRelatedPersonsForPatient,
   getSecret,
   getVirtualServiceResourceExtension,
   JoinCallInput,
@@ -25,6 +25,7 @@ import {
   getUser,
   getVideoEncounterForAppointment,
   lambdaResponse,
+  reportMissingUserRelatedPerson,
   searchInvitedParticipantResourcesByEncounterId,
   userHasAccessToPatient,
   wrapHandler,
@@ -130,7 +131,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   let userProfile: string;
-  let relatedPersonRef: string | undefined;
+  let relatedPersonRefs: string[] = [];
   if (isInvitedParticipant) {
     const subject = claims.sub || '';
     if (!(await isParticipantInvited(subject, videoEncounter.id, oystehr))) {
@@ -144,14 +145,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (!(await userHasAccessToPatient(user, patientId, oystehr))) {
       return lambdaResponse(403, NO_READ_ACCESS_TO_PATIENT_ERROR);
     }
-    const relatedPerson = await getRelatedPersonForPatient(patientId, oystehr);
-    relatedPersonRef = `RelatedPerson/${relatedPerson?.id}`;
+    const relatedPersons = await getRelatedPersonsForPatient(patientId, oystehr);
+    if (!relatedPersons.length) {
+      console.log(`No user-relatedperson for patient ${patientId}; proceeding without an RP participant`);
+      reportMissingUserRelatedPerson('join-call', patientId);
+    } else {
+      relatedPersonRefs = relatedPersons.map((rp) => `RelatedPerson/${rp.id}`);
+    }
   }
 
   console.log('User profile:', userProfile);
-  console.log('RelatedPerson:', relatedPersonRef);
+  console.log('RelatedPersons:', relatedPersonRefs);
 
-  videoEncounter = await addUserToVideoEncounterIfNeeded(videoEncounter, userProfile, relatedPersonRef, oystehr);
+  videoEncounter = await addUserToVideoEncounterIfNeeded(videoEncounter, userProfile, relatedPersonRefs, oystehr);
   if (!videoEncounter.id) {
     throw new Error(`Video encounter was not found for the appointment ${appointment.id}`);
   }
@@ -165,7 +171,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function addUserToVideoEncounterIfNeeded(
   encounter: Encounter,
   fhirParticipantRef: string,
-  fhirRelatedPersonRef: string | undefined,
+  fhirRelatedPersonRefs: string[],
   oystehr: Oystehr
 ): Promise<Encounter> {
   try {
@@ -207,20 +213,19 @@ async function addUserToVideoEncounterIfNeeded(
       });
     }
 
-    if (
-      !fhirRelatedPersonRef ||
-      (encounter.participant &&
-        encounter.participant.findIndex((p) => p.individual?.reference === fhirRelatedPersonRef) >= 0)
-    ) {
+    const existingParticipantRefs = new Set(
+      (encounter.participant ?? []).map((p) => p.individual?.reference).filter((r): r is string => !!r)
+    );
+    const refsToAdd = fhirRelatedPersonRefs.filter((ref) => !existingParticipantRefs.has(ref));
+
+    if (!refsToAdd.length) {
       console.log('Encounter.participant list will not be updated.');
     } else {
-      console.log(`Adding RelatedPerson/'${fhirRelatedPersonRef}' to Encounter.participant.`);
-      const participants = [...(encounter.participant ?? [])];
-      participants.push({
-        individual: {
-          reference: fhirRelatedPersonRef,
-        },
-      });
+      console.log(`Adding ${refsToAdd.join(', ')} to Encounter.participant.`);
+      const participants = [
+        ...(encounter.participant ?? []),
+        ...refsToAdd.map((ref) => ({ individual: { reference: ref } })),
+      ];
 
       updateOperations.push({
         op: encounter.participant ? 'replace' : 'add',

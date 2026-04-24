@@ -16,6 +16,7 @@ import {
   DATETIME_FULL_NO_YEAR,
   getAddressStringForScheduleResource,
   getPatientContactEmail,
+  getRelatedPersonsForPatient,
   getSecret,
   getTimezone,
   InPersonReminderTemplateData,
@@ -23,14 +24,21 @@ import {
   SecretsKeys,
 } from 'utils';
 import { getNameForOwner } from '../../ehr/schedules/shared';
-import { createOystehrClient, getAuth0Token, sendErrors, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  createOystehrClient,
+  getAuth0Token,
+  reportMissingUserRelatedPerson,
+  sendErrors,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import {
   getEmailClient,
-  getMessageRecipientForAppointment,
   makeAddressUrl,
   makeCancelVisitUrl,
   makeModifyVisitUrl,
   makePaperworkUrl,
+  sendSmsToRelatedPersons,
 } from '../../shared/communication';
 
 let oystehrToken: string;
@@ -216,18 +224,22 @@ async function sendAutomatedText(
   message: string
 ): Promise<void> {
   try {
-    console.log('getting conversationSID for appointment', fhirAppointment.id);
-    const messageInput = await getMessageRecipientForAppointment(fhirAppointment, oystehr);
-    if (messageInput) {
-      const { resource } = messageInput;
-      await oystehr.transactionalSMS.send({
-        resource,
-        message,
-      });
-    } else {
-      console.log('no conversationSID returned for appointment:', fhirAppointment.id);
-      void sendErrors('no conversationSID when sending automated text', ENVIRONMENT);
+    console.log('getting sms recipients for appointment', fhirAppointment.id);
+    const patientId = fhirAppointment.participant
+      .find((p) => p.actor?.reference?.startsWith('Patient/'))
+      ?.actor?.reference?.replace('Patient/', '');
+    if (!patientId) {
+      console.log('no patient on appointment:', fhirAppointment.id);
+      void sendErrors('no patient on appointment when sending automated text', ENVIRONMENT);
+      return;
     }
+    const relatedPersons = await getRelatedPersonsForPatient(patientId, oystehr);
+    if (!relatedPersons.length) {
+      console.log('no user-relatedperson for patient:', patientId);
+      reportMissingUserRelatedPerson('send-message-cron', patientId);
+      return;
+    }
+    await sendSmsToRelatedPersons({ relatedPersons, message, oystehr, env: ENVIRONMENT });
   } catch (error) {
     console.log('error trying to send message: ', error, JSON.stringify(error));
     await sendErrors(error, ENVIRONMENT);

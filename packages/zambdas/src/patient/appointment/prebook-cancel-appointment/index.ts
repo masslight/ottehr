@@ -19,7 +19,7 @@ import {
   getPatchBinary,
   getPatientContactEmail,
   getPatientFirstName,
-  getRelatedPersonForPatient,
+  getRelatedPersonsForPatient,
   getSecret,
   isPostTelemedAppointment,
   isTelemedAppointment,
@@ -37,7 +37,8 @@ import {
   getAuth0Token,
   getEncounterDetails,
   getUser,
-  sendErrors,
+  reportMissingUserRelatedPerson,
+  sendSmsToRelatedPersons,
   validateBundleAndExtractAppointment,
   wrapHandler,
   ZambdaInput,
@@ -293,21 +294,19 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
         break;
     }
 
-    const relatedPerson = await getRelatedPersonForPatient(patient.id || '', oystehr);
-    if (relatedPerson) {
-      console.log('sending text message to relatedperson', relatedPerson.id);
-      try {
-        await oystehr.transactionalSMS.send({
-          resource: `RelatedPerson/${relatedPerson.id}`,
-          message: selectedMessage,
-        });
-      } catch (e) {
-        console.log('failing silently, error sending cancellation text message');
-        const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-        void sendErrors(e, ENVIRONMENT);
-      }
+    const relatedPersons = await getRelatedPersonsForPatient(patient.id || '', oystehr);
+    if (!relatedPersons.length) {
+      console.log(`No user-relatedperson found for patient ${patient.id}; not sending cancellation text`);
+      reportMissingUserRelatedPerson('prebook-cancel-appointment', patient.id);
     } else {
-      console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
+      console.log(`sending text message to ${relatedPersons.length} recipient(s)`);
+      await sendSmsToRelatedPersons({
+        relatedPersons,
+        message: selectedMessage,
+        oystehr,
+        env: getSecret(SecretsKeys.ENVIRONMENT, secrets),
+        failStrategy: 'never-throw',
+      });
     }
     console.groupEnd();
   } else {
