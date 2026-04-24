@@ -3,6 +3,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { AppBar, Box, IconButton, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
 import { AppointmentTabsHeader } from './AppointmentTabsHeader';
@@ -29,9 +30,12 @@ export const AppointmentHeader: FC = () => {
           <AppointmentTabsHeader />
         </Box>
 
-        <IconButton onClick={() => navigate('/telemed/appointments')}>
-          <CloseIcon data-testid={dataTestIds.telemedEhrFlow.closeChartButton} fontSize="small" />
-        </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <CommandPaletteSearchButton minWidth={200} />
+          <IconButton onClick={() => navigate('/telemed/appointments')}>
+            <CloseIcon data-testid={dataTestIds.telemedEhrFlow.closeChartButton} fontSize="small" />
+          </IconButton>
+        </Box>
       </Box>
     </AppBar>
   );
