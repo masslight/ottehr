@@ -14,6 +14,7 @@ import {
   OrderableItemSearchResult,
   STATIC_COMPENDIUM_LAB_GUID,
 } from 'utils';
+import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { LabSets } from './LabSets';
 
 type LabsAutocompleteProps = {
@@ -41,8 +42,6 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
 
   // coming back from the hook, we expect all these locations to have labGuids in their enabledLabs details
   const orderingLocations = data?.orderingLocations || [];
-  // ATHENA TODO remove
-  // console.log('Ordering locations with labGuids and names', orderingLocations);
 
   const labs = expandResultsForGeneric(data?.labs || [], orderingLocations, selectedOrderingLocationId);
 
@@ -149,6 +148,10 @@ const expandResultsForGeneric = (
   const selectedLocation = orderingLocations.find((location) => location.id === selectedLocationId);
   if (!selectedLocation) {
     console.error('Unable to expand results, returning original labs results');
+    safelyCaptureMessage(
+      `Unexpected undefined selectedLocation for id ${selectedLocationId} when trying to expandResultsForGeneric`,
+      { level: 'warning' }
+    );
     return labs;
   }
 

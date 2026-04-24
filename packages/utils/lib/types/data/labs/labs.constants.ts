@@ -402,3 +402,8 @@ export type LabListSearchFieldKey = keyof typeof LAB_LIST_SEARCH_FIELD_NESTED_EX
 
 export const STATIC_COMPENDIUM_LAB_GUID = 'oystehr-static-compendium';
 export const STATIC_COMPENDIUM_ACCOUNT_NUMBER = 'oystehr-generic-account';
+
+export const GENERIC_LAB_ORDER_TAG: Coding = {
+  system: 'order-type',
+  code: 'generic-lab-order',
+};

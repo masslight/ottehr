@@ -208,6 +208,7 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
   | 'location'
   | 'orderLevelNoteByUser'
   | 'clinicalInfoNoteByUser'
+  | 'isGenericOrder'
 >;
 
 export type DiagnosticReportDrivenResultDTO = DiagnosticReportLabDetailPageDTO & {

@@ -39,6 +39,7 @@ import {
   ExternalLabDocuments,
   externalLabOrderIsManual,
   ExternalLabsStatus,
+  GENERIC_LAB_ORDER_TAG,
   getAccountNumberFromLocationAndOrganization,
   getAdditionalPlacerId,
   getFullestAvailableName,
@@ -60,7 +61,6 @@ import {
   LabOrderUnreceivedHistoryRow,
   LABS_COMMUNICATION_CATEGORY_SYSTEM,
   LabType,
-  OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   Pagination,
@@ -75,7 +75,6 @@ import {
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
   sampleDTO,
   SPECIMEN_CODING_CONFIG,
-  STATIC_COMPENDIUM_LAB_GUID,
 } from 'utils';
 import { sendErrors } from '../../../../shared';
 import {
@@ -298,7 +297,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
       questionnaire: questionnaires,
       samples: parseSamples(serviceRequest, specimens),
       labelPdfUrl: labDocuments?.labelPDF?.presignedURL,
-      isGenericOrder: isGenericOrder(serviceRequest, organizations),
+      isGenericOrder: isGenericOrder(serviceRequest),
     };
 
     return detailedPageDTO as LabOrderDTO<SearchBy>;
@@ -2670,26 +2669,11 @@ const getContentStringFromCommForSr = (
   return contentStrings.join('; ');
 };
 
-const isGenericOrder = (serviceRequest: ServiceRequest, organizations: Organization[]): boolean => {
-  if (!serviceRequest.performer) throw EXTERNAL_LAB_ERROR(`ServiceRequest/${serviceRequest.id} has no performer`);
-  const orgRefToOrgMap = new Map<string, Organization>(
-    organizations.map((org) => {
-      return [`Organization/${org.id}`, org];
-    })
-  );
-
-  let performingOrg: Organization | undefined;
-  for (const performer of serviceRequest.performer) {
-    const performerRef = performer.reference;
-    if (performerRef && orgRefToOrgMap.has(performerRef)) {
-      performingOrg = orgRefToOrgMap.get(performerRef)!;
-      break;
-    }
-  }
-
-  return (
-    performingOrg?.identifier?.some(
-      (id) => id.system === OYSTEHR_LAB_GUID_SYSTEM && id.value === STATIC_COMPENDIUM_LAB_GUID
-    ) || false
-  );
+const isGenericOrder = (serviceRequest: ServiceRequest): boolean => {
+  const isGeneric =
+    serviceRequest.meta?.tag?.some(
+      (tag) => tag.system === GENERIC_LAB_ORDER_TAG.system && tag.code === GENERIC_LAB_ORDER_TAG.code
+    ) ?? false;
+  console.log(`ServiceRequest/${serviceRequest.id} isGeneric: ${isGeneric}`);
+  return isGeneric;
 };
