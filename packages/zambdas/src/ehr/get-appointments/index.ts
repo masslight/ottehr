@@ -37,6 +37,7 @@ import {
   InPersonAppointmentInformation,
   INSURANCE_CARD_CODE,
   isAnnotationFollowupEncounter,
+  isInPersonAppointment,
   isNonPaperworkQuestionnaireResponse,
   isTruthy,
   PHOTO_ID_CARD_CODE,
@@ -432,7 +433,9 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
   if (visitType?.length > 0) {
     appointments = appointments?.filter((appointment) => {
-      return visitType?.includes(appointmentTypeForAppointment(appointment));
+      return visitType?.includes(
+        (isInPersonAppointment(appointment) ? 'in-person-' : 'virtual-') + appointmentTypeForAppointment(appointment)
+      );
     });
   }
 

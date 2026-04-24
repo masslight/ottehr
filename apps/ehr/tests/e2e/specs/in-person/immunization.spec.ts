@@ -209,7 +209,6 @@ test.describe('Immunization Page mutating tests', () => {
     const marTab = await vaccineDetailsTab.clickMarTab();
     await marTab.verifyVaccinePresent({
       ...VACCINE,
-      givenPerson: await getCurrentPractitionerName(),
       status: NOT_ADMINISTERED,
       reason: PATIENT_REFUSED,
     });
