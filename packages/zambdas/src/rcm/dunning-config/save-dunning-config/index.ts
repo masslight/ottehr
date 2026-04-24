@@ -1,7 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PlanDefinition } from 'fhir/r4b';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { buildPlanDefinitionFromActions, getOrCreateDunningConfig, parsePlanDefinitionToActions } from '../helpers';
+import {
+  buildPlanDefinitionFromActions,
+  getOrCreateDunningConfig,
+  parsePlanDefinitionToActions,
+  parseSmsTimeRestriction,
+} from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -16,15 +21,16 @@ export const index = wrapHandler('save-dunning-config', async (input: ZambdaInpu
 
   // Build and update the PlanDefinition from the submitted actions
   const updated: PlanDefinition = {
-    ...buildPlanDefinitionFromActions(validated.actions),
+    ...buildPlanDefinitionFromActions(validated.actions, validated.smsTimeRestriction),
     id: existing.id,
   };
 
   const saved = await oystehr.fhir.update<PlanDefinition>(updated);
   const actions = parsePlanDefinitionToActions(saved);
+  const smsTimeRestriction = parseSmsTimeRestriction(saved);
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ planDefinition: saved, actions }),
+    body: JSON.stringify({ planDefinition: saved, actions, smsTimeRestriction }),
   };
 });

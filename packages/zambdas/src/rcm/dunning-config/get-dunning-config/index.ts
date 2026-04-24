@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { getOrCreateDunningConfig, parsePlanDefinitionToActions } from '../helpers';
+import { getOrCreateDunningConfig, parsePlanDefinitionToActions, parseSmsTimeRestriction } from '../helpers';
 
 let m2mToken: string;
 export const index = wrapHandler('get-dunning-config', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -11,9 +11,10 @@ export const index = wrapHandler('get-dunning-config', async (input: ZambdaInput
 
   const planDefinition = await getOrCreateDunningConfig(oystehr);
   const actions = parsePlanDefinitionToActions(planDefinition);
+  const smsTimeRestriction = parseSmsTimeRestriction(planDefinition);
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ planDefinition, actions }),
+    body: JSON.stringify({ planDefinition, actions, smsTimeRestriction }),
   };
 });

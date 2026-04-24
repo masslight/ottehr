@@ -165,7 +165,7 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
             <Tab label="Employers" value="employers" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Payment Locations" value="payment-locations" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Invoicing" value="invoicing" sx={{ textTransform: 'none', fontWeight: 500 }} />
-            <Tab label="Patient AR" value="patient-ar" sx={{ textTransform: 'none', fontWeight: 500 }} />
+            <Tab label="Patient Outreach" value="patient-ar" sx={{ textTransform: 'none', fontWeight: 500 }} />
           </TabList>
         </Box>
         <TabPanel value="insurance" sx={{ padding: 0 }}>

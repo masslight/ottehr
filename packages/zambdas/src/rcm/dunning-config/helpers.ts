@@ -9,9 +9,11 @@ export const DUNNING_PLAN_DEFINITION_URL = 'https://ottehr.com/r4/PlanDefinition
 
 // ── UI types (mirrored from PatientDunning.tsx) ────────────────────────────
 
-export type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due';
+export type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due' | 'discharge-time' | 'patient-birthday';
 export type NotificationMedium = 'sms' | 'email' | 'paper-mail';
 export type ActionType = 'charge-card' | 'send-notification' | 'refer-to-collections';
+export type TimeUnit = 'days' | 'hours' | 'minutes';
+export type TriggerDirection = 'after' | 'before';
 
 export interface NotificationConfig {
   enabled: boolean;
@@ -39,16 +41,56 @@ export interface ReferToCollectionsConfig {
   includePaymentHistory: boolean;
 }
 
+export interface SmsTimeRestriction {
+  enabled: boolean;
+  windowStart: string; // HH:mm
+  windowEnd: string; // HH:mm
+  timezone: string;
+}
+
 export interface DunningAction {
   id: string;
   trigger: {
     event: TriggerEvent;
     daysAfter: number;
+    timeUnit?: TimeUnit;
+    direction?: TriggerDirection;
   };
   actionType: ActionType;
   chargeCardConfig?: ChargeCardConfig;
   sendNotificationConfig?: SendNotificationConfig;
   referToCollectionsConfig?: ReferToCollectionsConfig;
+}
+
+// ── SMS time restriction extension ─────────────────────────────────────────
+
+const SMS_TIME_RESTRICTION_URL = `${PRIVATE_EXTENSION_BASE_URL}/sms-time-restriction`;
+
+function buildSmsTimeRestrictionExtension(restriction: SmsTimeRestriction): PlanDefinition['extension'] {
+  return [
+    {
+      url: SMS_TIME_RESTRICTION_URL,
+      extension: [
+        { url: 'enabled', valueBoolean: restriction.enabled },
+        { url: 'window-start', valueTime: restriction.windowStart + ':00' },
+        { url: 'window-end', valueTime: restriction.windowEnd + ':00' },
+        { url: 'timezone', valueString: restriction.timezone },
+      ],
+    },
+  ];
+}
+
+export function parseSmsTimeRestriction(planDef: PlanDefinition): SmsTimeRestriction {
+  const ext = planDef.extension?.find((e) => e.url === SMS_TIME_RESTRICTION_URL);
+  if (!ext || !ext.extension) {
+    return { enabled: false, windowStart: '09:00', windowEnd: '21:00', timezone: 'America/New_York' };
+  }
+  const sub = ext.extension;
+  const enabled = sub.find((e) => e.url === 'enabled')?.valueBoolean ?? false;
+  const windowStart = (sub.find((e) => e.url === 'window-start')?.valueTime ?? '09:00:00').substring(0, 5);
+  const windowEnd = (sub.find((e) => e.url === 'window-end')?.valueTime ?? '21:00:00').substring(0, 5);
+  const timezone = sub.find((e) => e.url === 'timezone')?.valueString ?? 'America/New_York';
+  return { enabled, windowStart, windowEnd, timezone };
 }
 
 // ── FHIR code systems ──────────────────────────────────────────────────────
@@ -70,6 +112,34 @@ const MEDIUM_DISPLAY: Record<NotificationMedium, string> = {
 };
 
 // ── Conversion: UI → FHIR ─────────────────────────────────────────────────
+
+const TIME_UNIT_TO_FHIR: Record<TimeUnit, { unit: string; code: string }> = {
+  days: { unit: 'days', code: 'd' },
+  hours: { unit: 'hours', code: 'h' },
+  minutes: { unit: 'minutes', code: 'min' },
+};
+
+function buildOffsetDuration(trigger: DunningAction['trigger']): any {
+  const timeUnit = trigger.timeUnit || 'days';
+  const fhirUnit = TIME_UNIT_TO_FHIR[timeUnit];
+  return {
+    value: trigger.daysAfter,
+    unit: fhirUnit.unit,
+    system: 'http://unitsofmeasure.org',
+    code: fhirUnit.code,
+  };
+}
+
+function buildRelatedAction(trigger: DunningAction['trigger']): any[] | undefined {
+  if (trigger.daysAfter <= 0 && (!trigger.direction || trigger.direction === 'after')) return undefined;
+  return [
+    {
+      actionId: 'start',
+      relationship: trigger.direction === 'before' ? 'before' : 'after',
+      offsetDuration: buildOffsetDuration(trigger),
+    },
+  ];
+}
 
 function encodeTemplate(template: string): string {
   return Buffer.from(template, 'utf-8').toString('base64');
@@ -211,22 +281,7 @@ function buildChargeCardFhirAction(uiAction: DunningAction): any {
         periodUnit: 'd',
       },
     },
-    ...(uiAction.trigger.daysAfter > 0
-      ? {
-          relatedAction: [
-            {
-              actionId: 'start',
-              relationship: 'after',
-              offsetDuration: {
-                value: uiAction.trigger.daysAfter,
-                unit: 'days',
-                system: 'http://unitsofmeasure.org',
-                code: 'd',
-              },
-            },
-          ],
-        }
-      : {}),
+    ...(buildRelatedAction(uiAction.trigger) ? { relatedAction: buildRelatedAction(uiAction.trigger) } : {}),
     action: subActions,
   };
 }
@@ -245,22 +300,7 @@ function buildSendNotificationFhirAction(uiAction: DunningAction): any {
       },
     ],
     trigger: [{ type: 'named-event', name: uiAction.trigger.event }],
-    ...(uiAction.trigger.daysAfter > 0
-      ? {
-          relatedAction: [
-            {
-              actionId: 'start',
-              relationship: 'after',
-              offsetDuration: {
-                value: uiAction.trigger.daysAfter,
-                unit: 'days',
-                system: 'http://unitsofmeasure.org',
-                code: 'd',
-              },
-            },
-          ],
-        }
-      : {}),
+    ...(buildRelatedAction(uiAction.trigger) ? { relatedAction: buildRelatedAction(uiAction.trigger) } : {}),
     action: buildNotificationSubActions(
       uiAction.id,
       'notify',
@@ -290,22 +330,7 @@ function buildReferToCollectionsFhirAction(uiAction: DunningAction): any {
       },
     ],
     trigger: [{ type: 'named-event', name: uiAction.trigger.event }],
-    ...(uiAction.trigger.daysAfter > 0
-      ? {
-          relatedAction: [
-            {
-              actionId: 'start',
-              relationship: 'after',
-              offsetDuration: {
-                value: uiAction.trigger.daysAfter,
-                unit: 'days',
-                system: 'http://unitsofmeasure.org',
-                code: 'd',
-              },
-            },
-          ],
-        }
-      : {}),
+    ...(buildRelatedAction(uiAction.trigger) ? { relatedAction: buildRelatedAction(uiAction.trigger) } : {}),
     ...(cfg.minimumBalance > 0
       ? {
           condition: [
@@ -363,7 +388,10 @@ function uiActionToFhirAction(uiAction: DunningAction): any {
   }
 }
 
-export function buildPlanDefinitionFromActions(actions: DunningAction[]): Omit<PlanDefinition, 'id'> {
+export function buildPlanDefinitionFromActions(
+  actions: DunningAction[],
+  smsTimeRestriction?: SmsTimeRestriction
+): Omit<PlanDefinition, 'id'> {
   return {
     resourceType: 'PlanDefinition',
     url: DUNNING_PLAN_DEFINITION_URL,
@@ -372,6 +400,7 @@ export function buildPlanDefinitionFromActions(actions: DunningAction[]): Omit<P
     title: 'Patient AR Dunning Workflow',
     status: 'active',
     meta: rcmMeta('dunning-config'),
+    ...(smsTimeRestriction ? { extension: buildSmsTimeRestrictionExtension(smsTimeRestriction) } : {}),
     type: {
       coding: [
         {
@@ -433,6 +462,38 @@ function extractDaysAfter(fhirAction: any): number {
   return fhirAction.relatedAction?.[0]?.offsetDuration?.value ?? 0;
 }
 
+const FHIR_CODE_TO_TIME_UNIT: Record<string, TimeUnit> = {
+  d: 'days',
+  h: 'hours',
+  min: 'minutes',
+};
+
+function extractTimeUnit(fhirAction: any): TimeUnit | undefined {
+  const code = fhirAction.relatedAction?.[0]?.offsetDuration?.code;
+  if (!code) return undefined;
+  return FHIR_CODE_TO_TIME_UNIT[code] || undefined;
+}
+
+function extractDirection(fhirAction: any): TriggerDirection | undefined {
+  const relationship = fhirAction.relatedAction?.[0]?.relationship;
+  if (relationship === 'before') return 'before';
+  if (relationship === 'after') return 'after';
+  return undefined;
+}
+
+function extractTrigger(fhirAction: any): DunningAction['trigger'] {
+  const event = extractTriggerEvent(fhirAction);
+  const daysAfter = extractDaysAfter(fhirAction);
+  const timeUnit = extractTimeUnit(fhirAction);
+  const direction = extractDirection(fhirAction);
+  return {
+    event,
+    daysAfter,
+    ...(timeUnit ? { timeUnit } : {}),
+    ...(direction ? { direction } : {}),
+  };
+}
+
 function extractMediumsAndTemplates(subActions: any[]): {
   mediums: NotificationMedium[];
   smsTemplate: string;
@@ -473,7 +534,7 @@ function parseChargeCardAction(fhirAction: any): DunningAction {
 
   return {
     id: fhirAction.id || String(Date.now()),
-    trigger: { event: extractTriggerEvent(fhirAction), daysAfter: extractDaysAfter(fhirAction) },
+    trigger: extractTrigger(fhirAction),
     actionType: 'charge-card',
     chargeCardConfig: {
       onSuccess: parseNotificationConfig(successAction),
@@ -488,7 +549,7 @@ function parseSendNotificationAction(fhirAction: any): DunningAction {
   const { mediums, smsTemplate, emailTemplate } = extractMediumsAndTemplates(fhirAction.action);
   return {
     id: fhirAction.id || String(Date.now()),
-    trigger: { event: extractTriggerEvent(fhirAction), daysAfter: extractDaysAfter(fhirAction) },
+    trigger: extractTrigger(fhirAction),
     actionType: 'send-notification',
     sendNotificationConfig: { mediums, smsTemplate, emailTemplate },
   };
@@ -503,7 +564,7 @@ function parseReferToCollectionsAction(fhirAction: any): DunningAction {
 
   return {
     id: fhirAction.id || String(Date.now()),
-    trigger: { event: extractTriggerEvent(fhirAction), daysAfter: extractDaysAfter(fhirAction) },
+    trigger: extractTrigger(fhirAction),
     actionType: 'refer-to-collections',
     referToCollectionsConfig: { agency, minimumBalance, includePaymentHistory },
   };

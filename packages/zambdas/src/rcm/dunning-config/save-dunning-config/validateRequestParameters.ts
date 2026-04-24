@@ -1,15 +1,35 @@
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../shared';
-import { ActionType, DunningAction, NotificationMedium, TriggerEvent } from '../helpers';
+import {
+  ActionType,
+  DunningAction,
+  NotificationMedium,
+  SmsTimeRestriction,
+  TimeUnit,
+  TriggerDirection,
+  TriggerEvent,
+} from '../helpers';
 
 export interface SaveDunningConfigInput {
   actions: DunningAction[];
+  smsTimeRestriction?: SmsTimeRestriction;
   secrets: Record<string, string>;
 }
 
 const VALID_ACTION_TYPES: ActionType[] = ['charge-card', 'send-notification', 'refer-to-collections'];
-const VALID_TRIGGER_EVENTS: TriggerEvent[] = ['date-of-visit', 'invoice-issued', 'invoice-due'];
+const VALID_TRIGGER_EVENTS: TriggerEvent[] = [
+  'date-of-visit',
+  'invoice-issued',
+  'invoice-due',
+  'discharge-time',
+  'patient-birthday',
+];
 const VALID_MEDIUMS: NotificationMedium[] = ['sms', 'email', 'paper-mail'];
+const VALID_TIME_UNITS: TimeUnit[] = ['days', 'hours', 'minutes'];
+const VALID_DIRECTIONS: TriggerDirection[] = ['after', 'before'];
+
+/** Events that only allow send-notification. */
+const NOTIFICATION_ONLY_EVENTS: TriggerEvent[] = ['discharge-time', 'patient-birthday'];
 
 function validateAction(action: unknown, index: number): DunningAction {
   if (!action || typeof action !== 'object') {
@@ -35,11 +55,26 @@ function validateAction(action: unknown, index: number): DunningAction {
     throw INVALID_INPUT_ERROR(`actions[${index}].trigger.daysAfter must be a non-negative number`);
   }
 
+  if (trigger.timeUnit !== undefined && !VALID_TIME_UNITS.includes(trigger.timeUnit as TimeUnit)) {
+    throw INVALID_INPUT_ERROR(`actions[${index}].trigger.timeUnit must be one of: ${VALID_TIME_UNITS.join(', ')}`);
+  }
+
+  if (trigger.direction !== undefined && !VALID_DIRECTIONS.includes(trigger.direction as TriggerDirection)) {
+    throw INVALID_INPUT_ERROR(`actions[${index}].trigger.direction must be one of: ${VALID_DIRECTIONS.join(', ')}`);
+  }
+
   if (!VALID_ACTION_TYPES.includes(a.actionType as ActionType)) {
     throw INVALID_INPUT_ERROR(`actions[${index}].actionType must be one of: ${VALID_ACTION_TYPES.join(', ')}`);
   }
 
+  const triggerEvent = trigger.event as TriggerEvent;
   const actionType = a.actionType as ActionType;
+
+  if (NOTIFICATION_ONLY_EVENTS.includes(triggerEvent) && actionType !== 'send-notification') {
+    throw INVALID_INPUT_ERROR(
+      `actions[${index}].actionType must be 'send-notification' for trigger event '${triggerEvent}'`
+    );
+  }
 
   if (actionType === 'charge-card') {
     if (!a.chargeCardConfig || typeof a.chargeCardConfig !== 'object') {
@@ -83,7 +118,7 @@ export function validateRequestParameters(input: ZambdaInput): SaveDunningConfig
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
   const parsed = JSON.parse(input.body);
-  const { actions } = parsed;
+  const { actions, smsTimeRestriction } = parsed;
 
   if (!Array.isArray(actions)) {
     throw INVALID_INPUT_ERROR('actions must be an array');
@@ -91,8 +126,30 @@ export function validateRequestParameters(input: ZambdaInput): SaveDunningConfig
 
   const validatedActions = actions.map((action: unknown, index: number) => validateAction(action, index));
 
+  let validatedSmsTimeRestriction: SmsTimeRestriction | undefined;
+  if (smsTimeRestriction !== undefined) {
+    if (typeof smsTimeRestriction !== 'object' || smsTimeRestriction === null) {
+      throw INVALID_INPUT_ERROR('smsTimeRestriction must be an object');
+    }
+    const r = smsTimeRestriction as Record<string, unknown>;
+    if (typeof r.enabled !== 'boolean') {
+      throw INVALID_INPUT_ERROR('smsTimeRestriction.enabled must be a boolean');
+    }
+    if (typeof r.windowStart !== 'string' || !/^\d{2}:\d{2}$/.test(r.windowStart)) {
+      throw INVALID_INPUT_ERROR('smsTimeRestriction.windowStart must be a time string (HH:mm)');
+    }
+    if (typeof r.windowEnd !== 'string' || !/^\d{2}:\d{2}$/.test(r.windowEnd)) {
+      throw INVALID_INPUT_ERROR('smsTimeRestriction.windowEnd must be a time string (HH:mm)');
+    }
+    if (typeof r.timezone !== 'string' || r.timezone.trim().length === 0) {
+      throw INVALID_INPUT_ERROR('smsTimeRestriction.timezone must be a non-empty string');
+    }
+    validatedSmsTimeRestriction = r as unknown as SmsTimeRestriction;
+  }
+
   return {
     actions: validatedActions,
+    smsTimeRestriction: validatedSmsTimeRestriction,
     secrets: input.secrets,
   };
 }

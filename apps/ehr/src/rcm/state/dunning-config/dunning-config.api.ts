@@ -5,14 +5,24 @@ import { chooseJson } from 'utils';
 const GET_DUNNING_CONFIG_ZAMBDA_ID = 'get-dunning-config';
 const SAVE_DUNNING_CONFIG_ZAMBDA_ID = 'save-dunning-config';
 
+export interface SmsTimeRestrictionDTO {
+  enabled: boolean;
+  windowStart: string;
+  windowEnd: string;
+  timezone: string;
+}
+
 export interface DunningConfigResponse {
   planDefinition: PlanDefinition;
   actions: DunningActionDTO[];
+  smsTimeRestriction?: SmsTimeRestrictionDTO;
 }
 
-export type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due';
+export type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due' | 'discharge-time' | 'patient-birthday';
 export type NotificationMedium = 'sms' | 'email' | 'paper-mail';
 export type ActionType = 'charge-card' | 'send-notification' | 'refer-to-collections';
+export type TimeUnit = 'days' | 'hours' | 'minutes';
+export type TriggerDirection = 'after' | 'before';
 
 export interface NotificationConfigDTO {
   enabled: boolean;
@@ -45,6 +55,8 @@ export interface DunningActionDTO {
   trigger: {
     event: TriggerEvent;
     daysAfter: number;
+    timeUnit?: TimeUnit;
+    direction?: TriggerDirection;
   };
   actionType: ActionType;
   chargeCardConfig?: ChargeCardConfigDTO;
@@ -54,6 +66,7 @@ export interface DunningActionDTO {
 
 export interface SaveDunningConfigInput {
   actions: DunningActionDTO[];
+  smsTimeRestriction?: SmsTimeRestrictionDTO;
 }
 
 export const getDunningConfig = async (oystehr: Oystehr): Promise<DunningConfigResponse> => {
