@@ -9,14 +9,23 @@ export interface RosCard {
 
 export type RosItemConfig = Record<string, RosCard>;
 
-export enum RosFinding {
-  Reports = 'reports', // abnormal
-  Denies = 'denies', // normal
+/**
+ * reports indicates abnormal
+ * denies indicates normal
+ */
+export enum RosFindingState {
+  Reports = 'reports',
+  Denies = 'denies',
 }
 
-export const RosItemSuffixes: Record<RosFinding, string> = {
-  [RosFinding.Reports]: `-${RosFinding.Reports}`,
-  [RosFinding.Denies]: `-${RosFinding.Denies}`,
+export const RosFindingStateLabel = {
+  [RosFindingState.Reports]: 'Reports',
+  [RosFindingState.Denies]: 'Deports',
+};
+
+export const RosItemSuffixes: Record<RosFindingState, string> = {
+  [RosFindingState.Reports]: `-${RosFindingState.Reports}`,
+  [RosFindingState.Denies]: `-${RosFindingState.Denies}`,
 };
 
 export const InPersonRosConfig: RosItemConfig = {

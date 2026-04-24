@@ -13,6 +13,7 @@ import {
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
   TemplateInfo,
+  TemplateVersionData,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
@@ -41,7 +42,7 @@ const performEffect = async (
   validatedInput: ListTemplatesZambdaInput,
   oystehr: Oystehr
 ): Promise<ListTemplatesZambdaOutput> => {
-  const { examType } = validatedInput;
+  const { examType, includeVersionData } = validatedInput;
 
   // Find the holder list
   const holderList = await findHolderList(oystehr);
@@ -101,38 +102,49 @@ const performEffect = async (
       const coding = template.code?.coding?.find((c) => c.system === codeSystem);
       const examVersion = coding?.version ?? '';
 
-      // Check if the template contains any exam or ROS fields that no longer exist in the
-      // current config. A template is "current" if all its fields are recognized.
-      const contained = (template.contained || []) as Resource[];
-      const examObs = contained.filter(
-        (r) => r.resourceType === 'Observation' && r.meta?.tag?.some((t) => t.system === examTagSystem)
-      ) as Observation[];
-      const unmatchedExamFields = examObs
-        .map((obs) => obs.meta?.tag?.find((t) => t.system === examTagSystem)?.code)
-        .filter((code): code is string => !!code && !knownExamFields.has(code));
+      let versionData: TemplateVersionData | undefined;
 
-      const rosObs = contained.filter(
-        (r) => r.resourceType === 'Observation' && r.meta?.tag?.some((t) => t.system === rosTagSystem)
-      ) as Observation[];
-      const unmatchedRosFields = rosObs
-        .map((obs) => obs.meta?.tag?.find((t) => t.system === rosTagSystem)?.code)
-        .filter((code): code is string => !!code && !knownRosFields.has(code));
+      if (includeVersionData) {
+        const contained = (template.contained || []) as Resource[];
+        const examObs = contained.filter(
+          (r) => r.resourceType === 'Observation' && r.meta?.tag?.some((t) => t.system === examTagSystem)
+        ) as Observation[];
+        const unmatchedExamFields = examObs
+          .map((obs) => obs.meta?.tag?.find((t) => t.system === examTagSystem)?.code)
+          .filter((code): code is string => !!code && !knownExamFields.has(code));
+
+        const rosObs = contained.filter(
+          (r) => r.resourceType === 'Observation' && r.meta?.tag?.some((t) => t.system === rosTagSystem)
+        ) as Observation[];
+        const unmatchedRosFields = rosObs
+          .map((obs) => obs.meta?.tag?.find((t) => t.system === rosTagSystem)?.code)
+          .filter((code): code is string => !!code && !knownRosFields.has(code));
+
+        const isCurrentVersion = unmatchedExamFields.length === 0 && unmatchedRosFields.length === 0;
+
+        if (isCurrentVersion) {
+          versionData = { isCurrentVersion };
+        } else {
+          versionData = {
+            isCurrentVersion,
+            unmatchedFields: {
+              exam: unmatchedExamFields,
+              ros: unmatchedRosFields,
+            },
+          };
+        }
+      }
 
       return {
         id: template.id!,
         title: template.title ?? '',
         examVersion,
-        isCurrentVersion: unmatchedExamFields.length === 0 && unmatchedRosFields.length === 0,
+        versionData,
       };
     })
     .filter((info) => info.title !== '');
 
   templateInfos.sort((a, b) => a.title.localeCompare(b.title));
-
-  console.log(
-    'Templates:',
-    templateInfos.map((t) => t.title)
-  );
 
   return { templates: templateInfos };
 };
