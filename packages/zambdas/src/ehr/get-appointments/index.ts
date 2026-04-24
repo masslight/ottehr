@@ -638,41 +638,40 @@ const makeAppointmentInformation = (
   let smsModel: SMSModel | undefined;
 
   if (patientRef) {
-    const rps = patientToRPMap[patientRef] ?? [];
-    if (rps.length > 0) {
-      try {
-        const recipientsMap = new Map<string, SMSRecipient>();
+    try {
+      const rps = patientToRPMap[patientRef] ?? [];
+      const recipientsMap = new Map<string, SMSRecipient>();
 
-        rps.forEach((rp) => {
-          const rpRef = `RelatedPerson/${rp.id}`;
-          const phones = rpToPhoneNumbersMap[rpRef] ?? new Set<string>();
+      rps.forEach((rp) => {
+        const rpRef = `RelatedPerson/${rp.id}`;
+        const phones = rpToPhoneNumbersMap[rpRef] ?? new Set<string>();
 
-          phones.forEach((phone) => {
-            const key = `${rpRef}|${phone}`;
-            if (!recipientsMap.has(key)) {
-              recipientsMap.set(key, {
-                recipientResourceUri: rpRef,
-                smsNumber: phone,
-              });
-            }
-          });
+        phones.forEach((phone) => {
+          const key = `${rpRef}|${phone}`;
+          if (!recipientsMap.has(key)) {
+            recipientsMap.set(key, {
+              recipientResourceUri: rpRef,
+              smsNumber: phone,
+            });
+          }
         });
+      });
 
-        const recipients = Array.from(recipientsMap.values());
-        if (recipients.length) {
-          const allCommunications = recipients.flatMap((recipient) => {
-            return rpToCommMap[recipient.recipientResourceUri] ?? [];
-          });
-          smsModel = {
-            hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
-            recipients,
-          };
-        }
-      } catch (e) {
-        console.log('error building sms model: ', e);
-        console.log('related persons value prior to error: ', rps);
-        captureException(e);
+      const recipients = Array.from(recipientsMap.values());
+      if (recipients.length === 0) {
+        throw new Error(`no RelatedPerson with contact number for patient ${patientId}`);
       }
+
+      const allCommunications = recipients.flatMap((recipient) => {
+        return rpToCommMap[recipient.recipientResourceUri] ?? [];
+      });
+      smsModel = {
+        hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
+        recipients,
+      };
+    } catch (e) {
+      console.log('error building sms model: ', e);
+      captureException(e);
     }
   } else {
     console.log(`no patient ref found for appointment ${appointment.id}`);
