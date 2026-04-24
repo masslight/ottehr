@@ -1,17 +1,12 @@
-import { otherColors } from '@ehrTheme/colors';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Badge, Box, Tab } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
-import { getEmployees } from '../api/api';
-import { dataTestIds } from '../constants/data-test-ids';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
-import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import MedicationsConfigurationPage from './configuration/MedicationsConfiguration';
 import EmployeesPage, { EmployeeTypes } from './Employees';
@@ -32,17 +27,8 @@ enum PageTab {
 export function AdminPage(): JSX.Element {
   const { adminTab, billingTab } = useParams();
   const navigate = useNavigate();
-  const { oystehrZambda } = useApiClients();
 
   const pageTab = billingTab ? PageTab.billing : (adminTab as PageTab) || PageTab.schedules;
-
-  const employeesQuery = useQuery({
-    queryKey: ['get-employees'],
-    queryFn: () => (oystehrZambda ? getEmployees(oystehrZambda) : Promise.resolve(null)),
-    enabled: !!oystehrZambda,
-  });
-
-  const pendingReviewCount = employeesQuery.data?.employees.filter((e) => e.needsReview).length ?? 0;
 
   return (
     <PageContainer>
@@ -64,21 +50,7 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab['virtual-locations']}`)}
                 />
                 <Tab
-                  label={
-                    <Badge
-                      variant="dot"
-                      invisible={pendingReviewCount === 0}
-                      data-testid={dataTestIds.employeesPage.needsReviewBadge}
-                      sx={{
-                        '& .MuiBadge-badge': {
-                          right: -4,
-                          bgcolor: otherColors.priorityHighIcon,
-                        },
-                      }}
-                    >
-                      Employees
-                    </Badge>
-                  }
+                  label="Employees"
                   value={PageTab.employees}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab.employees}`)}

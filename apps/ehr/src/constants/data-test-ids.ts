@@ -184,7 +184,6 @@ export const dataTestIds = {
     deactivateUserButton: 'deactivate-user-button',
     statusChip: 'employee-status-chip',
     needsReviewChip: 'employee-needs-review-chip',
-    needsReviewBadge: 'employees-tab-needs-review-badge',
     assignRoleButton: 'employee-assign-role-button',
     assignRoleDialog: 'employee-assign-role-dialog',
     assignRoleSelect: 'employee-assign-role-select',

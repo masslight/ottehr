@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import { EmployeeDetails, GetEmployeesResponse, RoleType } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -67,7 +67,6 @@ vi.mock('notistack', async () => {
 });
 
 import { dataTestIds } from '../../src/constants/data-test-ids';
-import { AdminPage } from '../../src/pages/AdminPage';
 import EmployeesPage, { EmployeeTypes } from '../../src/pages/Employees';
 
 // ---------------------------------------------------------------------------
@@ -264,54 +263,5 @@ describe('EmployeesPage', () => {
     await waitFor(() => expect(screen.getByText('Provider, Pat')).toBeInTheDocument());
     expect(screen.queryByText('pending@x.com')).not.toBeInTheDocument();
     expect(screen.queryByTestId(dataTestIds.employeesPage.needsReviewChip)).not.toBeInTheDocument();
-  });
-});
-
-describe('AdminPage Employees-tab badge', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockHasRole.mockReturnValue(true);
-  });
-
-  const renderAdminPage = (path = '/admin/employees'): ReturnType<typeof render> =>
-    render(
-      <Routes>
-        <Route path="/admin/:adminTab" element={<AdminPage />} />
-      </Routes>,
-      { wrapper: createWrapper(path) }
-    );
-
-  it('shows a visible dot on the Employees tab when any users need review', async () => {
-    mockGetEmployees.mockResolvedValue({
-      message: 'ok',
-      employees: [
-        makeEmployee({ id: 'u-n1', needsReview: false }),
-        makeEmployee({ id: 'u-r1', needsReview: true, profile: 'Patient/a' }),
-        makeEmployee({ id: 'u-r2', needsReview: true, profile: 'Patient/b' }),
-      ],
-    });
-
-    renderAdminPage();
-
-    await waitFor(() => {
-      const badge = screen.getByTestId(dataTestIds.employeesPage.needsReviewBadge);
-      const badgeContent = badge.querySelector('.MuiBadge-badge');
-      expect(badgeContent).not.toBeNull();
-      expect(badgeContent?.className).not.toMatch(/MuiBadge-invisible/);
-    });
-  });
-
-  it('hides the badge dot when there are zero pending-review users', async () => {
-    mockGetEmployees.mockResolvedValue({
-      message: 'ok',
-      employees: [makeEmployee({ id: 'u-n1', needsReview: false })],
-    });
-
-    renderAdminPage();
-
-    await waitFor(() => expect(screen.getByTestId(dataTestIds.employeesPage.needsReviewBadge)).toBeInTheDocument());
-    const badge = screen.getByTestId(dataTestIds.employeesPage.needsReviewBadge);
-    const badgeContent = badge.querySelector('.MuiBadge-badge');
-    expect(badgeContent?.className).toMatch(/MuiBadge-invisible/);
   });
 });
