@@ -100,6 +100,18 @@ import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
 
+/**
+ * Filters out properties with null, undefined, or empty string values.
+ * Keeps other falsy values like 0 and false as they may be valid.
+ * Used to conditionally include optional FHIR fields that reject empty strings per FHIR spec.
+ * @example omitFalsyValues({ display: '' }) // returns {}
+ * @example omitFalsyValues({ display: 'Valid text' }) // returns { display: 'Valid text' }
+ * @example omitFalsyValues({ count: 0 }) // returns { count: 0 }
+ */
+export function omitFalsyValues<T extends Record<string, any>>(obj: T): Partial<T> {
+  return Object.fromEntries(Object.entries(obj).filter(([_, value]) => value != null && value !== '')) as Partial<T>;
+}
+
 const hasValue = (data: unknown): boolean => {
   if (data == null) return false;
 
@@ -143,11 +155,11 @@ export function makeConditionResource(
               system: ICD_10_CODE_SYSTEM,
               version: '2019',
               code: dto.code,
-              display: dto.display,
+              ...omitFalsyValues({ display: dto.display }),
             },
           ],
         }
-      : fieldName === 'medical-condition'
+      : fieldName === 'medical-condition' && dto.display
       ? {
           coding: [
             {
@@ -348,7 +360,12 @@ export function makeProcedureResource(
     result.note = [{ text: text }];
   } else if ('code' in data && 'display' in data) {
     result.code = {
-      coding: [{ code: data.code, display: data.display }],
+      coding: [
+        {
+          code: data.code,
+          ...omitFalsyValues({ display: data.display }),
+        },
+      ],
     };
   }
   return result;
@@ -1021,7 +1038,7 @@ export function makeDiagnosisConditionResource(
         {
           system: ICD_10_CODE_SYSTEM,
           code: data.code,
-          display: data.display,
+          ...omitFalsyValues({ display: data.display }),
         },
       ],
     },

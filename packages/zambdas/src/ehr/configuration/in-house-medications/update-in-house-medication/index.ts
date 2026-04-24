@@ -12,7 +12,13 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   UpdateInHouseMedicationInput,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  omitFalsyValues,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -116,14 +122,22 @@ export const performEffect = async (
       cptCodes ??
       existingCodings
         .filter((c) => c.system === CODE_SYSTEM_CPT)
-        .map((c) => ({ code: c.code!, display: c.display ?? '' }))
-    ).map(({ code, display }) => ({ system: CODE_SYSTEM_CPT, code, display }));
+        .map((c) => ({ code: c.code!, ...omitFalsyValues({ display: c.display }) }))
+    ).map(({ code, display }) => ({
+      system: CODE_SYSTEM_CPT,
+      code,
+      ...omitFalsyValues({ display }),
+    }));
     const resolvedHcpcsCodings = (
       hcpcsCodes ??
       existingCodings
         .filter((c) => c.system === CODE_SYSTEM_HCPCS)
-        .map((c) => ({ code: c.code!, display: c.display ?? '' }))
-    ).map(({ code, display }) => ({ system: CODE_SYSTEM_HCPCS, code, display }));
+        .map((c) => ({ code: c.code!, ...omitFalsyValues({ display: c.display }) }))
+    ).map(({ code, display }) => ({
+      system: CODE_SYSTEM_HCPCS,
+      code,
+      ...omitFalsyValues({ display }),
+    }));
     const newCoding = [
       ...otherCodings,
       ...resolvedNdcCoding,

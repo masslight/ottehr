@@ -196,7 +196,7 @@ export const EditableMedicationCard: React.FC<{
           const codes: { code: string; display: string }[] = [];
           med.code?.coding?.forEach((coding) => {
             if ((coding.system === CODE_SYSTEM_CPT || coding.system === CODE_SYSTEM_HCPCS) && coding.code) {
-              codes.push({ code: coding.code, display: coding.display ?? '' });
+              codes.push({ code: coding.code, display: coding.display! });
             }
           });
           if (codes.length > 0) {
