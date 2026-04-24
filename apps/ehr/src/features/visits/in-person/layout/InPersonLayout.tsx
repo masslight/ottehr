@@ -1,15 +1,20 @@
 import { Mic } from '@mui/icons-material';
 import { Container, Fab, Paper } from '@mui/material';
+import { GlobalStyles, lightTheme, MeetingProvider } from 'amazon-chime-sdk-component-library-react';
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils';
+import { ThemeProvider } from 'styled-components';
+import { getAdmitterPractitionerId, getAttendingPractitionerId, getSelectors, isTelemedAppointment } from 'utils';
 import { Sidebar } from '../../shared/components/Sidebar';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { VideoChatContainer } from '../../telemed/components/appointment/VideoChatContainer';
+import { useVideoCallStore } from '../../telemed/state/video-call/video-call.store';
 import { Header } from '../components/Header';
 import { InfoAlert } from '../components/InfoAlert';
 import { RecordAudioContainer } from '../components/progress-note/RecordAudioContainer';
+import { VirtualAppointmentFooter } from '../components/VirtualAppointmentFooter';
 import { BottomNavigation } from './BottomNavigation';
 
 const layoutStyle: React.CSSProperties = {
@@ -34,7 +39,7 @@ const contentWrapperStyle: React.CSSProperties = {
 };
 
 export const InPersonLayout: React.FC = () => {
-  const { encounter } = useAppointmentData();
+  const { encounter, appointment } = useAppointmentData();
   const [recordingAnchorElement, setRecordingAnchorElement] = React.useState<HTMLButtonElement | null>(null);
   const recordingElementID = 'recording-element';
   const recordingOpen = Boolean(recordingAnchorElement);
@@ -45,6 +50,8 @@ export const InPersonLayout: React.FC = () => {
   const { chartData } = useChartData({ shouldUpdateExams: true });
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
   const assignedProviderId = getAttendingPractitionerId(encounter);
+  const virtual = isTelemedAppointment(appointment);
+  const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
 
   return (
     <div style={layoutStyle}>
@@ -58,7 +65,7 @@ export const InPersonLayout: React.FC = () => {
                 color="primary"
                 aria-label=""
                 aria-describedby={recordingElementID}
-                sx={{ position: 'fixed', right: 8, bottom: 8 }}
+                sx={{ position: 'fixed', right: 8, bottom: virtual ? 130 : 8 }}
                 onClick={(event) =>
                   recordingOpen ? setRecordingAnchorElement(null) : setRecordingAnchorElement(event.currentTarget)
                 }
@@ -104,6 +111,15 @@ export const InPersonLayout: React.FC = () => {
           <BottomNavigation />
         </div>
       </div>
+      {virtual && <VirtualAppointmentFooter />}
+      {virtual && meetingData && (
+        <ThemeProvider theme={lightTheme}>
+          <GlobalStyles />
+          <MeetingProvider>
+            <VideoChatContainer />
+          </MeetingProvider>
+        </ThemeProvider>
+      )}
     </div>
   );
 };

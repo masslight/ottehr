@@ -176,22 +176,30 @@ export const useBulkAddProcedureCodesMutation = (): UseMutationResult<
 
 export const useFindApplicableFeeScheduleQuery = (
   payerOrganizationId: string | undefined,
-  dateOfService: string | undefined
+  dateOfService: string | undefined,
+  locationId?: string,
+  employerOrganizationId?: string
 ): UseQueryResult<FindApplicableFeeScheduleResponse, Error> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
-    queryKey: ['find-applicable-fee-schedule', payerOrganizationId, dateOfService],
+    queryKey: ['find-applicable-fee-schedule', payerOrganizationId, dateOfService, locationId, employerOrganizationId],
 
     queryFn: async () => {
       if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
-      if (!payerOrganizationId) throw new Error('payerOrganizationId is required');
+      if (!payerOrganizationId && !employerOrganizationId)
+        throw new Error('payerOrganizationId or employerOrganizationId is required');
       if (!dateOfService) throw new Error('dateOfService is required');
 
-      return findApplicableFeeSchedule(oystehrZambda, { payerOrganizationId, dateOfService });
+      return findApplicableFeeSchedule(oystehrZambda, {
+        payerOrganizationId,
+        dateOfService,
+        locationId,
+        employerOrganizationId,
+      });
     },
 
-    enabled: !!oystehrZambda && !!payerOrganizationId && !!dateOfService,
+    enabled: !!oystehrZambda && (!!payerOrganizationId || !!employerOrganizationId) && !!dateOfService,
   });
 };
 

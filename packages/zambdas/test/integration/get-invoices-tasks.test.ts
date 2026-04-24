@@ -12,9 +12,10 @@ import {
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } from '../../.env/local.json';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
+
+const { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } = SECRETS;
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 
 describe.skip('get-invoices-tasks integration tests', () => {

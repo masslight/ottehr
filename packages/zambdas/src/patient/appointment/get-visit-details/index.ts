@@ -6,11 +6,12 @@ import {
   FileURLInfo,
   getSecret,
   GetVisitDetailsResponse,
+  isAnnotationFollowupEncounter,
   isFollowupEncounter,
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
-import { getMedications, getPresignedURLs } from './helpers';
+import { getMedications, getPatientPortalPresignedURLs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -55,7 +56,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     ).unbundle();
     allEncounters = encounterResults.filter((e) => e.resourceType === 'Encounter') as Encounter[];
     // Find the main encounter (not follow-up)
-    encounter = allEncounters.find((e) => !isFollowupEncounter(e)) as Encounter;
+    encounter = allEncounters.find((e) => !isAnnotationFollowupEncounter(e)) as Encounter;
     const appointment = encounterResults.find((e) => e.resourceType === 'Appointment') as Appointment;
     if (!encounter || !encounter.id) {
       throw new Error('Error getting appointment encounter');
@@ -71,7 +72,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   try {
     console.log(`getting presigned urls for document references files at ${appointmentId}`);
-    const { presignedUrls, reviewedLabResultsUrls } = await getPresignedURLs(oystehr, oystehrToken, encounter?.id);
+    const { presignedUrls, reviewedLabResultsUrls } = await getPatientPortalPresignedURLs(
+      oystehr,
+      oystehrToken,
+      encounter?.id,
+      secrets
+    );
     documents = presignedUrls;
     reviewedLabResults = reviewedLabResultsUrls;
   } catch (error) {
@@ -106,7 +112,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           let followupDocuments = {};
           try {
             if (followupEncounter.id) {
-              const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, followupEncounter.id);
+              const { presignedUrls } = await getPatientPortalPresignedURLs(
+                oystehr,
+                oystehrToken,
+                followupEncounter.id,
+                secrets
+              );
               followupDocuments = presignedUrls;
             }
           } catch (error) {

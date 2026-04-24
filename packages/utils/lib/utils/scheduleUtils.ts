@@ -18,7 +18,7 @@ import {
   DEFAULT_APPOINTMENT_LENGTH_MINUTES,
   getFullName,
   getPatchOperationForNewMetaTag,
-  isFollowupEncounter,
+  isAnnotationFollowupEncounter,
   isLocationVirtual,
   makeBookingOriginExtensionEntry,
   SCHEDULE_EXTENSION_URL,
@@ -189,7 +189,7 @@ export async function getWaitingMinutesAtSchedule(
   console.timeEnd('get_longest_waiting_patient');
 
   const arrivedEncounters = searchForLongestWaitingPatient.filter(
-    (resource) => resource.resourceType === 'Encounter' && !isFollowupEncounter(resource as Encounter)
+    (resource) => resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource)
   );
 
   return getWaitingMinutes(nowForTimezone, arrivedEncounters);
@@ -1916,10 +1916,11 @@ export const getServiceModeFromSlot = (slot: Slot): ServiceMode | undefined => {
 };
 
 export const getServiceCategoryFromSlot = (slot: Slot): ServiceCategoryCode | undefined => {
+  const knownCategories = BOOKING_CONFIG.serviceCategories.map((sc) => sc.category);
   let serviceCategory: ServiceCategoryCode | undefined;
   (slot.serviceCategory ?? []).forEach((category) => {
     const categoryCoding = category.coding?.[0] ?? {};
-    if (codingContainedInList(categoryCoding, BOOKING_CONFIG.serviceCategories)) {
+    if (codingContainedInList(categoryCoding, knownCategories)) {
       serviceCategory = categoryCoding.code;
     }
   });

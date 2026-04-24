@@ -11,7 +11,7 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { BRANDING_CONFIG, SENDGRID_CONFIG } from 'utils';
+import { BRANDING_CONFIG, FEATURE_FLAGS_CONFIG, SENDGRID_CONFIG } from 'utils';
 import { SpecFile } from '../packages/spec/src/schema';
 import { Schema20250319 } from '../packages/spec/src/schema-20250319';
 import { Schema20250925 } from '../packages/spec/src/schema-20250925';
@@ -25,7 +25,7 @@ const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
 async function generate(input: GenerateResourcesArgs): Promise<void> {
   const { configDir, env, outputPath } = input;
   await generateSendgridResources({ configDir, env });
-  const varFile = `../packages/zambdas/.env/${env}.json`;
+  const varFile = `../config/.env/${env}.json`;
   await generateOystehrResources({
     configDir: `${configDir}/oystehr`,
     coreConfigDir: `${configDir}/oystehr-core`,
@@ -61,7 +61,7 @@ async function generateSendgridResources(input: GenerateSendgridResources): Prom
   projectName += `-${env}`;
   const tfModel = {
     projectName,
-    featureFlag: SENDGRID_CONFIG.featureFlag,
+    featureFlag: FEATURE_FLAGS_CONFIG.sendgridEnabled,
     templates,
   };
   const stringifiedConfig = JSON.stringify(tfModel, null, 2);

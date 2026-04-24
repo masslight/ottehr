@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { CandidApiClient } from 'candidhealth';
 import { Encounter, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils';
+import { createCandidApiClient, getStripeAccountForAppointmentOrEncounter } from 'utils';
 import {
   createOystehrClient,
   createPatientPaymentReceiptPdf,
@@ -19,6 +20,7 @@ import { validateRequestParameters } from '../validateRequestParameters';
 
 let oystehrToken: string;
 let oystehr: Oystehr;
+let candidApiClient: CandidApiClient | undefined;
 let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-patient-payment-candid-sync-and-receipt';
@@ -137,13 +139,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const errors: string[] = [];
 
       // Perform Candid pre-encounter sync
+      // Skip recording payment in Candid for Stripe payments — only cash/check payments should be recorded
+      const shouldRecordPaymentInCandid = !stripePaymentIntentId;
       try {
+        if (!candidApiClient) {
+          candidApiClient = createCandidApiClient(secrets);
+        }
         console.time('Candid pre-encounter sync');
         await performCandidPreEncounterSync({
           encounterId,
           oystehr,
-          secrets,
-          amountCents: amountInCents,
+          candidApiClient,
+          amountCents: shouldRecordPaymentInCandid ? amountInCents : undefined,
         });
         console.timeEnd('Candid pre-encounter sync');
       } catch (error) {

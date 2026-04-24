@@ -3,13 +3,12 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
   AppointmentTypeCount,
-  BOOKING_CONFIG,
   DailyVisitCount,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
   getCoding,
   getInPersonVisitStatus,
-  isFollowupEncounter,
+  isAnnotationFollowupEncounter,
   isInPersonAppointment,
   isTelemedAppointment,
   LocationVisitCount,
@@ -40,6 +39,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Get M2M token for FHIR access
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+
+  // TODO: Once billable follow-up visits are available (with their own Appointment and full visit workflow),
+  // ensure this report includes them as independent visits on their follow-up date.
+  // Currently, follow-up encounters without their own Appointment are excluded from reports.
 
   console.log('Searching for appointments in date range:', dateRange);
 
@@ -106,7 +109,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Create encounter map for quick lookups to determine visit status
   const encounterMap = new Map<string, Encounter>();
   encounters
-    .filter((encounter) => !isFollowupEncounter(encounter))
+    .filter((encounter) => !isAnnotationFollowupEncounter(encounter))
     .forEach((encounter) => {
       const appointmentRef = encounter.appointment?.[0]?.reference;
       if (appointmentRef && encounter.id) {
@@ -391,11 +394,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     activeAppointments
       .reduce<Map<string, VisitsByTypeCount>>((acc: Map<string, VisitsByTypeCount>, appointment: Appointment) => {
         const location = findLocation(appointment, locations);
-        const serviceCategoryCode = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-        const serviceCategoryName =
-          BOOKING_CONFIG.serviceCategories.find((category) => category.code === serviceCategoryCode)?.display ??
-          serviceCategoryCode ??
-          'Unknown';
+        // Use the Coding's own display/code from the resource rather than looking up
+        // BOOKING_CONFIG — this keeps historical reports stable across config changes
+        // (renamed or removed categories) and reflects what was recorded at booking time.
+        // "Unknown" now indicates a genuinely missing SERVICE_CATEGORY_SYSTEM coding.
+        const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
+        const serviceCategoryName = serviceCategoryCoding?.display ?? serviceCategoryCoding?.code ?? 'Unknown';
         const key = location.id + '-' + serviceCategoryName;
         const entry = acc.get(key) ?? {
           locationName: location.name,

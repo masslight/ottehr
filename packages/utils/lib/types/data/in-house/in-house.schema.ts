@@ -115,12 +115,16 @@ const CptCodeInHouseLabDefinitionSchema = z.object({
         display: nonEmptyString('Modifier display required'),
       })
     )
+    .transform((modArray) => (modArray?.length ? modArray : undefined)) // make sure we don't get empty arrays
     .optional(),
 });
 
 export const AdminInHouseLabItemDefinitionSchema = z.object({
   name: nonEmptyString('Must include a non-empty name'),
-  device: nonEmptyString('Device name must be non-empty if provided').optional(),
+  device: nonEmptyString('Device name must be non-empty if provided')
+    .nullable()
+    .transform((val) => val ?? undefined) // the FE will pass null if the field is cleared
+    .optional(),
   methods: z
     .object({
       manual: z.object({ device: nonEmptyString('Device must be non-empty if provided') }).optional(),
@@ -132,6 +136,7 @@ export const AdminInHouseLabItemDefinitionSchema = z.object({
   loincCode: z
     .array(nonEmptyString('LOINC must be non-empty if provided'))
     .min(1, 'At least on LOINC code required when provided')
+    .transform((loincArr) => (loincArr?.length ? loincArr : undefined)) // make sure we don't get empty arrays
     .optional(),
   repeatTest: z.boolean(),
   components: z.array(TestItemComponentSchema).min(1, 'Test must contain at least one component'),

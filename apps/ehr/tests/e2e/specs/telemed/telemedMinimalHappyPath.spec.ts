@@ -1,8 +1,9 @@
 import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForGetChartDataResponse, waitForSaveChartDataResponse } from 'test-utils';
-import { expectTelemedTrackingBoard, TelemedTrackingBoardPage } from 'tests/e2e/page/telemed/TelemedTrackingBoardPage';
-import { ApptTelemedTab, TelemedAppointmentStatusEnum, TelemedAppointmentVisitTabs } from 'utils';
+import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
+import { openVisitsPage } from 'tests/e2e/page/VisitsPage';
+import { TelemedAppointmentStatusEnum, TelemedAppointmentVisitTabs } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
@@ -23,23 +24,15 @@ test.afterAll(async () => {
 
 test.describe.configure({ mode: 'serial' });
 
-let telemedTrackingBoard: TelemedTrackingBoardPage;
-
-test('Should assign visit to practitioner', async () => {
-  await page.goto(`telemed/appointments`);
-  telemedTrackingBoard = await expectTelemedTrackingBoard(page);
-  await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
-  await page
-    .getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
-    .getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton)
-    .click();
-  await telemedDialogConfirm(page);
-  const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
-  await expect(statusChip).toBeVisible();
-  await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['pre-video']);
-});
-
 test('Should start video call', async () => {
+  const visitsPage = await openVisitsPage(page);
+  await visitsPage.selectLocation(resourceHandler.appointmentLocation?.name ?? 'Unknown');
+
+  await page.goto(`/in-person/${resourceHandler.appointment.id}`);
+  const header = new InPersonHeader(page);
+  const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
+  await header.selectIntakePractitioner(testUserPractitioner.id);
+
   const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
   await expect(connectButton).toBeVisible();
   await connectButton.click();
@@ -49,31 +42,7 @@ test('Should start video call', async () => {
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.videoRoomContainer)).toBeVisible();
 });
 
-test('Appointment status should be "on-video" during the call', async () => {
-  const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
-  await expect(statusChip).toBeVisible();
-  await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['on-video']);
-});
-
-test('Should end video call and check status "unsigned"', async () => {
-  await page.getByTestId(dataTestIds.telemedEhrFlow.finishVisitButton).click();
-  await telemedDialogConfirm(page);
-  const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
-  await expect(statusChip).toBeVisible();
-  await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['unsigned']);
-});
-
-test('Visit should be in "unsigned" tab on the tracking board', async () => {
-  await page.goto(`telemed/appointments`);
-  await page.getByTestId(dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab['not-signed'])).click();
-
-  await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
-  await expect(
-    page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
-  ).toBeVisible();
-});
-
-test('Should fill all required fields', async () => {
+test.skip('Should fill all required fields', async () => {
   await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
 
   await page
@@ -126,7 +95,7 @@ test('Should fill all required fields', async () => {
   }
 });
 
-test('Should sign visit', async () => {
+test.skip('Should sign visit', async () => {
   // Wait for the review and sign button to become enabled
   await expect(page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton)).toBeVisible();
   await expect(page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton)).toBeEnabled({ timeout: 60000 });

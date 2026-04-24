@@ -18,7 +18,7 @@ import {
 import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
@@ -65,16 +65,11 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
+  const { id: appointmentIdFromUrl } = useParams();
   const [error, setError] = useState<(string | ReactElement)[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const apiClient = useOystehrAPIClient();
-  const {
-    encounter,
-    appointment,
-    patient,
-    location: apptLocation,
-    followUpOriginEncounter: mainEncounter,
-  } = useAppointmentData();
+  const { encounter, patient, location: apptLocation, followUpOriginEncounter: mainEncounter } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
   const { mutate: saveCPTChartData } = useSaveChartData();
   const { visitType } = useGetAppointmentAccessibility();
@@ -212,7 +207,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           selectedPaymentMethod: selectedPaymentMethod,
           clinicalInfoNoteByUser: clinicalInfoNotes,
         });
-        navigate(`/in-person/${appointment?.id}/external-lab-orders`);
+        navigate(`/in-person/${appointmentIdFromUrl}/external-lab-orders`);
       } catch (e) {
         const sdkError = e as Oystehr.OystehrSdkError;
         console.log('error creating external lab order', sdkError.code, sdkError.message);
@@ -221,7 +216,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           setError([
             <>
               Information necessary to submit labs is missing. Please navigate to{' '}
-              <Link to={`/visit/${appointment?.id}`}>visit details</Link> and complete all Worker's Compensation
+              <Link to={`/visit/${appointmentIdFromUrl}`}>visit details</Link> and complete all Worker's Compensation
               Information.
             </>,
           ]);
@@ -611,7 +606,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     variant="outlined"
                     sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                     onClick={() => {
-                      navigate(`/in-person/${appointment?.id}/external-lab-orders`);
+                      navigate(`/in-person/${appointmentIdFromUrl}/external-lab-orders`);
                     }}
                   >
                     Cancel

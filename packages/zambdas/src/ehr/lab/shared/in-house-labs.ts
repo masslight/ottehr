@@ -444,7 +444,24 @@ export const fetchActiveInHouseLabActivityDefinitions = async (oystehr: Oystehr)
         { name: 'status', value: 'active' },
       ],
     })
-    .then((response) => response.unbundle());
+    .then((response) => {
+      const unbundled = response.unbundle();
+      console.log(
+        `These are the ActivityDefinitions found in fetchActiveInHouseLabActivityDefinitions: `,
+        JSON.stringify(
+          unbundled.map((ad) => ({
+            name: ad.name,
+            id: ad.id,
+            url: ad.url,
+            version: ad.version,
+            status: ad.status,
+          })),
+          undefined,
+          2
+        )
+      );
+      return unbundled;
+    });
 };
 
 export const getInHouseLabTestUrlAndVersionForADFromServiceRequest = (
@@ -1273,6 +1290,9 @@ function parseQuantityComponent(base: BaseComponent, obsDef: ObservationDefiniti
     );
 
   const precision = obsDef.quantitativeDetails?.decimalPrecision;
+
+  const nullOptionExt = obsDef.extension?.find((ext) => ext.url === IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM);
+
   return {
     ...base,
     dataType: 'Quantity',
@@ -1282,7 +1302,7 @@ function parseQuantityComponent(base: BaseComponent, obsDef: ObservationDefiniti
       ...(precision !== undefined ? { precision } : {}),
       unit,
     },
-    display: { type: 'Numeric', nullOption: false },
+    display: { type: 'Numeric', nullOption: nullOptionExt !== undefined },
   };
 }
 

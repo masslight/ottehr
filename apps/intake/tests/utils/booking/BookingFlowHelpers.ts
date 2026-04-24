@@ -5,6 +5,7 @@ import {
   chooseJson,
   CreateAppointmentResponse,
   getReasonForVisitOptionsForServiceCategory,
+  getServiceCategoryCodings,
   prepopulateBookingForm,
   selectBookingQuestionnaire,
   VALUE_SETS,
@@ -65,8 +66,8 @@ export class BookingFlowHelpers {
           const options = getReasonForVisitOptionsForServiceCategory(serviceCategory);
           return options[0]?.value;
         }
-        // Default to urgent-care if no category specified
-        return VALUE_SETS.reasonForVisitOptions[0].value; // 'Cough and/or congestion'
+        // Default to first available category if no category specified
+        return getReasonForVisitOptionsForServiceCategory(getServiceCategoryCodings()[0]?.code ?? '')[0]?.value;
       default:
         return undefined;
     }
@@ -245,37 +246,35 @@ export class BookingFlowHelpers {
     serviceMode?: 'in-person' | 'virtual'
   ): Promise<void> {
     const categories = config.serviceCategories;
-    const { serviceCategoriesEnabled } = config;
 
-    // Check if category selection is enabled for this specific flow type
-    const isEnabledForFlow =
-      serviceMode &&
-      serviceCategoriesEnabled.serviceModes.includes(serviceMode) &&
-      serviceCategoriesEnabled.visitType.includes(visitType);
+    // Filter categories to those available for this flow's mode and visit type
+    const availableCategories = serviceMode
+      ? categories.filter((sc) => sc.serviceModes.includes(serviceMode) && sc.visitTypes.includes(visitType))
+      : categories;
 
-    // Skip if service categories are disabled for this flow or only one exists
-    if (!isEnabledForFlow || categories.length <= 1) {
+    // Skip if only one or no categories available for this flow
+    if (availableCategories.length <= 1) {
       console.log(
-        `Skipping category selection (enabledModes: ${serviceCategoriesEnabled.serviceModes}, ` +
-          `enabledTypes: ${serviceCategoriesEnabled.visitType}, current: ${serviceMode}/${visitType}, count: ${categories.length})`
+        `Skipping category selection (available: ${availableCategories.length}, ` +
+          `current: ${serviceMode}/${visitType}, total: ${categories.length})`
       );
       return;
     }
 
     // Find the category by code to get its display label
-    const category = categories.find((cat) => cat.code === preferredCategory);
+    const category = categories.find((sc) => sc.category.code === preferredCategory);
     if (!category) {
       throw new Error(`Service category '${preferredCategory}' not found in config`);
     }
 
     // Select by the user-visible label text
-    await page.getByRole('button', { name: category.display }).click();
+    await page.getByRole('button', { name: category.category.display }).click();
 
     // For in-person walk-in flows only, handle the Continue button on the walk-in landing page
     // Virtual walk-in flows proceed to location selection
     // Prebook flows load the time slot page immediately after category selection
     if (visitType === 'walk-in' && serviceMode === 'in-person') {
-      await this.clickContinueButtonIfPresent(page, 'on walk-in landing page');
+      await this.clickContinueButtonIfPresent(page, 'on walk-in landing page', 15000);
     }
   }
 
@@ -340,11 +339,16 @@ export class BookingFlowHelpers {
     // Look for "Different family member" button by its test ID
     const addNewPatientButton = page.getByTestId('Different family member');
     try {
-      await addNewPatientButton.click();
-      // Wait for the selection to be visually confirmed - the radio button should be checked
-      // The button contains a radio input that gets checked when selected
-      await expect(addNewPatientButton.locator('input[type="radio"]')).toBeChecked({ timeout: 20000 });
-      console.log('"Different family member" option selected and confirmed');
+      const radio = addNewPatientButton.locator('input[type="radio"]');
+      const alreadyChecked = await radio.isChecked().catch(() => false);
+
+      if (alreadyChecked) {
+        console.log('"Different family member" already selected, skipping click');
+      } else {
+        await addNewPatientButton.click();
+        await expect(radio).toBeChecked({ timeout: 20000 });
+        console.log('"Different family member" option selected and confirmed');
+      }
 
       // After selecting "Different family member", click the Continue button to proceed
       await this.clickContinueButtonIfPresent(page, 'after patient selection');
@@ -843,6 +847,8 @@ export class BookingFlowHelpers {
     const month = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
     const day = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0'); // 1-28 to avoid invalid dates
     const birthdate = `${month}/${day}/${year}`;
+
+    console.log('Generating sample patient data with timestamp:', timestamp);
 
     return {
       valid: {

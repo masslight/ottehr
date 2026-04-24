@@ -532,9 +532,8 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
   if (bookingDetails.serviceCategory && typeof bookingDetails.serviceCategory !== 'string') {
     throw INVALID_INPUT_ERROR('serviceCategory must be a string');
   } else if (bookingDetails.serviceCategory) {
-    serviceCategory = BOOKING_CONFIG.serviceCategories.find(
-      (category: { code: string }) => category.code === bookingDetails.serviceCategory
-    );
+    serviceCategory = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === bookingDetails.serviceCategory)
+      ?.category;
     if (!serviceCategory) {
       throw INVALID_INPUT_ERROR(`serviceCategory, "${bookingDetails.serviceCategory}", is not a valid option`);
     }

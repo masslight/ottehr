@@ -51,6 +51,10 @@ export interface QuantityDataEntryComponent extends BaseDataEntryComponent {
   unit: string;
   normalRange: QuantityRange;
   displayType: 'Numeric';
+  nullOption?: {
+    text: string;
+    code: string;
+  };
 }
 
 interface ValidationValueAndDisplay {
@@ -292,7 +296,7 @@ export interface QuantityComponent extends BaseComponent {
   normalRange: QuantityRange;
   display: {
     type: 'Numeric';
-    nullOption: boolean; // labs todo: we don't think this does anything...
+    nullOption: boolean;
   };
 }
 

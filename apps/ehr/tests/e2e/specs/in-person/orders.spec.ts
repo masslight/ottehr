@@ -32,6 +32,7 @@ import {
   DataEntryTestItem,
   makeCptCodeDisplay,
   REPEAT_TEST_CPT_CODE_MODIFIER,
+  repeatTestErrorMessage,
   unbundleBatchPostOutput,
 } from 'utils';
 import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
@@ -47,9 +48,7 @@ import procedureType from '../../../../../../config/oystehr/procedure-type.json'
 interface ProcedureInfo {
   consentChecked: boolean;
   procedureType: string;
-  procedureTypeCptCode?: string;
-  cptCode: string;
-  cptName: string;
+  cptInfo: { procedureTypeCptCode?: string; cptCode: string; cptName: string }[];
   diagnosisCode: string;
   diagnosisName: string;
   performedBy: string;
@@ -105,9 +104,7 @@ const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS!.map((procedure) => {
 const PROCEDURE_A: ProcedureInfo = {
   consentChecked: true,
   procedureType: CONFIG_PROCEDURES[0].dropDownChoice,
-  procedureTypeCptCode: CONFIG_PROCEDURES[0].display,
-  cptCode: '73000',
-  cptName: 'X-ray of collar bone',
+  cptInfo: [{ procedureTypeCptCode: CONFIG_PROCEDURES[0].display, cptCode: '73000', cptName: 'X-ray of collar bone' }],
   diagnosisCode: 'D51.0',
   diagnosisName: 'Vitamin B12 deficiency anemia due to intrinsic factor deficiency',
   performedBy: 'Healthcare staff',
@@ -128,9 +125,13 @@ const PROCEDURE_A: ProcedureInfo = {
 const PROCEDURE_B: ProcedureInfo = {
   consentChecked: false,
   procedureType: CONFIG_PROCEDURES[1].dropDownChoice,
-  procedureTypeCptCode: CONFIG_PROCEDURES[1].display,
-  cptCode: '11900',
-  cptName: 'Injection into skin growth, 1-7 growths',
+  cptInfo: [
+    {
+      procedureTypeCptCode: CONFIG_PROCEDURES[1].display,
+      cptCode: '11900',
+      cptName: 'Injection into skin growth, 1-7 growths',
+    },
+  ],
   diagnosisCode: 'R50.9',
   diagnosisName: 'Fever, unspecified',
   performedBy: 'Both',
@@ -205,7 +206,14 @@ test.describe('Procedures Page', () => {
 
     await test.step('Verify edited procedure details on progress note', async () => {
       const progressNotePage = await sideMenu.clickReviewAndSign();
-      await progressNotePage.verifyProcedure(PROCEDURE_B.procedureType, progressNoteProcedureDetails(PROCEDURE_B));
+      // cpt code doesn't change after switching procedures, so need to check for both
+      await progressNotePage.verifyProcedure(
+        PROCEDURE_B.procedureType,
+        progressNoteProcedureDetails({
+          ...PROCEDURE_B,
+          cptInfo: [...PROCEDURE_A.cptInfo, ...PROCEDURE_B.cptInfo],
+        } as ProcedureInfo)
+      );
     });
 
     await test.step('Verify edited procedure details on procedure details page', async () => {
@@ -232,6 +240,7 @@ test.describe('In-house labs page', async () => {
   const repeatableRadioEntryTestItems: DataEntryTestItem[] = [];
   const selectAndNumericTestItems: DataEntryTestItem[] = [];
   let mockResourceIds: string[] = [];
+  let mockLabSetListId: string = 'unknown';
   let reflexTest: MockReflexTestConfig;
 
   test.beforeAll('Handling ActivityDefinition and List resources for in-house labs tests', async () => {
@@ -323,6 +332,7 @@ test.describe('In-house labs page', async () => {
     const resources = unbundleBatchPostOutput<ActivityDefinition | List>(createdBundle);
 
     mockResourceIds = resources.map((r) => `${r.resourceType}/${r.id}`);
+    mockLabSetListId = resources.find((r): r is List => r.resourceType === 'List')?.id ?? 'unknown';
   });
 
   test.afterAll('Deleting all ActivityDefinition and List resources used in in-house lab tests', async () => {
@@ -448,7 +458,7 @@ test.describe('In-house labs page', async () => {
       let inHouseLabsPage = await sideMenu.clickInHouseLabs();
 
       const orderInHouseLabPage = await inHouseLabsPage.clickOrderButton();
-      await orderInHouseLabPage.selectALabSet();
+      await orderInHouseLabPage.selectALabSet(mockLabSetListId);
       await orderInHouseLabPage.clickOrderInHouseLabButton();
 
       // confirm we've been nav'd to the orders table
@@ -478,9 +488,7 @@ test.describe('In-house labs page', async () => {
           await orderInHouseLabPage.clickOrderInHouseLabButton();
           const error = orderInHouseLabPage.error;
           await expect(error).toBeVisible();
-          await expect(error).toContainText(
-            `You cannot run ${testName} as repeat, no initial tests could be found for this encounter.`
-          );
+          await expect(error).toContainText(repeatTestErrorMessage(testName));
 
           // uncheck run as repeat and click order again
           await orderInHouseLabPage.clickRunAsRepeatForTest(testName);
@@ -815,7 +823,9 @@ async function enterProcedureInfo(
 ): Promise<void> {
   await documentProcedurePage.setConsentForProcedureChecked(procedureInfo.consentChecked);
   await documentProcedurePage.selectProcedureType(procedureInfo.procedureType);
-  await documentProcedurePage.selectCptCode(procedureInfo.cptCode);
+  for (const cpt of procedureInfo.cptInfo) {
+    await documentProcedurePage.selectCptCode(cpt.cptCode);
+  }
   await documentProcedurePage.selectDiagnosis(procedureInfo.diagnosisCode);
   await documentProcedurePage.selectPerformedBy(procedureInfo.performedBy);
   await documentProcedurePage.selectAnaesthesia(procedureInfo.anaesthesia);
@@ -838,7 +848,9 @@ async function verifyProcedureInfo(
 ): Promise<void> {
   await documentProcedurePage.verifyConsentForProcedureChecked(procedureInfo.consentChecked);
   await documentProcedurePage.verifyProcedureType(procedureInfo.procedureType);
-  await documentProcedurePage.verifyCptCode(procedureInfo.cptCode + ' ' + procedureInfo.cptName);
+  for (const cpt of procedureInfo.cptInfo) {
+    await documentProcedurePage.verifyCptCode(cpt.cptCode + ' ' + cpt.cptName);
+  }
   await documentProcedurePage.verifyDiagnosis(procedureInfo.diagnosisName + ' ' + procedureInfo.diagnosisCode);
   await documentProcedurePage.verifyPerformedBy(procedureInfo.performedBy);
   await documentProcedurePage.verifyAnaesthesia(procedureInfo.anaesthesia);
@@ -856,17 +868,24 @@ async function verifyProcedureInfo(
 }
 
 async function verifyProcedureRow(procedureInfo: ProcedureInfo, procedureRow: ProcedureRow): Promise<void> {
-  await procedureRow.verifyProcedureCptCode(procedureInfo.cptCode + '-' + procedureInfo.cptName);
+  for (const cpt of procedureInfo.cptInfo) {
+    await procedureRow.verifyProcedureCptCode(cpt.cptCode + '-' + cpt.cptName);
+  }
   await procedureRow.verifyProcedureType(procedureInfo.procedureType);
   await procedureRow.verifyProcedureDiagnosis(procedureInfo.diagnosisCode + '-' + procedureInfo.diagnosisName);
   await procedureRow.verifyProcedureDocumentedBy(procedureInfo.documentedBy);
 }
 
 function progressNoteProcedureDetails(procedureInfo: ProcedureInfo): string[] {
-  const cptPrefix = procedureInfo.procedureTypeCptCode ? procedureInfo.procedureTypeCptCode + ':' : '';
+  const cptInfo: string[] = [];
+  for (const cpt of procedureInfo.cptInfo) {
+    if (cpt.procedureTypeCptCode) {
+      cptInfo.push(cpt.procedureTypeCptCode);
+    }
+    cptInfo.push(cpt.cptCode + ' ' + cpt.cptName);
+  }
   return [
-    // colon will be used to split and reorder string so this line is different
-    'CPT:' + cptPrefix + procedureInfo.cptCode + ' ' + procedureInfo.cptName,
+    'CPT:' + cptInfo.join('; '),
     'Dx: ' + procedureInfo.diagnosisCode + ' ' + procedureInfo.diagnosisName,
     'Performed by: ' + procedureInfo.performedBy,
     'Anaesthesia / medication used: ' + procedureInfo.anaesthesia,

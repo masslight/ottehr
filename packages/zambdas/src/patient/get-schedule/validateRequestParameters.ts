@@ -1,11 +1,11 @@
 import {
   GetScheduleRequestParams,
+  getServiceCategoryCodeSchema,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
   ServiceCategoryCode,
-  ServiceCategoryCodeSchema,
 } from 'utils';
 import { ZambdaInput } from '../../shared';
 
@@ -29,9 +29,10 @@ export function validateRequestParameters(input: ZambdaInput): GetScheduleReques
   let serviceCategoryCode: ServiceCategoryCode | undefined;
 
   if (maybeServiceCategoryCode) {
-    serviceCategoryCode = ServiceCategoryCodeSchema.safeParse(maybeServiceCategoryCode).data;
+    const schema = getServiceCategoryCodeSchema();
+    serviceCategoryCode = schema.safeParse(maybeServiceCategoryCode).data;
     if (!serviceCategoryCode) {
-      throw INVALID_INPUT_ERROR(`"serviceCategoryCode" must be one of ${ServiceCategoryCodeSchema.options.join(', ')}`);
+      throw INVALID_INPUT_ERROR(`"serviceCategoryCode" must be one of ${schema.options.join(', ')}`);
     }
   }
 

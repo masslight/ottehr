@@ -23,6 +23,7 @@ export const dataTestIds = {
     providerPractitionerInput: 'provider-practitioner-input',
     changeStatusDropdown: 'change-status-dropdown-in-header',
     allergies: 'header-allergies',
+    weight: 'header-weight',
   },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
@@ -130,6 +131,7 @@ export const dataTestIds = {
     searchByLastNameField: 'search-last-name-field',
     searchByGivenNamesField: 'search-given-names-field',
     searchByDateOfBirthField: 'searchByDateOfBirthField',
+    searchByPidField: 'search-pid-field',
     searchByPhoneField: 'search-phone-field',
     searchByAddressField: 'search-by-address',
     searchByEmailField: 'search-by-email-field',
@@ -337,8 +339,8 @@ export const dataTestIds = {
     orderButton: 'order-button',
     marTableLoader: 'mar-table-loader',
     marTable: {
-      medicationRowPrefix: 'mar-table-medication-',
-      medicationRow: (medicationId: string) => `mar-table-medication-${medicationId}`,
+      medicationRowPrefix: 'mar-table-medication-row-',
+      medicationRow: (medicationId: string) => `mar-table-medication-row-${medicationId}`,
       medicationCell: 'mar-table-medication-cell',
       statusCell: 'mar-table-status-cell',
       doseCell: 'mar-table-dose-cell',
@@ -597,6 +599,8 @@ export const dataTestIds = {
     instructions: 'order-vaccine-instructions',
     orderedBy: 'order-vaccine-ordered-by',
     orderVaccineButton: 'order-vaccine-button',
+    associatedDx: 'order-vaccine-associated-dx',
+    manufacturer: 'order-vaccine-manufacturer',
   },
 
   immunizationPage: {
@@ -713,5 +717,11 @@ export const dataTestIds = {
     codeRow: (code: string) => `procedure-code-row-${code}`,
     editButton: (code: string) => `procedure-code-edit-${code}`,
     deleteButton: (code: string) => `procedure-code-delete-${code}`,
+  },
+
+  globalTemplates: {
+    admin: {
+      scanForStaleBtn: 'global-template-scan-staleness-btn',
+    },
   },
 };

@@ -6,6 +6,7 @@ import {
   MedicationAdministration,
   MedicationStatement,
   Practitioner,
+  Procedure,
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
@@ -81,7 +82,8 @@ async function administerImmunizationOrder(
     id: orderId,
   });
 
-  if (medicationAdministration.status !== 'in-progress') {
+  const allowedStatuses = ['in-progress', 'completed', 'stopped', 'on-hold', 'not-done'];
+  if (!allowedStatuses.includes(medicationAdministration.status)) {
     const currentStatus = mapFhirToOrderStatus(medicationAdministration);
     throw new Error(`Can't administer order in "${currentStatus}" status`);
   }
@@ -137,7 +139,15 @@ async function administerImmunizationOrder(
       expirationDate: administrationDetails.expDate,
     };
   }
-  medication.extension?.push({
+
+  // Clear existing administration extensions before re-adding to support edits
+  medication.extension = (medication.extension ?? []).filter(
+    (ext) =>
+      ext.url !== VACCINE_ADMINISTRATION_CODES_EXTENSION_URL &&
+      ext.url !== VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
+  );
+
+  medication.extension.push({
     url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
     valueCodeableConcept: codeableConcept(administrationDetails.mvx, MVX_CODE_SYSTEM_URL),
   });
@@ -149,11 +159,15 @@ async function administerImmunizationOrder(
     url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
     valueCodeableConcept: codeableConcept(administrationDetails.ndc, CODE_SYSTEM_NDC),
   });
-  if (administrationDetails.cpt) {
-    medication.extension?.push({
-      url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-      valueCodeableConcept: codeableConcept(administrationDetails.cpt, CODE_SYSTEM_CPT),
-    });
+  if (administrationDetails.cptCodes && administrationDetails.cptCodes.length > 0) {
+    for (const cptCode of administrationDetails.cptCodes) {
+      medication.extension?.push({
+        url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
+        valueCodeableConcept: {
+          coding: [{ code: cptCode.code, system: CODE_SYSTEM_CPT, display: cptCode.display }],
+        },
+      });
+    }
   }
   if (administrationDetails.visGivenDate) {
     medication.extension?.push({
@@ -187,6 +201,51 @@ async function administerImmunizationOrder(
   const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
   console.log('Transaction result: ', JSON.stringify(transactionResult));
 
+  // Add CPT codes to chart data (assessment) on administration
+  if (['administered', 'administered-partly'].includes(input.type)) {
+    const cptCodesToAdd = administrationDetails.cptCodes ?? [];
+    if (cptCodesToAdd.length > 0) {
+      const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
+      const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');
+      if (encounterId && patientId) {
+        try {
+          // Search for existing CPT code Procedures on this encounter
+          const existingProcedures = (
+            await oystehr.fhir.search<Procedure>({
+              resourceType: 'Procedure',
+              params: [
+                { name: 'encounter', value: `Encounter/${encounterId}` },
+                { name: '_tag', value: 'cpt-code' },
+              ],
+            })
+          ).unbundle();
+          const existingCodes = existingProcedures.map((p) => p.code?.coding?.[0]?.code).filter(Boolean);
+          const newCodes = cptCodesToAdd.filter((c) => !existingCodes.includes(c.code));
+
+          for (const cptCode of newCodes) {
+            await oystehr.fhir.create<Procedure>({
+              resourceType: 'Procedure',
+              subject: { reference: `Patient/${patientId}` },
+              encounter: { reference: `Encounter/${encounterId}` },
+              status: 'completed',
+              code: {
+                coding: [{ code: cptCode.code, display: cptCode.display, system: 'http://www.ama-assn.org/go/cpt' }],
+              },
+              meta: {
+                tag: [{ code: 'cpt-code', system: 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code' }],
+              },
+            });
+          }
+          if (newCodes.length > 0) {
+            console.log('Added CPT codes to chart data:', newCodes.map((c) => c.code).join(', '));
+          }
+        } catch (e) {
+          console.error('Failed to add CPT codes to chart data:', e);
+        }
+      }
+    }
+  }
+
   return {
     orderId: medicationAdministration.id!,
   };
@@ -215,15 +274,6 @@ export function validateRequestParameters(
     if (!administrationDetails?.administeredDateTime) missingFields.push('administrationDetails.administeredDateTime');
     if (!administrationDetails?.visGivenDate) {
       missingFields.push('administrationDetails.visGivenDate');
-    }
-    if (!administrationDetails?.emergencyContact?.relationship) {
-      missingFields.push('administrationDetails.emergencyContact.relationship');
-    }
-    if (!administrationDetails?.emergencyContact?.fullName) {
-      missingFields.push('administrationDetails.emergencyContact.fullName');
-    }
-    if (!administrationDetails?.emergencyContact?.mobile) {
-      missingFields.push('administrationDetails.emergencyContact.mobile');
     }
   }
 

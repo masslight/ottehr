@@ -5,6 +5,7 @@ import {
   getEmailForIndividual,
   getInPersonVisitStatus,
   getPhoneNumberForIndividual,
+  isFollowupEncounter,
   OTTEHR_MODULE,
   PATIENT_POINT_OF_DISCOVERY_URL,
   RecentPatientRecord,
@@ -24,6 +25,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Get M2M token for FHIR access
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+
+  // TODO: Once billable follow-up visits are available (with their own Appointment and full visit workflow),
+  // ensure this report includes them as independent visits on their follow-up date.
+  // Currently, follow-up encounters without their own Appointment are excluded from reports.
 
   console.log('Searching for appointments in date range:', dateRange, 'location:', locationId);
 
@@ -138,12 +143,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   });
 
   const encounterMap = new Map<string, Encounter>();
-  encounters.forEach((encounter) => {
-    const appointmentRef = encounter.appointment?.[0]?.reference;
-    if (appointmentRef && encounter.id) {
-      encounterMap.set(appointmentRef, encounter);
-    }
-  });
+  encounters
+    .filter((encounter) => !isFollowupEncounter(encounter))
+    .forEach((encounter) => {
+      const appointmentRef = encounter.appointment?.[0]?.reference;
+      if (appointmentRef && encounter.id) {
+        encounterMap.set(appointmentRef, encounter);
+      }
+    });
 
   const locationMap = new Map<string, Location>();
   locations.forEach((location) => {

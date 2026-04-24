@@ -1,27 +1,20 @@
-import InputIcon from '@mui/icons-material/Input';
-import { CircularProgress } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
 import { AiObservationField, ObservationTextFieldDTO } from 'utils';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useChartData, useSaveChartData } from './shared/stores/appointment/appointment.store';
 
-interface AiHpiSuggestionProps {
-  isReadOnly?: boolean;
-}
-
-export const AiHpiSuggestion: FC<AiHpiSuggestionProps> = ({ isReadOnly }) => {
-  const { chartData, refetch: refetchChartData } = useChartData();
-
-  const { data: chartFields, setQueryCache } = useChartFields({
-    requestedFields: {
-      chiefComplaint: { _tag: 'chief-complaint' },
-      mechanismOfInjury: { _tag: 'mechanism-of-injury' },
-    },
-  });
-
+export const AiHpiSuggestion: FC = () => {
+  const { chartData } = useChartData();
   const { mutate: saveChartData } = useSaveChartData();
-  const [appendingField, setAppendingField] = useState<'hpi' | 'moi' | null>(null);
+  const [appendedIds, setAppendedIds] = useState<Set<string>>(new Set());
+  const { data: hpiFields } = useChartFields({
+    requestedFields: { chiefComplaint: { _tag: 'chief-complaint' } },
+  });
+  const { data: moiFields } = useChartFields({
+    requestedFields: { mechanismOfInjury: { _tag: 'mechanism-of-injury' } },
+  });
 
   const aiHistoryOfPresentIllness = chartData?.observations?.filter(
     (observation) => observation.field === AiObservationField.HistoryOfPresentIllness
@@ -31,38 +24,91 @@ export const AiHpiSuggestion: FC<AiHpiSuggestionProps> = ({ isReadOnly }) => {
     (observation) => observation.field === AiObservationField.MechanismOfInjury
   ) as ObservationTextFieldDTO[];
 
-  const handleAppend = useCallback(
-    (field: 'hpi' | 'moi', suggestions: ObservationTextFieldDTO[]) => {
-      const suggestionText = suggestions.map((s) => s.value).join('\n');
-      if (!suggestionText) return;
+  const { setQueryCache: setHpiCache } = useChartFields({
+    requestedFields: { chiefComplaint: { _tag: 'chief-complaint' } },
+  });
+  const { setQueryCache: setMoiCache } = useChartFields({
+    requestedFields: { mechanismOfInjury: { _tag: 'mechanism-of-injury' } },
+  });
 
-      setAppendingField(field);
-
-      const isHpi = field === 'hpi';
-      const fieldName = isHpi ? 'chiefComplaint' : 'mechanismOfInjury';
-      const currentText = (isHpi ? chartFields?.chiefComplaint?.text : chartFields?.mechanismOfInjury?.text) || '';
-      const newText = currentText ? `${currentText}\n${suggestionText}` : suggestionText;
-
+  const appendToHpi = useCallback(
+    (text: string, resourceId?: string) => {
+      const current = hpiFields?.chiefComplaint?.text || '';
+      const newText = current ? `${current}\n\n${text}` : text;
+      // Optimistic update — appears instantly in the text field
+      setHpiCache({ chiefComplaint: { ...hpiFields?.chiefComplaint, text: newText } });
+      if (resourceId) {
+        setAppendedIds((prev) => new Set(prev).add(resourceId));
+      }
       saveChartData(
         {
-          [fieldName]: {
-            resourceId: chartFields?.[fieldName]?.resourceId,
+          chiefComplaint: {
+            resourceId: hpiFields?.chiefComplaint?.resourceId,
             text: newText,
           },
         },
         {
           onSuccess: (data) => {
-            setQueryCache({ [fieldName]: data.chartData[fieldName] });
-            void refetchChartData();
-            setAppendingField(null);
+            if (data?.chartData?.chiefComplaint) {
+              setHpiCache({ chiefComplaint: data.chartData.chiefComplaint });
+            }
           },
           onError: () => {
-            setAppendingField(null);
+            // Rollback
+            setHpiCache({ chiefComplaint: hpiFields?.chiefComplaint });
+            if (resourceId) {
+              setAppendedIds((prev) => {
+                const next = new Set(prev);
+                next.delete(resourceId);
+                return next;
+              });
+            }
+            enqueueSnackbar('Failed to add to HPI', { variant: 'error' });
           },
         }
       );
     },
-    [chartFields, saveChartData, setQueryCache, refetchChartData]
+    [hpiFields, saveChartData, setHpiCache]
+  );
+
+  const appendToMoi = useCallback(
+    (text: string, resourceId?: string) => {
+      const current = moiFields?.mechanismOfInjury?.text || '';
+      const newText = current ? `${current}\n\n${text}` : text;
+      // Optimistic update — appears instantly in the text field
+      setMoiCache({ mechanismOfInjury: { ...moiFields?.mechanismOfInjury, text: newText } });
+      if (resourceId) {
+        setAppendedIds((prev) => new Set(prev).add(resourceId));
+      }
+      saveChartData(
+        {
+          mechanismOfInjury: {
+            resourceId: moiFields?.mechanismOfInjury?.resourceId,
+            text: newText,
+          },
+        },
+        {
+          onSuccess: (data) => {
+            if (data?.chartData?.mechanismOfInjury) {
+              setMoiCache({ mechanismOfInjury: data.chartData.mechanismOfInjury });
+            }
+          },
+          onError: () => {
+            // Rollback
+            setMoiCache({ mechanismOfInjury: moiFields?.mechanismOfInjury });
+            if (resourceId) {
+              setAppendedIds((prev) => {
+                const next = new Set(prev);
+                next.delete(resourceId);
+                return next;
+              });
+            }
+            enqueueSnackbar('Failed to add to MOI', { variant: 'error' });
+          },
+        }
+      );
+    },
+    [moiFields, saveChartData, setMoiCache]
   );
 
   if (
@@ -76,38 +122,26 @@ export const AiHpiSuggestion: FC<AiHpiSuggestionProps> = ({ isReadOnly }) => {
     <>
       <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
       {aiHistoryOfPresentIllness && aiHistoryOfPresentIllness.length > 0 && (
-        <AiSuggestion
-          title="History of Present Illness (HPI)"
-          chartData={chartData}
-          content={aiHistoryOfPresentIllness}
-          action={
-            !isReadOnly
-              ? {
-                  label: 'Append to History of Present Illness',
-                  icon: appendingField === 'hpi' ? <CircularProgress size={16} /> : <InputIcon fontSize="small" />,
-                  disabled: appendingField !== null,
-                  onClick: () => handleAppend('hpi', aiHistoryOfPresentIllness),
-                }
-              : undefined
-          }
-        />
+        <>
+          <AiSuggestion
+            title="History of Present Illness (HPI)"
+            chartData={chartData}
+            content={aiHistoryOfPresentIllness}
+            onAppendToNote={appendToHpi}
+            appendedNoteIds={appendedIds}
+          />
+        </>
       )}
       {aiMechanismOfInjury && aiMechanismOfInjury.length > 0 && (
-        <AiSuggestion
-          title="Mechanism of Injury (MOI)"
-          chartData={chartData}
-          content={aiMechanismOfInjury}
-          action={
-            !isReadOnly
-              ? {
-                  label: 'Append to MOI (Mechanism of Injury)',
-                  icon: appendingField === 'moi' ? <CircularProgress size={16} /> : <InputIcon fontSize="small" />,
-                  disabled: appendingField !== null,
-                  onClick: () => handleAppend('moi', aiMechanismOfInjury),
-                }
-              : undefined
-          }
-        />
+        <>
+          <AiSuggestion
+            title="Mechanism of Injury (MOI)"
+            chartData={chartData}
+            content={aiMechanismOfInjury}
+            onAppendToNote={appendToMoi}
+            appendedNoteIds={appendedIds}
+          />
+        </>
       )}
     </>
   );

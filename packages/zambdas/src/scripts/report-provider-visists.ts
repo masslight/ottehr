@@ -386,7 +386,7 @@ async function main(): Promise<void> {
     `\n📅 Processing encounters for date range: ${startDateString} to ${endDateString} (${getTimezoneAbbreviation()})`
   );
 
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   const token = await getAuth0Token(secrets);
 

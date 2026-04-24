@@ -32,20 +32,27 @@ import { formatLabelValue } from 'src/shared/utils';
 import {
   FhirAppointmentType,
   formatDateToMDYWithTime,
+  formatWeightKg,
   getAdmitterPractitionerId,
+  getAnnotationFollowupStatusLabel,
   getAppointmentServiceCategoryAbbreviation,
   getAttendingPractitionerId,
+  getEncounterLocationId,
   getFullestAvailableName,
+  getInitialEncounterIdForFollowUp,
   getInsuranceNameFromCoverage,
+  isInPersonAppointment,
   PaymentVariant,
   PRACTITIONER_CODINGS,
   ProviderDetails,
   VisitStatusLabel,
+  VitalFieldNames,
 } from 'utils';
 import { getEmployees } from '../../../../api/api';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
+import { useGetHistoricalVitals, useGetVitals } from '../../shared/components/vitals/hooks/useGetVitals';
 import { useChartFields } from '../../shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
@@ -84,6 +91,26 @@ const PatientInfoWrapper = styled(Box)({
   alignItems: 'baseline',
   gap: '8px',
 });
+
+const getPatientWeightFallback = (weight: string | undefined): string | undefined => {
+  const normalizedWeight = weight?.replace(/\s/g, '');
+  return normalizedWeight?.match(/^\d+(?:\.\d+)?kg/)?.[0];
+};
+
+const getDisplayWeight = (
+  currentObservations: { value?: number | string }[],
+  historicalObservations: { value?: number | string }[],
+  patientWeight: string | undefined
+): string | undefined => {
+  const numericObs = [...currentObservations, ...historicalObservations].find((o) => typeof o.value === 'number');
+  if (numericObs) {
+    return `${formatWeightKg(numericObs.value as number)}kg`;
+  }
+  if (currentObservations.length === 0 && historicalObservations.length === 0) {
+    return getPatientWeightFallback(patientWeight);
+  }
+  return undefined;
+};
 
 const getFollowupStatusChip = (status: 'OPEN' | 'RESOLVED'): ReactElement => {
   interface ColorScheme {
@@ -148,6 +175,7 @@ export const Header = (): JSX.Element => {
     location,
     locations,
     encounter,
+    followUpOriginEncounter,
     appointmentRefetch,
     selectedEncounterId,
   } = useAppointmentData();
@@ -165,17 +193,17 @@ export const Header = (): JSX.Element => {
   const { chartData } = useChartData();
 
   const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
+  const { data: encounterVitals } = useGetVitals(effectiveEncounterId);
+  const { data: historicalVitals } = useGetHistoricalVitals(effectiveEncounterId);
 
   const start = encounter?.period?.start ?? appointmentValues?.start;
 
   let optionalVisitLabel = '';
 
   if (isFollowup) {
-    const locationRef = encounter?.location?.[0]?.location?.reference;
-    if (locationRef) {
-      const locationId = locationRef.split('/')[1];
+    const locationId = getEncounterLocationId(encounter);
+    if (locationId) {
       const matchedLocation = locations.find((location) => location?.id === locationId);
-
       optionalVisitLabel = matchedLocation?.name ?? '';
     }
   } else {
@@ -214,7 +242,9 @@ export const Header = (): JSX.Element => {
       ? 'Scheduled'
       : 'On Demand'
     : undefined;
-  const visitTypeAndCategory = ['In Person', serviceCategory].filter(Boolean).join(' | ');
+  const visitTypeAndCategory = [isInPersonAppointment(appointment) ? 'In Person' : 'Virtual', serviceCategory]
+    .filter(Boolean)
+    .join(' | ');
 
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
@@ -229,6 +259,11 @@ export const Header = (): JSX.Element => {
   const gender = formatLabelValue(mappedData?.gender, 'Gender');
   const language = formatLabelValue(mappedData?.preferredLanguage, 'Lang');
   const dob = formatLabelValue(mappedData?.DOB, 'DOB', true);
+  const weight = getDisplayWeight(
+    encounterVitals?.[VitalFieldNames.VitalWeight] ?? [],
+    historicalVitals?.[VitalFieldNames.VitalWeight] ?? [],
+    mappedData?.weight
+  );
 
   const allergies = formatLabelValue(
     chartData?.allergies
@@ -286,27 +321,30 @@ export const Header = (): JSX.Element => {
     queryFn: async () => {
       if (oystehrZambda) {
         const getEmployeesRes = await getEmployees(oystehrZambda);
-        const providers = getEmployeesRes.employees.filter(
-          (employee) => employee.isProvider && !employee.isCustomerSupport
-        );
-        const formattedProviders: ProviderDetails[] = providers.map((prov) => {
-          const id = prov.profile.split('/')[1];
-          return {
-            practitionerId: id,
-            name: `${prov.firstName} ${prov.lastName}`,
-          };
-        });
+        const activeEmployees = getEmployeesRes.employees.filter((employee) => employee.status === 'Active');
+        const providers = activeEmployees.filter((employee) => employee.isProvider && !employee.isCustomerSupport);
+        const formattedProviders: ProviderDetails[] = providers
+          .map((prov) => {
+            const id = prov.profile.split('/')[1];
+            return {
+              practitionerId: id,
+              name: `${prov.firstName} ${prov.lastName}`.trim(),
+            };
+          })
+          .filter((prov) => prov.name);
 
         // TODO: remove this once we have nurses role
         // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
-        const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isCustomerSupport);
-        const formattedNonProviders: ProviderDetails[] = nonProviders.map((prov) => {
-          const id = prov.profile.split('/')[1];
-          return {
-            practitionerId: id,
-            name: `${prov.firstName} ${prov.lastName}`,
-          };
-        });
+        const nonProviders = activeEmployees.filter((employee) => !employee.isCustomerSupport);
+        const formattedNonProviders: ProviderDetails[] = nonProviders
+          .map((prov) => {
+            const id = prov.profile.split('/')[1];
+            return {
+              practitionerId: id,
+              name: `${prov.firstName} ${prov.lastName}`.trim(),
+            };
+          })
+          .filter((prov) => prov.name);
         return {
           providers: formattedProviders,
           nonProviders: formattedNonProviders,
@@ -367,7 +405,7 @@ export const Header = (): JSX.Element => {
                 <Grid container alignItems="center" spacing={2}>
                   <Grid item>
                     {isFollowup ? (
-                      getFollowupStatusChip(encounter?.status === 'in-progress' ? 'OPEN' : 'RESOLVED')
+                      getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter?.status))
                     ) : (
                       <ChangeStatusDropdown
                         appointmentID={appointmentID}
@@ -519,6 +557,11 @@ export const Header = (): JSX.Element => {
                     </PatientInfoWrapper>
                     <PatientInfoWrapper>
                       <PatientMetadata>{pronouns}</PatientMetadata> | <PatientMetadata>{gender}</PatientMetadata> |
+                      {weight ? (
+                        <>
+                          <PatientMetadata data-testid={dataTestIds.inPersonHeader.weight}>{weight}</PatientMetadata> |
+                        </>
+                      ) : null}
                       <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
                     </PatientInfoWrapper>
                   </Grid>
@@ -568,7 +611,10 @@ export const Header = (): JSX.Element => {
                     onClick={() => {
                       setHeaderMenuAnchorEl(null);
                       if (patient?.id) {
-                        navigate(`/patient/${patient.id}/followup/add`);
+                        const initialEncounterId = getInitialEncounterIdForFollowUp(encounter, followUpOriginEncounter);
+                        navigate(`/patient/${patient.id}/followup/add`, {
+                          state: { initialEncounterId },
+                        });
                       }
                     }}
                     disabled={!patient?.id}

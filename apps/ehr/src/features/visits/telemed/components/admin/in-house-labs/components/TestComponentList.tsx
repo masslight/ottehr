@@ -270,7 +270,7 @@ function TestComponentFormItem(props: TestComponentFormItemProps): ReactElement 
 }
 
 function QuantityFields(props: ComponentProps): ReactElement {
-  const { control, index } = props;
+  const { control, index, theme } = props;
 
   const DEFAULT_DECIMAL_SCALE = 2; // this is arbitrary
   const [decimalScale, setDecimalScale] = useState(DEFAULT_DECIMAL_SCALE);
@@ -412,7 +412,47 @@ function QuantityFields(props: ComponentProps): ReactElement {
         />
       </Grid>
 
-      {/* labs todo: our type also in theory supports a nullOption for quantity components, but nothing to date has that configured, so omitting for now */}
+      <Grid item width="100%">
+        <Controller
+          name={`components.${index}.display.nullOption`}
+          control={control}
+          render={({ field }) => (
+            <FormControlLabel
+              label={
+                <Typography
+                  sx={{
+                    fontSize: '16px',
+                    fontWeight: 500,
+                    color: theme.palette.text.primary,
+                  }}
+                >
+                  Include inconclusive option
+                </Typography>
+              }
+              sx={{
+                backgroundColor: 'transparent',
+                pr: 0,
+              }}
+              control={
+                <Checkbox
+                  size="medium"
+                  sx={{
+                    color: theme.palette.primary.main,
+                    '&.Mui-checked': {
+                      color: theme.palette.primary.main,
+                    },
+                    '&.Mui-disabled': {
+                      color: lighten(theme.palette.primary.main, 0.4),
+                    },
+                  }}
+                  checked={!!field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                />
+              }
+            />
+          )}
+        />
+      </Grid>
     </>
   );
 }
@@ -537,6 +577,7 @@ interface ValueRowProps extends Pick<ComponentProps, 'control' | 'theme'> {
 
 function CodeableConceptValueRow(props: ValueRowProps): ReactElement {
   const { componentIndex, valueIndex, control, removeValueSet, theme } = props;
+  const { setValue } = useFormContext();
 
   return (
     <Grid container spacing={1} alignItems="center" justifyContent="space-between">
@@ -554,6 +595,11 @@ function CodeableConceptValueRow(props: ValueRowProps): ReactElement {
               label="Value"
               size="small"
               fullWidth
+              onChange={(e) => {
+                field.onChange(e.target.value);
+                // display mirrors code since there's no separate UI for it
+                setValue(`components.${componentIndex}.valueSet.${valueIndex}.display`, e.target.value);
+              }}
             />
           )}
         />
