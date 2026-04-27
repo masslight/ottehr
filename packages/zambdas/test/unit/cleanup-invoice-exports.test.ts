@@ -83,16 +83,12 @@ describe('cleanup-invoice-exports', () => {
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body);
     expect(body.deletedFiles).toBe(1);
-    expect(body.deletedTasks).toBe(1);
 
     expect(mockOystehrClient.z3.deleteObject).toHaveBeenCalledWith({
       bucketName: BUCKET_NAME,
       'objectPath+': '2025-01-15-export.csv',
     });
-    expect(mockOystehrClient.fhir.delete).toHaveBeenCalledWith({
-      resourceType: 'Task',
-      id: 'task-old',
-    });
+    expect(mockOystehrClient.fhir.delete).not.toHaveBeenCalled();
   });
 
   it('skips tasks newer than 10 minutes', async () => {
@@ -108,12 +104,11 @@ describe('cleanup-invoice-exports', () => {
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body);
     expect(body.deletedFiles).toBe(0);
-    expect(body.deletedTasks).toBe(0);
     expect(mockOystehrClient.z3.deleteObject).not.toHaveBeenCalled();
     expect(mockOystehrClient.fhir.delete).not.toHaveBeenCalled();
   });
 
-  it('deletes Task even when it has no output URL (failed task)', async () => {
+  it('does not delete Task when it has no output URL (failed task)', async () => {
     const oldTimestamp = DateTime.now().minus({ minutes: 20 }).toISO()!;
     const failedTask = makeCompletedTask('task-failed', oldTimestamp); // no objectPath
 
@@ -126,12 +121,8 @@ describe('cleanup-invoice-exports', () => {
 
     const body = JSON.parse(result.body);
     expect(body.deletedFiles).toBe(0);
-    expect(body.deletedTasks).toBe(1);
     expect(mockOystehrClient.z3.deleteObject).not.toHaveBeenCalled();
-    expect(mockOystehrClient.fhir.delete).toHaveBeenCalledWith({
-      resourceType: 'Task',
-      id: 'task-failed',
-    });
+    expect(mockOystehrClient.fhir.delete).not.toHaveBeenCalled();
   });
 
   it('continues processing when Z3 delete fails', async () => {
@@ -150,11 +141,10 @@ describe('cleanup-invoice-exports', () => {
     const body = JSON.parse(result.body);
     // First Z3 delete failed, second succeeded
     expect(body.deletedFiles).toBe(1);
-    // Both Task deletes should succeed
-    expect(body.deletedTasks).toBe(2);
+    expect(mockOystehrClient.fhir.delete).not.toHaveBeenCalled();
   });
 
-  it('continues processing when Task delete fails', async () => {
+  it('continues processing when Z3 delete fails for one task', async () => {
     const oldTimestamp = DateTime.now().minus({ minutes: 30 }).toISO()!;
     const task1 = makeCompletedTask('task-1', oldTimestamp, 'file1.csv');
     const task2 = makeCompletedTask('task-2', oldTimestamp, 'file2.csv');
@@ -163,14 +153,12 @@ describe('cleanup-invoice-exports', () => {
       unbundle: () => [task1, task2],
     });
     mockOystehrClient.z3.deleteObject.mockResolvedValue(undefined);
-    mockOystehrClient.fhir.delete.mockRejectedValueOnce(new Error('FHIR error')).mockResolvedValueOnce(undefined);
 
     const result = await handler(makeInput());
 
     const body = JSON.parse(result.body);
     expect(body.deletedFiles).toBe(2);
-    // First Task delete failed, second succeeded
-    expect(body.deletedTasks).toBe(1);
+    expect(mockOystehrClient.fhir.delete).not.toHaveBeenCalled();
   });
 
   it('handles empty search results', async () => {
@@ -183,7 +171,6 @@ describe('cleanup-invoice-exports', () => {
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body);
     expect(body.deletedFiles).toBe(0);
-    expect(body.deletedTasks).toBe(0);
   });
 
   it('handles mix of old and recent tasks', async () => {
@@ -202,12 +189,8 @@ describe('cleanup-invoice-exports', () => {
 
     const body = JSON.parse(result.body);
     expect(body.deletedFiles).toBe(1);
-    expect(body.deletedTasks).toBe(1);
-    // Only the old task should be cleaned up
-    expect(mockOystehrClient.fhir.delete).toHaveBeenCalledWith({
-      resourceType: 'Task',
-      id: 'task-old',
-    });
-    expect(mockOystehrClient.fhir.delete).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'task-recent' }));
+    // Only the old task's file should be cleaned up
+    expect(mockOystehrClient.z3.deleteObject).toHaveBeenCalledTimes(1);
+    expect(mockOystehrClient.fhir.delete).not.toHaveBeenCalled();
   });
 });
