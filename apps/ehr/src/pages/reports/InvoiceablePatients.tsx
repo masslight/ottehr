@@ -1,6 +1,7 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import SaveAltIcon from '@mui/icons-material/SaveAlt';
 import {
   Button,
   Checkbox,
@@ -28,6 +29,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { SendInvoiceToPatientDialog, SendStatementToPatientDialog } from 'src/components/dialogs';
 import {
   chooseJson,
+  EXPORT_INVOICES_ZAMBDA_KEY,
+  ExportInvoicesCsvKickOffResponse,
+  ExportInvoicesCsvStatusResponse,
+  ExportInvoicesTasksCsvInput,
   formatDateConfigurable,
   GET_INVOICES_TASKS_ZAMBDA_KEY,
   GetInvoicesTasksInput,
@@ -126,6 +131,7 @@ export default function InvoiceablePatients(): React.ReactElement {
   const [selectedReportForStatement, setSelectedReportForStatement] = useState<InvoiceablePatientReport | undefined>();
   const [updatingTaskIds, setUpdatingTaskIds] = useState<Set<string>>(new Set());
   const [sendingTaskIds, setSendingTaskIds] = useState<Set<string>>(new Set());
+  const [isExporting, setIsExporting] = useState(false);
 
   const pageParam = searchParams.get(SP.page);
   const parsedPage = pageParam ? parseInt(pageParam, 10) : 0;
@@ -273,6 +279,71 @@ export default function InvoiceablePatients(): React.ReactElement {
       });
   };
 
+  const handleExportCsv = async (): Promise<void> => {
+    if (!oystehrZambda) return;
+    setIsExporting(true);
+    try {
+      // Step 1: Kick off export by creating a Task
+      const params: ExportInvoicesTasksCsvInput = {
+        status: statusSP ? mapDisplayToInvoiceTaskStatus(statusSP as InvoiceTaskDisplayStatus) : undefined,
+        sortField: sortFieldSP,
+        sortDirection: sortDirectionSP,
+        hideZeroBalance: hideZeroBalanceSP,
+      };
+      const kickOffResponse = await oystehrZambda.zambda.execute({
+        id: EXPORT_INVOICES_ZAMBDA_KEY,
+        ...params,
+      });
+      const { taskId } = chooseJson(kickOffResponse) as ExportInvoicesCsvKickOffResponse;
+
+      // Step 2: Poll for completion
+      const POLL_INTERVAL_MS = 2000;
+      const MAX_POLLS = 150; // 5 minutes max
+      let polls = 0;
+
+      const pollForResult = async (): Promise<ExportInvoicesCsvStatusResponse> => {
+        while (polls < MAX_POLLS) {
+          polls++;
+          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+          const statusResponse = await oystehrZambda.zambda.execute({
+            id: EXPORT_INVOICES_ZAMBDA_KEY,
+            taskId,
+          });
+          const statusData = chooseJson(statusResponse) as ExportInvoicesCsvStatusResponse;
+
+          if (statusData.status === 'completed' || statusData.status === 'failed') {
+            return statusData;
+          }
+        }
+        throw new Error('Export timed out');
+      };
+
+      const result = await pollForResult();
+
+      if (result.status === 'completed' && result.downloadUrl) {
+        // Step 3: Download the CSV via the presigned URL
+        const csvResponse = await fetch(result.downloadUrl);
+        if (!csvResponse.ok) {
+          throw new Error(`Failed to download CSV: ${csvResponse.status}`);
+        }
+        const csvText = await csvResponse.text();
+        const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `invoiceable-patients-report.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+      } else {
+        enqueueSnackbar(result.error ?? 'Export failed', { variant: 'error' });
+      }
+    } catch {
+      enqueueSnackbar('Failed to export CSV', { variant: 'error' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   useEffect(() => {
     setPageInputValue(String(pageSP + 1));
   }, [pageSP]);
@@ -374,6 +445,16 @@ export default function InvoiceablePatients(): React.ReactElement {
                 label="Hide $0 balances"
                 sx={{ whiteSpace: 'nowrap' }}
               />
+              <Button
+                variant="text"
+                size="small"
+                startIcon={isExporting ? <CircularProgress size={16} /> : <SaveAltIcon />}
+                sx={{ textTransform: 'uppercase', whiteSpace: 'nowrap', ml: 'auto' }}
+                disabled={isExporting}
+                onClick={handleExportCsv}
+              >
+                Export
+              </Button>
             </Stack>
           </Paper>
         </FormProvider>

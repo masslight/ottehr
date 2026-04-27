@@ -395,6 +395,7 @@ export const BUCKET_NAMES = {
   PAPERWORK: 'exported-questionnaires',
   DISCHARGE_SUMMARIES: 'discharge-summaries',
   STATEMENTS: 'statements',
+  REPORTS: 'invoiceable-patients-reports',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
