@@ -6,7 +6,6 @@ import { AddendumCard } from '../../shared/components/review-tab/AddendumCard';
 import { ReviewAndSignButton } from '../../shared/components/review-tab/ReviewAndSignButton';
 import { SendFaxButton } from '../../shared/components/review-tab/SendFaxButton';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
-import { useAppFlags } from '../../shared/stores/contexts/useAppFlags';
 import { FollowUpNoteDetails } from '../components/follow-up-note/FollowUpNoteDetails';
 import { FollowUpSummaryCard } from '../components/follow-up-note/FollowUpSummaryCard';
 
@@ -27,7 +26,6 @@ export const FollowUpNote: React.FC<FollowUpNoteProps> = () => {
   const { isChartDataLoading, chartDataError } = useChartData();
   const isLoading = isAppointmentLoading || isChartDataLoading;
   const error = chartDataError || appointmentError;
-  const { isInPerson } = useAppFlags();
 
   if (isLoading || isChartDataLoading) return <Loader />;
   if (error) return <Typography>Error: {error.message}</Typography>;
@@ -45,7 +43,7 @@ export const FollowUpNote: React.FC<FollowUpNoteProps> = () => {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <SendFaxButton appointment={appointmentResource} encounter={encounter} inPerson={isInPerson} />
+          <SendFaxButton appointment={appointmentResource} encounter={encounter} />
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <ReviewAndSignButton onSigned={refetch} />

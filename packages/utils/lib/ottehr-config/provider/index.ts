@@ -13,6 +13,15 @@ const PROVIDER_DATA: ProviderConfig = {
       { display: '99215 Established Patient - E/M Level 5', code: '99215' },
       { display: '99499 - Unlisted E&M Service', code: '99499' },
       { display: '99080 Preparation of special reports beyond what is found in the medical record', code: '99080' },
+      {
+        display:
+          '99211 - Office or other outpatient visit for the evaluation and management of established patient that may not require presence of healthcare professional',
+        code: '99211',
+      },
+      {
+        display: '99455 - Work-related or medical disability evaluation by the treating physician',
+        code: '99455',
+      },
     ],
     visionAutoCptCodes: ['99173'],
   },

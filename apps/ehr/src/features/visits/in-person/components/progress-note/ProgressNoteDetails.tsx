@@ -38,20 +38,16 @@ import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehr
 import { usePatientInstructionsVisibility } from 'src/features/visits/shared/hooks/usePatientInstructionsVisibility';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useRosObservationsStore } from 'src/features/visits/shared/stores/appointment/ros-observations.store';
-import { useAppFlags } from 'src/features/visits/shared/stores/contexts/useAppFlags';
-import {
-  useChangeTelemedAppointmentStatusMutation,
-  useSignAppointmentMutation,
-} from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
+import { useSignAppointmentMutation } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { isEligibleSupervisor } from 'src/helpers';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   examConfig,
   getSupervisorApprovalStatus,
+  isInPersonAppointment,
   LabType,
   NOTE_TYPE,
   progressNoteChartDataRequestedFields,
-  TelemedAppointmentStatusEnum,
 } from 'utils';
 import { useGetImmunizationOrders } from '../../hooks/useImmunization';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
@@ -60,18 +56,17 @@ import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
-  const { appointment, encounter, appointmentSetState } = useAppointmentData();
+  const { appointment, encounter } = useAppointmentData();
   const apiClient = useOystehrAPIClient();
-  const { isInPerson } = useAppFlags();
-  const examConfigComponents = examConfig[isInPerson ? 'inPerson' : 'telemed'].default.components;
+  // Appointment-scoped: must match how save-chart-data picks the config, otherwise
+  // telemed appointments opened under /in-person/:id/* mismatch the backend.
+  const examConfigComponents =
+    examConfig[isInPersonAppointment(appointment) ? 'inPerson' : 'telemed'].default.components;
   const unmatchedExamFields = useUnmatchedExamFields(examConfigComponents);
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const rosState = useRosObservationsStore();
 
-  const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
-    useChangeTelemedAppointmentStatusMutation();
-
-  const isLoading = isChangeLoading || isSignLoading;
+  const isLoading = isSignLoading;
   const user = useEvolveUser();
   const navigate = useNavigate();
 
@@ -178,7 +173,7 @@ export const ProgressNoteDetails: FC = () => {
       <Typography variant="h5" color="primary.dark">
         Examination
       </Typography>
-      <ExaminationContainer examConfig={examConfig.inPerson.default.components} />
+      <ExaminationContainer examConfig={examConfigComponents} />
     </Stack>,
     ...(!(approvalStatus === 'waiting-for-approval') ? medicalHistorySections : []),
     showAssessment && <AssessmentContainer />,
@@ -207,28 +202,14 @@ export const ProgressNoteDetails: FC = () => {
     if (!apiClient || !appointment?.id) {
       throw new Error('api client not defined or appointmentId not provided');
     }
-
-    if (isInPerson) {
-      const tz = DateTime.now().zoneName;
-      await signAppointment({
-        apiClient,
-        appointmentId: appointment.id,
-        timezone: tz,
-        supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
-        encounterId: encounter.id!,
-      });
-      navigate('/visits', { state: { tab: ApptTab.completed } });
-    } else {
-      await changeTelemedAppointmentStatus({
-        apiClient,
-        appointmentId: appointment.id,
-        newStatus: TelemedAppointmentStatusEnum.complete,
-      });
-      appointmentSetState({
-        encounter: { ...encounter, status: 'finished' },
-        appointment: { ...appointment, status: 'fulfilled' },
-      });
-    }
+    await signAppointment({
+      apiClient,
+      appointmentId: appointment.id,
+      timezone: DateTime.now().zoneName,
+      supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
+      encounterId: encounter.id!,
+    });
+    navigate('/visits', { state: { tab: ApptTab.completed } });
   };
 
   return (

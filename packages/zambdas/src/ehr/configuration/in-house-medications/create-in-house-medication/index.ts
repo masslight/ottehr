@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Medication } from 'fhir/r4b';
+import { Coding, Medication } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_NDC,
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
+  MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from 'utils';
@@ -18,13 +19,22 @@ let m2mToken: string;
 export const index = wrapHandler(
   'admin-create-in-house-medication',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { name, ndc, medispanID, cptCodes, hcpcsCodes, secrets } = validateRequestParameters(input);
+    const { name, ndc, medispanID, medispanIDForInteractions, cptCodes, hcpcsCodes, secrets } =
+      validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
     const oystehr = createOystehrClient(m2mToken, secrets);
     console.log('Created Oystehr client');
 
-    const response = await performEffect(oystehr, name, ndc, medispanID, cptCodes, hcpcsCodes);
+    const response = await performEffect(
+      oystehr,
+      name,
+      ndc,
+      medispanID,
+      medispanIDForInteractions,
+      cptCodes,
+      hcpcsCodes
+    );
     return {
       statusCode: 200,
       body: JSON.stringify(response),
@@ -37,10 +47,11 @@ export const performEffect = async (
   name: string,
   ndc: string | undefined,
   medispanID: string,
+  medispanIDForInteractions?: string,
   cptCodes?: { code: string; display: string }[],
   hcpcsCodes?: { code: string; display: string }[]
 ): Promise<Medication> => {
-  const coding = [];
+  const coding: Coding[] = [];
   if (ndc) {
     coding.push({ system: CODE_SYSTEM_NDC, code: ndc });
   }
@@ -48,6 +59,12 @@ export const performEffect = async (
     system: MEDICATION_DISPENSABLE_DRUG_ID,
     code: medispanID,
   });
+  if (medispanIDForInteractions) {
+    coding.push({
+      system: MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
+      code: medispanIDForInteractions,
+    });
+  }
   for (const { code, display } of cptCodes ?? []) {
     coding.push({ system: CODE_SYSTEM_CPT, code, display });
   }

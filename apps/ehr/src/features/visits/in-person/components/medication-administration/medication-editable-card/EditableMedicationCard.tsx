@@ -43,6 +43,7 @@ import {
   MedicationInteractions,
   MedicationOrderStatusesType,
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM_FOR_INTERACTIONS,
   RoleType,
   UpdateMedicationOrderInput,
 } from 'utils';
@@ -552,11 +553,15 @@ export const EditableMedicationCard: React.FC<{
           resourceType: 'Medication',
           id: medicationId,
         });
+        const medispanId = medication.code?.coding?.find(
+          (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
+        )?.code;
+        const medispanIdForInteractions = medication.code?.coding?.find(
+          (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM_FOR_INTERACTIONS
+        )?.code;
         const interactionsCheckResponse = await oystehr.erx.checkPrecheckInteractions({
           patientId,
-          drugId:
-            medication.code?.coding?.find((coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM)
-              ?.code ?? '',
+          drugId: medispanIdForInteractions ?? medispanId ?? '',
         });
         const prescriptions = await findPrescriptionsForInteractions(
           resources.patient?.id,

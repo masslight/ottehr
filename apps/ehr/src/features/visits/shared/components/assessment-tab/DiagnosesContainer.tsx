@@ -14,7 +14,6 @@ import { APIErrorCode, DIAGNOSIS_MAKE_PRIMARY_BUTTON, DiagnosisDTO, IcdSearchRes
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useICD10SearchNew } from '../../stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
-import { useAppFlags } from '../../stores/contexts/useAppFlags';
 import { AiSectionContainer } from '../AiSection';
 import { DiagnosesField } from './DiagnosesField';
 
@@ -88,7 +87,6 @@ export const DiagnosesContainer: FC<DiagnosesContainerProps> = ({ aiSuggestedDia
   const otherDiagnoses = diagnoses.filter((item) => !item.isPrimary);
 
   const { onAdd } = useAddDiagnosis();
-  const { isInPerson } = useAppFlags();
 
   const onDelete = async (resourceId: string): Promise<void> => {
     const preparedValue = diagnoses.find((item) => item.resourceId === resourceId)!;
@@ -215,7 +213,7 @@ export const DiagnosesContainer: FC<DiagnosesContainerProps> = ({ aiSuggestedDia
       data-testid={dataTestIds.diagnosisContainer.allDiagnosesContainer}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <AssessmentTitle>{isInPerson ? 'Dx' : 'Diagnoses'}</AssessmentTitle>
+        <AssessmentTitle>Dx</AssessmentTitle>
         {!isReadOnly && <DiagnosesField onChange={onAdd} disabled={isLoading} disableForPrimary={!primaryDiagnosis} />}
       </Box>
 

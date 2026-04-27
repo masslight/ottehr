@@ -13,7 +13,7 @@ import { FullNameDisplay } from 'src/features/visits/shared/components/patient/i
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import Summary from 'src/features/visits/shared/components/patient/info/Summary';
 import { PatientFollowupEncountersGrid } from 'src/features/visits/shared/components/patient/PatientFollowupEncountersGrid';
-import { getFirstName, getLastName, ServiceMode } from 'utils';
+import { getFirstName, getLastName } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
 import { PatientLabsTab } from '../components/PatientLabsTab';
@@ -25,6 +25,8 @@ import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { useGetPatient } from '../hooks/useGetPatient';
 import { useGetPatientVisitHistory } from '../hooks/useGetPatientVisitHistory';
 import PageContainer from '../layout/PageContainer';
+
+const MERGE_PATIENTS_ENABLED = false;
 
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
@@ -110,11 +112,7 @@ export default function PatientPage(): JSX.Element {
                 <RoundedButton
                   target="_blank"
                   sx={{ width: '100%' }}
-                  to={
-                    latestAppointment.serviceMode === ServiceMode.virtual
-                      ? `/telemed/appointments/${latestAppointment.appointmentId}?tab=sign`
-                      : `/in-person/${latestAppointment.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`
-                  }
+                  to={`/in-person/${latestAppointment.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`}
                 >
                   Recent Progress Note
                 </RoundedButton>
@@ -132,7 +130,7 @@ export default function PatientPage(): JSX.Element {
 
           {!isMergedPatient && (
             <>
-              {duplicatePatients.length > 0 && id && (
+              {MERGE_PATIENTS_ENABLED && duplicatePatients.length > 0 && id && (
                 <Alert
                   severity="warning"
                   action={
@@ -150,7 +148,7 @@ export default function PatientPage(): JSX.Element {
                 </Alert>
               )}
 
-              {mergePatientIds && (
+              {MERGE_PATIENTS_ENABLED && mergePatientIds && (
                 <PatientsMergeDifference
                   open
                   close={() => setMergePatientIds(null)}
