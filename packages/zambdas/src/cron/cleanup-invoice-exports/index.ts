@@ -45,7 +45,6 @@ export const index = wrapHandler(
     );
 
     let deletedFiles = 0;
-    let deletedTasks = 0;
 
     for (const task of eligibleTasks) {
       // Delete the Z3 object if the task has an output URL
@@ -68,22 +67,14 @@ export const index = wrapHandler(
           }
         }
       }
-
-      // Delete the Task resource
-      try {
-        await oystehr.fhir.delete({ resourceType: 'Task', id: task.id! });
-        deletedTasks++;
-      } catch (error) {
-        console.error(`Failed to delete Task ${task.id}:`, error);
-      }
     }
 
-    const message = `Cleanup complete: deleted ${deletedFiles} Z3 files and ${deletedTasks} Task resources`;
+    const message = `Cleanup complete: deleted ${deletedFiles} Z3 files`;
     console.log(message);
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message, deletedFiles, deletedTasks }),
+      body: JSON.stringify({ message, deletedFiles }),
     };
   }
 );

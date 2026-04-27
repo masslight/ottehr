@@ -7,6 +7,9 @@ const mockOystehrClient = {
     search: vi.fn(),
     patch: vi.fn(),
   },
+  z3: {
+    uploadFile: vi.fn(),
+  },
 };
 
 vi.mock('../../src/shared', async (importOriginal) => {
@@ -18,20 +21,6 @@ vi.mock('../../src/shared', async (importOriginal) => {
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });
-
-const mockCreatePresignedUrl = vi.fn();
-vi.mock('../../src/shared/z3Utils', () => ({
-  createPresignedUrl: (...args: unknown[]) => mockCreatePresignedUrl(...args),
-}));
-
-const mockMakeZ3Url = vi.fn();
-vi.mock('../../src/shared/presigned-file-urls', () => ({
-  makeZ3UrlForVisitAudio: (...args: unknown[]) => mockMakeZ3Url(...args),
-}));
-
-// Mock global fetch for CSV upload
-const mockFetch = vi.fn();
-vi.stubGlobal('fetch', mockFetch);
 
 // The subscription uses wrapTaskHandler; mock it to extract the inner handler
 let capturedHandler: (input: { task: FhirTask; secrets: Record<string, string> }, oystehr: unknown) => Promise<unknown>;
@@ -162,9 +151,7 @@ describe('sub-export-invoices-csv', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
-    mockMakeZ3Url.mockReturnValue('https://api.example.com/z3/test-project-invoiceable-patients-reports/export.csv');
-    mockCreatePresignedUrl.mockResolvedValue('https://presigned-upload-url.com');
-    mockFetch.mockResolvedValue({ ok: true });
+    mockOystehrClient.z3.uploadFile.mockResolvedValue(undefined);
 
     // Import to trigger wrapTaskHandler and capture the handler
     await import('../../src/subscriptions/sub-export-invoices-csv/index');
@@ -195,13 +182,11 @@ describe('sub-export-invoices-csv', () => {
 
     expect(result).toEqual(expect.objectContaining({ taskStatus: 'completed', statusReason: 'Exported 1 records' }));
 
-    // Verify CSV upload
-    expect(mockCreatePresignedUrl).toHaveBeenCalledWith('mock-token', expect.stringContaining('z3/'), 'upload');
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://presigned-upload-url.com',
+    // Verify CSV upload via SDK
+    expect(mockOystehrClient.z3.uploadFile).toHaveBeenCalledWith(
       expect.objectContaining({
-        method: 'PUT',
-        headers: { 'Content-Type': 'text/csv' },
+        bucketName: 'test-project-invoiceable-patients-reports',
+        'objectPath+': 'invoiceable-patients-export-export-task-1.csv',
       })
     );
 
@@ -233,17 +218,16 @@ describe('sub-export-invoices-csv', () => {
     expect(result).toEqual(expect.objectContaining({ taskStatus: 'completed', statusReason: 'Exported 0 records' }));
 
     // The CSV should still be uploaded (headers only)
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://presigned-upload-url.com',
-      expect.objectContaining({ method: 'PUT' })
+    expect(mockOystehrClient.z3.uploadFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bucketName: 'test-project-invoiceable-patients-reports',
+      })
     );
 
-    // Verify the uploaded body is a Uint8Array containing at least the header row
-    const uploadCall = mockFetch.mock.calls.find(
-      (call: unknown[]) => (call[1] as { method: string })?.method === 'PUT'
-    );
-    const csvBytes = uploadCall?.[1]?.body as Uint8Array;
-    const csvText = new TextDecoder().decode(csvBytes);
+    // Verify the uploaded body is a Blob containing at least the header row
+    const uploadCall = mockOystehrClient.z3.uploadFile.mock.calls[0][0];
+    const csvBlob = uploadCall.file as Blob;
+    const csvText = await csvBlob.text();
     expect(csvText).toContain('RCM Claim ID');
     expect(csvText).toContain('Patient Name');
     // Should only have the header line

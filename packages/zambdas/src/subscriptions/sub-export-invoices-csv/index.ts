@@ -20,6 +20,7 @@ import {
   getLatestTaskOutput,
   getPatientReferenceFromAccount,
   getResponsiblePartyFromAccount,
+  getSecret,
   INVOICE_TASK_BUSINESS_STATUS_SYSTEM,
   InvoiceSortDirectionValues,
   InvoiceSortFieldValues,
@@ -28,14 +29,12 @@ import {
   PATIENT_BILLING_ACCOUNT_TYPE,
   RCM_TASK_SYSTEM,
   RcmTaskCode,
+  SecretsKeys,
   TIMEZONES,
   ZERO_BALANCE_BUSINESS_STATUS_CODE,
 } from 'utils';
 import { getResponsiblePartyRelationship } from '../../ehr/get-invoices-tasks';
 import { accountMatchesType } from '../../ehr/shared/harvest';
-import { checkOrCreateM2MClientToken } from '../../shared';
-import { makeZ3UrlForVisitAudio } from '../../shared/presigned-file-urls';
-import { createPresignedUrl } from '../../shared/z3Utils';
 import { wrapTaskHandler } from '../task/helpers';
 
 const CSV_PAGE_SIZE = 200;
@@ -125,33 +124,21 @@ export const index = wrapTaskHandler('sub-export-invoices-csv', async (input, oy
 
   // Build CSV
   const csv = buildCsv(allRows);
-  const csvBytes = new TextEncoder().encode(csv);
 
   // Upload to Z3
-  const z3Url = makeZ3UrlForVisitAudio({
-    secrets,
-    bucketName: BUCKET_NAMES.REPORTS,
-    fileName: `invoiceable-patients-export-${task.id}.csv`,
+  const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
+  const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
+  const bucketName = `${projectId}-${BUCKET_NAMES.REPORTS}`;
+  const objectPath = `invoiceable-patients-export-${task.id}.csv`;
+
+  const csvBlob = new Blob([csv], { type: 'text/csv' });
+  await oystehr.z3.uploadFile({
+    bucketName,
+    'objectPath+': objectPath,
+    file: csvBlob,
   });
 
-  // Get M2M token for Z3 presigned URL
-  let m2mToken = '';
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-
-  // Get a presigned upload URL
-  const presignedUploadUrl = await createPresignedUrl(m2mToken, z3Url, 'upload');
-
-  // Upload the CSV with correct content type
-  const uploadResponse = await fetch(presignedUploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'text/csv' },
-    body: csvBytes,
-  });
-
-  if (!uploadResponse.ok) {
-    throw new Error(`Failed to upload CSV to Z3: ${uploadResponse.status} ${uploadResponse.statusText}`);
-  }
-
+  const z3Url = `${projectApi}/z3/${bucketName}/${objectPath}`;
   console.log(`CSV uploaded to Z3: ${z3Url}`);
 
   // Add the Z3 URL to the task output so the kick-off zambda can generate a download link
@@ -206,6 +193,7 @@ function taskGroupsToCsvRows(taskGroups: TaskGroup[]): CsvRow[] {
 
     const visitDate = formatDateConfigurable({ isoDate: appointment?.start, timezone });
     const patientDob = formatDateConfigurable({ isoDate: patient.birthDate });
+    const finalizationDate = formatDateConfigurable({ isoDate: taskInput.finalizationDate });
     const responsiblePartyName = responsibleParty ? getFullName(responsibleParty) : '';
     const relationship = responsibleParty ? getResponsiblePartyRelationship(responsibleParty)?.toLowerCase() ?? '' : '';
     const displayStatus = mapInvoiceTaskStatusToDisplay(task.status);
@@ -218,7 +206,7 @@ function taskGroupsToCsvRows(taskGroups: TaskGroup[]): CsvRow[] {
       responsibleParty: responsiblePartyName,
       responsiblePartyRelationship: relationship,
       dateOfService: visitDate ?? '',
-      finalizationDate: formatDateConfigurable({ isoDate: taskInput.finalizationDate }) ?? '',
+      finalizationDate: finalizationDate ?? '',
       amount: ((taskInput.amountCents ?? 0) / 100).toFixed(2),
       invoiceStatus: displayStatus,
       stripeInvoiceId,
