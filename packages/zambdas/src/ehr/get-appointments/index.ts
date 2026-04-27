@@ -434,6 +434,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       (resource) => resource.resourceType === 'RelatedPerson'
     ) as RelatedPerson[];
     commSenders.forEach((rp) => {
+      if (!rp.id) return;
       if (!isUserRelatedPerson(rp)) return;
       const rpRef = `RelatedPerson/${rp.id}`;
       rpIdToResourceMap[rpRef] = rp;
