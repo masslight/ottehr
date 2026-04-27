@@ -12,12 +12,11 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
-import { AiObservationField, CPTCodeDTO, ObservationTextFieldDTO, TelemedAppointmentStatusEnum } from 'utils';
+import { AiObservationField, CPTCodeDTO, ObservationTextFieldDTO } from 'utils';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useChartData, useDeleteChartData } from '../../shared/stores/appointment/appointment.store';
-import { useAppFlags } from '../../shared/stores/contexts/useAppFlags';
 import { useDeleteProcedureDialog } from '../components/DeleteProcedureDialog';
 import { ROUTER_PATH } from '../routing/routesInPerson';
 
@@ -26,7 +25,6 @@ export default function Procedures(): ReactElement {
   const { id: appointmentId } = useParams();
   const { isChartDataLoading, chartData, refetch: refetchChartData } = useChartData();
   const appointmentAccessibility = useGetAppointmentAccessibility();
-  const { isInPerson } = useAppFlags();
   const { mutateAsync: deleteChartData } = useDeleteChartData();
   const queryClient = useQueryClient();
   const aiProcedures = chartData?.observations?.filter(
@@ -34,11 +32,8 @@ export default function Procedures(): ReactElement {
   ) as ObservationTextFieldDTO[];
 
   const isReadOnly = useMemo(() => {
-    if (isInPerson) {
-      return appointmentAccessibility.isAppointmentReadOnly;
-    }
-    return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
-  }, [isInPerson, appointmentAccessibility.status, appointmentAccessibility.isAppointmentReadOnly]);
+    return appointmentAccessibility.isAppointmentReadOnly;
+  }, [appointmentAccessibility.isAppointmentReadOnly]);
 
   const onNewProcedureClick = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES_NEW}`);
