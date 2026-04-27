@@ -168,7 +168,7 @@ describe('executePageHarvest', () => {
     const result = await executePageHarvest(buildContext('contact-information-page'));
     expect(result).toContain('master record updated');
     expect(result).toContain('contact-information-page');
-    expect(result).toContain('erx-contact skipped (no RelatedPerson)');
+    expect(result).toContain('erx-contact skipped (no user-relatedperson)');
   });
 
   it('dispatches pharmacy strategy for pharmacy-page', async () => {

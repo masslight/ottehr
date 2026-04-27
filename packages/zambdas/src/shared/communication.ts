@@ -26,7 +26,8 @@ import {
   TelemedConfirmationTemplateData,
   TelemedInvitationTemplateData,
 } from 'utils';
-import { reportMissingUserRelatedPerson, sendErrors } from './errors';
+import { sendErrors } from './errors';
+import { reportMissingUserRelatedPerson } from './invariants';
 
 export interface EmailAttachment {
   content: string; // Base64 encoded content
