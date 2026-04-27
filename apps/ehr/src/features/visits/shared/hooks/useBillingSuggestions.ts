@@ -6,10 +6,13 @@ import {
   BillingSuggestionOutput,
   CPTCodeDTO,
   DiagnosisDTO,
+  getRosFindingStateFromKey,
   InPersonRosConfig,
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
   PROVIDER_CONFIG,
+  rosField,
+  RosFindingState,
 } from 'utils';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 import { useRosObservationsStore } from '../stores/appointment/ros-observations.store';
@@ -194,15 +197,20 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
   const inputsReady = !chartDataLoading && !chartDataFieldsLoading && !chartDataFieldsFetching;
 
   // Build ROS positive findings string grouped by system
-  const rosFindings = useMemo(() => {
-    const reported = Object.values(rosState).filter((obs) => obs.value && obs.field.endsWith('-reports'));
+  const rosFindingsGroupedBySystem = useMemo(() => {
+    const reported = Object.values(rosState).filter(
+      (obs) => obs.value && getRosFindingStateFromKey(obs.field) === RosFindingState.Reports
+    );
+
     if (reported.length === 0) return '';
 
     const systemFindings: Record<string, string[]> = {};
+
     for (const [_systemKey, system] of Object.entries(InPersonRosConfig)) {
       const items: string[] = [];
-      for (const [fieldKey, item] of Object.entries(system.items)) {
-        if (rosState[`${fieldKey}-reports`]?.value) {
+      for (const [baseKey, item] of Object.entries(system.items)) {
+        const fieldKey = rosField(baseKey, RosFindingState.Reports);
+        if (rosState[fieldKey]?.value) {
           items.push(item.label);
         }
       }
@@ -224,9 +232,9 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
       radiologyOrders,
       appointment,
       patient,
-      rosFindings,
+      rosFindings: rosFindingsGroupedBySystem,
     });
-  }, [inputsReady, chartData, chartDataFields, radiologyOrders, appointment, patient, rosFindings]);
+  }, [inputsReady, chartData, chartDataFields, radiologyOrders, appointment, patient, rosFindingsGroupedBySystem]);
 
   const inputHash = useMemo(() => (billingInput ? hashInput(billingInput) : ''), [billingInput]);
 
