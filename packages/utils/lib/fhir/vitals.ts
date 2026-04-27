@@ -772,7 +772,7 @@ export function fillVitalObservationAttributes(
           },
         ],
       },
-      valueDateTime: lmpDTO.value,
+      valueDateTime: lmpDTO.value || undefined,
       component: lmpDTO.isUnsure
         ? [
             {
@@ -981,12 +981,12 @@ export function parseLastMenstrualPeriodObservation(
   );
 
   const value = observation.valueDateTime;
-  if (value === undefined) return undefined;
+  if (value === undefined && !hasUnsure) return undefined;
 
   return {
     resourceId: observation.id,
     field: VitalFieldNames.VitalLastMenstrualPeriod,
-    value,
+    value: value ?? '',
     isUnsure: hasUnsure,
     authorId: performer.id,
     authorName: getFullName(performer),
