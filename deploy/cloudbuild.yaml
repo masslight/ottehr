@@ -2,7 +2,9 @@
 #
 # Prereqs (GCP, same project as Cloud Build):
 # - Enable: Cloud Build, Cloud Run, Artifact Registry, Secret Manager
-# - Artifact Registry repository (name must match _AR_REPO), same region as _REGION
+# - Artifact Registry: Docker repository id `_AR_REPO` (default `juna-repo`) must exist in
+#   `_REGION`; image name `_IMAGE_NAME` (default `juna-ottehr`). Full URI:
+#   ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:tag
 # - Secrets in Secret Manager (version "latest" is used):
 #     sec-juna-ottehr-config      — file body = contents of config/.env/local.json
 #     sec-juna-ottehr-zambda-secrets — file body of packages/zambdas/.env/zambda-secrets-local.json
@@ -30,9 +32,11 @@ timeout: 2400s
 
 substitutions:
   _REGION: us-central1
-  # Repository id in Artifact Registry (create once: gcloud artifacts repositories create REPO --repository-format=docker --location=REGION)
-  _AR_REPO: ottehr
-  _CLOUD_RUN_SERVICE: juna-ottehr-zambdas
+  # Artifact Registry Docker repo id + image name → …/REPO/IMAGE:tag (e.g. juna-repo/juna-ottehr)
+  _AR_REPO: juna-repo
+  _IMAGE_NAME: juna-ottehr
+  # Cloud Run service id (can match image name or differ)
+  _CLOUD_RUN_SERVICE: juna-ottehr
   _SECRET_OTTEHR_CONFIG: sec-juna-ottehr-config
   _SECRET_ZAMBDA: sec-juna-ottehr-zambda-secrets
 
@@ -57,9 +61,9 @@ steps:
       - -f
       - deploy/Dockerfile
       - -t
-      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_CLOUD_RUN_SERVICE}:${SHORT_SHA}
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${SHORT_SHA}
       - -t
-      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_CLOUD_RUN_SERVICE}:latest
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:latest
       - .
     env:
       - "DOCKER_BUILDKIT=1"
@@ -71,7 +75,7 @@ steps:
       - run
       - deploy
       - ${_CLOUD_RUN_SERVICE}
-      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_CLOUD_RUN_SERVICE}:${SHORT_SHA}
+      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${SHORT_SHA}
       - --region=${_REGION}
       - --platform=managed
       - --port=8080
@@ -82,5 +86,5 @@ steps:
 
 # Cloud Build pushes these tags after the build step
 images:
-  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_CLOUD_RUN_SERVICE}:${SHORT_SHA}
-  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_CLOUD_RUN_SERVICE}:latest
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${SHORT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:latest
