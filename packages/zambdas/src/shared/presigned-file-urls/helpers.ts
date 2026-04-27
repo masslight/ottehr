@@ -22,7 +22,7 @@ type Z3UrlInput =
       fileName: string;
     };
 
-export const makeZ3UrlForVisitAudio = (input: Z3UrlAudioInput): string => {
+export const makeZ3FileUrl = (input: Z3UrlAudioInput): string => {
   const { secrets, bucketName } = input;
   const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const dateTimeNow = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');

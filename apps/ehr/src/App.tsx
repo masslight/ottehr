@@ -78,11 +78,6 @@ setupSentry({
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
 
-const TelemedAppointmentPageLazy = lazy(async () => {
-  const TelemedAppointmentPage = await import('./features/visits/telemed/pages/AppointmentPage');
-  return { default: TelemedAppointmentPage.AppointmentPage };
-});
-
 export const INSURANCES_URL = '/admin/insurances';
 export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
 export const CHARGE_MASTERS_URL = '/admin/charge-masters';
@@ -257,15 +252,6 @@ function App(): ReactElement {
                   <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                   <Route path="/admin/in-house-labs/add" element={<AdminAddInHouseLab />} />
                   <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
-                  {/** telemed */}
-                  <Route
-                    path="/telemed/appointments/:id"
-                    element={
-                      <Suspense fallback={<LoadingScreen />}>
-                        <TelemedAppointmentPageLazy />
-                      </Suspense>
-                    }
-                  />
                   {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
@@ -297,16 +283,6 @@ function App(): ReactElement {
 
                   <Route path="/rcm/claims" element={<Claims />} />
                   <Route path="/rcm/claims/:id" element={<Claim />} />
-                  {/** telemed */}
-                  <Route path="/telemed/appointments/:id/visit-details" element={<VisitDetailsPage />} />
-                  <Route
-                    path="/telemed/appointments/:id"
-                    element={
-                      <Suspense fallback={<LoadingScreen />}>
-                        <TelemedAppointmentPageLazy />
-                      </Suspense>
-                    }
-                  />
                   {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
