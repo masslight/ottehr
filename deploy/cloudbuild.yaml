@@ -15,6 +15,10 @@
 #     roles/artifactregistry.writer, roles/run.admin, roles/iam.serviceAccountUser,
 #     roles/secretmanager.secretAccessor (on those secrets)
 #
+# Image push order: `images:` is pushed only after all steps succeed. Cloud Run needs the
+# image in Artifact Registry before deploy, so we run `docker push` in a dedicated step
+# before `gcloud run deploy` (otherwise deploy fails with Image not found).
+#
 # Trigger from repo root (or set dir in trigger):
 #   gcloud builds submit --config=deploy/cloudbuild.yaml .
 #
@@ -68,8 +72,20 @@ steps:
     env:
       - "DOCKER_BUILDKIT=1"
 
+  # Must run before deploy — Artifact Registry does not have the image until push completes.
+  - id: push-image
+    name: gcr.io/cloud-builders/docker
+    waitFor:
+      - build-image
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}
+
   - id: deploy-cloud-run
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor:
+      - push-image
     entrypoint: gcloud
     args:
       - run
@@ -83,8 +99,3 @@ steps:
       - --set-env-vars=ENV=local
       - --quiet
       - --allow-unauthenticated
-
-# Cloud Build pushes these tags after the build step
-images:
-  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${SHORT_SHA}
-  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:latest
