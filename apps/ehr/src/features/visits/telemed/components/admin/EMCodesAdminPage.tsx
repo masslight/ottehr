@@ -1,14 +1,9 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   IconButton,
   Paper,
   Table,
@@ -17,59 +12,32 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material';
 import { ReactElement, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { CPTCodeOption } from 'utils';
 import { useEMCodes } from '../../../shared/hooks/useEMCodes';
-import {
-  useAdminCreateEmCodeMutation,
-  useAdminDeleteEmCodeMutation,
-  useAdminUpdateEmCodeMutation,
-} from './admin.queries';
+import { useAdminDeleteEmCodeMutation } from './admin.queries';
+import EMCodeDialog from './EMCodeDialog';
 
 interface DialogState {
   open: boolean;
-  editCode: string | null;
+  existingCode?: CPTCodeOption;
 }
 
 export default function EMCodesAdminPage(): ReactElement {
   const { emCodes, isLoading } = useEMCodes();
-  const createMutation = useAdminCreateEmCodeMutation();
-  const updateMutation = useAdminUpdateEmCodeMutation();
   const deleteMutation = useAdminDeleteEmCodeMutation();
 
-  const [dialog, setDialog] = useState<DialogState>({ open: false, editCode: null });
-  const [codeInput, setCodeInput] = useState('');
-  const [displayInput, setDisplayInput] = useState('');
+  const [dialog, setDialog] = useState<DialogState>({ open: false });
 
-  const isEditing = dialog.editCode !== null;
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const openAddDialog = (): void => setDialog({ open: true });
 
-  const openAddDialog = (): void => {
-    setCodeInput('');
-    setDisplayInput('');
-    setDialog({ open: true, editCode: null });
-  };
+  const openEditDialog = (code: string, display: string): void =>
+    setDialog({ open: true, existingCode: { code, display } });
 
-  const openEditDialog = (code: string, display: string): void => {
-    setCodeInput(code);
-    setDisplayInput(display);
-    setDialog({ open: true, editCode: code });
-  };
-
-  const closeDialog = (): void => {
-    setDialog({ open: false, editCode: null });
-    setCodeInput('');
-    setDisplayInput('');
-  };
-
-  const handleSave = (): void => {
-    if (!codeInput.trim() || !displayInput.trim()) return;
-    const mutation = isEditing ? updateMutation : createMutation;
-    mutation.mutate({ code: codeInput.trim(), display: displayInput.trim() }, { onSuccess: closeDialog });
-  };
+  const closeDialog = (): void => setDialog({ open: false });
 
   const handleDelete = (code: string): void => {
     deleteMutation.mutate({ code });
@@ -131,46 +99,7 @@ export default function EMCodesAdminPage(): ReactElement {
         </TableContainer>
       )}
 
-      <Dialog
-        open={dialog.open}
-        onClose={closeDialog}
-        maxWidth="sm"
-        fullWidth
-        data-testid={dataTestIds.emCodesAdminPage.dialog}
-      >
-        <DialogTitle>{isEditing ? 'Edit E&M Code' : 'Add E&M Code'}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField
-              label="Code"
-              value={codeInput}
-              onChange={(e) => setCodeInput(e.target.value)}
-              disabled={isEditing}
-              fullWidth
-              inputProps={{ 'data-testid': dataTestIds.emCodesAdminPage.codeField }}
-            />
-            <TextField
-              label="Display"
-              value={displayInput}
-              onChange={(e) => setDisplayInput(e.target.value)}
-              fullWidth
-              inputProps={{ 'data-testid': dataTestIds.emCodesAdminPage.displayField }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeDialog}>Cancel</Button>
-          <LoadingButton
-            loading={isSaving}
-            onClick={handleSave}
-            disabled={!codeInput.trim() || !displayInput.trim()}
-            variant="contained"
-            data-testid={dataTestIds.emCodesAdminPage.saveButton}
-          >
-            Save
-          </LoadingButton>
-        </DialogActions>
-      </Dialog>
+      <EMCodeDialog open={dialog.open} onClose={closeDialog} existingCode={dialog.existingCode} />
     </Paper>
   );
 }

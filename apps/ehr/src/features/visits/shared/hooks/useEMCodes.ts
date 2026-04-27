@@ -8,7 +8,10 @@ export const useEMCodes = (): { emCodes: CPTCodeOption[]; isLoading: boolean } =
 
   const { data, isLoading } = useQuery({
     queryKey: ['em-codes'],
-    queryFn: () => getEmCodes(oystehrZambda!),
+    queryFn: async () => {
+      if (oystehrZambda) return getEmCodes(oystehrZambda!);
+      throw new Error('zambda client not defined');
+    },
     enabled: !!oystehrZambda,
     staleTime: Infinity,
   });
