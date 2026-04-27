@@ -54,12 +54,14 @@ const updateLoginPhoneNumbers = async (input: Input, oystehr: Oystehr): Promise<
       (rp) => getCoding(rp.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson'
     );
 
-  const persons = (
-    await oystehr.fhir.search<Person>({
-      resourceType: 'Person',
-      params: [{ name: 'relatedperson', value: relatedPersons.map((r) => r.id!).join(',') }],
-    })
-  ).unbundle();
+  const persons = relatedPersons.length
+    ? (
+        await oystehr.fhir.search<Person>({
+          resourceType: 'Person',
+          params: [{ name: 'relatedperson', value: relatedPersons.map((r) => r.id!).join(',') }],
+        })
+      ).unbundle()
+    : [];
 
   const phoneMap = new Map<string, { person: Person; relatedPerson: RelatedPerson }>();
 
