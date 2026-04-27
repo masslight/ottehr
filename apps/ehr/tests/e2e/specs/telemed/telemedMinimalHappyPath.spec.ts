@@ -1,10 +1,10 @@
 import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForGetChartDataResponse, waitForSaveChartDataResponse } from 'test-utils';
+import { isTelemedEnabled } from 'test-utils';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { openVisitsPage } from 'tests/e2e/page/VisitsPage';
 import { TelemedAppointmentStatusEnum, TelemedAppointmentVisitTabs } from 'utils';
-import { virtualDefaultLocations } from '../../../../../../packages/zambdas/src/scripts/setup-default-locations';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
@@ -26,7 +26,7 @@ test.afterAll(async () => {
 test.describe.configure({ mode: 'serial' });
 
 // Skip telemed tests if virtual locations are not configured
-test.skip(virtualDefaultLocations.length === 0, 'Telemed tests require virtual locations to be configured');
+test.skip(!isTelemedEnabled, 'Telemed tests require virtual locations to be configured');
 
 test('Should start video call', async () => {
   const visitsPage = await openVisitsPage(page);

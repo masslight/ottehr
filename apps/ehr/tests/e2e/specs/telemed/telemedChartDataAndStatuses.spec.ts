@@ -7,6 +7,7 @@ import {
   waitForChartDataDeletion,
   waitForSaveChartDataResponse,
 } from 'test-utils';
+import { isTelemedEnabled } from 'test-utils';
 import { expectVisitsPage, openVisitsPage } from 'tests/e2e/page/VisitsPage';
 import {
   allLicensesForPractitioner,
@@ -32,7 +33,6 @@ import {
   TelemedAppointmentStatusEnum,
   TelemedAppointmentVisitTabs,
 } from 'utils';
-import { virtualDefaultLocations } from '../../../../../../packages/zambdas/src/scripts/setup-default-locations';
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
@@ -79,7 +79,7 @@ async function getTestStateThatNotQualificationsStatesList(
 test.describe.configure({ mode: 'serial' });
 
 // Skip telemed tests if virtual locations are not configured
-test.skip(virtualDefaultLocations.length === 0, 'Telemed tests require virtual locations to be configured');
+test.skip(!isTelemedEnabled, 'Telemed tests require virtual locations to be configured');
 
 test.describe.skip('Telemed tracking board checks, buttons, chart data filling', () => {
   let page: Page;

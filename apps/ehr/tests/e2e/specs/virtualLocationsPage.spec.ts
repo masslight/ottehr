@@ -1,5 +1,5 @@
 import { BrowserContext, Page, test } from '@playwright/test';
-import { virtualDefaultLocations } from '../../../../../packages/zambdas/src/scripts/setup-default-locations';
+import { isTelemedEnabled } from 'test-utils';
 import { expectStateDetailsPage, VirtualLocationDetailsPage } from '../page/VirtualLocationDetailsPage';
 import {
   expectVirtualLocationsPage,
@@ -28,10 +28,7 @@ let stateDetailsPage: VirtualLocationDetailsPage;
 test.describe.configure({ mode: 'serial' });
 
 // Skip virtual locations page tests if virtual locations are not configured
-test.skip(
-  virtualDefaultLocations.length === 0,
-  'Virtual locations page tests require virtual locations to be configured'
-);
+test.skip(!isTelemedEnabled, 'Virtual locations page tests require virtual locations to be configured');
 
 test('Open "Virtual Locations page", enter state abbreviation,  correct search result is displayed', async () => {
   virtualLocationsPage = await expectVirtualLocationsPage(page);

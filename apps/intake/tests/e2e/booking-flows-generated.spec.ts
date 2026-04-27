@@ -14,8 +14,8 @@
 
 import { expect, test } from '@playwright/test';
 import { Location, Schedule } from 'fhir/r4b';
+import { isTelemedEnabled } from 'test-utils';
 import { CanonicalUrl, ServiceMode } from 'utils';
-import { virtualDefaultLocations } from '../../../../packages/zambdas/src/scripts/setup-default-locations';
 import { executeBookingScenario, generateBookingTestScenarios } from '../utils/booking/BookingTestFactory';
 import {
   // P1: Critical User Journeys
@@ -84,7 +84,6 @@ test.describe('Complete booking flows', () => {
     console.log(`✓ Created prebook in-person location: ${prebookInPersonLocation.name}`);
 
     // Create prebook virtual test location (24/7, 8 slots per hour) only if telemed is configured
-    const isTelemedEnabled = virtualDefaultLocations.length > 0;
     if (isTelemedEnabled) {
       const prebookVirtualResult = await testLocationManager.ensurePrebookVirtualLocationWithSlots();
       prebookVirtualLocation = prebookVirtualResult.location;

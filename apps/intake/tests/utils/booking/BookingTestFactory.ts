@@ -11,6 +11,7 @@
  */
 
 import { Page } from '@playwright/test';
+import { isTelemedEnabled } from 'test-utils';
 import {
   BOOKING_CONFIG,
   BookingConfig,
@@ -20,7 +21,6 @@ import {
   INTAKE_PAPERWORK_CONFIG,
   VIRTUAL_INTAKE_PAPERWORK_CONFIG,
 } from 'utils';
-import { virtualDefaultLocations } from '../../../../../packages/zambdas/src/scripts/setup-default-locations';
 import { injectTestConfig } from '../config/injectTestConfig';
 import { PagedQuestionnaireFlowHelper } from '../paperwork/PagedQuestionnaireFlowHelper';
 import { getTestDataForPage } from '../paperwork/paperworkDataTemplates';
@@ -108,9 +108,6 @@ function getFillingStrategyForScenario(
  */
 export async function generateBookingTestScenarios(): Promise<BookingTestScenario[]> {
   const scenarios: BookingTestScenario[] = [];
-
-  // Check if virtual locations are configured (telemed enabled)
-  const isTelemedEnabled = virtualDefaultLocations.length > 0;
 
   // Use the actual BOOKING_CONFIG which has downstream overrides baked in
   const resolvedConfig = BOOKING_CONFIG as BookingConfig;
