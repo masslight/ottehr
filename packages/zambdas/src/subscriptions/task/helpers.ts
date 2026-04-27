@@ -77,10 +77,14 @@ export const sendText = async (
           ? `text sent to ${total} recipient(s)`
           : `text sent to ${sent}/${total} recipient(s); failed: ${failures.map((f) => f.recipient).join(', ')}`,
     };
-  } catch {
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : JSON.stringify(error);
+    console.error('sendSmsToRelatedPersons threw:', error);
     return {
       taskStatus: 'failed',
-      statusReason: `failed to send text to any of ${reachable.map((rp) => `RelatedPerson/${rp.id}`).join(', ')}`,
+      statusReason: `failed to send text to any of ${reachable
+        .map((rp) => `RelatedPerson/${rp.id}`)
+        .join(', ')}: ${detail}`,
     };
   }
 };
