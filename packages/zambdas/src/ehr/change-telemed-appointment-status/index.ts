@@ -1,10 +1,13 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { CandidApiClient } from 'candidhealth';
 import { ChargeItem, Encounter, Task } from 'fhir/r4b';
 import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
+  createCandidApiClient,
+  getOptionalSecret,
   getPatientContactEmail,
   getQuestionnaireResponseByLinkId,
   getSecret,
@@ -40,6 +43,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
+let candidApiClient: CandidApiClient | undefined;
 const ZAMBDA_NAME = 'change-telemed-appointment-status';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -165,8 +169,16 @@ export const performEffect = async (
     let candidEncounterId: string | undefined;
     try {
       if (!secrets) throw new Error('Secrets are not defined, cannot create Candid encounter.');
-      console.log('[CLAIM SUBMISSION] Attempting to create telemed encounter in candid...');
-      candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
+      const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
+      if (candidClientId == null || candidClientId.length === 0) {
+        console.log('CANDID_CLIENT_ID is not set, skipping encounter submission to candid');
+      } else {
+        if (!candidApiClient) {
+          candidApiClient = createCandidApiClient(secrets);
+        }
+        console.log('[CLAIM SUBMISSION] Attempting to create telemed encounter in candid...');
+        candidEncounterId = await createEncounterFromAppointment(visitResources, oystehr, candidApiClient);
+      }
     } catch (error) {
       console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
       captureException(error, {

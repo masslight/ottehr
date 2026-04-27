@@ -33,6 +33,7 @@ export interface LocationKpiMetrics {
 export interface PracticeKpisReportZambdaOutput {
   message: string;
   locations: LocationKpiMetrics[];
+  unsignedVisitCount: number;
   dateRange: {
     start: string;
     end: string;

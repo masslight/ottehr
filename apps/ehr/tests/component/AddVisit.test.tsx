@@ -14,13 +14,43 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+const mockLocation = {
+  resourceType: 'Location',
+  id: 'test-location-1',
+  name: 'Test Location',
+  identifier: [
+    {
+      system: 'https://fhir.ottehr.com/r4/slug',
+      value: 'test-location',
+    },
+  ],
+};
+const mockSchedule = {
+  resourceType: 'Schedule',
+  id: 'test-schedule-1',
+  actor: [
+    {
+      reference: 'Location/test-location-1',
+    },
+  ],
+};
+
 // Mock the API client hooks to avoid authentication errors
 vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => ({
     oystehr: {
       fhir: {
         search: vi.fn().mockResolvedValue({
-          unbundle: () => [],
+          entry: [
+            {
+              resource: mockLocation,
+              search: {
+                mode: 'match',
+              },
+            },
+          ],
+          total: 1,
+          unbundle: () => [mockLocation, mockSchedule],
         }),
       },
     },
@@ -296,6 +326,13 @@ describe('AddVisit', () => {
         const prebookOption = await screen.findByText('Pre-booked In Person Visit');
         await user.click(prebookOption);
 
+        // Select location
+        const locationSelect = screen.getByTestId(dataTestIds.dashboard.locationSelect);
+        const locationInput = locationSelect.querySelector('input')!;
+        await user.click(locationInput);
+        const locationOption = await screen.findByText('Test Location');
+        await user.click(locationOption);
+
         // Try to submit without selecting a slot
         const addButton = screen.getByTestId(dataTestIds.addPatientPage.addButton);
         await user.click(addButton);
@@ -364,6 +401,13 @@ describe('AddVisit', () => {
         await user.click(visitTypeButton!);
         const postTelemedOption = await screen.findByText('Post Telemed Lab Only');
         await user.click(postTelemedOption);
+
+        // Select location
+        const locationSelect = screen.getByTestId(dataTestIds.dashboard.locationSelect);
+        const locationInput = locationSelect.querySelector('input')!;
+        await user.click(locationInput);
+        const locationOption = await screen.findByText('Test Location');
+        await user.click(locationOption);
 
         // Try to submit without selecting a slot
         const addButton = screen.getByTestId(dataTestIds.addPatientPage.addButton);

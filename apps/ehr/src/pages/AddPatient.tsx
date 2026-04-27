@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   FormControl,
+  FormHelperText,
   Grid,
   InputLabel,
   MenuItem,
@@ -17,7 +18,7 @@ import { Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
 import {
   BOOKING_CONFIG,
@@ -56,7 +57,15 @@ export type AddVisitFormState =
 
 export interface AddVisitErrorState {
   submit?: boolean;
+  visitType?: boolean;
+  serviceCategory?: boolean;
+  location?: boolean;
+  firstName?: boolean;
+  lastName?: boolean;
   phone?: boolean;
+  dateOfBirth?: boolean;
+  sexAtBirth?: boolean;
+  reasonForVisit?: boolean;
   search?: boolean;
   searchEntry?: boolean;
 }
@@ -82,9 +91,28 @@ enum VisitType {
 }
 
 export default function AddPatient(): JSX.Element {
-  const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule>();
-  const [birthDate, setBirthDate] = useState<DateTime | null>(null); // i would love to not have to handle this state but i think the date search component would have to change and i dont want to touch that right now
-  const [patientInfo, setPatientInfo] = useState<AddVisitPatientInfo | undefined>(undefined);
+  const location = useLocation();
+  const followUpState = location.state as
+    | {
+        parentEncounterId?: string;
+        parentLocation?: LocationWithWalkinSchedule;
+        patientId?: string;
+        patientInfo?: AddVisitPatientInfo;
+      }
+    | undefined;
+  const parentEncounterId = followUpState?.parentEncounterId;
+  const isScheduledFollowUp = !!parentEncounterId;
+  console.log('[AddPatient] location.state:', location.state, 'parentEncounterId:', parentEncounterId);
+
+  const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule | undefined>(
+    followUpState?.parentLocation
+  );
+  const [birthDate, setBirthDate] = useState<DateTime | null>(
+    followUpState?.patientInfo?.dateOfBirth ? DateTime.fromISO(followUpState.patientInfo.dateOfBirth) : null
+  );
+  const [patientInfo, setPatientInfo] = useState<AddVisitPatientInfo | undefined>(
+    followUpState?.patientInfo || undefined
+  );
   const [reasonForVisit, setReasonForVisit] = useState<string>('');
   const [reasonForVisitAdditional, setReasonForVisitAdditional] = useState<string>('');
   const [visitType, setVisitType] = useState<VisitType>();
@@ -93,7 +121,15 @@ export default function AddPatient(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<AddVisitErrorState>({
     submit: false,
+    visitType: false,
+    serviceCategory: false,
+    location: false,
+    firstName: false,
+    lastName: false,
     phone: false,
+    dateOfBirth: false,
+    sexAtBirth: false,
+    reasonForVisit: false,
     search: false,
     searchEntry: false,
   });
@@ -102,7 +138,9 @@ export default function AddPatient(): JSX.Element {
   const [validDate, setValidDate] = useState<boolean>(true);
   const [selectSlotDialogOpen, setSelectSlotDialogOpen] = useState<boolean>(false);
   const [validReasonForVisit, setValidReasonForVisit] = useState<boolean>(true);
-  const [showFields, setShowFields] = useState<AddVisitFormState>('initialPatientSearch');
+  const [showFields, setShowFields] = useState<AddVisitFormState>(
+    isScheduledFollowUp ? 'existingPatientSelected' : 'initialPatientSearch'
+  );
 
   useEffect(() => {
     setReasonForVisit('');
@@ -159,11 +197,25 @@ export default function AddPatient(): JSX.Element {
       return;
     }
 
-    if (patientInfo.phoneNumber && patientInfo.phoneNumber.length !== 10) {
-      setErrors({ phone: true });
+    const validations: Array<{ invalid: boolean; field: keyof AddVisitErrorState }> = [
+      // first name, last name, and phone are empty strings when untouched
+      { field: 'firstName', invalid: patientInfo.firstName != null && patientInfo.firstName.length === 0 },
+      { field: 'lastName', invalid: patientInfo.lastName != null && patientInfo.lastName.length === 0 },
+      { field: 'phone', invalid: patientInfo.phoneNumber != null && patientInfo.phoneNumber.length !== 10 },
+      {
+        field: 'dateOfBirth',
+        invalid: patientInfo.newPatient ? !birthDate : !patientInfo.dateOfBirth,
+      },
+      { field: 'sexAtBirth', invalid: !patientInfo.sex },
+      { field: 'visitType', invalid: !visitType },
+      { field: 'serviceCategory', invalid: !serviceCategory },
+      { field: 'location', invalid: !!visitType && !selectedLocation },
+      { field: 'reasonForVisit', invalid: shouldShowReasonForVisitFields && !reasonForVisit },
+    ];
+    const fieldErrors = Object.fromEntries(validations.map((v) => [v.field, v.invalid]));
+    setErrors((prev) => ({ ...prev, ...fieldErrors }));
+    if (validations.some((v) => v.invalid)) {
       return;
-    } else {
-      setErrors({ ...errors, phone: false });
     }
 
     if (
@@ -233,6 +285,7 @@ export default function AddPatient(): JSX.Element {
           reasonAdditional: reasonForVisitAdditional !== '' ? reasonForVisitAdditional : undefined,
         },
         slotId: persistedSlot.id!,
+        parentEncounterId,
       };
 
       let response;
@@ -241,10 +294,12 @@ export default function AddPatient(): JSX.Element {
         response = await createAppointment(oystehrZambda, zambdaParams);
       } catch (error) {
         console.error(`Failed to add patient: ${error}`);
+        enqueueSnackbar('An unexpected error occurred, please try again.', { variant: 'error' });
         apiErr = true;
       } finally {
         setLoading(false);
         if (response && !apiErr) {
+          enqueueSnackbar('Visit added successfully', { variant: 'success' });
           navigate('/visits');
         } else {
           setErrors({ submit: true });
@@ -261,7 +316,7 @@ export default function AddPatient(): JSX.Element {
           <CustomBreadcrumbs
             chain={[
               { link: '/visits', children: 'Tracking Board' },
-              { link: '#', children: 'Add Visit' },
+              { link: '#', children: isScheduledFollowUp ? 'Add Scheduled Follow-up' : 'Add Visit' },
             ]}
           />
 
@@ -273,14 +328,14 @@ export default function AddPatient(): JSX.Element {
             color={'primary.dark'}
             data-testid={dataTestIds.addPatientPage.pageTitle}
           >
-            Add Visit
+            {isScheduledFollowUp ? 'Add Scheduled Follow-up Visit' : 'Add Visit'}
           </Typography>
 
           {/* form content */}
           <Paper>
             <form noValidate onSubmit={(e) => handleFormSubmit(e)}>
               <Stack spacing={2} padding={4}>
-                <FormControl fullWidth>
+                <FormControl fullWidth error={!!errors.visitType}>
                   <InputLabel id="visit-type-label">Visit type *</InputLabel>
                   <Select
                     data-testid={dataTestIds.addPatientPage.visitTypeDropdown}
@@ -300,9 +355,10 @@ export default function AddPatient(): JSX.Element {
                       </MenuItem>
                     ))}
                   </Select>
+                  {errors.visitType && <FormHelperText>Visit type is required</FormHelperText>}
                 </FormControl>
 
-                <FormControl fullWidth>
+                <FormControl fullWidth error={!!errors.serviceCategory}>
                   <InputLabel id="service-category-label">Service category *</InputLabel>
                   <Select
                     data-testid={dataTestIds.addPatientPage.serviceCategoryDropdown}
@@ -324,6 +380,7 @@ export default function AddPatient(): JSX.Element {
                       );
                     })}
                   </Select>
+                  {errors.serviceCategory && <FormHelperText>Service category is required</FormHelperText>}
                 </FormControl>
 
                 <LocationSelect
@@ -339,19 +396,28 @@ export default function AddPatient(): JSX.Element {
                       ? [LocationType.IN_PERSON]
                       : [LocationType.VIRTUAL]
                   }
+                  error={!!errors.location}
+                  helperText="Location is required"
                 />
 
-                <AddVisitPatientInformationCard
-                  patientInfo={patientInfo}
-                  setPatientInfo={setPatientInfo}
-                  showFields={showFields}
-                  setShowFields={setShowFields}
-                  setValidDate={setValidDate}
-                  errors={errors}
-                  setErrors={setErrors}
-                  birthDate={birthDate}
-                  setBirthDate={setBirthDate}
-                />
+                {!isScheduledFollowUp && (
+                  <AddVisitPatientInformationCard
+                    patientInfo={patientInfo}
+                    setPatientInfo={setPatientInfo}
+                    showFields={showFields}
+                    setShowFields={setShowFields}
+                    setValidDate={setValidDate}
+                    errors={errors}
+                    setErrors={setErrors}
+                    birthDate={birthDate}
+                    setBirthDate={setBirthDate}
+                  />
+                )}
+                {isScheduledFollowUp && patientInfo && (
+                  <Typography variant="body1" color="text.secondary">
+                    Patient: {patientInfo.firstName} {patientInfo.lastName}
+                  </Typography>
+                )}
 
                 {/* Visit Information */}
                 {shouldShowReasonForVisitFields && (
@@ -360,7 +426,7 @@ export default function AddPatient(): JSX.Element {
                       Visit information
                     </Typography>
                     <Box marginTop={2}>
-                      <FormControl fullWidth>
+                      <FormControl fullWidth error={!!errors.reasonForVisit}>
                         <InputLabel id="reason-for-visit-label">Reason for visit *</InputLabel>
                         <Select
                           data-testid={dataTestIds.addPatientPage.reasonForVisitDropdown}
@@ -377,6 +443,7 @@ export default function AddPatient(): JSX.Element {
                             </MenuItem>
                           ))}
                         </Select>
+                        {errors.reasonForVisit && <FormHelperText>Reason for visit is required</FormHelperText>}
                       </FormControl>
                     </Box>
                     <Box marginTop={2}>

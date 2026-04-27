@@ -98,7 +98,7 @@ export const useGetReviewAndSignData = (
     if (!data || !onSuccess) {
       return;
     }
-    const reviewAndSignData = extractReviewAndSignAppointmentData(data);
+    const reviewAndSignData = extractReviewAndSignAppointmentData(data, { appointmentId });
     onSuccess(reviewAndSignData);
   });
 

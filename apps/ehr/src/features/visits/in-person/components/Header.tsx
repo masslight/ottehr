@@ -34,9 +34,12 @@ import {
   formatDateToMDYWithTime,
   formatWeightKg,
   getAdmitterPractitionerId,
+  getAnnotationFollowupStatusLabel,
   getAppointmentServiceCategoryAbbreviation,
   getAttendingPractitionerId,
+  getEncounterLocationId,
   getFullestAvailableName,
+  getInitialEncounterIdForFollowUp,
   getInsuranceNameFromCoverage,
   isInPersonAppointment,
   PaymentVariant,
@@ -49,7 +52,7 @@ import { getEmployees } from '../../../../api/api';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
-import { useGetVitals } from '../../shared/components/vitals/hooks/useGetVitals';
+import { useGetHistoricalVitals, useGetVitals } from '../../shared/components/vitals/hooks/useGetVitals';
 import { useChartFields } from '../../shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
@@ -95,14 +98,15 @@ const getPatientWeightFallback = (weight: string | undefined): string | undefine
 };
 
 const getDisplayWeight = (
-  observations: { value?: number | string }[],
+  currentObservations: { value?: number | string }[],
+  historicalObservations: { value?: number | string }[],
   patientWeight: string | undefined
 ): string | undefined => {
-  const numericObs = observations.find((o) => typeof o.value === 'number');
+  const numericObs = [...currentObservations, ...historicalObservations].find((o) => typeof o.value === 'number');
   if (numericObs) {
     return `${formatWeightKg(numericObs.value as number)}kg`;
   }
-  if (observations.length === 0) {
+  if (currentObservations.length === 0 && historicalObservations.length === 0) {
     return getPatientWeightFallback(patientWeight);
   }
   return undefined;
@@ -171,6 +175,7 @@ export const Header = (): JSX.Element => {
     location,
     locations,
     encounter,
+    followUpOriginEncounter,
     appointmentRefetch,
     selectedEncounterId,
   } = useAppointmentData();
@@ -189,17 +194,16 @@ export const Header = (): JSX.Element => {
 
   const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
   const { data: encounterVitals } = useGetVitals(effectiveEncounterId);
+  const { data: historicalVitals } = useGetHistoricalVitals(effectiveEncounterId);
 
   const start = encounter?.period?.start ?? appointmentValues?.start;
 
   let optionalVisitLabel = '';
 
   if (isFollowup) {
-    const locationRef = encounter?.location?.[0]?.location?.reference;
-    if (locationRef) {
-      const locationId = locationRef.split('/')[1];
+    const locationId = getEncounterLocationId(encounter);
+    if (locationId) {
       const matchedLocation = locations.find((location) => location?.id === locationId);
-
       optionalVisitLabel = matchedLocation?.name ?? '';
     }
   } else {
@@ -255,7 +259,11 @@ export const Header = (): JSX.Element => {
   const gender = formatLabelValue(mappedData?.gender, 'Gender');
   const language = formatLabelValue(mappedData?.preferredLanguage, 'Lang');
   const dob = formatLabelValue(mappedData?.DOB, 'DOB', true);
-  const weight = getDisplayWeight(encounterVitals?.[VitalFieldNames.VitalWeight] ?? [], mappedData?.weight);
+  const weight = getDisplayWeight(
+    encounterVitals?.[VitalFieldNames.VitalWeight] ?? [],
+    historicalVitals?.[VitalFieldNames.VitalWeight] ?? [],
+    mappedData?.weight
+  );
 
   const allergies = formatLabelValue(
     chartData?.allergies
@@ -397,7 +405,7 @@ export const Header = (): JSX.Element => {
                 <Grid container alignItems="center" spacing={2}>
                   <Grid item>
                     {isFollowup ? (
-                      getFollowupStatusChip(encounter?.status === 'in-progress' ? 'OPEN' : 'RESOLVED')
+                      getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter?.status))
                     ) : (
                       <ChangeStatusDropdown
                         appointmentID={appointmentID}
@@ -603,7 +611,10 @@ export const Header = (): JSX.Element => {
                     onClick={() => {
                       setHeaderMenuAnchorEl(null);
                       if (patient?.id) {
-                        navigate(`/patient/${patient.id}/followup/add`);
+                        const initialEncounterId = getInitialEncounterIdForFollowUp(encounter, followUpOriginEncounter);
+                        navigate(`/patient/${patient.id}/followup/add`, {
+                          state: { initialEncounterId },
+                        });
                       }
                     }}
                     disabled={!patient?.id}

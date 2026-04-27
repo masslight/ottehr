@@ -1,6 +1,13 @@
+import { Observation } from 'fhir/r4b';
 import { ExamObservationDTO } from 'utils';
 import { describe, expect, it } from 'vitest';
-import { migrateV0ToV1, MIGRATION_V1_FIELD_MAP } from '../../src/shared/chart-data/migrations/index';
+import { makeExamObservationDTO } from '../../src/shared';
+import {
+  migrateNormalExternalGenitalExam,
+  migrateV0ToV1,
+  MIGRATION_V1_FIELD_MAP,
+  NORMAL_EXTERNAL_GENITAL_EXAM_FIELD,
+} from '../../src/shared/chart-data/migrations/index';
 
 describe('Exam migration V0 to V1', () => {
   describe('MIGRATION_V1_FIELD_MAP', () => {
@@ -250,5 +257,103 @@ describe('Exam migration V0 to V1', () => {
       expect(codes).toContain('subcostal');
       expect(codes).toContain('intercostal');
     });
+  });
+});
+
+describe('migrateNormalExternalGenitalExam', () => {
+  const legacyObs: Observation = {
+    resourceType: 'Observation',
+    subject: {
+      reference: 'Patient/patient-id',
+    },
+    encounter: {
+      reference: 'Encounter/encounter-id',
+    },
+    status: 'final',
+    valueBoolean: true,
+    code: {
+      text: 'Normal external genital exam, no lesions / redness / discharge',
+    },
+    meta: {
+      tag: [
+        {
+          code: 'normal-external-genital-exam',
+          system: 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field',
+        },
+      ],
+      versionId: '123',
+      lastUpdated: '2026-04-20T16:00:49.994Z',
+    },
+    id: 'obs-genital-1',
+  };
+
+  const legacyExamDTO = makeExamObservationDTO(legacyObs);
+
+  it('renames the field to the male target when sex is male', () => {
+    const result = migrateNormalExternalGenitalExam([legacyExamDTO], 'male');
+
+    expect(result.migrated).toBe(true);
+    expect(result.observations).toHaveLength(1);
+    expect(result.observations[0].field).toBe('normal-external-genital-testicular-exam');
+    expect(result.observations[0].label).toBe('Normal external genital/testicular exam');
+  });
+
+  it('renames the field to the female target when sex is female', () => {
+    const result = migrateNormalExternalGenitalExam([legacyExamDTO], 'female');
+
+    expect(result.migrated).toBe(true);
+    expect(result.observations).toHaveLength(1);
+    expect(result.observations[0].field).toBe('normal-external-genital-exam-female');
+    expect(result.observations[0].label).toBe('Normal external genital exam');
+  });
+
+  it('returns the resourceId of the migrated observation', () => {
+    const result = migrateNormalExternalGenitalExam([legacyExamDTO], 'male');
+
+    expect(result.migratedResourceId).toBe('obs-genital-1');
+  });
+
+  it('returns migratedResourceId as undefined when the observation has no resourceId', () => {
+    const obs: ExamObservationDTO = { field: NORMAL_EXTERNAL_GENITAL_EXAM_FIELD, value: true };
+    const result = migrateNormalExternalGenitalExam([obs], 'female');
+
+    expect(result.migrated).toBe(true);
+    expect(result.migratedResourceId).toBeUndefined();
+  });
+
+  it('preserves all other properties on the migrated observation', () => {
+    const result = migrateNormalExternalGenitalExam([legacyExamDTO], 'male');
+
+    expect(result.observations[0]).toMatchObject({ value: true, resourceId: 'obs-genital-1' });
+  });
+
+  it('leaves unrelated observations unchanged', () => {
+    const other: ExamObservationDTO = { field: 'some-other-field', value: false };
+    const result = migrateNormalExternalGenitalExam([legacyExamDTO, other], 'female');
+
+    expect(result.observations).toHaveLength(2);
+    const unchanged = result.observations.find((o) => o.field === 'some-other-field');
+    expect(unchanged).toEqual(other);
+  });
+
+  it('returns migrated=false and observations unchanged when the legacy field is absent', () => {
+    const observations: ExamObservationDTO[] = [
+      { field: 'normal-external-genital-testicular-exam', value: true },
+      { field: 'some-other-field', value: false },
+    ];
+
+    const result = migrateNormalExternalGenitalExam(observations, 'male');
+
+    expect(result.migrated).toBe(false);
+    expect(result.migratedResourceId).toBeUndefined();
+    expect(result.observations).toEqual(observations);
+  });
+
+  it('handles an empty observations array without error', () => {
+    const result = migrateNormalExternalGenitalExam([], 'female');
+
+    expect(result.migrated).toBe(false);
+    expect(result.observations).toEqual([]);
+    expect(result.migratedResourceId).toBeUndefined();
   });
 });

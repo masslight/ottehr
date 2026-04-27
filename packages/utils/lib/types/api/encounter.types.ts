@@ -1,5 +1,5 @@
 import { Location } from 'fhir/r4b';
-import { FollowupReason, FollowupType } from '../../fhir';
+import { FollowupReason, FollowupSubtype, FollowupType } from '../../fhir';
 
 export interface FollowupEncounterDTO {
   encounterId?: string;
@@ -15,6 +15,7 @@ export interface PatientFollowupDetails {
   encounterId?: string; // will only exist when updating
   patientId: string | null;
   followupType: FollowupType;
+  followupSubtype?: FollowupSubtype;
   reason?: FollowupReason;
   otherReason?: string;
   initialEncounterID?: string;
