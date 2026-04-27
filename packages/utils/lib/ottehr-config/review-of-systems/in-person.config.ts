@@ -54,7 +54,7 @@ export const InPersonRosConfig: RosItemConfig = {
     },
   },
   ent: {
-    label: 'Ears, Nose, and Throat',
+    label: 'Ears/Nose/Throat',
     items: {
       'ros-ent-ear-pain': { label: 'Ear pain' },
       'ros-ent-hearing-loss': { label: 'Hearing loss' },
