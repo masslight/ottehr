@@ -291,13 +291,25 @@ export async function sendSmsToRelatedPersons({
     return { total: 0, sent: 0, failures: [] };
   }
 
+  const withId: { id: string }[] = [];
+  const failures: { recipient: string; error: unknown }[] = [];
+  for (const rp of relatedPersons) {
+    if (rp.id) {
+      withId.push({ id: rp.id });
+    } else {
+      const error = new Error('RelatedPerson missing id');
+      console.log('sms send error: RelatedPerson/<missing-id>:', error.message);
+      failures.push({ recipient: 'RelatedPerson/<missing-id>', error });
+      void sendErrors(error, env);
+    }
+  }
+
   const results = await Promise.allSettled(
-    relatedPersons.map((rp) => oystehr.transactionalSMS.send({ message, resource: `RelatedPerson/${rp.id}` }))
+    withId.map((rp) => oystehr.transactionalSMS.send({ message, resource: `RelatedPerson/${rp.id}` }))
   );
 
-  const failures: { recipient: string; error: unknown }[] = [];
   results.forEach((r, idx) => {
-    const recipient = `RelatedPerson/${relatedPersons[idx].id}`;
+    const recipient = `RelatedPerson/${withId[idx].id}`;
     if (r.status === 'fulfilled') {
       console.log(`sms send ok: ${recipient}`, r.value);
     } else {
