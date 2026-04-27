@@ -35,7 +35,8 @@ export const createRosObservationsSection = <
   return createConfiguredSection(null, () => ({
     title: 'Review of Systems',
     dataSelector: (data) => data.rosObservations,
-    shouldRender: (_sectionData, rootData) => !rootData?.encounter?.isFollowup,
+    shouldRender: (sectionData, rootData) =>
+      !rootData?.encounter?.isFollowup && Boolean(Object.keys(sectionData.rosObservations ?? {}).length),
     render: (client, data, styles, assets) => {
       const rosData = data.rosObservations;
 

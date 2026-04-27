@@ -288,7 +288,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
           {/* Review of Systems */}
           <SectionCard title="Review of Systems (ROS)">
             {sections.rosFindings.length ? (
-              FindingsTable({ type: 'ros', findings: sections.rosFindings })
+              <FindingsTable type="ros" findings={sections.rosFindings} />
             ) : (
               <NotIncluded />
             )}
@@ -297,7 +297,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
           {/* Exam Findings */}
           <SectionCard title="Exam Findings">
             {sections.examFindings.length > 0 ? (
-              FindingsTable({ type: 'exam', findings: sections.examFindings })
+              <FindingsTable type="exam" findings={sections.examFindings} />
             ) : (
               <NotIncluded />
             )}

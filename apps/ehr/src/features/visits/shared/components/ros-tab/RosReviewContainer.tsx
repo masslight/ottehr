@@ -46,18 +46,22 @@ export const RosReviewContainer: FC = () => {
     }
   }
 
-  if (sections.length === 0) return null;
-
   return (
     <Stack spacing={1} data-testid={dataTestIds.progressNotePage.rosReviewContainer}>
       <Typography variant="h5" color="primary.dark">
         Review of Systems
       </Typography>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {sections.map((section) => (
-          <ExamReviewGroup key={section.key} label={section.label} items={section.items} />
-        ))}
-      </Box>
+      {sections.length ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {sections.map((section) => (
+            <ExamReviewGroup key={section.key} label={section.label} items={section.items} />
+          ))}
+        </Box>
+      ) : (
+        <Box>
+          <Typography>No recorded review of systems</Typography>
+        </Box>
+      )}
     </Stack>
   );
 };

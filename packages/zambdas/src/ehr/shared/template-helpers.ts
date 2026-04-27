@@ -62,7 +62,6 @@ export function analyzeTemplateVersionData(params: {
   for (const r of contained) {
     if (r.resourceType === 'Condition') {
       if (!rosNote && hasTag(r, legacyRosTagSystem)) {
-        console.log('huh', r);
         rosNote = (r as Condition).note?.[0]?.text ?? null;
         legacyRosFound = true;
       }

@@ -20,7 +20,7 @@ export enum RosFindingState {
 
 export const RosFindingStateLabel = {
   [RosFindingState.Reports]: 'Reports',
-  [RosFindingState.Denies]: 'Deports',
+  [RosFindingState.Denies]: 'Denies',
 };
 
 export const RosItemSuffixes: Record<RosFindingState, string> = {

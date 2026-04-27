@@ -22,7 +22,7 @@ export function validateRequestParameters(input: ZambdaInput): ListTemplatesZamb
   }
 
   if (includeVersionData === undefined) {
-    missingFields.push('includeCurrentVersion');
+    missingFields.push('includeVersionData');
   }
 
   if (missingFields.length > 0) {
@@ -35,7 +35,7 @@ export function validateRequestParameters(input: ZambdaInput): ListTemplatesZamb
   }
 
   if (typeof includeVersionData !== 'boolean') {
-    throw INVALID_INPUT_ERROR(`Invalid examType: ${includeVersionData}. Must be boolean.}`);
+    throw INVALID_INPUT_ERROR(`Invalid includeVersionData: ${includeVersionData}. Must be boolean.`);
   }
 
   if (!input.secrets) {
