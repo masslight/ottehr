@@ -1,5 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { FC } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { getRosFindingFieldKeys, InPersonRosConfig } from 'utils';
 import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
 import { ExamReviewGroup } from '../review-tab/components/ExamReviewGroup';
@@ -48,7 +49,7 @@ export const RosReviewContainer: FC = () => {
   if (sections.length === 0) return null;
 
   return (
-    <Stack spacing={1}>
+    <Stack spacing={1} data-testid={dataTestIds.progressNotePage.rosReviewContainer}>
       <Typography variant="h5" color="primary.dark">
         Review of Systems
       </Typography>

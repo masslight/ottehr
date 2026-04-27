@@ -1,5 +1,6 @@
 import { Checkbox, Grid, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { FC, useCallback } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ExamObservationDTO, getRosFindingFieldKeys, RosCard, RosItemConfig } from 'utils';
 import { useRosObservations } from '../../hooks/useRosObservations';
 
@@ -46,7 +47,7 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
 
   const renderSystem = ([systemKey, system]: [string, RosCard]): React.ReactNode => (
     <Paper key={systemKey} variant="outlined" sx={{ height: '100%' }}>
-      <Table size="small" sx={{ tableLayout: 'fixed' }}>
+      <Table size="small" sx={{ tableLayout: 'fixed' }} data-testid={dataTestIds.reviewOfSystemsPage.rosTable}>
         <TableHead>
           <TableRow>
             <TableCell sx={{ fontWeight: 700, fontSize: 13, py: 0.5, borderBottom: '2px solid #e0e0e0' }}>
@@ -87,7 +88,11 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
                     {item.label}
                   </Typography>
                 </TableCell>
-                <TableCell align="center" sx={{ px: 0 }}>
+                <TableCell
+                  align="center"
+                  sx={{ px: 0 }}
+                  data-testid={dataTestIds.reviewOfSystemsPage.deniesCheckboxCell}
+                >
                   <Checkbox
                     checked={isDenied}
                     onChange={() =>
@@ -99,7 +104,11 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
                     sx={{ p: 0.25, color: 'success.light', '&.Mui-checked': { color: 'success.main' } }}
                   />
                 </TableCell>
-                <TableCell align="center" sx={{ px: 0 }}>
+                <TableCell
+                  align="center"
+                  sx={{ px: 0 }}
+                  data-testid={dataTestIds.reviewOfSystemsPage.reportsCheckboxCell}
+                >
                   <Checkbox
                     checked={isReported}
                     onChange={() =>
@@ -122,7 +131,7 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
   const systems = Object.entries(config);
 
   return (
-    <Grid container spacing={1}>
+    <Grid container spacing={1} data-testid={dataTestIds.reviewOfSystemsPage.rosTableContainer}>
       {systems.map((system) => (
         <Grid item xs={4} key={system[0]}>
           {renderSystem(system)}

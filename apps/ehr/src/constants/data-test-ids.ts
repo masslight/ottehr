@@ -304,6 +304,7 @@ export const dataTestIds = {
     hospitalizationContainer: 'hospitalization-container',
     alertIcon: 'WarningAmberOutlinedIcon',
     cptCodes: 'cpt-codes-container',
+    rosReviewContainer: 'in-person-progress-note-ros-review-container',
   },
   hpiAndTemplatesPage: {
     hpiTitle: 'hpi-title',
@@ -723,5 +724,12 @@ export const dataTestIds = {
     admin: {
       scanForStaleBtn: 'global-template-scan-staleness-btn',
     },
+  },
+
+  reviewOfSystemsPage: {
+    rosTableContainer: 'review-of-systems-table-container',
+    rosTable: 'review-of-systems-table',
+    deniesCheckboxCell: 'ros-denies-checkbox-cell',
+    reportsCheckboxCell: 'ros-reports-checkbox-cell',
   },
 };
