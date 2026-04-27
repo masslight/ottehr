@@ -1,0 +1,86 @@
+# Cloud Build: build the zambdas local API image and deploy to Cloud Run.
+#
+# Prereqs (GCP, same project as Cloud Build):
+# - Enable: Cloud Build, Cloud Run, Artifact Registry, Secret Manager
+# - Artifact Registry repository (name must match _AR_REPO), same region as _REGION
+# - Secrets in Secret Manager (version "latest" is used):
+#     sec-juna-ottehr-config      — file body = contents of config/.env/local.json
+#     sec-juna-ottehr-zambda-secrets — file body of packages/zambdas/.env/zambda-secrets-local.json
+#   The build step "fetch-ottehr-config-local" downloads sec-juna-ottehr-config into
+#   config/.env/local.json so it is in the image context (bakes into image layers). Runtime
+#   --set-secrets for OTTEHR_CONFIG can still override via docker-entrypoint.sh.
+# - Grant the Cloud Build default SA (or builds SA) these roles (or custom):
+#     roles/artifactregistry.writer, roles/run.admin, roles/iam.serviceAccountUser,
+#     roles/secretmanager.secretAccessor (on those secrets)
+#
+# Trigger from repo root (or set dir in trigger):
+#   gcloud builds submit --config=deploy/cloudbuild.yaml .
+#
+# The production Ottehr path still deploys zambdas to Oystehr via Terraform; this image is
+# an optional self-hosted Zambda API. Frontends in GCS/Cloud Run static still use
+# generate + oystehr URLs unless you point them at this service.
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+  env:
+    - "DOCKER_BUILDKIT=1"
+
+timeout: 2400s
+
+substitutions:
+  _REGION: us-central1
+  # Repository id in Artifact Registry (create once: gcloud artifacts repositories create REPO --repository-format=docker --location=REGION)
+  _AR_REPO: ottehr
+  _CLOUD_RUN_SERVICE: juna-ottehr-zambdas
+  _SECRET_OTTEHR_CONFIG: sec-juna-ottehr-config
+  _SECRET_ZAMBDA: sec-juna-ottehr-zambda-secrets
+
+steps:
+  - id: fetch-ottehr-config-local
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        mkdir -p config/.env
+        gcloud secrets versions access latest --secret=${_SECRET_OTTEHR_CONFIG} > config/.env/local.json
+
+  - id: build-image
+    name: gcr.io/cloud-builders/docker
+    waitFor:
+      - fetch-ottehr-config-local
+    dir: .
+    args:
+      - build
+      - -f
+      - deploy/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_CLOUD_RUN_SERVICE}:${SHORT_SHA}
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_CLOUD_RUN_SERVICE}:latest
+      - .
+    env:
+      - "DOCKER_BUILDKIT=1"
+
+  - id: deploy-cloud-run
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_CLOUD_RUN_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_CLOUD_RUN_SERVICE}:${SHORT_SHA}
+      - --region=${_REGION}
+      - --platform=managed
+      - --port=8080
+      - --set-secrets=OTTEHR_CONFIG=${_SECRET_OTTEHR_CONFIG}:latest,ZAMBDA_SECRETS=${_SECRET_ZAMBDA}:latest
+      - --set-env-vars=ENV=local
+      - --quiet
+      - --allow-unauthenticated
+
+# Cloud Build pushes these tags after the build step
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_CLOUD_RUN_SERVICE}:${SHORT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_CLOUD_RUN_SERVICE}:latest

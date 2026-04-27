@@ -1,1 +1,37 @@
-npx lint-staged
+#!/usr/bin/env sh
+
+# Husky runs Git Bash with a minimal PATH; `npm`/`npx` often resolve to paths Bash cannot
+# execute (e.g. C:/Program Files/nodejs/npm). Run lint-staged via Node instead.
+set -e
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT" || exit 1
+
+LS_BIN="$ROOT/node_modules/lint-staged/bin/lint-staged.js"
+if [ ! -f "$LS_BIN" ]; then
+  echo "husky pre-commit: missing node_modules/lint-staged (run npm install at repo root)" >&2
+  exit 1
+fi
+
+export PATH="$ROOT/node_modules/.bin:$PATH"
+
+# Put typical Node installs on PATH for Git Bash (MINGW/MSYS).
+case "$(uname -s 2>/dev/null)" in
+  MINGW*|MSYS*|CYGWIN*)
+    PATH="/c/Program Files/nodejs:/c/Program Files (x86)/nodejs:$PATH"
+    export PATH
+    ;;
+esac
+
+if command -v node >/dev/null 2>&1; then
+  exec node "$LS_BIN"
+fi
+
+# Last resort: CMD resolves npm.cmd the same way PowerShell does.
+if command -v cmd.exe >/dev/null 2>&1 && command -v cygpath >/dev/null 2>&1; then
+  ROOT_WIN=$(cygpath -w "$ROOT")
+  exec cmd.exe //c "cd /d \"$ROOT_WIN\" && npm run lint-staged"
+fi
+
+echo "husky pre-commit: node not found. Install Node.js or add it to your PATH." >&2
+exit 1

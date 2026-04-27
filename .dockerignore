@@ -1,0 +1,17 @@
+# See deploy/Dockerfile — production image runs zambdas local API; context is the full monorepo for npm ci workspaces.
+.git
+.github
+node_modules
+.turbo
+**/.DS_Store
+# Root env file; do not use broad **/.env — it can exclude the config/.env directory and
+# block re-including config/.env/local.json from the Cloud Build fetch step.
+/.env
+# Include only local.json when Cloud Build fetches it from Secret Manager (see deploy/cloudbuild.yaml).
+config/.env/**
+!config/.env/local.json
+packages/zambdas/.env
+deploy/.terraform
+*.log
+coverage
+**/.dist
