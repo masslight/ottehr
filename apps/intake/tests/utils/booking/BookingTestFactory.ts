@@ -20,6 +20,7 @@ import {
   INTAKE_PAPERWORK_CONFIG,
   VIRTUAL_INTAKE_PAPERWORK_CONFIG,
 } from 'utils';
+import { virtualDefaultLocations } from '../../../../../packages/zambdas/src/scripts/setup-default-locations';
 import { injectTestConfig } from '../config/injectTestConfig';
 import { PagedQuestionnaireFlowHelper } from '../paperwork/PagedQuestionnaireFlowHelper';
 import { getTestDataForPage } from '../paperwork/paperworkDataTemplates';
@@ -108,6 +109,9 @@ function getFillingStrategyForScenario(
 export async function generateBookingTestScenarios(): Promise<BookingTestScenario[]> {
   const scenarios: BookingTestScenario[] = [];
 
+  // Check if virtual locations are configured (telemed enabled)
+  const isTelemedEnabled = virtualDefaultLocations.length > 0;
+
   // Use the actual BOOKING_CONFIG which has downstream overrides baked in
   const resolvedConfig = BOOKING_CONFIG as BookingConfig;
 
@@ -125,6 +129,12 @@ export async function generateBookingTestScenarios(): Promise<BookingTestScenari
     // Determine visit type and service mode from homepage option ID
     const visitType = (option.id.includes('start') ? 'walk-in' : 'prebook') as 'walk-in' | 'prebook';
     const serviceMode = (option.id.includes('virtual') ? 'virtual' : 'in-person') as 'in-person' | 'virtual';
+
+    // Skip virtual scenarios if telemed is not configured
+    if (serviceMode === 'virtual' && !isTelemedEnabled) {
+      console.log(`Skipping virtual scenario '${option.label}' - telemed not configured (no virtual locations)`);
+      continue;
+    }
 
     // Filter categories available for this flow's mode and visit type
     const availableCategories = serviceCategories.filter(
