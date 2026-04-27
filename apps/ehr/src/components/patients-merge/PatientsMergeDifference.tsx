@@ -134,8 +134,8 @@ const formatDisplayValue = (value: any): string => {
   if (value === undefined || value === null) return '-';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (typeof value === 'object') {
-    if (value.reference) return value.reference;
     if (value.display) return value.display;
+    if (value.reference) return value.reference;
     return JSON.stringify(value);
   }
   const str = String(value).trim();
