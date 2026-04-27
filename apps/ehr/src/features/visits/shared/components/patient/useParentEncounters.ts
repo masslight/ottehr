@@ -1,7 +1,8 @@
-import { Appointment, Encounter, Location } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { isFollowupEncounter } from 'utils';
 
 export interface EncounterRow {
@@ -10,7 +11,7 @@ export interface EncounterRow {
   dateTime: string | undefined;
   appointment: Appointment;
   encounter: Encounter;
-  location?: Location;
+  location?: LocationWithWalkinSchedule;
 }
 
 interface UseParentEncountersResult {
@@ -38,6 +39,7 @@ export function useParentEncounters(
               { name: 'patient', value: patientId },
               { name: '_include', value: 'Encounter:appointment' },
               { name: '_include', value: 'Encounter:location' },
+              { name: '_revinclude:iterate', value: 'Schedule:actor:Location' },
               { name: '_sort', value: '-date' },
             ],
           })
@@ -45,7 +47,12 @@ export function useParentEncounters(
 
         const encounters = resources.filter((r) => r.resourceType === 'Encounter') as Encounter[];
         const appointments = resources.filter((r) => r.resourceType === 'Appointment') as Appointment[];
-        const locations = resources.filter((r) => r.resourceType === 'Location') as Location[];
+        const rawLocations = resources.filter((r) => r.resourceType === 'Location') as Location[];
+        const schedules = resources.filter((r) => r.resourceType === 'Schedule') as Schedule[];
+        const locations: LocationWithWalkinSchedule[] = rawLocations.map((loc) => ({
+          ...loc,
+          walkinSchedule: schedules.find((s) => s.actor?.some((actor) => actor.reference === `Location/${loc.id}`)),
+        }));
 
         // Only show non-followup (top-level) encounters as parent options
         const nonFollowupEncounters = encounters.filter((encounter) => !isFollowupEncounter(encounter));
