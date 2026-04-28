@@ -2,7 +2,7 @@ import { Appointment, Encounter, Location, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
+import type { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { isFollowupEncounter } from 'utils';
 
 export interface EncounterRow {
