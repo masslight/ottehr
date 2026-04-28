@@ -2,13 +2,13 @@ import { LoadingButton } from '@mui/lab';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { CPTCodeOption } from 'utils';
+import { EmCodeOption } from 'utils';
 import { useAdminCreateEmCodeMutation, useAdminUpdateEmCodeMutation } from './admin.queries';
 
 interface EMCodeDialogProps {
   open: boolean;
   onClose: () => void;
-  existingCode?: CPTCodeOption;
+  existingCode?: EmCodeOption;
 }
 
 export default function EMCodeDialog({ open, onClose, existingCode }: EMCodeDialogProps): ReactElement {

@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { getEmCodes } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { CPTCodeOption } from 'utils';
+import { EmCodeOption } from 'utils';
 
-export const useEMCodes = (): { emCodes: CPTCodeOption[]; isLoading: boolean } => {
+export const useEMCodes = (): { emCodes: EmCodeOption[]; isLoading: boolean } => {
   const { oystehrZambda } = useApiClients();
 
   const { data, isLoading } = useQuery({

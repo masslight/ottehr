@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ValueSet } from 'fhir/r4b';
-import { CPTCodeOption, EM_CODES_VALUE_SET_URL, FHIR_RESOURCE_NOT_FOUND } from 'utils';
+import { EM_CODES_VALUE_SET_URL, EmCodeOption, FHIR_RESOURCE_NOT_FOUND } from 'utils';
 
 export async function getEmCodesFhirResources(oystehr: Oystehr): Promise<{ valueSet: ValueSet & { id: string } }> {
   const searchResult = (
@@ -18,7 +18,7 @@ export async function getEmCodesFhirResources(oystehr: Oystehr): Promise<{ value
   };
 }
 
-export async function getEmCodes(oystehr: Oystehr): Promise<CPTCodeOption[]> {
+export async function getEmCodes(oystehr: Oystehr): Promise<EmCodeOption[]> {
   const { valueSet } = await getEmCodesFhirResources(oystehr);
 
   return (valueSet.expansion?.contains ?? [])

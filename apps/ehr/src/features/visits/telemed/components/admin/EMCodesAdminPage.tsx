@@ -17,14 +17,14 @@ import {
 import { useIsMutating } from '@tanstack/react-query';
 import { ReactElement, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { CPTCodeOption } from 'utils';
+import { EmCodeOption } from 'utils';
 import { useEMCodes } from '../../../shared/hooks/useEMCodes';
 import EMCodeDeleteDialog from './EMCodeDeleteDialog';
 import EMCodeDialog from './EMCodeDialog';
 
 interface DialogState {
   open: boolean;
-  existingCode?: CPTCodeOption;
+  existingCode?: EmCodeOption;
 }
 
 export default function EMCodesAdminPage(): ReactElement {

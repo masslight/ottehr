@@ -34,9 +34,9 @@ import {
   AdminUpdateInHouseLabInput,
   APIError,
   BulkUpdateInsuranceStatusInput,
-  CPTCodeOption,
   CreateEmCodeInput,
   DeleteEmCodeInput,
+  EmCodeOption,
   FHIR_EXTENSION,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
@@ -485,7 +485,7 @@ export const useAdminUpdateInHouseLab = (
   });
 };
 
-export const useAdminCreateEmCodeMutation = (): UseMutationResult<CPTCodeOption[], Error, CreateEmCodeInput> => {
+export const useAdminCreateEmCodeMutation = (): UseMutationResult<EmCodeOption[], Error, CreateEmCodeInput> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
@@ -505,7 +505,7 @@ export const useAdminCreateEmCodeMutation = (): UseMutationResult<CPTCodeOption[
   });
 };
 
-export const useAdminUpdateEmCodeMutation = (): UseMutationResult<CPTCodeOption[], Error, UpdateEmCodeInput> => {
+export const useAdminUpdateEmCodeMutation = (): UseMutationResult<EmCodeOption[], Error, UpdateEmCodeInput> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
@@ -525,7 +525,7 @@ export const useAdminUpdateEmCodeMutation = (): UseMutationResult<CPTCodeOption[
   });
 };
 
-export const useAdminDeleteEmCodeMutation = (): UseMutationResult<CPTCodeOption[], Error, DeleteEmCodeInput> => {
+export const useAdminDeleteEmCodeMutation = (): UseMutationResult<EmCodeOption[], Error, DeleteEmCodeInput> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
