@@ -28,7 +28,7 @@ interface DialogState {
 }
 
 export default function EMCodesAdminPage(): ReactElement {
-  const { emCodes, isLoading } = useEMCodes();
+  const { emCodes, isLoading, isError } = useEMCodes();
   const isMutating = useIsMutating({ mutationKey: ['em-codes'] }) > 0;
 
   const [dialog, setDialog] = useState<DialogState>({ open: false });
@@ -54,6 +54,8 @@ export default function EMCodesAdminPage(): ReactElement {
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
           <CircularProgress />
         </Box>
+      ) : isError ? (
+        <Typography color="error">Failed to load E&M codes. Please try refreshing the page.</Typography>
       ) : emCodes.length === 0 ? (
         <Typography color="text.secondary">No E&M codes configured.</Typography>
       ) : (
