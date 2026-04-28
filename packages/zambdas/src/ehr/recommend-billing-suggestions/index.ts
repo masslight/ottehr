@@ -1,6 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ValueSet } from 'fhir/r4b';
-import { BillingSuggestionOutput, CPTCodeOption, EM_CODES_VALUE_SET_URL, fixAndParseJsonObjectFromString } from 'utils';
+import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, getEmCodes } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { loadAndParseIcd10Data } from '../../shared/icd-10-search';
@@ -35,13 +34,7 @@ export const index = wrapHandler(
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
     const oystehr = createOystehrClient(m2mToken, secrets);
-    const emCodesValueSet = await oystehr.fhir.search<ValueSet>({
-      resourceType: 'ValueSet',
-      params: [{ name: 'url', value: EM_CODES_VALUE_SET_URL }],
-    });
-    const emCodeOptions: CPTCodeOption[] = (emCodesValueSet.entry?.[0]?.resource?.expansion?.contains ?? [])
-      .filter((entry) => entry.code && entry.display)
-      .map((entry) => ({ code: entry.code!, display: entry.display! }));
+    const emCodeOptions = await getEmCodes(oystehr);
 
     let prompt = `You are an expert medical coder for an urgent care clinic. Suggest appropriate ICD-10 and CPT codes for this visit.
 

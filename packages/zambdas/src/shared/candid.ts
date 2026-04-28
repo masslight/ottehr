@@ -54,18 +54,17 @@ import {
   Practitioner,
   Procedure,
   RelatedPerson,
-  ValueSet,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
-  CPTCodeOption,
   createReference,
-  EM_CODES_VALUE_SET_URL,
+  EmCodeOption,
   FHIR_IDENTIFIER_NPI,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
+  getEmCodes,
   getPayerId,
   getPaymentVariantFromEncounter,
   getTimezone,
@@ -133,7 +132,7 @@ interface CreateEncounterInput {
   procedures: Procedure[];
   insuranceResources?: InsuranceResources;
   accident?: Condition;
-  emCodes: CPTCodeOption[];
+  emCodes: EmCodeOption[];
 }
 
 const STUB_BILLING_PROVIDER_DATA: BillingProviderData = {
@@ -200,22 +199,15 @@ const createCandidCreateEncounterInput = async (
     practitioner = visitResources.practitioners?.[0] ?? null;
   }
 
-  const [conditions, emCodesValueSet] = await Promise.all([
+  const [conditions, emCodes] = await Promise.all([
     oystehr.fhir
       .search<Condition>({
         resourceType: 'Condition',
         params: [{ name: 'encounter', value: `Encounter/${encounterId}` }],
       })
       .then((r) => r.unbundle()),
-    oystehr.fhir.search<ValueSet>({
-      resourceType: 'ValueSet',
-      params: [{ name: 'url', value: EM_CODES_VALUE_SET_URL }],
-    }),
+    getEmCodes(oystehr),
   ]);
-
-  const emCodes: CPTCodeOption[] = (emCodesValueSet.entry?.[0]?.resource?.expansion?.contains ?? [])
-    .filter((entry) => entry.code && entry.display)
-    .map((entry) => ({ code: entry.code!, display: entry.display! }));
 
   return {
     appointment: appointment,

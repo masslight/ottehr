@@ -1,7 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ALREADY_EXISTS_WITH_MESSAGE, CPT_CODE_SYSTEM, patchWithOptimisticLock } from 'utils';
+import {
+  ALREADY_EXISTS_WITH_MESSAGE,
+  CPT_CODE_SYSTEM,
+  EmCodeOutput,
+  getEmCodes,
+  getEmCodesFhirResources,
+  patchWithOptimisticLock,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { getEmCodes, getEmCodesFhirResources } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -31,5 +37,8 @@ export const index = wrapHandler('create-em-code', async (input: ZambdaInput): P
   });
 
   const updatedCodes = await getEmCodes(oystehr);
-  return { statusCode: 200, body: JSON.stringify({ updatedCodes }) };
+  const response: EmCodeOutput = {
+    codes: updatedCodes,
+  };
+  return { statusCode: 200, body: JSON.stringify(response) };
 });

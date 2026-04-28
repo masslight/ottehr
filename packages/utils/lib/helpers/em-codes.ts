@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ValueSet } from 'fhir/r4b';
-import { EM_CODES_VALUE_SET_URL, EmCodeOption, FHIR_RESOURCE_NOT_FOUND } from 'utils';
+import { EM_CODES_VALUE_SET_URL, EmCodeOption, FHIR_RESOURCE_NOT_FOUND } from '../types';
 
 export async function getEmCodesFhirResources(oystehr: Oystehr): Promise<{ valueSet: ValueSet & { id: string } }> {
   const searchResult = (
@@ -10,7 +10,7 @@ export async function getEmCodesFhirResources(oystehr: Oystehr): Promise<{ value
     })
   ).unbundle();
 
-  const valueSet = searchResult.find((vs) => vs.url?.includes(EM_CODES_VALUE_SET_URL));
+  const valueSet = searchResult.find((vs) => vs.url === EM_CODES_VALUE_SET_URL);
   if (!valueSet?.id) throw FHIR_RESOURCE_NOT_FOUND;
 
   return {

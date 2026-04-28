@@ -1,7 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, patchWithOptimisticLock } from 'utils';
+import {
+  EmCodeOutput,
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
+  getEmCodes,
+  getEmCodesFhirResources,
+  patchWithOptimisticLock,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { getEmCodes, getEmCodesFhirResources } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -31,5 +36,8 @@ export const index = wrapHandler('delete-em-code', async (input: ZambdaInput): P
   });
 
   const updatedCodes = await getEmCodes(oystehr);
-  return { statusCode: 200, body: JSON.stringify({ updatedCodes }) };
+  const response: EmCodeOutput = {
+    codes: updatedCodes,
+  };
+  return { statusCode: 200, body: JSON.stringify(response) };
 });
