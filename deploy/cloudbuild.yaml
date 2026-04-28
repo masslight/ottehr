@@ -11,9 +11,9 @@
 #   The build step "fetch-ottehr-config-local" downloads sec-juna-ottehr-config into
 #   config/.env/local.json so it is in the image context (bakes into image layers). Runtime
 #   --set-secrets for OTTEHR_CONFIG can still override via docker-entrypoint.sh.
-# - Grant the Cloud Build default SA (or builds SA) these roles (or custom):
-#     roles/artifactregistry.writer, roles/run.admin, roles/iam.serviceAccountUser,
-#     roles/secretmanager.secretAccessor (on those secrets)
+# - Grant the Cloud Build default SA (or builds SA): roles/artifactregistry.writer,
+#   roles/run.admin, roles/secretmanager.secretAccessor on needed secrets;
+#   roles/iam.serviceAccountUser on `_CLOUD_RUN_SA` so deploy can attach it.
 #
 # Image push order: `images:` is pushed only after all steps succeed. Cloud Run needs the
 # image in Artifact Registry before deploy, so we run `docker push` in a dedicated step
@@ -41,6 +41,8 @@ substitutions:
   _IMAGE_NAME: juna-ottehr
   # Cloud Run service id (can match image name or differ)
   _CLOUD_RUN_SERVICE: juna-ottehr
+  # Runtime service account for the Cloud Run revision (secret access, GCP APIs, etc.)
+  _CLOUD_RUN_SA: sa-juna-deploy@juna-dev-1.iam.gserviceaccount.com
   _SECRET_OTTEHR_CONFIG: sec-juna-ottehr-config
   _SECRET_ZAMBDA: sec-juna-ottehr-zambda-secrets
 
@@ -94,6 +96,7 @@ steps:
       - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${SHORT_SHA}
       - --region=${_REGION}
       - --platform=managed
+      - --service-account=${_CLOUD_RUN_SA}
       - --port=8080
       - --set-secrets=OTTEHR_CONFIG=${_SECRET_OTTEHR_CONFIG}:latest,ZAMBDA_SECRETS=${_SECRET_ZAMBDA}:latest
       - --set-env-vars=ENV=local
