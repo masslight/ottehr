@@ -509,21 +509,6 @@
           "resource": ["FHIR:Patient", "FHIR:Appointment"]
         },
         {
-          "action": ["eRx:SearchAllergen"],
-          "resource": ["eRx:Allergen"],
-          "effect": "Allow"
-        },
-        {
-          "action": ["eRx:SearchMedication"],
-          "resource": ["eRx:Medication"],
-          "effect": "Allow"
-        },
-        {
-          "resource": ["FHIR:AllergyIntolerance:*", "FHIR:MedicationStatement:*"],
-          "action": ["FHIR:Read", "FHIR:Search"],
-          "effect": "Allow"
-        },
-        {
           "resource": ["Terminology:Code:*"],
           "action": ["Terminology:SearchCodes"],
           "effect": "Allow"
