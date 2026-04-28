@@ -24,7 +24,14 @@ import {
   SURGICAL_HISTORY_YES_OPTION,
   VALUE_SETS,
 } from '../value-sets';
-import { VIRTUAL_INTAKE_PAPERWORK_URL, VIRTUAL_INTAKE_PAPERWORK_VERSION } from './canonical';
+
+// Canonical identifiers — see intake-paperwork/index.ts for rationale.
+export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.0.22';
+export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
+  url: VIRTUAL_INTAKE_PAPERWORK_URL,
+  version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
+} as const;
 
 const hiddenFormSections: string[] = [];
 

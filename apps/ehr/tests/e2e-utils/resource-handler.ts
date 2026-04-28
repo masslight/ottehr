@@ -35,12 +35,12 @@ import {
   formatPhoneNumber,
   genderMap,
   GetPaperworkAnswers,
+  IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
   RelationshipOption,
   SampleAppointmentResponse,
   ServiceMode,
   VALUE_SETS,
 } from 'utils';
-import { IN_PERSON_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork/canonical';
 import { VisitDetailsPage } from '../../tests/e2e/page/VisitDetailsPage';
 import { getAuth0Token } from './auth/getAuth0Token';
 import {

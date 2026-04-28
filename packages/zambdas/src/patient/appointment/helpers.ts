@@ -3,16 +3,13 @@ import { Coding, DocumentReference, Extension, Organization, Practitioner, Quest
 import {
   CanonicalUrl,
   getCanonicalQuestionnaire,
+  IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
   OtherParticipantsExtension,
   PatientAccountResponse,
   ServiceMode,
   TELEMED_VIDEO_ROOM_CODE,
+  VIRTUAL_INTAKE_PAPERWORK_CANONICAL,
 } from 'utils';
-// Direct subpath imports — pull in only the canonical url/version literals,
-// not the full paperwork config build (form fields, consent merge, Zod parse)
-// that happens at module init for the main intake-paperwork modules.
-import { IN_PERSON_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork/canonical';
-import { VIRTUAL_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork-virtual/canonical';
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,
