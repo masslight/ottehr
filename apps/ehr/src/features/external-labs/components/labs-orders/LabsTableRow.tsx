@@ -6,6 +6,7 @@ import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import DeleteDialog from 'src/components/dialogs/DeleteDialog';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   formatDateForLabs,
   LabOrderListPageDTO,
@@ -14,6 +15,7 @@ import {
   ReflexLabDTO,
   UnsolicitedLabListPageDTO,
 } from 'utils';
+import { configBundleRowTestId } from '../../utils/test-ids';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
 interface LabsTableRowProps {
@@ -90,7 +92,9 @@ export const LabsTableRow = ({
       case 'testType':
         return (
           <Box>
-            <Box sx={{ fontWeight: 'bold' }}>{lab.testItem}</Box>
+            <Box data-testid={dataTestIds.externalLabs.labsTable.bundleRowCellTestType} sx={{ fontWeight: 'bold' }}>
+              {lab.testItem}
+            </Box>
           </Box>
         );
       case 'visit':
@@ -125,7 +129,9 @@ export const LabsTableRow = ({
       case 'testType':
         return (
           <Box>
-            <Box sx={{ fontWeight: 'bold' }}>{lab.testItem}</Box>
+            <Box data-testid={dataTestIds.externalLabs.labsTable.bundleRowCellTestType} sx={{ fontWeight: 'bold' }}>
+              {lab.testItem}
+            </Box>
           </Box>
         );
       case 'visit':
@@ -187,6 +193,7 @@ export const LabsTableRow = ({
                 <CancelOutlinedIcon sx={{ color: otherColors.priorityHighText }} />
               </Button>
               <Button
+                data-testid={dataTestIds.externalLabs.labsTable.bundleRowDeleteBtn}
                 onClick={handleDeleteClick}
                 sx={{
                   textTransform: 'none',
@@ -201,6 +208,7 @@ export const LabsTableRow = ({
         } else if (allowDelete) {
           return (
             <Button
+              data-testid={dataTestIds.externalLabs.labsTable.bundleRowDeleteBtn}
               onClick={handleDeleteClick}
               sx={{
                 textTransform: 'none',
@@ -237,6 +245,7 @@ export const LabsTableRow = ({
   return (
     <>
       <TableRow
+        data-testid={configBundleRowTestId(labOrderData.testItem)}
         sx={{
           '&:hover': { backgroundColor: '#f5f5f5' },
           cursor: 'pointer',
