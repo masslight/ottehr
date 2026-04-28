@@ -7,8 +7,10 @@
 # - Secrets (version "latest"): see substitutions `_SECRET_*` below.
 # - Web UI: store Vite env files (same shape as Terraform-generated apps/*/env/.env.<mode>) in
 #     `_SECRET_EHR_APP_ENV` and `_SECRET_INTAKE_APP_ENV`.
-#   Filenames written: apps/ehr/env/.env.${_VITE_MODE} and apps/intake/env/.env.${_VITE_MODE}
-#   (default mode `local`). Build runs `npm run build-skeleton` with ENV=${_VITE_MODE}.
+#   Filenames written: apps/ehr/env/.env.${_VITE_MODE} and apps/intake/env/.env.${_VITE_MODE}.
+#   Build runs `npm run build-skeleton` with ENV=${_VITE_MODE}.
+#   Important: Vite forbids `--mode local` (reserved; conflicts with `.env.local`). Use
+#   `production`, `staging`, `development`, etc. — not `local`.
 # - GCS buckets for website hosting (Terraform infra/gcp pattern): set `_GCS_BUCKET_EHR` and
 #   `_GCS_BUCKET_INTAKE` to bucket names, or leave `-` to skip upload for that app.
 # - IAM: Cloud Build SA — artifactregistry.writer, run.admin, secretmanager.secretAccessor,
@@ -38,12 +40,12 @@ substitutions:
   _CLOUD_RUN_SA: sa-juna-deploy@juna-dev-1.iam.gserviceaccount.com
   _SECRET_OTTEHR_CONFIG: sec-juna-ottehr-config
   _SECRET_ZAMBDA: sec-juna-ottehr-zambda-secrets
-  # Vite mode / env filename suffix (e.g. local → apps/ehr/env/.env.local)
-  _VITE_MODE: local
+  # Vite `--mode` / `.env.<mode>` suffix — must NOT be `local` (Vite reserved). Default: production.
+  _VITE_MODE: production
   _SECRET_EHR_APP_ENV: sec-juna-ottehr-app-ehr-env
   _SECRET_INTAKE_APP_ENV: sec-juna-ottehr-app-intake-env
-  # robots.txt variant for intake build-skeleton (e.g. lowers | production)
-  _INTAKE_ROBOTS_FILE: lowers
+  # Intake build-skeleton robots.txt copy (see apps/intake/package.json build:production)
+  _INTAKE_ROBOTS_FILE: production
   # GCS bucket names for static hosting; use "-" to skip syncing that app
   _GCS_BUCKET_EHR: '-'
   _GCS_BUCKET_INTAKE: '-'
