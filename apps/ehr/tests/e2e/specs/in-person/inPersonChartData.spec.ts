@@ -677,9 +677,8 @@ test.describe('In-Person Visit Chart Data', async () => {
 
       // Edit the text and wait for the debounced save to complete
       const newText = 'Updated medical decision making text';
-      const saveResponsePromise = page.waitForResponse((resp) => resp.url().includes('save-chart-data'));
       await assessmentPage.fillMdmField(newText);
-      await saveResponsePromise;
+      await waitForSaveChartDataResponse(page, (json) => json.chartData.medicalDecision?.text === newText);
 
       // Verify text is updated
       await assessmentPage.expectMdmField({ text: newText });
