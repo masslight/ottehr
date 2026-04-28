@@ -14,11 +14,12 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { useIsMutating } from '@tanstack/react-query';
 import { ReactElement, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { CPTCodeOption } from 'utils';
 import { useEMCodes } from '../../../shared/hooks/useEMCodes';
-import { useAdminDeleteEmCodeMutation } from './admin.queries';
+import EMCodeDeleteDialog from './EMCodeDeleteDialog';
 import EMCodeDialog from './EMCodeDialog';
 
 interface DialogState {
@@ -28,9 +29,10 @@ interface DialogState {
 
 export default function EMCodesAdminPage(): ReactElement {
   const { emCodes, isLoading } = useEMCodes();
-  const deleteMutation = useAdminDeleteEmCodeMutation();
+  const isMutating = useIsMutating({ mutationKey: ['em-codes'] }) > 0;
 
   const [dialog, setDialog] = useState<DialogState>({ open: false });
+  const [confirmDeleteCode, setConfirmDeleteCode] = useState<string | null>(null);
 
   const openAddDialog = (): void => setDialog({ open: true });
 
@@ -38,10 +40,6 @@ export default function EMCodesAdminPage(): ReactElement {
     setDialog({ open: true, existingCode: { code, display } });
 
   const closeDialog = (): void => setDialog({ open: false });
-
-  const handleDelete = (code: string): void => {
-    deleteMutation.mutate({ code });
-  };
 
   return (
     <Paper sx={{ marginTop: 2, padding: 2 }}>
@@ -78,14 +76,18 @@ export default function EMCodesAdminPage(): ReactElement {
                       <IconButton
                         size="small"
                         onClick={() => openEditDialog(entry.code, entry.display)}
+                        disabled={isMutating}
+                        aria-label={`Edit E&M code ${entry.code}`}
                         data-testid={dataTestIds.emCodesAdminPage.editButton(entry.code)}
                       >
                         <EditOutlinedIcon fontSize="small" />
                       </IconButton>
                       <IconButton
                         size="small"
-                        onClick={() => handleDelete(entry.code)}
-                        disabled={deleteMutation.isPending}
+                        onClick={() => setConfirmDeleteCode(entry.code)}
+                        disabled={isMutating}
+                        color="error"
+                        aria-label={`Delete E&M code ${entry.code}`}
                         data-testid={dataTestIds.emCodesAdminPage.deleteButton(entry.code)}
                       >
                         <DeleteOutlineIcon fontSize="small" />
@@ -100,6 +102,8 @@ export default function EMCodesAdminPage(): ReactElement {
       )}
 
       <EMCodeDialog open={dialog.open} onClose={closeDialog} existingCode={dialog.existingCode} />
+
+      <EMCodeDeleteDialog code={confirmDeleteCode} onClose={() => setConfirmDeleteCode(null)} />
     </Paper>
   );
 }

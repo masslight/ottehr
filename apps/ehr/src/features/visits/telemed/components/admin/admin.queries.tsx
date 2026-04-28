@@ -490,6 +490,7 @@ export const useAdminCreateEmCodeMutation = (): UseMutationResult<CPTCodeOption[
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: ['em-codes', 'create'],
     mutationFn: async (data: CreateEmCodeInput) => {
       if (!oystehrZambda) throw new Error('Oystehr client is not defined');
       const result = await createEmCode(oystehrZambda, data);
@@ -509,6 +510,7 @@ export const useAdminUpdateEmCodeMutation = (): UseMutationResult<CPTCodeOption[
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: ['em-codes', 'update'],
     mutationFn: async (data: UpdateEmCodeInput) => {
       if (!oystehrZambda) throw new Error('Oystehr client is not defined');
       const result = await updateEmCode(oystehrZambda, data);
@@ -528,6 +530,7 @@ export const useAdminDeleteEmCodeMutation = (): UseMutationResult<CPTCodeOption[
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: ['em-codes', 'delete'],
     mutationFn: async (data: DeleteEmCodeInput) => {
       if (!oystehrZambda) throw new Error('Oystehr client is not defined');
       const result = await deleteEmCode(oystehrZambda, data);

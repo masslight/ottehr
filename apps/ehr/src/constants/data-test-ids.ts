@@ -734,5 +734,8 @@ export const dataTestIds = {
     codeField: 'em-code-field',
     displayField: 'em-code-display-field',
     saveButton: 'em-code-save-button',
+    confirmDeleteDialog: 'em-code-confirm-delete-dialog',
+    confirmDeleteButton: 'em-code-confirm-delete-button',
+    cancelDeleteButton: 'em-code-cancel-delete-button',
   },
 };

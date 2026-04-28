@@ -15,10 +15,6 @@ export const index = wrapHandler('create-em-code', async (input: ZambdaInput): P
 
   const { valueSet } = await getEmCodesFhirResources(oystehr);
 
-  console.log('version id: ', valueSet.meta?.versionId);
-  valueSet.meta!.versionId = '123';
-  console.log('version id: ', valueSet.meta?.versionId);
-
   await patchWithOptimisticLock(oystehr, valueSet, (freshValueSet) => {
     const contains = freshValueSet.expansion?.contains ?? [];
     if (contains.some((entry) => entry.code === code)) {
