@@ -265,6 +265,14 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         }
         return getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter.status));
       }
+      case 'info': {
+        if (encounter.followupSubtype !== 'scheduled' || !encounter.appointmentId) return null;
+        return (
+          <RoundedButton to={`/visit/${encounter.appointmentId}`} state={{ encounterId: encounter.encounterId }}>
+            Visit Info
+          </RoundedButton>
+        );
+      }
       case 'note': {
         const { encounterId, originalAppointmentId, followupSubtype } = encounter;
         const pathSegment = getFollowUpProgressNotePathSegment(followupSubtype, encounter.status);
@@ -324,13 +332,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       }
       case 'note':
         return (
-          <RoundedButton
-            to={
-              row.serviceMode === ServiceMode.virtual
-                ? `/telemed/appointments/${row.appointmentId}?tab=sign`
-                : `/in-person/${row.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`
-            }
-          >
+          <RoundedButton to={`/in-person/${row.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`}>
             Progress Note
           </RoundedButton>
         );

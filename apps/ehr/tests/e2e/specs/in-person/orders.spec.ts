@@ -2,6 +2,7 @@ import { BatchInputPostRequest } from '@oystehr/sdk';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { ActivityDefinition, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import {
   DocumentProcedurePage,
   expectDocumentProcedurePage,
@@ -18,18 +19,25 @@ import {
   PerformTestPage,
   RadioSelectionResult,
 } from 'tests/e2e/page/lab';
+import { ExternalLabDetailPage } from 'tests/e2e/page/lab/external/ExternalLabDetailPage';
+import { ExternalLabsPage } from 'tests/e2e/page/lab/external/ExternalLabsPage';
+import { MOCK_LAB_RESULTS } from 'tests/e2e/page/lab/external/mock-data';
 import inHouseLabsMockData from 'tests/e2e/page/lab/in-house/mock-data.json' assert { type: 'json' };
 import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
 import { NursingOrdersPage } from 'tests/e2e/page/NursingOrdersPage';
 import { ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
+import { ENV_LOCATION_NAME } from 'tests/e2e-utils/resource/constants';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import {
   checkActivityDefinitionForReflexLogic,
   convertActivityDefinitionToDataEntryTestItem,
   CPTCodeDTO,
   DataEntryTestItem,
+  ExternalLabsStatus,
+  getTimezone,
+  LabPaymentMethod,
   makeCptCodeDisplay,
   REPEAT_TEST_CPT_CODE_MODIFIER,
   repeatTestErrorMessage,
@@ -48,9 +56,7 @@ import procedureType from '../../../../../../config/oystehr/procedure-type.json'
 interface ProcedureInfo {
   consentChecked: boolean;
   procedureType: string;
-  procedureTypeCptCode?: string;
-  cptCode: string;
-  cptName: string;
+  cptInfo: { procedureTypeCptCode?: string; cptCode: string; cptName: string }[];
   diagnosisCode: string;
   diagnosisName: string;
   performedBy: string;
@@ -106,9 +112,7 @@ const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS!.map((procedure) => {
 const PROCEDURE_A: ProcedureInfo = {
   consentChecked: true,
   procedureType: CONFIG_PROCEDURES[0].dropDownChoice,
-  procedureTypeCptCode: CONFIG_PROCEDURES[0].display,
-  cptCode: '73000',
-  cptName: 'X-ray of collar bone',
+  cptInfo: [{ procedureTypeCptCode: CONFIG_PROCEDURES[0].display, cptCode: '73000', cptName: 'X-ray of collar bone' }],
   diagnosisCode: 'D51.0',
   diagnosisName: 'Vitamin B12 deficiency anemia due to intrinsic factor deficiency',
   performedBy: 'Healthcare staff',
@@ -129,9 +133,13 @@ const PROCEDURE_A: ProcedureInfo = {
 const PROCEDURE_B: ProcedureInfo = {
   consentChecked: false,
   procedureType: CONFIG_PROCEDURES[1].dropDownChoice,
-  procedureTypeCptCode: CONFIG_PROCEDURES[1].display,
-  cptCode: '11900',
-  cptName: 'Injection into skin growth, 1-7 growths',
+  cptInfo: [
+    {
+      procedureTypeCptCode: CONFIG_PROCEDURES[1].display,
+      cptCode: '11900',
+      cptName: 'Injection into skin growth, 1-7 growths',
+    },
+  ],
   diagnosisCode: 'R50.9',
   diagnosisName: 'Fever, unspecified',
   performedBy: 'Both',
@@ -152,11 +160,15 @@ const PROCEDURE_B: ProcedureInfo = {
 const resourceHandler = new ResourceHandler(`documentProceduresPage-${DateTime.now().toMillis()}`);
 
 let sideMenu: SideMenu;
+let header: InPersonHeader;
 let context: BrowserContext;
 let page: Page;
 test.beforeAll(async ({ browser }) => {
-  await resourceHandler.setResources({ skipPaperwork: true });
-  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  await resourceHandler.setResources({ skipPaperwork: false });
+  await Promise.all([
+    resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
+    resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
+  ]);
 
   context = await browser.newContext();
   page = await context.newPage();
@@ -164,6 +176,7 @@ test.beforeAll(async ({ browser }) => {
   await setupPractitioners(page);
 
   sideMenu = new SideMenu(page);
+  header = new InPersonHeader(page);
 });
 
 test.afterAll(async () => {
@@ -206,7 +219,14 @@ test.describe('Procedures Page', () => {
 
     await test.step('Verify edited procedure details on progress note', async () => {
       const progressNotePage = await sideMenu.clickReviewAndSign();
-      await progressNotePage.verifyProcedure(PROCEDURE_B.procedureType, progressNoteProcedureDetails(PROCEDURE_B));
+      // cpt code doesn't change after switching procedures, so need to check for both
+      await progressNotePage.verifyProcedure(
+        PROCEDURE_B.procedureType,
+        progressNoteProcedureDetails({
+          ...PROCEDURE_B,
+          cptInfo: [...PROCEDURE_A.cptInfo, ...PROCEDURE_B.cptInfo],
+        } as ProcedureInfo)
+      );
     });
 
     await test.step('Verify edited procedure details on procedure details page', async () => {
@@ -219,6 +239,11 @@ test.describe('Procedures Page', () => {
 });
 
 test.describe('In-house labs page', async () => {
+  test.skip(
+    !FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED,
+    'In-house labs feature flag is false (aka inhouse labs are not enabled), skipping tests'
+  );
+
   const DIAGNOSIS = 'Situs inversus';
   const SOURCE = 'Nasopharyngeal swab';
   const SECTION_TITLE = 'In-House Labs';
@@ -698,6 +723,123 @@ test.describe('In-house labs page', async () => {
   }
 });
 
+test.describe('External labs page', async () => {
+  test.skip(
+    !FEATURE_FLAGS.LAB_ORDERS_ENABLED,
+    'External labs feature flag is false (aka labs are not enabled), skipping tests'
+  );
+  test('External labs. Tests Various Functionality.', async () => {
+    await test.step('EXL-1 Create a single self pay lab', async () => {
+      const timezone = resourceHandler.appointmentLocation
+        ? getTimezone(resourceHandler.appointmentLocation)
+        : undefined;
+      const mockResults = MOCK_LAB_RESULTS.withAoe;
+      const orderingOfficeName = ENV_LOCATION_NAME;
+      const note = 'hey! im a note :)';
+      let primaryDx: string | null = null;
+      let additionalDx: string | null = null;
+      let selectedTestName: string | null = null;
+      let fillerLabName: string | null = null;
+
+      await test.step('EXL-1.1 Check assessment page for dx', async () => {
+        await sideMenu.clickAssessment();
+        const assessmentPage = await expectAssessmentPage(page);
+        primaryDx = await assessmentPage.checkForPrimaryDx();
+
+        if (!primaryDx) {
+          // if this is being run with the entire orders.spec this step should not be reached but if running on its own i think it could happen
+          await test.step('EXL-1.1.1 No primary dx entered ', async () => {
+            await assessmentPage.selectDiagnosis({ diagnosisNamePart: 'Plague meningitis' });
+
+            // now assign the primaryDx
+            primaryDx = await assessmentPage.checkForPrimaryDx();
+          });
+        }
+
+        await expect(primaryDx, `confirming we've captured the primary dx for encounter: ${primaryDx}`).not.toBeNull();
+      });
+
+      await test.step('EXL-1.2 Create the lab order', async () => {
+        const externalLabsPage = await sideMenu.clickExternalLabs();
+        const createExternalLabPage = await externalLabsPage.clickOrderButton();
+
+        // confirming expected values are prefilled (expecting an error if unknown gets passed in)
+        await createExternalLabPage.officeIsSelected(orderingOfficeName || 'unknown');
+        await createExternalLabPage.diagnosisIsSelected(primaryDx || 'unknown');
+        await createExternalLabPage.paymentMethodIsSelected(LabPaymentMethod.SelfPay);
+
+        // start clicking / typing
+        const labDetails = await createExternalLabPage.searchAndSelectLab({ withAoe: true });
+        selectedTestName = labDetails.testName;
+        fillerLabName = labDetails.fillerLabName;
+        await createExternalLabPage.labIsSelected(labDetails);
+        additionalDx = await createExternalLabPage.selectAdditionalDx('plague');
+        await createExternalLabPage.addClinicalInfoNote(note);
+
+        await createExternalLabPage.clickOrderButton();
+      });
+
+      await test.step('EXL-1.3 Confirm test is present in labs table', async () => {
+        const externalLabsPage = await ExternalLabsPage.isOpen(page);
+        const testRow = await externalLabsPage.confirmTestWithOutResultsIsPresent({
+          fillerLabName: fillerLabName || 'missing',
+          testName: selectedTestName || 'missing',
+          status: ExternalLabsStatus.pending,
+          submitBtnDisplay: 'disabled',
+        });
+
+        await testRow.click();
+      });
+
+      await test.step('EXL-1.4 Enter AOE for lab order, confirm data is shown and mark ready', async () => {
+        const detailsPage = await ExternalLabDetailPage.isOpen(page);
+
+        // confirm expected data is displayed
+        await detailsPage.checkBreadCrumbs(selectedTestName || 'unknown');
+        await detailsPage.confirmRequisitionNumberIsDisplayed();
+        await detailsPage.confirmOrderingOfficeIsDisplayed(orderingOfficeName || 'unknown');
+        await detailsPage.confirmClinicalNoteIsDisplayed(note);
+        await detailsPage.validateSampleCollectionInstructions(mockResults.labsData.item.specimens, timezone);
+
+        // start clicking / typing
+        const aoeAnswers = mockResults.aoeAnswers;
+        await detailsPage.enterAoeAnswers(aoeAnswers);
+
+        // also confirms label pdf opens when applicable
+        await detailsPage.clickMarkAsReady({ isPSC: false });
+      });
+
+      await test.step('ELX-1.5 Confirm lab is ready for submit', async () => {
+        const externalLabsPage = await ExternalLabsPage.isOpen(page);
+
+        // we won't click submit since that ultimately goes to oystehr/dorn and could be flaky
+        await externalLabsPage.confirmTestWithOutResultsIsPresent({
+          fillerLabName: fillerLabName || 'missing',
+          testName: selectedTestName || 'missing',
+          status: ExternalLabsStatus.ready,
+          submitBtnDisplay: 'enabled',
+        });
+      });
+
+      await test.step('ELX-1.6 Check assessment page and patient record labs table', async () => {
+        await sideMenu.clickAssessment();
+        const assessmentPage = await expectAssessmentPage(page);
+
+        await assessmentPage.checkForSecondaryDx({ secondaryDx: additionalDx || 'unknown', addedViaLabOrder: true });
+
+        const patientRecordPage = await header.clickPatientName(resourceHandler.patient.id!);
+        await patientRecordPage.clickLabsTableTab();
+
+        await patientRecordPage.confirmPatientRecordLab({
+          testName: selectedTestName || 'unknown',
+          status: ExternalLabsStatus.ready,
+          navToLabDetailPage: true,
+        });
+      });
+    });
+  });
+});
+
 test.describe('Nursing Orders Page', () => {
   interface NursingOrderInfo {
     notes: string;
@@ -816,7 +958,9 @@ async function enterProcedureInfo(
 ): Promise<void> {
   await documentProcedurePage.setConsentForProcedureChecked(procedureInfo.consentChecked);
   await documentProcedurePage.selectProcedureType(procedureInfo.procedureType);
-  await documentProcedurePage.selectCptCode(procedureInfo.cptCode);
+  for (const cpt of procedureInfo.cptInfo) {
+    await documentProcedurePage.selectCptCode(cpt.cptCode);
+  }
   await documentProcedurePage.selectDiagnosis(procedureInfo.diagnosisCode);
   await documentProcedurePage.selectPerformedBy(procedureInfo.performedBy);
   await documentProcedurePage.selectAnaesthesia(procedureInfo.anaesthesia);
@@ -839,7 +983,9 @@ async function verifyProcedureInfo(
 ): Promise<void> {
   await documentProcedurePage.verifyConsentForProcedureChecked(procedureInfo.consentChecked);
   await documentProcedurePage.verifyProcedureType(procedureInfo.procedureType);
-  await documentProcedurePage.verifyCptCode(procedureInfo.cptCode + ' ' + procedureInfo.cptName);
+  for (const cpt of procedureInfo.cptInfo) {
+    await documentProcedurePage.verifyCptCode(cpt.cptCode + ' ' + cpt.cptName);
+  }
   await documentProcedurePage.verifyDiagnosis(procedureInfo.diagnosisName + ' ' + procedureInfo.diagnosisCode);
   await documentProcedurePage.verifyPerformedBy(procedureInfo.performedBy);
   await documentProcedurePage.verifyAnaesthesia(procedureInfo.anaesthesia);
@@ -857,17 +1003,24 @@ async function verifyProcedureInfo(
 }
 
 async function verifyProcedureRow(procedureInfo: ProcedureInfo, procedureRow: ProcedureRow): Promise<void> {
-  await procedureRow.verifyProcedureCptCode(procedureInfo.cptCode + '-' + procedureInfo.cptName);
+  for (const cpt of procedureInfo.cptInfo) {
+    await procedureRow.verifyProcedureCptCode(cpt.cptCode + '-' + cpt.cptName);
+  }
   await procedureRow.verifyProcedureType(procedureInfo.procedureType);
   await procedureRow.verifyProcedureDiagnosis(procedureInfo.diagnosisCode + '-' + procedureInfo.diagnosisName);
   await procedureRow.verifyProcedureDocumentedBy(procedureInfo.documentedBy);
 }
 
 function progressNoteProcedureDetails(procedureInfo: ProcedureInfo): string[] {
-  const cptPrefix = procedureInfo.procedureTypeCptCode ? procedureInfo.procedureTypeCptCode + ':' : '';
+  const cptInfo: string[] = [];
+  for (const cpt of procedureInfo.cptInfo) {
+    if (cpt.procedureTypeCptCode) {
+      cptInfo.push(cpt.procedureTypeCptCode);
+    }
+    cptInfo.push(cpt.cptCode + ' ' + cpt.cptName);
+  }
   return [
-    // colon will be used to split and reorder string so this line is different
-    'CPT:' + cptPrefix + procedureInfo.cptCode + ' ' + procedureInfo.cptName,
+    'CPT:' + cptInfo.join('; '),
     'Dx: ' + procedureInfo.diagnosisCode + ' ' + procedureInfo.diagnosisName,
     'Performed by: ' + procedureInfo.performedBy,
     'Anaesthesia / medication used: ' + procedureInfo.anaesthesia,

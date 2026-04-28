@@ -6,9 +6,9 @@ import {
   appointmentTypeForAppointment,
   createOystehrClient,
   getAppointmentResourceById,
+  getInPersonVisitStatus,
   getLocationIdFromAppointment,
   getSecret,
-  getTelemedVisitStatus,
   PROJECT_WEBSITE,
   SecretsKeys,
   TelemedAppointmentStatusEnum,
@@ -108,9 +108,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   }
 
-  const telemedStatus = getTelemedVisitStatus(videoEncounter.status, appointment.status);
+  const status = getInPersonVisitStatus(appointment, videoEncounter);
 
-  if (telemedStatus === 'ready' || telemedStatus === 'pre-video' || telemedStatus === 'on-video') {
+  if (['pending', 'arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(status)) {
     const appointments = await getAppointmentsForLocation(oystehr, locationId);
 
     const estimatedTime = calculateEstimatedTime(appointments);
@@ -119,10 +119,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const response = {
       statusCode: 200,
       body: JSON.stringify(<WaitingRoomResponse>{
-        status: telemedStatus === 'on-video' ? telemedStatus : TelemedAppointmentStatusEnum.ready,
+        status: status === 'provider' ? TelemedAppointmentStatusEnum['on-video'] : TelemedAppointmentStatusEnum.ready,
         estimatedTime: estimatedTime,
         numberInLine: numberInLine,
-        encounterId: telemedStatus === 'on-video' ? videoEncounter?.id : undefined,
+        encounterId: status === 'provider' ? videoEncounter?.id : undefined,
         appointmentType: appointmentTypeForAppointment(appointment),
       }),
     };
@@ -133,7 +133,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const response = {
       statusCode: 200,
       body: JSON.stringify({
-        status: telemedStatus === 'cancelled' ? telemedStatus : TelemedAppointmentStatusEnum.complete,
+        status: status === 'cancelled' ? status : TelemedAppointmentStatusEnum.complete,
       }),
     };
     console.log(JSON.stringify(response, null, 4));

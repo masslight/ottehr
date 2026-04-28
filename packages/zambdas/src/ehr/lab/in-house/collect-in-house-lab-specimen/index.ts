@@ -8,6 +8,7 @@ import {
   getAttendingPractitionerId,
   getCoding,
   getFullestAvailableName,
+  IN_HOUSE_LAB_ERROR,
   IN_HOUSE_LAB_TASK,
   Secrets,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
@@ -113,7 +114,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   if (collectionTask.status === 'completed') {
     console.error('Detected completed CST task');
-    throw Error('Collection task has already been completed. Refresh the page before continuing.');
+    throw IN_HOUSE_LAB_ERROR('Collection task has already been completed. Refresh the page before continuing.');
   }
 
   const specimenFullUrl = `urn:uuid:${randomUUID()}`;

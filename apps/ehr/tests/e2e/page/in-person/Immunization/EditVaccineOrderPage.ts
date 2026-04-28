@@ -19,7 +19,7 @@ export class EditVaccineOrderPage {
     const buttonLocator = this.#page.getByTestId(dataTestIds.orderVaccinePage.orderVaccineButton);
     await buttonLocator.click();
     await expect(buttonLocator).toBeDisabled();
-    await expect(buttonLocator).toBeEnabled();
+    await this.#page.waitForURL(new RegExp('/in-person/.*/immunization/mar'), { timeout: 30000 });
   }
 }
 

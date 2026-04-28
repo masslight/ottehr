@@ -274,7 +274,7 @@
           "linkId": "reason-for-visit",
           "type": "choice",
           "text": "Reason for visit",
-          "required": false,
+          "required": true,
           "answerOption": [
             {
               "valueString": "Cough and/or congestion"
@@ -355,80 +355,7 @@
               "valueString": "Follow-up"
             }
           ],
-          "enableWhen": [
-            {
-              "question": "appointment-service-category",
-              "operator": "=",
-              "answerString": "urgent-care"
-            },
-            {
-              "question": "appointment-service-category",
-              "operator": "=",
-              "answerString": "occupational-medicine"
-            },
-            {
-              "question": "appointment-service-category",
-              "operator": "=",
-              "answerString": "workers-comp"
-            }
-          ],
-          "enableBehavior": "any",
           "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-              "valueString": "hidden"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                  "valueString": "appointment-service-category"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                  "valueString": "="
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                  "valueString": "urgent-care"
-                }
-              ]
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                  "valueString": "appointment-service-category"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                  "valueString": "="
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                  "valueString": "occupational-medicine"
-                }
-              ]
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                  "valueString": "appointment-service-category"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                  "valueString": "="
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                  "valueString": "workers-comp"
-                }
-              ]
-            },
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-display-filter",
               "extension": [

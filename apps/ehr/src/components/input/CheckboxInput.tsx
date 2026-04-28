@@ -28,7 +28,10 @@ export const CheckboxInput: React.FC<Props> = ({ name, label, required, validate
               data-testid={dataTestId}
               disabled={disabled}
             />
-            <Typography>{label}</Typography>
+            <Typography>
+              {label}
+              {required ? ' *' : ''}
+            </Typography>
           </Stack>
           {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}
         </Box>

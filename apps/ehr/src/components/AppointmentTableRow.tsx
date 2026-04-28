@@ -31,10 +31,12 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
+import {
+  getInPersonUrlByAppointmentType,
+  getInPersonVisitDetailsUrl,
+} from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
-import { TrackingBoardTableButton } from 'src/features/visits/telemed/components/tracking-board/TrackingBoardTableButton';
 import { getTelemedQuickTexts } from 'src/features/visits/telemed/utils/appointments';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
@@ -45,7 +47,6 @@ import {
   getInPersonQuickTexts,
   getPatchBinary,
   getSupportPhoneFor,
-  getTelemedVisitStatus,
   getVisitTotalTime,
   GetVitalsResponseData,
   InPersonAppointmentInformation,
@@ -588,10 +589,7 @@ export default function AppointmentTableRow({
   };
 
   const renderStartIntakeButton = (): ReactElement | undefined => {
-    if (
-      !isVirtual(appointment) &&
-      (appointment.status === 'arrived' || appointment.status === 'ready' || appointment.status === 'intake')
-    ) {
+    if (appointment.status === 'arrived' || appointment.status === 'ready' || appointment.status === 'intake') {
       return (
         <GoToButton
           text="Start Intake"
@@ -601,29 +599,6 @@ export default function AppointmentTableRow({
         >
           <img src={startIntakeIcon} />
         </GoToButton>
-      );
-    }
-    return undefined;
-  };
-
-  const renderAssignMeButton = (): ReactElement | undefined => {
-    const location = appointment.location;
-    if (isVirtual(appointment) && location?.id) {
-      return (
-        <TrackingBoardTableButton
-          appointment={{
-            ...appointment,
-            telemedStatus: getTelemedVisitStatus(encounter.status, appointment.status) ?? 'ready',
-            locationVirtual: {
-              reference: `Location/${location.id}`,
-              name: location.name,
-              state: location.address?.state,
-              resourceType: 'Location',
-              id: location.id,
-              extension: location.extension,
-            },
-          }}
-        />
       );
     }
     return undefined;
@@ -642,13 +617,11 @@ export default function AppointmentTableRow({
 
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
-      (!isVirtual(appointment) &&
-        (appointment.status === 'ready for provider' ||
-          appointment.status === 'provider' ||
-          appointment.status === 'awaiting supervisor approval' ||
-          appointment.status === 'completed' ||
-          appointment.status === 'discharged')) ||
-      isVirtual(appointment)
+      appointment.status === 'ready for provider' ||
+      appointment.status === 'provider' ||
+      appointment.status === 'awaiting supervisor approval' ||
+      appointment.status === 'completed' ||
+      appointment.status === 'discharged'
     ) {
       return (
         <GoToButton
@@ -1059,7 +1032,7 @@ export default function AppointmentTableRow({
         <Stack direction={'row'} spacing={1} alignItems="center">
           <GoToButton
             text="Visit Details"
-            onClick={() => navigate(getInPersonUrlByAppointmentType(appointment, 'review-and-sign'))}
+            onClick={() => navigate(getInPersonVisitDetailsUrl(appointment.id))}
             dataTestId={dataTestIds.dashboard.visitDetailsButton}
           >
             <MedicalInformationIcon />
@@ -1068,7 +1041,6 @@ export default function AppointmentTableRow({
           {renderStartIntakeButton()}
           {renderProgressNoteButton()}
           {renderDischargeButton()}
-          {renderAssignMeButton()}
           {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && renderSupervisorApproval()}
         </Stack>
       </TableCell>

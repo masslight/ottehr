@@ -4,7 +4,6 @@ import { telemedProgressNoteChartDataRequestedFields } from 'utils/lib/helpers/v
 import { useChartFields } from '../../hooks/useChartFields';
 import { useGetReviewAndSignData } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
-import { useAppFlags } from '../../stores/contexts/useAppFlags';
 import { AddendumCard } from './AddendumCard';
 import { MissingCard } from './MissingCard';
 import { ReviewAndSignButton } from './ReviewAndSignButton';
@@ -13,7 +12,6 @@ import { VisitNoteCard } from './VisitNoteCard';
 
 export const ReviewTab: FC = () => {
   const { appointment, encounter, appointmentSetState } = useAppointmentData();
-  const { isInPerson } = useAppFlags();
 
   const { isFetching, isLoading: isChartDataLoading } = useChartFields({
     requestedFields: telemedProgressNoteChartDataRequestedFields,
@@ -53,7 +51,7 @@ export const ReviewTab: FC = () => {
       <VisitNoteCard />
       <AddendumCard />
       <Box sx={{ display: 'flex', justifyContent: 'end', gap: 1 }}>
-        <SendFaxButton appointment={appointment} encounter={encounter} inPerson={isInPerson} />
+        <SendFaxButton appointment={appointment} encounter={encounter} />
         <ReviewAndSignButton onSigned={onAppointmentSigned} />
       </Box>
     </Box>

@@ -32,6 +32,7 @@ import { formatLabelValue } from 'src/shared/utils';
 import {
   FhirAppointmentType,
   formatDateToMDYWithTime,
+  formatWeightKg,
   getAdmitterPractitionerId,
   getAnnotationFollowupStatusLabel,
   getAppointmentServiceCategoryAbbreviation,
@@ -45,11 +46,13 @@ import {
   PRACTITIONER_CODINGS,
   ProviderDetails,
   VisitStatusLabel,
+  VitalFieldNames,
 } from 'utils';
 import { getEmployees } from '../../../../api/api';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
+import { useGetHistoricalVitals, useGetVitals } from '../../shared/components/vitals/hooks/useGetVitals';
 import { useChartFields } from '../../shared/hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
@@ -88,6 +91,26 @@ const PatientInfoWrapper = styled(Box)({
   alignItems: 'baseline',
   gap: '8px',
 });
+
+const getPatientWeightFallback = (weight: string | undefined): string | undefined => {
+  const normalizedWeight = weight?.replace(/\s/g, '');
+  return normalizedWeight?.match(/^\d+(?:\.\d+)?kg/)?.[0];
+};
+
+const getDisplayWeight = (
+  currentObservations: { value?: number | string }[],
+  historicalObservations: { value?: number | string }[],
+  patientWeight: string | undefined
+): string | undefined => {
+  const numericObs = [...currentObservations, ...historicalObservations].find((o) => typeof o.value === 'number');
+  if (numericObs) {
+    return `${formatWeightKg(numericObs.value as number)}kg`;
+  }
+  if (currentObservations.length === 0 && historicalObservations.length === 0) {
+    return getPatientWeightFallback(patientWeight);
+  }
+  return undefined;
+};
 
 const getFollowupStatusChip = (status: 'OPEN' | 'RESOLVED'): ReactElement => {
   interface ColorScheme {
@@ -170,6 +193,8 @@ export const Header = (): JSX.Element => {
   const { chartData } = useChartData();
 
   const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
+  const { data: encounterVitals } = useGetVitals(effectiveEncounterId);
+  const { data: historicalVitals } = useGetHistoricalVitals(effectiveEncounterId);
 
   const start = encounter?.period?.start ?? appointmentValues?.start;
 
@@ -234,6 +259,11 @@ export const Header = (): JSX.Element => {
   const gender = formatLabelValue(mappedData?.gender, 'Gender');
   const language = formatLabelValue(mappedData?.preferredLanguage, 'Lang');
   const dob = formatLabelValue(mappedData?.DOB, 'DOB', true);
+  const weight = getDisplayWeight(
+    encounterVitals?.[VitalFieldNames.VitalWeight] ?? [],
+    historicalVitals?.[VitalFieldNames.VitalWeight] ?? [],
+    mappedData?.weight
+  );
 
   const allergies = formatLabelValue(
     chartData?.allergies
@@ -527,6 +557,11 @@ export const Header = (): JSX.Element => {
                     </PatientInfoWrapper>
                     <PatientInfoWrapper>
                       <PatientMetadata>{pronouns}</PatientMetadata> | <PatientMetadata>{gender}</PatientMetadata> |
+                      {weight ? (
+                        <>
+                          <PatientMetadata data-testid={dataTestIds.inPersonHeader.weight}>{weight}</PatientMetadata> |
+                        </>
+                      ) : null}
                       <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
                     </PatientInfoWrapper>
                   </Grid>

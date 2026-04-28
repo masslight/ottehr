@@ -1,3 +1,4 @@
+import { getFriendlyPatientIdSystem } from 'src/features/visits/shared/utils/friendly-patient-id.helper';
 import { SearchOptionsFilters } from '../types';
 
 /**
@@ -83,6 +84,21 @@ export const buildSearchQuery = (filter: Partial<SearchOptionsFilters>): string 
 
   if (filter.dob) params.push(`birthdate=${encodeURIComponent(filter.dob)}`);
   if (filter.email) params.push(`email=${encodeURIComponent(filter.email)}`);
+
+  if (filter.pid) {
+    const pidValue = filter.pid.trim();
+    if (pidValue) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(pidValue)) {
+        params.push(`_id=${encodeURIComponent(pidValue)}`);
+      } else {
+        const system = getFriendlyPatientIdSystem();
+        if (system) {
+          params.push(`identifier=${encodeURIComponent(`${system}|${pidValue}`)}`);
+        }
+      }
+    }
+  }
 
   params.push('_total=accurate');
 

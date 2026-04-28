@@ -5,7 +5,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 export const index = wrapHandler('disassociate-payer', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { feeScheduleId, organizationId, secrets } = validateRequestParameters(input);
+  const { feeScheduleId, organizationId, locationId, secrets } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
@@ -15,9 +15,15 @@ export const index = wrapHandler('disassociate-payer', async (input: ZambdaInput
     id: feeScheduleId,
   });
 
-  const updatedUseContext = (existing.useContext || []).filter(
-    (uc) => uc.valueReference?.reference !== `Organization/${organizationId}`
-  );
+  const updatedUseContext = (existing.useContext || []).filter((uc) => {
+    if (organizationId && uc.valueReference?.reference === `Organization/${organizationId}`) {
+      return false;
+    }
+    if (locationId && uc.code?.code === 'venue' && uc.valueReference?.reference === `Location/${locationId}`) {
+      return false;
+    }
+    return true;
+  });
 
   const updated = await oystehr.fhir.update<ChargeItemDefinition>(
     {

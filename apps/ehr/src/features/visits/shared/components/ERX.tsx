@@ -242,11 +242,7 @@ export const ERX: FC<{
 
   // Handle practitioner connection for confirmation
   useEffect(() => {
-    if (
-      practitionerEnrollmentStatus?.registered &&
-      !practitionerEnrollmentStatus.confirmed &&
-      practitionerEnrollmentStatus.identityVerified
-    ) {
+    if (practitionerEnrollmentStatus?.registered && !practitionerEnrollmentStatus.confirmed) {
       setPendingErxEnrollmentDialogOpen(true);
 
       safelyCaptureMessage('DoseSpot enrollment pending review', {

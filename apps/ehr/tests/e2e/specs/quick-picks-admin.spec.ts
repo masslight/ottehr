@@ -15,7 +15,10 @@ test('Quick picks admin page loads with tabs', async ({ page }) => {
     await expect(quickPickList.getByRole('tab', { name: 'Procedures' })).toBeVisible(DEFAULT_TIMEOUT);
     await expect(quickPickList.getByRole('tab', { name: 'Allergies' })).toBeVisible(DEFAULT_TIMEOUT);
     await expect(quickPickList.getByRole('tab', { name: 'Medical Conditions' })).toBeVisible(DEFAULT_TIMEOUT);
-    await expect(quickPickList.getByRole('tab', { name: 'Medications' })).toBeVisible(DEFAULT_TIMEOUT);
+    await expect(quickPickList.getByRole('tab', { name: 'Medications', exact: true })).toBeVisible(DEFAULT_TIMEOUT);
+    await expect(quickPickList.getByRole('tab', { name: 'In-House Medications', exact: true })).toBeVisible(
+      DEFAULT_TIMEOUT
+    );
   });
 });
 
@@ -36,7 +39,7 @@ test('Can switch between quick pick sub-tabs', async ({ page }) => {
   await test.step('Switch to Medications tab', async () => {
     await page
       .getByRole('tablist', { name: 'Quick pick categories' })
-      .getByRole('tab', { name: 'Medications' })
+      .getByRole('tab', { name: 'Medications', exact: true })
       .click();
     await expect(page.getByText('Medication Quick Picks')).toBeVisible(DEFAULT_TIMEOUT);
   });
@@ -105,7 +108,7 @@ test('Tab navigation preserves loaded content', async ({ page }) => {
   await test.step('Switch to Medications tab', async () => {
     await page
       .getByRole('tablist', { name: 'Quick pick categories' })
-      .getByRole('tab', { name: 'Medications' })
+      .getByRole('tab', { name: 'Medications', exact: true })
       .click();
     await expect(page.getByText('Medication Quick Picks')).toBeVisible(DEFAULT_TIMEOUT);
   });

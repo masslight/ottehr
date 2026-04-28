@@ -1,16 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
-import { CODE_SYSTEM_CPT, CODE_SYSTEM_ICD_10, getSecret, Secrets, SecretsKeys } from 'utils';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_ICD_10, Secrets } from 'utils';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
 import { searchIcd10Codes } from '../../../shared/icd-10-search';
 import { EnhancedBody, ValidatedCPTCode, ValidatedICD10Code, ValidatedInput } from '.';
 
-export const validateInput = async (
-  input: ZambdaInput,
-  secrets: Secrets,
-  oystehr: Oystehr
-): Promise<ValidatedInput> => {
-  const validatedBody = await validateBody(input, secrets, oystehr);
+export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promise<ValidatedInput> => {
+  const validatedBody = await validateBody(input, oystehr);
 
   const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');
   if (callerAccessToken == null) {
@@ -23,12 +19,12 @@ export const validateInput = async (
   };
 };
 
-const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oystehr): Promise<EnhancedBody> => {
+const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<EnhancedBody> => {
   const { diagnosisCode, cptCode, lateralityModifier, encounterId, stat, clinicalHistory, studyName, consentObtained } =
     validateJsonBody(input);
 
   const diagnosis = await validateICD10Code(diagnosisCode);
-  const cpt = await validateCPTCode(cptCode, secrets);
+  const cpt = await validateCPTCode(cptCode, oystehr);
   const encounter = await fetchEncounter(encounterId, oystehr);
 
   if (typeof stat !== 'boolean') {
@@ -77,7 +73,6 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_CLIENT,
     AUTH0_SECRET,
     AUTH0_AUDIENCE,
-    NLM_API_KEY,
     FHIR_API,
     PROJECT_API,
     ENVIRONMENT,
@@ -89,7 +84,6 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     !AUTH0_CLIENT ||
     !AUTH0_SECRET ||
     !AUTH0_AUDIENCE ||
-    !NLM_API_KEY ||
     !FHIR_API ||
     !PROJECT_API ||
     !ENVIRONMENT
@@ -103,7 +97,6 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_CLIENT,
     AUTH0_SECRET,
     AUTH0_AUDIENCE,
-    NLM_API_KEY,
     FHIR_API,
     PROJECT_API,
     ENVIRONMENT,
@@ -135,57 +128,32 @@ const validateICD10Code = async (diagnosisCode: unknown): Promise<ValidatedICD10
   return dx;
 };
 
-const validateCPTCode = async (cptCode: unknown, secrets: Secrets): Promise<ValidatedCPTCode> => {
-  let cptResponseBody: {
-    pageSize: number;
-    pageNumber: number;
-    result: {
-      results: {
-        ui: string;
-        name: string;
-      }[];
-      recCount: number;
-    };
-  } | null = null;
-
+const validateCPTCode = async (cptCode: unknown, oystehr: Oystehr): Promise<ValidatedCPTCode> => {
   // CPT codes are at least 5 digits long
   if (cptCode == null || typeof cptCode !== 'string' || cptCode.length < 5) {
     throw new Error('cptCode is required and must be a string of length 5 or more');
   }
 
+  let terminologyResponse;
   try {
-    const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
-
-    const icdResponse = await fetch(
-      `https://uts-ws.nlm.nih.gov/rest/search/current?apiKey=${apiKey}&pageSize=50&returnIdType=code&inputType=sourceUi&string=${cptCode}&sabs=CPT&searchType=exact`
-    );
-    if (!icdResponse.ok) {
-      throw new Error(icdResponse.statusText);
-    }
-    cptResponseBody = (await icdResponse.json()) as {
-      pageSize: number;
-      pageNumber: number;
-      result: {
-        results: {
-          ui: string;
-          name: string;
-        }[];
-        recCount: number;
-      };
-    };
+    terminologyResponse = await oystehr.terminology.searchCpt({
+      searchType: 'code',
+      strictMatch: true,
+      query: cptCode,
+    });
   } catch {
     throw new Error('Error while trying to validate CPT code');
   }
 
-  if (cptResponseBody.result.recCount < 1) {
+  if (terminologyResponse.codes.length < 1) {
     throw new Error('CPT code is invalid');
-  } else if (cptResponseBody.result.recCount > 1) {
+  } else if (terminologyResponse.codes.length > 1) {
     throw new Error('CPT code is ambiguous');
   }
 
   const cpt = {
     code: cptCode,
-    display: cptResponseBody.result.results[0].name,
+    display: terminologyResponse.codes[0].display,
     system: CODE_SYSTEM_CPT,
   };
 

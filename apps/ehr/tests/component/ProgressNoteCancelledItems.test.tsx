@@ -14,10 +14,6 @@ vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
   useOystehrAPIClient: vi.fn(),
 }));
 
-vi.mock('../../src/features/visits/shared/stores/contexts/useAppFlags', () => ({
-  useAppFlags: vi.fn(),
-}));
-
 vi.mock('../../src/features/visits/shared/stores/tracking-board/tracking-board.queries', () => ({
   useSignAppointmentMutation: vi.fn(),
   useChangeTelemedAppointmentStatusMutation: vi.fn(),
@@ -127,7 +123,6 @@ import {
   useAppointmentData,
   useChartData,
 } from '../../src/features/visits/shared/stores/appointment/appointment.store';
-import { useAppFlags } from '../../src/features/visits/shared/stores/contexts/useAppFlags';
 import {
   useChangeTelemedAppointmentStatusMutation,
   useSignAppointmentMutation,
@@ -139,7 +134,6 @@ const mockUseChartData = vi.mocked(useChartData);
 const mockUseChartFields = vi.mocked(useChartFields);
 const mockUseMedicationAPI = vi.mocked(useMedicationAPI);
 const mockUseGetImmunizationOrders = vi.mocked(useGetImmunizationOrders);
-const mockUseAppFlags = vi.mocked(useAppFlags);
 const mockUseOystehrAPIClient = vi.mocked(useOystehrAPIClient);
 const mockUsePatientInstructionsVisibility = vi.mocked(usePatientInstructionsVisibility);
 const mockUseNavigate = vi.mocked(useNavigate);
@@ -183,11 +177,6 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
     mockUseGetImmunizationOrders.mockReturnValue({
       data: { orders: [] },
       isLoading: false,
-    } as any);
-
-    mockUseAppFlags.mockReturnValue({
-      isInPerson: true,
-      isVideoCallEnabled: false,
     } as any);
 
     mockUseOystehrAPIClient.mockReturnValue({
