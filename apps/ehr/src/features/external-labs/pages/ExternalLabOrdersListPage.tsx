@@ -1,6 +1,7 @@
 import { Box, Paper, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -45,12 +46,13 @@ export const ExternalLabOrdersListPage: React.FC = () => {
 
   return (
     <ListViewContainer>
-      <Box>
+      <Box data-testid={dataTestIds.externalLabs.labsTable.patientChartExternalLabsPage}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <PageTitle label="External Labs" showIntakeNotesButton={false} />
           <Stack direction="row" spacing={2} alignItems="center">
             {!isReadOnly && (
               <ButtonRounded
+                data-testid={dataTestIds.externalLabs.labsTable.addExternalLabBtn}
                 variant="contained"
                 color="primary"
                 size={'medium'}
