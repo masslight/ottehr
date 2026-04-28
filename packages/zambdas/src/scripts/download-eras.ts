@@ -332,39 +332,43 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Show date range and prompt for count
+  // Show date range and prompt for a "from" date
   const dates = eras.map((e) => e.paid_date).filter(Boolean);
   const oldest = dates[dates.length - 1] ?? 'unknown';
   const newest = dates[0] ?? 'unknown';
   console.log(`\n  Date range: ${oldest} (oldest) → ${newest} (newest)`);
 
-  const prompt = `\nHow many ERAs to download? (1-${eras.length}, blank = all): `;
-  let maxDownload: number | undefined;
-  while (maxDownload === undefined) {
-    const input = await promptUser(prompt);
+  const datePrompt = `\nDownload ERAs from which date? (YYYY-MM-DD, blank = all): `;
+  let erasToDownload: EraListItem[] | undefined;
+  while (erasToDownload === undefined) {
+    const input = await promptUser(datePrompt);
     const lower = input.toLowerCase();
     if (lower === 'q' || lower === 'e' || lower === 'x') {
       console.log('Exiting.');
       return;
     }
     if (input === '') {
-      console.log(`⚠️  No limit specified — downloading ALL ${eras.length} ERAs.`);
-      maxDownload = eras.length;
+      console.log(`⚠️  No date specified — downloading ALL ${eras.length} ERAs.`);
+      erasToDownload = eras;
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+      console.error(`❌ "${input}" is not a valid date. Please use YYYY-MM-DD format.`);
     } else {
-      const parsed = parseInt(input, 10);
-      if (isNaN(parsed) || parsed < 1) {
-        console.error(`❌ "${input}" is not a valid number. Please enter a number between 1 and ${eras.length}.`);
-      } else {
-        maxDownload = Math.min(parsed, eras.length);
+      erasToDownload = eras.filter((e) => e.paid_date >= input);
+      if (erasToDownload.length === 0) {
+        console.log(`No ERAs found with paid_date >= ${input}. Try an earlier date.`);
+        erasToDownload = undefined;
       }
     }
   }
 
-  const erasToDownload = eras.slice(0, maxDownload);
-  console.log(`\nDownloading ${erasToDownload.length} most recent ERAs (of ${eras.length} total).`);
+  console.log(
+    `\nDownloading ${erasToDownload.length} ERAs from ${
+      erasToDownload[erasToDownload.length - 1]?.paid_date ?? 'unknown'
+    } to ${erasToDownload[0]?.paid_date ?? 'unknown'} (of ${eras.length} total).`
+  );
 
   // Step 2: Write summary CSV
-  const summaryCsv = buildEraSummaryCsv(eras);
+  const summaryCsv = buildEraSummaryCsv(erasToDownload);
   const summaryCsvPath = path.join(outputDir, 'era-summary.csv');
   fs.writeFileSync(summaryCsvPath, summaryCsv, 'utf8');
   console.log(`📄 ERA summary CSV written to ${summaryCsvPath}`);

@@ -601,7 +601,18 @@ const useGetAppointment = (
           }
         }
 
-        return selectAppointmentData(data, currentSelectedEncounterId || scheduledFollowupEncounter?.id, appointmentId);
+        // Only fall back to the scheduled follow-up encounter when the URL actually targets it.
+        // Otherwise, on a main-appointment URL the bundle's child follow-up encounter would hijack
+        // the selection and vitals would get saved against the follow-up's id.
+        const hasMainEncounterForRequestedAppt = data.some(
+          (r) =>
+            r.resourceType === 'Encounter' &&
+            !(r as Encounter).partOf &&
+            (r as Encounter).appointment?.some((ref) => ref.reference === `Appointment/${appointmentId}`)
+        );
+        const fallbackEncounterId = hasMainEncounterForRequestedAppt ? undefined : scheduledFollowupEncounter?.id;
+
+        return selectAppointmentData(data, currentSelectedEncounterId || fallbackEncounterId, appointmentId);
       }
       throw new Error('fhir client not defined or appointmentId not provided');
     },

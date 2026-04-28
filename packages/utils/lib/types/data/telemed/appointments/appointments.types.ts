@@ -42,7 +42,7 @@ export interface PrescribedMedication {
 }
 
 export interface FollowUpDetails {
-  encounterTime: string;
+  encounterTime: string | undefined;
   documents: FileURLs;
 }
 

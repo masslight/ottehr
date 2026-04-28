@@ -5,6 +5,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { getColumnHeader, getColumnWidth, LabOrdersSearchBy, LabsTableColumn, OrderableItemSearchResult } from 'utils';
 import { LabsAutocompleteForPatient } from '../LabsAutocompleteForPatient';
 import { LabOrderLoading } from './LabOrderLoading';
@@ -140,6 +141,7 @@ export const LabsTablePatientRecord = ({
                   labOrders={[...labOrders, ...drDrivenResults]}
                   allowDelete={false}
                   showDeleteLabOrderDialog={showDeleteLabOrderDialog}
+                  dataTestId={dataTestIds.externalLabs.labsTable.patientRecordExternalLabsPage}
                 />
               )}
 
