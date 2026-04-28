@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Task } from 'fhir/r4b';
+import { DocumentReference, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DATETIME_FULL_NO_YEAR,
@@ -150,6 +150,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         secrets
       );
 
+      // If a visit note PDF already exists for this encounter, this is a re-generation (e.g. addendum update).
+      // In that case we regenerate the PDF but skip the completion email to avoid spamming the patient.
+      const existingVisitNoteDocRefs = (
+        await oystehr.fhir.search<DocumentReference>({
+          resourceType: 'DocumentReference',
+          params: [
+            { name: 'status', value: 'current' },
+            { name: 'encounter', value: `Encounter/${encounter.id}` },
+            { name: 'type', value: 'http://loinc.org|75498-6' },
+          ],
+        })
+      ).unbundle();
+      const isRegeneration = existingVisitNoteDocRefs.length > 0;
+      console.log(`isRegeneration: ${isRegeneration} (${existingVisitNoteDocRefs.length} existing visit note DocRefs)`);
+
       // Always create the PDF
       const { pdfInfo } = await createProgressNotePdf(
         {
@@ -182,7 +197,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const emailClient = getEmailClient(secrets);
       const emailEnabled = emailClient.getFeatureFlag();
 
-      if (emailEnabled && !isPDFOnlyTask) {
+      if (emailEnabled && !isPDFOnlyTask && !isRegeneration) {
         if (skipVisitNoteInPatientPortal) {
           console.log('Skipping completion email to patient - visit note patient portal feature flag is enabled');
         } else {
@@ -247,7 +262,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
 
       const statusMessage =
-        isPDFOnlyTask || skipVisitNoteInPatientPortal
+        isPDFOnlyTask || skipVisitNoteInPatientPortal || isRegeneration
           ? 'PDF created successfully'
           : 'PDF created and emailed successfully';
 

@@ -31,6 +31,10 @@ export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounte
           value: 'Encounter:subject',
         },
         {
+          name: '_include',
+          value: 'Encounter:appointment',
+        },
+        {
           name: '_revinclude:iterate',
           value: 'ServiceRequest:encounter',
         },

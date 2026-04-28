@@ -56,6 +56,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { getChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import {
@@ -511,6 +512,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.timeLog('time', 'after saving resources');
 
     console.log('Updated chart data as a transaction');
+
+    const postChangeTasks = getChartDataPostChangeTasks({ addendumNote }, encounter, appointment?.id);
+    if (postChangeTasks.length > 0) {
+      await Promise.all(postChangeTasks.map((task) => oystehr.fhir.create(task)));
+    }
 
     console.timeLog('time', 'before sorting resources');
     const output = validateBundleAndExtractSavedChartData(
