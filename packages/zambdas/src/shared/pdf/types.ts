@@ -212,6 +212,7 @@ export interface InHouseLabResultConfig {
   specimenSource: string;
   results: InHouseLabResult[];
   testName: string;
+  diagnosticReportId: string;
 }
 
 export type ResultSpecimenInfo = {
