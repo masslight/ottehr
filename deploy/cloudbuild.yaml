@@ -1,30 +1,26 @@
-# Cloud Build: build the zambdas local API image and deploy to Cloud Run.
+# Cloud Build: Zambda API (Cloud Run) + EHR & Intake static sites (GCS).
 #
 # Prereqs (GCP, same project as Cloud Build):
-# - Enable: Cloud Build, Cloud Run, Artifact Registry, Secret Manager
-# - Artifact Registry: Docker repository id `_AR_REPO` (default `juna-repo`) must exist in
-#   `_REGION`; image name `_IMAGE_NAME` (default `juna-ottehr`). Full URI:
+# - Enable: Cloud Build, Cloud Run, Artifact Registry, Secret Manager, Cloud Storage
+# - Artifact Registry: Docker repo `_AR_REPO` / image `_IMAGE_NAME` →
 #   ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:tag
-# - Secrets in Secret Manager (version "latest" is used):
-#     sec-juna-ottehr-config      — file body = contents of config/.env/local.json
-#     sec-juna-ottehr-zambda-secrets — file body of packages/zambdas/.env/zambda-secrets-local.json
-#   The build step "fetch-ottehr-config-local" downloads sec-juna-ottehr-config into
-#   config/.env/local.json so it is in the image context (bakes into image layers). Runtime
-#   --set-secrets for OTTEHR_CONFIG can still override via docker-entrypoint.sh.
-# - Grant the Cloud Build default SA (or builds SA): roles/artifactregistry.writer,
-#   roles/run.admin, roles/secretmanager.secretAccessor on needed secrets;
-#   roles/iam.serviceAccountUser on `_CLOUD_RUN_SA` so deploy can attach it.
+# - Secrets (version "latest"): see substitutions `_SECRET_*` below.
+# - Web UI: store Vite env files (same shape as Terraform-generated apps/*/env/.env.<mode>) in
+#     `_SECRET_EHR_APP_ENV` and `_SECRET_INTAKE_APP_ENV`.
+#   Filenames written: apps/ehr/env/.env.${_VITE_MODE} and apps/intake/env/.env.${_VITE_MODE}
+#   (default mode `local`). Build runs `npm run build-skeleton` with ENV=${_VITE_MODE}.
+# - GCS buckets for website hosting (Terraform infra/gcp pattern): set `_GCS_BUCKET_EHR` and
+#   `_GCS_BUCKET_INTAKE` to bucket names, or leave `-` to skip upload for that app.
+# - IAM: Cloud Build SA — artifactregistry.writer, run.admin, secretmanager.secretAccessor,
+#   iam.serviceAccountUser on `_CLOUD_RUN_SA`; storage.objectAdmin on both buckets if uploading.
 #
-# Image push order: `images:` is pushed only after all steps succeed. Cloud Run needs the
-# image in Artifact Registry before deploy, so we run `docker push` in a dedicated step
-# before `gcloud run deploy` (otherwise deploy fails with Image not found).
+# Stale Cloud Run / image paths: older triggers used …/ottehr/juna-ottehr-zambdas — this file
+# pushes …/juna-repo/juna-ottehr only.
 #
-# Trigger from repo root (or set dir in trigger):
+# Image push order: push Docker image to Artifact Registry before `gcloud run deploy`.
+#
+# Trigger from repo root:
 #   gcloud builds submit --config=deploy/cloudbuild.yaml .
-#
-# The production Ottehr path still deploys zambdas to Oystehr via Terraform; this image is
-# an optional self-hosted Zambda API. Frontends in GCS/Cloud Run static still use
-# generate + oystehr URLs unless you point them at this service.
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -32,35 +28,80 @@ options:
   env:
     - "DOCKER_BUILDKIT=1"
 
-timeout: 2400s
+timeout: 3600s
 
 substitutions:
   _REGION: us-central1
-  # Artifact Registry Docker repo id + image name → …/REPO/IMAGE:tag (e.g. juna-repo/juna-ottehr)
   _AR_REPO: juna-repo
   _IMAGE_NAME: juna-ottehr
-  # Cloud Run service id (can match image name or differ)
   _CLOUD_RUN_SERVICE: juna-ottehr
-  # Runtime service account for the Cloud Run revision (secret access, GCP APIs, etc.)
   _CLOUD_RUN_SA: sa-juna-deploy@juna-dev-1.iam.gserviceaccount.com
   _SECRET_OTTEHR_CONFIG: sec-juna-ottehr-config
   _SECRET_ZAMBDA: sec-juna-ottehr-zambda-secrets
+  # Vite mode / env filename suffix (e.g. local → apps/ehr/env/.env.local)
+  _VITE_MODE: local
+  _SECRET_EHR_APP_ENV: sec-juna-ottehr-app-ehr-env
+  _SECRET_INTAKE_APP_ENV: sec-juna-ottehr-app-intake-env
+  # robots.txt variant for intake build-skeleton (e.g. lowers | production)
+  _INTAKE_ROBOTS_FILE: lowers
+  # GCS bucket names for static hosting; use "-" to skip syncing that app
+  _GCS_BUCKET_EHR: '-'
+  _GCS_BUCKET_INTAKE: '-'
 
 steps:
-  - id: fetch-ottehr-config-local
+  - id: fetch-secrets
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: bash
     args:
       - -c
       - |
         set -euo pipefail
-        mkdir -p config/.env
+        mkdir -p config/.env apps/ehr/env apps/intake/env
         gcloud secrets versions access latest --secret=${_SECRET_OTTEHR_CONFIG} > config/.env/local.json
+        gcloud secrets versions access latest --secret=${_SECRET_EHR_APP_ENV} > "apps/ehr/env/.env.${_VITE_MODE}"
+        gcloud secrets versions access latest --secret=${_SECRET_INTAKE_APP_ENV} > "apps/intake/env/.env.${_VITE_MODE}"
+
+  # EHR + Intake production bundles (apps/*/build)
+  - id: npm-ci-build-web
+    name: node:22-bookworm-slim
+    waitFor:
+      - fetch-secrets
+    dir: .
+    env:
+      - "NODE_OPTIONS=--max-old-space-size=8192"
+      - "HUSKY=0"
+      - "CI=true"
+      - "GIT_HEAD=${SHORT_SHA}"
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        npm ci
+        (cd apps/ehr && ENV=${_VITE_MODE} npm run build-skeleton)
+        (cd apps/intake && ENV=${_VITE_MODE} ROBOTS_FILE=${_INTAKE_ROBOTS_FILE} npm run build-skeleton)
+
+  - id: upload-static-to-gcs
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor:
+      - npm-ci-build-web
+    dir: .
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [[ "${_GCS_BUCKET_EHR}" != "-" ]]; then
+          gcloud storage rsync --recursive apps/ehr/build "gs://${_GCS_BUCKET_EHR}/" --delete-unmatched-destination-objects
+        fi
+        if [[ "${_GCS_BUCKET_INTAKE}" != "-" ]]; then
+          gcloud storage rsync --recursive apps/intake/build "gs://${_GCS_BUCKET_INTAKE}/" --delete-unmatched-destination-objects
+        fi
 
   - id: build-image
     name: gcr.io/cloud-builders/docker
     waitFor:
-      - fetch-ottehr-config-local
+      - fetch-secrets
     dir: .
     args:
       - build
@@ -74,7 +115,6 @@ steps:
     env:
       - "DOCKER_BUILDKIT=1"
 
-  # Must run before deploy — Artifact Registry does not have the image until push completes.
   - id: push-image
     name: gcr.io/cloud-builders/docker
     waitFor:

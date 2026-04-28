@@ -10,7 +10,10 @@ node_modules
 # Include only local.json when Cloud Build fetches it from Secret Manager (see deploy/cloudbuild.yaml).
 config/.env/**
 !config/.env/local.json
-packages/zambdas/.env
+# Frontend Vite env files from CI must not be baked into the API Docker image.
+apps/ehr/env/**
+apps/intake/env/**
+
 deploy/.terraform
 *.log
 coverage
