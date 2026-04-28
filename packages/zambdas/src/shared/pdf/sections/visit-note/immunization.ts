@@ -2,16 +2,17 @@ import { DateTime } from 'luxon';
 import { ImmunizationOrder, searchRouteByCode } from 'utils';
 import { drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
-import { ImmunizationOrders, PdfSection } from '../../types';
-import { AllChartData } from '../../visit-details-pdf/types';
+import { ImmunizationOrders, PdfSection, ProgressNoteVisitDataInput } from '../../types';
 
-export const composeImmunizationOrders: DataComposer<{ allChartData: AllChartData }, ImmunizationOrders> = ({
+export const composeImmunizationOrders: DataComposer<ProgressNoteVisitDataInput, ImmunizationOrders> = ({
   allChartData,
+  appointmentPackage,
 }) => {
   const { immunizationOrders } = allChartData;
+  const { timezone } = appointmentPackage;
   const immunizationOrdersToRender = immunizationOrders
     ?.filter((order) => ['administered', 'administered-partly'].includes(order.status))
-    .map(immunizationOrderToString);
+    .map((order) => immunizationOrderToString(order, timezone));
 
   return {
     immunizationOrders: immunizationOrdersToRender,
@@ -34,11 +35,13 @@ export const createImmunizationOrdersSection = <
   }));
 };
 
-function immunizationOrderToString(order: ImmunizationOrder): string {
+function immunizationOrderToString(order: ImmunizationOrder, timezone: string): string {
   const route = searchRouteByCode(order.details.route)?.display ?? '';
   const location = order.details.location?.name ?? '';
   const administratedDateTime = order.administrationDetails?.administeredDateTime
-    ? DateTime.fromISO(order.administrationDetails?.administeredDateTime)?.toFormat('MM/dd/yyyy HH:mm a')
+    ? DateTime.fromISO(order.administrationDetails?.administeredDateTime)
+        ?.setZone(timezone)
+        ?.toFormat('MM/dd/yyyy HH:mm a')
     : '';
   return `${order.details.medication.name} - ${order.details.dose} ${order.details.units} / ${route} - ${location}\n${administratedDateTime}`;
 }
