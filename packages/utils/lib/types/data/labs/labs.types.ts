@@ -53,11 +53,11 @@ export interface sampleDTO {
 
 // todo: maybe rename to OrderableItemSpecimenDefinition to fit the FHIR terms
 export interface OrderableItemSpecimen {
-  container: string;
-  volume: string;
-  minimumVolume: string;
-  storageRequirements: string;
-  collectionInstructions: string;
+  container: string | null;
+  volume: string | null;
+  minimumVolume: string | null;
+  storageRequirements: string | null;
+  collectionInstructions: string | null;
 }
 
 export interface OrderableItemComponent {
@@ -71,7 +71,7 @@ export interface OrderableItemComponent {
 
 export interface OrderableItemCptCode {
   cptCode: string;
-  serviceUnitsCount: number;
+  serviceUnitsCount: number | null;
 }
 
 export interface OrderableItem {
@@ -83,7 +83,7 @@ export interface OrderableItem {
   specimens: OrderableItemSpecimen[];
   components: OrderableItemComponent[];
   cptCodes: OrderableItemCptCode[];
-  aoe: Questionnaire;
+  aoe: Questionnaire | null;
 }
 
 export interface OrderableItemLab {
@@ -327,6 +327,7 @@ export enum LabPaymentMethod {
   ClientBill = 'clientBill',
   WorkersComp = 'workersComp',
 }
+
 export type CreateLabPaymentMethod =
   | LabPaymentMethod.Insurance
   | LabPaymentMethod.SelfPay
