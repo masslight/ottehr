@@ -49,10 +49,6 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries
   })),
 }));
 
-vi.mock('../../src/features/visits/shared/stores/contexts/useAppFlags', () => ({
-  useAppFlags: vi.fn(() => ({ isInPerson: false })),
-}));
-
 const mockEnqueueSnackbar = vi.fn();
 vi.mock('notistack', () => ({
   enqueueSnackbar: (...args: any[]) => mockEnqueueSnackbar(...args),
@@ -173,9 +169,6 @@ describe('DiagnosesContainer', () => {
     });
 
     it('should show "Dx" title in person mode', async () => {
-      const { useAppFlags } = await import('../../src/features/visits/shared/stores/contexts/useAppFlags');
-      vi.mocked(useAppFlags).mockReturnValue({ isInPerson: true } as any);
-
       render(<DiagnosesContainer />, { wrapper: createWrapper() });
 
       expect(screen.getByText('Dx')).toBeInTheDocument();

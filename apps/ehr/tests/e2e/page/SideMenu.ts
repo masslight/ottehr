@@ -11,6 +11,7 @@ import { expectMedicationsPage, MedicationsPage } from './in-person/MedicationsP
 import { expectReviewOfSystemsPage, ReviewOfSystemsPage } from './in-person/ReviewOfSystemsPage';
 import { expectScreeningPage, ScreeningPage } from './in-person/ScreeningPage';
 import { InHouseLabsPage } from './lab';
+import { ExternalLabsPage } from './lab/external/ExternalLabsPage';
 import { expectMedicalConditionsPage, MedicalConditionsPage } from './MedicalConditionsPage';
 import { expectNursingOrdersPage, NursingOrdersPage } from './NursingOrdersPage';
 import { expectPatientInfoPage, PatientInfoPage } from './PatientInfo';
@@ -107,5 +108,10 @@ export class SideMenu {
 
   async clickCompleteIntakeButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.sideMenu.completeIntakeButton).click();
+  }
+
+  async clickExternalLabs(): Promise<ExternalLabsPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('external-lab-orders')).click();
+    return ExternalLabsPage.isOpen(this.#page);
   }
 }

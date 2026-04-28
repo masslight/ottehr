@@ -7,13 +7,7 @@ import {
   isInPersonAppointment,
 } from 'utils';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
-import {
-  EncounterInfo,
-  Examination,
-  PdfExaminationBlockData,
-  PdfSection,
-  ProgressNoteVisitDataInput,
-} from '../../types';
+import { EncounterInfo, Examination, PdfSection, ProgressNoteVisitDataInput } from '../../types';
 
 export const composeExamination: DataComposer<ProgressNoteVisitDataInput, Examination> = ({
   allChartData,
@@ -106,13 +100,13 @@ export const createExaminationSection = <
       const examination = data.examination;
 
       if (examination && Object.keys(examination).length > 0) {
-        Object.entries(examination).forEach(([sectionKey, section]) => {
+        Object.entries(examination).forEach(([_sectionKey, section]) => {
+          const sectionLabel = section.groupLabel;
+
           if (section.items && section.items.length > 0) {
-            const sectionLabel = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
             drawExaminationCard(`${sectionLabel}:   `, section.items, undefined, section.comment);
           } else if (section.comment) {
             // If there are no items but there's a comment, still show the section
-            const sectionLabel = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
             drawExaminationCard(`${sectionLabel}:   `, [], undefined, section.comment);
           }
         });
@@ -127,7 +121,7 @@ function parseExamFieldsFromExamObservations(
   chartData: GetChartDataResponse,
   isInPersonAppointment: boolean
 ): {
-  examination: PdfExaminationBlockData['examination'];
+  examination: Examination['examination'];
 } {
   const examObservations: {
     [field: string]: ExamObservationDTO;
@@ -149,10 +143,7 @@ function parseExamFieldsFromExamObservations(
 
   const matchedFields = collectKnownExamFields(examConfigComponents);
 
-  const examinationData: Record<
-    string,
-    { items: Array<{ field: string; label: string; abnormal: boolean }>; comment?: string }
-  > = {};
+  const examinationData: Examination['examination'] = {};
 
   Object.entries(examConfigComponents).forEach(([sectionKey, section]) => {
     const normalItems = extractObservationsFromExamComponents(section.components.normal, 'normal', examObservations);
@@ -172,6 +163,7 @@ function parseExamFieldsFromExamObservations(
     });
 
     examinationData[sectionKey] = {
+      groupLabel: section.label,
       items: allItems,
       comment,
     };
@@ -188,6 +180,7 @@ function parseExamFieldsFromExamObservations(
 
   if (unmatchedItems.length > 0) {
     examinationData['other-findings'] = {
+      groupLabel: 'Other findings',
       items: unmatchedItems,
     };
   }

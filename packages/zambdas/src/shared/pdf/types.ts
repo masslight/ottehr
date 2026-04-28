@@ -132,19 +132,6 @@ export interface PdfClient {
   numberPages: (textStyle: TextStyle) => void;
 }
 
-export interface PdfExaminationBlockData {
-  examination: {
-    [group: string]: {
-      items?: Array<{
-        field: string;
-        label: string;
-        abnormal: boolean;
-      }>;
-      comment?: string;
-    };
-  };
-}
-
 // todo might make sense to have a separate interface for the order pdf base
 // and the result pdf base
 interface LabsData {
@@ -520,6 +507,7 @@ export interface Vitals extends PdfData {
 export interface Examination extends PdfData {
   examination: {
     [group: string]: {
+      groupLabel: string;
       items?: Array<{
         field: string;
         label: string;
