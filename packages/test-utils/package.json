@@ -2,9 +2,13 @@
   "name": "test-utils",
   "type": "module",
   "private": true,
-  "version": "1.32.19",
+  "version": "1.33.1",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
+  "exports": {
+    ".": "./lib/index.ts",
+    "./*": "./lib/*"
+  },
   "engines": {
     "node": ">=22.0.0",
     "npm": ">=10.0.0"

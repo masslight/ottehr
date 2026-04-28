@@ -6,7 +6,7 @@ import { phone } from 'phone';
 import { FC, useMemo, useState } from 'react';
 import InputMask from 'src/components/InputMask';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getInPersonVisitStatus, isPhoneNumberValid, TelemedAppointmentStatusEnum } from 'utils';
+import { getInPersonVisitStatus, isPhoneNumberValid } from 'utils';
 import { ConfirmationDialog } from '../../../../../components/ConfirmationDialog';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
@@ -15,10 +15,9 @@ import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 interface SendFaxButtonProps {
   appointment?: Appointment;
   encounter?: Encounter;
-  inPerson: boolean;
 }
 
-export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, inPerson }: SendFaxButtonProps) => {
+export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter }: SendFaxButtonProps) => {
   const apiClient = useOystehrAPIClient();
   const [openTooltip, setOpenTooltip] = useState(false);
 
@@ -35,19 +34,12 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, 
     if (
       appointmentAccessibility.visitType === 'follow-up'
         ? encounter?.status === 'in-progress'
-        : (inPerson && inPersonStatus && !['intake', 'completed'].includes(inPersonStatus)) ||
-          appointmentAccessibility.status !== TelemedAppointmentStatusEnum.complete
+        : inPersonStatus && !['intake', 'completed'].includes(inPersonStatus)
     ) {
       return "Once the visit note has been signed, you will have the option to fax a copy to the patient's Primary Care Physician.";
     }
     return null;
-  }, [
-    appointmentAccessibility.visitType,
-    appointmentAccessibility.status,
-    encounter?.status,
-    inPerson,
-    inPersonStatus,
-  ]);
+  }, [appointmentAccessibility.visitType, encounter?.status, inPersonStatus]);
 
   const handleSendFax = async (): Promise<void> => {
     if (faxError) {

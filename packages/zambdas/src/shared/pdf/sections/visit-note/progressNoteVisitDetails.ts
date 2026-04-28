@@ -9,7 +9,7 @@ import {
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
   getTelemedEncounterStatusHistory,
-  isFollowupEncounter,
+  isAnnotationFollowupEncounter,
   isInPersonAppointment,
   Timezone,
 } from 'utils';
@@ -42,7 +42,9 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
   const { additionalChartData } = allChartData;
   const { patient, encounter, mainEncounter, appointment, location, questionnaireResponse, practitioners, timezone } =
     appointmentPackage;
-  const isFollowup = encounter ? isFollowupEncounter(encounter) : false;
+  // Only annotation follow-ups render the abbreviated visit-note layout — scheduled
+  // follow-ups are full visits and get the same details as a main appointment.
+  const isFollowup = encounter ? isAnnotationFollowupEncounter(encounter) : false;
   if (!patient) throw new Error('No patient found for this encounter');
   const patientName = getPatientLastFirstName(patient);
   if (isFollowup && encounter) {

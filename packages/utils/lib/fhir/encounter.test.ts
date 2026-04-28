@@ -4,6 +4,7 @@ import {
   EncounterVisitType,
   FOLLOWUP_SUBTYPE_SYSTEM,
   FOLLOWUP_SYSTEMS,
+  getEncounterDateTime,
   getEncounterVisitType,
   getFollowupSubtype,
   isAnnotationFollowupEncounter,
@@ -110,6 +111,45 @@ describe('Encounter follow-up helpers', () => {
 
     it('returns true for a follow-up without subtype coding (defaults to annotation)', () => {
       expect(isAnnotationFollowupEncounter(makeEncounter({ type: makeFollowupType() }))).toBe(true);
+    });
+  });
+
+  describe('getEncounterDateTime', () => {
+    const appointmentStart = '2025-01-01T09:00:00Z';
+    const appointmentStartMap = { 'appt-1': appointmentStart };
+
+    it('returns appointment start for a main encounter', () => {
+      const enc = makeEncounter({ appointment: [{ reference: 'Appointment/appt-1' }] });
+      expect(getEncounterDateTime(enc, appointmentStartMap)).toBe(appointmentStart);
+    });
+
+    it('returns appointment start for a scheduled follow-up (has its own appointment)', () => {
+      const enc = makeEncounter({
+        type: makeFollowupType('scheduled'),
+        appointment: [{ reference: 'Appointment/appt-1' }],
+      });
+      expect(getEncounterDateTime(enc, appointmentStartMap)).toBe(appointmentStart);
+    });
+
+    it('ignores shared appointment and returns period.start for an annotation follow-up', () => {
+      const annotationStart = '2025-01-01T11:30:00Z';
+      const enc = makeEncounter({
+        type: makeFollowupType('annotation'),
+        // same appointment as the main encounter
+        appointment: [{ reference: 'Appointment/appt-1' }],
+        period: { start: annotationStart },
+      });
+      expect(getEncounterDateTime(enc, appointmentStartMap)).toBe(annotationStart);
+    });
+
+    it('falls back to statusHistory when annotation follow-up has no period.start', () => {
+      const historyStart = '2025-01-01T11:45:00Z';
+      const enc = makeEncounter({
+        type: makeFollowupType('annotation'),
+        appointment: [{ reference: 'Appointment/appt-1' }],
+        statusHistory: [{ status: 'in-progress', period: { start: historyStart } }],
+      });
+      expect(getEncounterDateTime(enc, appointmentStartMap)).toBe(historyStart);
     });
   });
 

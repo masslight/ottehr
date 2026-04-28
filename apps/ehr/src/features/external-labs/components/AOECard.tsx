@@ -1,6 +1,7 @@
 import { CircularProgress, Grid, Paper, Typography } from '@mui/material';
 import { QuestionnaireItem } from 'fhir/r4b';
 import React, { useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { LabQuestionnaireResponse } from 'utils';
 import { AccordionCard } from '../../../components/AccordionCard';
 import { AOEQuestion } from './AOEQuestion';
@@ -24,6 +25,7 @@ export const AOECard: React.FC<AOEProps> = ({
   return (
     <>
       <AccordionCard
+        dataTestId={dataTestIds.externalLabs.detailsPg.aoeAnswers}
         label={!labQuestionnaireResponses ? 'AOE Questions' : 'AOE Answers'}
         collapsed={collapsed}
         withBorder={false}
