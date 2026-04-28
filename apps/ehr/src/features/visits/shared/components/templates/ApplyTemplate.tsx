@@ -17,11 +17,13 @@ import {
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { applyTemplate, createTemplate, deleteTemplate } from 'src/api/api';
 import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { ExamType, RoleType } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
@@ -153,6 +155,33 @@ export const ApplyTemplate: React.FC = () => {
   const getTemplateName = (value: string): string => {
     return templates.find((option) => option.value === value)?.label || '';
   };
+
+  const selectTemplateByName = (templateName: string): void => {
+    setPendingTemplate(templateName);
+    setDialogOpen(true);
+  };
+
+  const selectTemplateRef = useRef(selectTemplateByName);
+  selectTemplateRef.current = selectTemplateByName;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      isReadOnly
+        ? []
+        : templates.map((template) => ({
+            id: `template-${template.id}`,
+            label: template.label,
+            category: 'Apply Template',
+            onSelect: () => selectTemplateRef.current(template.value),
+          })),
+    [isReadOnly, templates]
+  );
+  useCommandPaletteSource('templates', commandPaletteItems);
+
+  const handlePendingTemplate = useCallback((payload: TemplateOption) => {
+    selectTemplateRef.current(payload.value);
+  }, []);
+  usePendingQuickPick('templates', handlePendingTemplate);
 
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const [overwriteTemplateName, setOverwriteTemplateName] = useState('');

@@ -14,13 +14,15 @@ import {
 } from '@mui/material';
 import { ErxSearchAllergensResponse } from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useMemo, useState } from 'react';
+import { FC, useCallback, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedAllergyQuickPicks } from 'src/hooks/useMergedQuickPicks';
-import { AllergyDTO } from 'utils';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
+import { AllergyDTO, AllergyQuickPickData } from 'utils';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
@@ -326,6 +328,26 @@ const AddAllergyField: FC = () => {
     } as ExtractObjectType<ErxSearchAllergensResponse>;
     await handleSelectOption(quickPickAsAllergy);
   };
+
+  const handleQuickPickSelectRef = useRef(handleQuickPickSelect);
+  handleQuickPickSelectRef.current = handleQuickPickSelect;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      allergyQuickPicks.map((quickPick) => ({
+        id: `allergy-${quickPick.id ?? quickPick.name}`,
+        label: quickPick.name,
+        category: 'Add Allergy',
+        onSelect: () => void handleQuickPickSelectRef.current(quickPick),
+      })),
+    [allergyQuickPicks]
+  );
+  useCommandPaletteSource('allergy-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback((payload: AllergyQuickPickData) => {
+    void handleQuickPickSelectRef.current(payload as (typeof allergyQuickPicks)[number]);
+  }, []);
+  usePendingQuickPick('allergies', handlePendingQuickPick);
 
   const onSubmitForm = async (data: {
     value: ExtractObjectType<ErxSearchAllergensResponse> | null;
