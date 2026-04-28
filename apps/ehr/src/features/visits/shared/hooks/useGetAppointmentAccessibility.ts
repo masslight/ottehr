@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
-import { useAppFlags } from '../stores/contexts/useAppFlags';
 import {
   getAppointmentAccessibilityData,
   GetAppointmentAccessibilityDataResult,
@@ -10,10 +9,9 @@ import {
 export const useGetAppointmentAccessibility = (): GetAppointmentAccessibilityDataResult => {
   const { locationVirtual, encounter, appointment } = useAppointmentData();
   const user = useEvolveUser();
-  const appFlags = useAppFlags();
 
   return useMemo(
-    () => getAppointmentAccessibilityData({ locationVirtual, encounter, appointment, user, appFlags }),
-    [locationVirtual, encounter, appointment, user, appFlags]
+    () => getAppointmentAccessibilityData({ locationVirtual, encounter, appointment, user }),
+    [locationVirtual, encounter, appointment, user]
   );
 };

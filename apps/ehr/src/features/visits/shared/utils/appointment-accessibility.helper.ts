@@ -11,14 +11,12 @@ import {
   StateType,
   TelemedAppointmentStatusEnum,
 } from 'utils';
-import { AppFlags } from '../stores/contexts/useAppFlags';
 
 export type GetAppointmentAccessibilityDataProps = {
   locationVirtual?: Location;
   encounter: Encounter;
   appointment?: Appointment;
   user?: EvolveUser;
-  appFlags: Partial<AppFlags>;
 };
 
 export type GetAppointmentAccessibilityDataResult = {
@@ -40,7 +38,6 @@ export const getAppointmentAccessibilityData = ({
   encounter,
   appointment,
   user,
-  appFlags = {},
 }: GetAppointmentAccessibilityDataProps): GetAppointmentAccessibilityDataResult => {
   const allLicenses = user?.profileResource && allLicensesForPractitioner(user.profileResource);
   const licensedPractitionerStates = allLicenses?.map((item) => item.state);
@@ -68,18 +65,7 @@ export const getAppointmentAccessibilityData = ({
   const isScheduledFollowup = visitType === 'scheduled-follow-up';
 
   const isAppointmentReadOnly = (() => {
-    if (appFlags.isInPerson) {
-      return isAppointmentLockedByMetaTag && !isFollowup && !isScheduledFollowup;
-    }
-
-    return (
-      !state ||
-      !isPractitionerLicensedInState ||
-      !status ||
-      !isStatusEditable ||
-      !isEncounterAssignedToCurrentPractitioner ||
-      isAppointmentLockedByMetaTag
-    );
+    return isAppointmentLockedByMetaTag && !isFollowup && !isScheduledFollowup;
   })();
 
   return {
