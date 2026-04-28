@@ -23,7 +23,14 @@ export const getCurrentQuestionnaireForServiceType = async (
 };
 
 export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode): CanonicalUrl => {
-  return serviceMode === 'in-person' ? IN_PERSON_INTAKE_PAPERWORK_CANONICAL : VIRTUAL_INTAKE_PAPERWORK_CANONICAL;
+  switch (serviceMode) {
+    case ServiceMode['in-person']:
+      return IN_PERSON_INTAKE_PAPERWORK_CANONICAL;
+    case ServiceMode.virtual:
+      return VIRTUAL_INTAKE_PAPERWORK_CANONICAL;
+    default:
+      throw new Error(`Unsupported service mode for previsit questionnaire: ${serviceMode}`);
+  }
 };
 
 export const getTelemedRequiredAppointmentEncounterExtensions = (
