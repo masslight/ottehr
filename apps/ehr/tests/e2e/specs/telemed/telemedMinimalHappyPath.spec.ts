@@ -1,6 +1,7 @@
 import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForGetChartDataResponse, waitForSaveChartDataResponse } from 'test-utils';
+import { isTelemedEnabled } from 'test-utils';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { openVisitsPage } from 'tests/e2e/page/VisitsPage';
 import { TelemedAppointmentStatusEnum, TelemedAppointmentVisitTabs } from 'utils';
@@ -23,6 +24,9 @@ test.afterAll(async () => {
 });
 
 test.describe.configure({ mode: 'serial' });
+
+// Skip telemed tests if virtual locations are not configured
+test.skip(!isTelemedEnabled, 'Telemed tests require virtual locations to be configured');
 
 test('Should start video call', async () => {
   const pageErrors: string[] = [];

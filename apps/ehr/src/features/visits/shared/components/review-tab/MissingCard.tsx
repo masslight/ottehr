@@ -7,11 +7,9 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { getAssessmentUrl, getChiefComplaintUrl, getHPIUrl } from 'src/features/visits/in-person/routing/helpers';
-import { TelemedAppointmentVisitTabs } from 'utils';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
-import { useAppTelemedLocalStore, useChartData } from '../../stores/appointment/appointment.store';
-import { useAppFlags } from '../../stores/contexts/useAppFlags';
+import { useChartData } from '../../stores/appointment/appointment.store';
 
 export const MissingCard: FC = () => {
   const { id: appointmentIdFromUrl } = useParams();
@@ -36,7 +34,6 @@ export const MissingCard: FC = () => {
 
   const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
 
-  const { isInPerson } = useAppFlags();
   const navigate = useNavigate();
   const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
   const medicalDecision = chartFields?.medicalDecision?.text;
@@ -66,28 +63,15 @@ export const MissingCard: FC = () => {
   }
 
   const navigateTo = (target: 'chief-complaint' | 'hpi' | 'assessment'): void => {
-    if (isInPerson) {
-      const inPersonRoutes: Record<'chief-complaint' | 'hpi' | 'assessment', string> = {
-        'chief-complaint': getChiefComplaintUrl(appointmentIdFromUrl || ''),
-        hpi: getHPIUrl(appointmentIdFromUrl || ''),
-        assessment: getAssessmentUrl(appointmentIdFromUrl || ''),
-      };
+    const inPersonRoutes: Record<'chief-complaint' | 'hpi' | 'assessment', string> = {
+      'chief-complaint': getChiefComplaintUrl(appointmentIdFromUrl || ''),
+      hpi: getHPIUrl(appointmentIdFromUrl || ''),
+      assessment: getAssessmentUrl(appointmentIdFromUrl || ''),
+    };
 
-      requestAnimationFrame(() => {
-        navigate(inPersonRoutes[target]);
-      });
-    } else {
-      const telemedTabs: Record<'hpi' | 'assessment', TelemedAppointmentVisitTabs> = {
-        hpi: TelemedAppointmentVisitTabs.hpi,
-        assessment: TelemedAppointmentVisitTabs.assessment,
-      };
-
-      if (target === 'chief-complaint') return;
-
-      useAppTelemedLocalStore.setState({
-        currentTab: telemedTabs[target],
-      });
-    }
+    requestAnimationFrame(() => {
+      navigate(inPersonRoutes[target]);
+    });
   };
 
   return (

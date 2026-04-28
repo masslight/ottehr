@@ -3,6 +3,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetCreateExternalLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
@@ -32,6 +33,8 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
   });
 
   const labs = data?.labs || [];
+
+  console.log('labs', JSON.stringify(labs));
 
   const { debounce } = useDebounce(800);
   const debouncedHandleLabInputChange = (searchValue: string): void => {
@@ -94,6 +97,10 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
             error={isError}
             helperText={isError ? 'Failed to load labs list' : ''}
             onChange={(e) => debouncedHandleLabInputChange(e.target.value)}
+            inputProps={{
+              ...params.inputProps,
+              'data-testid': dataTestIds.externalLabs.createPg.labsSearchAutoComplete,
+            }}
           />
         )}
       />
@@ -102,7 +109,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
 
       {selectedLabs.length > 0 && (
         <Grid container>
-          <Grid item xs={12}>
+          <Grid item xs={12} data-testid={dataTestIds.externalLabs.createPg.selectedLabContainer}>
             <ActionsList
               data={selectedLabs}
               getKey={(value, index) => `selected-lab-${index}-${value.item.itemCode}`}

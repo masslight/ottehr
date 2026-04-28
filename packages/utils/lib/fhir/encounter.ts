@@ -316,8 +316,12 @@ export const getEncounterDateTime = (
   encounter: Encounter,
   appointmentStartMap: Record<string, string>
 ): string | undefined => {
-  const apptId = encounter.appointment?.[0]?.reference?.replace('Appointment/', '');
-  if (apptId && appointmentStartMap[apptId]) return appointmentStartMap[apptId];
+  // Annotation follow-ups share the parent appointment reference rather than having their own,
+  // so the appointment start would give the main visit time — use period.start instead.
+  if (!isAnnotationFollowupEncounter(encounter)) {
+    const apptId = encounter.appointment?.[0]?.reference?.replace('Appointment/', '');
+    if (apptId && appointmentStartMap[apptId]) return appointmentStartMap[apptId];
+  }
   if (encounter.period?.start) return encounter.period.start;
   return encounter.statusHistory?.[0]?.period?.start;
 };

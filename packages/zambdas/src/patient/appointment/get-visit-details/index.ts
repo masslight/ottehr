@@ -125,7 +125,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             captureException(error);
           }
 
-          const encounterTime = followupEncounter.period?.start ?? followupEncounter.period?.end ?? 'unknown date';
+          const encounterTime = followupEncounter.period?.start ?? followupEncounter.period?.end;
 
           return {
             encounterTime,

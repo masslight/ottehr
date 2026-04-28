@@ -20,25 +20,25 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
 import { useMergedAllergyQuickPicks } from 'src/hooks/useMergedQuickPicks';
-import { AllergyDTO } from 'utils';
+import { AllergyDTO, isTelemedAppointment } from 'utils';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { ExtractObjectType, useGetAllergiesSearch } from '../../stores/appointment/appointment.queries';
 import {
   ChartDataState,
+  useAppointmentData,
   useChartData,
   useDeleteChartData,
   useSaveChartData,
 } from '../../stores/appointment/appointment.store';
-import { useAppFlags } from '../../stores/contexts/useAppFlags';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 import { QuickPicksButton } from '../QuickPicksButton';
 
 export const KnownAllergiesProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
+  const { appointment } = useAppointmentData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const appFlags = useAppFlags();
   const allergies = sortByRecencyAndStatus(chartData?.allergies ?? []);
   const length = allergies.length;
 
@@ -60,7 +60,7 @@ export const KnownAllergiesProviderColumn: FC = () => {
         </Box>
       )}
 
-      {allergies.length === 0 && isReadOnly && !isChartDataLoading && !appFlags.isInPerson && (
+      {allergies.length === 0 && isReadOnly && !isChartDataLoading && isTelemedAppointment(appointment) && (
         <Typography color="secondary.light">Missing. Patient input must be reconciled by provider</Typography>
       )}
 
@@ -89,7 +89,6 @@ const setUpdatedAllergy = (
 const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> = ({ value, index, length }) => {
   const [note, setNote] = useState(value.note || '');
   const areNotesEqual = note.trim() === (value.note || '');
-  const appFlags = useAppFlags();
   const { chartDataSetState } = useChartData({ refetchOnMount: false });
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
@@ -187,32 +186,29 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
           sx={{
-            color: (theme) => (!value.current && appFlags.isInPerson ? theme.palette.text.secondary : undefined),
+            color: (theme) => (!value.current ? theme.palette.text.secondary : undefined),
           }}
         >
           {value.name}
-          {appFlags.isInPerson &&
-            isReadOnly &&
+          {isReadOnly &&
             ` | ${value.current ? 'Current' : 'Inactive now'}${value.note ? ' | Note: ' + value.note : ''}`}
         </Typography>
 
         {!isReadOnly && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {appFlags.isInPerson && (
-              <FormControlLabel
-                control={<Switch checked={value.current} onChange={(e) => updateCurrent(e.target.checked)} />}
-                label={value.current ? 'Current' : 'Inactive now'}
-                disabled={isLoadingOrAwaiting || !isAlreadySaved}
-                labelPlacement="start"
-                sx={{
-                  '& .MuiFormControlLabel-label': {
-                    marginRight: 1,
-                    textAlign: 'right',
-                    color: (theme) => (!value.current ? theme.palette.text.secondary : undefined),
-                  },
-                }}
-              />
-            )}
+            <FormControlLabel
+              control={<Switch checked={value.current} onChange={(e) => updateCurrent(e.target.checked)} />}
+              label={value.current ? 'Current' : 'Inactive now'}
+              disabled={isLoadingOrAwaiting || !isAlreadySaved}
+              labelPlacement="start"
+              sx={{
+                '& .MuiFormControlLabel-label': {
+                  marginRight: 1,
+                  textAlign: 'right',
+                  color: (theme) => (!value.current ? theme.palette.text.secondary : undefined),
+                },
+              }}
+            />
             <DeleteIconButton
               disabled={isLoadingOrAwaiting || !isAlreadySaved}
               onClick={deleteAllergy}
@@ -222,7 +218,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
         )}
       </Box>
 
-      {!value.current && !isReadOnly && appFlags.isInPerson && (
+      {!value.current && !isReadOnly && (
         <TextField
           value={note}
           onChange={(e) => {

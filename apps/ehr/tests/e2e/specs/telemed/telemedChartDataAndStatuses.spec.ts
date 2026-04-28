@@ -7,6 +7,7 @@ import {
   waitForChartDataDeletion,
   waitForSaveChartDataResponse,
 } from 'test-utils';
+import { isTelemedEnabled } from 'test-utils';
 import { expectVisitsPage, openVisitsPage } from 'tests/e2e/page/VisitsPage';
 import {
   allLicensesForPractitioner,
@@ -76,6 +77,9 @@ async function getTestStateThatNotQualificationsStatesList(
 }
 
 test.describe.configure({ mode: 'serial' });
+
+// Skip telemed tests if virtual locations are not configured
+test.skip(!isTelemedEnabled, 'Telemed tests require virtual locations to be configured');
 
 test.describe.skip('Telemed tracking board checks, buttons, chart data filling', () => {
   let page: Page;

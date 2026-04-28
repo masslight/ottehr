@@ -18,6 +18,10 @@ const PROVIDER_DATA: ProviderConfig = {
           '99211 - Office or other outpatient visit for the evaluation and management of established patient that may not require presence of healthcare professional',
         code: '99211',
       },
+      {
+        display: '99455 - Work-related or medical disability evaluation by the treating physician',
+        code: '99455',
+      },
     ],
     visionAutoCptCodes: ['99173'],
   },

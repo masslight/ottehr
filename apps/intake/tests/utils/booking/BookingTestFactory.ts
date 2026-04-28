@@ -11,6 +11,7 @@
  */
 
 import { Page } from '@playwright/test';
+import { isTelemedEnabled } from 'test-utils';
 import {
   BOOKING_CONFIG,
   BookingConfig,
@@ -125,6 +126,12 @@ export async function generateBookingTestScenarios(): Promise<BookingTestScenari
     // Determine visit type and service mode from homepage option ID
     const visitType = (option.id.includes('start') ? 'walk-in' : 'prebook') as 'walk-in' | 'prebook';
     const serviceMode = (option.id.includes('virtual') ? 'virtual' : 'in-person') as 'in-person' | 'virtual';
+
+    // Skip virtual scenarios if telemed is not configured
+    if (serviceMode === 'virtual' && !isTelemedEnabled) {
+      console.log(`Skipping virtual scenario '${option.label}' - telemed not configured (no virtual locations)`);
+      continue;
+    }
 
     // Filter categories available for this flow's mode and visit type
     const availableCategories = serviceCategories.filter(
