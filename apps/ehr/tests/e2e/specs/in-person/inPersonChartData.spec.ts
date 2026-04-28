@@ -209,6 +209,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         });
         await test.step('VIT-1.7 Add weight observation with Patient Refused', async () => {
           await vitalsPage.addWeightObservationPatientRefused();
+          await new InPersonHeader(page).verifyWeightPatientRefused();
         });
         await test.step('VIT-1.8 Add height observation', async () => {
           await vitalsPage.addHeightObservation(HEIGHT_CM);
