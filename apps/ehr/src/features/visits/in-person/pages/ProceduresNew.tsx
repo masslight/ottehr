@@ -30,7 +30,7 @@ import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tan
 import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useEffect, useMemo, useState } from 'react';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createProcedureQuickPick, getProcedureQuickPicks, updateProcedureQuickPick } from 'src/api/api';
@@ -65,7 +65,6 @@ import {
   RoleType,
   SUPPLIES_VALUE_SET_URL,
   TECHNIQUES_VALUE_SET_URL,
-  TelemedAppointmentStatusEnum,
   TIME_SPENT_VALUE_SET_URL,
 } from 'utils';
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
@@ -78,7 +77,6 @@ import {
   useRecommendBillingCodes,
 } from '../../shared/stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../shared/stores/appointment/appointment.store';
-import { useAppFlags } from '../../shared/stores/contexts/useAppFlags';
 import AiSuggestion from '../components/AiSuggestion';
 import { InfoAlert } from '../components/InfoAlert';
 import { ROUTER_PATH } from '../routing/routesInPerson';
@@ -201,7 +199,6 @@ export default function ProceduresNew(): ReactElement {
   const { data: selectOptions, isLoading: isSelectOptionsLoading } = useSelectOptions(oystehr);
   const { chartData, setPartialChartData } = useChartData();
   const appointmentAccessibility = useGetAppointmentAccessibility();
-  const { isInPerson } = useAppFlags();
   const { mutateAsync: recommendBillingCodes } = useRecommendBillingCodes();
   const { mutateAsync: aiSuggestionNotes } = useAiSuggestionNotes();
   const queryClient = useQueryClient();
@@ -209,11 +206,8 @@ export default function ProceduresNew(): ReactElement {
   const [loadingSuggestionNote, setLoadingSuggestionNote] = useState<boolean>(false);
 
   const isReadOnly = useMemo(() => {
-    if (isInPerson) {
-      return appointmentAccessibility.isAppointmentReadOnly;
-    }
-    return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
-  }, [isInPerson, appointmentAccessibility.status, appointmentAccessibility.isAppointmentReadOnly]);
+    return appointmentAccessibility.isAppointmentReadOnly;
+  }, [appointmentAccessibility.isAppointmentReadOnly]);
 
   const chartCptCodes = chartData?.cptCodes || [];
   const chartDiagnoses = chartData?.diagnosis || [];

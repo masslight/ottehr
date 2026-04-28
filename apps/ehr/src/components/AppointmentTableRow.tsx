@@ -32,8 +32,8 @@ import React, { ReactElement, useCallback, useEffect, useMemo, useState } from '
 import { Link, useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import {
-  getAppointmentVisitDetailsUrl,
   getInPersonUrlByAppointmentType,
+  getInPersonVisitDetailsUrl,
 } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
@@ -1032,7 +1032,7 @@ export default function AppointmentTableRow({
         <Stack direction={'row'} spacing={1} alignItems="center">
           <GoToButton
             text="Visit Details"
-            onClick={() => navigate(getAppointmentVisitDetailsUrl(appointment))}
+            onClick={() => navigate(getInPersonVisitDetailsUrl(appointment.id))}
             dataTestId={dataTestIds.dashboard.visitDetailsButton}
           >
             <MedicalInformationIcon />

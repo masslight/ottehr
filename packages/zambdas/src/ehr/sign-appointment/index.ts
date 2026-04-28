@@ -12,7 +12,7 @@ import {
   getInPersonVisitStatus,
   getPatchBinary,
   getTaskResource,
-  isFollowupEncounter,
+  isAnnotationFollowupEncounter,
   SignAppointmentInput,
   SignAppointmentResponse,
   TaskIndicator,
@@ -66,7 +66,7 @@ export const performEffect = async (
     visitResources.timezone = timezone;
   }
   const { encounter, patient, appointment } = visitResources;
-  const isFollowup = isFollowupEncounter(encounter);
+  const isFollowup = isAnnotationFollowupEncounter(encounter);
 
   if (encounter?.subject?.reference === undefined) {
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);

@@ -1014,11 +1014,12 @@ async function verifyProcedureRow(procedureInfo: ProcedureInfo, procedureRow: Pr
 function progressNoteProcedureDetails(procedureInfo: ProcedureInfo): string[] {
   const cptInfo: string[] = [];
   for (const cpt of procedureInfo.cptInfo) {
-    const cptPrefix = cpt.procedureTypeCptCode ? cpt.procedureTypeCptCode + ':' : '';
-    cptInfo.push(cptPrefix + cpt.cptCode + ' ' + cpt.cptName);
+    if (cpt.procedureTypeCptCode) {
+      cptInfo.push(cpt.procedureTypeCptCode);
+    }
+    cptInfo.push(cpt.cptCode + ' ' + cpt.cptName);
   }
   return [
-    // colon will be used to split and reorder string so this line is different
     'CPT:' + cptInfo.join('; '),
     'Dx: ' + procedureInfo.diagnosisCode + ' ' + procedureInfo.diagnosisName,
     'Performed by: ' + procedureInfo.performedBy,

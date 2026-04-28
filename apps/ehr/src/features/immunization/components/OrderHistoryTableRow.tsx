@@ -105,12 +105,16 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions, show
       </TableCell>
       {showGiven && (
         <TableCell>
-          <span data-testid={dataTestIds.immunizationPage.marTableGivenDateCell}>
-            {formatDateTime(order.administrationDetails?.administeredDateTime)}
-          </span>
-          <span data-testid={dataTestIds.immunizationPage.marTableGivenPersonCell}>
-            {grayText(order.administrationDetails?.administeredProvider?.name)}
-          </span>
+          {(order.status === 'administered-partly' || order.status === 'administered') && (
+            <>
+              <span data-testid={dataTestIds.immunizationPage.marTableGivenDateCell}>
+                {formatDateTime(order.administrationDetails?.administeredDateTime)}
+              </span>
+              <span data-testid={dataTestIds.immunizationPage.marTableGivenPersonCell}>
+                {grayText(order.administrationDetails?.administeredProvider?.name)}
+              </span>
+            </>
+          )}
         </TableCell>
       )}
       <TableCell>

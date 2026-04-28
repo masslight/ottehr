@@ -131,7 +131,8 @@ export function wrapTaskHandler(
       };
     } catch (error: any) {
       try {
-        await markTaskFailed(taskId, oystehr, JSON.stringify(error), options.retry);
+        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+        await markTaskFailed(taskId, oystehr, errorMessage, options.retry);
       } catch (patchError) {
         console.error('Error patching task status in top level catch:', patchError);
       }

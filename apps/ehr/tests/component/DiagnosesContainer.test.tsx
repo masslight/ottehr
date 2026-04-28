@@ -169,7 +169,7 @@ describe('DiagnosesContainer', () => {
     it('should render diagnoses title', () => {
       render(<DiagnosesContainer />, { wrapper: createWrapper() });
 
-      expect(screen.getByText('Diagnoses')).toBeInTheDocument();
+      expect(screen.getByText('Dx')).toBeInTheDocument();
     });
 
     it('should show "Dx" title in person mode', async () => {

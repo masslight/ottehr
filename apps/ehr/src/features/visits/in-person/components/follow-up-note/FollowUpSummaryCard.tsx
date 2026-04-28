@@ -75,7 +75,7 @@ export const FollowUpSummaryCard: React.FC = () => {
           patientId: patient.id,
           reason: data.reason || undefined,
           otherReason: data.reason === 'Other' ? data.otherReason : undefined,
-          message: data.message,
+          message: data.message.trim(),
           start: encounter.period?.start || new Date().toISOString(),
           location: data.location,
           resolved: false,

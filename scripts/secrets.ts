@@ -27,7 +27,6 @@ interface ZambdasConfig extends PathConfig {
 
 interface TerraformConfig extends PathConfig {
   backend: PathConfig;
-  imports: PathConfig;
 }
 
 interface GetFilePathConfig {
@@ -73,10 +72,6 @@ function getFilePaths(environment: string, project?: string): GetFilePathConfig 
       backend: {
         source: path.join(secretsPath, 'terraform', 'backend.config'),
         target: path.join(repoRoot, 'deploy', 'backend.config'),
-      },
-      imports: {
-        source: path.join(secretsPath, 'terraform', `${environment}_import.tf`),
-        target: path.join(repoRoot, 'deploy', `${environment}_import.tf`),
       },
     },
   };
@@ -130,11 +125,6 @@ function populate(environment: string, project?: string): void {
       fs.mkdirSync(path.dirname(paths.terraform.backend.target), { recursive: true });
       fs.copyFileSync(paths.terraform.backend.source, paths.terraform.backend.target);
       console.log(`Successfully copied backend.config to deploy`);
-    }
-    if (fs.existsSync(paths.terraform.imports.source)) {
-      fs.mkdirSync(path.dirname(paths.terraform.imports.target), { recursive: true });
-      fs.copyFileSync(paths.terraform.imports.source, paths.terraform.imports.target);
-      console.log(`Successfully copied ${environment}_import.tf to deploy`);
     }
   } catch (error) {
     console.error('Error copying files:', error);

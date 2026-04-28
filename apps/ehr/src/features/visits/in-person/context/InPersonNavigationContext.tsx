@@ -124,7 +124,7 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
       targetMode = 'main';
     }
 
-    if (targetMode === 'follow-up' || !isModeInitialized) {
+    if (targetMode !== interactionMode || !isModeInitialized) {
       setInteractionMode(targetMode, false);
     }
 
