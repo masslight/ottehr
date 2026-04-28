@@ -5,10 +5,9 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useChartData } from '../../../stores/appointment/appointment.store';
 import { ProceduresForm } from './ProceduresForm';
-import { ProceduresNoteFieldSkeleton } from './ProceduresNoteField';
 
 export const SurgicalHistoryProviderColumn: FC = () => {
-  const { chartData, isLoading: isChartDataLoading } = useChartData();
+  const { chartData } = useChartData();
   const procedures = chartData?.surgicalHistory || [];
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
@@ -37,7 +36,6 @@ export const SurgicalHistoryProviderColumn: FC = () => {
           }}
         >
           <ProceduresForm />
-          {isChartDataLoading ? <ProceduresNoteFieldSkeleton /> : null}
         </Box>
       )}
     </Box>
