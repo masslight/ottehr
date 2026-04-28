@@ -1,5 +1,6 @@
 import { Alert, Grid, Stack, Typography } from '@mui/material';
 import React from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { PageTitleStyled } from 'src/features/visits/shared/components/PageTitle';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { ExternalLabsStatus, LabOrderDetailedPageDTO, PSC_LOCALE } from 'utils';
@@ -12,7 +13,7 @@ export const DetailsWithoutResults: React.FC<{
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   return (
-    <Stack spacing={2} sx={{ width: '100%' }}>
+    <Stack data-testid={dataTestIds.externalLabs.detailsPg.pageContainer} spacing={2} sx={{ width: '100%' }}>
       <PageTitleStyled>{labOrder.testItem}</PageTitleStyled>
       <Stack
         direction="row"

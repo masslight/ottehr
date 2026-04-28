@@ -412,7 +412,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     parentEncounterId,
   } = input;
 
-  // Validate parent encounter for scheduled follow-ups — no nesting allowed
+  // Validate parent encounter for scheduled follow-ups — no nesting allowed.
+  // Also collect the parent encounter's diagnoses so they can be carried over to the follow-up.
+  let carriedOverDiagnoses: { condition: Condition; rank?: number }[] = [];
   if (parentEncounterId) {
     const parentEncounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',
@@ -420,6 +422,25 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     });
     if (parentEncounter.partOf) {
       throw new Error('Cannot create a follow-up of a follow-up. Please select a top-level encounter as the parent.');
+    }
+
+    const parentDiagnosisEntries = (parentEncounter.diagnosis ?? []).filter((entry) => {
+      const ref = entry.condition?.reference;
+      return typeof ref === 'string' && ref.startsWith('Condition/');
+    });
+    if (parentDiagnosisEntries.length > 0) {
+      const fetchedConditions = await Promise.all(
+        parentDiagnosisEntries.map((entry) =>
+          oystehr.fhir.get<Condition>({
+            resourceType: 'Condition',
+            id: entry.condition!.reference!.split('/')[1],
+          })
+        )
+      );
+      carriedOverDiagnoses = parentDiagnosisEntries.map((entry, idx) => ({
+        condition: fetchedConditions[idx],
+        rank: entry.rank,
+      }));
     }
   }
 
@@ -543,6 +564,40 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const encUrl = `urn:uuid:${uuid()}`;
 
+  // Carry over diagnoses from the parent encounter to the follow-up by cloning each Dx Condition
+  // and attaching it to the new encounter's diagnosis array (preserving rank/primary).
+  const followUpDiagnosisRequests: BatchInputPostRequest<Condition>[] = [];
+  const followUpDiagnosisEntries: NonNullable<Encounter['diagnosis']> = [];
+  for (const { condition: parentCondition, rank } of carriedOverDiagnoses) {
+    const newConditionUrl = `urn:uuid:${uuid()}`;
+    const newCondition: Condition = {
+      resourceType: 'Condition',
+      subject: { reference: patientRef },
+      encounter: { reference: encUrl },
+      code: parentCondition.code,
+      clinicalStatus: parentCondition.clinicalStatus,
+      verificationStatus: parentCondition.verificationStatus,
+      meta: {
+        tag: [
+          {
+            code: 'diagnosis',
+            system: `${PRIVATE_EXTENSION_BASE_URL}/diagnosis`,
+          },
+        ],
+      },
+    };
+    followUpDiagnosisRequests.push({
+      method: 'POST',
+      url: '/Condition',
+      resource: newCondition,
+      fullUrl: newConditionUrl,
+    });
+    followUpDiagnosisEntries.push({
+      condition: { reference: newConditionUrl },
+      ...(rank !== undefined && { rank }),
+    });
+  }
+
   const encResource: Encounter = {
     resourceType: 'Encounter',
     status: initialEncounterStatus,
@@ -573,6 +628,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
           ]
         : [],
     extension: encExtensions,
+    ...(followUpDiagnosisEntries.length > 0 && { diagnosis: followUpDiagnosisEntries }),
     ...(parentEncounterId && {
       partOf: { reference: `Encounter/${parentEncounterId}` },
       type: [
@@ -743,6 +799,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       postQuestionnaireResponseRequest,
       taskRequest,
       ...postAccidentConditionRequests,
+      ...followUpDiagnosisRequests,
     ],
   };
   console.log('making transaction request');

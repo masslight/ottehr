@@ -1,7 +1,7 @@
 // cSpell:ignore RCRT, RFRT, RPRT
 import { Coding } from 'fhir/r4b';
 import { Pagination } from '..';
-import { LabelConfig, LabType } from './labs.types';
+import { LabelConfig, LabPaymentMethod, LabType } from './labs.types';
 
 // for order form pdf (we might not want this idk)
 export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
@@ -406,4 +406,11 @@ export const STATIC_COMPENDIUM_ACCOUNT_NUMBER = 'oystehr-generic-account';
 export const GENERIC_LAB_ORDER_TAG: Coding = {
   system: 'order-type',
   code: 'generic-lab-order',
+};
+
+export const LAB_PAYMENT_METHOD_DISPLAY: Record<LabPaymentMethod, string> = {
+  [LabPaymentMethod.Insurance]: 'Insurance',
+  [LabPaymentMethod.SelfPay]: 'Self Pay',
+  [LabPaymentMethod.ClientBill]: 'Client Bill',
+  [LabPaymentMethod.WorkersComp]: 'Workers Comp',
 };

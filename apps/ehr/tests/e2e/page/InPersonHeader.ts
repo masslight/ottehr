@@ -1,5 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { expectPatientRecordPage, PatientRecordPage } from './PatientRecordPage';
 
 export class InPersonHeader {
   #page: Page;
@@ -52,5 +53,12 @@ export class InPersonHeader {
     await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.weight)).toHaveCount(0, {
       timeout: 30000,
     });
+  }
+
+  async clickPatientName(patientId: string): Promise<PatientRecordPage> {
+    const btn = this.#page.getByTestId(dataTestIds.inPersonHeader.patientName);
+    await btn.click();
+
+    return expectPatientRecordPage(patientId, this.#page);
   }
 }
