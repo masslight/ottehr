@@ -25,7 +25,7 @@ const RadioListInput: FC<RadioInputProps> = ({ name, value, options: optionsInpu
             value={option.valueString ?? ''}
             control={<Radio checked={value === option.valueString} />}
             key={option.id ?? option.valueString ?? ''}
-            label={option.valueString}
+            label={option.label}
             onChange={onChange}
             sx={{
               marginRight: 5,

@@ -7,7 +7,9 @@ import {
   evalItemText,
   evalRequired,
   FULL_ADDRESS_FIELDS,
+  getExtension,
   IntakeQuestionnaireItem,
+  OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
   PHONE_NUMBER_FIELDS,
   SIGNATURE_FIELDS,
 } from 'utils';
@@ -151,9 +153,10 @@ export const useStyledAnswerOptions = (options: QuestionnaireItemAnswerOption[])
     };
     return options.map((option) => {
       const valueString = option.valueString ?? '?';
+      const answerLabel = getExtension(option, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLabel)?.valueString;
       return {
         ...option,
-        label: overrides[valueString] ?? valueString,
+        label: overrides[valueString] ?? answerLabel ?? valueString,
       };
     });
   }, [options]);
