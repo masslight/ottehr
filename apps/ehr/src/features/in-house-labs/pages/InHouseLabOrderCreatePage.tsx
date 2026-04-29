@@ -34,6 +34,7 @@ import { LabSets } from 'src/features/external-labs/components/LabSets';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { usePrintLabel } from 'src/features/visits/shared/hooks/usePrintLabel';
 import {
   useGetCreateInHouseLabResources,
   useICD10SearchNew,
@@ -81,6 +82,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
   const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
+
+  const { printLabel } = usePrintLabel('integrated');
 
   const diagnosis = useMemo<DiagnosisDTO[]>(
     () => (isFollowup ? mainEncounterChartData?.diagnosis || [] : chartData?.diagnosis || []),
@@ -211,12 +214,13 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         if (shouldPrintLabel) {
           const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id! });
 
-          if (labelPdfs.length !== 1) {
-            setError(['Expected 1 label pdf, received unexpected number']);
-          }
+          const labelPdf = labelPdfs.find((label) => label.type === 'label');
+          const labelXml = labelPdfs.find((label) => label.type === 'xml-label');
 
-          const labelPdf = labelPdfs[0];
-          window.open(labelPdf.presignedURL, '_blank');
+          await printLabel({
+            pdfPresignedUrl: labelPdf?.presignedURL ?? '',
+            xmlPresignedUrl: labelXml?.presignedURL ?? '',
+          });
         }
 
         if (res.serviceRequestIds.length === 1) {

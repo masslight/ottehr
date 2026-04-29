@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { usePrintLabel } from 'src/features/visits/shared/hooks/usePrintLabel';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
@@ -62,6 +63,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
   const [loading, setLoading] = useState(false);
   const isSubmitting = useRef(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { printLabel } = usePrintLabel('integrated');
 
   // set default collected by to current user if no choice made
   useEffect(() => {
@@ -118,14 +120,13 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
       setLabelButtonLoading(true);
       console.log('Fetching visit label for encounter ', encounter.id);
       const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id });
+      const labelPdf = labelPdfs.find((label) => label.type === 'label');
+      const labelXml = labelPdfs.find((label) => label.type === 'xml-label');
 
-      if (labelPdfs.length !== 1) {
-        setError('Expected 1 label pdf, received unexpected number');
-        return;
-      }
-
-      const labelPdf = labelPdfs[0];
-      window.open(labelPdf.presignedURL, '_blank');
+      await printLabel({
+        pdfPresignedUrl: labelPdf?.presignedURL ?? '',
+        xmlPresignedUrl: labelXml?.presignedURL ?? '',
+      });
       setLabelButtonLoading(false);
     }
   };

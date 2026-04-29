@@ -2,7 +2,6 @@
 import {
   Communication,
   Coverage,
-  DocumentReference,
   Encounter,
   Location,
   Organization,
@@ -12,6 +11,7 @@ import {
   Reference,
 } from 'fhir/r4b';
 import { CPTCodeOption, DiagnosisDTO, LAB_DR_TYPE_TAG, Pagination } from '../..';
+import { LabelPdf, LabelType, LabelXml } from '../shared';
 
 // todo labs team - we should do some assessing of all our type files, our types feel a bit unorganized and as a result i think we have some redundancy
 export interface OrderableItemSearchResult {
@@ -463,8 +463,8 @@ export enum LabDocumentType {
   ottehrGeneratedResult = 'ottehr-generated-result',
   abn = 'abn',
   orderPdf = 'order-pdf',
-  label = 'label',
-  xmlLabel = 'xml-label',
+  label = LabelType.label,
+  xmlLabel = LabelType.xmlLabel,
 }
 export interface LabDocumentBase {
   docRefId: string;
@@ -477,15 +477,6 @@ export interface LabDocumentRelatedToDiagnosticReport extends LabDocumentBase {
 export interface LabDocumentRelatedToServiceRequest extends LabDocumentBase {
   type: LabDocumentType.abn | LabDocumentType.orderPdf;
   serviceRequestIds: string[]; // one order pdf doc ref to many service requests
-}
-export interface LabelPdf {
-  type: LabDocumentType.label;
-  documentReference: DocumentReference;
-  presignedURL: string;
-}
-
-export interface LabelXml extends Omit<LabelPdf, 'type'> {
-  type: LabDocumentType.xmlLabel;
 }
 
 export type LabDocument =

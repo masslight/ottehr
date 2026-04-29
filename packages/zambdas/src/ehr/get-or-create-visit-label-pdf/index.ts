@@ -8,10 +8,18 @@ import {
   getPatientLastName,
   getPresignedURL,
   getTimezone,
+  LabelType,
   MIME_TYPES,
+  MimeType,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import { createVisitLabelPDF, VISIT_LABEL_DOC_REF_DOCTYPE, VisitLabelConfig } from '../../shared/pdf/visit-label-pdf';
+import {
+  createVisitLabel,
+  VISIT_LABEL_DOC_TYPE_SYSTEM,
+  VISIT_LABEL_PDF_DOC_REF_DOCTYPE,
+  VISIT_LABEL_XML_DOC_REF_DOCTYPE,
+  VisitLabelConfig,
+} from '../../shared/pdf/visit-label-pdf';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -36,7 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       params: [
         { name: 'encounter', value: `Encounter/${encounterId}` },
         { name: 'status', value: 'current' },
-        { name: 'type', value: VISIT_LABEL_DOC_REF_DOCTYPE.code },
+        { name: 'type', value: [VISIT_LABEL_PDF_DOC_REF_DOCTYPE.code, VISIT_LABEL_XML_DOC_REF_DOCTYPE.code].join(',') },
       ],
     })
   ).unbundle();
@@ -106,7 +114,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       },
     };
 
-    const { presignedURL, docRef: documentReference } = await createVisitLabelPDF(
+    const { visitLabelPdf, visitLabelXml } = await createVisitLabel(
       labelConfig,
       encounterId,
       secrets,
@@ -114,31 +122,79 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       oystehr
     );
 
-    //  LabelPdf[] return type
+    //  (LabelPdf|LabelXml)[] return type
     return {
-      body: JSON.stringify([{ documentReference, presignedURL }]),
+      body: JSON.stringify([visitLabelPdf, visitLabelXml]),
       statusCode: 200,
     };
   } else if (labelDocRefs.length === 1) {
+    // this branch covers only pdf labels made before the xml label
     const labelDocRef = labelDocRefs[0];
     console.log(`Found existing DocumentReference/${labelDocRef.id} for Encounter/${encounterId}`);
-    const url = labelDocRef.content.find((content) => content.attachment.contentType === MIME_TYPES.PDF)?.attachment
-      .url;
-
-    if (!url) {
-      throw new Error(`No url found matching an application/pdf for DocumentReference/${labelDocRef.id}`);
-    }
 
     return {
       body: JSON.stringify([
         {
+          type: getLabelTypeFromDocRef(labelDocRef),
           documentReference: labelDocRef,
-          presignedURL: await getPresignedURL(url, m2mToken),
+          presignedURL: await getPresignedURL(getAttachmentUrlFromDocRef(labelDocRef, MIME_TYPES.PDF), m2mToken),
+        },
+      ]),
+      statusCode: 200,
+    };
+  } else if (
+    labelDocRefs.length === 2 &&
+    labelDocRefs.some((dr) => isPdfVisitLabelDocRef(dr)) &&
+    labelDocRefs.some((dr) => isXmlVisitLabelDocRef(dr))
+  ) {
+    const labelPdfDocRef = labelDocRefs.find((docRef) => isPdfVisitLabelDocRef(docRef))!;
+    const labelXmlDocRef = labelDocRefs.find((docRef) => isXmlVisitLabelDocRef(docRef))!;
+    console.log(
+      `label doc ref is DocumentReference/${labelPdfDocRef.id}. xml label doc ref is DocumentReference/${labelXmlDocRef.id}`
+    );
+
+    return {
+      body: JSON.stringify([
+        {
+          type: LabelType.label,
+          documentReference: labelPdfDocRef,
+          presignedURL: await getPresignedURL(getAttachmentUrlFromDocRef(labelPdfDocRef, MIME_TYPES.PDF), m2mToken),
+        },
+        {
+          type: LabelType.xmlLabel,
+          documentReference: labelXmlDocRef,
+          presignedURL: await getPresignedURL(getAttachmentUrlFromDocRef(labelXmlDocRef, MIME_TYPES.XML), m2mToken),
         },
       ]),
       statusCode: 200,
     };
   }
 
-  throw new Error(`Got ${labelDocRefs.length} docRefs for Encounter/${encounterId}. Expected 0 or 1`);
+  throw new Error(`Got ${labelDocRefs.length} docRefs for Encounter/${encounterId}. Expected 0 or 1 or 2`);
 });
+
+const isPdfVisitLabelDocRef = (docRef: DocumentReference): boolean => {
+  return docRef.type?.coding?.some((coding) => coding.code === VISIT_LABEL_PDF_DOC_REF_DOCTYPE.code) ?? false;
+};
+
+const isXmlVisitLabelDocRef = (docRef: DocumentReference): boolean => {
+  return docRef.type?.coding?.some((coding) => coding.code === VISIT_LABEL_XML_DOC_REF_DOCTYPE.code) ?? false;
+};
+
+const getLabelTypeFromDocRef = (docRef: DocumentReference): LabelType => {
+  const type = docRef.type?.coding?.find((coding) => coding.system === VISIT_LABEL_DOC_TYPE_SYSTEM);
+  if (!type) throw new Error(`Could not determine label type for DocumentReference/${docRef.id}`);
+  if (type.code === LabelType.label) return LabelType.label;
+  else if (type.code === LabelType.xmlLabel) return LabelType.xmlLabel;
+  throw new Error(`DocumentReference/${docRef.id} has an unexpected label type: ${JSON.stringify(type)}`);
+};
+
+const getAttachmentUrlFromDocRef = (docRef: DocumentReference, mimeType: MimeType): string => {
+  const url = docRef.content.find((content) => content.attachment.contentType === mimeType)?.attachment.url;
+
+  if (!url) {
+    throw new Error(`No url found matching an ${mimeType} for DocumentReference/${docRef.id}`);
+  }
+
+  return url;
+};

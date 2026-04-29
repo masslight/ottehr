@@ -27,6 +27,7 @@ const extensionToMime: Record<string, MimeType> = {
   png: MIME_TYPES.PNG,
   gif: MIME_TYPES.GIF,
   webp: MIME_TYPES.WEBP,
+  xml: MIME_TYPES.XML,
 };
 
 export function getMimeType(fileName: string): MimeType | undefined {

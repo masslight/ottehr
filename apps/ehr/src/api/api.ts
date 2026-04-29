@@ -90,7 +90,6 @@ import {
   GetImmunizationQuickPicksResponse,
   GetInHouseMedicationQuickPicksResponse,
   GetInHouseOrdersParameters,
-  GetLabelPdfParameters,
   GetLabOrdersParameters,
   GetMedicalConditionQuickPicksResponse,
   GetMedicationHistoryQuickPicksResponse,
@@ -125,6 +124,7 @@ import {
   InHouseMedicationQuickPickData,
   InviteParticipantRequestParameters,
   LabelPdf,
+  LabelXml,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
   ListTemplatesZambdaInput,
@@ -243,7 +243,6 @@ const UNLOCK_APPOINTMENT_ZAMBDA_ID = 'unlock-appointment';
 const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
 const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
 const UPDATE_NURSING_ORDER = 'update-nursing-order';
-const GET_LABEL_PDF_ZAMBDA_ID = 'get-label-pdf';
 const UPLOAD_AUDIO_RECORDING_ZAMBDA_ID = 'upload-audio-recording';
 const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-audio-recording';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
@@ -320,23 +319,6 @@ export const submitLabOrder = async (
   }
 };
 
-export const getLabelPdf = async (oystehr: Oystehr, parameters: GetLabelPdfParameters): Promise<LabelPdf[]> => {
-  try {
-    if (GET_LABEL_PDF_ZAMBDA_ID == null) {
-      throw new Error('get-label-pdf environment variable could not be loaded');
-    }
-
-    const response = await oystehr.zambda.execute({
-      id: GET_LABEL_PDF_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.error(error);
-    throw error;
-  }
-};
-
 export const uploadAudioRecording = async (
   oystehr: Oystehr,
   parameters: CreateUploadAudioRecordingInput
@@ -377,7 +359,10 @@ export const createResourcesFromAudioRecording = async (
   }
 };
 
-export const getOrCreateVisitLabel = async (oystehr: Oystehr, parameters: GetVisitLabelInput): Promise<LabelPdf[]> => {
+export const getOrCreateVisitLabel = async (
+  oystehr: Oystehr,
+  parameters: GetVisitLabelInput
+): Promise<(LabelPdf | LabelXml)[]> => {
   try {
     if (GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID == null) {
       throw new Error('get-or-create-visit-label-pdf environment variable could not be loaded');
