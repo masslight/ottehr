@@ -103,6 +103,7 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
     }),
     immunizationOrders: composeImmunizationOrders({
       allChartData,
+      appointmentPackage,
     }),
     inHouseLabs: composeInHouseLabs({
       allChartData,
@@ -142,6 +143,7 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
     }),
     procedures: composeProcedures({
       allChartData,
+      appointmentPackage,
     }),
     prescriptions: composePrescriptions({
       allChartData,

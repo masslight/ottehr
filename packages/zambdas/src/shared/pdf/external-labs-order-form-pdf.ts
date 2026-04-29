@@ -15,6 +15,7 @@ import {
   ORDER_ITEM_UNKNOWN,
   PaymentResources,
   Secrets,
+  STATIC_COMPENDIUM_ACCOUNT_NUMBER,
 } from 'utils';
 import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
@@ -383,7 +384,7 @@ export function getOrderFormDataConfig(
     locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
     labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
     brandingProjectName,
-    accountNumber,
+    accountNumber: accountNumber === STATIC_COMPENDIUM_ACCOUNT_NUMBER ? 'N/A' : accountNumber,
     orderNumber: orderNumber || ORDER_ITEM_UNKNOWN,
     providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
     providerNPI: provider.identifier?.find((id) => id?.system === FHIR_IDENTIFIER_NPI)?.value,

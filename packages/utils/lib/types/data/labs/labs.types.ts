@@ -176,6 +176,7 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   questionnaire: QuestionnaireData[];
   samples: sampleDTO[];
   labelPdfUrl?: string; // will exist after test is marked ready
+  isGenericOrder: boolean;
 };
 
 export type UnsolicitedLabListPageDTO = {
@@ -207,6 +208,7 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
   | 'location'
   | 'orderLevelNoteByUser'
   | 'clinicalInfoNoteByUser'
+  | 'isGenericOrder'
 >;
 
 export type DiagnosticReportDrivenResultDTO = DiagnosticReportLabDetailPageDTO & {
@@ -360,6 +362,8 @@ export type ModifiedOrderingLocation = {
   enabledLabs: {
     accountNumber: string;
     labOrgRef: string;
+    labGuid?: string;
+    labName?: string;
   }[];
 };
 
