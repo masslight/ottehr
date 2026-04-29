@@ -1,3 +1,4 @@
+import { FormFieldItemRecord } from 'config-types';
 import { FC } from 'react';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
@@ -5,7 +6,14 @@ import PatientRecordFormSection, { usePatientRecordFormSection } from './Patient
 import { SectionSaveButton } from './SectionSaveButton';
 
 const preferredPharmacySection = PATIENT_RECORD_CONFIG.FormFields.preferredPharmacy;
-const FIELD_KEYS = Object.values(preferredPharmacySection.items).map((item) => item.key);
+
+// Recursively collect keys so group sub-fields (e.g. pharmacy-places-id) are tracked for dirty state.
+const collectFieldKeys = (items: FormFieldItemRecord): string[] =>
+  Object.values(items).flatMap((item) =>
+    item.type === 'group' ? [item.key, ...collectFieldKeys(item.items)] : [item.key]
+  );
+
+const FIELD_KEYS = collectFieldKeys(preferredPharmacySection.items);
 const REQUIRED_FIELD_KEYS = preferredPharmacySection.requiredFields ?? [];
 
 interface PharmacyContainerProps {
