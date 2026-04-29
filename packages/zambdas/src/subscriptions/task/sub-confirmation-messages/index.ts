@@ -274,6 +274,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             smsOutcome = 'success';
           } catch (e) {
             console.log('message send error: ', JSON.stringify(e));
+            captureException(e);
             smsOutcome = 'failed';
           }
         }
