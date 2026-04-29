@@ -178,6 +178,7 @@ export default function PatientPage(): JSX.Element {
                     )}
                     {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
                       <Tab
+                        data-testid={dataTestIds.externalLabs.patientRecordLabsTab}
                         value="labs"
                         label={
                           <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
