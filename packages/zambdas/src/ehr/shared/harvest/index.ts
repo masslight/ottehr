@@ -3953,6 +3953,14 @@ export const getAccountAndCoverageResourcesForPatient = async (
 
 export interface UpdatePatientAccountInput {
   patientId: string;
+  /**
+   * Optional already-loaded Patient resource. When provided, this Patient is used
+   * for downstream address resolution instead of the one returned by the
+   * subsequent re-fetch — important when the caller has just patched the
+   * Patient and needs same-as-patient address resolution to see the post-patch
+   * state without depending on read-after-write consistency.
+   */
+  patient?: Patient;
   questionnaireResponseItem: QuestionnaireResponse['item'];
   preserveOmittedCoverages?: boolean;
   questionnaireForEnableWhenFiltering?: Questionnaire;
@@ -3962,7 +3970,13 @@ export const updatePatientAccountFromQuestionnaire = async (
   input: UpdatePatientAccountInput,
   oystehr: Oystehr
 ): Promise<Bundle> => {
-  const { patientId, questionnaireResponseItem, preserveOmittedCoverages, questionnaireForEnableWhenFiltering } = input;
+  const {
+    patientId,
+    patient: patientFromInput,
+    questionnaireResponseItem,
+    preserveOmittedCoverages,
+    questionnaireForEnableWhenFiltering,
+  } = input;
 
   let flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponseItem as IntakeQuestionnaireItem[]
@@ -3992,7 +4006,7 @@ export const updatePatientAccountFromQuestionnaire = async (
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
 
   const {
-    patient,
+    patient: existingPatient,
     coverages: existingCoverages,
     account: existingAccount,
     guarantorResource: existingGuarantorResource,
@@ -4002,6 +4016,11 @@ export const updatePatientAccountFromQuestionnaire = async (
     employerOrganization: existingEmployerOrganization,
     attorneyRelatedPerson: existingAttorneyRelatedPerson,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+
+  // Prefer the patient passed in by the caller (already reflects any in-flight
+  // patches) so same-as-patient address resolution doesn't silently use a stale
+  // copy when read-after-write isn't guaranteed.
+  const patient = patientFromInput ?? existingPatient;
 
   /*
   console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));

@@ -366,11 +366,14 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
       });
     }
 
-    // Update Account, Coverage, RelatedPerson (guarantor/emergency), Organization (employer)
+    // Update Account, Coverage, RelatedPerson (guarantor/emergency), Organization (employer).
+    // Pass the post-patch Patient so same-as-patient address resolution sees the
+    // address changes applied above without depending on read-after-write.
     await updatePatientAccountFromQuestionnaire(
       {
         questionnaireResponseItem: items,
         patientId: mainPatientId,
+        patient: patientResource,
         preserveOmittedCoverages: true,
         questionnaireForEnableWhenFiltering,
       },
