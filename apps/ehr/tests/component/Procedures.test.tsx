@@ -23,10 +23,6 @@ vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility',
   useGetAppointmentAccessibility: vi.fn(),
 }));
 
-vi.mock('../../src/features/visits/shared/stores/contexts/useAppFlags', () => ({
-  useAppFlags: vi.fn(),
-}));
-
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
@@ -48,12 +44,10 @@ import {
   useChartData,
   useDeleteChartData,
 } from '../../src/features/visits/shared/stores/appointment/appointment.store';
-import { useAppFlags } from '../../src/features/visits/shared/stores/contexts/useAppFlags';
 
 const mockUseChartData = vi.mocked(useChartData);
 const mockUseDeleteChartData = vi.mocked(useDeleteChartData);
 const mockUseGetAppointmentAccessibility = vi.mocked(useGetAppointmentAccessibility);
-const mockUseAppFlags = vi.mocked(useAppFlags);
 const mockNavigate = vi.mocked(useNavigate);
 const mockUseParams = vi.mocked(useParams);
 const mockEnqueueSnackbar = vi.mocked(enqueueSnackbar);
@@ -133,10 +127,6 @@ describe('Procedures - Delete Procedure Tests', () => {
       status: TelemedAppointmentStatusEnum.ready,
       isAppointmentLocked: false,
       visitType: 'main',
-    });
-
-    mockUseAppFlags.mockReturnValue({
-      isInPerson: true,
     });
 
     mockNavigate.mockReturnValue(vi.fn());

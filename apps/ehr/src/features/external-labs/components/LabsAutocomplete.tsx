@@ -3,21 +3,31 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetCreateExternalLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { LabListsDTO, LabType, nameLabTest, OrderableItemSearchResult } from 'utils';
+import {
+  LabListsDTO,
+  LabType,
+  ModifiedOrderingLocation,
+  nameLabTest,
+  OrderableItemSearchResult,
+  STATIC_COMPENDIUM_LAB_GUID,
+} from 'utils';
+import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { LabSets } from './LabSets';
 
 type LabsAutocompleteProps = {
   selectedLabs: OrderableItemSearchResult[];
+  selectedOrderingLocationId: string;
   labOrgIdsString: string;
   setSelectedLabs: React.Dispatch<React.SetStateAction<OrderableItemSearchResult[]>>;
   labSets: LabListsDTO[] | undefined;
 };
 
 export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
-  const { selectedLabs, setSelectedLabs, labOrgIdsString, labSets } = props;
+  const { selectedLabs, setSelectedLabs, labOrgIdsString, labSets, selectedOrderingLocationId } = props;
   const [debouncedLabSearchTerm, setDebouncedLabSearchTerm] = useState<string | undefined>(undefined);
   const apiClient = useOystehrAPIClient();
 
@@ -31,7 +41,12 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
     labOrgIdsString,
   });
 
-  const labs = data?.labs || [];
+  // coming back from the hook, we expect all these locations to have labGuids in their enabledLabs details
+  const orderingLocations = data?.orderingLocations || [];
+
+  const labs = expandResultsForGeneric(data?.labs || [], orderingLocations, selectedOrderingLocationId);
+
+  console.log('labs', JSON.stringify(labs));
 
   const { debounce } = useDebounce(800);
   const debouncedHandleLabInputChange = (searchValue: string): void => {
@@ -94,6 +109,10 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
             error={isError}
             helperText={isError ? 'Failed to load labs list' : ''}
             onChange={(e) => debouncedHandleLabInputChange(e.target.value)}
+            inputProps={{
+              ...params.inputProps,
+              'data-testid': dataTestIds.externalLabs.createPg.labsSearchAutoComplete,
+            }}
           />
         )}
       />
@@ -102,7 +121,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
 
       {selectedLabs.length > 0 && (
         <Grid container>
-          <Grid item xs={12}>
+          <Grid item xs={12} data-testid={dataTestIds.externalLabs.createPg.selectedLabContainer}>
             <ActionsList
               data={selectedLabs}
               getKey={(value, index) => `selected-lab-${index}-${value.item.itemCode}`}
@@ -126,4 +145,74 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
       )}
     </>
   );
+};
+
+const expandResultsForGeneric = (
+  labs: OrderableItemSearchResult[],
+  orderingLocations: ModifiedOrderingLocation[],
+  selectedLocationId: string
+): OrderableItemSearchResult[] => {
+  const selectedLocation = orderingLocations.find((location) => location.id === selectedLocationId);
+  if (!selectedLocation) {
+    console.error('Unable to expand results, returning original labs results');
+    safelyCaptureMessage(
+      `Unexpected undefined selectedLocation for id ${selectedLocationId} when trying to expandResultsForGeneric`,
+      { level: 'warning' }
+    );
+    return labs;
+  }
+
+  // find all the enabled labs that are using the generic compendium
+  // sort by the lab name to keep the results sane
+  const genericCompendiumLabDetails = selectedLocation.enabledLabs
+    .map((lab) => {
+      if (lab.labGuid === STATIC_COMPENDIUM_LAB_GUID && lab.labName) return lab;
+      return undefined;
+    })
+    .filter(
+      (
+        lab
+      ): lab is {
+        accountNumber: string;
+        labOrgRef: string;
+        labGuid: string;
+        labName: string;
+      } => lab !== undefined
+    )
+    .sort((a, b) => {
+      const nameA = a.labName.toLowerCase();
+      const nameB = b.labName.toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    });
+
+  if (!genericCompendiumLabDetails.length) {
+    console.log('No generic labs configured for this location, returning original list', selectedLocationId);
+    return labs;
+  }
+
+  const expandedResults: OrderableItemSearchResult[] = [];
+  // go through each of the orderable item results, and any time you find an item using a generic compendium, expand it
+  labs.forEach((orderableItem) => {
+    if (orderableItem.lab.labGuid !== STATIC_COMPENDIUM_LAB_GUID) {
+      expandedResults.push(orderableItem);
+      return;
+    }
+
+    genericCompendiumLabDetails.forEach((genericLab) => {
+      const editedOrderableItem: OrderableItemSearchResult = {
+        ...orderableItem,
+        lab: {
+          ...orderableItem.lab,
+          labName: genericLab.labName,
+        },
+      };
+      expandedResults.push(editedOrderableItem);
+    });
+  });
+
+  console.log('Expanded result count vs original result', expandedResults.length, labs.length);
+
+  return expandedResults;
 };

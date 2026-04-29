@@ -1,5 +1,6 @@
 import { Chip } from '@mui/material';
 import { ReactElement } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ExternalLabsStatus, LabOrderUnreceivedHistoryRow } from 'utils';
 
 interface LabsOrderStatusChipProps {
@@ -151,6 +152,7 @@ export const ExternalLabsStatusPalette: {
 export function LabsOrderStatusChip({ status }: LabsOrderStatusChipProps): ReactElement {
   return (
     <Chip
+      data-testid={dataTestIds.externalLabs.labsStatusChip}
       size="small"
       label={status}
       sx={{
