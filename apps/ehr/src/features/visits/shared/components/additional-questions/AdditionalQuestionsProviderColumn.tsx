@@ -4,14 +4,14 @@ import { patientScreeningQuestionsConfig } from 'utils';
 import { useChartData } from '../../stores/appointment/appointment.store';
 import { AdditionalQuestionEdit } from '../medical-history-tab/components/AdditionalQuestionRow';
 
-// todo: support only boolean values, update when new question types will be required
 export const AdditionalQuestionsProviderColumn: FC = () => {
   const { chartData, isChartDataLoading } = useChartData();
   const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
 
-  const getObservationValue = (fhirField: string): boolean | undefined => {
+  const getObservationValue = (fhirField: string): boolean | string | undefined => {
     const observation = chartData?.observations?.find((obs) => obs.field === fhirField);
-    return typeof observation?.value === 'boolean' ? observation.value : undefined;
+    const value = observation?.value;
+    return typeof value === 'boolean' || typeof value === 'string' ? value : undefined;
   };
 
   return (

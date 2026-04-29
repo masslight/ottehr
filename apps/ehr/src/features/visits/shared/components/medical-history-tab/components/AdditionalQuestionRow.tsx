@@ -3,8 +3,13 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { setNavigationDisable } from 'src/features/visits/in-person/context/InPersonNavigationContext';
-import { convertToBoolean, ObservationBooleanFieldDTO } from 'utils';
+import { convertToBoolean, getScreeningQuestionField, ObservationDTO } from 'utils';
 import { useChartData, useSaveChartData } from '../../../stores/appointment/appointment.store';
+
+const FALLBACK_BOOLEAN_OPTIONS = [
+  { value: 'true', label: 'Yes' },
+  { value: 'false', label: 'No' },
+];
 
 export const AdditionalQuestionEdit = ({
   label,
@@ -14,27 +19,51 @@ export const AdditionalQuestionEdit = ({
 }: {
   label: string;
   field: string;
-  value?: boolean;
+  value?: boolean | string;
   isChartDataLoading?: boolean;
 }): JSX.Element => {
   const { chartData, updateObservation } = useChartData();
   const { mutate, isPending: isLoading } = useSaveChartData();
-  const normalizedValue = value !== undefined ? String(value) : '';
+
+  const configOptions = getScreeningQuestionField(field)?.options;
+  const renderedOptions =
+    configOptions && configOptions.length > 0
+      ? configOptions.map((opt) => ({
+          value: opt.fhirValue,
+          label: opt.label,
+        }))
+      : FALLBACK_BOOLEAN_OPTIONS;
+  const isBooleanShaped = renderedOptions.every((opt) => convertToBoolean(opt.value) !== undefined);
+
+  const selectedValue =
+    typeof value === 'boolean'
+      ? renderedOptions.find((opt) => convertToBoolean(opt.value) === value)?.value ?? ''
+      : typeof value === 'string'
+      ? value
+      : '';
 
   useEffect(() => {
     setNavigationDisable({ [`additional-question-${label}`]: isLoading });
   }, [isLoading, label]);
 
-  const onChange = (value: string, field: string): void => {
-    const currentObservation = chartData?.observations?.find((observation) => observation.field === field);
+  const onChange = (newFhirValue: string, fhirField: string): void => {
+    const currentObservation = chartData?.observations?.find((observation) => observation.field === fhirField);
 
-    const newValue = convertToBoolean(value);
+    const newValue = isBooleanShaped ? convertToBoolean(newFhirValue) : newFhirValue;
 
     if (currentObservation?.value === newValue) return;
 
-    const updatedObservation: ObservationBooleanFieldDTO = currentObservation
-      ? { ...currentObservation, value: newValue }
-      : { field, value: newValue };
+    const updatedObservation = (
+      currentObservation
+        ? {
+            ...currentObservation,
+            value: newValue,
+          }
+        : {
+            field: fhirField,
+            value: newValue,
+          }
+    ) as ObservationDTO;
 
     mutate(
       {
@@ -67,24 +96,26 @@ export const AdditionalQuestionEdit = ({
       }}
       data-testid={dataTestIds.telemedEhrFlow.hpiAdditionalQuestions(field)}
     >
-      <Typography sx={{ flex: '0 1 calc(100% - 98px)' }}>{label}</Typography>
+      <Typography sx={{ flex: '1 1 auto' }}>{label}</Typography>
       {isChartDataLoading ? (
         <Skeleton variant="rectangular" width={100} height={25} />
       ) : (
-        <FormControl sx={{ flex: '0 0 88px' }}>
+        <FormControl sx={{ flex: '0 0 auto' }}>
           <RadioGroup
             sx={{ flexDirection: 'row', flexWrap: 'nowrap' }}
             name={field}
-            value={normalizedValue}
+            value={selectedValue}
             onChange={(e) => onChange(e.target.value, field)}
           >
-            <FormControlLabel value="true" control={<Radio disabled={isLoading} sx={{ p: 0 }} />} label="Yes" />
-            <FormControlLabel
-              sx={{ mr: 0 }}
-              value="false"
-              control={<Radio disabled={isLoading} sx={{ p: 0 }} />}
-              label="No"
-            />
+            {renderedOptions.map((opt, idx) => (
+              <FormControlLabel
+                key={opt.value}
+                sx={idx === renderedOptions.length - 1 ? { mr: 0 } : undefined}
+                value={opt.value}
+                control={<Radio disabled={isLoading} sx={{ p: 0 }} />}
+                label={opt.label}
+              />
+            ))}
           </RadioGroup>
         </FormControl>
       )}

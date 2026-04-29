@@ -26,29 +26,27 @@ export const createAdditionalQuestions = (questionnaireResponse: QuestionnaireRe
       const response = getQuestionnaireResponseByLinkId(field.fhirField, questionnaireResponse);
       const valueString = response?.answer?.[0]?.valueString;
 
-      const hasOnlyYesNoOptions =
-        field.options &&
-        field.options.length === 2 &&
-        field.options.every((opt) => {
-          const lowerCaseValueString = opt.fhirValue.toLowerCase();
-          return lowerCaseValueString === 'yes' || lowerCaseValueString === 'no';
-        });
+      const isBooleanShaped =
+        field.options && field.options.every((opt) => convertToBoolean(opt.fhirValue) !== undefined);
 
-      if (!hasOnlyYesNoOptions) {
-        throw Error(
-          'Only radio fields with Yes/No options are supported. No options found for field: ' + field.fhirField
-        );
+      if (isBooleanShaped) {
+        const value = convertToBoolean(valueString);
+        if (typeof value !== 'boolean') {
+          throw Error('Invalid value for field: ' + field.fhirField);
+        }
+        return {
+          field: field.fhirField,
+          value,
+        };
       }
 
-      const value = convertToBoolean(valueString);
-
-      if (typeof value !== 'boolean') {
+      if (typeof valueString !== 'string') {
         throw Error('Invalid value for field: ' + field.fhirField);
       }
 
       return {
         field: field.fhirField,
-        value,
+        value: valueString,
       };
     });
 };
