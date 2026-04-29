@@ -26,6 +26,7 @@ export const MissingCard: FC = () => {
       historyOfPresentIllness: {
         _tag: 'history-of-present-illness',
       },
+      patientInfoConfirmed: {},
       accident: {
         _tag: 'accident',
       },
@@ -39,6 +40,8 @@ export const MissingCard: FC = () => {
   const medicalDecision = chartFields?.medicalDecision?.text;
   const emCode = chartData?.emCode;
   const hpi = chartFields?.chiefComplaint?.text;
+  const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
+  const isPatientVerificationMissing = !patientInfoConfirmed;
   const accidentHasType = (chartFields?.accident?.type?.length ?? 0) > 0;
   const accidentMissingDate = accidentHasType && !chartFields?.accident?.date;
   const [suggestionNote, setSuggestionNote] = useState<string | undefined>(undefined);
@@ -58,12 +61,21 @@ export const MissingCard: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hpi]);
 
-  if (primaryDiagnosis && medicalDecision && emCode && hpi && !suggestionNote && !accidentMissingDate) {
+  if (
+    primaryDiagnosis &&
+    medicalDecision &&
+    emCode &&
+    hpi &&
+    !suggestionNote &&
+    !isPatientVerificationMissing &&
+    !accidentMissingDate
+  ) {
     return null;
   }
 
-  const navigateTo = (target: 'chief-complaint' | 'hpi' | 'assessment'): void => {
-    const inPersonRoutes: Record<'chief-complaint' | 'hpi' | 'assessment', string> = {
+  const navigateTo = (target: 'patient-info' | 'chief-complaint' | 'hpi' | 'assessment'): void => {
+    const inPersonRoutes: Record<'patient-info' | 'chief-complaint' | 'hpi' | 'assessment', string> = {
+      'patient-info': getChiefComplaintUrl(appointmentIdFromUrl || ''),
       'chief-complaint': getChiefComplaintUrl(appointmentIdFromUrl || ''),
       hpi: getHPIUrl(appointmentIdFromUrl || ''),
       assessment: getAssessmentUrl(appointmentIdFromUrl || ''),
@@ -83,8 +95,20 @@ export const MissingCard: FC = () => {
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {isPatientVerificationMissing && (
+            <Link
+              component="button"
+              sx={{ cursor: 'pointer' }}
+              color="error"
+              onClick={() => navigateTo('patient-info')}
+              data-testid={dataTestIds.progressNotePage.patientVerificationLink}
+            >
+              Verify Patient&apos;s Name and DOB
+            </Link>
+          )}
           {!hpi && (
             <Link
+              component="button"
               sx={{ cursor: 'pointer' }}
               color="error"
               onClick={() => navigateTo('hpi')}
@@ -95,6 +119,7 @@ export const MissingCard: FC = () => {
           )}
           {!primaryDiagnosis && (
             <Link
+              component="button"
               sx={{ cursor: 'pointer' }}
               color="error"
               onClick={() => navigateTo('assessment')}
@@ -105,6 +130,7 @@ export const MissingCard: FC = () => {
           )}
           {!medicalDecision && (
             <Link
+              component="button"
               sx={{ cursor: 'pointer' }}
               color="error"
               onClick={() => navigateTo('assessment')}
@@ -115,6 +141,7 @@ export const MissingCard: FC = () => {
           )}
           {!emCode && (
             <Link
+              component="button"
               sx={{ cursor: 'pointer' }}
               color="error"
               onClick={() => navigateTo('assessment')}
@@ -125,6 +152,7 @@ export const MissingCard: FC = () => {
           )}
           {accidentMissingDate && (
             <Link
+              component="button"
               sx={{ cursor: 'pointer' }}
               color="error"
               onClick={() => navigateTo('hpi')}
@@ -148,7 +176,7 @@ export const MissingCard: FC = () => {
               >
                 AI
               </Avatar>
-              <Link sx={{ cursor: 'pointer' }} color="#000000" onClick={() => navigateTo('hpi')}>
+              <Link component="button" sx={{ cursor: 'pointer' }} color="#000000" onClick={() => navigateTo('hpi')}>
                 {suggestionNote}
               </Link>
             </div>
