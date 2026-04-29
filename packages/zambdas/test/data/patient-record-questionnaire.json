@@ -268,13 +268,31 @@
         "required": false,
         "answerOption": [
           {
-            "valueString": "Female gender identity"
+            "valueString": "Female gender identity",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "Female"
+              }
+            ]
           },
           {
-            "valueString": "Male gender identity"
+            "valueString": "Male gender identity",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "Male"
+              }
+            ]
           },
           {
-            "valueString": "Non-binary gender identity"
+            "valueString": "Non-binary gender identity",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "Other"
+              }
+            ]
           }
         ]
       },
@@ -772,76 +790,220 @@
         "required": false,
         "answerOption": [
           {
-            "valueString": "09"
+            "valueString": "09",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "09 - Self Pay"
+              }
+            ]
           },
           {
-            "valueString": "11"
+            "valueString": "11",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "11 - Other Non-Federal Programs"
+              }
+            ]
           },
           {
-            "valueString": "12"
+            "valueString": "12",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "12 - PPO"
+              }
+            ]
           },
           {
-            "valueString": "13"
+            "valueString": "13",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "13 - POS"
+              }
+            ]
           },
           {
-            "valueString": "14"
+            "valueString": "14",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "14 - EPO"
+              }
+            ]
           },
           {
-            "valueString": "15"
+            "valueString": "15",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "15 - Indemnity Insurance"
+              }
+            ]
           },
           {
-            "valueString": "16"
+            "valueString": "16",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "16 - HMO Medicare Risk"
+              }
+            ]
           },
           {
-            "valueString": "17"
+            "valueString": "17",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "17 - DMO"
+              }
+            ]
           },
           {
-            "valueString": "AM"
+            "valueString": "AM",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "AM - Auto"
+              }
+            ]
           },
           {
-            "valueString": "BL"
+            "valueString": "BL",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "BL - BlueCross BlueShield"
+              }
+            ]
           },
           {
-            "valueString": "CH"
+            "valueString": "CH",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "CH - Champus"
+              }
+            ]
           },
           {
-            "valueString": "CI"
+            "valueString": "CI",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "CI - Commercial Insurance Co"
+              }
+            ]
           },
           {
-            "valueString": "DS"
+            "valueString": "DS",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "DS - Disability"
+              }
+            ]
           },
           {
-            "valueString": "FI"
+            "valueString": "FI",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "FI - Federal Employees"
+              }
+            ]
           },
           {
-            "valueString": "HM"
+            "valueString": "HM",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "HM - HMO"
+              }
+            ]
           },
           {
-            "valueString": "LM"
+            "valueString": "LM",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "LM - Liability"
+              }
+            ]
           },
           {
-            "valueString": "MA"
+            "valueString": "MA",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "MA - Medicare Part A"
+              }
+            ]
           },
           {
-            "valueString": "MB"
+            "valueString": "MB",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "MB - Medicare Part B"
+              }
+            ]
           },
           {
-            "valueString": "MC"
+            "valueString": "MC",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "MC - Medicaid"
+              }
+            ]
           },
           {
-            "valueString": "OF"
+            "valueString": "OF",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "OF - Other Federal Program"
+              }
+            ]
           },
           {
-            "valueString": "TV"
+            "valueString": "TV",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "TV - Title V"
+              }
+            ]
           },
           {
-            "valueString": "VA"
+            "valueString": "VA",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "VA - Veterans Affairs Plan"
+              }
+            ]
           },
           {
-            "valueString": "WC"
+            "valueString": "WC",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "WC - Workers Comp Health Claim"
+              }
+            ]
           },
           {
-            "valueString": "ZZ"
+            "valueString": "ZZ",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "ZZ - Mutually Defined"
+              }
+            ]
           }
         ]
       },
@@ -1395,76 +1557,220 @@
         "required": false,
         "answerOption": [
           {
-            "valueString": "09"
+            "valueString": "09",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "09 - Self Pay"
+              }
+            ]
           },
           {
-            "valueString": "11"
+            "valueString": "11",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "11 - Other Non-Federal Programs"
+              }
+            ]
           },
           {
-            "valueString": "12"
+            "valueString": "12",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "12 - PPO"
+              }
+            ]
           },
           {
-            "valueString": "13"
+            "valueString": "13",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "13 - POS"
+              }
+            ]
           },
           {
-            "valueString": "14"
+            "valueString": "14",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "14 - EPO"
+              }
+            ]
           },
           {
-            "valueString": "15"
+            "valueString": "15",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "15 - Indemnity Insurance"
+              }
+            ]
           },
           {
-            "valueString": "16"
+            "valueString": "16",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "16 - HMO Medicare Risk"
+              }
+            ]
           },
           {
-            "valueString": "17"
+            "valueString": "17",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "17 - DMO"
+              }
+            ]
           },
           {
-            "valueString": "AM"
+            "valueString": "AM",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "AM - Auto"
+              }
+            ]
           },
           {
-            "valueString": "BL"
+            "valueString": "BL",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "BL - BlueCross BlueShield"
+              }
+            ]
           },
           {
-            "valueString": "CH"
+            "valueString": "CH",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "CH - Champus"
+              }
+            ]
           },
           {
-            "valueString": "CI"
+            "valueString": "CI",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "CI - Commercial Insurance Co"
+              }
+            ]
           },
           {
-            "valueString": "DS"
+            "valueString": "DS",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "DS - Disability"
+              }
+            ]
           },
           {
-            "valueString": "FI"
+            "valueString": "FI",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "FI - Federal Employees"
+              }
+            ]
           },
           {
-            "valueString": "HM"
+            "valueString": "HM",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "HM - HMO"
+              }
+            ]
           },
           {
-            "valueString": "LM"
+            "valueString": "LM",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "LM - Liability"
+              }
+            ]
           },
           {
-            "valueString": "MA"
+            "valueString": "MA",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "MA - Medicare Part A"
+              }
+            ]
           },
           {
-            "valueString": "MB"
+            "valueString": "MB",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "MB - Medicare Part B"
+              }
+            ]
           },
           {
-            "valueString": "MC"
+            "valueString": "MC",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "MC - Medicaid"
+              }
+            ]
           },
           {
-            "valueString": "OF"
+            "valueString": "OF",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "OF - Other Federal Program"
+              }
+            ]
           },
           {
-            "valueString": "TV"
+            "valueString": "TV",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "TV - Title V"
+              }
+            ]
           },
           {
-            "valueString": "VA"
+            "valueString": "VA",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "VA - Veterans Affairs Plan"
+              }
+            ]
           },
           {
-            "valueString": "WC"
+            "valueString": "WC",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "WC - Workers Comp Health Claim"
+              }
+            ]
           },
           {
-            "valueString": "ZZ"
+            "valueString": "ZZ",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label",
+                "valueString": "ZZ - Mutually Defined"
+              }
+            ]
           }
         ]
       },
