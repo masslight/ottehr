@@ -453,15 +453,13 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const nowIso = now.toISO() ?? '';
   const initialAppointmentStatus: FhirAppointmentStatus =
     visitType === VisitType.PreBook || visitType === VisitType.PostTelemed ? 'booked' : 'arrived';
-  let initialEncounterStatus: FhirEncounterStatus =
+  const initialEncounterStatus: FhirEncounterStatus =
     visitType === VisitType.PreBook || visitType === VisitType.PostTelemed ? 'planned' : 'arrived';
 
   const apptExtensions: Extension[] = [];
   const encExtensions: Extension[] = [];
 
   if (serviceMode === ServiceMode.virtual) {
-    initialEncounterStatus = 'planned';
-
     const { encExtensions: telemedEncExtensions, apptExtensions: telemedApptExtensions } =
       getTelemedRequiredAppointmentEncounterExtensions(patientRef, nowIso);
     apptExtensions.push(...telemedApptExtensions);
