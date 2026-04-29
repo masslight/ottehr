@@ -15,6 +15,7 @@ export const MIME_TYPES = {
   GIF: 'image/gif',
   WEBP: 'image/webp',
   TXT: 'text/plain',
+  XML: 'application/xml',
 } as const;
 
 export type MimeType = (typeof MIME_TYPES)[keyof typeof MIME_TYPES];

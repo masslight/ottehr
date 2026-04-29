@@ -6,10 +6,12 @@ import { StandardFonts } from 'pdf-lib';
 import {
   BUCKET_NAMES,
   createFilesDocumentReferences,
-  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   EXTERNAL_LAB_LABEL_PDF_BASE_NAME,
+  EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE,
+  EXTERNAL_LAB_LABEL_XML_DOC_REF_DOCTYPE,
   getPresignedURL,
   LabelConfig,
+  MIME_TYPES,
   Secrets,
 } from 'utils';
 import { makeZ3Url } from './../presigned-file-urls';
@@ -153,16 +155,9 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
   drawHeaderAndInlineText('PID', patientId);
   pdfClient.newLine(NEWLINE_Y_DROP);
 
-  const sampleCollectionDate = sampleCollectionDateAndTimezone?.sampleCollectionDate;
-  const timezone = sampleCollectionDateAndTimezone?.timezone;
-  console.log('for sampleCollectionDate, this is timestamp and timezone', sampleCollectionDate?.toISO(), timezone);
-
-  const zonedSampleCollectionDate =
-    timezone && sampleCollectionDate ? sampleCollectionDate.setZone(timezone) : sampleCollectionDate;
-
   drawColumnRowAndNewline(
-    { header: 'DOB', value: patientDateOfBirth ? patientDateOfBirth.toFormat('MM/dd/yyyy') : '' },
-    { header: 'Coll', value: zonedSampleCollectionDate ? zonedSampleCollectionDate.toFormat('MM/dd/yyyy') : '' }
+    { header: 'DOB', value: getPatientDOBForLabelDisplay(patientDateOfBirth) },
+    { header: 'Coll', value: getSampleCollectionTimestampForLabelDisplay(sampleCollectionDateAndTimezone) }
   );
 
   drawHeaderAndInlineText('Acct #', accountNumber);
@@ -172,6 +167,28 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
   pdfClient.newLine(NEWLINE_Y_DROP);
 
   return await pdfClient.save();
+};
+
+const getPatientDOBForLabelDisplay = (dob: DateTime | undefined): string => {
+  return dob ? dob.toFormat('MM/dd/yyyy') : '';
+};
+
+const getSampleCollectionTimestampForLabelDisplay = (
+  sampleCollectionDateAndTimezone:
+    | {
+        sampleCollectionDate: DateTime;
+        timezone: string | undefined;
+      }
+    | undefined
+): string => {
+  const sampleCollectionDate = sampleCollectionDateAndTimezone?.sampleCollectionDate;
+  const timezone = sampleCollectionDateAndTimezone?.timezone;
+  console.log('for sampleCollectionDate, this is timestamp and timezone', sampleCollectionDate?.toISO(), timezone);
+
+  const zonedSampleCollectionDate =
+    timezone && sampleCollectionDate ? sampleCollectionDate.setZone(timezone) : sampleCollectionDate;
+
+  return zonedSampleCollectionDate ? zonedSampleCollectionDate.toFormat('MM/dd/yyyy') : '';
 };
 
 async function createExternalLabsLabelPDFHelper(
@@ -213,8 +230,27 @@ async function createExternalLabsLabelPDFHelper(
   return { title: fileName, uploadURL: baseFileUrl };
 }
 
-// this is what should get called in submit-lab-order
-export async function createExternalLabsLabelPDF(
+// this is what should get called in submit-lab-order / update-lab-order-resources
+export async function createExternalLabLabelResources(
+  labelConfig: ExternalLabsLabelConfig,
+  encounterId: string,
+  serviceRequestID: string,
+  secrets: Secrets | null,
+  token: string,
+  oystehr: Oystehr
+): Promise<{
+  labelPdf: { docRef: DocumentReference; presignedURL: string };
+  labelXml: { docRef: DocumentReference; presignedURL: string };
+}> {
+  const [labelPdf, labelXml] = await Promise.all([
+    createExternalLabsLabelPDF(labelConfig, encounterId, serviceRequestID, secrets, token, oystehr),
+    createExternalLabsLabelXML(labelConfig, encounterId, serviceRequestID, secrets, token, oystehr),
+  ]);
+
+  return { labelPdf, labelXml };
+}
+
+async function createExternalLabsLabelPDF(
   labelConfig: ExternalLabsLabelConfig,
   encounterId: string,
   serviceRequestID: string,
@@ -230,7 +266,7 @@ export async function createExternalLabsLabelPDF(
 
   const { docRefs } = await createFilesDocumentReferences({
     files: [{ url: pdfInfo.uploadURL, title: pdfInfo.title }],
-    type: { coding: [EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE], text: 'External lab sample label' },
+    type: { coding: [EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE], text: 'External lab sample label' },
     references: {
       subject: {
         reference: `Patient/${labelConfig.content.patientId}`,
@@ -266,3 +302,540 @@ export async function createExternalLabsLabelPDF(
 
   return { docRef: docRefs[0], presignedURL };
 }
+
+async function createExternalLabsLabelXML(
+  labelConfig: ExternalLabsLabelConfig,
+  encounterId: string,
+  serviceRequestID: string,
+  secrets: Secrets | null,
+  token: string,
+  oystehr: Oystehr
+): Promise<{ docRef: DocumentReference; presignedURL: string }> {
+  const xmlString = createLabelXMLString(labelConfig.content);
+
+  console.log(`This is the xmlString`, xmlString);
+
+  const fileName = `${EXTERNAL_LAB_LABEL_PDF_BASE_NAME}-${labelConfig.content.orderNumber}.xml`;
+
+  console.log(`Creating base file url for file ${fileName}`);
+
+  const baseFileUrl = makeZ3Url({
+    secrets,
+    fileName,
+    bucketName: BUCKET_NAMES.LABS,
+    patientID: labelConfig.content.patientId,
+  });
+
+  console.log('Uploading file to bucket, ', BUCKET_NAMES.LABS);
+  const encoder = new TextEncoder();
+  const xmlStringAsUint8Array = encoder.encode(xmlString);
+
+  try {
+    const uploadPresignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
+    await uploadObjectToZ3(xmlStringAsUint8Array, uploadPresignedUrl, MIME_TYPES.XML);
+  } catch (error: any) {
+    throw new Error(`failed uploading xml label ${fileName} to z3:  ${JSON.stringify(error.message)}`);
+  }
+  console.log('Successfully uploaded xml label file', baseFileUrl);
+
+  const labListResource = await getLabListResource(oystehr, labelConfig.content.patientId, secrets, fileName);
+
+  const { docRefs } = await createFilesDocumentReferences({
+    files: [{ url: baseFileUrl, title: fileName }],
+    type: { coding: [EXTERNAL_LAB_LABEL_XML_DOC_REF_DOCTYPE], text: 'External lab sample label xml' },
+    references: {
+      subject: {
+        reference: `Patient/${labelConfig.content.patientId}`,
+      },
+      context: {
+        related: [
+          {
+            reference: `ServiceRequest/${serviceRequestID}`,
+          },
+        ],
+        encounter: [{ reference: `Encounter/${encounterId}` }],
+      },
+    },
+    docStatus: 'final',
+    dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
+    oystehr,
+    searchParams: [{ name: 'related', value: `ServiceRequest/${serviceRequestID}` }],
+    generateUUID: randomUUID,
+    listResources: labListResource ? [labListResource] : [], // this for whatever reason needs to get added otherwise the function never adds the new docRef to the returned array
+  });
+
+  console.log(`These are the docRefs returned for the xml label: `, JSON.stringify(docRefs));
+
+  if (!docRefs.length) {
+    throw new Error('Unable to make docRefs for xml label');
+  }
+
+  const presignedURL = await getPresignedURL(baseFileUrl, token);
+
+  if (!presignedURL) {
+    throw new Error('Failed to get presigned URL for External lab label xml');
+  }
+
+  return { docRef: docRefs[0], presignedURL };
+}
+
+// This is effectively the template for the xml label
+// for paper type Small 30334
+const createLabelXMLString = (content: ExternalLabsLabelContent): string => {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<DesktopLabel Version="1">
+  <DYMOLabel Version="4">
+    <Description>DYMO Label</Description>
+    <Orientation>Portrait</Orientation>
+    <LabelName>Small30334</LabelName>
+    <InitialLength>0</InitialLength>
+    <BorderStyle>SolidLine</BorderStyle>
+    <DYMORect>
+      <DYMOPoint>
+        <X>0.039999966</X>
+        <Y>0.060000002</Y>
+      </DYMOPoint>
+      <Size>
+        <Width>2.17</Width>
+        <Height>1.13</Height>
+      </Size>
+    </DYMORect>
+    <BorderColor>
+      <SolidColorBrush>
+        <Color A="1" R="0" G="0" B="0"></Color>
+      </SolidColorBrush>
+    </BorderColor>
+    <BorderThickness>1</BorderThickness>
+    <Show_Border>False</Show_Border>
+    <HasFixedLength>False</HasFixedLength>
+    <FixedLengthValue>0</FixedLengthValue>
+    <DynamicLayoutManager>
+      <RotationBehavior>ClearObjects</RotationBehavior>
+      <LabelObjects>
+        <TextObject>
+          <Name>Patient Name</Name>
+          <Brushes>
+            <BackgroundBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BackgroundBrush>
+            <BorderBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BorderBrush>
+            <StrokeBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </StrokeBrush>
+            <FillBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </FillBrush>
+          </Brushes>
+          <Rotation>Rotation0</Rotation>
+          <OutlineThickness>1</OutlineThickness>
+          <IsOutlined>False</IsOutlined>
+          <BorderStyle>SolidLine</BorderStyle>
+          <Margin>
+            <DYMOThickness Left="0" Top="0" Right="0" Bottom="0" />
+          </Margin>
+          <HorizontalAlignment>Left</HorizontalAlignment>
+          <VerticalAlignment>Middle</VerticalAlignment>
+          <FitMode>None</FitMode>
+          <IsVertical>False</IsVertical>
+          <FormattedText>
+            <FitMode>None</FitMode>
+            <HorizontalAlignment>Left</HorizontalAlignment>
+            <VerticalAlignment>Middle</VerticalAlignment>
+            <IsVertical>False</IsVertical>
+            <LineTextSpan>
+              <TextSpan>
+                <Text>${content.patientLastName}, ${content.patientFirstName}</Text>
+                <FontInfo>
+                  <FontName>Courier New</FontName>
+                  <FontSize>9</FontSize>
+                  <IsBold>True</IsBold>
+                  <IsItalic>False</IsItalic>
+                  <IsUnderline>False</IsUnderline>
+                  <FontBrush>
+                    <SolidColorBrush>
+                      <Color A="1" R="0" G="0" B="0"></Color>
+                    </SolidColorBrush>
+                  </FontBrush>
+                </FontInfo>
+              </TextSpan>
+            </LineTextSpan>
+          </FormattedText>
+          <ObjectLayout>
+            <DYMOPoint>
+              <X>0.03999997</X>
+              <Y>0.09090942</Y>
+            </DYMOPoint>
+            <Size>
+              <Width>2.04938</Width>
+              <Height>0.22315212</Height>
+            </Size>
+          </ObjectLayout>
+        </TextObject>
+        <TextObject>
+          <Name>Patient ID</Name>
+          <Brushes>
+            <BackgroundBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BackgroundBrush>
+            <BorderBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BorderBrush>
+            <StrokeBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </StrokeBrush>
+            <FillBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </FillBrush>
+          </Brushes>
+          <Rotation>Rotation0</Rotation>
+          <OutlineThickness>1</OutlineThickness>
+          <IsOutlined>False</IsOutlined>
+          <BorderStyle>SolidLine</BorderStyle>
+          <Margin>
+            <DYMOThickness Left="0" Top="0" Right="0" Bottom="0" />
+          </Margin>
+          <HorizontalAlignment>Left</HorizontalAlignment>
+          <VerticalAlignment>Middle</VerticalAlignment>
+          <FitMode>None</FitMode>
+          <IsVertical>False</IsVertical>
+          <FormattedText>
+            <FitMode>None</FitMode>
+            <HorizontalAlignment>Left</HorizontalAlignment>
+            <VerticalAlignment>Middle</VerticalAlignment>
+            <IsVertical>False</IsVertical>
+            <LineTextSpan>
+              <TextSpan>
+                <Text>PID: ${content.patientId}</Text>
+                <FontInfo>
+                  <FontName>Courier New</FontName>
+                  <FontSize>7</FontSize>
+                  <IsBold>True</IsBold>
+                  <IsItalic>False</IsItalic>
+                  <IsUnderline>False</IsUnderline>
+                  <FontBrush>
+                    <SolidColorBrush>
+                      <Color A="1" R="0" G="0" B="0"></Color>
+                    </SolidColorBrush>
+                  </FontBrush>
+                </FontInfo>
+              </TextSpan>
+            </LineTextSpan>
+          </FormattedText>
+          <ObjectLayout>
+            <DYMOPoint>
+              <X>0.04000002</X>
+              <Y>0.28714654</Y>
+            </DYMOPoint>
+            <Size>
+              <Width>2.0558572</Width>
+              <Height>0.1467135</Height>
+            </Size>
+          </ObjectLayout>
+        </TextObject>
+        <TextObject>
+          <Name>DOB</Name>
+          <Brushes>
+            <BackgroundBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BackgroundBrush>
+            <BorderBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BorderBrush>
+            <StrokeBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </StrokeBrush>
+            <FillBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </FillBrush>
+          </Brushes>
+          <Rotation>Rotation0</Rotation>
+          <OutlineThickness>1</OutlineThickness>
+          <IsOutlined>False</IsOutlined>
+          <BorderStyle>SolidLine</BorderStyle>
+          <Margin>
+            <DYMOThickness Left="0" Top="0" Right="0" Bottom="0" />
+          </Margin>
+          <HorizontalAlignment>Left</HorizontalAlignment>
+          <VerticalAlignment>Middle</VerticalAlignment>
+          <FitMode>None</FitMode>
+          <IsVertical>False</IsVertical>
+          <FormattedText>
+            <FitMode>None</FitMode>
+            <HorizontalAlignment>Left</HorizontalAlignment>
+            <VerticalAlignment>Middle</VerticalAlignment>
+            <IsVertical>False</IsVertical>
+            <LineTextSpan>
+              <TextSpan>
+                <Text>DOB: ${getPatientDOBForLabelDisplay(content.patientDateOfBirth)}</Text>
+                <FontInfo>
+                  <FontName>Courier New</FontName>
+                  <FontSize>7</FontSize>
+                  <IsBold>True</IsBold>
+                  <IsItalic>False</IsItalic>
+                  <IsUnderline>False</IsUnderline>
+                  <FontBrush>
+                    <SolidColorBrush>
+                      <Color A="1" R="0" G="0" B="0"></Color>
+                    </SolidColorBrush>
+                  </FontBrush>
+                </FontInfo>
+              </TextSpan>
+            </LineTextSpan>
+          </FormattedText>
+          <ObjectLayout>
+            <DYMOPoint>
+              <X>0.04000002</X>
+              <Y>0.43386003</Y>
+            </DYMOPoint>
+            <Size>
+              <Width>1.0206192</Width>
+              <Height>0.13361889</Height>
+            </Size>
+          </ObjectLayout>
+        </TextObject>
+        <TextObject>
+          <Name>Collected</Name>
+          <Brushes>
+            <BackgroundBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BackgroundBrush>
+            <BorderBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BorderBrush>
+            <StrokeBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </StrokeBrush>
+            <FillBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </FillBrush>
+          </Brushes>
+          <Rotation>Rotation0</Rotation>
+          <OutlineThickness>1</OutlineThickness>
+          <IsOutlined>False</IsOutlined>
+          <BorderStyle>SolidLine</BorderStyle>
+          <Margin>
+            <DYMOThickness Left="0" Top="0" Right="0" Bottom="0" />
+          </Margin>
+          <HorizontalAlignment>Left</HorizontalAlignment>
+          <VerticalAlignment>Middle</VerticalAlignment>
+          <FitMode>None</FitMode>
+          <IsVertical>False</IsVertical>
+          <FormattedText>
+            <FitMode>None</FitMode>
+            <HorizontalAlignment>Left</HorizontalAlignment>
+            <VerticalAlignment>Middle</VerticalAlignment>
+            <IsVertical>False</IsVertical>
+            <LineTextSpan>
+              <TextSpan>
+                <Text>Coll: ${getSampleCollectionTimestampForLabelDisplay(
+                  content.sampleCollectionDateAndTimezone
+                )}</Text>
+                <FontInfo>
+                  <FontName>Courier New</FontName>
+                  <FontSize>7</FontSize>
+                  <IsBold>True</IsBold>
+                  <IsItalic>False</IsItalic>
+                  <IsUnderline>False</IsUnderline>
+                  <FontBrush>
+                    <SolidColorBrush>
+                      <Color A="1" R="0" G="0" B="0"></Color>
+                    </SolidColorBrush>
+                  </FontBrush>
+                </FontInfo>
+              </TextSpan>
+            </LineTextSpan>
+          </FormattedText>
+          <ObjectLayout>
+            <DYMOPoint>
+              <X>1.1249999</X>
+              <Y>0.43043762</Y>
+            </DYMOPoint>
+            <Size>
+              <Width>1.085</Width>
+              <Height>0.13704132</Height>
+            </Size>
+          </ObjectLayout>
+        </TextObject>
+        <TextObject>
+          <Name>Account</Name>
+          <Brushes>
+            <BackgroundBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BackgroundBrush>
+            <BorderBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BorderBrush>
+            <StrokeBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </StrokeBrush>
+            <FillBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </FillBrush>
+          </Brushes>
+          <Rotation>Rotation0</Rotation>
+          <OutlineThickness>1</OutlineThickness>
+          <IsOutlined>False</IsOutlined>
+          <BorderStyle>SolidLine</BorderStyle>
+          <Margin>
+            <DYMOThickness Left="0" Top="0" Right="0" Bottom="0" />
+          </Margin>
+          <HorizontalAlignment>Left</HorizontalAlignment>
+          <VerticalAlignment>Middle</VerticalAlignment>
+          <FitMode>None</FitMode>
+          <IsVertical>False</IsVertical>
+          <FormattedText>
+            <FitMode>None</FitMode>
+            <HorizontalAlignment>Left</HorizontalAlignment>
+            <VerticalAlignment>Middle</VerticalAlignment>
+            <IsVertical>False</IsVertical>
+            <LineTextSpan>
+              <TextSpan>
+                <Text>Acct #: ${content.accountNumber}</Text>
+                <FontInfo>
+                  <FontName>Courier New</FontName>
+                  <FontSize>7</FontSize>
+                  <IsBold>True</IsBold>
+                  <IsItalic>False</IsItalic>
+                  <IsUnderline>False</IsUnderline>
+                  <FontBrush>
+                    <SolidColorBrush>
+                      <Color A="1" R="0" G="0" B="0"></Color>
+                    </SolidColorBrush>
+                  </FontBrush>
+                </FontInfo>
+              </TextSpan>
+            </LineTextSpan>
+            <LineTextSpan />
+          </FormattedText>
+          <ObjectLayout>
+            <DYMOPoint>
+              <X>0.04000002</X>
+              <Y>0.56964654</Y>
+            </DYMOPoint>
+            <Size>
+              <Width>2.0579083</Width>
+              <Height>0.13794978</Height>
+            </Size>
+          </ObjectLayout>
+        </TextObject>
+        <TextObject>
+          <Name>Account and Order</Name>
+          <Brushes>
+            <BackgroundBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BackgroundBrush>
+            <BorderBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BorderBrush>
+            <StrokeBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </StrokeBrush>
+            <FillBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </FillBrush>
+          </Brushes>
+          <Rotation>Rotation0</Rotation>
+          <OutlineThickness>1</OutlineThickness>
+          <IsOutlined>False</IsOutlined>
+          <BorderStyle>SolidLine</BorderStyle>
+          <Margin>
+            <DYMOThickness Left="0" Top="0" Right="0" Bottom="0" />
+          </Margin>
+          <HorizontalAlignment>Left</HorizontalAlignment>
+          <VerticalAlignment>Middle</VerticalAlignment>
+          <FitMode>None</FitMode>
+          <IsVertical>False</IsVertical>
+          <FormattedText>
+            <FitMode>None</FitMode>
+            <HorizontalAlignment>Left</HorizontalAlignment>
+            <VerticalAlignment>Middle</VerticalAlignment>
+            <IsVertical>False</IsVertical>
+            <LineTextSpan>
+              <TextSpan>
+                <Text>Order #: ${content.orderNumber}</Text>
+                <FontInfo>
+                  <FontName>Courier New</FontName>
+                  <FontSize>7</FontSize>
+                  <IsBold>True</IsBold>
+                  <IsItalic>False</IsItalic>
+                  <IsUnderline>False</IsUnderline>
+                  <FontBrush>
+                    <SolidColorBrush>
+                      <Color A="1" R="0" G="0" B="0"></Color>
+                    </SolidColorBrush>
+                  </FontBrush>
+                </FontInfo>
+              </TextSpan>
+            </LineTextSpan>
+          </FormattedText>
+          <ObjectLayout>
+            <DYMOPoint>
+              <X>0.040000014</X>
+              <Y>0.70885116</Y>
+            </DYMOPoint>
+            <Size>
+              <Width>2.1201644</Width>
+              <Height>0.13289689</Height>
+            </Size>
+          </ObjectLayout>
+        </TextObject>
+      </LabelObjects>
+    </DynamicLayoutManager>
+  </DYMOLabel>
+  <LabelApplication>Blank</LabelApplication>
+  <DataTable>
+    <Columns></Columns>
+    <Rows></Rows>
+  </DataTable>
+</DesktopLabel>`;
+};

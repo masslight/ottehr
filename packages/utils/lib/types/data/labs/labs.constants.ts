@@ -1,7 +1,8 @@
 // cSpell:ignore RCRT, RFRT, RPRT
 import { Coding } from 'fhir/r4b';
+import { LabelConfig } from '../..';
 import { Pagination } from '..';
-import { LabelConfig, LabType } from './labs.types';
+import { LabType } from './labs.types';
 
 // for order form pdf (we might not want this idk)
 export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
@@ -73,9 +74,15 @@ export const LAB_RESULT_HL7_DOC_REF_CODING_CODE = {
 
 // there is no loinc code specifically for specimen labels or container labels, closest is 74384-9 "Specimen container [Type]"
 // so opted for something custom her
-export const EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE = {
+export const EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE = {
   system: 'http://ottehr.org/fhir/StructureDefinition/specimen-collection-label',
   code: 'specimen-container-label',
+  display: 'Specimen Container Label',
+};
+
+export const EXTERNAL_LAB_LABEL_XML_DOC_REF_DOCTYPE = {
+  system: 'http://ottehr.org/fhir/StructureDefinition/specimen-collection-label',
+  code: 'specimen-container-label-xml',
   display: 'Specimen Container Label',
 };
 

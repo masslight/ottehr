@@ -46,7 +46,10 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
-import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../../../shared/pdf/external-labs-label-pdf';
+import {
+  createExternalLabLabelResources,
+  ExternalLabsLabelConfig,
+} from '../../../../shared/pdf/external-labs-label-pdf';
 import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
@@ -138,7 +141,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     case 'saveOrderCollectionData': {
       const { serviceRequestId, data, specimenCollectionDates, userTimezone } = validatedParameters;
-      const { presignedLabelURL } = await handleSaveCollectionData(
+      const { presignedLabelPdfUrl, presignedLabelXmlUrl } = await handleSaveCollectionData(
         oystehr,
         m2mToken,
         secrets,
@@ -151,11 +154,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
       );
 
+      console.log(
+        'these are the presigned URLs we are returning for labels',
+        JSON.stringify({ presignedLabelPdfUrl, presignedLabelXmlUrl })
+      );
       return {
         statusCode: 200,
         body: JSON.stringify({
           message: `Successfully updated saved order collection data`,
-          presignedLabelURL,
+          presignedLabelPdfUrl,
+          presignedLabelXmlUrl,
         }),
       };
     }
@@ -506,7 +514,7 @@ const handleSaveCollectionData = async (
   secrets: Secrets | null,
   practitionerIdFromCurrentUser: string,
   input: SaveOrderCollectionData
-): Promise<{ presignedLabelURL: string | undefined }> => {
+): Promise<{ presignedLabelPdfUrl: string | undefined; presignedLabelXmlUrl: string | undefined }> => {
   console.log('double check input', JSON.stringify(input));
   const { serviceRequestId, data, specimenCollectionDates, userTimezone } = input;
   const now = DateTime.now();
@@ -551,7 +559,8 @@ const handleSaveCollectionData = async (
     requests.push(qrPatchRequest);
   }
 
-  let presignedLabelURL: string | undefined = undefined;
+  let presignedLabelPdfUrl: string | undefined = undefined;
+  let presignedLabelXmlUrl: string | undefined = undefined;
   // update pst task to complete, add agent and relevant history (provenance created)
   // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask
   const pstCompletedRequests = await makePstCompletePatchRequests(
@@ -585,13 +594,20 @@ const handleSaveCollectionData = async (
     };
 
     console.log('creating labs order label and getting url');
-    presignedLabelURL = (
-      await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mToken, oystehr)
-    ).presignedURL;
+    const labelResources = await createExternalLabLabelResources(
+      labelConfig,
+      encounter.id!,
+      serviceRequest.id!,
+      secrets,
+      m2mToken,
+      oystehr
+    );
+    presignedLabelPdfUrl = labelResources.labelPdf.presignedURL;
+    presignedLabelXmlUrl = labelResources.labelXml.presignedURL;
   }
 
   console.log('making fhir requests');
   await oystehr.fhir.transaction({ requests });
 
-  return { presignedLabelURL };
+  return { presignedLabelPdfUrl, presignedLabelXmlUrl };
 };

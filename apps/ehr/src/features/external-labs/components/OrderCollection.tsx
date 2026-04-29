@@ -5,7 +5,8 @@ import { DateTime } from 'luxon';
 import React, { useMemo, useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO, LabQuestionnaireResponse, openPdf } from 'utils';
+import { usePrintLabel } from 'src/features/visits/shared/hooks/usePrintLabel';
+import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
 import { updateLabOrderResources } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { AOECard } from './AOECard';
@@ -43,6 +44,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     !labOrder.isPSC &&
     (labOrder.orderStatus === ExternalLabsStatus.pending || labOrder.orderStatus === ExternalLabsStatus.sent);
   const showAOECard = aoe.length > 0;
+
+  const { printLabel } = usePrintLabel();
 
   // if these are present they will be displayed from ResultItem.tsx so we shouldn't display the SR level requisition number on this component
   const additionalPlacerIdsMapped = labOrder.resultsDetails.some((result) => result.alternatePlacerId);
@@ -93,7 +96,13 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         ...(!labOrder.isPSC && { specimenCollectionDates: specimensData }), // non PSC orders require specimens
         userTimezone: DateTime.local().zoneName,
       });
-      if (result.presignedLabelURL) await openPdf(result.presignedLabelURL);
+
+      if (result.presignedLabelPdfUrl || result.presignedLabelXmlUrl) {
+        await printLabel({
+          pdfPresignedUrl: result.presignedLabelPdfUrl ?? '',
+          xmlPresignedUrl: result.presignedLabelXmlUrl ?? '',
+        });
+      }
       navigate(`/in-person/${appointmentID}/external-lab-orders`);
     } catch (e) {
       const sdkError = e as Oystehr.OystehrSdkError;
@@ -133,7 +142,11 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           ))}
 
         {showOrderInfo && (
-          <OrderInformationCard labelPdfUrl={labOrder.labelPdfUrl} orderPdfUrl={labOrder.orderPdfUrl} />
+          <OrderInformationCard
+            labelPdfUrl={labOrder.labelPdfUrl}
+            labelXmlUrl={labOrder.labelXmlUrl}
+            orderPdfUrl={labOrder.orderPdfUrl}
+          />
         )}
 
         {!additionalPlacerIdsMapped && (

@@ -31,6 +31,7 @@ import {
   DiagnosticReportLabDetailPageDTO,
   docRefIsAbnAndCurrent,
   docRefIsLabelPDFAndCurrent,
+  docRefIsLabelXmlAndCurrent,
   docRefIsLabGeneratedResult,
   docRefIsOrderPDFAndCurrent,
   docRefIsOttehrGeneratedResultAndCurrent,
@@ -65,6 +66,7 @@ import {
   LabDocumentType,
   LabDrTypeTagCode,
   LabelPdf,
+  LabelXml,
   LabOrderResultDetails,
   LabType,
   nameLabTest,
@@ -908,6 +910,7 @@ export const configAllExternalLabDocuments = async (
 
   const docsConfig: ExternalLabDocuments = {
     labelPDF: documentsWithPresignedUrls?.labelPDF,
+    labelXML: documentsWithPresignedUrls?.labelXML,
     orderPDFsByRequisitionNumber: undefined,
     abnPDFsByRequisitionNumber: undefined,
     labGeneratedResults: undefined,
@@ -960,6 +963,8 @@ const docRefType = (docRef: DocumentReference): LabDocumentType | undefined => {
     return LabDocumentType.orderPdf;
   } else if (docRefIsLabelPDFAndCurrent(docRef)) {
     return LabDocumentType.label;
+  } else if (docRefIsLabelXmlAndCurrent(docRef)) {
+    return LabDocumentType.xmlLabel;
   } else if (docRefIsAbnAndCurrent(docRef)) {
     return LabDocumentType.abn;
   } else if (docRefIsOttehrGeneratedResultAndCurrent(docRef)) {
@@ -996,7 +1001,8 @@ const configLabDocument = (docRef: DocumentReference, presignedURL: string): Lab
             .filter((ref): ref is string => !!ref) ?? [];
         return { type, diagnosticReportIds: relatedResultDiagnosticReportIds, ...baseInfo };
       }
-      case LabDocumentType.label: {
+      case LabDocumentType.label:
+      case LabDocumentType.xmlLabel: {
         return { type, documentReference: docRef, presignedURL };
       }
       default:
@@ -1010,6 +1016,7 @@ type FetchLabDocumentsRes = {
   resultPDFs: LabDocumentRelatedToDiagnosticReport[];
   labGeneratedResults: LabDocumentRelatedToDiagnosticReport[];
   labelPDF: LabelPdf | undefined;
+  labelXML: LabelXml | undefined;
   orderPDFs: LabDocumentRelatedToServiceRequest[];
   abnPDFs: LabDocumentRelatedToServiceRequest[];
 };
@@ -1021,12 +1028,12 @@ export const fetchLabDocumentPresignedUrls = async (
     return;
   }
 
-  const pdfPromises: Promise<LabDocument | null>[] = [];
+  const filePromises: Promise<LabDocument | null>[] = [];
   for (const docRef of documentReferences) {
     for (const content of docRef.content) {
       const z3Url = content.attachment?.url;
       if (z3Url) {
-        pdfPromises.push(
+        filePromises.push(
           getPresignedURL(z3Url, m2mToken)
             .then((presignedURL) => configLabDocument(docRef, presignedURL))
             .catch((error) => {
@@ -1039,9 +1046,9 @@ export const fetchLabDocumentPresignedUrls = async (
     }
   }
 
-  const pdfs = await Promise.allSettled(pdfPromises);
+  const pdfs = await Promise.allSettled(filePromises);
 
-  const { resultPDFs, labelPDF, orderPDFs, abnPDFs, labGeneratedResults } = pdfs
+  const { resultPDFs, labelPDF, labelXML, orderPDFs, abnPDFs, labGeneratedResults } = pdfs
     .filter(
       (result): result is PromiseFulfilledResult<LabDocument> => result.status === 'fulfilled' && result.value !== null
     )
@@ -1064,16 +1071,19 @@ export const fetchLabDocumentPresignedUrls = async (
             case LabDocumentType.label:
               acc.labelPDF = result.value;
               break;
+            case LabDocumentType.xmlLabel:
+              acc.labelXML = result.value;
+              break;
             default:
               break;
           }
         }
         return acc;
       },
-      { resultPDFs: [], labelPDF: undefined, orderPDFs: [], abnPDFs: [], labGeneratedResults: [] }
+      { resultPDFs: [], labelPDF: undefined, labelXML: undefined, orderPDFs: [], abnPDFs: [], labGeneratedResults: [] }
     );
 
-  return { resultPDFs, labelPDF, orderPDFs, abnPDFs, labGeneratedResults };
+  return { resultPDFs, labelPDF, labelXML, orderPDFs, abnPDFs, labGeneratedResults };
 };
 
 export const parseAppointmentIdForServiceRequest = (

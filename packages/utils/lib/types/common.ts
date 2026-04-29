@@ -788,3 +788,13 @@ export type CPTCodeOption = {
   code: string;
   display: string;
 };
+
+export interface LabelConfig {
+  heightInches: number;
+  widthInches: number;
+  marginTopInches: number;
+  marginBottomInches: number;
+  marginLeftInches: number;
+  marginRightInches: number;
+  printerDPI: number;
+}

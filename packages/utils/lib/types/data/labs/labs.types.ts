@@ -176,6 +176,7 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   questionnaire: QuestionnaireData[];
   samples: sampleDTO[];
   labelPdfUrl?: string; // will exist after test is marked ready
+  labelXmlUrl?: string; // will exist for new tests marked as ready but not historical tests that already have labels
 };
 
 export type UnsolicitedLabListPageDTO = {
@@ -449,15 +450,7 @@ export type DeleteLabOrderZambdaInput = {
 };
 
 export type DeleteLabOrderZambdaOutput = Record<string, never>;
-export interface LabelConfig {
-  heightInches: number;
-  widthInches: number;
-  marginTopInches: number;
-  marginBottomInches: number;
-  marginLeftInches: number;
-  marginRightInches: number;
-  printerDPI: number;
-}
+
 export interface GetLabelPdfParameters {
   contextRelatedReference: Reference;
   searchParams: { name: string; value: string }[];
@@ -471,6 +464,7 @@ export enum LabDocumentType {
   abn = 'abn',
   orderPdf = 'order-pdf',
   label = 'label',
+  xmlLabel = 'xml-label',
 }
 export interface LabDocumentBase {
   docRefId: string;
@@ -490,10 +484,19 @@ export interface LabelPdf {
   presignedURL: string;
 }
 
-export type LabDocument = LabDocumentRelatedToDiagnosticReport | LabDocumentRelatedToServiceRequest | LabelPdf;
+export interface LabelXml extends Omit<LabelPdf, 'type'> {
+  type: LabDocumentType.xmlLabel;
+}
+
+export type LabDocument =
+  | LabDocumentRelatedToDiagnosticReport
+  | LabDocumentRelatedToServiceRequest
+  | LabelPdf
+  | LabelXml;
 
 export interface ExternalLabDocuments {
   labelPDF: LabelPdf | undefined; // only ever returned for the detail page atm
+  labelXML: LabelXml | undefined; // also only for the detail page
   labGeneratedResults: LabDocumentRelatedToDiagnosticReport[] | undefined; // only ever returned for the detail page atm
   resultPDFs: LabDocumentRelatedToDiagnosticReport[] | undefined; // only ever returned for the detail page atm
   orderPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;
