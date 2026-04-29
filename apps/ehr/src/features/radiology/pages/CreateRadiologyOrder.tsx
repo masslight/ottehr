@@ -27,7 +27,7 @@ import {
 } from '@mui/material';
 import { ClearIcon } from '@mui/x-date-pickers';
 import { enqueueSnackbar } from 'notistack';
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
@@ -42,6 +42,8 @@ import {
   useChartData,
   useSaveChartData,
 } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   CPTCodeDTO,
@@ -141,6 +143,26 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     setClinicalHistory(quickPick.clinicalHistory ?? '');
     // stat and consentObtained not applied — encounter-specific
   };
+
+  const onQuickPickSelectRef = useRef(onQuickPickSelect);
+  onQuickPickSelectRef.current = onQuickPickSelect;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      mergedQuickPicks.map((quickPick) => ({
+        id: `radiology-${quickPick.id ?? quickPick.name}`,
+        label: quickPick.name,
+        category: 'Order Radiology',
+        onSelect: () => onQuickPickSelectRef.current(quickPick),
+      })),
+    [mergedQuickPicks]
+  );
+  useCommandPaletteSource('radiology-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback((payload: RadiologyQuickPickData) => {
+    onQuickPickSelectRef.current(payload);
+  }, []);
+  usePendingQuickPick('radiology', handlePendingQuickPick);
 
   const openQuickPickDialog = async (): Promise<void> => {
     if (!oystehrZambda) return;
