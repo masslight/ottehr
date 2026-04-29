@@ -67,9 +67,9 @@ import {
   getPaymentVariantFromEncounter,
   getTimezone,
   INVALID_INPUT_ERROR,
+  isAppointmentAutoAccident,
   isAppointmentOccupationalMedicine,
   isAppointmentWorkersComp,
-  isAutoAccident,
   isTelemedAppointment,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   OrderedCoveragesWithSubscribers,
@@ -1176,7 +1176,7 @@ async function candidCreateEncounterFromAppointmentRequest(
     tags.push(TagId(CANDID_TAG_WORKERS_COMP));
   } else if (isAppointmentOccupationalMedicine(appointment)) {
     tags.push(TagId(CANDID_TAG_OCCUPATIONAL_MEDICINE));
-  } else if (isAutoAccident(appointment)) {
+  } else if (isAppointmentAutoAccident(appointment)) {
     tags.push(TagId(CANDID_TAG_AUTO_ACCIDENT));
   }
 
