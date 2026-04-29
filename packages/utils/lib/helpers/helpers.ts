@@ -1152,20 +1152,18 @@ export function getAdditionalQuestionsAnswers({
     item: questionnaireFields.map((field, index) => {
       switch (field.type) {
         case 'radio': {
-          if (field.options && field.options.length !== 2) {
-            throw new Error(
-              'Only radio fields with 2 options are supported. No options found for field: ' + field.fhirField
-            );
+          if (!field.options || field.options.length === 0) {
+            throw new Error('No options found for field: ' + field.fhirField);
           }
 
           const selectedOption = (() => {
             if (useRandomAnswers) {
               const randomIndex = Math.floor(Math.random() * field.options!.length);
-              return field.options?.[randomIndex];
+              return field.options[randomIndex];
             }
 
-            const stableIndex = index % 2 === 1 ? 0 : 1;
-            return field.options?.[stableIndex];
+            const stableIndex = index % field.options!.length;
+            return field.options[stableIndex];
           })();
 
           if (!selectedOption?.fhirValue) {
