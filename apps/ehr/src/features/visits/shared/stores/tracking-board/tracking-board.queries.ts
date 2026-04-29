@@ -5,7 +5,6 @@ import { GetAppointmentsRequestParams } from 'src/features/visits/telemed/utils/
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   addOrReplaceOperation,
-  ChangeTelemedAppointmentStatusInput,
   InitTelemedSessionRequestParams,
   PromiseReturnType,
   SignAppointmentInput,
@@ -95,23 +94,6 @@ export const useInitTelemedSessionMutation = (): UseMutationResult<
       return apiClient.initTelemedSession({
         appointmentId,
         userId,
-      });
-    },
-  });
-
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useChangeTelemedAppointmentStatusMutation = () =>
-  useMutation({
-    mutationFn: ({
-      apiClient,
-      appointmentId,
-      newStatus,
-    }: {
-      apiClient: OystehrTelemedAPIClient;
-    } & Omit<ChangeTelemedAppointmentStatusInput, 'secrets'>) => {
-      return apiClient.changeTelemedAppointmentStatus({
-        appointmentId,
-        newStatus,
       });
     },
   });

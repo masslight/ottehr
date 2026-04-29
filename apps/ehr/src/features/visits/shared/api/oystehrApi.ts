@@ -9,8 +9,6 @@ import {
   BillingSuggestionOutput,
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
-  ChangeTelemedAppointmentStatusInput,
-  ChangeTelemedAppointmentStatusResponse,
   CommunicationDTO,
   DeleteChartDataRequest,
   DeleteChartDataResponse,
@@ -69,7 +67,6 @@ enum ZambdaNames {
   'get chart data' = 'get chart data',
   'save chart data' = 'save chart data',
   'delete chart data' = 'delete chart data',
-  'change telemed appointment status' = 'change telemed appointment status',
   'change in person visit status' = 'change in person visit status',
   'assign practitioner' = 'assign practitioner',
   'unassign practitioner' = 'unassign practitioner',
@@ -105,7 +102,6 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'get chart data': false,
   'save chart data': false,
   'delete chart data': false,
-  'change telemed appointment status': false,
   'change in person visit status': false,
   'assign practitioner': false,
   'unassign practitioner': false,
@@ -146,7 +142,6 @@ export const getOystehrTelemedAPI = (
   getChartData: typeof getChartData;
   saveChartData: typeof saveChartData;
   deleteChartData: typeof deleteChartData;
-  changeTelemedAppointmentStatus: typeof changeTelemedAppointmentStatus;
   changeInPersonVisitStatus: typeof changeInPersonVisitStatus;
   assignPractitioner: typeof assignPractitioner;
   unassignPractitioner: typeof unassignPractitioner;
@@ -181,7 +176,6 @@ export const getOystehrTelemedAPI = (
     getChartDataZambdaID,
     saveChartDataZambdaID,
     deleteChartDataZambdaID,
-    changeTelemedAppointmentStatusZambdaID,
     changeInPersonVisitStatusZambdaID,
     assignPractitionerZambdaID,
     unassignPractitionerZambdaID,
@@ -217,7 +211,6 @@ export const getOystehrTelemedAPI = (
     'get chart data': getChartDataZambdaID,
     'save chart data': saveChartDataZambdaID,
     'delete chart data': deleteChartDataZambdaID,
-    'change telemed appointment status': changeTelemedAppointmentStatusZambdaID,
     'change in person visit status': changeInPersonVisitStatusZambdaID,
     'assign practitioner': assignPractitionerZambdaID,
     'unassign practitioner': unassignPractitionerZambdaID,
@@ -278,12 +271,6 @@ export const getOystehrTelemedAPI = (
 
   const deleteChartData = async (parameters: DeleteChartDataRequest): Promise<DeleteChartDataResponse> => {
     return await makeZapRequest('delete chart data', parameters);
-  };
-
-  const changeTelemedAppointmentStatus = async (
-    parameters: Omit<ChangeTelemedAppointmentStatusInput, 'secrets'>
-  ): Promise<ChangeTelemedAppointmentStatusResponse> => {
-    return await makeZapRequest('change telemed appointment status', parameters);
   };
 
   const changeInPersonVisitStatus = async (
@@ -433,7 +420,6 @@ export const getOystehrTelemedAPI = (
     getChartData,
     saveChartData,
     deleteChartData,
-    changeTelemedAppointmentStatus,
     changeInPersonVisitStatus,
     assignPractitioner,
     unassignPractitioner,
