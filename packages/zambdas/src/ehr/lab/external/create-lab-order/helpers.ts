@@ -18,6 +18,7 @@ import {
   CreateLabPaymentMethod,
   DiagnosisDTO,
   FHIR_IDC10_VALUESET_SYSTEM,
+  GENERIC_LAB_ORDER_TAG,
   getFullestAvailableName,
   LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
   LAB_ORDER_TASK,
@@ -28,6 +29,7 @@ import {
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
+  STATIC_COMPENDIUM_LAB_GUID,
 } from 'utils';
 import { createTask } from '../../../../shared/tasks';
 
@@ -212,6 +214,20 @@ export const formatServiceRequestConfig = (
         text: PSC_HOLD_CONFIG.display,
       },
     ];
+  }
+
+  // add generic tag for generic orders
+  if (
+    labOrganization.identifier?.some(
+      (id) => id.system === OYSTEHR_LAB_GUID_SYSTEM && id.value === STATIC_COMPENDIUM_LAB_GUID
+    ) ||
+    false
+  ) {
+    console.log('Adding generic tag to ServiceRequest');
+    serviceRequestConfig.meta = {
+      ...(serviceRequestConfig.meta || {}),
+      tag: [...(serviceRequestConfig.meta?.tag || []), GENERIC_LAB_ORDER_TAG],
+    };
   }
 
   return serviceRequestConfig;
