@@ -1176,7 +1176,7 @@ async function candidCreateEncounterFromAppointmentRequest(
     tags.push(TagId(CANDID_TAG_WORKERS_COMP));
   } else if (isAppointmentOccupationalMedicine(appointment)) {
     tags.push(TagId(CANDID_TAG_OCCUPATIONAL_MEDICINE));
-  } else if (isAutoAccident(accident)) {
+  } else if (isAutoAccident(appointment)) {
     tags.push(TagId(CANDID_TAG_AUTO_ACCIDENT));
   }
 

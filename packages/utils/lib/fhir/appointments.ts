@@ -1,8 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, CodeableConcept, Condition, Consent, DocumentReference, Encounter } from 'fhir/r4b';
+import { Appointment, CodeableConcept, Consent, DocumentReference, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  ACCIDENT_TYPE_SYSTEM,
   AppointmentAttendanceType,
   AppointmentType,
   diffInMinutes,
@@ -239,10 +238,9 @@ export const isAppointmentUrgentCare = (appointment: Appointment): boolean => {
   return serviceCategory === 'urgent-care';
 };
 
-export const isAutoAccident = (accident: Condition | undefined): boolean => {
-  return (
-    accident?.code?.coding?.some((coding) => coding.system === ACCIDENT_TYPE_SYSTEM && coding.code === 'AA') ?? false
-  );
+export const isAutoAccident = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  return serviceCategory === 'urgent-care' && appointment.description?.includes('Auto accident') === true;
 };
 
 export const getCancellationReasonDisplay = (appointment?: Appointment): string | undefined => {
