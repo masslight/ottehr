@@ -164,6 +164,13 @@ export default function ({
     const selectedPaymentMethod = data.paymentMethod;
     const creditCard = data.creditCard;
 
+    // Guard: don't allow submission while terminal config is still loading.
+    // Without this, a premature submit could silently record an "external-card-reader"
+    // payment when the terminal is actually configured but hasn't finished loading yet.
+    if (selectedPaymentMethod === 'card-reader' && isTerminalConfigLoading) {
+      return;
+    }
+
     if (selectedPaymentMethod === 'card-reader' && isTerminalConfigured) {
       if (!isTerminalReaderConnected || !cardReaderTerminalRef.current) {
         return;
