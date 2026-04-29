@@ -24,18 +24,19 @@ export function useLMPLocalState(): LMPLocalState {
   }, []);
 
   const getDTO = useCallback((): VitalsLastMenstrualPeriodObservationDTO | null => {
-    if (!selectedDate) return null;
+    const isoDate = selectedDate?.isValid ? selectedDate.toISODate() : null;
+    if (!isoDate && !isUnsureOptionSelected) return null;
     return {
       field: VitalFieldNames.VitalLastMenstrualPeriod,
-      value: selectedDate.toISODate() ?? '',
+      value: isoDate ?? '',
       isUnsure: isUnsureOptionSelected,
     };
   }, [selectedDate, isUnsureOptionSelected]);
 
   const hasData = selectedDate !== null || isUnsureOptionSelected;
   const isValid = getDTO() !== null;
-  const isDisabled = !selectedDate;
-  const isDateInvalid = !selectedDate && isUnsureOptionSelected;
+  const isDisabled = !selectedDate && !isUnsureOptionSelected;
+  const isDateInvalid = selectedDate !== null && !selectedDate.isValid;
 
   return {
     selectedDate,
