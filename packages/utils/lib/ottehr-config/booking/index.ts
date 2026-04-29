@@ -35,6 +35,8 @@ export interface BookingOption {
   label: string;
 }
 
+export type ServiceCategoryIcons = Record<string, string>;
+
 const PatientDoesntExistTriggerEnableAndRequire: FormFieldTrigger = {
   targetQuestionLinkId: 'existing-patient-id',
   effect: ['enable', 'require'],
@@ -104,6 +106,8 @@ export const SERVICE_CATEGORIES_AVAILABLE: ServiceCategoryConfig[] = [
     },
   },
 ];
+
+const SERVICE_CATEGORY_ICONS: ServiceCategoryIcons = {};
 
 const getFormFields = (
   serviceCategories: ServiceCategoryConfig[] = SERVICE_CATEGORIES_AVAILABLE
@@ -321,6 +325,7 @@ const BOOKING_DEFAULTS_DATA = {
     },
   ] as BookingOption[],
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
+  serviceCategoryIcons: SERVICE_CATEGORY_ICONS,
   inPersonPrebookRoutingParams,
 };
 
@@ -347,6 +352,7 @@ export interface BookingConfig {
   homepageOptions: BookingOption[];
   ehrBookingOptions: BookingOption[];
   serviceCategories: ServiceCategoryConfig[];
+  serviceCategoryIcons?: ServiceCategoryIcons;
   formConfig: QuestionnaireConfigType;
   inPersonPrebookRoutingParams: { key: string; value: string }[];
   defaultWalkinLocationName?: string;

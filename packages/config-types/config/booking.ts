@@ -74,6 +74,7 @@ export const BookingConfigSchema = z.object({
   homepageOptions: z.array(BookingOptionSchema),
   ehrBookingOptions: z.array(BookingOptionSchema),
   serviceCategories: z.array(ServiceCategoryConfigSchema),
+  serviceCategoryIcons: z.record(z.string(), z.string()).optional(),
   formConfig: QuestionnaireConfigSchema,
   inPersonPrebookRoutingParams: z.array(
     z.object({
