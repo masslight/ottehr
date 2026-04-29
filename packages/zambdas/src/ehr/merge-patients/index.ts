@@ -367,11 +367,14 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
       });
     }
 
-    // Update Account, Coverage, RelatedPerson (guarantor/emergency), Organization (employer)
+    // Update Account, Coverage, RelatedPerson (guarantor/emergency), Organization (employer).
+    // Pass the post-patch Patient so same-as-patient address resolution sees the
+    // address changes applied above without depending on read-after-write.
     await updatePatientAccountFromQuestionnaire(
       {
         questionnaireResponseItem: items,
         patientId: mainPatientId,
+        patient: patientResource,
         preserveOmittedCoverages: true,
         questionnaireForEnableWhenFiltering,
       },
@@ -708,22 +711,46 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     return merged;
   };
 
+  // Merge old account's guarantor entries into main. If main already has a
+  // guarantor, that's authoritative — keep it. Otherwise adopt old's guarantor,
+  // copying any contained resources (`#xxx` references) into main's contained
+  // array with unique ids to satisfy the FHIR ref-1 constraint.
   const consolidateGuarantors = (
-    main: Account['guarantor'] = [],
-    other: Account['guarantor'] = []
-  ): Account['guarantor'] => {
-    const seen = dedupedRefs((main ?? []).map((g) => g.party));
-    const merged = [...(main ?? [])];
-    for (const g of other ?? []) {
-      const party = g.party;
-      if (party?.reference && !seen.has(party.reference)) {
-        const repointed =
-          party.reference === oldPatientRef ? { ...g, party: { ...party, reference: newPatientRef } } : g;
-        merged.push(repointed);
-        seen.add(repointed.party!.reference!);
+    mainAccount: Account,
+    other: Account
+  ): { guarantor: Account['guarantor']; contained: Account['contained'] } => {
+    const mainGuarantor = mainAccount.guarantor ?? [];
+    const mainContained = mainAccount.contained ?? [];
+
+    if (mainGuarantor.length > 0) {
+      return { guarantor: mainGuarantor, contained: mainContained };
+    }
+
+    const containedIds = new Set((mainContained ?? []).map((c) => c.id).filter((id): id is string => !!id));
+    const newGuarantor: NonNullable<Account['guarantor']> = [];
+    const newContained = [...(mainContained ?? [])];
+
+    for (const g of other.guarantor ?? []) {
+      const ref = g.party?.reference;
+      if (!ref) continue;
+      if (ref.startsWith('#')) {
+        const sourceId = ref.substring(1);
+        const source = (other.contained ?? []).find((c) => c.id === sourceId);
+        if (!source) continue;
+        let uniqueId = sourceId;
+        let suffix = 1;
+        while (containedIds.has(uniqueId)) {
+          uniqueId = `${sourceId}-${suffix++}`;
+        }
+        containedIds.add(uniqueId);
+        newContained.push({ ...source, id: uniqueId });
+        newGuarantor.push({ ...g, party: { ...g.party!, reference: `#${uniqueId}` } });
+      } else {
+        const repointed = ref === oldPatientRef ? { ...g, party: { ...g.party!, reference: newPatientRef } } : g;
+        newGuarantor.push(repointed);
       }
     }
-    return merged;
+    return { guarantor: newGuarantor, contained: newContained };
   };
 
   for (const oldAccount of oldPatientAccountsRaw) {
@@ -739,7 +766,9 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     if (mainMatch?.id) {
       const working = mainAccountUpdates.get(mainMatch.id) ?? { ...mainMatch };
       working.coverage = consolidateCoverages(working.coverage, oldAccount.coverage);
-      working.guarantor = consolidateGuarantors(working.guarantor, oldAccount.guarantor);
+      const { guarantor, contained } = consolidateGuarantors(working, oldAccount);
+      working.guarantor = guarantor;
+      working.contained = contained;
       mainAccountUpdates.set(mainMatch.id, working);
 
       if (oldAccount.subject) {

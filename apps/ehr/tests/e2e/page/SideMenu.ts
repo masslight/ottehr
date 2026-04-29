@@ -8,6 +8,7 @@ import { expectAssessmentPage, InPersonAssessmentPage } from './in-person/InPers
 import { expectExamPage, InPersonExamPage } from './in-person/InPersonExamsPage';
 import { expectInPersonProgressNotePage, InPersonProgressNotePage } from './in-person/InPersonProgressNotePage';
 import { expectMedicationsPage, MedicationsPage } from './in-person/MedicationsPage';
+import { expectReviewOfSystemsPage, ReviewOfSystemsPage } from './in-person/ReviewOfSystemsPage';
 import { expectScreeningPage, ScreeningPage } from './in-person/ScreeningPage';
 import { InHouseLabsPage } from './lab';
 import { ExternalLabsPage } from './lab/external/ExternalLabsPage';
@@ -88,6 +89,11 @@ export class SideMenu {
   async clickNursingOrders(): Promise<NursingOrdersPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('nursing-orders')).click();
     return expectNursingOrdersPage(this.#page);
+  }
+
+  async clickReviewOfSystems(): Promise<ReviewOfSystemsPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('review-of-systems')).click();
+    return expectReviewOfSystemsPage(this.#page);
   }
 
   async clickScreening(): Promise<ScreeningPage> {

@@ -26,14 +26,14 @@ import {
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useMemo, useState } from 'react';
+import React, { ReactElement, ReactNode, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { deleteTemplate, getTemplateDetail, listTemplates, renameTemplate } from 'src/api/api';
+import { deleteTemplate, listTemplates, renameTemplate } from 'src/api/api';
 import { GLOBAL_TEMPLATES_URL } from 'src/App';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { collectKnownExamFields, examConfig, ExamType, ListTemplatesZambdaOutput, TemplateInfo } from 'utils';
+import { ExamType, ListTemplatesZambdaOutput, TemplateInfo, TemplateVersionData } from 'utils';
 
 export default function GlobalTemplatesAdminPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -46,10 +46,8 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
   const [isRenaming, setIsRenaming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
-
-  // Scan state
   const [isScanning, setIsScanning] = useState(false);
-  const [scanResults, setScanResults] = useState<Record<string, string[]> | null>(null);
+  const [scanResultsMap, setScanResultsMap] = useState<Record<string, TemplateVersionData> | null>(null);
 
   const { data, isLoading, error } = useQuery<ListTemplatesZambdaOutput, Error>({
     queryKey: ['list-templates', ExamType.IN_PERSON],
@@ -57,7 +55,7 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
       if (!oystehrZambda) {
         throw new Error('API client not available');
       }
-      return await listTemplates(oystehrZambda, { examType: ExamType.IN_PERSON });
+      return await listTemplates(oystehrZambda, { examType: ExamType.IN_PERSON, includeVersionData: false });
     },
     enabled: !!oystehrZambda,
     staleTime: QUERY_STALE_TIME,
@@ -82,34 +80,25 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
     if (!oystehrZambda || !data?.templates) return;
 
     setIsScanning(true);
-    const knownFields = collectKnownExamFields(examConfig.inPerson.default.components);
-    const results: Record<string, string[]> = {};
+    const results: Record<string, TemplateVersionData> = {};
 
     try {
-      const details = await Promise.all(
-        data.templates.map(async (template) => {
-          try {
-            const detail = await getTemplateDetail(oystehrZambda, { templateId: template.id });
-            return { id: template.id, detail };
-          } catch {
-            return { id: template.id, detail: null };
-          }
-        })
-      );
+      const list = await listTemplates(oystehrZambda, {
+        examType: ExamType.IN_PERSON,
+        includeVersionData: true,
+      });
 
-      for (const { id, detail } of details) {
-        if (!detail?.sections) continue;
-        const examFindings = (detail.sections as { examFindings?: { fieldName: string }[] }).examFindings ?? [];
-        const unmatched = examFindings
-          .map((f: { fieldName: string }) => f.fieldName)
-          .filter((field: string) => !knownFields.has(field));
-        if (unmatched.length > 0) {
-          results[id] = unmatched;
+      let staleCount = 0;
+
+      for (const template of list.templates) {
+        if (template.versionData) {
+          results[template.id] = template.versionData;
+          if (!template.versionData.isCurrentVersion) staleCount++;
         }
       }
 
-      setScanResults(results);
-      const staleCount = Object.keys(results).length;
+      setScanResultsMap(results);
+
       if (staleCount === 0) {
         enqueueSnackbar('All templates are up to date', { variant: 'success' });
       } else {
@@ -193,6 +182,33 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
     }
   };
 
+  const staleTemplateTooltipText = (
+    templateCurrentData: Extract<TemplateVersionData, { isCurrentVersion: false }>
+  ): ReactNode => {
+    const parts = [
+      templateCurrentData.unmatchedFields.ros?.length
+        ? `Unrecognized ROS fields: ${templateCurrentData.unmatchedFields.ros.join(', ')}`
+        : null,
+      templateCurrentData.unmatchedFields.exam?.length
+        ? `Unrecognized exam fields: ${templateCurrentData.unmatchedFields.exam.join(', ')}`
+        : null,
+      templateCurrentData.unmatchedFields.legacyRosContained
+        ? 'Contains legacy Review of Systems field, please update to utilize new format'
+        : null,
+    ].filter(Boolean);
+
+    return (
+      <>
+        {parts.map((text, i) => (
+          <span key={i}>
+            {text}
+            {i < parts.length - 1 && <br />}
+          </span>
+        ))}
+      </>
+    );
+  };
+
   return (
     <Paper sx={{ padding: 3 }}>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -234,7 +250,7 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>Template Name</TableCell>
-                {scanResults !== null && <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>}
+                {scanResultsMap !== null && <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>}
                 <TableCell sx={{ fontWeight: 'bold' }} align="right">
                   Actions
                 </TableCell>
@@ -242,8 +258,7 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
             </TableHead>
             <TableBody>
               {sortedTemplates.map((template) => {
-                const unmatchedFields = scanResults?.[template.id];
-                const needsUpdating = unmatchedFields && unmatchedFields.length > 0;
+                const scanResults = scanResultsMap?.[template.id];
 
                 return (
                   <TableRow key={template.id}>
@@ -263,10 +278,10 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
                         </Typography>
                       </RouterLink>
                     </TableCell>
-                    {scanResults !== null && (
+                    {scanResults && (
                       <TableCell>
-                        {needsUpdating ? (
-                          <Tooltip title={`Unrecognized fields: ${unmatchedFields.join(', ')}`} arrow>
+                        {!scanResults.isCurrentVersion ? (
+                          <Tooltip title={staleTemplateTooltipText(scanResults)} arrow>
                             <Chip label="Needs Updating" color="warning" size="small" />
                           </Tooltip>
                         ) : (

@@ -4,10 +4,23 @@ import { Row } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
+import { SectionSaveButton } from './SectionSaveButton';
 
 const { responsibleParty: responsiblePartySection } = PATIENT_RECORD_CONFIG.FormFields;
+const FIELD_KEYS = Object.values(responsiblePartySection.items).map((item) => item.key);
+const REQUIRED_FIELD_KEYS = responsiblePartySection.requiredFields ?? [];
 
-export const ResponsibleInformationContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
+interface ResponsibleInformationContainerProps {
+  isLoading: boolean;
+  patientId?: string;
+  encounterId?: string;
+}
+
+export const ResponsibleInformationContainer: FC<ResponsibleInformationContainerProps> = ({
+  isLoading,
+  patientId,
+  encounterId,
+}) => {
   const {
     items: responsibleParty,
     hiddenFields,
@@ -18,7 +31,17 @@ export const ResponsibleInformationContainer: FC<{ isLoading: boolean }> = ({ is
   });
 
   return (
-    <PatientRecordFormSection formSection={responsiblePartySection}>
+    <PatientRecordFormSection
+      formSection={responsiblePartySection}
+      titleWidget={
+        <SectionSaveButton
+          fieldKeys={FIELD_KEYS}
+          requiredFieldKeys={REQUIRED_FIELD_KEYS}
+          patientId={patientId}
+          encounterId={encounterId}
+        />
+      }
+    >
       <>
         {nonCityStateZipFields.map((item) => (
           <PatientRecordFormField

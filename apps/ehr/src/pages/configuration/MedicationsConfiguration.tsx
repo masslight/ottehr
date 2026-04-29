@@ -246,9 +246,10 @@ function MedicationsTable({
                             : otherColors.employeeDeactivatedChip,
                           color: isActive ? otherColors.employeeActiveText : otherColors.employeeDeactivatedText,
                           borderRadius: '4px',
-                          height: '17px',
+                          height: '18px',
                           '& .MuiChip-label': {
-                            padding: '2px 8px 0px 8px',
+                            padding: '0 8px',
+                            lineHeight: '18px',
                           },
                           ...theme.typography.subtitle2,
                         }}

@@ -67,7 +67,6 @@ import {
   SupportedObsImgAttachmentTypes,
 } from 'utils';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/lab/external/submit-lab-order/helpers';
-import { getObservationsForDiagnosticReportResults } from '../../ehr/lab/shared/helpers';
 import {
   fetchResultResourcesForRelatedServiceRequest,
   provenanceIsInHouseLabResultEntry,
@@ -464,9 +463,9 @@ export async function createExternalLabResultPDFBasedOnDr(
     pdfInfo: pdfDetail,
     patientID: patient.id,
     encounterID: undefined,
-    related: makeRelatedForLabsPDFDocRef({ diagnosticReportId: diagnosticReportID }),
+    related: makeRelatedForLabsPDFDocRef({ diagnosticReportIds: [diagnosticReportID] }),
     labDetails: { type: dataConfig.type, testName: dataConfig.data.testName, fillerLab: labOrganization?.name ?? '' },
-    diagnosticReportID,
+    diagnosticReportIds: [diagnosticReportID],
     reviewed,
   });
 }
@@ -576,9 +575,9 @@ export async function createExternalLabResultPDF(
     pdfInfo: pdfDetail,
     patientID: patient.id,
     encounterID: encounter.id,
-    related: makeRelatedForLabsPDFDocRef({ diagnosticReportId: diagnosticReport.id }),
+    related: makeRelatedForLabsPDFDocRef({ diagnosticReportIds: [diagnosticReport.id] }),
     labDetails: { type: dataConfig.type, testName: dataConfig.data.testName, fillerLab },
-    diagnosticReportID: diagnosticReport.id,
+    diagnosticReportIds: [diagnosticReport.id],
     reviewed,
   });
 }
@@ -616,7 +615,8 @@ export async function createInHouseLabResultPDF(
     observations,
     specimen,
     provenance,
-    timezone
+    timezone,
+    diagnosticReport
   );
 
   let additionalResultsForRelatedSrs: InHouseLabResultConfig[] = [];
@@ -653,6 +653,9 @@ export async function createInHouseLabResultPDF(
 
   const pdfDetail = await createLabsResultsFormPDF(dataConfig, patient.id, secrets, token);
 
+  const diagnosticReportIdSet = new Set(allResultsSorted.map((resultConfig) => resultConfig.diagnosticReportId));
+  const diagnosticReportIds = [...diagnosticReportIdSet];
+
   await makeLabPdfDocumentReference({
     oystehr,
     secrets,
@@ -660,9 +663,9 @@ export async function createInHouseLabResultPDF(
     pdfInfo: pdfDetail,
     patientID: patient.id,
     encounterID: encounter.id,
-    related: makeRelatedForLabsPDFDocRef({ diagnosticReportId: diagnosticReport.id || '' }),
+    related: makeRelatedForLabsPDFDocRef({ diagnosticReportIds }),
     labDetails: { type: dataConfig.type, testName: dataConfig.data.testName, fillerLab: undefined }, // no placerLab because inhouse
-    diagnosticReportID: diagnosticReport.id,
+    diagnosticReportIds,
     reviewed: false,
   });
 }
@@ -1459,7 +1462,7 @@ export async function makeLabPdfDocumentReference({
   encounterID,
   related,
   labDetails,
-  diagnosticReportID,
+  diagnosticReportIds,
   reviewed,
 }: {
   oystehr: Oystehr;
@@ -1469,7 +1472,7 @@ export async function makeLabPdfDocumentReference({
   patientID: string;
   encounterID: string | undefined; // will be undefined for unsolicited results;
   related: Reference[];
-  diagnosticReportID?: string;
+  diagnosticReportIds?: string[];
   reviewed?: boolean;
   labDetails?: { type: LabType; testName: string; fillerLab: string | undefined }; // will only be passed in for results (not orders)
 }): Promise<DocumentReference> {
@@ -1493,7 +1496,9 @@ export async function makeLabPdfDocumentReference({
     throw new Error('Invalid type of lab document');
   }
   // this function is also called for creating order pdfs which will not have a DR
-  const searchParams = diagnosticReportID ? [{ name: 'related', value: `DiagnosticReport/${diagnosticReportID}` }] : [];
+  const searchParams = diagnosticReportIds
+    ? [{ name: 'related', value: `${diagnosticReportIds.map((drId) => `DiagnosticReport/${drId}`).join(',')}` }]
+    : [];
 
   const docRefContext: DocumentReference['context'] = {
     related,
@@ -1529,18 +1534,14 @@ export async function makeLabPdfDocumentReference({
   return docRefs[0];
 }
 
-type LabDocRelatedReferenceInput = { serviceRequestIds: string[] } | { diagnosticReportId: string };
+type LabDocRelatedReferenceInput = { serviceRequestIds: string[] } | { diagnosticReportIds: string[] };
 export const makeRelatedForLabsPDFDocRef = (input: LabDocRelatedReferenceInput): Reference[] => {
   if ('serviceRequestIds' in input) {
     return input.serviceRequestIds.map((id) => ({
       reference: `ServiceRequest/${id}`,
     }));
   } else {
-    return [
-      {
-        reference: `DiagnosticReport/${input.diagnosticReportId}`,
-      },
-    ];
+    return input.diagnosticReportIds.map((drId) => ({ reference: `DiagnosticReport/${drId}` }));
   }
 };
 
@@ -1549,8 +1550,12 @@ const getFormattedInHouseLabResults = async (
   observations: Observation[],
   specimen: Specimen,
   provenance: Provenance,
-  timezone: string | undefined
+  timezone: string | undefined,
+  diagnosticReport: DiagnosticReport
 ): Promise<InHouseLabResultConfig> => {
+  if (!diagnosticReport.id) {
+    throw new Error(`This diagnostic report is misconfigured: ${JSON.stringify(diagnosticReport)}`);
+  }
   if (!specimen?.collection?.collectedDateTime) {
     throw new Error('in-house lab collection date is not defined');
   }
@@ -1625,6 +1630,7 @@ const getFormattedInHouseLabResults = async (
     specimenSource,
     results,
     testName: activityDefinition.title || '',
+    diagnosticReportId: diagnosticReport.id,
   };
 
   return resultConfig;
@@ -1643,13 +1649,7 @@ const getAdditionalResultsForRelated = async (
   const configs: InHouseLabResultConfig[] = [];
 
   for (const [srId, resources] of Object.entries(srResourceMap)) {
-    const {
-      diagnosticReports: allDiagnosticReports,
-      observations: allObservations,
-      specimens,
-      relatedAdUrlCanonicalUrl,
-      provenances,
-    } = resources;
+    const { diagnosticReports, observations, specimens, relatedAdUrlCanonicalUrl, provenances } = resources;
 
     const resultEntryProvenances = provenances.filter((provenance) => provenanceIsInHouseLabResultEntry(provenance));
     const mostRecentResultEntryProvenance = resultEntryProvenances.sort(
@@ -1674,20 +1674,21 @@ const getAdditionalResultsForRelated = async (
       }
     }
 
-    // make sure that the observations are related only to the applicable diagnostic report
-    const diagnosticReports = allDiagnosticReports.filter(
-      (dr) => dr.basedOn?.some((ref) => ref.reference === `ServiceRequest/${srId}`)
-    );
-
-    // todo labs i don't think this additional work is necessary anymore, the query has been updated to only grab observations from diagnostic report results
-    const observations = getObservationsForDiagnosticReportResults(allObservations, diagnosticReports);
+    if (diagnosticReports.length !== 1) {
+      throw new Error(
+        `There is an unexpected number of diagnostic reports for ServiceRequest/${srId}. DRs: ${diagnosticReports
+          .map((dr) => `DiagnosticReport/${dr.id}`)
+          .join(' ')}`
+      );
+    }
 
     const config = await getFormattedInHouseLabResults(
       relatedAd,
       observations,
       specimen,
       mostRecentResultEntryProvenance,
-      timezone
+      timezone,
+      diagnosticReports[0]
     );
     configs.push(config);
   }

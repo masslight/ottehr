@@ -59,22 +59,32 @@ const complexValidation = async (
     })
   ).unbundle();
 
-  const globalTemplatesList = lists.filter(
+  const globalTemplatesHolders = lists.filter(
     (list) => list.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
   );
-  if (!globalTemplatesList) {
+
+  if (globalTemplatesHolders.length === 0) {
     // By searching on the template name, and not finding the global templates List on revinclude
     // We demonstrated that even if there is a List with that title, it's not a global template.
     throw new Error(`No global template found with title: ${templateName}`);
   }
 
-  const templateLists = lists.filter((list) => list.title === templateName);
-  if (templateLists.length === 0) {
-    throw new Error(`No template found with title: ${templateName}`);
+  // Collect IDs referenced by any global template holder
+  const templateListIds = new Set<string>();
+  for (const holder of globalTemplatesHolders) {
+    for (const entry of holder.entry || []) {
+      const listId = entry.item?.reference?.replace('List/', '');
+      if (listId) templateListIds.add(listId);
+    }
   }
 
-  if (templateLists.length > 1) {
-    throw new Error(`Multiple templates found with the same title: ${templateName}`);
+  // Only consider templates that match the title AND are referenced by the holder
+  const templateLists = lists.filter((list) => list.title === templateName && list.id && templateListIds.has(list.id));
+
+  if (templateLists.length !== 1) {
+    throw new Error(
+      `Issue grabbing template with name: ${templateName}. Number of templates returned: ${templateLists.length}`
+    );
   }
 
   const encounter = await oystehr.fhir.get<Encounter>({
@@ -106,12 +116,8 @@ const performEffect = async (
       ],
     })
   ).unbundle();
-  // Temporary workaround: ROS_TEMPLATE_GENERAL should not delete existing resources.
-  // We skip delete requests for this template to preserve current data.
-  // TODO: move this behavior to a more generic logic.
-  const isRosTemplate = templateList.title === 'ROS : 14 Systems';
-  // Make 1 transaction to delete old resources exam resources that are being replaced and write the new ones
-  const deleteRequests = await makeDeleteRequests(encounterBundle, { skipDelete: isRosTemplate });
+  // Make 1 transaction to delete old resources that are being replaced and write the new ones
+  const deleteRequests = await makeDeleteRequests(encounterBundle);
   const deleteBatches = chunkThings(deleteRequests, 5).map((chunk) =>
     oystehr.fhir.batch({
       requests: chunk,
@@ -174,12 +180,7 @@ const performEffect = async (
   // console.log('Transaction Bundle:', transactionBundle);
 };
 
-const makeDeleteRequests = async (
-  encounterBundle: FhirResource[],
-  options?: { skipDelete?: boolean }
-): Promise<BatchInputDeleteRequest[]> => {
-  if (options?.skipDelete) return [];
-
+const makeDeleteRequests = async (encounterBundle: FhirResource[]): Promise<BatchInputDeleteRequest[]> => {
   const deleteResourcesRequests: BatchInputDeleteRequest[] = [];
 
   const resourcesToDelete = encounterBundle.filter(
@@ -187,6 +188,7 @@ const makeDeleteRequests = async (
       resource.meta?.tag?.some(
         (tag) =>
           tag.system === chartDataTagSystem('exam-observation-field') ||
+          tag.system === chartDataTagSystem('ros-observation-field') ||
           tag.system === chartDataTagSystem('medical-decision') ||
           tag.system === chartDataTagSystem('patient-instruction') ||
           // E&M code is replaced (one per visit); CPT codes are additive (like ICD diagnoses)

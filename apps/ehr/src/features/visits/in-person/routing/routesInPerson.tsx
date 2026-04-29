@@ -16,6 +16,7 @@ import { RadiologyOrdersListPage } from '../../../radiology/pages/RadiologyOrder
 import { AssessmentCard } from '../../shared/components/assessment-tab/AssessmentCard';
 import { ExamTab } from '../../shared/components/exam-tab/ExamTab';
 import { OttehrAi } from '../../shared/components/OttehrAi';
+import { RosTab } from '../../shared/components/ros-tab/RosTab';
 import { RouteInPerson } from '../context/InPersonNavigationContext';
 import { Allergies } from '../pages/Allergies';
 import { ChiefComplaintAndIntakeNotes } from '../pages/ChiefComplaintAndIntakeNotes';
@@ -51,6 +52,7 @@ export enum ROUTER_PATH {
   IN_HOUSE_ORDER_NEW = 'in-house-medication/order/new',
   IN_HOUSE_ORDER_EDIT = 'in-house-medication/order/edit/:orderId',
   HISTORY_AND_TEMPLATES = 'history-of-present-illness-and-templates',
+  REVIEW_OF_SYSTEMS = 'review-of-systems',
   ASSESSMENT = 'assessment',
   EXAMINATION = 'examination',
   PLAN = 'plan',
@@ -358,6 +360,14 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <HistoryAndTemplates />,
     text: 'HPI/MOI & Templates',
     iconKey: 'History',
+    groupLabel: 'Provider',
+  },
+  [ROUTER_PATH.REVIEW_OF_SYSTEMS]: {
+    path: ROUTER_PATH.REVIEW_OF_SYSTEMS,
+    modes: ['main', 'readonly'],
+    element: <RosTab />,
+    text: 'Review of Systems',
+    iconKey: 'Checklist',
     groupLabel: 'Provider',
   },
   [ROUTER_PATH.EXAMINATION]: {

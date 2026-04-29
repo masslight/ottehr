@@ -26,6 +26,7 @@ import { ExamType, RoleType } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
+import { resetRosObservationsStore } from '../../stores/appointment/reset-ros-observations';
 import { TemplateOption, useListTemplates } from './useListTemplates';
 
 const ADD_NEW_SENTINEL = '__ADD_NEW__';
@@ -127,6 +128,7 @@ export const ApplyTemplate: React.FC = () => {
         // This is necessary because exam observations are stored in Zustand (not React Query)
         // and need to be cleared before React Query refetch triggers the update
         resetExamObservationsStore();
+        resetRosObservationsStore();
 
         // TODO: use window.location.reload() if there are issues with queryClient.invalidateQueries
         await Promise.all([
