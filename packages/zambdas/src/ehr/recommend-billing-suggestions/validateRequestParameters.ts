@@ -17,6 +17,7 @@ export function validateRequestParameters(input: ZambdaInput): BillingSuggestion
     radiologyOrders,
     radiologyReports,
     procedures,
+    rosFindings,
     diagnoses,
     billing,
   } = JSON.parse(input.body);
@@ -32,6 +33,7 @@ export function validateRequestParameters(input: ZambdaInput): BillingSuggestion
     radiologyOrders,
     radiologyReports: radiologyReports || '',
     procedures,
+    rosFindings: rosFindings || '',
     diagnoses,
     billing,
     secrets: input.secrets,

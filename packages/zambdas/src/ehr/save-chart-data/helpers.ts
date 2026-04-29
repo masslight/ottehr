@@ -21,6 +21,7 @@ export const validateBundleAndExtractSavedChartData = (
     conditions: [],
     allergies: [],
     examObservations: [],
+    rosObservations: [],
     cptCodes: [],
     instructions: [],
     diagnosis: [],
