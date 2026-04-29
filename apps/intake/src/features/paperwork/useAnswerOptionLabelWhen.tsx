@@ -1,5 +1,5 @@
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
-import { getExtension } from 'utils';
+import { getExtension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from 'utils';
 import { useQRState } from './useFormHelpers';
 
 const OPERATORS = ['=', '!='];
@@ -10,12 +10,21 @@ export const useAnswerOptionLabelWhen = (options: QuestionnaireItemAnswerOption[
   const result: Record<string, string> = {};
 
   for (const option of options) {
+    if (!option.valueString) {
+      continue;
+    }
+
+    const unconditionalLabel = getExtension(option, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLabel)?.valueString;
+    if (unconditionalLabel) {
+      result[option.valueString] = unconditionalLabel;
+    }
+
     const labelWhenExpression = getExtension(
       option,
       'https://fhir.zapehr.com/r4/StructureDefinitions/answer-label-when'
     )?.valueString;
 
-    if (!labelWhenExpression || !option.valueString) {
+    if (!labelWhenExpression) {
       continue;
     }
 
