@@ -1,6 +1,7 @@
 import { InputLabel, MenuItem, Select } from '@mui/material';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
+import { configAoeChoiceEntryOptionTestId, configAoeSingleChoiceEntryTestId } from '../utils/test-ids';
 
 interface ListQuestionProps {
   questionText: string;
@@ -30,9 +31,10 @@ export const AOEListQuestion: React.FC<ListQuestionProps> = (props) => {
         label={questionText}
         error={!!errors[linkId]}
         readOnly={isReadOnly}
+        data-testid={configAoeSingleChoiceEntryTestId(linkId)}
       >
         {answerOption.map((option, idx) => (
-          <MenuItem key={idx} value={option.id}>
+          <MenuItem key={idx} value={option.id} data-testid={configAoeChoiceEntryOptionTestId(option.id!)}>
             {option.valueString}
           </MenuItem>
         ))}

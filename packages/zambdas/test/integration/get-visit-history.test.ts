@@ -98,7 +98,7 @@ const validateCreateAppointmentResponse = (
   assert(encounter.id);
   // todo: should encounter status be 'arrived' for walkin virtual appointments to match the appointment status?
   // i think this is intended and helps with some intake logic particular to the virtual walkin flow
-  if (isWalkin && !isVirtual) {
+  if (isWalkin) {
     expect(encounter.status).toEqual('arrived');
   } else {
     expect(encounter.status).toEqual('planned');

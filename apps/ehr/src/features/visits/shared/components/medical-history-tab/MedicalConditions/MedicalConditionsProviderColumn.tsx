@@ -19,17 +19,17 @@ import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
 import { useMergedMedicalConditionQuickPicks } from 'src/hooks/useMergedQuickPicks';
-import { IcdSearchResponse, MedicalConditionDTO } from 'utils';
+import { IcdSearchResponse, isTelemedAppointment, MedicalConditionDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useICD10SearchNew } from '../../../stores/appointment/appointment.queries';
 import {
   ChartDataState,
+  useAppointmentData,
   useChartData,
   useDeleteChartData,
   useSaveChartData,
 } from '../../../stores/appointment/appointment.store';
-import { useAppFlags } from '../../../stores/contexts/useAppFlags';
 import { ProviderSideListSkeleton } from '../../ProviderSideListSkeleton';
 import { QuickPicksButton } from '../../QuickPicksButton';
 
@@ -37,8 +37,8 @@ type IcdSearchResponseOptionalCode = Pick<IcdSearchResponse['codes'][number], 'd
 
 export const MedicalConditionsProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
+  const { appointment } = useAppointmentData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const appFlags = useAppFlags();
   const conditions = sortByRecencyAndStatus(chartData?.conditions ?? []);
   const length = conditions.length;
 
@@ -65,7 +65,7 @@ export const MedicalConditionsProviderColumn: FC = () => {
         </Box>
       )}
 
-      {conditions.length === 0 && isReadOnly && !isChartDataLoading && !appFlags.isInPerson && (
+      {conditions.length === 0 && isReadOnly && !isChartDataLoading && isTelemedAppointment(appointment) && (
         <Typography color="secondary.light">Missing. Patient input must be reconciled by provider</Typography>
       )}
 
@@ -97,7 +97,6 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 }) => {
   const [note, setNote] = useState(value.note || '');
   const areNotesEqual = note.trim() === (value.note || '');
-  const appFlags = useAppFlags();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
@@ -195,32 +194,29 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
           sx={{
-            color: (theme) => (!value.current && appFlags.isInPerson ? theme.palette.text.secondary : undefined),
+            color: (theme) => (!value.current ? theme.palette.text.secondary : undefined),
           }}
         >
           {value.code} {value.display}
-          {appFlags.isInPerson &&
-            isReadOnly &&
+          {isReadOnly &&
             ` | ${value.current ? 'Current' : 'Inactive now'}${value.note ? ' | Note: ' + value.note : ''}`}
         </Typography>
 
         {!isReadOnly && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {appFlags.isInPerson && (
-              <FormControlLabel
-                control={<Switch checked={value.current} onChange={(e) => updateCurrent(e.target.checked)} />}
-                label={value.current ? 'Current' : 'Inactive now'}
-                disabled={isLoadingOrAwaiting || !isAlreadySaved}
-                labelPlacement="start"
-                sx={{
-                  '& .MuiFormControlLabel-label': {
-                    marginRight: 1,
-                    textAlign: 'right',
-                    color: (theme) => (!value.current ? theme.palette.text.secondary : undefined),
-                  },
-                }}
-              />
-            )}
+            <FormControlLabel
+              control={<Switch checked={value.current} onChange={(e) => updateCurrent(e.target.checked)} />}
+              label={value.current ? 'Current' : 'Inactive now'}
+              disabled={isLoadingOrAwaiting || !isAlreadySaved}
+              labelPlacement="start"
+              sx={{
+                '& .MuiFormControlLabel-label': {
+                  marginRight: 1,
+                  textAlign: 'right',
+                  color: (theme) => (!value.current ? theme.palette.text.secondary : undefined),
+                },
+              }}
+            />
             <DeleteIconButton
               disabled={isLoadingOrAwaiting || !isAlreadySaved}
               onClick={deleteCondition}
@@ -230,7 +226,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
         )}
       </Box>
 
-      {!value.current && !isReadOnly && appFlags.isInPerson && (
+      {!value.current && !isReadOnly && (
         <TextField
           value={note}
           onChange={(e) => {
