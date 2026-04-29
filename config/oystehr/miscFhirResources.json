@@ -155,60 +155,6 @@
           }
         ]
       }
-    },
-    "OCC_MED_EMPLOYER_1": {
-      "resource": {
-        "resourceType": "Organization",
-        "active": true,
-        "name": "Acme Industrial Corp",
-        "type": [
-          {
-            "coding": [
-              {
-                "system": "http://terminology.hl7.org/CodeSystem/organization-type",
-                "code": "occupational-medicine-employer",
-                "display": "Occupational Medicine Employer"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    "OCC_MED_EMPLOYER_2": {
-      "resource": {
-        "resourceType": "Organization",
-        "active": true,
-        "name": "Summit Construction LLC",
-        "type": [
-          {
-            "coding": [
-              {
-                "system": "http://terminology.hl7.org/CodeSystem/organization-type",
-                "code": "occupational-medicine-employer",
-                "display": "Occupational Medicine Employer"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    "OCC_MED_EMPLOYER_3": {
-      "resource": {
-        "resourceType": "Organization",
-        "active": true,
-        "name": "Pacific Freight Services",
-        "type": [
-          {
-            "coding": [
-              {
-                "system": "http://terminology.hl7.org/CodeSystem/organization-type",
-                "code": "occupational-medicine-employer",
-                "display": "Occupational Medicine Employer"
-              }
-            ]
-          }
-        ]
-      }
     }
   }
 }
