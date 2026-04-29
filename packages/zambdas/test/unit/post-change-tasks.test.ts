@@ -1,5 +1,5 @@
 import { Encounter } from 'fhir/r4b';
-import { TaskIndicator } from 'utils';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskIndicator } from 'utils';
 import { describe, expect, it } from 'vitest';
 import { getChartDataPostChangeTasks } from '../../src/shared/chart-data/post-change-tasks';
 
@@ -30,6 +30,17 @@ describe('getChartDataPostChangeTasks', () => {
       expect(task.resourceType).toBe('Task');
       expect(task.code?.coding?.[0].system).toBe(TaskIndicator.visitNotePDFAndEmail.system);
       expect(task.code?.coding?.[0].code).toBe(TaskIndicator.visitNotePDFAndEmail.code);
+    });
+
+    it('carries a SKIP_EMAIL input so the subscription handler does not send an email', () => {
+      const tasks = getChartDataPostChangeTasks({ addendumNote }, finishedEncounter, APPOINTMENT_ID);
+      const task = tasks[0];
+
+      expect(task.input).toHaveLength(1);
+      const input = task.input![0];
+      expect(input.type.coding?.[0].system).toBe(TASK_INPUT_TYPE_SYSTEM);
+      expect(input.type.coding?.[0].code).toBe(TASK_INPUT_TYPE_CODES.SKIP_EMAIL);
+      expect(input.valueString).toBe('true');
     });
 
     it('sets focus to the correct Appointment reference', () => {

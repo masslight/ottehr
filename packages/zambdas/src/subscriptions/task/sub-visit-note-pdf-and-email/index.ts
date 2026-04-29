@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DocumentReference, Task } from 'fhir/r4b';
+import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DATETIME_FULL_NO_YEAR,
@@ -12,6 +12,8 @@ import {
   OTTEHR_MODULE,
   progressNoteChartDataRequestedFields,
   Secrets,
+  TASK_INPUT_TYPE_CODES,
+  TASK_INPUT_TYPE_SYSTEM,
   TelemedCompletionTemplateData,
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
@@ -67,6 +69,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw new Error('Task ID is required');
     }
     taskId = task.id;
+
+    const skipEmail =
+      task.input?.some(
+        (input) =>
+          input.type.coding?.some(
+            (c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.SKIP_EMAIL
+          ) && input.valueString === 'true'
+      ) ?? false;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -150,21 +160,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         secrets
       );
 
-      // If a visit note PDF already exists for this encounter, this is a re-generation (e.g. addendum update).
-      // In that case we regenerate the PDF but skip the completion email to avoid spamming the patient.
-      const existingVisitNoteDocRefs = (
-        await oystehr.fhir.search<DocumentReference>({
-          resourceType: 'DocumentReference',
-          params: [
-            { name: 'status', value: 'current' },
-            { name: 'encounter', value: `Encounter/${encounter.id}` },
-            { name: 'type', value: 'http://loinc.org|75498-6' },
-          ],
-        })
-      ).unbundle();
-      const isRegeneration = existingVisitNoteDocRefs.length > 0;
-      console.log(`isRegeneration: ${isRegeneration} (${existingVisitNoteDocRefs.length} existing visit note DocRefs)`);
-
       // Always create the PDF
       const { pdfInfo } = await createProgressNotePdf(
         {
@@ -197,7 +192,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const emailClient = getEmailClient(secrets);
       const emailEnabled = emailClient.getFeatureFlag();
 
-      if (emailEnabled && !isPDFOnlyTask && !isRegeneration) {
+      if (emailEnabled && !isPDFOnlyTask && !skipEmail) {
         if (skipVisitNoteInPatientPortal) {
           console.log('Skipping completion email to patient - visit note patient portal feature flag is enabled');
         } else {
@@ -262,7 +257,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
 
       const statusMessage =
-        isPDFOnlyTask || skipVisitNoteInPatientPortal || isRegeneration
+        isPDFOnlyTask || skipVisitNoteInPatientPortal || skipEmail
           ? 'PDF created successfully'
           : 'PDF created and emailed successfully';
 
