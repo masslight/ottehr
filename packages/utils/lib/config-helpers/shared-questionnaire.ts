@@ -530,7 +530,19 @@ const convertFormFieldToQuestionnaireItem = (
 
   // Add answer options for choice and open-choice types
   if ((field.type === 'choice' || field.type === 'open-choice') && field.options) {
-    item.answerOption = field.options.map((opt) => ({ valueString: opt.value }));
+    item.answerOption = field.options.map((opt) => ({
+      valueString: opt.value,
+      ...(opt.label && opt.label !== opt.value
+        ? {
+            extension: [
+              {
+                url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLabel,
+                valueString: opt.label,
+              },
+            ],
+          }
+        : {}),
+    }));
   }
 
   // Handle reference type for dynamic data source
@@ -665,7 +677,19 @@ const convertLogicalItemToQuestionnaireItem = (field: FormFieldsLogicalItem): Qu
 
   // Add answer options for choice and open-choice types
   if ((field.type === 'choice' || field.type === 'open-choice') && field.options) {
-    item.answerOption = field.options.map((opt) => ({ valueString: opt.value }));
+    item.answerOption = field.options.map((opt) => ({
+      valueString: opt.value,
+      ...(opt.label && opt.label !== opt.value
+        ? {
+            extension: [
+              {
+                url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLabel,
+                valueString: opt.label,
+              },
+            ],
+          }
+        : {}),
+    }));
   }
 
   // Add initial value if provided

@@ -534,6 +534,7 @@ export const OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE: Account['type'] = {
 
 export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   acceptsMultipleAnswers: `${PRIVATE_EXTENSION_BASE_URL}/accepts-multiple-answers`,
+  answerLabel: `${PRIVATE_EXTENSION_BASE_URL}/answer-label`,
   alwaysFilter: `${PRIVATE_EXTENSION_BASE_URL}/always-filter`,
   attachmentText: `${PRIVATE_EXTENSION_BASE_URL}/attachment-text`,
   autofillFromWhenDisabled: `${PRIVATE_EXTENSION_BASE_URL}/fill-from-when-disabled`,
