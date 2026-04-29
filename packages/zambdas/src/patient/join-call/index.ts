@@ -150,7 +150,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log(`No user-relatedperson for patient ${patientId}; proceeding without an RP participant`);
       reportMissingUserRelatedPerson('join-call', patientId);
     } else {
-      relatedPersonRefs = relatedPersons.map((rp) => `RelatedPerson/${rp.id}`);
+      relatedPersonRefs = relatedPersons
+        .filter((rp): rp is typeof rp & { id: string } => !!rp.id)
+        .map((rp) => `RelatedPerson/${rp.id}`);
     }
   }
 
