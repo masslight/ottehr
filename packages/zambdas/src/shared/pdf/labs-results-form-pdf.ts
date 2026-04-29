@@ -1682,14 +1682,6 @@ const getAdditionalResultsForRelated = async (
       );
     }
 
-    // // make sure that the observations are related only to the applicable diagnostic report
-    // const diagnosticReports = allDiagnosticReports.filter(
-    //   (dr) => dr.basedOn?.some((ref) => ref.reference === `ServiceRequest/${srId}`)
-    // );
-
-    // // todo labs i don't think this additional work is necessary anymore, the query has been updated to only grab observations from diagnostic report results
-    // const observations = getObservationsForDiagnosticReportResults(allObservations, diagnosticReports);
-
     const config = await getFormattedInHouseLabResults(
       relatedAd,
       observations,
