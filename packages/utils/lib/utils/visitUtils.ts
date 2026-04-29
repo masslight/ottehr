@@ -19,12 +19,15 @@ export const NON_LOS_STATUSES: VisitStatusHistoryLabel[] = [
 ];
 
 export const getDurationOfStatus = (statusEntry: VisitStatusHistoryEntry, dateTimeNow: DateTime): number => {
+  const minutesElapsed = (end: DateTime, start: DateTime): number => {
+    const minutes = Math.floor(end.diff(start, 'minutes').minutes);
+    return Number.isFinite(minutes) ? Math.max(0, minutes) : 0;
+  };
+
   if (statusEntry.period.start && statusEntry.period.end) {
-    return Math.floor(
-      DateTime.fromISO(statusEntry.period.end).diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes
-    );
+    return minutesElapsed(DateTime.fromISO(statusEntry.period.end), DateTime.fromISO(statusEntry.period.start));
   } else if (statusEntry.period.start) {
-    return Math.floor(dateTimeNow.diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes);
+    return minutesElapsed(dateTimeNow, DateTime.fromISO(statusEntry.period.start));
   }
   return 0;
 };

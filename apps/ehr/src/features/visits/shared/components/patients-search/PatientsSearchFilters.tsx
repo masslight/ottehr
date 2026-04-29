@@ -27,6 +27,14 @@ export const PatientsSearchFilters: React.FC<{
     <FormControl component="form" onSubmit={handleSubmit} fullWidth>
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <TextField
+          data-testid={dataTestIds.patients.searchByPidField}
+          sx={{ flex: 1 }}
+          label="PID or UUID"
+          placeholder="Friendly patient ID or UUID"
+          value={searchFilters.pid}
+          onChange={(e) => setSearchField({ field: 'pid', value: e.target.value })}
+        />
+        <TextField
           data-testid={dataTestIds.patients.searchByLastNameField}
           sx={{ flex: 1 }}
           label="Last Name"
@@ -86,13 +94,6 @@ export const PatientsSearchFilters: React.FC<{
             placeholder="example@mail.com"
             value={searchFilters.email}
             onChange={(e) => setSearchField({ field: 'email', value: e.target.value })}
-          />
-          <TextField
-            data-testid={dataTestIds.patients.searchByPidField}
-            label="PID"
-            placeholder="Friendly patient ID"
-            value={searchFilters.pid}
-            onChange={(e) => setSearchField({ field: 'pid', value: e.target.value })}
           />
           {/* <TextField
                 label="Subscriber Number (Insurance)"
