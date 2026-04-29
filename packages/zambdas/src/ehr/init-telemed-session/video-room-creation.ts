@@ -75,6 +75,10 @@ const updateVideoRoomEncounter = (
     encounter.participant.map((p) => p.individual?.reference).filter((r): r is string => !!r)
   );
   for (const rp of relatedPersons) {
+    if (!rp.id) {
+      console.warn('Skipping RelatedPerson without id when adding to video encounter participant list');
+      continue;
+    }
     const ref = `RelatedPerson/${rp.id}`;
     if (!existingRefs.has(ref)) {
       encounter.participant.push({ individual: { reference: ref } });
