@@ -2,13 +2,33 @@ import { FC } from 'react';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
+import { SectionSaveButton } from './SectionSaveButton';
 
 const primaryCareSection = PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician;
-export const PrimaryCareContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
+const FIELD_KEYS = Object.values(primaryCareSection.items).map((item) => item.key);
+const REQUIRED_FIELD_KEYS = primaryCareSection.requiredFields ?? [];
+
+interface PrimaryCareContainerProps {
+  isLoading: boolean;
+  patientId?: string;
+  encounterId?: string;
+}
+
+export const PrimaryCareContainer: FC<PrimaryCareContainerProps> = ({ isLoading, patientId, encounterId }) => {
   const { items, hiddenFields, requiredFields } = usePatientRecordFormSection({ formSection: primaryCareSection });
 
   return (
-    <PatientRecordFormSection formSection={primaryCareSection}>
+    <PatientRecordFormSection
+      formSection={primaryCareSection}
+      titleWidget={
+        <SectionSaveButton
+          fieldKeys={FIELD_KEYS}
+          requiredFieldKeys={REQUIRED_FIELD_KEYS}
+          patientId={patientId}
+          encounterId={encounterId}
+        />
+      }
+    >
       {Object.values(items).map((item) => (
         <PatientRecordFormField
           key={item.key}

@@ -183,6 +183,12 @@ export const dataTestIds = {
     addQualificationButton: 'add-qualification-button',
     deactivateUserButton: 'deactivate-user-button',
     statusChip: 'employee-status-chip',
+    needsReviewChip: 'employee-needs-review-chip',
+    assignRoleButton: 'employee-assign-role-button',
+    assignRoleDialog: 'employee-assign-role-dialog',
+    assignRoleSelect: 'employee-assign-role-select',
+    assignRoleSave: 'employee-assign-role-save',
+    quickDeleteButton: 'employee-quick-delete-button',
   },
   telemedEhrFlow: {
     trackingBoardLocationsSelect: 'telemed-tracking-board-location-select',

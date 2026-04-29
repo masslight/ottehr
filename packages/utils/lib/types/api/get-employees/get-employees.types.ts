@@ -15,6 +15,7 @@ export interface EmployeeDetails {
   gettingAlerts: boolean;
   isProvider: boolean;
   isCustomerSupport: boolean;
+  needsReview?: boolean;
 }
 
 export interface GetEmployeesResponse {
