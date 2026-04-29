@@ -148,13 +148,16 @@ export default function ({
   const creditCard = watch('creditCard');
   const [isTerminalConfigured, setIsTerminalConfigured] = useState(false);
   const [isTerminalReaderConnected, setIsTerminalReaderConnected] = useState(false);
+  const [isTerminalConfigLoading, setIsTerminalConfigLoading] = useState(false);
   const [isTerminalPaymentSubmitting, setIsTerminalPaymentSubmitting] = useState(false);
   const cardReaderTerminalRef = useRef<CardReaderTerminalHandle | null>(null);
 
   const isConfiguredReaderPayment = paymentMethod === 'card-reader' && isTerminalConfigured;
   const submitButtonLabel =
     paymentMethod === 'card' || isConfiguredReaderPayment ? 'Process Payment' : 'Record Payment';
-  const shouldDisableSubmit = isConfiguredReaderPayment && !isTerminalReaderConnected;
+  const shouldDisableSubmit =
+    (isConfiguredReaderPayment && !isTerminalReaderConnected) ||
+    (paymentMethod === 'card-reader' && isTerminalConfigLoading);
 
   const structureDataAndSubmit = async (data: any): Promise<void> => {
     const amount = parseFloat(data.amount);
@@ -298,6 +301,7 @@ export default function ({
                   encounterId={encounterId}
                   onTerminalConfiguredChange={setIsTerminalConfigured}
                   onReaderConnectionChange={setIsTerminalReaderConnected}
+                  onConfigLoadingChange={setIsTerminalConfigLoading}
                 />
               </Box>
             )}
