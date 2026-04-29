@@ -1,8 +1,8 @@
 import { Encounter, Task } from 'fhir/r4b';
-import { getTaskResource, TaskIndicator } from 'utils';
+import { FreeTextNoteDTO, getTaskResource, TaskIndicator } from 'utils';
 
 interface ChangedFields {
-  addendumNote?: unknown;
+  addendumNote?: FreeTextNoteDTO;
 }
 
 /**

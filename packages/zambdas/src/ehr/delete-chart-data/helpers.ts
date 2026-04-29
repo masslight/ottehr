@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputPutRequest } from '@oystehr/sdk';
-import { DocumentReference, Encounter, FhirResource, Patient, ServiceRequest } from 'fhir/r4b';
+import { Appointment, DocumentReference, Encounter, FhirResource, Patient, ServiceRequest } from 'fhir/r4b';
 
 export function deleteResourceRequest(resourceType: string, resourceId: string): BatchInputDeleteRequest {
   return { method: 'DELETE', url: `/${resourceType}/${resourceId}` };
@@ -19,7 +19,7 @@ export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounte
     throw new Error('Encounter ID is required');
   }
   return (
-    await oystehr.fhir.search<Encounter | DocumentReference | Patient | ServiceRequest>({
+    await oystehr.fhir.search<Encounter | DocumentReference | Patient | ServiceRequest | Appointment>({
       resourceType: 'Encounter',
       params: [
         {
