@@ -324,7 +324,11 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     const appointment = allResources.find((res) => res.resourceType === 'Appointment');
     const postChangeTasks = getChartDataPostChangeTasks({ addendumNote }, encounter, appointment?.id);
     if (postChangeTasks.length > 0) {
-      await Promise.all(postChangeTasks.map((task) => oystehr.fhir.create(task)));
+      try {
+        await Promise.all(postChangeTasks.map((task) => oystehr.fhir.create(task)));
+      } catch (taskError) {
+        console.error('Failed to create post-change task(s); chart data was deleted successfully:', taskError);
+      }
     }
 
     // perform deleting z3 pdf objects after deleting all fhir resources

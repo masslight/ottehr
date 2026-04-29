@@ -515,7 +515,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const postChangeTasks = getChartDataPostChangeTasks({ addendumNote }, encounter, appointment?.id);
     if (postChangeTasks.length > 0) {
-      await Promise.all(postChangeTasks.map((task) => oystehr.fhir.create(task)));
+      try {
+        await Promise.all(postChangeTasks.map((task) => oystehr.fhir.create(task)));
+      } catch (taskError) {
+        console.error('Failed to create post-change task(s); chart data was saved successfully:', taskError);
+      }
     }
 
     console.timeLog('time', 'before sorting resources');
