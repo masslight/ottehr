@@ -49,6 +49,12 @@ export class InPersonHeader {
     });
   }
 
+  async verifyWeightPatientRefused(): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.weight)).toHaveText('Weight: Patient Refused', {
+      timeout: 30000,
+    });
+  }
+
   async verifyWeightNotShown(): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.weight)).toHaveCount(0, {
       timeout: 30000,
