@@ -3,7 +3,8 @@
  */
 
 import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
 const VIRTUAL_LOCATION_EXTENSION_URL = 'https://extensions.fhir.zapehr.com/location-form-pre-release';
 
@@ -12,6 +13,8 @@ const VIRTUAL_LOCATION_EXTENSION_URL = 'https://extensions.fhir.zapehr.com/locat
  */
 function getIsTelemedEnabled(): boolean {
   try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
     const configPath = resolve(__dirname, '../../../../config/oystehr/locations-and-schedules.json');
 
     if (!existsSync(configPath)) {

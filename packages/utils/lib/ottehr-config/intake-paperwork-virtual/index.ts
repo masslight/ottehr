@@ -25,12 +25,20 @@ import {
   VALUE_SETS,
 } from '../value-sets';
 
+// Canonical identifiers — see intake-paperwork/index.ts for rationale.
+export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.0.22';
+export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
+  url: VIRTUAL_INTAKE_PAPERWORK_URL,
+  version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
+} as const;
+
 const hiddenFormSections: string[] = [];
 
 const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
-  url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual',
-  version: '1.0.22',
+  url: VIRTUAL_INTAKE_PAPERWORK_URL,
+  version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
   name: 'virtual_pre-visit_paperwork',
   title: 'virtual pre-visit paperwork',
   status: 'active',
