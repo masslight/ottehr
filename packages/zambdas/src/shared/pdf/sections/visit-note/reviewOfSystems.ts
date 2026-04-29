@@ -13,6 +13,9 @@ export const composeReviewOfSystems: DataComposer<{ allChartData: AllChartData }
   };
 };
 
+/**
+ * handles legacy Review of Systems (mark down text field entry)
+ */
 export const createReviewOfSystemsSection = <
   TData extends {
     encounter?: EncounterInfo;

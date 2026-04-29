@@ -24,6 +24,7 @@ export const index = wrapHandler(
       radiologyOrders,
       radiologyReports,
       procedures,
+      rosFindings,
       diagnoses,
       billing,
       secrets,
@@ -148,6 +149,9 @@ export const index = wrapHandler(
     }
     if (procedures) {
       prompt += `\n Procedures: ${procedures}`;
+    }
+    if (rosFindings) {
+      prompt += `\n Review of Systems (positive findings): ${rosFindings}`;
     }
 
     if (diagnoses && diagnoses.length > 0) {

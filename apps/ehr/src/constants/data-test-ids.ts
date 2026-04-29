@@ -287,6 +287,7 @@ export const dataTestIds = {
     dischargeSummaryButton: 'discharge-summary-button',
     missingCard: 'missing-card',
     missingCardText: 'missing-card-text',
+    patientVerificationLink: 'patient-verification-link',
     primaryDiagnosisLink: 'primary-diagnosis-link',
     secondaryDiagnosisLink: 'secondary-diagnosis-link',
     medicalDecisionLink: 'medical-decision-link',
@@ -310,6 +311,7 @@ export const dataTestIds = {
     hospitalizationContainer: 'hospitalization-container',
     alertIcon: 'WarningAmberOutlinedIcon',
     cptCodes: 'cpt-codes-container',
+    rosReviewContainer: 'in-person-progress-note-ros-review-container',
   },
   hpiAndTemplatesPage: {
     hpiTitle: 'hpi-title',
@@ -730,6 +732,13 @@ export const dataTestIds = {
     admin: {
       scanForStaleBtn: 'global-template-scan-staleness-btn',
     },
+  },
+
+  reviewOfSystemsPage: {
+    rosTableContainer: 'review-of-systems-table-container',
+    rosTable: 'review-of-systems-table',
+    deniesCheckboxCell: 'ros-denies-checkbox-cell',
+    reportsCheckboxCell: 'ros-reports-checkbox-cell',
   },
 
   externalLabs: {
