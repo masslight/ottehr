@@ -584,7 +584,10 @@ async function phase1_7_assignAttending(ctx: SynthesisContext): Promise<void> {
   logCall('assign-practitioner', body);
 
   if (ctx.mode === 'execute' && ctx.oystehr) {
-    const res = await fetch(`${ctx.zambdaApi}/zambda/assign-practitioner/execute`, {
+    // assign-practitioner is one of the OTR-2428 zambdas. Cloud-deployed
+    // version lacks the M2M fix; route through local until deploy catches up.
+    const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
+    const res = await fetch(`${localZambdaApi}/zambda/assign-practitioner/execute`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
