@@ -130,9 +130,18 @@ describe('PaymentDialog - terminal payment race condition guards', () => {
     expect(submitPayment).not.toHaveBeenCalled();
   });
 
-  it('does not call submitPayment when terminal payment is already in progress', async () => {
+  it('does not allow a second terminal submission while payment is in progress', async () => {
     const user = userEvent.setup();
     const { submitPayment } = renderPaymentDialog();
+
+    // Make processPayment block indefinitely (simulates waiting for card tap)
+    let resolvePayment: () => void;
+    mockProcessPayment.fn.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolvePayment = resolve;
+        })
+    );
 
     // Select card-reader payment method
     const cardReaderRadio = screen.getByLabelText(/card reader/i);
@@ -153,14 +162,29 @@ describe('PaymentDialog - terminal payment race condition guards', () => {
     await user.clear(amountInput);
     await user.type(amountInput, '25.00');
 
-    // Submit — should call processPayment via the ref, NOT submitPayment
+    // First submit — starts the terminal payment (processPayment blocks)
     const submitButton = screen.getByTestId('cancel-visit-dialogue');
     await user.click(submitButton);
 
-    // The key assertion: submitPayment (which creates a PaymentNotice via post-patient-payment)
-    // should NOT be called. The terminal path handles it via finalize-payment.
+    // processPayment should have been called once
     await waitFor(() => {
-      expect(submitPayment).not.toHaveBeenCalled();
+      expect(mockProcessPayment.fn).toHaveBeenCalledTimes(1);
+    });
+
+    // Second submit while first is still in-progress — should be blocked by the guard
+    const form = submitButton.closest('form')!;
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    // processPayment should NOT have been called a second time
+    expect(mockProcessPayment.fn).toHaveBeenCalledTimes(1);
+    // submitPayment (external path) should also not be called
+    expect(submitPayment).not.toHaveBeenCalled();
+
+    // Clean up: resolve the pending payment to avoid unhandled promise warnings
+    await act(async () => {
+      resolvePayment!();
     });
   });
 
