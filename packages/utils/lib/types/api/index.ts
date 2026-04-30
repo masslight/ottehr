@@ -11,6 +11,7 @@ export * from './chart-data';
 export * from './check-in.types';
 export * from './create-discharge-summary';
 export * from './create-user.types';
+export * from './delete-user.types';
 export * from './daily-payments-report.types';
 export * from './practice-kpis-report.types';
 export * from './visits-overview-report.types';

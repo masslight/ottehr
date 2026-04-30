@@ -31,11 +31,13 @@ import { PrivacyPolicyAcknowledgement } from 'src/features/visits/shared/compone
 import { ProceduresContainer } from 'src/features/visits/shared/components/review-tab/components/ProceduresContainer';
 import { ReviewOfSystemsContainer } from 'src/features/visits/shared/components/review-tab/components/ReviewOfSystemsContainer';
 import { SurgicalHistoryContainer } from 'src/features/visits/shared/components/review-tab/components/SurgicalHistoryContainer';
+import { RosReviewContainer } from 'src/features/visits/shared/components/ros-tab/RosReviewContainer';
 import { SectionList } from 'src/features/visits/shared/components/SectionList';
 import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { usePatientInstructionsVisibility } from 'src/features/visits/shared/hooks/usePatientInstructionsVisibility';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useRosObservationsStore } from 'src/features/visits/shared/stores/appointment/ros-observations.store';
 import { useSignAppointmentMutation } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { isEligibleSupervisor } from 'src/helpers';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -62,6 +64,7 @@ export const ProgressNoteDetails: FC = () => {
     examConfig[isInPersonAppointment(appointment) ? 'inPerson' : 'telemed'].default.components;
   const unmatchedExamFields = useUnmatchedExamFields(examConfigComponents);
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
+  const rosState = useRosObservationsStore();
 
   const isLoading = isSignLoading;
   const user = useEvolveUser();
@@ -95,7 +98,7 @@ export const ProgressNoteDetails: FC = () => {
   const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
   const mechanismOfInjury = chartFields?.mechanismOfInjury?.text;
   const hpi = chartFields?.chiefComplaint?.text;
-  const ros = chartFields?.ros?.text;
+  const rosLegacyText = chartFields?.ros?.text;
 
   const emCode = chartData?.emCode;
   const cptCodes = chartData?.cptCodes;
@@ -105,13 +108,14 @@ export const ProgressNoteDetails: FC = () => {
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
   const showMechanismOfInjury = !!(mechanismOfInjury && mechanismOfInjury.length > 0);
   const showHpi = !!(hpi && hpi.length > 0);
-  const showReviewOfSystems = !!(ros && ros.length > 0);
+  const showLegacyReviewOfSystems = !!(rosLegacyText && rosLegacyText.length > 0);
   const showAdditionalQuestions =
     !!(observations && observations.length > 0) || !!(screeningNotes && screeningNotes.length > 0);
   const showAssessment = !!(diagnoses && diagnoses.length > 0);
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
+  const showRosReviewContainer = Object.values(rosState).filter((rosObs) => rosObs.value).length > 0;
 
   const externalLabResultsPending = !!(
     externalLabResults?.resultsPending && externalLabResults?.resultsPending.length > 0
@@ -161,7 +165,8 @@ export const ProgressNoteDetails: FC = () => {
     showChiefComplaint && <ChiefComplaintContainer />,
     showHpi && <HistoryOfPresentIllnessContainer />,
     showMechanismOfInjury && <MechanismOfInjuryContainer />,
-    showReviewOfSystems && <ReviewOfSystemsContainer />,
+    showLegacyReviewOfSystems && <ReviewOfSystemsContainer />,
+    showRosReviewContainer && <RosReviewContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer notes={screeningNotes} />,
     showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,
     <Stack spacing={1}>

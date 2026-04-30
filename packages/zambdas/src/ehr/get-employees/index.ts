@@ -61,7 +61,9 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
 
   console.log('Preparing the FHIR batch request.');
 
-  const practitionerIds = allEmployees.map((employee) => employee.profile.split('/')[1]);
+  const practitionerIds = allEmployees
+    .filter((employee) => employee.profile?.startsWith('Practitioner/'))
+    .map((employee) => employee.profile.split('/')[1]);
   const encounterCutDate = DateTime.now().minus({ minutes: 30 }).toFormat("yyyy-MM-dd'T'HH:mm");
   const getResourcesRequest = getResourcesFromBatchInlineRequests(oystehr, [
     `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension,telecom`,
@@ -102,8 +104,11 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
 
   const employeeDetails: EmployeeDetails[] = allEmployees.map((employee) => {
     const status = inactiveMemberIds?.includes(employee.id) ? 'Deactivated' : 'Active';
-    const practitionerId = employee.profile.split('/')[1];
-    const practitioner = resources.find((resource) => resource.id === practitionerId) as Practitioner | undefined;
+    const hasPractitionerProfile = employee.profile?.startsWith('Practitioner/');
+    const practitionerId = hasPractitionerProfile ? employee.profile.split('/')[1] : undefined;
+    const practitioner = practitionerId
+      ? (resources.find((resource) => resource.id === practitionerId) as Practitioner | undefined)
+      : undefined;
 
     const phone = practitioner?.telecom?.find((telecom) => telecom.system === 'sms')?.value;
 
@@ -141,6 +146,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       seenPatientRecently: recentlyActivePractitioners.includes(employee.profile),
       gettingAlerts:
         notificationSettings?.taskNotificationsEnabled || notificationSettings?.telemedNotificationsEnabled || false,
+      needsReview: !hasPractitionerProfile,
     };
   });
 
@@ -154,9 +160,9 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
 
 async function getEmployees(oystehr: Oystehr): Promise<UserListItem[]> {
   console.log('Getting all employees..');
-  const allEmployees = (await oystehr.user.list()).filter(
-    (user) => !user.name.startsWith('+') && user.profile.includes('Practitioner')
-  );
+  // Include email-based users even when they have no Practitioner profile
+  // (e.g. self-signup users stuck on the Patient role), so admins can reclassify them.
+  const allEmployees = (await oystehr.user.list()).filter((user) => !user.name.startsWith('+'));
   return allEmployees;
 }
 

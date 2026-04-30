@@ -238,6 +238,12 @@ export const isAppointmentUrgentCare = (appointment: Appointment): boolean => {
   return serviceCategory === 'urgent-care';
 };
 
+export const isAppointmentAutoAccident = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  const { reasonForVisit } = getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+  return serviceCategory === 'urgent-care' && reasonForVisit === 'Auto accident';
+};
+
 export const getCancellationReasonDisplay = (appointment?: Appointment): string | undefined => {
   if (!appointment?.cancelationReason?.coding?.[0]) {
     return undefined;

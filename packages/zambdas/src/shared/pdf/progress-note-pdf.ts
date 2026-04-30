@@ -28,6 +28,7 @@ import {
   composeProcedures,
   composeProgressNoteVisitDetails,
   composeReviewOfSystems,
+  composeRosObservations,
   composeSurgicalHistory,
   composeVitals,
   createAdditionalQuestionsSection,
@@ -55,6 +56,7 @@ import {
   createProgressNotePatientInfoSection,
   createProgressNoteVisitDetailsSection,
   createReviewOfSystemsSection,
+  createRosObservationsSection,
   createSurgicalHistorySection,
   createVitalsSection,
 } from './sections';
@@ -101,6 +103,7 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
     }),
     immunizationOrders: composeImmunizationOrders({
       allChartData,
+      appointmentPackage,
     }),
     inHouseLabs: composeInHouseLabs({
       allChartData,
@@ -115,6 +118,10 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
       allChartData,
     }),
     vitals: composeVitals({
+      allChartData,
+      appointmentPackage,
+    }),
+    rosObservations: composeRosObservations({
       allChartData,
       appointmentPackage,
     }),
@@ -136,6 +143,7 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
     }),
     procedures: composeProcedures({
       allChartData,
+      appointmentPackage,
     }),
     prescriptions: composePrescriptions({
       allChartData,
@@ -303,6 +311,7 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
     createHistoryOfPresentIllnessSection(),
     createMechanismOfInjurySection(),
     createReviewOfSystemsSection(),
+    createRosObservationsSection(),
     createMedicationsSection(),
     createAllergiesSection(),
     createMedicalConditionsSection(),

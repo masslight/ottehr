@@ -13,13 +13,15 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useMemo, useState } from 'react';
+import { FC, useCallback, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { sortByRecencyAndStatus } from 'src/helpers';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedMedicalConditionQuickPicks } from 'src/hooks/useMergedQuickPicks';
-import { IcdSearchResponse, isTelemedAppointment, MedicalConditionDTO } from 'utils';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
+import { IcdSearchResponse, isTelemedAppointment, MedicalConditionDTO, MedicalConditionQuickPickData } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useICD10SearchNew } from '../../../stores/appointment/appointment.queries';
@@ -306,6 +308,26 @@ const AddMedicalConditionField: FC = () => {
     };
     await handleSelectOption(quickPickAsIcdCode);
   };
+
+  const handleQuickPickSelectRef = useRef(handleQuickPickSelect);
+  handleQuickPickSelectRef.current = handleQuickPickSelect;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      conditionQuickPicks.map((quickPick) => ({
+        id: `condition-${quickPick.id ?? quickPick.code ?? quickPick.display}`,
+        label: `${quickPick.code ? `${quickPick.code} ` : ''}${quickPick.display}`,
+        category: 'Add Medical Condition',
+        onSelect: () => void handleQuickPickSelectRef.current(quickPick),
+      })),
+    [conditionQuickPicks]
+  );
+  useCommandPaletteSource('medical-condition-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback((payload: MedicalConditionQuickPickData) => {
+    void handleQuickPickSelectRef.current(payload as (typeof conditionQuickPicks)[number]);
+  }, []);
+  usePendingQuickPick('medical-conditions', handlePendingQuickPick);
 
   if (isChartDataLoading) {
     return <Skeleton variant="rectangular" width="100%" height={56} />;
