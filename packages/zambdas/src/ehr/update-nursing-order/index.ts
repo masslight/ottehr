@@ -34,8 +34,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
-  const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-  const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
+  const _practitionerIdFromCurrentUser = await getMyPractitionerId(userToken, secrets);
 
   const nursingOrderResourcesRequest = async (): Promise<(ServiceRequest | Task)[]> =>
     (
@@ -56,8 +55,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
   const userPractitionerIdRequest = async (): Promise<string> => {
     try {
-      const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-      return await getMyPractitionerId(oystehrCurrentUser);
+      return await getMyPractitionerId(validatedParameters.userToken, validatedParameters.secrets);
     } catch {
       throw Error('Resource configuration error - user creating this order must have a Practitioner resource linked');
     }

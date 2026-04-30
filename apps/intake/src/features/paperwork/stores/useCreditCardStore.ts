@@ -7,7 +7,7 @@ interface CardState {
   error?: { message: string };
 }
 
-interface CreditCardState {
+interface CreditCardStateValues {
   cardFormRef: RefObject<AddCreditCardFormHandle> | null;
   isSavingCard: boolean;
   cardSaveError: string | undefined;
@@ -19,7 +19,9 @@ interface CreditCardState {
   clearFieldErrors: ((fieldId: string) => void) | null;
   setFieldError: ((fieldId: string, message: string) => void) | null;
   hasSavedCards: boolean;
+}
 
+interface CreditCardState extends CreditCardStateValues {
   initializeContext: (params: {
     cardFormRef: RefObject<AddCreditCardFormHandle>;
     fieldId: string;
@@ -39,9 +41,10 @@ interface CreditCardState {
   getCardState: () => CardState | null;
   saveCard: () => Promise<{ success: boolean; error?: string }>;
   isCreditCardFieldRequired: () => boolean;
+  reset: () => void;
 }
 
-export const useCreditCardStore = create<CreditCardState>((set, get) => ({
+const INITIAL_CREDIT_CARD_STATE: CreditCardStateValues = {
   cardFormRef: null,
   isSavingCard: false,
   cardSaveError: undefined,
@@ -53,6 +56,10 @@ export const useCreditCardStore = create<CreditCardState>((set, get) => ({
   clearFieldErrors: null,
   setFieldError: null,
   hasSavedCards: false,
+};
+
+export const useCreditCardStore = create<CreditCardState>((set, get) => ({
+  ...INITIAL_CREDIT_CARD_STATE,
 
   initializeContext: ({ cardFormRef, fieldId, onChange, required, value, clearErrors, setError, hasSavedCards }) => {
     set({
@@ -101,4 +108,6 @@ export const useCreditCardStore = create<CreditCardState>((set, get) => ({
     const { isCreditCardRequired } = get();
     return isCreditCardRequired;
   },
+
+  reset: () => set(INITIAL_CREDIT_CARD_STATE),
 }));

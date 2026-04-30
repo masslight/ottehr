@@ -193,8 +193,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const userPractitionerIdRequest = async (): Promise<string> => {
       try {
-        const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-        return await getMyPractitionerId(oystehrCurrentUser);
+        return await getMyPractitionerId(validatedParameters.userToken, validatedParameters.secrets);
       } catch {
         throw Error(
           'Resource configuration error - user creating this in-house lab order must have a Practitioner resource linked'

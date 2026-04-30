@@ -85,8 +85,7 @@ export const index = wrapHandler('create-nursing-order', async (input: ZambdaInp
 
   const userPractitionerIdRequest = async (): Promise<string> => {
     try {
-      const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-      return await getMyPractitionerId(oystehrCurrentUser);
+      return await getMyPractitionerId(userToken, secrets);
     } catch {
       throw Error('Resource configuration error - user creating this order must have a Practitioner resource linked');
     }
