@@ -130,8 +130,7 @@
         "diagnosisCode": "R05.9",
         "stat": false,
         "clinicalHistory": "Sore throat with cervical adenopathy; rule out infectious source",
-        "consentObtained": true,
-        "preliminaryReport": "No acute cardiopulmonary process. Heart size normal. Lungs clear."
+        "consentObtained": true
       }
     ],
     "immunizations": [
