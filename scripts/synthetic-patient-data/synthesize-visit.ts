@@ -29,10 +29,19 @@
  *               specimen. Final result entry (handle-in-house-lab-results)
  *               not yet wired — needs ResultEntryInput keyed by
  *               observationDefinitionId from testItem.components.
+ *   Phase 7   — In-house medication orders (resolves Medication by name,
+ *               maps route abbreviations to SNOMED).
+ *   Phase 8   — Immunization orders (create + administer).
+ *   Phase 9   — Radiology orders (create + preliminary report).
+ *   Phase 13  — Visit-status walk + intake-practitioner assignment:
+ *               arrived → ready → intake → ready for provider → provider
+ *               → discharged → completed.
+ *   Phase 14  — Sign-off (sign-appointment, locks the visit, triggers
+ *               visit-note PDF subscription).
  *
- * Phase 2 and Phases 7+ are plan-only — they log what they would do but do
- * NOT write to the FHIR datastore. They will be enabled progressively as
- * each is verified.
+ * Phase 2 (Z3 fixture uploads), Phase 10 (eligibility/pricing), Phase 11
+ * (appointment notes), and Phase 12 (patient education) are plan-only —
+ * they log what they would do but do NOT write to the FHIR datastore.
  *
  * Use --execute against an environment to validate connectivity end-to-end
  * through Phase 1, producing a real Patient + Appointment + Encounter on the
@@ -1064,48 +1073,157 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
   }
 }
 
-// ── Phase 7 — in-house medications (plan-only) ───────────────────────────────
+// ── Phase 7 — in-house medications ───────────────────────────────────────────
+
+/** Map common route abbreviations to SNOMED codes that the zambda accepts. */
+const ROUTE_SNOMED_MAP: Record<string, string> = {
+  PO: '26643006',
+  ORAL: '26643006',
+  IV: '47625008',
+  IM: '78421000',
+  SC: '34206005',
+  TOPICAL: '6064005',
+};
+
+async function resolveMedicationId(ctx: SynthesisContext, name: string): Promise<string | undefined> {
+  if (!ctx.oystehr) return undefined;
+  // Try identifier match first (Ottehr's getMedicationByName uses Medication.identifier)
+  for (const param of ['identifier', 'code']) {
+    try {
+      const result = await ctx.oystehr.fhir.search<{ id?: string }>({
+        resourceType: 'Medication',
+        params: [{ name: param, value: name }],
+      });
+      const m = (result.unbundle() as Array<{ id?: string }>)[0];
+      if (m?.id) return m.id;
+    } catch {
+      /* try next param */
+    }
+  }
+  return undefined;
+}
 
 async function phase7_inHouseMedications(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   if (!s.modules?.inHouseMedications?.length) return;
 
   startPhase('In-house medication orders');
+  const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
+
   for (const med of s.modules.inHouseMedications) {
-    logCall('create-update-medication-order', {
+    const medicationId = ctx.mode === 'execute' ? await resolveMedicationId(ctx, med.medicationName) : undefined;
+    const routeCode = ROUTE_SNOMED_MAP[(med.route ?? '').toUpperCase()] ?? med.route;
+
+    const body = {
       orderId: null,
       newStatus: med.administered ? 'administered' : 'pending',
       orderData: {
-        medicationId: `<resolved from "${med.medicationName}">`,
+        patient: ctx.patientId,
+        encounter: ctx.encounterId,
+        medicationId: medicationId ?? `<unresolved: ${med.medicationName}>`,
         dose: med.dose,
         units: med.units,
-        route: med.route,
-        effectiveDateTime: med.effectiveDateTime,
+        route: routeCode,
+        ...(med.effectiveDateTime ? { effectiveDateTime: med.effectiveDateTime } : {}),
       },
-    });
+    };
+    logCall('create-update-medication-order', body);
+
+    if (ctx.mode === 'execute' && ctx.oystehr) {
+      if (!medicationId) {
+        console.warn(`  ⚠ medication "${med.medicationName}" not found in formulary — skipping order`);
+        continue;
+      }
+      // Routed to local: cloud-deployed zambda lacks the OTR-2428 fix.
+      const res = await fetch(`${localZambdaApi}/zambda/create-update-medication-order/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${ctx.accessToken}`,
+          'x-zapehr-project-id': ctx.projectId ?? '',
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        console.warn(`  ⚠ create-update-medication-order failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+      } else {
+        logNote(`order created for ${med.medicationName}`);
+      }
+    }
   }
 }
 
-// ── Phase 8 — immunizations (plan-only) ──────────────────────────────────────
+// ── Phase 8 — immunizations ──────────────────────────────────────────────────
 
 async function phase8_immunizations(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   if (!s.modules?.immunizations?.length) return;
 
   startPhase('Immunization orders');
+  const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
+
   for (const imm of s.modules.immunizations) {
-    logCall('immunization/create-update-order', {
+    const medicationId = ctx.mode === 'execute' ? await resolveMedicationId(ctx, imm.vaccineName) : undefined;
+
+    const orderBody = {
       details: {
-        encounterId: ctx.encounterId ?? '<from Phase 1>',
-        medication: { id: `<resolved from "${imm.vaccineName}">`, name: imm.vaccineName },
+        encounterId: ctx.encounterId,
+        medication: { id: medicationId ?? '<unresolved>', name: imm.vaccineName },
         dose: imm.dose,
         units: imm.units,
         route: imm.route,
         location: imm.location,
       },
-    });
-    if (imm.administered) {
-      logCall('immunization/administer-order', {
+    };
+    logCall('create-update-immunization-order', orderBody);
+
+    if (ctx.mode === 'execute' && ctx.oystehr) {
+      if (!medicationId) {
+        console.warn(`  ⚠ vaccine "${imm.vaccineName}" not found in catalog — skipping immunization order`);
+        continue;
+      }
+      const res = await fetch(`${localZambdaApi}/zambda/create-update-immunization-order/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${ctx.accessToken}`,
+          'x-zapehr-project-id': ctx.projectId ?? '',
+        },
+        body: JSON.stringify(orderBody),
+      });
+      if (!res.ok) {
+        console.warn(`  ⚠ create-update-immunization-order failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+        continue;
+      }
+      const orderJson = (await res.json()) as { output?: { id?: string }; id?: string };
+      const orderId = orderJson.output?.id ?? orderJson.id;
+      logNote(`order created for ${imm.vaccineName} → ${orderId}`);
+
+      if (imm.administered && orderId) {
+        const adminBody = {
+          orderId,
+          administrationDetails: { dose: { value: parseFloat(imm.dose), unit: imm.units } },
+        };
+        logCall('administer-immunization-order', adminBody);
+        const adminRes = await fetch(`${localZambdaApi}/zambda/administer-immunization-order/execute`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${ctx.accessToken}`,
+            'x-zapehr-project-id': ctx.projectId ?? '',
+          },
+          body: JSON.stringify(adminBody),
+        });
+        if (!adminRes.ok) {
+          console.warn(
+            `  ⚠ administer-immunization-order failed: ${adminRes.status} ${(await adminRes.text()).slice(0, 200)}`
+          );
+        } else {
+          logNote(`administered`);
+        }
+      }
+    } else if (imm.administered) {
+      logCall('administer-immunization-order', {
         orderId: '<from prior>',
         administrationDetails: { dose: { value: parseFloat(imm.dose), unit: imm.units } },
       });
@@ -1120,19 +1238,62 @@ async function phase9_radiology(ctx: SynthesisContext): Promise<void> {
   if (!s.modules?.radiology?.length) return;
 
   startPhase('Radiology orders');
+
   for (const rad of s.modules.radiology) {
-    logCall('radiology/create-order', {
-      encounterId: ctx.encounterId ?? '<from Phase 1>',
+    const orderBody = {
+      encounterId: ctx.encounterId,
       cptCode: rad.cptCode,
       diagnosisCode: rad.diagnosisCode,
       stat: rad.stat,
       clinicalHistory: rad.clinicalHistory,
       consentObtained: rad.consentObtained,
-      studyName: rad.studyName,
-      lateralityModifier: rad.lateralityModifier,
-    });
-    if (rad.preliminaryReport) {
-      logCall('radiology/save-preliminary-report', {
+      ...(rad.studyName ? { studyName: rad.studyName } : {}),
+      ...(rad.lateralityModifier ? { lateralityModifier: rad.lateralityModifier } : {}),
+    };
+    logCall('radiology-create-order', orderBody);
+
+    if (ctx.mode === 'execute' && ctx.oystehr) {
+      // radiology/* zambdas don't use user.me() so cloud routing works.
+      const res = await fetch(`${ctx.zambdaApi}/zambda/radiology-create-order/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${ctx.accessToken}`,
+          'x-zapehr-project-id': ctx.projectId ?? '',
+        },
+        body: JSON.stringify(orderBody),
+      });
+      if (!res.ok) {
+        console.warn(`  ⚠ radiology-create-order failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+        continue;
+      }
+      const orderJson = (await res.json()) as {
+        output?: { serviceRequestId?: string };
+        serviceRequestId?: string;
+      };
+      const serviceRequestId = orderJson.output?.serviceRequestId ?? orderJson.serviceRequestId;
+      logNote(`radiology order → ${serviceRequestId}`);
+
+      if (rad.preliminaryReport && serviceRequestId) {
+        const reportBody = { serviceRequestId, conclusion: rad.preliminaryReport };
+        logCall('radiology-save-preliminary-report', reportBody);
+        const rRes = await fetch(`${ctx.zambdaApi}/zambda/radiology-save-preliminary-report/execute`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${ctx.accessToken}`,
+            'x-zapehr-project-id': ctx.projectId ?? '',
+          },
+          body: JSON.stringify(reportBody),
+        });
+        if (!rRes.ok) {
+          console.warn(`  ⚠ save-preliminary-report failed: ${rRes.status} ${(await rRes.text()).slice(0, 200)}`);
+        } else {
+          logNote(`preliminary report saved`);
+        }
+      }
+    } else if (rad.preliminaryReport) {
+      logCall('radiology-save-preliminary-report', {
         serviceRequestId: '<from prior>',
         conclusion: rad.preliminaryReport,
       });
@@ -1187,34 +1348,121 @@ async function phase12_patientEducation(ctx: SynthesisContext): Promise<void> {
   }
 }
 
-// ── Phase 13 — visit-status walk + practitioner assignment (plan-only) ───────
+// ── Phase 13 — visit-status walk + practitioner assignment ───────────────────
+
+async function changeStatus(ctx: SynthesisContext, status: string): Promise<void> {
+  if (!ctx.oystehr) return;
+  const body = { encounterId: ctx.encounterId, updatedStatus: status };
+  // change-in-person-visit-status doesn't use user.me() — cloud routing OK.
+  const res = await fetch(`${ctx.zambdaApi}/zambda/change-in-person-visit-status/execute`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${ctx.accessToken}`,
+      'x-zapehr-project-id': ctx.projectId ?? '',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`change-in-person-visit-status (${status}) failed: ${res.status}\n${await res.text()}`);
+  }
+}
+
+async function assignIntakePractitioner(ctx: SynthesisContext): Promise<void> {
+  if (!ctx.oystehr || !ctx.intakeStaffId) return;
+  const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
+  const body = {
+    encounterId: ctx.encounterId,
+    practitionerId: ctx.intakeStaffId,
+    userRole: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ADM' }],
+  };
+  // assign-practitioner has the OTR-2428 fix locally; cloud not yet — route local.
+  const res = await fetch(`${localZambdaApi}/zambda/assign-practitioner/execute`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${ctx.accessToken}`,
+      'x-zapehr-project-id': ctx.projectId ?? '',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`assign-practitioner (ADM) failed: ${res.status}\n${await res.text()}`);
+  }
+}
 
 async function phase13_statusWalk(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   if (s.signOff?.complete === false) return;
 
   startPhase('Visit-status walk + practitioner assignment');
-  logNote('change-in-person-visit-status: arrived → ready');
-  logNote('assign-practitioner (intake staff, ADM)');
-  logNote('change-in-person-visit-status: ready → intake → ready for provider');
-  logNote('assign-practitioner (attending provider, ATND)');
-  logNote('change-in-person-visit-status: ready for provider → provider → discharged → completed');
+
+  if (ctx.mode !== 'execute' || !ctx.oystehr) {
+    logNote('change-in-person-visit-status: arrived → ready');
+    logNote('assign-practitioner (intake staff, ADM)');
+    logNote('change-in-person-visit-status: ready → intake → ready for provider');
+    logNote('change-in-person-visit-status: ready for provider → provider → discharged → completed');
+    return;
+  }
+
+  // arrived → ready
+  await changeStatus(ctx, 'ready');
+  logNote('status → ready');
+
+  // assign intake staff before transitioning to intake
+  await assignIntakePractitioner(ctx);
+  logNote('intake staff assigned (ADM)');
+
+  // ready → intake → ready for provider
+  await changeStatus(ctx, 'intake');
+  logNote('status → intake');
+  await changeStatus(ctx, 'ready for provider');
+  logNote('status → ready for provider');
+
+  // attending was already assigned in Phase 1.7 — no need to reassign
+  // ready for provider → provider → discharged → completed
+  await changeStatus(ctx, 'provider');
+  logNote('status → provider');
+  await changeStatus(ctx, 'discharged');
+  logNote('status → discharged');
+  await changeStatus(ctx, 'completed');
+  logNote('status → completed');
 }
 
-// ── Phase 14 — sign-off (plan-only) ──────────────────────────────────────────
+// ── Phase 14 — sign-off ──────────────────────────────────────────────────────
 
 async function phase14_signOff(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   if (s.signOff?.complete === false) return;
 
   startPhase('Sign-off');
-  logCall('sign-appointment', {
-    appointmentId: ctx.appointmentId ?? '<from Phase 1>',
-    encounterId: ctx.encounterId ?? '<from Phase 1>',
-    timezone: s.signOff?.timezone,
-    supervisorApprovalEnabled: s.signOff?.supervisorApproval,
-  });
-  logNote('triggers visit-note PDF subscription → DocumentReference in visit-notes Z3 bucket');
+  const body = {
+    appointmentId: ctx.appointmentId,
+    encounterId: ctx.encounterId,
+    ...(s.signOff?.timezone ? { timezone: s.signOff.timezone } : {}),
+    ...(s.signOff?.supervisorApproval !== undefined ? { supervisorApprovalEnabled: s.signOff.supervisorApproval } : {}),
+  };
+  logCall('sign-appointment', body);
+
+  if (ctx.mode === 'execute' && ctx.oystehr) {
+    // sign-appointment has the OTR-2428 fix locally; cloud not yet — route local.
+    const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
+    const res = await fetch(`${localZambdaApi}/zambda/sign-appointment/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ctx.accessToken}`,
+        'x-zapehr-project-id': ctx.projectId ?? '',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(`sign-appointment failed: ${res.status}\n${await res.text()}`);
+    }
+    logNote('appointment signed — visit-note PDF subscription triggered');
+  } else {
+    logNote('triggers visit-note PDF subscription → DocumentReference in visit-notes Z3 bucket');
+  }
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -1281,11 +1529,9 @@ async function main(): Promise<void> {
   console.log(`-- end of plan (${phaseCounter} phases) --`);
   if (isExecute) {
     console.log('');
-    console.log('Mode summary: --execute performed Phase 0 lookups, Phase 0.5 (create slot),');
-    console.log('Phase 1 (create-appointment), Phase 3 (save-chart-data Pass 1), Phase 4');
-    console.log('(apply-template), and Phase 5 (procedures + disposition) against the live');
-    console.log('environment. Phase 2 and Phases 6+ were planned only — no further FHIR');
-    console.log('writes were performed.');
+    console.log('Mode summary: --execute ran the synthesis pipeline through sign-off.');
+    console.log('Phases 2 (Z3 uploads), 10 (eligibility/pricing), 11 (notes), and 12 (patient');
+    console.log('education) are plan-only.');
     console.log('');
     console.log('Resolved IDs:');
     if (ctx.locationId) console.log(`  Location:                ${ctx.locationId}`);
