@@ -49,8 +49,13 @@ export const AdditionalQuestionEdit = ({
   const onChange = (newFhirValue: string, fhirField: string): void => {
     const currentObservation = chartData?.observations?.find((observation) => observation.field === fhirField);
 
-    const newValue = isBooleanShaped ? convertToBoolean(newFhirValue) : newFhirValue;
-
+    let newValue: string | boolean | undefined;
+    if (isBooleanShaped) {
+      newValue = convertToBoolean(newFhirValue);
+      if (newValue === undefined) return;
+    } else {
+      newValue = newFhirValue;
+    }
     if (currentObservation?.value === newValue) return;
 
     const updatedObservation = (
