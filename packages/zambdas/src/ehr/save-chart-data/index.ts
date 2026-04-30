@@ -56,7 +56,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
+import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import {
@@ -513,14 +513,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('Updated chart data as a transaction');
 
-    const postChangeTasks = getChartDataPostChangeTasks({ addendumNote }, encounter, appointment?.id);
-    if (postChangeTasks.length > 0) {
-      try {
-        await Promise.all(postChangeTasks.map((task) => oystehr.fhir.create(task)));
-      } catch (taskError) {
-        console.error('Failed to create post-change task(s); chart data was saved successfully:', taskError);
-      }
-    }
+    await runChartDataPostChangeTasks(oystehr, addendumNote, encounter, appointment?.id);
 
     console.timeLog('time', 'before sorting resources');
     const output = validateBundleAndExtractSavedChartData(

@@ -37,7 +37,7 @@ import {
   deleteEncounterDiagnosis,
   updateEncounterDischargeDisposition,
 } from '../../shared/chart-data';
-import { getChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
+import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
 import { createOystehrClient } from '../../shared/helpers';
 import { deleteZ3Object } from '../../shared/z3Utils';
 import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
@@ -322,14 +322,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     console.log('Updated chart data as a transaction');
 
     const appointment = allResources.find((res) => res.resourceType === 'Appointment');
-    const postChangeTasks = getChartDataPostChangeTasks({ addendumNote }, encounter, appointment?.id);
-    if (postChangeTasks.length > 0) {
-      try {
-        await Promise.all(postChangeTasks.map((task) => oystehr.fhir.create(task)));
-      } catch (taskError) {
-        console.error('Failed to create post-change task(s); chart data was deleted successfully:', taskError);
-      }
-    }
+    await runChartDataPostChangeTasks(oystehr, addendumNote, encounter, appointment?.id);
 
     // perform deleting z3 pdf objects after deleting all fhir resources
     if (schoolWorkNotes) {

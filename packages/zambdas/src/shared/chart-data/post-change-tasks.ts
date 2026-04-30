@@ -1,3 +1,5 @@
+import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Encounter, Task } from 'fhir/r4b';
 import { FreeTextNoteDTO, getTaskResource, TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskIndicator } from 'utils';
 
@@ -36,4 +38,21 @@ export function getChartDataPostChangeTasks(
   }
 
   return tasks;
+}
+
+export async function runChartDataPostChangeTasks(
+  oystehr: Oystehr,
+  addendumNote: FreeTextNoteDTO | undefined,
+  encounter: Encounter,
+  appointmentId: string | undefined
+): Promise<void> {
+  const postChangeTasks = getChartDataPostChangeTasks({ addendumNote }, encounter, appointmentId);
+  if (postChangeTasks.length === 0) return;
+
+  const results = await Promise.allSettled(postChangeTasks.map((task) => oystehr.fhir.create(task)));
+  const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+  for (const failure of failures) {
+    console.error('Failed to create post-change task; primary chart-data operation succeeded:', failure.reason);
+    captureException(failure.reason);
+  }
 }
