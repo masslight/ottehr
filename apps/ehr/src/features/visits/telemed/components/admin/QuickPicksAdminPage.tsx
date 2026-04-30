@@ -482,7 +482,7 @@ export default function QuickPicksAdminPage(): ReactElement {
         <TabPanel value="patient-instructions" sx={{ px: 0 }}>
           <QuickPickEditor<PatientInstructionQuickPickData>
             title="Patient Instruction Quick Picks"
-            description="Manage instruction templates that appear as Team Quick Picks in the Plan / Patient Instructions section."
+            description="Manage instruction templates that appear as Practice Quick Picks in the Plan / Patient Instructions section."
             columns={[
               { label: 'Title', getValue: (item) => item.name },
               { label: 'Instruction', getValue: (item) => item.text },

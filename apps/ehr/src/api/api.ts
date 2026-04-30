@@ -2384,7 +2384,7 @@ export const removeInHouseMedicationQuickPick = async (
   }
 };
 
-// ── Patient Instruction Quick Picks (Team Quick Picks) ──
+// ── Patient Instruction Quick Picks (Practice Quick Picks) ──
 
 export const getPatientInstructionQuickPicks = async (
   oystehr: Oystehr

@@ -25,7 +25,7 @@ import {
   useGetPatientInstructions,
 } from '../../../stores/appointment/appointment.queries';
 
-export type PatientInstructionsTemplatesDialogSource = 'myTemplates' | 'teamQuickPicks';
+export type PatientInstructionsTemplatesDialogSource = 'myTemplates' | 'practiceQuickPicks';
 
 type MyTemplatesDialogProps = {
   open: boolean;
@@ -53,8 +53,8 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
     { enabled: isMyTemplates }
   );
 
-  const { isFetching: isFetchingTeamQuickPicks, data: teamQuickPicks } = useQuery({
-    queryKey: ['team-patient-instruction-quick-picks'],
+  const { isFetching: isFetchingPracticeQuickPicks, data: practiceQuickPicks } = useQuery({
+    queryKey: ['practice-patient-instruction-quick-picks'],
     queryFn: async () => {
       const response = await getPatientInstructionQuickPicks(oystehrZambda!);
       return response.quickPicks;
@@ -64,9 +64,9 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
 
   useEffect(() => {
     if (isMyTemplates) return;
-    if (!teamQuickPicks) return;
+    if (!practiceQuickPicks) return;
     setPatientInstructions(
-      [...teamQuickPicks]
+      [...practiceQuickPicks]
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((qp) => ({
           resourceId: qp.id,
@@ -74,9 +74,9 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
           text: qp.text,
         }))
     );
-  }, [isMyTemplates, teamQuickPicks]);
+  }, [isMyTemplates, practiceQuickPicks]);
 
-  const isFetching = isMyTemplates ? isFetchingMyTemplates : isFetchingTeamQuickPicks;
+  const isFetching = isMyTemplates ? isFetchingMyTemplates : isFetchingPracticeQuickPicks;
 
   const { mutate, isPending: isDeleting } = useDeletePatientInstruction();
   const queryClient = useQueryClient();
@@ -111,7 +111,7 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
       <DialogTitle component="div" sx={{ p: 3, pb: 2, display: 'flex', alignItems: 'flex-start' }}>
         <Typography variant="h4" color={theme.palette.primary.dark} sx={{ flex: 1 }}>
-          {isMyTemplates ? 'My Quick Picks' : 'Team Quick Picks'}
+          {isMyTemplates ? 'My Quick Picks' : 'Practice Quick Picks'}
         </Typography>
         <IconButton size="small" onClick={onClose}>
           <Close fontSize="small" />
@@ -120,7 +120,7 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
       <Divider />
       <Box sx={{ px: 3, pt: 3, pb: 2 }}>
         <TextField
-          placeholder="Search templates"
+          placeholder={isMyTemplates ? 'Search My Quick Picks' : 'Search Practice Quick Picks'}
           fullWidth
           value={searchTerm}
           onChange={(event: ChangeEvent<HTMLInputElement>) => {

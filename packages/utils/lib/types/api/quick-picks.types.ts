@@ -200,7 +200,7 @@ export type GetInHouseMedicationQuickPicksResponse = QuickPickListResponse<InHou
 export type RemoveInHouseMedicationQuickPickInput = QuickPickRemoveInput;
 export type RemoveInHouseMedicationQuickPickResponse = QuickPickRemoveResponse;
 
-// ── Patient Instruction Quick Picks (Team Quick Picks) ──
+// ── Patient Instruction Quick Picks (Practice Quick Picks) ──
 
 export interface PatientInstructionQuickPickData {
   id?: string;

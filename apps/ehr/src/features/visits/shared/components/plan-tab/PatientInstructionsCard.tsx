@@ -16,7 +16,7 @@ import { PatientInstructionsTemplatesDialog } from './components/PatientInstruct
 export const PatientInstructionsCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [myTemplatesOpen, setMyTemplatesOpen] = useState(false);
-  const [teamQuickPicksOpen, setTeamQuickPicksOpen] = useState(false);
+  const [practiceQuickPicksOpen, setPracticeQuickPicksOpen] = useState(false);
   const [instruction, setInstruction] = useState('');
   const [instructionTitle, setInstructionTitle] = useState('');
   const { mutate: savePatientInstruction, isPending: isSavePatientInstructionLoading } = useSavePatientInstruction();
@@ -141,13 +141,13 @@ export const PatientInstructionsCard: FC = () => {
                     onChange={(e) => setInstruction(e.target.value)}
                     size="small"
                     label="Instruction"
-                    placeholder="Enter a new instruction or select from My Quick Picks or Team Quick Picks"
+                    placeholder="Enter a new instruction or select from My Quick Picks or Practice Quick Picks"
                     multiline
                     fullWidth
                   />
                 </Box>
                 <RoundedButton onClick={() => setMyTemplatesOpen(true)}>My Quick Picks</RoundedButton>
-                <RoundedButton onClick={() => setTeamQuickPicksOpen(true)}>Team Quick Picks</RoundedButton>
+                <RoundedButton onClick={() => setPracticeQuickPicksOpen(true)}>Practice Quick Picks</RoundedButton>
               </Box>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <RoundedButton
@@ -205,11 +205,11 @@ export const PatientInstructionsCard: FC = () => {
           }}
         />
       )}
-      {teamQuickPicksOpen && (
+      {practiceQuickPicksOpen && (
         <PatientInstructionsTemplatesDialog
-          open={teamQuickPicksOpen}
-          onClose={() => setTeamQuickPicksOpen(false)}
-          source="teamQuickPicks"
+          open={practiceQuickPicksOpen}
+          onClose={() => setPracticeQuickPicksOpen(false)}
+          source="practiceQuickPicks"
           onSelect={(value) => {
             setInstruction(value.text ?? '');
             setInstructionTitle(value.title ?? '');
