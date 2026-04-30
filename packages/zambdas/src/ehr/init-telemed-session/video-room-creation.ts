@@ -49,25 +49,28 @@ const updateVideoRoomEncounter = (
   relatedPersons: RelatedPerson[],
   startTime: DateTime = DateTime.now()
 ): Encounter => {
+  const wasAlreadyInProgress = encounter.status === 'in-progress';
   encounter.status = 'in-progress';
   const startTimeIso = startTime.toUTC().toISO()!;
 
   encounter.statusHistory ??= [];
 
-  const previousStatus = encounter.statusHistory?.[encounter.statusHistory?.length - 1];
-  if (previousStatus) {
-    previousStatus.period = {
-      ...previousStatus.period,
-      end: startTimeIso!,
-    };
-  }
+  if (!wasAlreadyInProgress) {
+    const previousStatus = encounter.statusHistory[encounter.statusHistory.length - 1];
+    if (previousStatus) {
+      previousStatus.period = {
+        ...previousStatus.period,
+        end: startTimeIso,
+      };
+    }
 
-  encounter.statusHistory?.push({
-    status: encounter.status,
-    period: {
-      start: startTimeIso!,
-    },
-  });
+    encounter.statusHistory.push({
+      status: encounter.status,
+      period: {
+        start: startTimeIso,
+      },
+    });
+  }
 
   encounter.participant ??= [];
 
