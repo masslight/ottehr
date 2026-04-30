@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, MISSING_REQUIRED_PARAMETERS, Secrets, SecretsKeys } from 'utils';
+import { getSecret, MISSING_REQUIRED_PARAMETERS, sanitizeForZ3Path, Secrets, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 
 const ZAMBDA_NAME = 'ehr-search-legacy-records';
@@ -58,12 +58,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const bucketName = `${projectId}-${LEGACY_DATA_BUCKET_SUFFIX}`;
 
   // Build prefix from search parameters (all lowercased)
-  const parts: string[] = [lastName.toLowerCase().trim()];
+  const parts: string[] = [sanitizeForZ3Path(lastName.toLowerCase().trim())];
   if (firstName?.trim()) {
-    parts.push(firstName.toLowerCase().trim());
+    parts.push(sanitizeForZ3Path(firstName.toLowerCase().trim()));
   }
   if (dateOfBirth?.trim()) {
-    parts.push(dateOfBirth.trim());
+    parts.push(sanitizeForZ3Path(dateOfBirth.trim()));
   }
   const prefix = parts.join('_');
 

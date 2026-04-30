@@ -26,6 +26,7 @@ import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { sanitizeForZ3Path } from 'utils';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -109,12 +110,12 @@ function parseFolderName(folderName: string): { z3Prefix: string; patientId: str
   }
 
   const patientId = parts[0];
-  const lastName = parts[1].toLowerCase();
-  const firstName = parts[2].toLowerCase();
+  const lastName = sanitizeForZ3Path(parts[1].toLowerCase());
+  const firstName = sanitizeForZ3Path(parts[2].toLowerCase());
   // DOB is everything after the first 3 underscore-separated parts
-  const dob = parts.slice(3).join('-');
+  const dob = sanitizeForZ3Path(parts.slice(3).join('-'));
 
-  const z3Prefix = `${lastName}_${firstName}_${dob}/${patientId}`;
+  const z3Prefix = `${lastName}_${firstName}_${dob}/${sanitizeForZ3Path(patientId)}`;
   return { z3Prefix, patientId };
 }
 
