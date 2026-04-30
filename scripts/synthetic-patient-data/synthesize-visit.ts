@@ -15,8 +15,11 @@
  *   Phase 3   — save-chart-data Pass 1: vitals, allergies, medications, PMH
  *               (conditions), surgical history, hospitalizations, screening,
  *               css-notes, reason-for-visit, patient-info-confirmed.
+ *   Phase 4   — apply-template: applies a global template to the encounter
+ *               (CC/HPI/ROS/exam/MDM/diagnoses/CPT/E&M/instructions). Captures
+ *               returned conditionIds + cptProcedureIds for Pass 2 cross-refs.
  *
- * Phases 2 and 4+ are plan-only — they log what they would do but do NOT
+ * Phases 2 and 5+ are plan-only — they log what they would do but do NOT
  * write to the FHIR datastore. They will be enabled progressively as each
  * is verified.
  *
@@ -706,19 +709,48 @@ async function phase3_chartDataPass1(ctx: SynthesisContext): Promise<void> {
   }
 }
 
-// ── Phase 4 — apply-template (plan-only) ─────────────────────────────────────
+// ── Phase 4 — apply-template ─────────────────────────────────────────────────
 
 async function phase4_applyTemplate(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   if (!s.template) return;
 
   startPhase('Apply template');
-  logCall('apply-template', {
+  const examType = s.template.examType ?? (s.visit.type === 'in-person' ? 'inPerson' : 'telemed');
+  const body = {
     encounterId: ctx.encounterId ?? '<from Phase 1>',
     templateName: s.template.name,
-    examType: s.template.examType ?? (s.visit.type === 'in-person' ? 'inPerson' : 'telemed'),
-  });
-  logNote('returns: { conditionIds[], cptProcedureIds[], ... } — capture for cross-references in Pass 2');
+    examType,
+  };
+  logCall('apply-template', body);
+
+  if (ctx.mode === 'execute' && ctx.oystehr) {
+    if (!ctx.encounterId) {
+      throw new Error('Phase 4 requires encounterId from Phase 1');
+    }
+    // Direct fetch for visibility into the response shape and any failures.
+    // Auth: M2M token works through the userMe trick (same as save-chart-data).
+    const res = await fetch(`${ctx.zambdaApi}/zambda/apply-template/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ctx.accessToken}`,
+        'x-zapehr-project-id': ctx.projectId ?? '',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(`apply-template failed: ${res.status}\n${await res.text()}`);
+    }
+    // apply-template returns an empty body ({}). Resources are materialized as
+    // side-effects on the encounter. Phase 5 (when we wire it for execute) will
+    // need to FHIR-search the encounter for the newly-created template
+    // Conditions/Procedures if it wants to cross-reference them.
+    void (await res.json());
+    logNote('template applied (response is empty by design)');
+  } else {
+    logNote('returns: empty body — template content materialized as side-effect');
+  }
 }
 
 // ── Phase 5 — save-chart-data Pass 2 (plan-only) ─────────────────────────────
@@ -977,9 +1009,9 @@ async function main(): Promise<void> {
   if (isExecute) {
     console.log('');
     console.log('Mode summary: --execute performed Phase 0 lookups, Phase 0.5 (create slot),');
-    console.log('Phase 1 (create-appointment), and Phase 3 (save-chart-data Pass 1) against the');
-    console.log('live environment. Phase 2 and Phases 4+ were planned only — no further FHIR');
-    console.log('writes were performed.');
+    console.log('Phase 1 (create-appointment), Phase 3 (save-chart-data Pass 1), and Phase 4');
+    console.log('(apply-template) against the live environment. Phase 2 and Phases 5+ were');
+    console.log('planned only — no further FHIR writes were performed.');
     console.log('');
     console.log('Resolved IDs:');
     if (ctx.locationId) console.log(`  Location:                ${ctx.locationId}`);

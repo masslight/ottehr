@@ -606,6 +606,7 @@ await oystehr.zambda.execute({
 | **Auth** | M2M acceptable |
 | **Input** | `encounterId`, `templateName` (matches a template `List.title`), `examType` (`'inPerson'` or `'telemed'` — note camelCase, NOT `'IN_PERSON'`) |
 | **What it produces** | Variable — depending on the template's content. Typically a CC Condition, an HPI Condition, multiple ROS Observations, multiple exam Observations, an MDM ClinicalImpression, multiple diagnosis Conditions with `Encounter.diagnosis[]` linkage, CPT and E&M Procedures, patient-instruction Communications. |
+| **Response** | Empty body (`{}`). The created resource IDs are *not* returned. To get cross-reference IDs (e.g., for Phase 5 procedures), FHIR-search the encounter after `apply-template` returns. |
 | **When to call** | After `create-appointment` and after the initial Phase 3a `save-chart-data` call (vitals, allergies, etc.). Calling apply-template *after* setting CC text via Phase 3a results in the template's CC text being appended to existing CC text — usually you want the template to be the source of truth, so apply it first and then patch any visit-specific narrative additions. |
 
 **Idempotency**: Re-calling `apply-template` with the same template on the same encounter is non-destructive to non-templated data (allergies, vitals, etc.) and replaces the templated modules cleanly. Use it on rerun without a separate cleanup step.
