@@ -726,6 +726,27 @@ await oystehr.zambda.execute({
 });
 ```
 
+**Auth gotcha for synthesis (M2M tokens).** `save-chart-data` resolves the calling user to a `Practitioner` (chart entries are attributed to the author). The helper at `packages/utils/lib/auth/user-me.helper.ts` handles M2M tokens specially — when the token's `sub` ends in `@clients` AND the deployed zambda's `ENVIRONMENT` is **not** `production`, it falls through to `oystehr.m2m.me()` and synthesizes a `User` whose `profile` is the M2M client's `profile`. For this to resolve to a real Practitioner, the M2M client's `profile` must be `Practitioner/<uuid>` (newly-provisioned M2M clients default to `Device/<uuid>` and will fail). To prepare an M2M client for synthesis:
+
+```ts
+// One-time setup per project
+const practitioner = await oystehr.fhir.create<Practitioner>({
+  resourceType: 'Practitioner',
+  active: true,
+  name: [{ family: 'Synthesizer', given: ['Demo'] }],
+  identifier: [{ use: 'official', system: 'http://hl7.org/fhir/sid/us-npi', value: '1000000000' }],
+});
+
+await oystehr.m2m.update({
+  id: '<m2m-client-id>',
+  profile: `Practitioner/${practitioner.id}`,
+  description: 'mock-provider',     // recognized by userMe helper
+  roles: ['<Administrator-role-id>', '<Provider-role-id>'],
+});
+```
+
+Without this configuration, save-chart-data 500s with the generic message `"Error saving encounter data..."` and the actual error (`Failed to get Practitioner`) is swallowed in the zambda's outer try/catch — only visible in server-side logs.
+
 The supported input keys for **non-templated** fields (the ones to set in Phase 3a):
 
 | Input key | What it writes |
@@ -780,28 +801,36 @@ The free-text "Notes" field on the Allergies screen is captured via the `notes` 
 
 ### 7.3 Medication history
 
+The actual `MedicationDTO` shape required by `save-chart-data` is **not** what the doc previously showed. Each entry needs:
+
+- `name: string` — display name
+- `status: 'active' | 'completed'`
+- `type: 'scheduled' | 'as-needed' | 'prescribed-medication'`
+- `intakeInfo: { dose: string, date?: string, ... }` — `dose` is required (free-text combining dose+freq+route is fine)
+- `id: string` — non-empty. Used to build `MedicationStatement.identifier[0].value`. If absent, FHIR rejects with `ele-1` constraint violation. Use a stable slug derived from `name` if no real code is available.
+
 ```ts
 {
   medications: [
     {
-      name:               'Lisinopril 10 MG Oral Tablet',
-      code:               '262731',
-      system:             'http://terminology.hl7.org/CodeSystem/medicationDispensableDrugId',
-      dose:               '10mg PO once daily',
-      effectiveDateTime:  '2024-06-01',
-      status:             'active',
+      id:         'lisinopril-10-mg-oral-tablet',          // required — empty causes ele-1 violation
+      name:       'Lisinopril 10 MG Oral Tablet',
+      status:     'active',
+      type:       'scheduled',
+      intakeInfo: { dose: '10 mg once daily PO' },
     },
     {
-      name:   'Atorvastatin 20 MG Oral Tablet',
-      code:   '104894',
-      system: 'http://terminology.hl7.org/CodeSystem/medicationDispensableDrugId',
-      dose:   '20mg PO once daily at bedtime',
-      status: 'active',
-      note:   'Patient could not confirm exact start date.',
+      id:         'atorvastatin-20-mg-oral-tablet',
+      name:       'Atorvastatin 20 MG Oral Tablet',
+      status:     'active',
+      type:       'scheduled',
+      intakeInfo: { dose: '20 mg once daily at bedtime PO' },
     },
   ],
   notes: [
-    { code: 'medication', text: 'Patient takes Lisinopril daily; reports good adherence.' },
+    { type: 'medication', text: 'Patient takes Lisinopril daily; reports good adherence.',
+      authorId: '<practitionerId>', authorName: '<full name>',
+      patientId: '<patientId>', encounterId: '<encounterId>' },
   ],
 }
 ```
@@ -929,19 +958,34 @@ The `disposition` payload produces three coordinated changes: a parent `ServiceR
 
 ### 7.12 Per-screen free-text Notes (css-note)
 
-Several screens (Allergies, Medications, Medical Conditions, Hospitalization, Vitals, Screening, plus a provider-internal note) have a free-text "Notes" field at the bottom. These don't fit in templates:
+Several screens (Allergies, Medications, Medical Conditions, Hospitalization, Vitals, Screening, plus a provider-internal note) have a free-text "Notes" field at the bottom. The actual `NoteDTO` shape (verified against `makeNoteResource` in `packages/zambdas/src/shared/chart-data/index.ts`) is **not** the simple `{ code, text }` form earlier docs suggested:
 
 ```ts
 {
   notes: [
-    { code: 'allergy',          text: 'Patient reports allergy worsened over the past year.' },
-    { code: 'medication',       text: 'Patient takes Lisinopril daily; reports good adherence.' },
-    { code: 'internal',         text: 'Provider-only: patient seemed anxious about strep result.' },
+    {
+      type:        'allergy',                                  // not `code` — `type` is the field
+      text:        'Patient reports allergy worsened over the past year.',
+      authorId:    '<practitionerId>',                         // required — Practitioner id
+      authorName:  'Dr. Smith',                                // required — display name
+      patientId:   '<patientId>',                              // required
+      encounterId: '<encounterId>',                            // required
+    },
+    {
+      type:        'internal',
+      text:        'Provider-only: patient seemed anxious about strep result.',
+      authorId:    '<practitionerId>',
+      authorName:  'Dr. Smith',
+      patientId:   '<patientId>',
+      encounterId: '<encounterId>',
+    },
   ],
 }
 ```
 
-Note types: `allergy`, `medication`, `medical-condition`, `hospitalization`, `intake`, `vitals`, `screening`, `internal`.
+Note types (`type` field): `allergy`, `medication`, `medical-condition`, `hospitalization`, `intake`, `vitals`, `screening`, `internal`.
+
+The `authorId` is required because `makeNoteResource` builds `Communication.sender = { reference: 'Practitioner/${authorId}' }`. If `authorId` is undefined the reference becomes `Practitioner/undefined` and FHIR rejects it.
 
 ### 7.13 Encounter extensions (reason for visit, addendum, info-confirmed)
 
@@ -949,11 +993,13 @@ Visit-specific extensions:
 
 ```ts
 {
-  reasonForVisit:       'Sore throat × 3 days',
-  patientInfoConfirmed: { value: true },
+  reasonForVisit:       { text: 'Sore throat × 3 days' },     // FreeTextNoteDTO — NOT a plain string
+  patientInfoConfirmed: { value: true },                       // BooleanValueDTO
   addendumNote:         { text: 'Patient called back at 4 PM to confirm she would start ibuprofen as instructed.' },
 }
 ```
+
+Note `reasonForVisit` takes `{ text: string }`, not a plain string. `updateEncounterReasonForVisit` reads `data.text`; passing a string makes it `undefined` and the resulting Encounter extension has neither a value nor children, violating FHIR's `ext-1` constraint.
 
 ### 7.14 Documents and DocumentReferences
 

@@ -12,9 +12,13 @@
  *   Phase 0.5 — Create slot on the resolved schedule.
  *   Phase 1   — create-appointment (creates Patient, Coverage, Appointment,
  *               Encounter, initial QuestionnaireResponse, RelatedPerson).
+ *   Phase 3   — save-chart-data Pass 1: vitals, allergies, medications, PMH
+ *               (conditions), surgical history, hospitalizations, screening,
+ *               css-notes, reason-for-visit, patient-info-confirmed.
  *
- * Phases 2+ are plan-only — they log what they would do but do NOT write to
- * the FHIR datastore. They will be enabled progressively as each is verified.
+ * Phases 2 and 4+ are plan-only — they log what they would do but do NOT
+ * write to the FHIR datastore. They will be enabled progressively as each
+ * is verified.
  *
  * Use --execute against an environment to validate connectivity end-to-end
  * through Phase 1, producing a real Patient + Appointment + Encounter on the
@@ -37,7 +41,7 @@
  *     scripts/synthetic-patient-data/examples/jane-doe-urgent-care.json --execute
  */
 import Oystehr from '@oystehr/sdk';
-import type { Location, Medication, Organization, Practitioner, Schedule } from 'fhir/r4b';
+import type { Location, Medication, Organization, Patient, Practitioner, Schedule } from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { type VisitScenario, VisitScenarioSchema } from './schema';
@@ -91,6 +95,7 @@ interface SynthesisContext {
   accessToken: string | null;
   projectId: string | null;
   projectApi: string | null;
+  zambdaApi: string | null;
   scenario: VisitScenario;
   // Resolved in Phase 0:
   locationId?: string;
@@ -126,6 +131,7 @@ async function createOystehr(): Promise<{
   accessToken: string;
   projectId: string;
   projectApi: string;
+  zambdaApi: string;
 }> {
   const auth0Endpoint = requireEnv('AUTH0_ENDPOINT');
   const auth0Client = requireEnv('AUTH0_CLIENT');
@@ -158,7 +164,7 @@ async function createOystehr(): Promise<{
       zambdaApiUrl: zambdaApi,
     },
   });
-  return { oystehr, accessToken: tokenData.access_token, projectId, projectApi };
+  return { oystehr, accessToken: tokenData.access_token, projectId, projectApi, zambdaApi };
 }
 
 // ── Logging helpers ───────────────────────────────────────────────────────────
@@ -288,13 +294,19 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
   // Template existence verification
   if (s.template) {
     const examType = s.template.examType ?? (s.visit.type === 'in-person' ? 'inPerson' : 'telemed');
-    logCall('list-templates', { examType });
+    logCall('list-templates', { examType, includeVersionData: false });
     if (ctx.mode === 'execute' && ctx.oystehr) {
       const result = (await ctx.oystehr.zambda.execute({
         id: 'list-templates',
         examType,
-      })) as { templates?: Array<{ title?: string; name?: string }>; list?: Array<{ title?: string; name?: string }> };
-      const templates = result.templates ?? result.list ?? [];
+        includeVersionData: false,
+      })) as {
+        status?: number;
+        output?: { templates?: Array<{ title?: string; name?: string }> };
+        templates?: Array<{ title?: string; name?: string }>;
+        list?: Array<{ title?: string; name?: string }>;
+      };
+      const templates = result.output?.templates ?? result.templates ?? result.list ?? [];
       const found = templates.some((t) => t.title === s.template!.name || t.name === s.template!.name);
       if (!found) {
         console.warn(
@@ -385,7 +397,7 @@ async function phase0_5_createSlot(ctx: SynthesisContext): Promise<void> {
   if (ctx.mode === 'execute' && ctx.oystehr) {
     // create-slot is registered as /execute-public — the SDK's zambda.execute() hits /execute,
     // so we call it via direct fetch.
-    const res = await fetch(`${ctx.projectApi}/zambda/create-slot/execute-public`, {
+    const res = await fetch(`${ctx.zambdaApi}/zambda/create-slot/execute-public`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -411,13 +423,48 @@ async function phase0_5_createSlot(ctx: SynthesisContext): Promise<void> {
 
 // ── Phase 1 — create-appointment ──────────────────────────────────────────────
 
+const SYNTHETIC_PATIENT_ID_SYSTEM = 'https://fhir.ottehr.com/sid/synthetic-patient-id';
+
+/**
+ * Build a deterministic identifier value from scenario.patient — used to
+ * dedupe patients across re-runs of the same scenario.
+ */
+function synthIdentifierValue(patient: VisitScenario['patient']): string {
+  const slug = (s: string): string =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  return `${slug(patient.firstName)}-${slug(patient.lastName)}-${patient.dateOfBirth}`;
+}
+
 async function phase1_createAppointment(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   startPhase('Create appointment');
 
+  const synthId = synthIdentifierValue(s.patient);
+
+  // Look up an existing Patient with this synth identifier (for dedup).
+  let existingPatientId: string | undefined;
+  if (ctx.mode === 'execute' && ctx.oystehr) {
+    const result = await ctx.oystehr.fhir.search({
+      resourceType: 'Patient',
+      params: [{ name: 'identifier', value: `${SYNTHETIC_PATIENT_ID_SYSTEM}|${synthId}` }],
+    });
+    existingPatientId = result.unbundle()[0]?.id;
+    if (existingPatientId) {
+      logNote(`existing Patient found by synth identifier "${synthId}" → ${existingPatientId} (will reuse)`);
+    } else {
+      logNote(`no Patient with synth identifier "${synthId}" — will create + tag`);
+    }
+  }
+
   const body = {
     patient: {
-      newPatient: true,
+      // newPatient: false signals create-appointment to dedupe internally;
+      // when an `id` is supplied alongside, the zambda reuses that Patient.
+      newPatient: !existingPatientId,
+      ...(existingPatientId ? { id: existingPatientId } : {}),
       firstName: s.patient.firstName,
       lastName: s.patient.lastName,
       dateOfBirth: s.patient.dateOfBirth,
@@ -432,7 +479,19 @@ async function phase1_createAppointment(ctx: SynthesisContext): Promise<void> {
   logCall('create-appointment', body);
 
   if (ctx.mode === 'execute' && ctx.oystehr) {
-    const result = (await ctx.oystehr.zambda.execute({ id: 'create-appointment', ...body })) as {
+    const res = await fetch(`${ctx.zambdaApi}/zambda/create-appointment/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ctx.accessToken}`,
+        'x-zapehr-project-id': ctx.projectId ?? '',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(`create-appointment failed: ${res.status}\n${await res.text()}`);
+    }
+    const result = (await res.json()) as {
       output?: {
         patientId?: string;
         fhirPatientId?: string;
@@ -457,6 +516,29 @@ async function phase1_createAppointment(ctx: SynthesisContext): Promise<void> {
     logNote(`patientId=${ctx.patientId}`);
     logNote(`appointmentId=${ctx.appointmentId}`);
     logNote(`encounterId=${ctx.encounterId}`);
+
+    // Tag the Patient with the synthetic identifier so future runs deduplicate.
+    // Only do this when the Patient is newly created — existing patients
+    // already have the identifier (that's how we found them).
+    if (!existingPatientId && ctx.patientId) {
+      try {
+        const patient = await ctx.oystehr.fhir.get<Patient>({
+          resourceType: 'Patient',
+          id: ctx.patientId,
+        });
+        const next: Patient = {
+          ...patient,
+          identifier: [
+            ...(patient.identifier ?? []),
+            { use: 'secondary', system: SYNTHETIC_PATIENT_ID_SYSTEM, value: synthId },
+          ],
+        };
+        await ctx.oystehr.fhir.update<Patient>(next);
+        logNote(`tagged Patient with synth identifier "${synthId}"`);
+      } catch (err) {
+        console.warn(`  ⚠ failed to tag Patient with synth identifier: ${err instanceof Error ? err.message : err}`);
+      }
+    }
   } else {
     logNote('returns: { patientId, appointmentId, encounterId, questionnaireResponseId }');
   }
@@ -478,27 +560,150 @@ async function phase2_z3Uploads(ctx: SynthesisContext): Promise<void> {
   }
 }
 
-// ── Phase 3 — save-chart-data Pass 1 (plan-only) ─────────────────────────────
+// ── Phase 3 — save-chart-data Pass 1 ──────────────────────────────────────────
+
+/**
+ * Convert scenario.vitals (a domain-shaped object) into save-chart-data's
+ * `vitalsObservations` array (FHIR-flavored entries keyed by `field` codes).
+ */
+function buildVitalsObservations(vitals: VisitScenario['vitals']): unknown[] {
+  if (!vitals) return [];
+  const out: unknown[] = [];
+  if (vitals.temperature) {
+    out.push({ field: 'vital-temperature', value: vitals.temperature.value, unit: vitals.temperature.unit ?? 'F' });
+  }
+  if (vitals.heartRate) {
+    out.push({ field: 'vital-heartbeat', value: vitals.heartRate.value, unit: '/min' });
+  }
+  if (vitals.bloodPressure) {
+    out.push({
+      field: 'vital-blood-pressure',
+      value: { systolic: vitals.bloodPressure.systolic, diastolic: vitals.bloodPressure.diastolic },
+      unit: 'mm[Hg]',
+    });
+  }
+  if (vitals.respirationRate) {
+    out.push({ field: 'vital-respiration-rate', value: vitals.respirationRate.value, unit: '/min' });
+  }
+  if (vitals.oxygenSaturation) {
+    out.push({ field: 'vital-oxygen-sat', value: vitals.oxygenSaturation.value, unit: '%' });
+  }
+  if (vitals.weight) {
+    out.push({ field: 'vital-weight', value: vitals.weight.value, unit: vitals.weight.unit ?? 'kg' });
+  }
+  if (vitals.height) {
+    out.push({ field: 'vital-height', value: vitals.height.value, unit: vitals.height.unit ?? 'cm' });
+  }
+  return out;
+}
 
 async function phase3_chartDataPass1(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   startPhase('save-chart-data Pass 1 (non-templated patient data)');
 
-  const pass1: Record<string, unknown> = { encounterId: ctx.encounterId ?? '<from Phase 1>' };
-  if (s.history?.allergies?.length) pass1.allergies = `[${s.history.allergies.length} entries]`;
-  if (s.history?.medications?.length) pass1.medications = `[${s.history.medications.length} entries]`;
-  if (s.history?.conditions?.length) pass1.conditions = `[${s.history.conditions.length} entries]`;
-  if (s.history?.surgicalHistory?.length) pass1.surgicalHistory = `[${s.history.surgicalHistory.length} entries]`;
-  if (s.history?.surgicalHistoryNote) pass1.surgicalHistoryNote = s.history.surgicalHistoryNote;
-  if (s.history?.hospitalizations?.length) pass1.episodeOfCare = `[${s.history.hospitalizations.length} entries]`;
-  if (s.history?.birthHistory?.length) pass1.birthHistory = `[${s.history.birthHistory.length} entries]`;
-  if (s.history?.accident) pass1.accident = '<accident>';
-  if (s.history?.screening?.length) pass1.observations = `[${s.history.screening.length} entries]`;
-  if (s.history?.screenNotes?.length) pass1.notes = `[${s.history.screenNotes.length} entries]`;
-  if (s.vitals && Object.keys(s.vitals).length) pass1.vitalsObservations = `[${Object.keys(s.vitals).length} vitals]`;
-  pass1.reasonForVisit = s.visit.reasonForVisit;
-  if (s.signOff?.patientInfoConfirmed) pass1.patientInfoConfirmed = { value: true };
-  logCall('save-chart-data', pass1);
+  const body: Record<string, unknown> = { encounterId: ctx.encounterId ?? '<from Phase 1>' };
+
+  if (s.history?.allergies?.length) {
+    body.allergies = s.history.allergies.map((a) => ({
+      name: a.name,
+      ...(a.note ? { note: a.note } : {}),
+    }));
+  }
+  if (s.history?.medications?.length) {
+    body.medications = s.history.medications.map((m) => {
+      const doseParts = [m.dose, m.frequency, m.route].filter(Boolean);
+      // makeMedicationResource builds `identifier: [{ value: data.id }]` and
+      // FHIR's ele-1 constraint rejects an identifier with no value/children,
+      // so we must pass a non-empty id. Derive one from the name as a slug.
+      const slug = m.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+      return {
+        id: slug,
+        name: m.name,
+        status: m.status ?? 'active',
+        type: 'scheduled',
+        intakeInfo: { dose: doseParts.length ? doseParts.join(' ') : 'unknown' },
+      };
+    });
+  }
+  if (s.history?.conditions?.length) {
+    body.conditions = s.history.conditions.map((c) => ({
+      ...(c.code ? { code: c.code } : {}),
+      display: c.display,
+      ...(c.current !== undefined ? { current: c.current } : {}),
+      ...(c.note ? { note: c.note } : {}),
+    }));
+  }
+  if (s.history?.surgicalHistory?.length) {
+    body.surgicalHistory = s.history.surgicalHistory.map((sh) => ({
+      ...(sh.code ? { code: sh.code } : {}),
+      display: sh.display,
+    }));
+  }
+  if (s.history?.surgicalHistoryNote) {
+    body.surgicalHistoryNote = { text: s.history.surgicalHistoryNote };
+  }
+  if (s.history?.hospitalizations?.length) {
+    body.episodeOfCare = s.history.hospitalizations.map((h) => ({
+      ...(h.code ? { code: h.code } : {}),
+      display: h.display,
+    }));
+  }
+  if (s.history?.screening?.length) {
+    body.observations = s.history.screening.map((o) => ({ field: o.field, value: o.value }));
+  }
+  if (s.history?.screenNotes?.length) {
+    // NoteDTO requires type/text/authorId/authorName/patientId/encounterId.
+    // makeNoteResource builds `Practitioner/${authorId}` which fails validation
+    // if authorId is undefined.
+    body.notes = s.history.screenNotes.map((n) => ({
+      type: n.code,
+      text: n.text,
+      authorId: ctx.attendingPractitionerId,
+      authorName: ctx.scenario.signOff?.practitionerName ?? 'Synthesizer',
+      patientId: ctx.patientId,
+      encounterId: ctx.encounterId,
+    }));
+  }
+
+  const vitalsObs = buildVitalsObservations(s.vitals);
+  if (vitalsObs.length) body.vitalsObservations = vitalsObs;
+
+  // reasonForVisit takes a FreeTextNoteDTO (`{ text }`), not a plain string.
+  // (The doc shows it as a string; the zambda actually reads data.text.)
+  body.reasonForVisit = { text: s.visit.reasonForVisit };
+  if (s.signOff?.patientInfoConfirmed !== false) {
+    body.patientInfoConfirmed = { value: true };
+  }
+
+  logCall('save-chart-data', body);
+
+  if (ctx.mode === 'execute' && ctx.oystehr) {
+    if (!ctx.encounterId) {
+      throw new Error('Phase 3 requires encounterId from Phase 1 — did Phase 1 run?');
+    }
+    // Direct fetch (not SDK) — gives access to full error responses on failure.
+    // M2M token works because save-chart-data's `userMe()` detects M2M via JWT
+    // `sub` and falls through to `m2m.me()` (when ENVIRONMENT != production),
+    // returning a synthetic User whose profile is the M2M client's profile.
+    // The M2M client must point at a real Practitioner for this to resolve.
+    const res = await fetch(`${ctx.zambdaApi}/zambda/save-chart-data/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ctx.accessToken}`,
+        'x-zapehr-project-id': ctx.projectId ?? '',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`save-chart-data failed: ${res.status}\n${errText}`);
+    }
+    logNote('chart data saved');
+  }
 }
 
 // ── Phase 4 — apply-template (plan-only) ─────────────────────────────────────
@@ -721,6 +926,7 @@ async function main(): Promise<void> {
     accessToken: null,
     projectId: null,
     projectApi: null,
+    zambdaApi: null,
     scenario,
   };
 
@@ -731,7 +937,8 @@ async function main(): Promise<void> {
     ctx.accessToken = created.accessToken;
     ctx.projectId = created.projectId;
     ctx.projectApi = created.projectApi;
-    console.log('Authenticated.');
+    ctx.zambdaApi = created.zambdaApi;
+    console.log(`Authenticated. zambda calls -> ${ctx.zambdaApi}`);
   }
 
   const patientLabel = scenario.label ?? `${scenario.patient.firstName} ${scenario.patient.lastName}`;
@@ -770,10 +977,9 @@ async function main(): Promise<void> {
   if (isExecute) {
     console.log('');
     console.log('Mode summary: --execute performed Phase 0 lookups, Phase 0.5 (create slot),');
-    console.log('and Phase 1 (create-appointment) against the live environment. Phases 2+ were');
-    console.log('planned only — no further FHIR writes were performed. To enable writes for the');
-    console.log('rest, individual phase execute branches need to be implemented and explicitly');
-    console.log('opted into.');
+    console.log('Phase 1 (create-appointment), and Phase 3 (save-chart-data Pass 1) against the');
+    console.log('live environment. Phase 2 and Phases 4+ were planned only — no further FHIR');
+    console.log('writes were performed.');
     console.log('');
     console.log('Resolved IDs:');
     if (ctx.locationId) console.log(`  Location:                ${ctx.locationId}`);
