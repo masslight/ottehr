@@ -6,12 +6,16 @@ import {
   createAllergyQuickPick,
   createMedicalConditionQuickPick,
   createMedicationHistoryQuickPick,
+  createPatientInstructionQuickPick,
   getAllergyQuickPicks,
   getMedicalConditionQuickPicks,
   getMedicationHistoryQuickPicks,
+  getPatientInstructionQuickPicks,
   removeAllergyQuickPick,
   removeMedicalConditionQuickPick,
   removeMedicationHistoryQuickPick,
+  removePatientInstructionQuickPick,
+  updatePatientInstructionQuickPick,
 } from 'src/api/api';
 import {
   ExtractObjectType,
@@ -20,7 +24,12 @@ import {
   useICD10SearchNew,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { AllergyQuickPickData, MedicalConditionQuickPickData, MedicationHistoryQuickPickData } from 'utils';
+import {
+  AllergyQuickPickData,
+  MedicalConditionQuickPickData,
+  MedicationHistoryQuickPickData,
+  PatientInstructionQuickPickData,
+} from 'utils';
 import ImmunizationQuickPicksPage from './ImmunizationQuickPicksPage';
 import InHouseMedicationQuickPicksPage from './InHouseMedicationQuickPicksPage';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
@@ -34,7 +43,8 @@ type SubTab =
   | 'medications'
   | 'radiology'
   | 'immunizations'
-  | 'in-house-medications';
+  | 'in-house-medications'
+  | 'patient-instructions';
 
 const AllergenSearchField: React.FC<{
   value: string;
@@ -323,6 +333,39 @@ export default function QuickPicksAdminPage(): ReactElement {
     [oystehrZambda]
   );
 
+  // ── Patient instruction callbacks ──
+  const fetchPatientInstructions = useCallback(async () => {
+    if (!oystehrZambda) return [];
+    const response = await getPatientInstructionQuickPicks(oystehrZambda);
+    return response.quickPicks;
+  }, [oystehrZambda]);
+
+  const createPatientInstruction = useCallback(
+    async (data: Omit<PatientInstructionQuickPickData, 'id'>) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      const response = await createPatientInstructionQuickPick(oystehrZambda, { quickPick: data });
+      return response.quickPick;
+    },
+    [oystehrZambda]
+  );
+
+  const updatePatientInstruction = useCallback(
+    async (id: string, data: Omit<PatientInstructionQuickPickData, 'id'>) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      const response = await updatePatientInstructionQuickPick(oystehrZambda, id, data);
+      return response.quickPick;
+    },
+    [oystehrZambda]
+  );
+
+  const removePatientInstruction = useCallback(
+    async (id: string) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      await removePatientInstructionQuickPick(oystehrZambda, id);
+    },
+    [oystehrZambda]
+  );
+
   return (
     <Box>
       <TabContext value={subTab}>
@@ -335,6 +378,7 @@ export default function QuickPicksAdminPage(): ReactElement {
             <Tab label="Radiology" value="radiology" sx={{ textTransform: 'none' }} />
             <Tab label="Immunizations" value="immunizations" sx={{ textTransform: 'none' }} />
             <Tab label="In-House Medications" value="in-house-medications" sx={{ textTransform: 'none' }} />
+            <Tab label="Patient Instructions" value="patient-instructions" sx={{ textTransform: 'none' }} />
           </TabList>
         </Box>
 
@@ -434,6 +478,37 @@ export default function QuickPicksAdminPage(): ReactElement {
         </TabPanel>
         <TabPanel value="in-house-medications" sx={{ px: 0 }}>
           <InHouseMedicationQuickPicksPage />
+        </TabPanel>
+        <TabPanel value="patient-instructions" sx={{ px: 0 }}>
+          <QuickPickEditor<PatientInstructionQuickPickData>
+            title="Patient Instruction Quick Picks"
+            description="Manage instruction templates that appear as Team Quick Picks in the Plan / Patient Instructions section."
+            columns={[
+              { label: 'Title', getValue: (item) => item.name },
+              { label: 'Instruction', getValue: (item) => item.text },
+            ]}
+            fields={[
+              { key: 'name', label: 'Instruction title', required: true, placeholder: 'e.g. Concussion follow-up' },
+              {
+                key: 'text',
+                label: 'Instruction',
+                required: true,
+                placeholder: 'Full instruction text…',
+                multiline: true,
+                rows: 6,
+              },
+            ]}
+            editable={true}
+            fetchItems={fetchPatientInstructions}
+            createItem={createPatientInstruction}
+            updateItem={updatePatientInstruction}
+            removeItem={removePatientInstruction}
+            buildItemFromFields={(values) => ({
+              name: values.name.trim(),
+              text: values.text.trim(),
+            })}
+            getFieldValues={(item) => ({ name: item.name, text: item.text })}
+          />
         </TabPanel>
       </TabContext>
     </Box>

@@ -3,7 +3,7 @@ import DoneIcon from '@mui/icons-material/Done';
 import { Box, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { BRANDING_CONFIG, CommunicationDTO } from 'utils';
+import { CommunicationDTO } from 'utils';
 import { AccordionCard } from '../../../../../components/AccordionCard';
 import { ActionsList } from '../../../../../components/ActionsList';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
@@ -16,7 +16,7 @@ import { PatientInstructionsTemplatesDialog } from './components/PatientInstruct
 export const PatientInstructionsCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [myTemplatesOpen, setMyTemplatesOpen] = useState(false);
-  const [defaultTemplatesOpen, setDefaultTemplatesOpen] = useState(false);
+  const [teamQuickPicksOpen, setTeamQuickPicksOpen] = useState(false);
   const [instruction, setInstruction] = useState('');
   const [instructionTitle, setInstructionTitle] = useState('');
   const { mutate: savePatientInstruction, isPending: isSavePatientInstructionLoading } = useSavePatientInstruction();
@@ -141,15 +141,13 @@ export const PatientInstructionsCard: FC = () => {
                     onChange={(e) => setInstruction(e.target.value)}
                     size="small"
                     label="Instruction"
-                    placeholder={`Enter a new instruction of select from own saved or ${BRANDING_CONFIG.projectName} template`}
+                    placeholder="Enter a new instruction or select from My Quick Picks or Team Quick Picks"
                     multiline
                     fullWidth
                   />
                 </Box>
-                <RoundedButton onClick={() => setMyTemplatesOpen(true)}>My Templates</RoundedButton>
-                <RoundedButton onClick={() => setDefaultTemplatesOpen(true)}>
-                  {BRANDING_CONFIG.projectName} Templates
-                </RoundedButton>
+                <RoundedButton onClick={() => setMyTemplatesOpen(true)}>My Quick Picks</RoundedButton>
+                <RoundedButton onClick={() => setTeamQuickPicksOpen(true)}>Team Quick Picks</RoundedButton>
               </Box>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <RoundedButton
@@ -164,7 +162,7 @@ export const PatientInstructionsCard: FC = () => {
                   disabled={(!instruction.trim() && !instructionTitle.trim()) || isLoading}
                   startIcon={<DoneIcon />}
                 >
-                  Add & Save as Template
+                  Add & Save to My Quick Picks
                 </RoundedButton>
               </Box>
             </>
@@ -200,18 +198,18 @@ export const PatientInstructionsCard: FC = () => {
         <PatientInstructionsTemplatesDialog
           open={myTemplatesOpen}
           onClose={() => setMyTemplatesOpen(false)}
-          type="provider"
+          source="myTemplates"
           onSelect={(value) => {
             setInstruction(value.text ?? '');
             setInstructionTitle(value.title ?? '');
           }}
         />
       )}
-      {defaultTemplatesOpen && (
+      {teamQuickPicksOpen && (
         <PatientInstructionsTemplatesDialog
-          open={defaultTemplatesOpen}
-          onClose={() => setDefaultTemplatesOpen(false)}
-          type="organization"
+          open={teamQuickPicksOpen}
+          onClose={() => setTeamQuickPicksOpen(false)}
+          source="teamQuickPicks"
           onSelect={(value) => {
             setInstruction(value.text ?? '');
             setInstructionTitle(value.title ?? '');

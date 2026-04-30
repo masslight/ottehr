@@ -683,7 +683,8 @@ export const useUpdatePaperwork = () => {
 
 export const useGetPatientInstructions = (
   { type }: { type: InstructionType },
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientInstructions']>> | null) => void
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientInstructions']>> | null) => void,
+  options?: { enabled?: boolean }
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const apiClient = useOystehrAPIClient();
@@ -700,7 +701,7 @@ export const useGetPatientInstructions = (
       throw new Error('api client not defined');
     },
 
-    enabled: !!apiClient,
+    enabled: !!apiClient && options?.enabled !== false,
   });
 
   useSuccessQuery(queryResult.data, onSuccess);
