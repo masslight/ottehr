@@ -127,7 +127,7 @@
       {
         "studyName": "Chest X-ray, 2 views",
         "cptCode": "71046",
-        "diagnosisCode": "R05",
+        "diagnosisCode": "R05.9",
         "stat": false,
         "clinicalHistory": "Sore throat with cervical adenopathy; rule out infectious source",
         "consentObtained": true,

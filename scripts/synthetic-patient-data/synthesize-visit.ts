@@ -1055,7 +1055,9 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
           data: {
             specimen: {
               source: 'throat-swab',
-              collectedBy: { id: ctx.intakeStaffId ?? '', name: 'Synthesizer' },
+              // Must match either encounter's attending or the calling user
+              // (synthesizer Practitioner). Use attending — easiest match.
+              collectedBy: { id: ctx.attendingPractitionerId ?? '', name: 'Synthesizer' },
               collectionDate: new Date().toISOString(),
             },
           },
@@ -1087,20 +1089,44 @@ const ROUTE_SNOMED_MAP: Record<string, string> = {
 
 async function resolveMedicationId(ctx: SynthesisContext, name: string): Promise<string | undefined> {
   if (!ctx.oystehr) return undefined;
-  // Try identifier match first (Ottehr's getMedicationByName uses Medication.identifier)
-  for (const param of ['identifier', 'code']) {
-    try {
-      const result = await ctx.oystehr.fhir.search<{ id?: string }>({
-        resourceType: 'Medication',
-        params: [{ name: param, value: name }],
-      });
-      const m = (result.unbundle() as Array<{ id?: string }>)[0];
-      if (m?.id) return m.id;
-    } catch {
-      /* try next param */
-    }
+  // Identifier values on Ottehr's medication catalog are typically the full
+  // human-readable name (e.g., "Tdap (Tetanus, Diphtheria, Pertussis)").
+  // Try exact match first, then substring match against the full catalog.
+  try {
+    const result = await ctx.oystehr.fhir.search<{ id?: string }>({
+      resourceType: 'Medication',
+      params: [{ name: 'identifier', value: name }],
+    });
+    const m = (result.unbundle() as Array<{ id?: string }>)[0];
+    if (m?.id) return m.id;
+  } catch {
+    /* fall through */
   }
-  return undefined;
+  // Substring fallback — list all, find any whose identifier value or code.text contains the name.
+  try {
+    const all = (
+      await ctx.oystehr.fhir.search<{
+        id?: string;
+        identifier?: Array<{ value?: string }>;
+        code?: { text?: string; coding?: Array<{ display?: string }> };
+      }>({
+        resourceType: 'Medication',
+        params: [{ name: '_count', value: '500' }],
+      })
+    ).unbundle();
+    const needle = name.toLowerCase();
+    const match = all.find((m) => {
+      const fields = [
+        ...(m.identifier?.map((i) => i.value) ?? []),
+        m.code?.text,
+        ...(m.code?.coding?.map((c) => c.display) ?? []),
+      ].filter(Boolean) as string[];
+      return fields.some((f) => f.toLowerCase().includes(needle));
+    });
+    return match?.id;
+  } catch {
+    return undefined;
+  }
 }
 
 async function phase7_inHouseMedications(ctx: SynthesisContext): Promise<void> {
@@ -1121,7 +1147,8 @@ async function phase7_inHouseMedications(ctx: SynthesisContext): Promise<void> {
         patient: ctx.patientId,
         encounter: ctx.encounterId,
         medicationId: medicationId ?? `<unresolved: ${med.medicationName}>`,
-        dose: med.dose,
+        // dose must be a Number (FHIR Quantity.value). Scenario stores as string.
+        dose: Number(med.dose),
         units: med.units,
         route: routeCode,
         ...(med.effectiveDateTime ? { effectiveDateTime: med.effectiveDateTime } : {}),
@@ -1166,13 +1193,14 @@ async function phase8_immunizations(ctx: SynthesisContext): Promise<void> {
     const medicationId = ctx.mode === 'execute' ? await resolveMedicationId(ctx, imm.vaccineName) : undefined;
 
     const orderBody = {
+      encounterId: ctx.encounterId,
       details: {
-        encounterId: ctx.encounterId,
         medication: { id: medicationId ?? '<unresolved>', name: imm.vaccineName },
         dose: imm.dose,
         units: imm.units,
-        route: imm.route,
-        location: imm.location,
+        orderedProvider: { id: ctx.attendingPractitionerId ?? '', name: 'Synthesizer' },
+        ...(imm.route ? { route: imm.route } : {}),
+        ...(imm.location ? { location: imm.location } : {}),
       },
     };
     logCall('create-update-immunization-order', orderBody);
@@ -1253,8 +1281,10 @@ async function phase9_radiology(ctx: SynthesisContext): Promise<void> {
     logCall('radiology-create-order', orderBody);
 
     if (ctx.mode === 'execute' && ctx.oystehr) {
-      // radiology/* zambdas don't use user.me() so cloud routing works.
-      const res = await fetch(`${ctx.zambdaApi}/zambda/radiology-create-order/execute`, {
+      // Cloud-deployed radiology zambdas appear to be running older code that
+      // 500s — route through local until cloud catches up.
+      const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
+      const res = await fetch(`${localZambdaApi}/zambda/radiology-create-order/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1275,9 +1305,10 @@ async function phase9_radiology(ctx: SynthesisContext): Promise<void> {
       logNote(`radiology order → ${serviceRequestId}`);
 
       if (rad.preliminaryReport && serviceRequestId) {
-        const reportBody = { serviceRequestId, conclusion: rad.preliminaryReport };
+        const reportBody = { serviceRequestId, preliminaryReport: rad.preliminaryReport };
         logCall('radiology-save-preliminary-report', reportBody);
-        const rRes = await fetch(`${ctx.zambdaApi}/zambda/radiology-save-preliminary-report/execute`, {
+        const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
+        const rRes = await fetch(`${localZambdaApi}/zambda/radiology-save-preliminary-report/execute`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
