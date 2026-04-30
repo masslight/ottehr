@@ -1,6 +1,7 @@
 import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForGetChartDataResponse, waitForSaveChartDataResponse } from 'test-utils';
+import { isTelemedEnabled } from 'test-utils';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { openVisitsPage } from 'tests/e2e/page/VisitsPage';
 import { TelemedAppointmentStatusEnum, TelemedAppointmentVisitTabs } from 'utils';
@@ -24,7 +25,13 @@ test.afterAll(async () => {
 
 test.describe.configure({ mode: 'serial' });
 
+// Skip telemed tests if virtual locations are not configured
+test.skip(!isTelemedEnabled, 'Telemed tests require virtual locations to be configured');
+
 test('Should start video call', async () => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (err) => pageErrors.push(`${err.name}: ${err.message}`));
+
   const visitsPage = await openVisitsPage(page);
   await visitsPage.selectLocation(resourceHandler.appointmentLocation?.name ?? 'Unknown');
 
@@ -35,9 +42,21 @@ test('Should start video call', async () => {
 
   const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
   await expect(connectButton).toBeVisible();
-  await connectButton.click();
 
+  // Arm response waiter before the click that triggers the fire-and-forget mutation.
+  // If init-telemed-session fails, this surfaces the status code instead of a 35s DOM timeout.
+  const initResponsePromise = page.waitForResponse((r) => r.url().includes('init-telemed-session'));
+
+  await connectButton.click();
   await telemedDialogConfirm(page);
+
+  const initResponse = await initResponsePromise;
+  expect(
+    initResponse.status(),
+    `init-telemed-session zambda returned ${initResponse.status()}. Page errors so far: ${
+      pageErrors.join(' | ') || '<none>'
+    }`
+  ).toBe(200);
 
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.videoRoomContainer)).toBeVisible();
 });

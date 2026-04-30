@@ -132,7 +132,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       resourceId: encounter.id,
       resourceType: 'Encounter',
       patchOperations: [
-        ...updateEncounterPatientInfoConfirmed(encounter, { value: true }),
+        ...updateEncounterPatientInfoConfirmed(encounter, { value: false }),
         updateEncounterDischargeDisposition(encounter, disposition),
       ],
     })

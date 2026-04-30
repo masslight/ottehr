@@ -39,6 +39,7 @@ import {
   ExternalLabDocuments,
   externalLabOrderIsManual,
   ExternalLabsStatus,
+  GENERIC_LAB_ORDER_TAG,
   getAccountNumberFromLocationAndOrganization,
   getAdditionalPlacerId,
   getFullestAvailableName,
@@ -296,6 +297,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
       questionnaire: questionnaires,
       samples: parseSamples(serviceRequest, specimens),
       labelPdfUrl: labDocuments?.labelPDF?.presignedURL,
+      isGenericOrder: isGenericOrder(serviceRequest),
     };
 
     return detailedPageDTO as LabOrderDTO<SearchBy>;
@@ -2665,4 +2667,13 @@ const getContentStringFromCommForSr = (
     .filter(Boolean);
   if (contentStrings.length === 0) return;
   return contentStrings.join('; ');
+};
+
+const isGenericOrder = (serviceRequest: ServiceRequest): boolean => {
+  const isGeneric =
+    serviceRequest.meta?.tag?.some(
+      (tag) => tag.system === GENERIC_LAB_ORDER_TAG.system && tag.code === GENERIC_LAB_ORDER_TAG.code
+    ) ?? false;
+  console.log(`ServiceRequest/${serviceRequest.id} isGeneric: ${isGeneric}`);
+  return isGeneric;
 };

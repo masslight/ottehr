@@ -17,15 +17,18 @@ import {
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { applyTemplate, createTemplate, deleteTemplate } from 'src/api/api';
 import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { ExamType, RoleType } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
+import { resetRosObservationsStore } from '../../stores/appointment/reset-ros-observations';
 import { TemplateOption, useListTemplates } from './useListTemplates';
 
 const ADD_NEW_SENTINEL = '__ADD_NEW__';
@@ -127,6 +130,7 @@ export const ApplyTemplate: React.FC = () => {
         // This is necessary because exam observations are stored in Zustand (not React Query)
         // and need to be cleared before React Query refetch triggers the update
         resetExamObservationsStore();
+        resetRosObservationsStore();
 
         // TODO: use window.location.reload() if there are issues with queryClient.invalidateQueries
         await Promise.all([
@@ -153,6 +157,33 @@ export const ApplyTemplate: React.FC = () => {
   const getTemplateName = (value: string): string => {
     return templates.find((option) => option.value === value)?.label || '';
   };
+
+  const selectTemplateByName = (templateName: string): void => {
+    setPendingTemplate(templateName);
+    setDialogOpen(true);
+  };
+
+  const selectTemplateRef = useRef(selectTemplateByName);
+  selectTemplateRef.current = selectTemplateByName;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      isReadOnly
+        ? []
+        : templates.map((template) => ({
+            id: `template-${template.id}`,
+            label: template.label,
+            category: 'Apply Template',
+            onSelect: () => selectTemplateRef.current(template.value),
+          })),
+    [isReadOnly, templates]
+  );
+  useCommandPaletteSource('templates', commandPaletteItems);
+
+  const handlePendingTemplate = useCallback((payload: TemplateOption) => {
+    selectTemplateRef.current(payload.value);
+  }, []);
+  usePendingQuickPick('templates', handlePendingTemplate);
 
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const [overwriteTemplateName, setOverwriteTemplateName] = useState('');

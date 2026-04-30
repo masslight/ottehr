@@ -2,7 +2,6 @@ import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { Loader } from '../../shared/components/Loader';
-import { AppFlagsProvider } from '../../shared/stores/contexts/useAppFlags';
 import { InPersonNavigationProvider, useInPersonNavigationContext } from '../context/InPersonNavigationContext';
 import { InPersonLayout } from '../layout/InPersonLayout';
 
@@ -21,18 +20,16 @@ const InPersonRouting: React.FC = () => {
   // }
 
   return (
-    <AppFlagsProvider flagsToSet={{ isInPerson: true }}>
-      <Routes>
-        <Route element={<InPersonLayout />}>
-          <Route index element={<Navigate to={availableRoutes[0].path} replace />} />
-          {availableRoutes.map((route) => (
-            <Route key={route.path} path={route.path} element={route.element} />
-          ))}
-          {/* redirect unavailable page to the first available page, use-case - intake mode trying to open provider page */}
-          <Route path="*" element={<Navigate to={availableRoutes[0].path} replace />} />
-        </Route>
-      </Routes>
-    </AppFlagsProvider>
+    <Routes>
+      <Route element={<InPersonLayout />}>
+        <Route index element={<Navigate to={availableRoutes[0].path} replace />} />
+        {availableRoutes.map((route) => (
+          <Route key={route.path} path={route.path} element={route.element} />
+        ))}
+        {/* redirect unavailable page to the first available page, use-case - intake mode trying to open provider page */}
+        <Route path="*" element={<Navigate to={availableRoutes[0].path} replace />} />
+      </Route>
+    </Routes>
   );
 };
 

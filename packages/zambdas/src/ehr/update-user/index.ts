@@ -51,9 +51,41 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createOystehrClient(m2mToken, secrets);
   const user = await oystehr.user.get({ id: userId });
   const userProfile = user.profile;
-  const userProfileString = userProfile.split('/');
+  const hasPractitionerProfile = userProfile?.startsWith('Practitioner/') ?? false;
+  const orphanedPatientId = userProfile?.startsWith('Patient/') ? userProfile.split('/')[1] : undefined;
 
-  const practitionerId = userProfileString[1];
+  // self-registered users have a patient profile instead of practitioner, so
+  // create a practitioner first
+  let practitionerId: string;
+  let newProfile: string | undefined;
+  if (hasPractitionerProfile) {
+    practitionerId = userProfile.split('/')[1];
+  } else {
+    const created = await oystehr.fhir.create<Practitioner>({
+      resourceType: 'Practitioner',
+      name: [
+        {
+          given: ['FIRST_NAME'],
+          family: 'LAST_NAME',
+        },
+      ],
+      telecom: user.email
+        ? [
+            {
+              system: 'email',
+              value: user.email,
+            },
+          ]
+        : undefined,
+    });
+    if (!created.id) {
+      throw new Error('Failed to create Practitioner: missing id on created resource');
+    }
+
+    practitionerId = created.id;
+    newProfile = `Practitioner/${practitionerId}`;
+  }
+
   // Update user's Oystehr roles
   // calling update user on an inactive user, reactivates them
   let roles: string[] = [];
@@ -64,12 +96,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       .map((roleName) => getRoleId(roleName, m2mToken, PROJECT_API));
     roles = await Promise.all(promises);
   }
+  const userPatchBody: { roles: string[]; profile?: string } = { roles };
+  if (newProfile) userPatchBody.profile = newProfile;
   const updatedUserResponse = await fetch(`${PROJECT_API}/user/${userId}`, {
     method: 'PATCH',
     headers: headers,
-    body: JSON.stringify({
-      roles: roles,
-    }),
+    body: JSON.stringify(userPatchBody),
   });
   try {
     const practitionerQualificationExtension: any = [];
@@ -222,6 +254,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!updatedUserResponse.ok) {
     throw new Error('Failed to update user');
   }
+
+  // if the user was a self-registered Patient-role user, delete the stray
+  // patient FHIR resource now that we have a new practitioner
+  if (orphanedPatientId && newProfile) {
+    try {
+      await oystehr.fhir.delete({ resourceType: 'Patient', id: orphanedPatientId });
+    } catch (error: unknown) {
+      console.error(`Failed to delete orphaned Patient ${orphanedPatientId}:`, JSON.stringify(error));
+      // don't actually block zambda, will just have remnant patient resource
+    }
+  }
+
   const response: UpdateUserZambdaOutput = {
     message: `Successfully updated user ${userId}`,
   };

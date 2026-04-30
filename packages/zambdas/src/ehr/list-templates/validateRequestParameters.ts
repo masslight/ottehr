@@ -13,12 +13,16 @@ export function validateRequestParameters(input: ZambdaInput): ListTemplatesZamb
     throw INVALID_INPUT_ERROR('Request body must be a valid JSON object');
   }
 
-  const { examType } = parsedInput as Record<string, unknown>;
+  const { examType, includeVersionData } = parsedInput as Record<string, unknown>;
 
   // Validate required parameters
   const missingFields = [];
   if (examType === undefined) {
     missingFields.push('examType');
+  }
+
+  if (includeVersionData === undefined) {
+    missingFields.push('includeVersionData');
   }
 
   if (missingFields.length > 0) {
@@ -30,12 +34,17 @@ export function validateRequestParameters(input: ZambdaInput): ListTemplatesZamb
     throw INVALID_INPUT_ERROR(`Invalid examType: ${examType}. Must be one of: ${Object.values(ExamType).join(', ')}`);
   }
 
+  if (typeof includeVersionData !== 'boolean') {
+    throw INVALID_INPUT_ERROR(`Invalid includeVersionData: ${includeVersionData}. Must be boolean.`);
+  }
+
   if (!input.secrets) {
     throw new Error('No secrets provided in input');
   }
 
   return {
     examType: examType as ExamType,
+    includeVersionData,
     secrets: input.secrets,
   };
 }
