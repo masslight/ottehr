@@ -1,8 +1,15 @@
 import { MessagingGetMessagingConfigResponse, TransactionalSMSSendResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import { useErrorQuery, useSuccessQuery } from 'utils';
-import { ConversationMessage, SMSRecipient } from 'utils';
-import { getConversation } from '../../api/api';
+import {
+  BRANDING_CONFIG,
+  ConversationMessage,
+  QuickTextQuickPickData,
+  replaceTemplateVariablesArrows,
+  SMSRecipient,
+  useErrorQuery,
+  useSuccessQuery,
+} from 'utils';
+import { getConversation, getQuickTextQuickPicks } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { MessageModel } from './ChatModal';
 
@@ -80,6 +87,56 @@ export const useSendMessagesMutation = (
 
     onSuccess,
     onError,
+  });
+};
+
+export interface QuickTextsContext {
+  patientAppUrl?: string;
+  patientName?: string;
+  visitId?: string;
+  locationName?: string;
+  start?: string;
+  officePhone?: string;
+  supportPhone?: string;
+}
+
+export interface ResolvedQuickText {
+  name: string;
+  english: string;
+  spanish?: string;
+}
+
+export const buildQuickTextVariables = (ctx: QuickTextsContext): Record<string, string> => ({
+  patientName: ctx.patientName ?? '',
+  visitUrl: ctx.patientAppUrl && ctx.visitId ? `${ctx.patientAppUrl}/visit/${ctx.visitId}` : '',
+  aiInterviewUrl:
+    ctx.patientAppUrl && ctx.visitId ? `${ctx.patientAppUrl}/visit/${ctx.visitId}/ai-interview-start` : '',
+  projectName: BRANDING_CONFIG.projectName,
+  locationName: ctx.locationName ?? '',
+  start: ctx.start ?? '',
+  officePhone: ctx.officePhone ?? '',
+  supportPhone: ctx.supportPhone ?? '',
+});
+
+export const resolveQuickText = (
+  quickPick: QuickTextQuickPickData,
+  vars: Record<string, string>
+): ResolvedQuickText => ({
+  name: quickPick.name,
+  english: replaceTemplateVariablesArrows(quickPick.english, vars),
+  spanish: quickPick.spanish ? replaceTemplateVariablesArrows(quickPick.spanish, vars) : undefined,
+});
+
+export const useQuickTextsQuery = (): UseQueryResult<QuickTextQuickPickData[], Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['quick-text-quick-picks'],
+    queryFn: async () => {
+      const response = await getQuickTextQuickPicks(oystehrZambda!);
+      return [...response.quickPicks].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    },
+    enabled: !!oystehrZambda,
   });
 };
 

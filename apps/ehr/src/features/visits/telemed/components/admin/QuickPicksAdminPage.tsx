@@ -6,12 +6,16 @@ import {
   createAllergyQuickPick,
   createMedicalConditionQuickPick,
   createMedicationHistoryQuickPick,
+  createQuickTextQuickPick,
   getAllergyQuickPicks,
   getMedicalConditionQuickPicks,
   getMedicationHistoryQuickPicks,
+  getQuickTextQuickPicks,
   removeAllergyQuickPick,
   removeMedicalConditionQuickPick,
   removeMedicationHistoryQuickPick,
+  removeQuickTextQuickPick,
+  updateQuickTextQuickPick,
 } from 'src/api/api';
 import {
   ExtractObjectType,
@@ -20,7 +24,12 @@ import {
   useICD10SearchNew,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { AllergyQuickPickData, MedicalConditionQuickPickData, MedicationHistoryQuickPickData } from 'utils';
+import {
+  AllergyQuickPickData,
+  MedicalConditionQuickPickData,
+  MedicationHistoryQuickPickData,
+  QuickTextQuickPickData,
+} from 'utils';
 import ImmunizationQuickPicksPage from './ImmunizationQuickPicksPage';
 import InHouseMedicationQuickPicksPage from './InHouseMedicationQuickPicksPage';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
@@ -34,7 +43,8 @@ type SubTab =
   | 'medications'
   | 'radiology'
   | 'immunizations'
-  | 'in-house-medications';
+  | 'in-house-medications'
+  | 'quick-texts';
 
 const AllergenSearchField: React.FC<{
   value: string;
@@ -323,6 +333,39 @@ export default function QuickPicksAdminPage(): ReactElement {
     [oystehrZambda]
   );
 
+  // ── Quick text callbacks ──
+  const fetchQuickTexts = useCallback(async () => {
+    if (!oystehrZambda) return [];
+    const response = await getQuickTextQuickPicks(oystehrZambda);
+    return response.quickPicks;
+  }, [oystehrZambda]);
+
+  const createQuickText = useCallback(
+    async (data: Omit<QuickTextQuickPickData, 'id'>) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      const response = await createQuickTextQuickPick(oystehrZambda, { quickPick: data });
+      return response.quickPick;
+    },
+    [oystehrZambda]
+  );
+
+  const updateQuickText = useCallback(
+    async (id: string, data: Omit<QuickTextQuickPickData, 'id'>) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      const response = await updateQuickTextQuickPick(oystehrZambda, id, data);
+      return response.quickPick;
+    },
+    [oystehrZambda]
+  );
+
+  const removeQuickText = useCallback(
+    async (id: string) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda was null');
+      await removeQuickTextQuickPick(oystehrZambda, id);
+    },
+    [oystehrZambda]
+  );
+
   return (
     <Box>
       <TabContext value={subTab}>
@@ -335,6 +378,7 @@ export default function QuickPicksAdminPage(): ReactElement {
             <Tab label="Radiology" value="radiology" sx={{ textTransform: 'none' }} />
             <Tab label="Immunizations" value="immunizations" sx={{ textTransform: 'none' }} />
             <Tab label="In-House Medications" value="in-house-medications" sx={{ textTransform: 'none' }} />
+            <Tab label="Quick Texts" value="quick-texts" sx={{ textTransform: 'none' }} />
           </TabList>
         </Box>
 
@@ -434,6 +478,53 @@ export default function QuickPicksAdminPage(): ReactElement {
         </TabPanel>
         <TabPanel value="in-house-medications" sx={{ px: 0 }}>
           <InHouseMedicationQuickPicksPage />
+        </TabPanel>
+        <TabPanel value="quick-texts" sx={{ px: 0 }}>
+          <QuickPickEditor<QuickTextQuickPickData>
+            title="Quick Texts"
+            description="Manage SMS message templates that providers can pick from when sending texts to patients. Available variables: <patientName>, <visitUrl>, <aiInterviewUrl>, <projectName>, <officePhone>, <locationName>, <start>, <supportPhone>."
+            itemLabel="Quick Text"
+            columns={[
+              { label: 'Name', getValue: (item) => item.name },
+              { label: 'English', getValue: (item) => item.english },
+              { label: 'Spanish', getValue: (item) => item.spanish ?? '' },
+            ]}
+            fields={[
+              { key: 'name', label: 'Name', required: true, placeholder: 'e.g. Paperwork reminder' },
+              {
+                key: 'english',
+                label: 'English',
+                required: true,
+                placeholder: 'Message body shown when English is selected',
+                multiline: true,
+                rows: 5,
+                maxLength: 300,
+              },
+              {
+                key: 'spanish',
+                label: 'Spanish (optional)',
+                placeholder: 'Spanish translation, leave blank if not provided',
+                multiline: true,
+                rows: 5,
+                maxLength: 300,
+              },
+            ]}
+            editable={true}
+            fetchItems={fetchQuickTexts}
+            createItem={createQuickText}
+            updateItem={updateQuickText}
+            removeItem={removeQuickText}
+            buildItemFromFields={(values) => ({
+              name: values.name.trim(),
+              english: values.english.trim(),
+              ...(values.spanish?.trim() ? { spanish: values.spanish.trim() } : {}),
+            })}
+            getFieldValues={(item) => ({
+              name: item.name,
+              english: item.english,
+              spanish: item.spanish ?? '',
+            })}
+          />
         </TabPanel>
       </TabContext>
     </Box>

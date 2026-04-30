@@ -2,18 +2,15 @@ import { Appointment, DocumentReference, Encounter, EncounterStatusHistory, Fhir
 import { DateTime, Duration } from 'luxon';
 import {
   ApptTelemedTab,
-  BRANDING_CONFIG,
   GetTelemedAppointmentsInput,
   getTelemedVisitStatus,
   PATIENT_PHOTO_CODE,
   RefreshableAppointmentData,
-  replaceTemplateVariablesArrows,
   ReviewAndSignData,
   TelemedAppointmentInformation,
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
   TelemedStatusHistoryElement,
-  TEXTING_CONFIG,
 } from 'utils';
 import { AppointmentResources } from '../../shared/stores/appointment/appointment.store';
 import { diffInMinutes } from './diffInMinutes';
@@ -307,12 +304,3 @@ export type GetAppointmentsRequestParams = Pick<
   | 'locationsIdsFilter'
   | 'visitTypesFilter'
 >;
-
-export const getTelemedQuickTexts = (supportPhone: string): string[] => {
-  const vars = {
-    projectName: BRANDING_CONFIG.projectName,
-    supportPhone,
-  };
-
-  return TEXTING_CONFIG.telemed.quickTexts.map((t) => replaceTemplateVariablesArrows(t, vars));
-};

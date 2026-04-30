@@ -1,4 +1,4 @@
-import { Close } from '@mui/icons-material';
+import { Close, Search } from '@mui/icons-material';
 import SendIcon from '@mui/icons-material/Send';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -6,12 +6,14 @@ import {
   Box,
   CircularProgress,
   Dialog,
+  DialogContent,
+  DialogTitle,
   Divider,
   Grid,
   IconButton,
+  InputAdornment,
   List,
   ListItem,
-  Modal,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
@@ -30,7 +32,15 @@ import { LANGUAGES } from '../../constants';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../../hooks/useEvolveUser';
-import { useFetchChatMessagesQuery, useGetMessagingConfigQuery, useSendMessagesMutation } from './chat.queries';
+import {
+  buildQuickTextVariables,
+  QuickTextsContext,
+  resolveQuickText,
+  useFetchChatMessagesQuery,
+  useGetMessagingConfigQuery,
+  useQuickTextsQuery,
+  useSendMessagesMutation,
+} from './chat.queries';
 
 function scrollToBottomOfChat(): void {
   // this helps with the scroll working,
@@ -74,14 +84,14 @@ const ChatModal = memo(
     patient,
     onClose,
     onMarkAllRead,
-    quickTexts,
+    quickTextsContext,
   }: {
     appointment: AppointmentMessaging;
     patient?: Patient;
     currentLocation?: LocationWithWalkinSchedule;
     onClose: () => void;
     onMarkAllRead: () => void;
-    quickTexts: { [key in LANGUAGES]: string | undefined }[] | string[];
+    quickTextsContext: QuickTextsContext;
   }): ReactElement => {
     const theme = useTheme();
     const { oystehr } = useApiClients();
@@ -89,6 +99,7 @@ const ChatModal = memo(
     const [_messages, _setMessages] = useState<MessageModel[]>([]);
     const [messageText, setMessageText] = useState<string>('');
     const [quickTextsOpen, setQuickTextsOpen] = useState<boolean>(false);
+    const [quickTextSearchTerm, setQuickTextSearchTerm] = useState<string>('');
     const [language, setLanguage] = useState<LANGUAGES>(LANGUAGES.english);
     const [isMessagingSetup, setIsMessagingSetup] = useState<boolean>(true);
 
@@ -198,18 +209,6 @@ const ChatModal = memo(
       void markAllRead();
     };
 
-    const quickTextStyle = {
-      position: 'absolute',
-      top: '50%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)',
-      maxWidth: 'sm',
-      bgcolor: 'background.paper',
-      boxShadow: 24,
-      borderRadius: '4px',
-      p: '8px 16px',
-    };
-
     const selectQuickText = (text: string): void => {
       setMessageText(text);
       setQuickTextsOpen(false);
@@ -220,9 +219,23 @@ const ChatModal = memo(
       onClose();
     };
 
-    const hasQuickTextTranslations = (quickTexts: any): quickTexts is { [key in LANGUAGES]: string | undefined }[] => {
-      return typeof quickTexts[0] === 'object';
-    };
+    const { data: rawQuickTexts = [] } = useQuickTextsQuery();
+    const quickTexts = useMemo(() => {
+      const vars = buildQuickTextVariables(quickTextsContext);
+      return rawQuickTexts.map((quickPick) => resolveQuickText(quickPick, vars));
+    }, [rawQuickTexts, quickTextsContext]);
+    const visibleQuickTexts = useMemo(
+      () => quickTexts.filter((text) => (text[language] ?? '').trim().length > 0),
+      [quickTexts, language]
+    );
+    const searchedQuickTexts = useMemo(() => {
+      const term = quickTextSearchTerm.trim().toLowerCase();
+      if (!term) return visibleQuickTexts;
+      return visibleQuickTexts.filter((text) => {
+        const haystack = `${text.name} ${text.english} ${text.spanish ?? ''}`.toLowerCase();
+        return haystack.includes(term);
+      });
+    }, [visibleQuickTexts, quickTextSearchTerm]);
 
     const MessageBodies: JSX.Element[] = useMemo(() => {
       if (pendingMessageSend === undefined && isMessagesFetching) {
@@ -349,6 +362,8 @@ const ChatModal = memo(
                 }}
                 fullWidth
                 multiline
+                inputProps={{ maxLength: 300 }}
+                helperText={`${messageText.length} / 300`}
               />
             </Grid>
 
@@ -378,97 +393,138 @@ const ChatModal = memo(
               </LoadingButton>
             </Grid>
           </Grid>
-          <Modal
+          <Dialog
             open={quickTextsOpen}
-            onClose={() => {
-              setQuickTextsOpen(false);
-            }}
+            onClose={() => setQuickTextsOpen(false)}
+            maxWidth="sm"
+            fullWidth
+            PaperProps={{ sx: { borderRadius: 2 } }}
           >
-            <Grid container sx={quickTextStyle}>
-              <Grid item sx={{ marginTop: '6px', width: '100%' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography
-                    variant="h6"
-                    sx={{ fontWeight: '600 !important', color: theme.palette.primary.main, marginBottom: '4px' }}
-                  >
-                    Quick texts
+            <DialogTitle
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                px: 3,
+                pt: 3,
+                pb: 1,
+              }}
+            >
+              <Typography variant="h4" color="primary.dark" sx={{ fontWeight: 600 }}>
+                Quick Text
+              </Typography>
+              <IconButton onClick={() => setQuickTextsOpen(false)} size="small">
+                <Close />
+              </IconButton>
+            </DialogTitle>
+            <DialogContent sx={{ px: 3, pt: 1, pb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Select a quick text to populate the message to the patient
+                </Typography>
+                <ToggleButtonGroup
+                  sx={{
+                    '& .MuiToggleButton-sizeSmall': {
+                      textTransform: 'none',
+                      color: theme.palette.primary.main,
+                      fontSize: '13px',
+                      fontWeight: 500,
+                    },
+                    '& .MuiToggleButton-sizeSmall:hover': {
+                      color: theme.palette.primary.contrastText,
+                      backgroundColor: theme.palette.primary.light,
+                    },
+                    '& .Mui-selected': {
+                      color: `${theme.palette.primary.contrastText} !important`,
+                      backgroundColor: `${theme.palette.primary.main} !important`,
+                      textTransform: 'none',
+                    },
+                  }}
+                  size="small"
+                  exclusive
+                  value={language}
+                  onChange={(_e: React.MouseEvent<HTMLElement>, value: LANGUAGES) => {
+                    if (value) setLanguage(value);
+                  }}
+                >
+                  <ToggleButton value={LANGUAGES.english} sx={{ padding: '4px 10px 4px 10px' }}>
+                    English
+                  </ToggleButton>
+                  <ToggleButton value={LANGUAGES.spanish} sx={{ padding: '4px 10px 4px 10px' }}>
+                    Spanish
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search quick texts"
+                value={quickTextSearchTerm}
+                onChange={(e) => setQuickTextSearchTerm(e.target.value)}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      {quickTextSearchTerm.length > 0 ? (
+                        <IconButton
+                          aria-label="clear search"
+                          onClick={() => setQuickTextSearchTerm('')}
+                          onMouseDown={(event) => event.preventDefault()}
+                          size="small"
+                          sx={{ p: 0 }}
+                        >
+                          <Close fontSize="small" />
+                        </IconButton>
+                      ) : (
+                        <Search fontSize="small" />
+                      )}
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Box sx={{ height: 360, overflowY: 'auto' }}>
+                {visibleQuickTexts.length === 0 ? (
+                  <Typography variant="body2" sx={{ p: 1, color: theme.palette.text.secondary }}>
+                    No quick texts configured. Admins can add them in EHR Admin → Quick Picks → Quick Texts.
                   </Typography>
-                  {hasQuickTextTranslations(quickTexts) && (
-                    <ToggleButtonGroup
-                      sx={{
-                        '& .MuiToggleButton-sizeSmall': {
-                          textTransform: 'none',
-                          color: theme.palette.primary.main,
-                          fontSize: '13px',
-                          fontWeight: 500,
-                        },
-                        '& .MuiToggleButton-sizeSmall:hover': {
-                          color: theme.palette.primary.contrastText,
-                          backgroundColor: theme.palette.primary.light,
-                        },
-                        '& .Mui-selected': {
-                          color: `${theme.palette.primary.contrastText} !important`,
-                          backgroundColor: `${theme.palette.primary.main} !important`,
-                          textTransform: 'none',
-                        },
-                      }}
-                      size="small"
-                      exclusive
-                      value={language}
-                      onChange={(e: React.MouseEvent<HTMLElement>, value: LANGUAGES) => {
-                        setLanguage(value);
-                      }}
-                    >
-                      <ToggleButton value={LANGUAGES.english} sx={{ padding: '4px 10px 4px 10px' }}>
-                        English
-                      </ToggleButton>
-                      <ToggleButton value={LANGUAGES.spanish} sx={{ padding: '4px 10px 4px 10px' }}>
-                        Spanish
-                      </ToggleButton>
-                    </ToggleButtonGroup>
-                  )}
-                </Box>
-                <Typography variant="body2">Select the text to populate the message to the patient</Typography>
-              </Grid>
-              <Grid item>
-                <List sx={{ padding: 0 }}>
-                  {hasQuickTextTranslations(quickTexts)
-                    ? quickTexts
-                        .filter((text) => text[language])
-                        .map((text) => (
-                          <ListItem
-                            key={text[language]}
-                            sx={{
-                              padding: 1,
-                              my: '12px',
-                              backgroundColor: 'rgba(77, 21, 183, 0.04)',
-                              cursor: 'pointer',
-                            }}
-                            onClick={() => selectQuickText(text[language] ?? '')}
-                          >
-                            <Typography variant="body1">{text[language]}</Typography>
-                          </ListItem>
-                        ))
-                    : quickTexts.map((text) => {
-                        return (
-                          <ListItem
-                            key={text}
-                            sx={{
-                              padding: 1,
-                              my: '12px',
-                              backgroundColor: 'rgba(77, 21, 183, 0.04)',
-                              cursor: 'pointer',
-                            }}
-                            onClick={() => selectQuickText(removeHtmlTags(text))}
-                          >
-                            <Typography variant="body1">{parseTextToJSX(text)}</Typography>
-                          </ListItem>
-                        );
-                      })}
-                </List>
-              </Grid>
-            </Grid>
-          </Modal>
+                ) : searchedQuickTexts.length === 0 ? (
+                  <Typography variant="body2" sx={{ p: 1, color: theme.palette.text.secondary }}>
+                    No quick texts match your search.
+                  </Typography>
+                ) : (
+                  <List sx={{ padding: 0 }}>
+                    {searchedQuickTexts.map((text, index) => {
+                      const body = text[language] ?? '';
+                      return (
+                        <ListItem
+                          key={`${index}-${text.name}`}
+                          sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
+                            padding: 1,
+                            my: '8px',
+                            borderRadius: 1,
+                            backgroundColor: 'rgba(77, 21, 183, 0.04)',
+                            cursor: 'pointer',
+                            transition: 'background-color 120ms ease',
+                            '&:hover': {
+                              backgroundColor: 'rgba(77, 21, 183, 0.12)',
+                            },
+                          }}
+                          onClick={() => selectQuickText(removeHtmlTags(body))}
+                        >
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.primary.dark }}>
+                            {text.name}
+                          </Typography>
+                          <Typography variant="body2">{parseTextToJSX(body)}</Typography>
+                        </ListItem>
+                      );
+                    })}
+                  </List>
+                )}
+              </Box>
+            </DialogContent>
+          </Dialog>
         </form>
       </Dialog>
     );
