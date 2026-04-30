@@ -52,10 +52,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
   console.log('Created Oystehr client');
 
-  const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
+  const response = await performEffect(oystehr, validatedParameters);
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -64,10 +63,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export const performEffect = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
-  params: ChangeTelemedAppointmentStatusInput
+  params: ChangeTelemedAppointmentStatusInput & { userToken: string }
 ): Promise<ChangeTelemedAppointmentStatusResponse> => {
-  const { appointmentId, newStatus, secrets } = params;
+  const { appointmentId, newStatus, secrets, userToken } = params;
 
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId);
   if (!visitResources) {
@@ -99,7 +97,7 @@ export const performEffect = async (
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getTelemedVisitStatus(encounter.status, appointment.status);
   if (currentStatus) {
-    const myPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+    const myPractitionerId = await getMyPractitionerId(userToken, secrets);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractitionerId, ENVIRONMENT);
   }
