@@ -17,8 +17,9 @@ export interface UseListTemplatesResult {
   error: Error | null;
 }
 
-export const useListTemplates = (examType: ExamType): UseListTemplatesResult => {
+export const useListTemplates = (examType: ExamType, options?: { enabled?: boolean }): UseListTemplatesResult => {
   const { oystehrZambda } = useApiClients();
+  const enabled = (options?.enabled ?? true) && !!oystehrZambda;
 
   const queryResult = useQuery<ListTemplatesZambdaOutput, Error>({
     queryKey: ['list-templates', examType],
@@ -28,7 +29,7 @@ export const useListTemplates = (examType: ExamType): UseListTemplatesResult => 
       }
       return await listTemplates(oystehrZambda, { examType, includeVersionData: true });
     },
-    enabled: !!oystehrZambda,
+    enabled,
     staleTime: QUERY_STALE_TIME,
   });
 
