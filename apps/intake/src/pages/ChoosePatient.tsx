@@ -160,6 +160,15 @@ const ChoosePatient = (): JSX.Element => {
         });
       }
     }
+    // TODO: form progress in sessionStorage and patientInfo in the booking store are currently
+    // invalidated only when the selected patientID changes. That's not enough in the general case:
+    // even within the same patientID (including new-patient -> new-patient) the underlying booking
+    // context — serviceMode, serviceCategory, the questionnaire canonical url+version — can differ
+    // between sessions/slots. When that happens, cached answers from a previous session may no
+    // longer match the current questionnaire structure and may cause logical validation bugs.
+    // A possible fix is to key the cached form progress by (serviceMode, serviceCategory,
+    // questionnaireVersion) and drop it whenever any of those change.
+    // But no concrete bug has been observed from this yet, so we keep the minimal patientID check.
     if (patientInfo?.id !== data.patientID) {
       sessionStorage.removeItem(PROGRESS_STORAGE_KEY);
     }

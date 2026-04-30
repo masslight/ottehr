@@ -307,19 +307,34 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   const errorMessage = makeFormErrorMessage(items, errors);
   const { formValues } = useQRState();
 
+  // Only run credit-card auto-save when the current page actually contains a Credit Card input.
+  // The credit card store is module-scoped and survives across navigations, so without this guard
+  // a stale `isCreditCardRequired: true` from a previously-visited credit card page (where the
+  // user didn't fill the card) would silently block submit on unrelated pages like Patient
+  // Information.
+  const hasCreditCardField = useMemo(() => {
+    const containsCreditCardInput = (xs: IntakeQuestionnaireItem[]): boolean =>
+      xs.some((item) => getInputTypeForItem(item) === 'Credit Card' || containsCreditCardInput(item.item ?? []));
+    return containsCreditCardInput(items);
+  }, [items]);
+
   const submitHandler = useCallback(
     async ({ skipValidation = false }: { skipValidation?: boolean } = {}) => {
-      const { shouldContinue } = await handleCardSave({ skipValidation });
+      if (hasCreditCardField) {
+        console.log('the page has a credit card field');
+        const { shouldContinue } = await handleCardSave({ skipValidation });
 
-      if (!shouldContinue) {
-        return;
+        if (!shouldContinue) {
+          console.log(`cannot continue with card, skipping submit`);
+          return;
+        }
       }
 
       setIsSavingProgress(true);
       await handleSubmit(onSubmit)();
       setIsSavingProgress(false);
     },
-    [handleSubmit, onSubmit, handleCardSave]
+    [handleSubmit, onSubmit, handleCardSave, hasCreditCardField]
   );
 
   const { bottomComponent, hideControls, controlButtons } = options;
