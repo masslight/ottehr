@@ -12,6 +12,9 @@
  *   Phase 0.5 — Create slot on the resolved schedule.
  *   Phase 1   — create-appointment (creates Patient, Coverage, Appointment,
  *               Encounter, initial QuestionnaireResponse, RelatedPerson).
+ *   Phase 1.7 — assign-practitioner (ATND): attending practitioner assigned
+ *               early so later module phases that require an attender work.
+ *               (Formal lifecycle assigns at Phase 13 — pulled forward.)
  *   Phase 3   — save-chart-data Pass 1: vitals, allergies, medications, PMH
  *               (conditions), surgical history, hospitalizations, screening,
  *               css-notes, reason-for-visit, patient-info-confirmed.
@@ -22,8 +25,12 @@
  *   Phase 5   — save-chart-data Pass 2: procedures (Procedures-screen
  *               ServiceRequests) cross-referencing template-created
  *               Conditions/CPT Procedures, plus disposition + follow-ups.
+ *   Phase 6   — In-house lab orders: get test catalog, create order, collect
+ *               specimen. Final result entry (handle-in-house-lab-results)
+ *               not yet wired — needs ResultEntryInput keyed by
+ *               observationDefinitionId from testItem.components.
  *
- * Phase 2 and Phases 6+ are plan-only — they log what they would do but do
+ * Phase 2 and Phases 7+ are plan-only — they log what they would do but do
  * NOT write to the FHIR datastore. They will be enabled progressively as
  * each is verified.
  *
@@ -551,6 +558,48 @@ async function phase1_createAppointment(ctx: SynthesisContext): Promise<void> {
   }
 }
 
+// ── Phase 1.7 — assign attending practitioner ───────────────────────────────
+
+/**
+ * Assign the attending practitioner to the encounter early so subsequent
+ * phases that require an attending participant (in-house labs, radiology,
+ * immunizations, etc.) work. The formal visit lifecycle assigns this in
+ * Phase 13 between "ready for provider" and "provider", but we do it
+ * earlier here as a sequencing fix.
+ */
+async function phase1_7_assignAttending(ctx: SynthesisContext): Promise<void> {
+  if (!ctx.attendingPractitionerId || !ctx.encounterId) return;
+  startPhase('Assign attending practitioner');
+
+  const body = {
+    encounterId: ctx.encounterId,
+    practitionerId: ctx.attendingPractitionerId,
+    userRole: [
+      {
+        system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+        code: 'ATND',
+      },
+    ],
+  };
+  logCall('assign-practitioner', body);
+
+  if (ctx.mode === 'execute' && ctx.oystehr) {
+    const res = await fetch(`${ctx.zambdaApi}/zambda/assign-practitioner/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ctx.accessToken}`,
+        'x-zapehr-project-id': ctx.projectId ?? '',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(`assign-practitioner (ATND) failed: ${res.status}\n${await res.text()}`);
+    }
+    logNote(`attending practitioner assigned`);
+  }
+}
+
 // ── Phase 2 — Z3 fixture uploads (plan-only) ─────────────────────────────────
 
 async function phase2_z3Uploads(ctx: SynthesisContext): Promise<void> {
@@ -892,21 +941,122 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
   if (!s.modules?.inHouseLabs?.length) return;
 
   startPhase('In-house lab orders');
+
   for (const lab of s.modules.inHouseLabs) {
     logCall('get-create-in-house-lab-order-resources', { encounterId: ctx.encounterId ?? '<from Phase 1>' });
-    logNote(`resolve test "${lab.testName}" → ActivityDefinition id`);
+
+    if (ctx.mode !== 'execute' || !ctx.oystehr) {
+      logNote(
+        `(plan) test "${lab.testName}", ${lab.diagnoses.length} diagnoses, results=${lab.results ? 'yes' : 'no'}`
+      );
+      continue;
+    }
+
+    // The cloud-deployed zambdas don't yet have the OTR-2428 fix to
+    // getMyPractitionerId, so route in-house lab calls through the local
+    // zambdas server (which uses local source). Override with LOCAL_ZAMBDA_API
+    // env var if needed. Remove this once cloud deploys catch up.
+    const labZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
+
+    // 1. Fetch the catalog of test items available for this encounter.
+    const catalogRes = await fetch(`${labZambdaApi}/zambda/get-create-in-house-lab-order-resources/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ctx.accessToken}`,
+        'x-zapehr-project-id': ctx.projectId ?? '',
+      },
+      body: JSON.stringify({ encounterId: ctx.encounterId }),
+    });
+    if (!catalogRes.ok) {
+      throw new Error(
+        `get-create-in-house-lab-order-resources failed: ${catalogRes.status}\n${await catalogRes.text()}`
+      );
+    }
+    const catalog = (await catalogRes.json()) as {
+      output?: { labs?: Array<{ name: string }> };
+      labs?: Array<{ name: string }>;
+    };
+    const labs = catalog.output?.labs ?? catalog.labs ?? [];
+    const testItem = labs.find((t) => t.name === lab.testName);
+    if (!testItem) {
+      console.warn(
+        `  ⚠ test "${lab.testName}" not found in encounter catalog (${labs.length} options) — skipping this lab order`
+      );
+      continue;
+    }
+    logNote(`resolved test "${lab.testName}" from catalog`);
+
+    // 2. Create the order. testItems is the full DataEntryTestItem objects.
     logCall('create-in-house-lab-order', {
-      encounterId: ctx.encounterId ?? '<from Phase 1>',
-      selectedTests: ['<resolved>'],
+      encounterId: ctx.encounterId,
+      testItems: `[1 item: "${lab.testName}"]`,
+      diagnosesAll: lab.diagnoses,
+      diagnosesNew: lab.diagnoses,
       notes: lab.notes ?? '',
     });
+    const orderRes = await fetch(`${labZambdaApi}/zambda/create-in-house-lab-order/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ctx.accessToken}`,
+        'x-zapehr-project-id': ctx.projectId ?? '',
+      },
+      body: JSON.stringify({
+        encounterId: ctx.encounterId,
+        testItems: [testItem],
+        diagnosesAll: lab.diagnoses,
+        diagnosesNew: lab.diagnoses,
+        notes: lab.notes ?? '',
+      }),
+    });
+    if (!orderRes.ok) {
+      throw new Error(`create-in-house-lab-order failed: ${orderRes.status}\n${await orderRes.text()}`);
+    }
+    const orderJson = (await orderRes.json()) as {
+      output?: { serviceRequestIds?: string[] };
+      serviceRequestIds?: string[];
+    };
+    const serviceRequestId = (orderJson.output?.serviceRequestIds ?? orderJson.serviceRequestIds ?? [])[0];
+    if (!serviceRequestId) {
+      throw new Error(
+        `create-in-house-lab-order returned no serviceRequestId: ${JSON.stringify(orderJson).slice(0, 200)}`
+      );
+    }
+    logNote(`order created — serviceRequestId=${serviceRequestId}`);
+
+    // 3. If the scenario carries results, mark specimen as collected. (Final
+    //    result entry uses ResultEntryInput keyed by observationDefinitionId,
+    //    which requires walking testItem.components — left as a follow-up.)
     if (lab.results) {
-      logCall('collect-in-house-lab-specimen', { serviceRequestId: '<from prior>' });
-      logCall('handle-in-house-lab-results', {
-        serviceRequestId: '<from prior>',
-        results: lab.results,
-        status: 'final',
+      logCall('collect-in-house-lab-specimen', { serviceRequestId });
+      const collectRes = await fetch(`${labZambdaApi}/zambda/collect-in-house-lab-specimen/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${ctx.accessToken}`,
+          'x-zapehr-project-id': ctx.projectId ?? '',
+        },
+        body: JSON.stringify({
+          encounterId: ctx.encounterId,
+          serviceRequestId,
+          data: {
+            specimen: {
+              source: 'throat-swab',
+              collectedBy: { id: ctx.intakeStaffId ?? '', name: 'Synthesizer' },
+              collectionDate: new Date().toISOString(),
+            },
+          },
+        }),
       });
+      if (!collectRes.ok) {
+        console.warn(
+          `  ⚠ collect-in-house-lab-specimen failed: ${collectRes.status} ${(await collectRes.text()).slice(0, 200)}`
+        );
+      } else {
+        logNote('specimen collected');
+      }
+      logNote('(handle-in-house-lab-results not yet implemented — finalize via EHR UI for now)');
     }
   }
 }
@@ -1104,6 +1254,7 @@ async function main(): Promise<void> {
     phase0_lookups,
     phase0_5_createSlot,
     phase1_createAppointment,
+    phase1_7_assignAttending,
     phase2_z3Uploads,
     phase3_chartDataPass1,
     phase4_applyTemplate,

@@ -1067,17 +1067,33 @@ await oystehr.zambda.execute({
 
 ### 7.17 In-house labs
 
+**Pre-requirements (project setup):**
+
+1. Each in-house lab `ActivityDefinition` (one per test, e.g. "Rapid Strep A") must carry **two** tags in the `http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes` system:
+   - `in-house-lab-test-definition` (always present)
+   - `latest` (only on the version the project currently considers active)
+
+   `create-in-house-lab-order` searches by `tag = latest`; if absent, the call fails with `ActivityDefinition not found, results contain 0 activity definitions`. Some project provisioning paths omit the `latest` tag — patch active ADs to add it as a one-time fix.
+2. The encounter must already have an **attending Practitioner** (ATND participant) — the zambda calls `getAttendingPractitionerId(encounter)` and rejects if absent. Synthesizers must call `assign-practitioner` with `userRole: [{ code: 'ATND' }]` before invoking lab orders, even though the formal lifecycle places that assignment inside the status walk.
+
+**Input shape correction.** Earlier doc revisions showed `selectedTests: [<id>]` — that's wrong. The actual `CreateInHouseLabOrderParameters` requires `testItems: DataEntryTestItem[]` (full objects from `get-create-in-house-lab-order-resources`'s `output.labs`), plus `diagnosesAll: DiagnosisDTO[]` and `diagnosesNew: DiagnosisDTO[]` (both required, both can be the same array on a brand-new order).
+
 ```ts
-const resources = await oystehr.zambda.execute({
+const catalog = await oystehr.zambda.execute({
   id: 'get-create-in-house-lab-order-resources',
   encounterId,
 });
-const strepTestId = resources.tests.find(t => t.name === 'Rapid Strep A').id;
+// Note response is wrapped: { status, output: { labs: DataEntryTestItem[] } }
+const labs = catalog.output?.labs ?? catalog.labs ?? [];
+const testItem = labs.find((t) => t.name === 'Rapid Strep A');
+if (!testItem) throw new Error('Rapid Strep A not in catalog for this encounter');
 
 const order = await oystehr.zambda.execute({
   id: 'create-in-house-lab-order',
   encounterId,
-  selectedTests: [strepTestId],
+  testItems: [testItem],
+  diagnosesAll: [{ code: 'J02.9', display: 'Acute pharyngitis', isPrimary: true }],
+  diagnosesNew: [{ code: 'J02.9', display: 'Acute pharyngitis', isPrimary: true }],
   notes: '',
 });
 
