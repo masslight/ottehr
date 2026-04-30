@@ -9,6 +9,7 @@ import {
   GetTelemedAppointmentsResponseEhr,
   getVisitStatusHistory,
   relatedPersonAndCommunicationMaps,
+  Secrets,
   SERVICE_CATEGORY_SYSTEM,
   TelemedAppointmentInformation,
 } from 'utils';
@@ -33,11 +34,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('Parameters: ' + JSON.stringify(validatedParameters));
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
   const oystehrM2m = createOystehrClient(m2mToken, validatedParameters.secrets);
   console.log('Created zapToken, fhir and app clients.');
 
-  const response = await performEffect(validatedParameters, oystehrM2m, oystehrCurrentUser);
+  const response = await performEffect(validatedParameters, oystehrM2m);
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -45,17 +45,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export const performEffect = async (
-  params: GetTelemedAppointmentsInput,
-  oystehrM2m: Oystehr,
-  oystehrCurrentUser: Oystehr
+  params: GetTelemedAppointmentsInput & { userToken: string; secrets: Secrets | null },
+  oystehrM2m: Oystehr
 ): Promise<GetTelemedAppointmentsResponseEhr> => {
-  const { statusesFilter, locationsIdsFilter, visitTypesFilter } = params;
+  const { statusesFilter, locationsIdsFilter, visitTypesFilter, userToken, secrets } = params;
   const virtualLocationsMap = await getAllVirtualLocationsMap(oystehrM2m);
   console.log('Created virtual locations map.');
 
   const allResources = await getAllPartiallyPreFilteredFhirResources(
     oystehrM2m,
-    oystehrCurrentUser,
+    userToken,
+    secrets,
     params,
     virtualLocationsMap
   );

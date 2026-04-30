@@ -13,9 +13,11 @@ import {
   getPatchBinary,
   getTaskResource,
   isAnnotationFollowupEncounter,
+  Secrets,
   SignAppointmentInput,
   SignAppointmentResponse,
   TaskIndicator,
+  userMe,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
@@ -37,10 +39,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
   console.log('Created Oystehr client');
 
-  const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
+  const response = await performEffect(oystehr, validatedParameters);
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -49,10 +50,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export const performEffect = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
-  params: SignAppointmentInput
+  params: SignAppointmentInput & { userToken: string; secrets: Secrets | null }
 ): Promise<SignAppointmentResponse> => {
-  const { appointmentId, encounterId, timezone, supervisorApprovalEnabled } = params;
+  const { appointmentId, encounterId, timezone, supervisorApprovalEnabled, userToken, secrets } = params;
 
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true, encounterId);
   if (!visitResources) {
@@ -83,7 +83,8 @@ export const performEffect = async (
     if (currentStatus) {
       await changeFollowupEncounterStatusToCompleted(
         oystehr,
-        oystehrCurrentUser,
+        userToken,
+        secrets,
         visitResources,
         supervisorApprovalEnabled
       );
@@ -108,7 +109,7 @@ export const performEffect = async (
   } else {
     // For regular encounters: keep existing behavior
     if (currentStatus) {
-      await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, supervisorApprovalEnabled);
+      await changeStatusToCompleted(oystehr, userToken, secrets, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Status has been changed.`);
 
@@ -162,7 +163,8 @@ export const performEffect = async (
 
 const changeFollowupEncounterStatusToCompleted = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
+  userToken: string,
+  secrets: Secrets | null,
   resourcesToUpdate: FullAppointmentResourcePackage,
   supervisorApprovalEnabled?: boolean
 ): Promise<void> => {
@@ -180,7 +182,7 @@ const changeFollowupEncounterStatusToCompleted = async (
     },
   ];
 
-  const user = await oystehrCurrentUser.user.me();
+  const user = await userMe(userToken, secrets);
 
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
     resourcesToUpdate.encounter,
@@ -237,7 +239,8 @@ const changeFollowupEncounterStatusToCompleted = async (
 
 const changeStatusToCompleted = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
+  userToken: string,
+  secrets: Secrets | null,
   resourcesToUpdate: FullAppointmentResourcePackage,
   supervisorApprovalEnabled?: boolean
 ): Promise<void> => {
@@ -259,7 +262,7 @@ const changeStatusToCompleted = async (
     },
   ];
 
-  const user = await oystehrCurrentUser.user.me();
+  const user = await userMe(userToken, secrets);
 
   patchOps.push(...getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'completed', { user }));
 

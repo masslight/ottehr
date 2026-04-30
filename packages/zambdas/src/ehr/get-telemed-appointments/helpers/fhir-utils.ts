@@ -8,6 +8,8 @@ import {
   isNonPaperworkQuestionnaireResponse,
   OTTEHR_MODULE,
   PatientFilterType,
+  Secrets,
+  userMe,
 } from 'utils';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { joinLocationsIdsForFhirSearch } from './helpers';
@@ -109,8 +111,12 @@ export const getAllResourcesFromFhir = async (
   );
 };
 
-export const getPractitionerLicensesLocationsAbbreviations = async (oystehr: Oystehr): Promise<string[]> => {
-  const practitionerId = (await oystehr.user.me()).profile.replace('Practitioner/', '');
+export const getPractitionerLicensesLocationsAbbreviations = async (
+  oystehr: Oystehr,
+  userToken: string,
+  secrets: Secrets | null
+): Promise<string[]> => {
+  const practitionerId = (await userMe(userToken, secrets)).profile.replace('Practitioner/', '');
 
   const practitioner: Practitioner =
     (await oystehr.fhir.get({
@@ -128,7 +134,9 @@ const locationIdsForAppointmentsSearch = async (
   usStatesFilter: string[] | undefined,
   patientFilter: PatientFilterType,
   virtualLocationsMap: LocationIdToStateAbbreviationMap,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  userToken: string,
+  secrets: Secrets | null
 ): Promise<string[] | undefined> => {
   // Little explanation what patientFilter = 'my-patients' means:
   // It means that practitioner wanna see appointments with locations that match
@@ -167,7 +175,7 @@ const locationIdsForAppointmentsSearch = async (
   }
 
   if (patientFilter === 'my-patients') {
-    const licensedPractitionerStates = await getPractitionerLicensesLocationsAbbreviations(oystehr);
+    const licensedPractitionerStates = await getPractitionerLicensesLocationsAbbreviations(oystehr, userToken, secrets);
     console.log('Licensed Practitioner US_states: ' + JSON.stringify(licensedPractitionerStates));
 
     if (hasNoUsStatesFiltersSet) {
@@ -189,7 +197,8 @@ const locationIdsForAppointmentsSearch = async (
 
 export const getAllPartiallyPreFilteredFhirResources = async (
   oystehrM2m: Oystehr,
-  oystehrCurrentUser: Oystehr,
+  userToken: string,
+  secrets: Secrets | null,
   params: GetTelemedAppointmentsInput,
   virtualLocationsMap: LocationIdToStateAbbreviationMap
 ): Promise<Resource[] | undefined> => {
@@ -200,7 +209,9 @@ export const getAllPartiallyPreFilteredFhirResources = async (
     usStatesFilter,
     patientFilter,
     virtualLocationsMap,
-    oystehrCurrentUser
+    oystehrM2m,
+    userToken,
+    secrets
   );
   if (!locationsIdsToSearchWith) return undefined;
   const { encounterStatuses: encounterStatusesToSearchWith, appointmentStatuses: appointmentStatusesToSearchWith } =

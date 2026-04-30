@@ -21,6 +21,7 @@ import {
   Secrets,
   SecretsKeys,
   UpdatePatientAccountResponse,
+  userMe,
 } from 'utils';
 import { ValidationError } from 'yup';
 import {
@@ -372,8 +373,7 @@ interface FinishedInput extends BasicInput {
 const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
   const { secrets, userToken, questionnaireResponse } = input;
   console.log('questionnaireResponse', JSON.stringify(questionnaireResponse));
-  const oystehr = createOystehrClient(userToken, secrets);
-  const user = await oystehr.user.me();
+  const user = await userMe(userToken, secrets);
   if (!user) {
     throw NOT_AUTHORIZED;
   }
