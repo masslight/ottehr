@@ -2,26 +2,38 @@
  * synthesize-visit.ts — Stage 2 of the synthetic-patient-data pipeline.
  *
  * Reads a VisitScenario JSON, validates it against the Zod schema, and walks
- * through the synthesis plan documented in VISIT_ANATOMY_ZAMBDAS.md (§9).
+ * through the synthesis plan documented in README.md (§9). Each phase is a
+ * function that takes a SynthesisContext and either logs the planned call
+ * (--dry-run) or actually executes it against an Oystehr environment
+ * (--execute), threading resolved IDs through the context.
  *
- * Currently a SKELETON: --dry-run mode is implemented; --execute is stubbed
- * out. The dry-run prints the sequence of zambda calls that would fire, in
- * the order they should fire, with the inputs each call would receive.
+ * Currently implemented for --execute: Phase 0 (lookups) ONLY. Phase 0 is
+ * fully read-only (FHIR searches + list-templates). Phases 1+ are plan-only
+ * — they log what they would do but do NOT write to the FHIR datastore.
+ *
+ * Use --execute to validate environment connectivity and verify that all
+ * referenced resources (Location, Practitioner, payer Organization, vaccine
+ * Medications, template) actually exist on the target Oystehr environment
+ * without performing any writes.
  *
  * Usage:
  *   npx tsx scripts/synthetic-patient-data/synthesize-visit.ts <scenario.json> [--execute]
  *
- * Defaults to dry-run. Use --execute (when implemented) to actually synthesize.
+ * Defaults to dry-run.
  *
- * Env (required when --execute is implemented):
+ * Env (required when --execute):
  *   AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE,
  *   PROJECT_ID, PROJECT_API
+ *   ZAMBDA_API (optional — defaults to PROJECT_API; set to
+ *               http://localhost:3000 for local zambdas server)
  *
- * Recommended:
+ * Recommended invocation:
  *   npx env-cmd -f packages/zambdas/.env/<env>.json \
  *     npx tsx scripts/synthetic-patient-data/synthesize-visit.ts \
- *     scripts/synthetic-patient-data/examples/jane-doe-urgent-care.json
+ *     scripts/synthetic-patient-data/examples/jane-doe-urgent-care.json --execute
  */
+import Oystehr from '@oystehr/sdk';
+import type { Location, Medication, Organization, Practitioner, Schedule } from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { type VisitScenario, VisitScenarioSchema } from './schema';
@@ -43,7 +55,7 @@ if (positional.length !== 1) {
 }
 const scenarioPath = resolve(positional[0]);
 
-// ── Load + validate ───────────────────────────────────────────────────────────
+// ── Load + validate scenario ─────────────────────────────────────────────────
 
 let raw: unknown;
 try {
@@ -65,16 +77,85 @@ if (!parsed.success) {
 }
 const scenario = parsed.data;
 
-// ── Plan emitter ──────────────────────────────────────────────────────────────
+// ── Synthesis context ─────────────────────────────────────────────────────────
+
+type Mode = 'plan' | 'execute';
+
+interface SynthesisContext {
+  mode: Mode;
+  oystehr: Oystehr | null;
+  scenario: VisitScenario;
+  // Resolved in Phase 0:
+  locationId?: string;
+  scheduleId?: string;
+  attendingPractitionerId?: string;
+  intakeStaffId?: string;
+  payerOrganizationId?: string;
+  vaccineMedicationsByName?: Record<string, string>;
+  // Resolved in Phase 1:
+  patientId?: string;
+  appointmentId?: string;
+  encounterId?: string;
+  questionnaireResponseId?: string;
+  // Captured from apply-template (Phase 4):
+  templateConditionIds?: string[];
+  templateCptProcedureIds?: string[];
+}
+
+// ── SDK setup ─────────────────────────────────────────────────────────────────
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+async function createOystehr(): Promise<Oystehr> {
+  const auth0Endpoint = requireEnv('AUTH0_ENDPOINT');
+  const auth0Client = requireEnv('AUTH0_CLIENT');
+  const auth0Secret = requireEnv('AUTH0_SECRET');
+  const auth0Audience = requireEnv('AUTH0_AUDIENCE');
+  const projectId = requireEnv('PROJECT_ID');
+  const projectApi = requireEnv('PROJECT_API');
+  const zambdaApi = process.env.ZAMBDA_API ?? projectApi;
+
+  const tokenResponse = await fetch(auth0Endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: auth0Client,
+      client_secret: auth0Secret,
+      audience: auth0Audience,
+      grant_type: 'client_credentials',
+    }),
+  });
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    throw new Error(`Auth0 token request failed: ${tokenResponse.status} ${errorText}`);
+  }
+  const tokenData = (await tokenResponse.json()) as { access_token: string };
+  return new Oystehr({
+    accessToken: tokenData.access_token,
+    projectId,
+    services: {
+      projectApiUrl: projectApi,
+      zambdaApiUrl: zambdaApi,
+    },
+  });
+}
+
+// ── Logging helpers ───────────────────────────────────────────────────────────
 
 let phaseCounter = 0;
-function phase(title: string): void {
+function startPhase(title: string): void {
   console.log('');
   console.log(`── Phase ${phaseCounter}: ${title} ${'─'.repeat(Math.max(0, 60 - title.length))}`);
   phaseCounter += 1;
 }
 
-function call(zambdaId: string, body: Record<string, unknown>): void {
+function logCall(zambdaId: string, body: Record<string, unknown>): void {
   console.log(`  zambda.execute('${zambdaId}')`);
   for (const [k, v] of Object.entries(body)) {
     const rendered = typeof v === 'object' ? JSON.stringify(v) : String(v);
@@ -83,48 +164,155 @@ function call(zambdaId: string, body: Record<string, unknown>): void {
   }
 }
 
-function note(text: string): void {
-  console.log(`  • ${text}`);
-}
-
-function fhirOp(op: string, detail: string): void {
+function logFhir(op: string, detail: string): void {
   console.log(`  fhir.${op} — ${detail}`);
 }
 
-// ── Plan ──────────────────────────────────────────────────────────────────────
+function logNote(text: string): void {
+  console.log(`  • ${text}`);
+}
 
-function planSynthesis(s: VisitScenario): void {
-  const patientLabel = s.label ?? `${s.patient.firstName} ${s.patient.lastName}`;
-  console.log(`Synthesis plan: ${patientLabel}`);
-  console.log(`Visit type: ${s.visit.type} on ${s.visit.date}`);
-  if (s.template) console.log(`Template: ${s.template.name} (${s.template.examType ?? 'derived from visit.type'})`);
+// ── Phase 0 — prerequisite lookups ────────────────────────────────────────────
 
-  // Phase 0 — prerequisite lookups
-  phase('Prerequisite lookups (FHIR searches)');
-  fhirOp('search', `Location with name="${s.visit.locationName}"`);
-  fhirOp('search', `Schedule for resolved Location`);
-  if (s.signOff?.practitionerName) {
-    fhirOp('search', `Practitioner with name="${s.signOff.practitionerName}" (attending)`);
-  } else {
-    fhirOp('search', `Practitioner — auto-pick attending`);
-  }
-  fhirOp('search', `Practitioner — intake staff`);
-  if (s.patient.insurance?.primary) {
-    fhirOp('search', `Organization with name="${s.patient.insurance.primary.carrier}" (payer)`);
-  }
-  if (s.template) {
-    call('list-templates', {
-      examType: s.template.examType ?? (s.visit.type === 'in-person' ? 'inPerson' : 'telemed'),
+async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  startPhase('Prerequisite lookups (FHIR searches)');
+
+  // Location
+  logFhir('search', `Location with name="${s.visit.locationName}"`);
+  if (ctx.mode === 'execute' && ctx.oystehr) {
+    const result = await ctx.oystehr.fhir.search<Location>({
+      resourceType: 'Location',
+      params: [{ name: 'name', value: s.visit.locationName }],
     });
-    note(`verify template "${s.template.name}" appears in the list`);
-  }
-  if (s.modules?.immunizations?.length) {
-    fhirOp('search', `Medication catalog for vaccine names`);
+    const location = result.unbundle()[0];
+    if (!location?.id) throw new Error(`Location not found: "${s.visit.locationName}"`);
+    ctx.locationId = location.id;
+    logNote(`resolved Location → ${ctx.locationId}`);
   }
 
-  // Phase 1 — create-appointment
-  phase('Create appointment');
-  call('create-appointment', {
+  // Schedule for the location
+  logFhir('search', `Schedule for resolved Location`);
+  if (ctx.mode === 'execute' && ctx.oystehr) {
+    const result = await ctx.oystehr.fhir.search<Schedule>({
+      resourceType: 'Schedule',
+      params: [{ name: 'actor', value: `Location/${ctx.locationId}` }],
+    });
+    const schedule = result.unbundle()[0];
+    if (!schedule?.id) throw new Error(`Schedule not found for Location ${ctx.locationId}`);
+    ctx.scheduleId = schedule.id;
+    logNote(`resolved Schedule → ${ctx.scheduleId}`);
+  }
+
+  // Attending practitioner
+  if (s.signOff?.practitionerName) {
+    logFhir('search', `Practitioner with name="${s.signOff.practitionerName}" (attending)`);
+    if (ctx.mode === 'execute' && ctx.oystehr) {
+      const result = await ctx.oystehr.fhir.search<Practitioner>({
+        resourceType: 'Practitioner',
+        params: [{ name: 'name', value: s.signOff.practitionerName }],
+      });
+      const practitioner = result.unbundle()[0];
+      if (!practitioner?.id) {
+        throw new Error(`Practitioner not found: "${s.signOff.practitionerName}"`);
+      }
+      ctx.attendingPractitionerId = practitioner.id;
+      logNote(`resolved Practitioner → ${ctx.attendingPractitionerId}`);
+    }
+  } else {
+    logFhir('search', `Practitioner — auto-pick attending`);
+    if (ctx.mode === 'execute' && ctx.oystehr) {
+      const result = await ctx.oystehr.fhir.search<Practitioner>({
+        resourceType: 'Practitioner',
+        params: [{ name: '_count', value: '1' }],
+      });
+      const practitioner = result.unbundle()[0];
+      if (!practitioner?.id) throw new Error('No Practitioners exist on this project');
+      ctx.attendingPractitionerId = practitioner.id;
+      logNote(`auto-picked Practitioner → ${ctx.attendingPractitionerId}`);
+    }
+  }
+
+  // Intake staff (separate from attending — first different practitioner found)
+  logFhir('search', `Practitioner — intake staff`);
+  if (ctx.mode === 'execute' && ctx.oystehr) {
+    const result = await ctx.oystehr.fhir.search<Practitioner>({
+      resourceType: 'Practitioner',
+      params: [{ name: '_count', value: '10' }],
+    });
+    const practitioners = result.unbundle();
+    const intake = practitioners.find((p) => p.id !== ctx.attendingPractitionerId) ?? practitioners[0];
+    if (!intake?.id) throw new Error('No Practitioner available for intake staff');
+    ctx.intakeStaffId = intake.id;
+    logNote(`auto-picked intake staff → ${ctx.intakeStaffId}`);
+  }
+
+  // Payer organization
+  if (s.patient.insurance?.primary) {
+    logFhir('search', `Organization with name="${s.patient.insurance.primary.carrier}" (payer)`);
+    if (ctx.mode === 'execute' && ctx.oystehr) {
+      const result = await ctx.oystehr.fhir.search<Organization>({
+        resourceType: 'Organization',
+        params: [{ name: 'name', value: s.patient.insurance.primary.carrier }],
+      });
+      const org = result.unbundle()[0];
+      if (org?.id) {
+        ctx.payerOrganizationId = org.id;
+        logNote(`resolved Organization → ${ctx.payerOrganizationId}`);
+      } else {
+        logNote(`payer Organization not found — Coverage will reference by display only`);
+      }
+    }
+  }
+
+  // Template existence verification
+  if (s.template) {
+    const examType = s.template.examType ?? (s.visit.type === 'in-person' ? 'inPerson' : 'telemed');
+    logCall('list-templates', { examType });
+    if (ctx.mode === 'execute' && ctx.oystehr) {
+      const result = (await ctx.oystehr.zambda.execute({
+        id: 'list-templates',
+        examType,
+      })) as { templates?: Array<{ title?: string; name?: string }>; list?: Array<{ title?: string; name?: string }> };
+      const templates = result.templates ?? result.list ?? [];
+      const found = templates.some((t) => t.title === s.template!.name || t.name === s.template!.name);
+      if (!found) {
+        throw new Error(
+          `Template "${s.template.name}" not found among ${templates.length} templates returned by list-templates`
+        );
+      }
+      logNote(`verified template "${s.template.name}" exists`);
+    } else {
+      logNote(`verify template "${s.template.name}" appears in the list`);
+    }
+  }
+
+  // Vaccine catalog (only if scenario has immunizations)
+  if (s.modules?.immunizations?.length) {
+    logFhir('search', `Medication catalog for vaccine names`);
+    if (ctx.mode === 'execute' && ctx.oystehr) {
+      ctx.vaccineMedicationsByName = {};
+      for (const imm of s.modules.immunizations) {
+        const result = await ctx.oystehr.fhir.search<Medication>({
+          resourceType: 'Medication',
+          params: [{ name: 'code:text', value: imm.vaccineName }],
+        });
+        const med = result.unbundle()[0];
+        if (!med?.id) throw new Error(`Vaccine Medication not found: "${imm.vaccineName}"`);
+        ctx.vaccineMedicationsByName[imm.vaccineName] = med.id;
+        logNote(`resolved Medication "${imm.vaccineName}" → ${med.id}`);
+      }
+    }
+  }
+}
+
+// ── Phase 1 — create-appointment ──────────────────────────────────────────────
+
+async function phase1_createAppointment(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  startPhase('Create appointment');
+
+  const body = {
     patient: {
       firstName: s.patient.firstName,
       lastName: s.patient.lastName,
@@ -138,25 +326,37 @@ function planSynthesis(s: VisitScenario): void {
     visitType: 'walkin',
     serviceMode: s.visit.type,
     serviceCategory: 'urgent-care',
-    locationID: '<resolved in Phase 0>',
-  });
-  note('returns: { patientId, appointmentId, encounterId, questionnaireResponseId }');
+    locationID: ctx.locationId ?? '<resolved in Phase 0>',
+  };
+  logCall('create-appointment', body);
+  logNote('returns: { patientId, appointmentId, encounterId, questionnaireResponseId }');
+  // NOTE: write-mode for Phase 1 intentionally NOT YET implemented.
+  // Enabling it requires explicit user opt-in once we are ready for FHIR writes.
+}
 
-  // Phase 2 — Z3 uploads
-  if (s.patient.fixtures && Object.values(s.patient.fixtures).some(Boolean)) {
-    phase('Z3 fixture uploads');
-    for (const [key, path] of Object.entries(s.patient.fixtures)) {
-      if (!path) continue;
-      note(
-        `z3.uploadFile { bucket: "<projectId>-patient-files", key: "<patientId>/${key}", file: <Blob from ${path}> }`
-      );
-      fhirOp('create', `DocumentReference referencing the Z3 object (${key})`);
-    }
+// ── Phase 2 — Z3 fixture uploads (plan-only) ─────────────────────────────────
+
+async function phase2_z3Uploads(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  if (!s.patient.fixtures || !Object.values(s.patient.fixtures).some(Boolean)) return;
+
+  startPhase('Z3 fixture uploads');
+  for (const [key, path] of Object.entries(s.patient.fixtures)) {
+    if (!path) continue;
+    logNote(
+      `z3.uploadFile { bucket: "<projectId>-patient-files", key: "<patientId>/${key}", file: <Blob from ${path}> }`
+    );
+    logFhir('create', `DocumentReference referencing the Z3 object (${key})`);
   }
+}
 
-  // Phase 3a — save-chart-data: non-templated patient-specific data
-  phase('save-chart-data Pass 1 (non-templated patient data)');
-  const pass1: Record<string, unknown> = { encounterId: '<from Phase 1>' };
+// ── Phase 3 — save-chart-data Pass 1 (plan-only) ─────────────────────────────
+
+async function phase3_chartDataPass1(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  startPhase('save-chart-data Pass 1 (non-templated patient data)');
+
+  const pass1: Record<string, unknown> = { encounterId: ctx.encounterId ?? '<from Phase 1>' };
   if (s.history?.allergies?.length) pass1.allergies = `[${s.history.allergies.length} entries]`;
   if (s.history?.medications?.length) pass1.medications = `[${s.history.medications.length} entries]`;
   if (s.history?.conditions?.length) pass1.conditions = `[${s.history.conditions.length} entries]`;
@@ -170,181 +370,293 @@ function planSynthesis(s: VisitScenario): void {
   if (s.vitals && Object.keys(s.vitals).length) pass1.vitalsObservations = `[${Object.keys(s.vitals).length} vitals]`;
   pass1.reasonForVisit = s.visit.reasonForVisit;
   if (s.signOff?.patientInfoConfirmed) pass1.patientInfoConfirmed = { value: true };
-  call('save-chart-data', pass1);
+  logCall('save-chart-data', pass1);
+}
 
-  // Phase 3b — apply-template
-  if (s.template) {
-    phase('Apply template');
-    call('apply-template', {
-      encounterId: '<from Phase 1>',
-      templateName: s.template.name,
-      examType: s.template.examType ?? (s.visit.type === 'in-person' ? 'inPerson' : 'telemed'),
+// ── Phase 4 — apply-template (plan-only) ─────────────────────────────────────
+
+async function phase4_applyTemplate(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  if (!s.template) return;
+
+  startPhase('Apply template');
+  logCall('apply-template', {
+    encounterId: ctx.encounterId ?? '<from Phase 1>',
+    templateName: s.template.name,
+    examType: s.template.examType ?? (s.visit.type === 'in-person' ? 'inPerson' : 'telemed'),
+  });
+  logNote('returns: { conditionIds[], cptProcedureIds[], ... } — capture for cross-references in Pass 2');
+}
+
+// ── Phase 5 — save-chart-data Pass 2 (plan-only) ─────────────────────────────
+
+async function phase5_chartDataPass2(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  if (!s.modules?.procedures?.length && !s.disposition) return;
+
+  startPhase('save-chart-data Pass 2 (cross-references template-created resources)');
+  const pass2: Record<string, unknown> = { encounterId: ctx.encounterId ?? '<from Phase 1>' };
+  if (s.modules?.procedures?.length) pass2.procedures = `[${s.modules.procedures.length} entries with cross-refs]`;
+  if (s.disposition) pass2.disposition = '<disposition + followUp>';
+  logCall('save-chart-data', pass2);
+}
+
+// ── Phase 6 — in-house lab orders (plan-only) ────────────────────────────────
+
+async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  if (!s.modules?.inHouseLabs?.length) return;
+
+  startPhase('In-house lab orders');
+  for (const lab of s.modules.inHouseLabs) {
+    logCall('get-create-in-house-lab-order-resources', { encounterId: ctx.encounterId ?? '<from Phase 1>' });
+    logNote(`resolve test "${lab.testName}" → ActivityDefinition id`);
+    logCall('create-in-house-lab-order', {
+      encounterId: ctx.encounterId ?? '<from Phase 1>',
+      selectedTests: ['<resolved>'],
+      notes: lab.notes ?? '',
     });
-    note('returns: { conditionIds[], cptProcedureIds[], ... } — capture for cross-references in Pass 2');
-  }
-
-  // Phase 3c — save-chart-data Pass 2: procedures + disposition (cross-reference template ids)
-  if (s.modules?.procedures?.length || s.disposition) {
-    phase('save-chart-data Pass 2 (cross-references template-created resources)');
-    const pass2: Record<string, unknown> = { encounterId: '<from Phase 1>' };
-    if (s.modules?.procedures?.length) pass2.procedures = `[${s.modules.procedures.length} entries with cross-refs]`;
-    if (s.disposition) pass2.disposition = '<disposition + followUp>';
-    call('save-chart-data', pass2);
-  }
-
-  // Phase 4 — module orders
-  if (s.modules?.inHouseLabs?.length) {
-    phase('In-house lab orders');
-    for (const lab of s.modules.inHouseLabs) {
-      call('get-create-in-house-lab-order-resources', { encounterId: '<from Phase 1>' });
-      note(`resolve test "${lab.testName}" → ActivityDefinition id`);
-      call('create-in-house-lab-order', {
-        encounterId: '<from Phase 1>',
-        selectedTests: ['<resolved>'],
-        notes: lab.notes ?? '',
-      });
-      if (lab.results) {
-        call('collect-in-house-lab-specimen', { serviceRequestId: '<from prior>' });
-        call('handle-in-house-lab-results', {
-          serviceRequestId: '<from prior>',
-          results: lab.results,
-          status: 'final',
-        });
-      }
-    }
-  }
-
-  if (s.modules?.inHouseMedications?.length) {
-    phase('In-house medication orders');
-    for (const med of s.modules.inHouseMedications) {
-      call('create-update-medication-order', {
-        orderId: null,
-        newStatus: med.administered ? 'administered' : 'pending',
-        orderData: {
-          medicationId: `<resolved from "${med.medicationName}">`,
-          dose: med.dose,
-          units: med.units,
-          route: med.route,
-          effectiveDateTime: med.effectiveDateTime,
-        },
+    if (lab.results) {
+      logCall('collect-in-house-lab-specimen', { serviceRequestId: '<from prior>' });
+      logCall('handle-in-house-lab-results', {
+        serviceRequestId: '<from prior>',
+        results: lab.results,
+        status: 'final',
       });
     }
   }
+}
 
-  if (s.modules?.immunizations?.length) {
-    phase('Immunization orders');
-    for (const imm of s.modules.immunizations) {
-      call('immunization/create-update-order', {
-        details: {
-          encounterId: '<from Phase 1>',
-          medication: { id: `<resolved from "${imm.vaccineName}">`, name: imm.vaccineName },
-          dose: imm.dose,
-          units: imm.units,
-          route: imm.route,
-          location: imm.location,
-        },
-      });
-      if (imm.administered) {
-        call('immunization/administer-order', {
-          orderId: '<from prior>',
-          administrationDetails: { dose: { value: parseFloat(imm.dose), unit: imm.units } },
-        });
-      }
-    }
-  }
+// ── Phase 7 — in-house medications (plan-only) ───────────────────────────────
 
-  if (s.modules?.radiology?.length) {
-    phase('Radiology orders');
-    for (const rad of s.modules.radiology) {
-      call('radiology/create-order', {
-        encounterId: '<from Phase 1>',
-        cptCode: rad.cptCode,
-        diagnosisCode: rad.diagnosisCode,
-        stat: rad.stat,
-        clinicalHistory: rad.clinicalHistory,
-        consentObtained: rad.consentObtained,
-        studyName: rad.studyName,
-        lateralityModifier: rad.lateralityModifier,
-      });
-      if (rad.preliminaryReport) {
-        call('radiology/save-preliminary-report', {
-          serviceRequestId: '<from prior>',
-          conclusion: rad.preliminaryReport,
-        });
-      }
-    }
-  }
+async function phase7_inHouseMedications(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  if (!s.modules?.inHouseMedications?.length) return;
 
-  // Phase 5 — eligibility / pricing polish (writes that should land before sign-off)
-  if (s.eligibility || s.pricing) {
-    phase('Eligibility & pricing polish');
-    if (s.pricing?.cptPrices?.length) {
-      for (const price of s.pricing.cptPrices) {
-        call('cm-add-procedure-code', { code: price.cpt, chargedAmount: price.chargedAmount });
-        call('add-procedure-code', { code: price.cpt, allowedAmount: price.allowedAmount });
-      }
-    }
-    if (s.eligibility) {
-      fhirOp(
-        'create',
-        `CoverageEligibilityResponse with Candid raw-request/raw-response extensions for ${
-          s.eligibility.cptScenarios?.length ?? 0
-        } CPT scenarios`
-      );
-    }
-  }
-
-  // Phase 6 — appointment notes / patient education
-  if (s.notes?.appointmentNotes?.length) {
-    phase('Appointment notes (Communications)');
-    for (const note_ of s.notes.appointmentNotes) {
-      fhirOp('create', `Communication on appointment with text="${note_.text.slice(0, 50)}..."`);
-    }
-  }
-  if (s.notes?.patientEducationDocs?.length) {
-    phase('Patient education materials');
-    for (const ed of s.notes.patientEducationDocs) {
-      call('patient-education-create', { topic: ed.topic, title: ed.title, url: ed.url });
-    }
-  }
-
-  // Phase 7 — visit-status walk + practitioner assignment
-  if (s.signOff?.complete !== false) {
-    phase('Visit-status walk + practitioner assignment');
-    note('change-in-person-visit-status: arrived → ready');
-    note('assign-practitioner (intake staff, ADM)');
-    note('change-in-person-visit-status: ready → intake → ready for provider');
-    note('assign-practitioner (attending provider, ATND)');
-    note('change-in-person-visit-status: ready for provider → provider → discharged → completed');
-  }
-
-  // Phase 8 — sign-off
-  if (s.signOff?.complete !== false) {
-    phase('Sign-off');
-    call('sign-appointment', {
-      appointmentId: '<from Phase 1>',
-      encounterId: '<from Phase 1>',
-      timezone: s.signOff?.timezone,
-      supervisorApprovalEnabled: s.signOff?.supervisorApproval,
+  startPhase('In-house medication orders');
+  for (const med of s.modules.inHouseMedications) {
+    logCall('create-update-medication-order', {
+      orderId: null,
+      newStatus: med.administered ? 'administered' : 'pending',
+      orderData: {
+        medicationId: `<resolved from "${med.medicationName}">`,
+        dose: med.dose,
+        units: med.units,
+        route: med.route,
+        effectiveDateTime: med.effectiveDateTime,
+      },
     });
-    note('triggers visit-note PDF subscription → DocumentReference in visit-notes Z3 bucket');
   }
+}
 
-  console.log('');
-  console.log(`-- end of plan (${phaseCounter} phases) --`);
+// ── Phase 8 — immunizations (plan-only) ──────────────────────────────────────
+
+async function phase8_immunizations(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  if (!s.modules?.immunizations?.length) return;
+
+  startPhase('Immunization orders');
+  for (const imm of s.modules.immunizations) {
+    logCall('immunization/create-update-order', {
+      details: {
+        encounterId: ctx.encounterId ?? '<from Phase 1>',
+        medication: { id: `<resolved from "${imm.vaccineName}">`, name: imm.vaccineName },
+        dose: imm.dose,
+        units: imm.units,
+        route: imm.route,
+        location: imm.location,
+      },
+    });
+    if (imm.administered) {
+      logCall('immunization/administer-order', {
+        orderId: '<from prior>',
+        administrationDetails: { dose: { value: parseFloat(imm.dose), unit: imm.units } },
+      });
+    }
+  }
+}
+
+// ── Phase 9 — radiology (plan-only) ──────────────────────────────────────────
+
+async function phase9_radiology(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  if (!s.modules?.radiology?.length) return;
+
+  startPhase('Radiology orders');
+  for (const rad of s.modules.radiology) {
+    logCall('radiology/create-order', {
+      encounterId: ctx.encounterId ?? '<from Phase 1>',
+      cptCode: rad.cptCode,
+      diagnosisCode: rad.diagnosisCode,
+      stat: rad.stat,
+      clinicalHistory: rad.clinicalHistory,
+      consentObtained: rad.consentObtained,
+      studyName: rad.studyName,
+      lateralityModifier: rad.lateralityModifier,
+    });
+    if (rad.preliminaryReport) {
+      logCall('radiology/save-preliminary-report', {
+        serviceRequestId: '<from prior>',
+        conclusion: rad.preliminaryReport,
+      });
+    }
+  }
+}
+
+// ── Phase 10 — eligibility & pricing (plan-only) ─────────────────────────────
+
+async function phase10_eligibilityAndPricing(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  if (!s.eligibility && !s.pricing) return;
+
+  startPhase('Eligibility & pricing polish');
+  if (s.pricing?.cptPrices?.length) {
+    for (const price of s.pricing.cptPrices) {
+      logCall('cm-add-procedure-code', { code: price.cpt, chargedAmount: price.chargedAmount });
+      logCall('add-procedure-code', { code: price.cpt, allowedAmount: price.allowedAmount });
+    }
+  }
+  if (s.eligibility) {
+    logFhir(
+      'create',
+      `CoverageEligibilityResponse with Candid raw-request/raw-response extensions for ${
+        s.eligibility.cptScenarios?.length ?? 0
+      } CPT scenarios`
+    );
+  }
+}
+
+// ── Phase 11 — appointment notes (plan-only) ─────────────────────────────────
+
+async function phase11_appointmentNotes(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  if (!s.notes?.appointmentNotes?.length) return;
+
+  startPhase('Appointment notes (Communications)');
+  for (const apptNote of s.notes.appointmentNotes) {
+    logFhir('create', `Communication on appointment with text="${apptNote.text.slice(0, 50)}..."`);
+  }
+}
+
+// ── Phase 12 — patient education (plan-only) ─────────────────────────────────
+
+async function phase12_patientEducation(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  if (!s.notes?.patientEducationDocs?.length) return;
+
+  startPhase('Patient education materials');
+  for (const ed of s.notes.patientEducationDocs) {
+    logCall('patient-education-create', { topic: ed.topic, title: ed.title, url: ed.url });
+  }
+}
+
+// ── Phase 13 — visit-status walk + practitioner assignment (plan-only) ───────
+
+async function phase13_statusWalk(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  if (s.signOff?.complete === false) return;
+
+  startPhase('Visit-status walk + practitioner assignment');
+  logNote('change-in-person-visit-status: arrived → ready');
+  logNote('assign-practitioner (intake staff, ADM)');
+  logNote('change-in-person-visit-status: ready → intake → ready for provider');
+  logNote('assign-practitioner (attending provider, ATND)');
+  logNote('change-in-person-visit-status: ready for provider → provider → discharged → completed');
+}
+
+// ── Phase 14 — sign-off (plan-only) ──────────────────────────────────────────
+
+async function phase14_signOff(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  if (s.signOff?.complete === false) return;
+
+  startPhase('Sign-off');
+  logCall('sign-appointment', {
+    appointmentId: ctx.appointmentId ?? '<from Phase 1>',
+    encounterId: ctx.encounterId ?? '<from Phase 1>',
+    timezone: s.signOff?.timezone,
+    supervisorApprovalEnabled: s.signOff?.supervisorApproval,
+  });
+  logNote('triggers visit-note PDF subscription → DocumentReference in visit-notes Z3 bucket');
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-console.log(`Mode: ${isExecute ? 'EXECUTE (NOT IMPLEMENTED)' : 'DRY RUN'}`);
-console.log(`Scenario file: ${scenarioPath}`);
-console.log(`Schema validation: passed`);
-console.log('');
+async function main(): Promise<void> {
+  console.log(`Mode: ${isExecute ? 'EXECUTE' : 'DRY RUN'}`);
+  console.log(`Scenario file: ${scenarioPath}`);
+  console.log(`Schema validation: passed`);
 
-planSynthesis(scenario);
+  const ctx: SynthesisContext = {
+    mode: isExecute ? 'execute' : 'plan',
+    oystehr: null,
+    scenario,
+  };
 
-if (isExecute) {
+  if (isExecute) {
+    console.log('Authenticating with Auth0...');
+    ctx.oystehr = await createOystehr();
+    console.log('Authenticated.');
+  }
+
+  const patientLabel = scenario.label ?? `${scenario.patient.firstName} ${scenario.patient.lastName}`;
   console.log('');
-  console.error('--execute mode is not yet implemented. Implementation plan is in VISIT_ANATOMY_ZAMBDAS.md §9.');
-  process.exit(2);
+  console.log(`Synthesis plan: ${patientLabel}`);
+  console.log(`Visit type: ${scenario.visit.type} on ${scenario.visit.date}`);
+  if (scenario.template) {
+    console.log(`Template: ${scenario.template.name} (${scenario.template.examType ?? 'derived from visit.type'})`);
+  }
+
+  const phases: Array<(ctx: SynthesisContext) => Promise<void>> = [
+    phase0_lookups,
+    phase1_createAppointment,
+    phase2_z3Uploads,
+    phase3_chartDataPass1,
+    phase4_applyTemplate,
+    phase5_chartDataPass2,
+    phase6_inHouseLabs,
+    phase7_inHouseMedications,
+    phase8_immunizations,
+    phase9_radiology,
+    phase10_eligibilityAndPricing,
+    phase11_appointmentNotes,
+    phase12_patientEducation,
+    phase13_statusWalk,
+    phase14_signOff,
+  ];
+
+  for (const fn of phases) {
+    await fn(ctx);
+  }
+
+  console.log('');
+  console.log(`-- end of plan (${phaseCounter} phases) --`);
+  if (isExecute) {
+    console.log('');
+    console.log('Mode summary: --execute performed Phase 0 lookups against the live environment');
+    console.log('(read-only). Phases 1+ were planned but no FHIR writes were performed. To enable');
+    console.log('writes, individual phase execute branches need to be implemented and explicitly');
+    console.log('opted into.');
+    console.log('');
+    console.log('Phase 0 resolutions:');
+    if (ctx.locationId) console.log(`  Location:                ${ctx.locationId}`);
+    if (ctx.scheduleId) console.log(`  Schedule:                ${ctx.scheduleId}`);
+    if (ctx.attendingPractitionerId) console.log(`  Attending Practitioner:  ${ctx.attendingPractitionerId}`);
+    if (ctx.intakeStaffId) console.log(`  Intake-staff Practitioner: ${ctx.intakeStaffId}`);
+    if (ctx.payerOrganizationId) console.log(`  Payer Organization:      ${ctx.payerOrganizationId}`);
+    if (ctx.vaccineMedicationsByName) {
+      for (const [name, id] of Object.entries(ctx.vaccineMedicationsByName)) {
+        console.log(`  Vaccine "${name}": ${id}`);
+      }
+    }
+  }
 }
+
+main().catch((err) => {
+  console.error('');
+  console.error('Fatal error:', err instanceof Error ? err.message : err);
+  if (err instanceof Error && err.stack) {
+    console.error(err.stack.split('\n').slice(1, 4).join('\n'));
+  }
+  process.exit(1);
+});

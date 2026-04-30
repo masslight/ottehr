@@ -77,7 +77,7 @@ const result = await oystehr.zambda.execute({
   id: 'apply-template',
   encounterId,
   templateName: 'URI Walk-in Standard',
-  examType:    'IN_PERSON',
+  examType:    'inPerson',
 });
 ```
 
@@ -397,22 +397,34 @@ const vaccinesByCvx = new Map(
 
 #### Global template
 
-Templates are `List` resources whose `title` is the template name and whose `meta.tag` references the global-template holder system. Verify a template exists for the visit type you're synthesizing:
+Templates are FHIR `List` resources, indexed by a single project-level **holder List**. Architecture:
+
+- **Each template** is a `List` whose `code.coding[].system` is one of:
+  - `https://fhir.ottehr.com/CodeSystem/global-template-in-person` (in-person)
+  - `https://fhir.ottehr.com/CodeSystem/global-template-telemed` (telemed)
+  - `code.coding[].version` carries a short schema-version hash (e.g. `'062c8923'`).
+  - `title` is the human-readable template name shown in the EHR admin UI.
+  - `contained[]` carries the actual chart-data (Conditions, Observations, ClinicalImpressions, Communications, Procedures) the template applies.
+- **The holder List** is a separate `List` resource identified by `meta.tag` with system `https://fhir.zapehr.com/r4/StructureDefinitions/global-template-list`. Its `entry[].item.reference` points to every active template `List`. There is exactly one holder list per project.
+- **Discovery** — `list-templates` (§6.4) walks the holder list's entries and returns the templates matching the requested `examType`. The EHR admin UI at `/admin/global-templates` does the same.
+
+Verify a template exists for the visit type you're synthesizing — preferred path is the zambda call (§6.4), but you can also walk FHIR directly:
 
 ```ts
-const templates = await oystehr.fhir.search<List>({
-  resourceType: 'List',
-  params: [
-    { name: 'title',      value: 'URI Walk-in Standard' },
-    { name: '_revinclude', value: 'List:item' },
-  ],
+const all = await oystehr.zambda.execute({
+  id: 'list-templates',
+  examType: 'inPerson',
+  includeVersionData: false,
 });
-if (templates.unbundle().length === 0) {
+// Response is wrapped: { status: 200, output: { templates: [{ id, title, examVersion, versionData? }] } }
+const templates = all.output?.templates ?? [];
+const found = templates.find((t) => t.title === 'URI Walk-in Standard');
+if (!found) {
   throw new Error('Template "URI Walk-in Standard" not found — see §6.3 to create one');
 }
 ```
 
-The actual template-application call goes through `apply-template` (§6.2); the lookup above is just to confirm the template is present.
+A template `List` resource that's NOT registered in the holder list is invisible to `list-templates`, the EHR admin UI, and `apply-template`. Templates created via `admin-create-template` are automatically registered; orphan template Lists in FHIR have to be re-linked to the holder list before they're usable.
 
 ### 4.3 Bootstrap function
 
@@ -583,7 +595,7 @@ await oystehr.zambda.execute({
   id: 'apply-template',
   encounterId,
   templateName: 'URI Walk-in Standard',
-  examType:    'IN_PERSON',
+  examType:    'inPerson',
 });
 ```
 
@@ -592,7 +604,7 @@ await oystehr.zambda.execute({
 | **Zambda id** | `apply-template` |
 | **Source** | `packages/zambdas/src/ehr/apply-template/` |
 | **Auth** | M2M acceptable |
-| **Input** | `encounterId`, `templateName` (matches a template `List.title`), `examType` (`'IN_PERSON'` or `'TELEMED'`) |
+| **Input** | `encounterId`, `templateName` (matches a template `List.title`), `examType` (`'inPerson'` or `'telemed'` — note camelCase, NOT `'IN_PERSON'`) |
 | **What it produces** | Variable — depending on the template's content. Typically a CC Condition, an HPI Condition, multiple ROS Observations, multiple exam Observations, an MDM ClinicalImpression, multiple diagnosis Conditions with `Encounter.diagnosis[]` linkage, CPT and E&M Procedures, patient-instruction Communications. |
 | **When to call** | After `create-appointment` and after the initial Phase 3a `save-chart-data` call (vitals, allergies, etc.). Calling apply-template *after* setting CC text via Phase 3a results in the template's CC text being appended to existing CC text — usually you want the template to be the source of truth, so apply it first and then patch any visit-specific narrative additions. |
 
@@ -611,7 +623,7 @@ await oystehr.zambda.execute({
   id: 'admin-create-template',
   encounterId:  referenceEncounterId,
   templateName: 'URI Walk-in Standard',
-  examType:     'IN_PERSON',
+  examType:     'inPerson',
 });
 ```
 
@@ -620,10 +632,13 @@ This snapshots the reference encounter's chart-data into a new `List` resource (
 3. **Verify the template appears** by listing:
 
 ```ts
-const templates = await oystehr.zambda.execute({
+const result = await oystehr.zambda.execute({
   id: 'list-templates',
-  examType: 'IN_PERSON',
+  examType: 'inPerson',
+  includeVersionData: false,    // set true to get per-template stale-version flag
 });
+// Note the wrapper: { status, output: { templates: [...] } }
+const templates = result.output?.templates ?? [];
 ```
 
 4. **Use it** from synthesis going forward.
@@ -641,7 +656,20 @@ You'll typically build a small library of templates per visit type (e.g. `'URI W
 | `list-templates` | List all templates for an exam type |
 | `apply-template` | Apply a template to an encounter (the synthesis call) |
 
-### 6.5 Templates and synthesis: example flow
+### 6.5 Template schema versioning
+
+Each template carries a short version hash in `code.coding[].version` (e.g. `'062c8923'`). This represents the template's chart-data schema version — the shape of contained Observations, expected exam-field codes, ROS-field codes, etc. The current schema version is determined at zambda runtime from `examConfig` in `utils`.
+
+`list-templates` returns *all* templates from the holder list regardless of version. When called with `includeVersionData: true`, each returned template gains a `versionData.isCurrentVersion: boolean` flag plus, if false, an `unmatchedFields` description of which exam/ROS field codes are no longer recognized.
+
+Practical implications for synthesis:
+
+- A template with `isCurrentVersion: false` may still apply via `apply-template`, but its contained Observations may carry codes the zambda no longer knows. Behavior is best-effort.
+- The EHR admin UI shows stale templates with a visual marker — they remain editable.
+- Re-saving a stale template (via the admin tool) typically resets it to the current version.
+- For a fresh synthesis pipeline, prefer templates already on the current version (or rebuild any stale ones via `admin-create-template` against a properly-charted reference encounter).
+
+### 6.6 Templates and synthesis: example flow
 
 ```ts
 // 1) Bootstrap, including verifying the template exists
@@ -674,7 +702,7 @@ await oystehr.zambda.execute({
   id: 'apply-template',
   encounterId: appt.encounterId,
   templateName: config.templateName,
-  examType:    'IN_PERSON',
+  examType:    'inPerson',
 });
 
 // 5–7) Module orders, status walk, sign-off (§§7, 9)
@@ -1727,7 +1755,7 @@ async function synthesizeVisit(seedName: string) {
     id: 'apply-template',
     encounterId,
     templateName: config.templateName,
-    examType:    'IN_PERSON',
+    examType:    'inPerson',
   });
 
   // Capture template-created resource ids for cross-referencing
@@ -1924,3 +1952,85 @@ For the canonical, complete list of registered zambdas in your project, see `con
 | `oystehr.user.invite({ email, ... })` | Invite a user via Oystehr IAM |
 
 The SDK package: `@oystehr/sdk`. Construct one client per script run with the M2M access token; reuse across all calls.
+
+---
+
+## Appendix C — Local environment swap
+
+To run the local apps (`packages/zambdas` on :3000, `apps/intake` on :3002, `apps/ehr` on :4002) against a different Oystehr project — e.g. to point them at a "synth" project for synthesis testing while leaving your day-to-day local project's data untouched — the repo already has a built-in mechanism via the `ENV` shell variable. This appendix documents it.
+
+### Files involved (per environment)
+
+For an environment named `<env>` (e.g. `local`, `demo`, `staging`, `synth`), three files together fully describe the environment:
+
+| File | Purpose | Gitignored |
+| --- | --- | --- |
+| `packages/zambdas/.env/zambda-secrets-<env>.json` | Zambda runtime secrets — Auth0 M2M creds, FHIR/Project API URLs, third-party service keys (SendGrid, Stripe, Candid, Anthropic, AdvAPACs, Google Cloud, …), feature flags. The `PROJECT_ID` here binds zambdas to a specific Oystehr project. | ✅ (`packages/zambdas/.gitignore`: `.env/*`) |
+| `apps/ehr/env/.env.<env>` | EHR app's Vite env — `VITE_APP_PROJECT_ID`, `VITE_APP_OYSTEHR_APPLICATION_CLIENT_ID` (for user login via the EHR's Oystehr Application), `VITE_APP_FHIR_API_URL`, feature flags. | ✅ (`apps/ehr/.gitignore`: `env/*`) |
+| `apps/intake/env/.env.<env>` | Intake (patient portal) Vite env — `VITE_APP_PROJECT_ID`, `VITE_APP_CLIENT_ID` (for patient login via the intake's Application), feature flags. | ✅ (`apps/intake/.gitignore`: `env/*`) |
+
+### How the `ENV` variable selects them
+
+- **Zambdas**: `packages/zambdas/package.json`'s `start:iac` is `tsx watch ... -- secrets=.env/zambda-secrets-${ENV:-local}.json`. The local-server reads that secrets file at boot.
+- **EHR**: `apps/ehr/package.json`'s `start:iac` is `vite --mode $([ "$ENV" = "local" ] && echo default || echo ${ENV:-default})`. Vite then loads `apps/ehr/env/.env.<mode>`. Note the special-case: `ENV=local` resolves to mode `default`, but the EHR's actual config still comes from `.env.local` because Vite always loads the most-specific `.env.*` file; only the `.env.<mode>` resolution differs. For non-local environments, `ENV=demo` → mode `demo` → loads `.env.demo` (and any `.env` defaults).
+- **Intake**: same pattern as EHR.
+
+The combined effect: setting `ENV=<env>` at startup tells all three apps to load the corresponding env file from their respective env directories.
+
+### Adding a new environment (one-time setup)
+
+Replace `<env>` and `<project-id>` with your values. M2M creds come from the Oystehr console for the target project (IAM → M2M Clients), Application client IDs from the project's Applications list.
+
+1. **Zambdas secrets file** — copy from a known-good env and patch:
+   ```bash
+   cp packages/zambdas/.env/zambda-secrets-local.json \
+      packages/zambdas/.env/zambda-secrets-<env>.json
+   # Then edit and set PROJECT_ID, AUTH0_CLIENT, AUTH0_SECRET, ENVIRONMENT, project-name
+   ```
+
+2. **EHR Vite env** — copy and patch:
+   ```bash
+   cp apps/ehr/env/.env.local apps/ehr/env/.env.<env>
+   # Then edit and set VITE_APP_PROJECT_ID, VITE_APP_OYSTEHR_APPLICATION_CLIENT_ID, VITE_APP_ENV
+   ```
+
+3. **Intake Vite env** — copy and patch:
+   ```bash
+   cp apps/intake/env/.env.local apps/intake/env/.env.<env>
+   # Then edit and set VITE_APP_PROJECT_ID, VITE_APP_CLIENT_ID, VITE_APP_ENV
+   ```
+
+All three files are gitignored — no risk of committing credentials.
+
+### Running with a non-default environment
+
+Stop any running stack first (kill the running zambdas, intake, EHR processes). Then:
+
+```bash
+# Run against environment <env>:
+ENV=<env> npm run apps:start:no-apply
+
+# Or for individual services:
+ENV=<env> npm run zambdas:start
+ENV=<env> npm run ehr:start
+ENV=<env> npm run intake:start
+```
+
+The `:no-apply` variant skips the `terraform apply-local` step, which is appropriate when you're not deploying IaC changes — only swapping the runtime project.
+
+### Reverting
+
+```bash
+# Stop:
+# (kill the three running processes — find PIDs with: lsof -i :3000 -i :3002 -i :4002 -P -n)
+
+# Start back on local (the default — ENV does not need to be set):
+npm run apps:start:no-apply
+```
+
+### Caveats
+
+- **User accounts are per-project.** The provider account you use to log into the EHR on your default project won't work after swapping to a different project. You need a user provisioned on the target project (Oystehr console → IAM → Users) with appropriate roles.
+- **Browser session.** Your existing browser tab on `localhost:4002` will hold a stale token from the previous project. Either log out + back in, or open in an incognito/private window.
+- **Intake patient login.** For full patient-facing flows on the new project, intake's `VITE_APP_CLIENT_ID` must be the target project's intake Application client ID. Synthesis tests typically don't need patient login (we synthesize via the API directly), so this is acceptable to leave stale during synthesis-only testing — but expect intake patient flows to fail until updated.
+- **Third-party services.** SendGrid, Stripe, Candid, AdvAPACs, etc. credentials in the secrets file may be project-specific or environment-specific in real deployments. For local synthesis testing, leaving the source environment's third-party creds in place is usually fine since most synthesis paths don't invoke them.
