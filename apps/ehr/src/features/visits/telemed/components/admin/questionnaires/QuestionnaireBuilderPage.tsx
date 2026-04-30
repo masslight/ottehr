@@ -119,11 +119,13 @@ export const QuestionnaireBuilderPage: FC = () => {
   }
 
   return (
-    <QuestionnaireBuilder
-      initial={data?.editing}
-      onSave={handleSave}
-      onCancel={handleCancel}
-      systemQuestionnaires={data?.systemQuestionnaires || []}
-    />
+    <PageContainer>
+      <QuestionnaireBuilder
+        initial={data?.editing}
+        onSave={handleSave}
+        onCancel={handleCancel}
+        systemQuestionnaires={data?.systemQuestionnaires || []}
+      />
+    </PageContainer>
   );
 };

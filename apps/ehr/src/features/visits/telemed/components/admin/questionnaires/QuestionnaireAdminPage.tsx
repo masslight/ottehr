@@ -5,7 +5,6 @@ import EditIcon from '@mui/icons-material/Edit';
 import UploadIcon from '@mui/icons-material/Upload';
 import {
   Box,
-  Button,
   Chip,
   CircularProgress,
   Dialog,
@@ -33,6 +32,8 @@ import {
   deletePracticeManagedQuestionnaire,
   listPracticeManagedQuestionnaires,
 } from 'src/api/api';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { FhirQuestionnaire, fromFhirResource, IntakeQuestionnaireOption } from './questionnaire.types';
 
@@ -47,11 +48,11 @@ function countItems(items: FhirQuestionnaire['item']): number {
   return count;
 }
 
-const STATUS_COLORS: Record<string, 'success' | 'warning' | 'default' | 'error'> = {
-  active: 'success',
-  draft: 'warning',
-  retired: 'error',
-  unknown: 'default',
+const STATUS_CHIP_STYLES: Record<string, { backgroundColor: string; color: string }> = {
+  active: { backgroundColor: 'rgba(46, 125, 50, 0.3)', color: '#2E7D32' },
+  draft: { backgroundColor: 'rgba(251, 140, 0, 0.3)', color: '#FB8C00' },
+  retired: { backgroundColor: 'rgba(211, 47, 47, 0.3)', color: '#D32F2F' },
+  unknown: { backgroundColor: 'rgba(0, 0, 0, 0.08)', color: 'rgba(0, 0, 0, 0.6)' },
 };
 
 const FileUploadArea: FC<{ onFileLoaded: (content: string) => void; disabled?: boolean }> = ({
@@ -206,16 +207,23 @@ export const QuestionnaireAdminPage: FC = () => {
   }, [oystehrZambda, importJson, queryClient]);
 
   return (
-    <Box>
+    <Paper sx={{ padding: 2, marginTop: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h5">Questionnaires</Typography>
+        <Typography variant="h4" sx={{ color: '#0F347C' }}>
+          Questionnaires
+        </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" startIcon={<UploadIcon />} onClick={() => setImportDialogOpen(true)}>
+          <ButtonRounded
+            variant="outlined"
+            size="medium"
+            startIcon={<UploadIcon />}
+            onClick={() => setImportDialogOpen(true)}
+          >
             Import JSON
-          </Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
+          </ButtonRounded>
+          <ButtonRounded variant="contained" size="medium" startIcon={<AddIcon />} onClick={handleCreate}>
             Create Questionnaire
-          </Button>
+          </ButtonRounded>
         </Box>
       </Box>
 
@@ -224,13 +232,11 @@ export const QuestionnaireAdminPage: FC = () => {
           <CircularProgress />
         </Box>
       ) : questionnaires.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="body1" color="text.secondary">
-            No questionnaires yet. Click "Create Questionnaire" to build one.
-          </Typography>
-        </Paper>
+        <Typography variant="body1" color="text.secondary" sx={{ p: 4, textAlign: 'center' }}>
+          No questionnaires yet. Click "Create Questionnaire" to build one.
+        </Typography>
       ) : (
-        <TableContainer component={Paper}>
+        <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
@@ -255,13 +261,24 @@ export const QuestionnaireAdminPage: FC = () => {
                       return <Chip key={url} label={match?.title || url} size="small" sx={{ mr: 0.5 }} />;
                     })}
                     {(!q.associatedQuestionnaires || q.associatedQuestionnaires.length === 0) && (
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary">
                         None
                       </Typography>
                     )}
                   </TableCell>
                   <TableCell>
-                    <Chip label={q.status} size="small" color={STATUS_COLORS[q.status] || 'default'} />
+                    <Chip
+                      label={q.status.toUpperCase()}
+                      size="small"
+                      sx={{
+                        borderRadius: '4px',
+                        height: '17px',
+                        '& .MuiChip-label': { padding: '2px 8px 0px 8px' },
+                        fontSize: 12,
+                        fontWeight: 500,
+                        ...(STATUS_CHIP_STYLES[q.status] || {}),
+                      }}
+                    />
                   </TableCell>
                   <TableCell align="center">{countItems(q.item)}</TableCell>
                   <TableCell align="right" onClick={(e) => e.stopPropagation()}>
@@ -290,9 +307,9 @@ export const QuestionnaireAdminPage: FC = () => {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Import FHIR Questionnaire</DialogTitle>
+        <DialogTitle sx={{ typography: 'h4', color: '#0F347C' }}>Import FHIR Questionnaire</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body1" color="text.primary" sx={{ mb: 2 }}>
             Upload a JSON file or paste a FHIR R4 Questionnaire resource. The questionnaire will be saved as-is,
             preserving all extensions, coded answer options, and scoring. You can import standardized instruments like
             GAD-7, PHQ-9, or any valid FHIR Questionnaire.
@@ -322,7 +339,9 @@ export const QuestionnaireAdminPage: FC = () => {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
+          <RoundedButton
+            variant="outlined"
+            size="medium"
             onClick={() => {
               setImportDialogOpen(false);
               setImportJson('');
@@ -331,18 +350,21 @@ export const QuestionnaireAdminPage: FC = () => {
             disabled={isImporting}
           >
             Cancel
-          </Button>
-          <Button
+          </RoundedButton>
+          <RoundedButton
             variant="contained"
+            size="medium"
             onClick={handleImport}
-            disabled={!importJson.trim() || isImporting}
-            startIcon={isImporting ? <CircularProgress size={16} /> : <UploadIcon />}
+            disabled={!importJson.trim()}
+            loading={isImporting}
+            startIcon={<UploadIcon />}
+            loadingPosition="start"
           >
             Import
-          </Button>
+          </RoundedButton>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Paper>
   );
 };
 

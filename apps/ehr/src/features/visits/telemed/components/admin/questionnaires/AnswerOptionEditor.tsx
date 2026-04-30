@@ -34,7 +34,11 @@ export const AnswerOptionEditor: FC<AnswerOptionEditorProps> = ({ itemKey, optio
               placeholder={`Option ${index + 1}`}
               fullWidth
             />
-            <IconButton size="small" onClick={() => dispatch({ type: 'REMOVE_ANSWER_OPTION', key: itemKey, index })}>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => dispatch({ type: 'REMOVE_ANSWER_OPTION', key: itemKey, index })}
+            >
               <DeleteIcon fontSize="small" />
             </IconButton>
           </Box>

@@ -515,7 +515,7 @@ export const QuestionnaireFormPage: FC<QuestionnaireFormPageProps> = ({
           {onBack ? (
             <Button
               variant="outlined"
-              color="secondary"
+              color="primary"
               size="large"
               onClick={onBack}
               sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}

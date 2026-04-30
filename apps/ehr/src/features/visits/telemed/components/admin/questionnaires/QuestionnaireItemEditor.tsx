@@ -277,8 +277,9 @@ export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({ item
       TransitionProps={{ unmountOnExit: true, mountOnEnter: true }}
       sx={{
         '&:before': { display: 'none' },
-        border: '2px solid #1976d2',
+        border: '1px solid #1976d2',
         borderRadius: '8px !important',
+        boxShadow: 'none',
         mb: 1.5,
       }}
     >

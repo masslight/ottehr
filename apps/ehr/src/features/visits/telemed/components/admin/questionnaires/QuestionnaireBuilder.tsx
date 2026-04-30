@@ -1,7 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -16,6 +15,7 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo, useReducer, useState } from 'react';
+import { RoundedButton } from 'src/components/RoundedButton';
 import { itemsReducer } from './questionnaire.reducer';
 import {
   ASSOCIATED_QUESTIONNAIRE_EXTENSION_URL,
@@ -198,16 +198,16 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({
   }, [title, questionnaire, initial?.id, onSave]);
 
   return (
-    <Box>
-      <Typography variant="h5" sx={{ mb: 2 }}>
+    <Box sx={{ marginTop: 2 }}>
+      <Typography variant="h3" sx={{ mb: 2, color: '#0F347C' }}>
         {initial ? 'Edit Questionnaire' : 'Create Questionnaire'}
       </Typography>
 
       <Box sx={{ display: 'flex', gap: 3, height: 'calc(100vh - 160px)' }}>
         {/* Left column: Form — scrollable */}
         <Box sx={{ flex: '1 1 50%', minWidth: 0, overflow: 'auto' }}>
-          <Paper sx={{ p: 2, mb: 2 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
+          <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
+            <Typography variant="h4" sx={{ mb: 1.5, color: '#0F347C' }}>
               Questionnaire Properties
             </Typography>
             <Grid container spacing={1.5}>
@@ -288,19 +288,19 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({
             </Grid>
           </Paper>
 
-          <Paper sx={{ p: 2 }}>
+          <Paper variant="outlined" sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              <Typography variant="h4" sx={{ color: '#0F347C' }}>
                 Pages ({items.length})
               </Typography>
-              <Button
-                size="small"
+              <RoundedButton
+                size="medium"
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={() => dispatch({ type: 'ADD_PAGE' })}
               >
                 Add Page
-              </Button>
+              </RoundedButton>
             </Box>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
               Each page becomes a separate screen. Add items inside pages using the + button.
@@ -328,20 +328,20 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({
             overflow: 'auto',
           }}
         >
-          <Paper sx={{ p: 2 }}>
+          <Paper variant="outlined" sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              <Typography variant="h4" sx={{ color: '#0F347C' }}>
                 Form Preview
               </Typography>
-              <Button
-                size="small"
+              <RoundedButton
+                size="medium"
                 variant="outlined"
                 startIcon={<PlayArrowIcon />}
                 onClick={() => setTestDialogOpen(true)}
                 disabled={!questionnaire.item?.length}
               >
                 Test Form
-              </Button>
+              </RoundedButton>
             </Box>
             <QuestionnairePreview questionnaire={questionnaire} />
           </Paper>
@@ -353,15 +353,16 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({
           />
 
           <Paper
+            variant="outlined"
             sx={{
-              p: 2,
+              p: 3,
               mt: 2,
               maxHeight: 400,
               overflow: 'auto',
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              <Typography variant="h4" sx={{ color: '#0F347C' }}>
                 JSON Preview
               </Typography>
               <Button size="small" startIcon={<ContentCopyIcon />} onClick={handleCopyJson}>
@@ -407,12 +408,12 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({
           boxShadow: '0 -2px 8px rgba(0,0,0,0.1)',
         }}
       >
-        <Button variant="outlined" onClick={onCancel} disabled={saving}>
+        <RoundedButton variant="outlined" size="medium" onClick={onCancel} disabled={saving}>
           Cancel
-        </Button>
-        <LoadingButton variant="contained" onClick={handleSave} loading={saving}>
+        </RoundedButton>
+        <RoundedButton variant="contained" size="medium" loading={saving} onClick={handleSave}>
           Save Questionnaire
-        </LoadingButton>
+        </RoundedButton>
       </Box>
     </Box>
   );

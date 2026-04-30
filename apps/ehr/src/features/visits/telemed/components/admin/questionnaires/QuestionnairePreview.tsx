@@ -18,7 +18,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { FC, useMemo, useState } from 'react';
+import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { getItemControl, getOptionDisplay, getOptionPrefix, getOptionWeight, isScoreItem } from 'ui-components';
 import { FhirQuestionnaire, QuestionnaireItem } from './questionnaire.types';
 
@@ -126,6 +126,46 @@ function getItemGridWidth(item: QuestionnaireItem): number {
   return 12;
 }
 
+const OpenChoiceSelectPreview: FC<{ item: QuestionnaireItem }> = ({ item }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [menuWidth, setMenuWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = (): void => setMenuWidth(el.getBoundingClientRect().width);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <Box ref={containerRef} sx={{ mb: 1.5 }}>
+      <OttehrLabel text={item.text || item.linkId} required={item.required} />
+      <Select
+        size="small"
+        value=""
+        displayEmpty
+        fullWidth
+        sx={{ borderRadius: '8px' }}
+        MenuProps={
+          menuWidth != null
+            ? { PaperProps: { sx: { minWidth: `${menuWidth}px !important`, maxWidth: `${menuWidth}px` } } }
+            : {}
+        }
+      >
+        <MenuItem value="">Select or type...</MenuItem>
+        {(item.answerOption || []).map((opt, i) => (
+          <MenuItem key={i} value={opt.valueString || i}>
+            {opt.valueString || `Option ${i + 1}`}
+          </MenuItem>
+        ))}
+      </Select>
+    </Box>
+  );
+};
+
 const ItemPreview: FC<{ item: QuestionnaireItem }> = ({ item }) => {
   switch (item.type) {
     case 'group':
@@ -217,19 +257,7 @@ const ItemPreview: FC<{ item: QuestionnaireItem }> = ({ item }) => {
     }
 
     case 'open-choice':
-      return (
-        <Box sx={{ mb: 1.5 }}>
-          <OttehrLabel text={item.text || item.linkId} required={item.required} />
-          <Select size="small" value="" displayEmpty fullWidth sx={{ borderRadius: '8px' }}>
-            <MenuItem value="">Select or type...</MenuItem>
-            {(item.answerOption || []).map((opt, i) => (
-              <MenuItem key={i} value={opt.valueString || i}>
-                {opt.valueString || `Option ${i + 1}`}
-              </MenuItem>
-            ))}
-          </Select>
-        </Box>
-      );
+      return <OpenChoiceSelectPreview item={item} />;
 
     case 'date':
     case 'dateTime':
