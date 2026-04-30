@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Coding, Encounter, PractitionerRole } from 'fhir/r4b';
-import { AssignPractitionerInput, AssignPractitionerResponse } from 'utils';
+import { AssignPractitionerInput, AssignPractitionerResponse, Secrets, userMe } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
@@ -17,12 +17,14 @@ export const index = wrapHandler('assign-practitioner', async (input: ZambdaInpu
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
   console.log('Created Oystehr client');
 
-  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-  console.log('Created CurrentUser Oystehr client');
-
   const validatedData = await complexValidation(oystehr, validatedParameters);
 
-  const response = await performEffect(oystehr, oystehrCurrentUser, validatedData);
+  const response = await performEffect(
+    oystehr,
+    validatedParameters.userToken,
+    validatedParameters.secrets,
+    validatedData
+  );
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -61,7 +63,8 @@ export const complexValidation = async (
 
 export const performEffect = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
+  userToken: string,
+  secrets: Secrets | null,
   validatedData: {
     encounter: Encounter;
     appointment: Appointment;
@@ -71,7 +74,7 @@ export const performEffect = async (
 ): Promise<AssignPractitionerResponse> => {
   const { encounter, appointment, practitionerId, userRole } = validatedData;
 
-  const user = await oystehrCurrentUser.user.me();
+  const user = await userMe(userToken, secrets);
   await assignPractitionerIfPossible(oystehr, encounter, appointment, practitionerId, userRole, user);
 
   return {

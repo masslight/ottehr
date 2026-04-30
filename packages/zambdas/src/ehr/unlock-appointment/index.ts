@@ -5,8 +5,10 @@ import {
   createCriticalUpdateTag,
   getAppointmentLockMetaTagOperations,
   getPatchBinary,
+  Secrets,
   UnlockAppointmentZambdaInputValidated,
   UnlockAppointmentZambdaOutput,
+  userMe,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
@@ -22,10 +24,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
   console.log('Created Oystehr client');
 
-  const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
+  const response = await performEffect(
+    oystehr,
+    validatedParameters.userToken,
+    validatedParameters.secrets,
+    validatedParameters
+  );
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -34,7 +40,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export const performEffect = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
+  userToken: string,
+  secrets: Secrets | null,
   params: UnlockAppointmentZambdaInputValidated
 ): Promise<UnlockAppointmentZambdaOutput> => {
   const { appointmentId } = params;
@@ -49,7 +56,7 @@ export const performEffect = async (
   }
 
   // Get the current user for tracking who unlocked the appointment
-  const user = await oystehrCurrentUser.user.me();
+  const user = await userMe(userToken, secrets);
 
   // Generate unlock operation (removes APPOINTMENT_LOCKED tag and replaces /meta/tag array)
   const [unlockOp] = getAppointmentLockMetaTagOperations(appointment, false);
