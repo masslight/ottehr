@@ -1,0 +1,250 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Jane Doe — sore throat urgent care (canonical demo)",
+
+  "patient": {
+    "firstName": "Jane",
+    "lastName": "Doe",
+    "dateOfBirth": "1990-05-15",
+    "sex": "female",
+    "email": "jane.doe.synth@example.com",
+    "phoneNumber": "+15555550101",
+    "address": {
+      "line1": "123 Main St",
+      "city": "Trenton",
+      "state": "NJ",
+      "postalCode": "08609"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Blue Cross Blue Shield",
+        "memberId": "ABCX123456789",
+        "groupNumber": "GRP-100200",
+        "planName": "BCBS PPO Gold 1500",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "time": "13:45",
+    "reasonForVisit": "Sore throat × 3 days",
+    "locationName": "Main Clinic",
+    "language": "en"
+  },
+
+  "template": {
+    "name": "URI Walk-in Standard",
+    "examType": "inPerson"
+  },
+
+  "history": {
+    "allergies": [
+      {
+        "name": "Penicillin",
+        "severity": "severe",
+        "reaction": "anaphylaxis",
+        "note": "Anaphylaxis as a child — carries epinephrine auto-injector"
+      },
+      {
+        "name": "Shellfish",
+        "severity": "moderate",
+        "reaction": "hives"
+      }
+    ],
+    "medications": [
+      {
+        "name": "Lisinopril 10 MG Oral Tablet",
+        "status": "active",
+        "dose": "10 mg",
+        "frequency": "once daily",
+        "route": "PO"
+      },
+      {
+        "name": "Atorvastatin 20 MG Oral Tablet",
+        "status": "active",
+        "dose": "20 mg",
+        "frequency": "once daily at bedtime",
+        "route": "PO"
+      }
+    ],
+    "conditions": [
+      { "code": "I10", "display": "Essential hypertension", "current": true },
+      { "code": "E78.5", "display": "Hyperlipidemia, unspecified", "current": true }
+    ],
+    "surgicalHistory": [
+      { "display": "Appendectomy, 2018" }
+    ],
+    "surgicalHistoryNote": "Tonsillectomy planned 2019, cancelled.",
+    "hospitalizations": [
+      { "display": "Pneumonia, hospitalized 2023" }
+    ],
+    "screening": [
+      { "field": "tobacco-use", "value": false }
+    ],
+    "screenNotes": [
+      { "code": "allergy", "text": "Patient reports allergy worsened over the past year." },
+      { "code": "medication", "text": "Patient takes Lisinopril daily; reports good adherence." },
+      { "code": "internal", "text": "Provider-only: patient seemed anxious about strep result." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 37.4, "unit": "C" },
+    "heartRate": { "value": 76 },
+    "bloodPressure": { "systolic": 118, "diastolic": 76 },
+    "respirationRate": { "value": 16 },
+    "oxygenSaturation": { "value": 99 },
+    "weight": { "value": 65, "unit": "kg" },
+    "height": { "value": 168, "unit": "cm" }
+  },
+
+  "modules": {
+    "inHouseLabs": [
+      {
+        "testName": "Rapid Strep A",
+        "diagnoses": [
+          { "code": "J02.9", "display": "Acute pharyngitis, unspecified", "isPrimary": true }
+        ],
+        "results": [
+          { "analyte": "Strep A", "value": "negative", "flag": "normal" }
+        ]
+      }
+    ],
+    "inHouseMedications": [
+      {
+        "medicationName": "Ibuprofen 400mg",
+        "dose": "400",
+        "units": "mg",
+        "route": "PO",
+        "administered": true,
+        "effectiveDateTime": "2026-04-25T14:50:00Z"
+      }
+    ],
+    "radiology": [
+      {
+        "studyName": "Chest X-ray, 2 views",
+        "cptCode": "71046",
+        "diagnosisCode": "R05",
+        "stat": false,
+        "clinicalHistory": "Sore throat with cervical adenopathy; rule out infectious source",
+        "consentObtained": true,
+        "preliminaryReport": "No acute cardiopulmonary process. Heart size normal. Lungs clear."
+      }
+    ],
+    "immunizations": [
+      {
+        "vaccineName": "Tdap",
+        "dose": "0.5",
+        "units": "mL",
+        "route": "IM",
+        "location": { "name": "left deltoid", "code": "LD" },
+        "administered": true
+      }
+    ],
+    "procedures": [
+      {
+        "procedureType": "throat-swab-collection",
+        "occurrenceDateTime": "2026-04-25T14:25:00Z",
+        "documentedDateTime": "2026-04-25T14:30:00Z",
+        "performerType": "Provider",
+        "bodySite": "pharynx",
+        "technique": ["swabbing"],
+        "suppliesUsed": "Sterile swab",
+        "procedureDetails": "Throat swab obtained from posterior pharynx with sterile swab.",
+        "specimenSent": true,
+        "complications": "None",
+        "patientResponse": "Tolerated procedure well",
+        "timeSpent": "2 minutes",
+        "documentedBy": "Provider",
+        "consentObtained": true,
+        "cptCode": "87880",
+        "diagnosisCode": "J02.9"
+      }
+    ]
+  },
+
+  "eligibility": {
+    "plan": "BCBS PPO Gold 1500",
+    "coverageActive": true,
+    "deductible": { "individual": 1500, "family": 3000, "met": 800 },
+    "outOfPocketMax": { "individual": 6000, "family": 12000 },
+    "copays": { "officeVisit": 30, "urgentCare": 50, "specialist": 60, "emergencyRoom": 250 },
+    "coinsurancePercent": 20,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99213",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 95,
+        "patientResponsibility": 50,
+        "insuranceResponsibility": 45
+      },
+      {
+        "cpt": "87880",
+        "serviceType": "5",
+        "inNetwork": true,
+        "allowedAmount": 20,
+        "patientResponsibility": 0,
+        "insuranceResponsibility": 20
+      },
+      {
+        "cpt": "71046",
+        "serviceType": "73",
+        "inNetwork": true,
+        "allowedAmount": 180,
+        "patientResponsibility": 36,
+        "insuranceResponsibility": 144
+      },
+      {
+        "cpt": "90471",
+        "serviceType": "BG",
+        "inNetwork": true,
+        "allowedAmount": 25,
+        "patientResponsibility": 0,
+        "insuranceResponsibility": 25
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "BCBS PPO Standard",
+    "cptPrices": [
+      { "cpt": "99213", "chargedAmount": 150, "allowedAmount": 95 },
+      { "cpt": "87880", "chargedAmount": 35, "allowedAmount": 20 },
+      { "cpt": "71046", "chargedAmount": 250, "allowedAmount": 180 },
+      { "cpt": "90471", "chargedAmount": 40, "allowedAmount": 25 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [
+      { "text": "Patient called back at 4 PM to confirm she would start ibuprofen as instructed.", "authorName": "Sarah Smith, MD" }
+    ],
+    "patientEducationDocs": [
+      { "topic": "strep throat", "title": "Caring for Your Sore Throat" },
+      { "topic": "fever", "title": "Managing Fever in Adults" }
+    ]
+  },
+
+  "disposition": {
+    "type": "home",
+    "text": "Discharge home",
+    "note": "Patient stable for discharge.",
+    "followUp": [
+      { "type": "primary-care", "note": "Follow up with PCP if no improvement in 5 days", "daysOut": 5 }
+    ]
+  },
+
+  "signOff": {
+    "practitionerName": "Sarah Smith, MD",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}
