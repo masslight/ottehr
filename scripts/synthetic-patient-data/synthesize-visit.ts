@@ -7,14 +7,18 @@
  * (--dry-run) or actually executes it against an Oystehr environment
  * (--execute), threading resolved IDs through the context.
  *
- * Currently implemented for --execute: Phase 0 (lookups) ONLY. Phase 0 is
- * fully read-only (FHIR searches + list-templates). Phases 1+ are plan-only
- * — they log what they would do but do NOT write to the FHIR datastore.
+ * Currently implemented for --execute:
+ *   Phase 0   — Prerequisite lookups (read-only FHIR searches + list-templates).
+ *   Phase 0.5 — Create slot on the resolved schedule.
+ *   Phase 1   — create-appointment (creates Patient, Coverage, Appointment,
+ *               Encounter, initial QuestionnaireResponse, RelatedPerson).
  *
- * Use --execute to validate environment connectivity and verify that all
- * referenced resources (Location, Practitioner, payer Organization, vaccine
- * Medications, template) actually exist on the target Oystehr environment
- * without performing any writes.
+ * Phases 2+ are plan-only — they log what they would do but do NOT write to
+ * the FHIR datastore. They will be enabled progressively as each is verified.
+ *
+ * Use --execute against an environment to validate connectivity end-to-end
+ * through Phase 1, producing a real Patient + Appointment + Encounter on the
+ * target project.
  *
  * Usage:
  *   npx tsx scripts/synthetic-patient-data/synthesize-visit.ts <scenario.json> [--execute]
@@ -84,6 +88,9 @@ type Mode = 'plan' | 'execute';
 interface SynthesisContext {
   mode: Mode;
   oystehr: Oystehr | null;
+  accessToken: string | null;
+  projectId: string | null;
+  projectApi: string | null;
   scenario: VisitScenario;
   // Resolved in Phase 0:
   locationId?: string;
@@ -92,6 +99,8 @@ interface SynthesisContext {
   intakeStaffId?: string;
   payerOrganizationId?: string;
   vaccineMedicationsByName?: Record<string, string>;
+  // Resolved in Phase 0.5 (create-slot):
+  slotId?: string;
   // Resolved in Phase 1:
   patientId?: string;
   appointmentId?: string;
@@ -112,7 +121,12 @@ function requireEnv(name: string): string {
   return value;
 }
 
-async function createOystehr(): Promise<Oystehr> {
+async function createOystehr(): Promise<{
+  oystehr: Oystehr;
+  accessToken: string;
+  projectId: string;
+  projectApi: string;
+}> {
   const auth0Endpoint = requireEnv('AUTH0_ENDPOINT');
   const auth0Client = requireEnv('AUTH0_CLIENT');
   const auth0Secret = requireEnv('AUTH0_SECRET');
@@ -136,7 +150,7 @@ async function createOystehr(): Promise<Oystehr> {
     throw new Error(`Auth0 token request failed: ${tokenResponse.status} ${errorText}`);
   }
   const tokenData = (await tokenResponse.json()) as { access_token: string };
-  return new Oystehr({
+  const oystehr = new Oystehr({
     accessToken: tokenData.access_token,
     projectId,
     services: {
@@ -144,6 +158,7 @@ async function createOystehr(): Promise<Oystehr> {
       zambdaApiUrl: zambdaApi,
     },
   });
+  return { oystehr, accessToken: tokenData.access_token, projectId, projectApi };
 }
 
 // ── Logging helpers ───────────────────────────────────────────────────────────
@@ -208,13 +223,18 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
   if (s.signOff?.practitionerName) {
     logFhir('search', `Practitioner with name="${s.signOff.practitionerName}" (attending)`);
     if (ctx.mode === 'execute' && ctx.oystehr) {
-      const result = await ctx.oystehr.fhir.search<Practitioner>({
-        resourceType: 'Practitioner',
-        params: [{ name: 'name', value: s.signOff.practitionerName }],
-      });
+      // FHIR Practitioner search by `name` doesn't match across given+family; split to given+family.
+      const parts = s.signOff.practitionerName.split(/\s+/).filter(Boolean);
+      const family = parts.length > 1 ? parts[parts.length - 1] : parts[0];
+      const given = parts.length > 1 ? parts.slice(0, -1).join(' ') : undefined;
+      const params: Array<{ name: string; value: string }> = [{ name: 'family', value: family }];
+      if (given) params.push({ name: 'given', value: given });
+      const result = await ctx.oystehr.fhir.search<Practitioner>({ resourceType: 'Practitioner', params });
       const practitioner = result.unbundle()[0];
       if (!practitioner?.id) {
-        throw new Error(`Practitioner not found: "${s.signOff.practitionerName}"`);
+        throw new Error(
+          `Practitioner not found: "${s.signOff.practitionerName}" (searched given="${given}" family="${family}")`
+        );
       }
       ctx.attendingPractitionerId = practitioner.id;
       logNote(`resolved Practitioner → ${ctx.attendingPractitionerId}`);
@@ -277,11 +297,12 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
       const templates = result.templates ?? result.list ?? [];
       const found = templates.some((t) => t.title === s.template!.name || t.name === s.template!.name);
       if (!found) {
-        throw new Error(
-          `Template "${s.template.name}" not found among ${templates.length} templates returned by list-templates`
+        console.warn(
+          `  ⚠ template "${s.template.name}" not found in list-templates response — Phase 4 (apply-template) will fail if enabled`
         );
+      } else {
+        logNote(`verified template "${s.template.name}" exists`);
       }
-      logNote(`verified template "${s.template.name}" exists`);
     } else {
       logNote(`verify template "${s.template.name}" appears in the list`);
     }
@@ -293,16 +314,98 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
     if (ctx.mode === 'execute' && ctx.oystehr) {
       ctx.vaccineMedicationsByName = {};
       for (const imm of s.modules.immunizations) {
-        const result = await ctx.oystehr.fhir.search<Medication>({
-          resourceType: 'Medication',
-          params: [{ name: 'code:text', value: imm.vaccineName }],
-        });
-        const med = result.unbundle()[0];
-        if (!med?.id) throw new Error(`Vaccine Medication not found: "${imm.vaccineName}"`);
-        ctx.vaccineMedicationsByName[imm.vaccineName] = med.id;
-        logNote(`resolved Medication "${imm.vaccineName}" → ${med.id}`);
+        try {
+          const result = await ctx.oystehr.fhir.search<Medication>({
+            resourceType: 'Medication',
+            params: [{ name: 'code', value: imm.vaccineName }],
+          });
+          const med = result.unbundle()[0];
+          if (!med?.id) {
+            console.warn(
+              `  ⚠ vaccine Medication not found: "${imm.vaccineName}" — Phase 8 (immunization) will fail if enabled`
+            );
+            continue;
+          }
+          ctx.vaccineMedicationsByName[imm.vaccineName] = med.id;
+          logNote(`resolved Medication "${imm.vaccineName}" → ${med.id}`);
+        } catch (err) {
+          console.warn(
+            `  ⚠ vaccine Medication search failed for "${imm.vaccineName}" (${
+              err instanceof Error ? err.message : err
+            }) — Phase 8 will fail if enabled`
+          );
+        }
       }
     }
+  }
+}
+
+// ── Phase 0.5 — create slot ───────────────────────────────────────────────────
+
+function computeSlotStartISO(scenario: VisitScenario): string {
+  // Round up to the next 15-min boundary from now — used both as a fallback
+  // and as the override when scenario's date+time is in the past.
+  const nextFutureSlot = (): string => {
+    const now = new Date();
+    const minutes = now.getMinutes();
+    const minutesToAdd = (15 - (minutes % 15)) % 15 || 15;
+    const s = new Date(now.getTime() + minutesToAdd * 60_000);
+    s.setSeconds(0, 0);
+    return s.toISOString();
+  };
+
+  if (!scenario.visit.time) return nextFutureSlot();
+
+  // Scenario provides date+time — use it if it's in the future, else fall back.
+  const candidateISO = `${scenario.visit.date}T${scenario.visit.time}:00.000Z`;
+  const candidate = new Date(candidateISO);
+  if (Number.isNaN(candidate.getTime()) || candidate.getTime() <= Date.now()) {
+    console.warn(
+      `  ⚠ scenario.visit.date+time (${candidateISO}) is in the past — using next future 15-min slot instead`
+    );
+    return nextFutureSlot();
+  }
+  return candidateISO;
+}
+
+async function phase0_5_createSlot(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  startPhase('Create slot');
+
+  const startISO = computeSlotStartISO(s);
+  const body = {
+    scheduleId: ctx.scheduleId ?? '<resolved in Phase 0>',
+    startISO,
+    lengthInMinutes: 15,
+    serviceModality: s.visit.type === 'in-person' ? 'in-person' : 'virtual',
+    serviceCategoryCode: 'urgent-care',
+  };
+  logCall('create-slot (execute-public)', body);
+
+  if (ctx.mode === 'execute' && ctx.oystehr) {
+    // create-slot is registered as /execute-public — the SDK's zambda.execute() hits /execute,
+    // so we call it via direct fetch.
+    const res = await fetch(`${ctx.projectApi}/zambda/create-slot/execute-public`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ctx.accessToken}`,
+        'x-zapehr-project-id': ctx.projectId ?? '',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(`create-slot failed: ${res.status} ${await res.text()}`);
+    }
+    const result = (await res.json()) as { id?: string; output?: { id?: string } };
+    const slotId = result.output?.id ?? result.id;
+    if (!slotId) {
+      throw new Error(`create-slot returned unexpected shape: ${JSON.stringify(result).slice(0, 200)}`);
+    }
+    ctx.slotId = slotId;
+    logNote(`slotId=${ctx.slotId}`);
+  } else {
+    logNote('returns: { id }');
   }
 }
 
@@ -314,6 +417,7 @@ async function phase1_createAppointment(ctx: SynthesisContext): Promise<void> {
 
   const body = {
     patient: {
+      newPatient: true,
       firstName: s.patient.firstName,
       lastName: s.patient.lastName,
       dateOfBirth: s.patient.dateOfBirth,
@@ -321,17 +425,41 @@ async function phase1_createAppointment(ctx: SynthesisContext): Promise<void> {
       email: s.patient.email,
       phoneNumber: s.patient.phoneNumber,
       reasonForVisit: s.visit.reasonForVisit,
-      address: s.patient.address,
     },
-    visitType: 'walkin',
-    serviceMode: s.visit.type,
-    serviceCategory: 'urgent-care',
-    locationID: ctx.locationId ?? '<resolved in Phase 0>',
+    slotId: ctx.slotId ?? '<resolved in Phase 0.5>',
+    language: s.visit.language ?? 'en',
   };
   logCall('create-appointment', body);
-  logNote('returns: { patientId, appointmentId, encounterId, questionnaireResponseId }');
-  // NOTE: write-mode for Phase 1 intentionally NOT YET implemented.
-  // Enabling it requires explicit user opt-in once we are ready for FHIR writes.
+
+  if (ctx.mode === 'execute' && ctx.oystehr) {
+    const result = (await ctx.oystehr.zambda.execute({ id: 'create-appointment', ...body })) as {
+      output?: {
+        patientId?: string;
+        fhirPatientId?: string;
+        appointmentId?: string;
+        encounterId?: string;
+        questionnaireResponseId?: string;
+      };
+      patientId?: string;
+      fhirPatientId?: string;
+      appointmentId?: string;
+      encounterId?: string;
+      questionnaireResponseId?: string;
+    };
+    const out = result.output ?? result;
+    ctx.patientId = out.patientId ?? out.fhirPatientId;
+    ctx.appointmentId = out.appointmentId;
+    ctx.encounterId = out.encounterId;
+    ctx.questionnaireResponseId = out.questionnaireResponseId;
+    if (!ctx.appointmentId || !ctx.encounterId) {
+      throw new Error(`create-appointment returned unexpected shape: ${JSON.stringify(result).slice(0, 200)}`);
+    }
+    logNote(`patientId=${ctx.patientId}`);
+    logNote(`appointmentId=${ctx.appointmentId}`);
+    logNote(`encounterId=${ctx.encounterId}`);
+  } else {
+    logNote('returns: { patientId, appointmentId, encounterId, questionnaireResponseId }');
+  }
 }
 
 // ── Phase 2 — Z3 fixture uploads (plan-only) ─────────────────────────────────
@@ -590,12 +718,19 @@ async function main(): Promise<void> {
   const ctx: SynthesisContext = {
     mode: isExecute ? 'execute' : 'plan',
     oystehr: null,
+    accessToken: null,
+    projectId: null,
+    projectApi: null,
     scenario,
   };
 
   if (isExecute) {
     console.log('Authenticating with Auth0...');
-    ctx.oystehr = await createOystehr();
+    const created = await createOystehr();
+    ctx.oystehr = created.oystehr;
+    ctx.accessToken = created.accessToken;
+    ctx.projectId = created.projectId;
+    ctx.projectApi = created.projectApi;
     console.log('Authenticated.');
   }
 
@@ -609,6 +744,7 @@ async function main(): Promise<void> {
 
   const phases: Array<(ctx: SynthesisContext) => Promise<void>> = [
     phase0_lookups,
+    phase0_5_createSlot,
     phase1_createAppointment,
     phase2_z3Uploads,
     phase3_chartDataPass1,
@@ -633,12 +769,13 @@ async function main(): Promise<void> {
   console.log(`-- end of plan (${phaseCounter} phases) --`);
   if (isExecute) {
     console.log('');
-    console.log('Mode summary: --execute performed Phase 0 lookups against the live environment');
-    console.log('(read-only). Phases 1+ were planned but no FHIR writes were performed. To enable');
-    console.log('writes, individual phase execute branches need to be implemented and explicitly');
+    console.log('Mode summary: --execute performed Phase 0 lookups, Phase 0.5 (create slot),');
+    console.log('and Phase 1 (create-appointment) against the live environment. Phases 2+ were');
+    console.log('planned only — no further FHIR writes were performed. To enable writes for the');
+    console.log('rest, individual phase execute branches need to be implemented and explicitly');
     console.log('opted into.');
     console.log('');
-    console.log('Phase 0 resolutions:');
+    console.log('Resolved IDs:');
     if (ctx.locationId) console.log(`  Location:                ${ctx.locationId}`);
     if (ctx.scheduleId) console.log(`  Schedule:                ${ctx.scheduleId}`);
     if (ctx.attendingPractitionerId) console.log(`  Attending Practitioner:  ${ctx.attendingPractitionerId}`);
@@ -649,6 +786,13 @@ async function main(): Promise<void> {
         console.log(`  Vaccine "${name}": ${id}`);
       }
     }
+    console.log('');
+    console.log('Created (Phase 0.5 + Phase 1):');
+    if (ctx.slotId) console.log(`  Slot:                    ${ctx.slotId}`);
+    if (ctx.patientId) console.log(`  Patient:                 ${ctx.patientId}`);
+    if (ctx.appointmentId) console.log(`  Appointment:             ${ctx.appointmentId}`);
+    if (ctx.encounterId) console.log(`  Encounter:               ${ctx.encounterId}`);
+    if (ctx.questionnaireResponseId) console.log(`  QuestionnaireResponse:   ${ctx.questionnaireResponseId}`);
   }
 }
 
