@@ -45,7 +45,7 @@ export const createAttorneyInfoSection = <TData extends { attorney?: AttorneyInf
   TData,
   AttorneyInfo
 > => {
-  return createConfiguredSection(null, () => ({
+  return createConfiguredSection('attorneyInformation', () => ({
     title: 'Attorney for Motor Vehicle Accident',
     dataSelector: (data) => data.attorney,
     shouldRender: (attorney) => hasAttorneyInfo(attorney),

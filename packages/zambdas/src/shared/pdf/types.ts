@@ -14,6 +14,7 @@ import {
 import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
+  AppointmentContext,
   ExternalLabOrderResult,
   FollowupReason,
   Gender,
@@ -316,6 +317,8 @@ export interface PrescribedMedication {
 
 export interface PdfData {
   attachmentDocRefs?: string[];
+  /** Populated by composers that have an Appointment so `createConfiguredSection` can evaluate section triggers. */
+  appointmentContext?: AppointmentContext;
 }
 
 export interface PdfStyles {
@@ -702,6 +705,11 @@ export interface EmployerInfo extends PdfData {
   fax: string;
 }
 
+/** Mirrors `occupationalMedicineEmployerInformation` in PATIENT_RECORD_CONFIG: only `employerName`. */
+export interface OccupationalMedicineEmployerInfo extends PdfData {
+  employerName: string;
+}
+
 export interface AttorneyInfo extends PdfData {
   firm: string;
   firstName: string;
@@ -740,6 +748,7 @@ export interface VisitDetailsInput {
   emergencyContactResource?: RelatedPerson;
   attorneyRelatedPerson?: RelatedPerson;
   employerOrganization?: Organization;
+  occupationalMedicineEmployerOrganization?: Organization;
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
   payments: PatientPaymentDTO[];
@@ -799,6 +808,10 @@ export interface EmergencyContactDataInput {
 }
 
 export interface EmployerDataInput {
+  employer?: Organization;
+}
+
+export interface OccupationalMedicineEmployerDataInput {
   employer?: Organization;
 }
 
@@ -924,6 +937,7 @@ export interface VisitDetailsData extends PdfData {
   emergencyContact: EmergencyContactInfo;
   attorney: AttorneyInfo;
   employer: EmployerInfo;
+  omEmployer: OccupationalMedicineEmployerInfo;
   consentForms: consentFormsInfo;
   documents: Documents;
   pharmacy: pharmacyInfo;

@@ -47,7 +47,7 @@ export const createEmployerInfoSection = <TData extends { employer?: EmployerInf
   TData,
   EmployerInfo
 > => {
-  return createConfiguredSection('patientSummary', (shouldShow) => ({
+  return createConfiguredSection('employerInformation', (shouldShow) => ({
     title: 'Employer Information',
     dataSelector: (data) => data.employer,
     shouldRender: (employer) => !!employer.employerName,
