@@ -8,11 +8,12 @@ import {
   DiagnosisDTO,
   getRosFindingStateFromKey,
   InPersonRosConfig,
+  PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
+  PATIENT_INFO_META_DATA_SYSTEM,
   PROVIDER_CONFIG,
   rosField,
   RosFindingState,
 } from 'utils';
-import { getReturningPatient } from '../components/additional-questions/AdditionalQuestionsPatientColumn';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 import { useRosObservationsStore } from '../stores/appointment/ros-observations.store';
 import { useChartFields } from './useChartFields';
@@ -113,11 +114,13 @@ export function buildBillingSuggestionInput(params: {
   const newPatientFromChart = chartData?.observations?.find(
     (observation) => observation.field === 'seen-in-last-three-years' || observation.field === 'seen-in-last-3-years'
   );
-  const newPatientFromAppointmentCreation = !getReturningPatient(chartData, appointment);
-
+  const newPatientFromAppointmentCreation = appointment?.meta?.tag?.some(
+    (tag: any) =>
+      tag.system === PATIENT_INFO_META_DATA_SYSTEM && tag.code !== PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE
+  );
   if (newPatientFromChart) {
-    newPatient = newPatientFromChart?.value === 'no' || newPatientFromChart?.value === false;
-  } else {
+    newPatient = newPatientFromChart?.value === 'no';
+  } else if (newPatientFromAppointmentCreation) {
     newPatient = newPatientFromAppointmentCreation;
   }
 

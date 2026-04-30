@@ -1,5 +1,4 @@
 import { Box, Typography } from '@mui/material';
-import { Appointment } from 'fhir/r4b';
 import { FC } from 'react';
 import {
   formatScreeningQuestionValue,
@@ -9,20 +8,8 @@ import {
   patientScreeningQuestionsConfig,
   shouldDisplayScreeningQuestion,
 } from 'utils';
-import { ChartDataResponse, useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
+import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { AdditionalQuestionView } from '../medical-history-tab/components/AdditionalQuestionRow';
-
-export function getReturningPatient(
-  chartData: ChartDataResponse | undefined,
-  appointment: Appointment | undefined
-): boolean {
-  const returningPatientFromAppointmentCreation = appointment?.meta?.tag?.some(
-    (tag) => tag.system === PATIENT_INFO_META_DATA_SYSTEM && tag.code === PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE
-  );
-  const patientHasPreviousVisits = chartData?.patientHasPreviousVisits;
-  const answer = returningPatientFromAppointmentCreation || patientHasPreviousVisits || false;
-  return answer;
-}
 
 export const AdditionalQuestionsPatientColumn: FC = () => {
   const { questionnaireResponse, isAppointmentLoading, appointment } = useAppointmentData();
@@ -45,7 +32,12 @@ export const AdditionalQuestionsPatientColumn: FC = () => {
       if (shouldDisplayScreeningQuestion(stringAnswer)) {
         return formatScreeningQuestionValue(fhirField, stringAnswer);
       }
-      const answer = getReturningPatient(chartData, appointment);
+      const returningPatientFromAppointmentCreation = appointment?.meta?.tag?.some(
+        (tag) =>
+          tag.system === PATIENT_INFO_META_DATA_SYSTEM && tag.code === PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE
+      );
+      const patientHasPreviousVisits = chartData?.patientHasPreviousVisits;
+      const answer = returningPatientFromAppointmentCreation || patientHasPreviousVisits || false;
       return formatScreeningQuestionValue(fhirField, answer);
     }
 

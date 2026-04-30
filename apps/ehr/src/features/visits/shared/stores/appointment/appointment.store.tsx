@@ -121,7 +121,7 @@ type ReactQueryState = {
   isPending: boolean;
 };
 
-export type ChartDataResponse = Omit<
+type ChartDataResponse = Omit<
   GetChartDataResponse,
   Exclude<
     RequestedFields,
