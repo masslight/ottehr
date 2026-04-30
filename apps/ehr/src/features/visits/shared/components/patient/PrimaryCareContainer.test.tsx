@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React, { type InputHTMLAttributes } from 'react';
@@ -25,6 +26,13 @@ interface TestWrapperProps {
 }
 
 const TestWrapper = ({ children, defaultValues = {}, onFormReady }: TestWrapperProps): JSX.Element => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
   const TestForm = (): JSX.Element => {
     const methods = useForm({
       resolver: createDynamicValidationResolver(),
@@ -48,7 +56,11 @@ const TestWrapper = ({ children, defaultValues = {}, onFormReady }: TestWrapperP
     return <FormProvider {...methods}>{children}</FormProvider>;
   };
 
-  return <TestForm />;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TestForm />
+    </QueryClientProvider>
+  );
 };
 
 // Helper to get field input by config key (fields have id attribute matching their key)

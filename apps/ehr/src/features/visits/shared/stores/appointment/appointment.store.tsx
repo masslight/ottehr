@@ -26,6 +26,7 @@ import {
   CHART_FIELDS_QUERY_KEY,
   QUERY_STALE_TIME,
 } from 'src/constants';
+import { useRosObservations } from 'src/features/visits/shared/hooks/useRosObservations';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import {
   createRefreshableAppointmentData,
@@ -120,7 +121,7 @@ type ReactQueryState = {
   isPending: boolean;
 };
 
-type ChartDataResponse = Omit<
+export type ChartDataResponse = Omit<
   GetChartDataResponse,
   Exclude<
     RequestedFields,
@@ -785,6 +786,7 @@ export const useChartData = ({
   ReactQueryState => {
   const apiClient = useOystehrAPIClient();
   const { update: updateExamObservations } = useExamObservations();
+  const { update: updateRosObservations } = useRosObservations();
   const { id: appointmentIdFromUrl } = useParams();
   const { encounter } = useAppointmentData(appointmentId || appointmentIdFromUrl);
   const encounterId = encounter?.id ?? paramEncounterId;
@@ -808,6 +810,7 @@ export const useChartData = ({
       onSuccess?.(data);
       if (shouldUpdateExams) {
         updateExamObservations(data.examObservations, true);
+        updateRosObservations(data.rosObservations || [], true);
       }
     },
     (error) => {

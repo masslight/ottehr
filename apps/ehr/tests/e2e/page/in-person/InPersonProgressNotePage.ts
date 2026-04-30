@@ -20,6 +20,34 @@ export class InPersonProgressNotePage extends BaseProgressNotePage {
     return new SideMenu(this.#page);
   }
 
+  async verifyRosReviewSectionVisible(): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.rosReviewContainer),
+      'ROS review section should be visible on the progress note'
+    ).toBeVisible({ timeout: 15000 });
+  }
+
+  async verifyRosReviewSectionHidden(): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.rosReviewContainer),
+      'ROS review section should not be visible when no findings are documented'
+    ).not.toBeVisible();
+  }
+
+  async verifyRosFinding(findingLabel: string, abnormal: boolean): Promise<void> {
+    const rosContainer = this.#page.getByTestId(dataTestIds.progressNotePage.rosReviewContainer);
+    const findingText = rosContainer.getByText(findingLabel, { exact: true });
+    await expect(findingText, `Finding "${findingLabel}" should be visible in ROS section`).toBeVisible();
+    if (abnormal) {
+      await expect(findingText, `Reports finding "${findingLabel}" should be bold`).toHaveCSS('font-weight', '700');
+    } else {
+      await expect(findingText, `Denies finding "${findingLabel}" should not be bold`).not.toHaveCSS(
+        'font-weight',
+        '700'
+      );
+    }
+  }
+
   async expectLoaded(): Promise<void> {
     await this.#page.waitForURL(new RegExp('/in-person/.*/review-and-sign'));
     // Ensure no error occurred

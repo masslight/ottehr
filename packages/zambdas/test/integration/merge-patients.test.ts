@@ -21,9 +21,11 @@ import {
   FOLLOWUP_SYSTEMS,
   M2MClientMockType,
   MergePatientsResponse,
+  PATIENT_BILLING_ACCOUNT_TYPE,
   RoleType,
   SaveChartDataRequest,
   SaveChartDataResponse,
+  WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import {
   addProcessIdMetaTagToResource,
@@ -551,6 +553,186 @@ describe('merge-patients integration tests', () => {
       expect(updatedAppt.participant.some((p) => p.actor?.reference === `Patient/${mainResources.patient.id}`)).toBe(
         true
       );
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Step 4: Account consolidation by type
+  // ═══════════════════════════════════════════════════════════════════════
+
+  describe('account consolidation', () => {
+    let mainResources: InsertFullAppointmentDataBaseResult;
+    let otherResources: InsertFullAppointmentDataBaseResult;
+    let mainPbillId: string;
+    let otherPbillId: string;
+    let otherWcompId: string | undefined;
+    let mainCoverageId: string;
+    let otherCoverageId: string;
+
+    const PBILL_CODE = PATIENT_BILLING_ACCOUNT_TYPE!.coding![0].code!;
+    const WCOMP_CODE = WORKERS_COMP_ACCOUNT_TYPE!.coding![0].code!;
+
+    const findAccount = async (patientId: string, code: string): Promise<Account | undefined> => {
+      const accounts = (
+        await oystehrAdmin.fhir.search<Account>({
+          resourceType: 'Account',
+          params: [{ name: 'patient', value: `Patient/${patientId}` }],
+        })
+      ).unbundle();
+      return accounts.find((a) => a.type?.coding?.some((c) => c.code === code));
+    };
+
+    beforeAll(async () => {
+      mainResources = await insertPatientGraph();
+      otherResources = await insertPatientGraph();
+
+      const [mainPbill, otherPbill, otherWcomp] = await Promise.all([
+        findAccount(mainResources.patient.id!, PBILL_CODE),
+        findAccount(otherResources.patient.id!, PBILL_CODE),
+        findAccount(otherResources.patient.id!, WCOMP_CODE),
+      ]);
+      if (!mainPbill?.id || !otherPbill?.id) {
+        throw new Error('Seed data must include PBILLACCT for both patients');
+      }
+      mainPbillId = mainPbill.id;
+      otherPbillId = otherPbill.id;
+      otherWcompId = otherWcomp?.id;
+
+      // Create one Coverage per patient and attach each to its PBILLACCT
+      const [mainCov, otherCov] = await Promise.all([
+        oystehrAdmin.fhir.create<Coverage>(
+          addProcessIdMetaTagToResource(
+            {
+              resourceType: 'Coverage',
+              status: 'active',
+              beneficiary: { reference: `Patient/${mainResources.patient.id}` },
+              subscriber: { reference: `Patient/${mainResources.patient.id}` },
+              payor: [{ display: 'Main Insurance' }],
+            },
+            processId
+          ) as Coverage
+        ),
+        oystehrAdmin.fhir.create<Coverage>(
+          addProcessIdMetaTagToResource(
+            {
+              resourceType: 'Coverage',
+              status: 'active',
+              beneficiary: { reference: `Patient/${otherResources.patient.id}` },
+              subscriber: { reference: `Patient/${otherResources.patient.id}` },
+              payor: [{ display: 'Other Insurance' }],
+            },
+            processId
+          ) as Coverage
+        ),
+      ]);
+      mainCoverageId = mainCov.id!;
+      otherCoverageId = otherCov.id!;
+
+      await Promise.all([
+        oystehrAdmin.fhir.patch<Account>({
+          resourceType: 'Account',
+          id: mainPbillId,
+          operations: [
+            {
+              op: 'add',
+              path: '/coverage',
+              value: [{ coverage: { reference: `Coverage/${mainCoverageId}` }, priority: 1 }],
+            },
+          ],
+        }),
+        oystehrAdmin.fhir.patch<Account>({
+          resourceType: 'Account',
+          id: otherPbillId,
+          operations: [
+            {
+              op: 'add',
+              path: '/coverage',
+              value: [{ coverage: { reference: `Coverage/${otherCoverageId}` }, priority: 1 }],
+            },
+          ],
+        }),
+      ]);
+
+      // Attach the other patient's accounts to its encounter so we can verify redirection
+      const accountRefs: { reference: string }[] = [{ reference: `Account/${otherPbillId}` }];
+      if (otherWcompId) {
+        accountRefs.push({ reference: `Account/${otherWcompId}` });
+      }
+      await oystehrAdmin.fhir.patch<Encounter>({
+        resourceType: 'Encounter',
+        id: otherResources.encounter.id!,
+        operations: [{ op: 'add', path: '/account', value: accountRefs }],
+      });
+
+      const qr = buildMergeQuestionnaireResponse(mainResources.patient.id!, 'Consolidated', 'Test');
+      const { error } = await executeMergePatients({
+        mainPatientId: mainResources.patient.id!,
+        otherPatientId: otherResources.patient.id!,
+        questionnaireResponse: qr,
+      });
+      expect(error).toBeUndefined();
+    }, 180_000);
+
+    it('should leave exactly one active PBILLACCT for the main patient', async () => {
+      const accounts = (
+        await oystehrAdmin.fhir.search<Account>({
+          resourceType: 'Account',
+          params: [{ name: 'patient', value: `Patient/${mainResources.patient.id}` }],
+        })
+      ).unbundle();
+      const activePbill = accounts.filter(
+        (a) => a.status === 'active' && a.type?.coding?.some((c) => c.code === 'PBILLACCT')
+      );
+      expect(activePbill).toHaveLength(1);
+      expect(activePbill[0].id).toEqual(mainPbillId);
+    });
+
+    it('should leave exactly one active WCOMPACCT for the main patient (when seeded)', async () => {
+      if (!otherWcompId) {
+        // Seed in this project does not include a workers-comp account; nothing to consolidate.
+        return;
+      }
+      const accounts = (
+        await oystehrAdmin.fhir.search<Account>({
+          resourceType: 'Account',
+          params: [{ name: 'patient', value: `Patient/${mainResources.patient.id}` }],
+        })
+      ).unbundle();
+      const activeWcomp = accounts.filter(
+        (a) => a.status === 'active' && a.type?.coding?.some((c) => c.code === 'WCOMPACCT')
+      );
+      expect(activeWcomp).toHaveLength(1);
+    });
+
+    it('should mark the consolidated old PBILLACCT as inactive with subject re-pointed to main', async () => {
+      const updated = await oystehrAdmin.fhir.get<Account>({
+        resourceType: 'Account',
+        id: otherPbillId,
+      });
+      expect(updated.status).toEqual('inactive');
+      const subjectRefs = updated.subject?.map((s) => s.reference) ?? [];
+      expect(subjectRefs).toContain(`Patient/${mainResources.patient.id}`);
+      expect(subjectRefs).not.toContain(`Patient/${otherResources.patient.id}`);
+    });
+
+    it('should merge coverages from both patients into the surviving PBILLACCT', async () => {
+      const updated = await oystehrAdmin.fhir.get<Account>({
+        resourceType: 'Account',
+        id: mainPbillId,
+      });
+      const refs = (updated.coverage ?? []).map((c) => c.coverage?.reference);
+      expect(refs).toContain(`Coverage/${mainCoverageId}`);
+      expect(refs).toContain(`Coverage/${otherCoverageId}`);
+    });
+
+    it('should redirect Encounter.account references from the consolidated old account to the main one', async () => {
+      const updated = await oystehrAdmin.fhir.get<Encounter>({
+        resourceType: 'Encounter',
+        id: otherResources.encounter.id!,
+      });
+      const refs = (updated.account ?? []).map((a) => a.reference);
+      expect(refs).toContain(`Account/${mainPbillId}`);
+      expect(refs).not.toContain(`Account/${otherPbillId}`);
     });
   });
 

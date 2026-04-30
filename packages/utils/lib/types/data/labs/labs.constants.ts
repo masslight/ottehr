@@ -400,6 +400,14 @@ export const LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL = {
 } as const;
 export type LabListSearchFieldKey = keyof typeof LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL;
 
+export const STATIC_COMPENDIUM_LAB_GUID = 'oystehr-static-compendium';
+export const STATIC_COMPENDIUM_ACCOUNT_NUMBER = 'oystehr-generic-account';
+
+export const GENERIC_LAB_ORDER_TAG: Coding = {
+  system: 'order-type',
+  code: 'generic-lab-order',
+};
+
 export const LAB_PAYMENT_METHOD_DISPLAY: Record<LabPaymentMethod, string> = {
   [LabPaymentMethod.Insurance]: 'Insurance',
   [LabPaymentMethod.SelfPay]: 'Self Pay',
