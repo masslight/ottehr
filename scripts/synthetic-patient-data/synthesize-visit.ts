@@ -16,12 +16,16 @@
  *               (conditions), surgical history, hospitalizations, screening,
  *               css-notes, reason-for-visit, patient-info-confirmed.
  *   Phase 4   — apply-template: applies a global template to the encounter
- *               (CC/HPI/ROS/exam/MDM/diagnoses/CPT/E&M/instructions). Captures
- *               returned conditionIds + cptProcedureIds for Pass 2 cross-refs.
+ *               (CC/HPI/ROS/exam/MDM/diagnoses/CPT/E&M/instructions). The
+ *               zambda returns an empty body — created resource IDs are
+ *               recovered via FHIR search in Phase 5.
+ *   Phase 5   — save-chart-data Pass 2: procedures (Procedures-screen
+ *               ServiceRequests) cross-referencing template-created
+ *               Conditions/CPT Procedures, plus disposition + follow-ups.
  *
- * Phases 2 and 5+ are plan-only — they log what they would do but do NOT
- * write to the FHIR datastore. They will be enabled progressively as each
- * is verified.
+ * Phase 2 and Phases 6+ are plan-only — they log what they would do but do
+ * NOT write to the FHIR datastore. They will be enabled progressively as
+ * each is verified.
  *
  * Use --execute against an environment to validate connectivity end-to-end
  * through Phase 1, producing a real Patient + Appointment + Encounter on the
@@ -753,17 +757,132 @@ async function phase4_applyTemplate(ctx: SynthesisContext): Promise<void> {
   }
 }
 
-// ── Phase 5 — save-chart-data Pass 2 (plan-only) ─────────────────────────────
+// ── Phase 5 — save-chart-data Pass 2 ──────────────────────────────────────────
+
+/**
+ * After apply-template runs, FHIR-search the encounter for the Conditions
+ * (diagnoses) and Procedures (CPT) the template created, indexed by their
+ * code values. Phase 5 procedures cross-reference these via `resourceId`.
+ */
+async function indexTemplateResources(
+  ctx: SynthesisContext
+): Promise<{ conditionsByCode: Map<string, string>; cptProceduresByCode: Map<string, string> }> {
+  const conditionsByCode = new Map<string, string>();
+  const cptProceduresByCode = new Map<string, string>();
+  if (!ctx.oystehr || !ctx.encounterId) return { conditionsByCode, cptProceduresByCode };
+
+  const conditions = (
+    await ctx.oystehr.fhir.search({
+      resourceType: 'Condition',
+      params: [
+        { name: 'encounter', value: `Encounter/${ctx.encounterId}` },
+        { name: '_count', value: '100' },
+      ],
+    })
+  ).unbundle() as Array<{ id?: string; code?: { coding?: Array<{ code?: string }> } }>;
+  for (const c of conditions) {
+    for (const coding of c.code?.coding ?? []) {
+      if (coding.code && c.id) conditionsByCode.set(coding.code, c.id);
+    }
+  }
+
+  const procedures = (
+    await ctx.oystehr.fhir.search({
+      resourceType: 'Procedure',
+      params: [
+        { name: 'encounter', value: `Encounter/${ctx.encounterId}` },
+        { name: '_count', value: '100' },
+      ],
+    })
+  ).unbundle() as Array<{ id?: string; code?: { coding?: Array<{ code?: string }> } }>;
+  for (const p of procedures) {
+    for (const coding of p.code?.coding ?? []) {
+      if (coding.code && p.id) cptProceduresByCode.set(coding.code, p.id);
+    }
+  }
+
+  return { conditionsByCode, cptProceduresByCode };
+}
 
 async function phase5_chartDataPass2(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   if (!s.modules?.procedures?.length && !s.disposition) return;
 
   startPhase('save-chart-data Pass 2 (cross-references template-created resources)');
-  const pass2: Record<string, unknown> = { encounterId: ctx.encounterId ?? '<from Phase 1>' };
-  if (s.modules?.procedures?.length) pass2.procedures = `[${s.modules.procedures.length} entries with cross-refs]`;
-  if (s.disposition) pass2.disposition = '<disposition + followUp>';
-  logCall('save-chart-data', pass2);
+
+  // Index template-created resources for cross-referencing.
+  let conditionsByCode = new Map<string, string>();
+  let cptProceduresByCode = new Map<string, string>();
+  if (ctx.mode === 'execute' && ctx.oystehr && ctx.encounterId) {
+    const indexed = await indexTemplateResources(ctx);
+    conditionsByCode = indexed.conditionsByCode;
+    cptProceduresByCode = indexed.cptProceduresByCode;
+    logNote(
+      `indexed ${conditionsByCode.size} Condition code(s) and ${cptProceduresByCode.size} Procedure code(s) on the encounter`
+    );
+  }
+
+  const body: Record<string, unknown> = { encounterId: ctx.encounterId ?? '<from Phase 1>' };
+
+  if (s.modules?.procedures?.length) {
+    body.procedures = s.modules.procedures.map((p) => {
+      const diagnosisRef = p.diagnosisCode ? conditionsByCode.get(p.diagnosisCode) : undefined;
+      const cptRef = p.cptCode ? cptProceduresByCode.get(p.cptCode) : undefined;
+      return {
+        procedureType: p.procedureType,
+        occurrenceDateTime: p.occurrenceDateTime,
+        documentedDateTime: p.documentedDateTime,
+        performerType: p.performerType ?? 'Provider',
+        bodySite: p.bodySite,
+        technique: p.technique,
+        suppliesUsed: p.suppliesUsed,
+        procedureDetails: p.procedureDetails,
+        specimenSent: p.specimenSent,
+        complications: p.complications ?? 'None',
+        patientResponse: p.patientResponse ?? 'Tolerated procedure well',
+        timeSpent: p.timeSpent,
+        documentedBy: p.documentedBy ?? 'Provider',
+        consentObtained: p.consentObtained ?? true,
+        diagnoses: diagnosisRef ? [{ resourceId: diagnosisRef }] : [],
+        cptCodes: cptRef ? [{ resourceId: cptRef }] : [],
+      };
+    });
+  }
+
+  if (s.disposition) {
+    body.disposition = {
+      type: s.disposition.type,
+      ...(s.disposition.text ? { text: s.disposition.text } : {}),
+      ...(s.disposition.note ? { note: s.disposition.note } : {}),
+      ...(s.disposition.followUp?.length
+        ? {
+            followUp: s.disposition.followUp.map((f) => ({
+              type: f.type,
+              ...(f.note ? { note: f.note } : {}),
+              ...(f.daysOut !== undefined ? { followUpIn: f.daysOut } : {}),
+            })),
+          }
+        : {}),
+    };
+  }
+
+  logCall('save-chart-data', body);
+
+  if (ctx.mode === 'execute' && ctx.oystehr) {
+    const res = await fetch(`${ctx.zambdaApi}/zambda/save-chart-data/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ctx.accessToken}`,
+        'x-zapehr-project-id': ctx.projectId ?? '',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(`save-chart-data Pass 2 failed: ${res.status}\n${await res.text()}`);
+    }
+    logNote('procedures + disposition saved');
+  }
 }
 
 // ── Phase 6 — in-house lab orders (plan-only) ────────────────────────────────
@@ -1009,9 +1128,10 @@ async function main(): Promise<void> {
   if (isExecute) {
     console.log('');
     console.log('Mode summary: --execute performed Phase 0 lookups, Phase 0.5 (create slot),');
-    console.log('Phase 1 (create-appointment), Phase 3 (save-chart-data Pass 1), and Phase 4');
-    console.log('(apply-template) against the live environment. Phase 2 and Phases 5+ were');
-    console.log('planned only — no further FHIR writes were performed.');
+    console.log('Phase 1 (create-appointment), Phase 3 (save-chart-data Pass 1), Phase 4');
+    console.log('(apply-template), and Phase 5 (procedures + disposition) against the live');
+    console.log('environment. Phase 2 and Phases 6+ were planned only — no further FHIR');
+    console.log('writes were performed.');
     console.log('');
     console.log('Resolved IDs:');
     if (ctx.locationId) console.log(`  Location:                ${ctx.locationId}`);
