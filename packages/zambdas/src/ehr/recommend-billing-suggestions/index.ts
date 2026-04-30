@@ -166,7 +166,49 @@ export const index = wrapHandler(
 
     console.log(prompt);
 
-    const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets);
+    const billingSuggestionsSchema = {
+      type: 'object',
+      properties: {
+        icdCodes: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              code: { type: 'string' },
+              reason: { type: 'string' },
+            },
+            required: ['code', 'reason'],
+          },
+        },
+        cptCodes: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              code: { type: 'string' },
+              reason: { type: 'string' },
+            },
+            required: ['code', 'reason'],
+          },
+        },
+        emCode: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              code: { type: 'string' },
+              description: { type: 'string' },
+              upcodingSuggestion: { type: 'string' },
+            },
+            required: ['code', 'description', 'upcodingSuggestion'],
+          },
+        },
+        codingSuggestions: { type: 'string' },
+      },
+      required: ['icdCodes', 'cptCodes', 'emCode', 'codingSuggestions'],
+    };
+
+    const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets, billingSuggestionsSchema);
     // const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
 
     let suggestions: BillingSuggestionOutput | undefined;
