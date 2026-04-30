@@ -191,6 +191,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // Send email unless skipped by feature flag
       const emailClient = getEmailClient(secrets);
       const emailEnabled = emailClient.getFeatureFlag();
+      let emailSent = false;
 
       if (emailEnabled && !isPDFOnlyTask && !skipEmail) {
         if (skipVisitNoteInPatientPortal) {
@@ -230,6 +231,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
                 'visit-note-url': visitNoteUrl,
               };
               await emailClient.sendInPersonCompletionEmail(patientEmail, templateData);
+              emailSent = true;
             } else {
               console.error(
                 `Not sending in-person completion email, missing the following data: ${missingData.join(', ')}`
@@ -247,6 +249,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
                 'visit-note-url': visitNoteUrl,
               };
               await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
+              emailSent = true;
             } else {
               console.error(
                 `Not sending virtual completion email, missing the following data: ${missingData.join(', ')}`
@@ -256,10 +259,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
       }
 
-      const statusMessage =
-        isPDFOnlyTask || skipVisitNoteInPatientPortal || skipEmail
-          ? 'PDF created successfully'
-          : 'PDF created and emailed successfully';
+      const statusMessage = emailSent ? 'PDF created and emailed successfully' : 'PDF created successfully';
 
       // update task status and status reason
       console.log('making patch request to update task status');
