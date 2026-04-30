@@ -48,6 +48,9 @@ export const OrderDetailsSection: React.FC = () => {
           name="details.associatedDx"
           label="Associated Dx"
           options={diagnosisOptions}
+          getOptionLabel={(option) => option.display}
+          getOptionKey={(option) => option.resourceId}
+          isOptionEqualToValue={(option, value) => option.resourceId === value.resourceId}
           dataTestId={dataTestIds.orderVaccinePage.associatedDx}
         />
       </Grid>
