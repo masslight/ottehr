@@ -31,10 +31,7 @@ import {
   useStripeAccountInfoQuery,
   useTerminalReadersQuery,
 } from 'src/rcm/state/payments/payments.queries';
-import {
-  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
-  SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL,
-} from 'utils';
+import { SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL } from 'utils';
 
 function CopyableValue({ label, value }: { label: string; value: string | undefined }): ReactElement {
   const [copied, setCopied] = useState(false);
@@ -454,14 +451,10 @@ export default function PaymentLocationDetailPage(): ReactElement {
     );
   }
 
-  const { location, supportsVirtualVisits } = paymentLocation;
+  const { location, supportsVirtualVisits, stripeTerminalLocationId } = paymentLocation;
 
   const stripeAccountId = location.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)
     ?.valueString;
-
-  const stripeTerminalLocationId = location.extension?.find(
-    (ext) => ext.url === SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL
-  )?.valueString;
 
   const address = location.address;
   const addressLines: string[] = [];

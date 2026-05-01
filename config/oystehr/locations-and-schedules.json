@@ -387,10 +387,6 @@
             "valueString": "#{var/stripe-account-3}"
           },
           {
-            "url": "https://fhir.ottehr.com/Extension/stripe-terminal-location-id",
-            "valueString": "#{var/stripe-terminal-location-1}"
-          },          
-          {
             "url": "https://fhir.ottehr.com/Extension/advapacs-location-id",
             "valueString": "#{var/advapacs-location-1}"
           }
@@ -4069,6 +4065,29 @@
         "actor": [
           {
             "reference": "Practitioner/#{ref/fhirResources/PRACTITIONER_EXAMPLE_2/id}"
+          }
+        ]
+      }
+    },
+    "DEVICE_STRIPE_TERMINAL_CA": {
+      "resource": {
+        "resourceType": "Device",
+        "status": "active",
+        "type": {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/device-type",
+              "code": "stripe-terminal-config"
+            }
+          ]
+        },
+        "location": {
+          "reference": "Location/#{ref/fhirResources/LOCATION_PHYSICAL_CA/id}"
+        },
+        "identifier": [
+          {
+            "system": "https://api.stripe.com/v1/terminal/locations",
+            "value": "#{var/stripe-terminal-location-1}"
           }
         ]
       }

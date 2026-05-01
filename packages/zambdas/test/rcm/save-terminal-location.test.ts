@@ -1,6 +1,10 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
-import { Extension, Location } from 'fhir/r4b';
-import { SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL } from 'utils';
+import { Device } from 'fhir/r4b';
+import {
+  STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE,
+  STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM,
+  STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM,
+} from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/rcm/payments/save-terminal-location/validateRequestParameters';
 import type { ZambdaInput } from '../../src/shared/types/common';
@@ -60,10 +64,23 @@ describe('save-terminal-location validateRequestParameters', () => {
 
 const mockOystehrClient = {
   fhir: {
-    get: vi.fn(),
+    search: vi.fn(),
+    create: vi.fn(),
     update: vi.fn(),
+    delete: vi.fn(),
   },
 };
+
+vi.mock('utils', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    findTerminalDeviceForLocation: vi.fn(async () => {
+      const searchResult = await mockOystehrClient.fhir.search();
+      return searchResult;
+    }),
+  };
+});
 
 vi.mock('../../src/shared', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -75,18 +92,37 @@ vi.mock('../../src/shared', async (importOriginal) => {
   };
 });
 
+const { findTerminalDeviceForLocation } = await import('utils');
+const mockedFindDevice = vi.mocked(findTerminalDeviceForLocation);
+
 const { index: handler } = (await import('../../src/rcm/payments/save-terminal-location/index')) as unknown as {
   index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 };
 
-function makeLocation(extensions?: Extension[]): Location {
+function makeDevice(terminalLocationId: string): Device {
   return {
-    resourceType: 'Location',
-    id: 'loc-1',
+    resourceType: 'Device',
+    id: 'device-1',
+    meta: { versionId: '1' },
+    type: {
+      coding: [
+        {
+          system: STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM,
+          code: STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE,
+        },
+      ],
+    },
+    location: {
+      reference: 'Location/loc-1',
+    },
+    identifier: [
+      {
+        system: STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM,
+        value: terminalLocationId,
+      },
+    ],
     status: 'active',
-    name: 'Test Location',
-    extension: extensions,
-  } as Location;
+  };
 }
 
 describe('save-terminal-location handler', () => {
@@ -94,67 +130,66 @@ describe('save-terminal-location handler', () => {
     vi.clearAllMocks();
   });
 
-  it('adds terminal location extension to location without existing extensions', async () => {
-    mockOystehrClient.fhir.get.mockResolvedValue(makeLocation());
-    mockOystehrClient.fhir.update.mockResolvedValue({});
+  it('creates a new Device when no existing device and terminalLocationId is provided', async () => {
+    mockedFindDevice.mockResolvedValue(undefined);
+    mockOystehrClient.fhir.create.mockResolvedValue({});
 
     const result = await handler(makeInput({ locationId: 'loc-1', terminalLocationId: 'tml_new' }));
 
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body)).toEqual({ success: true });
 
-    const updated = mockOystehrClient.fhir.update.mock.calls[0][0] as Location;
-    expect(updated.extension).toHaveLength(1);
-    expect(updated.extension![0]).toEqual({
-      url: SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL,
-      valueString: 'tml_new',
+    expect(mockOystehrClient.fhir.create).toHaveBeenCalledTimes(1);
+    const created = mockOystehrClient.fhir.create.mock.calls[0][0] as Device;
+    expect(created.resourceType).toBe('Device');
+    expect(created.location?.reference).toBe('Location/loc-1');
+    expect(created.identifier).toEqual([{ system: STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM, value: 'tml_new' }]);
+    expect(created.type?.coding?.[0]).toEqual({
+      system: STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM,
+      code: STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE,
     });
   });
 
-  it('replaces existing terminal location extension', async () => {
-    const existingExt: Extension = {
-      url: SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL,
-      valueString: 'tml_old',
-    };
-    const otherExt: Extension = { url: 'http://other-ext', valueString: 'keep-me' };
-    mockOystehrClient.fhir.get.mockResolvedValue(makeLocation([existingExt, otherExt]));
+  it('updates existing Device identifier when device exists', async () => {
+    const existingDevice = makeDevice('tml_old');
+    mockedFindDevice.mockResolvedValue(existingDevice);
     mockOystehrClient.fhir.update.mockResolvedValue({});
 
-    await handler(makeInput({ locationId: 'loc-1', terminalLocationId: 'tml_replaced' }));
+    const result = await handler(makeInput({ locationId: 'loc-1', terminalLocationId: 'tml_replaced' }));
 
-    const updated = mockOystehrClient.fhir.update.mock.calls[0][0] as Location;
-    expect(updated.extension).toHaveLength(2);
-    expect(updated.extension!.find((e) => e.url === 'http://other-ext')).toBeDefined();
-    expect(
-      updated.extension!.find((e) => e.url === SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL)?.valueString
-    ).toBe('tml_replaced');
+    expect(result.statusCode).toBe(200);
+    expect(mockOystehrClient.fhir.update).toHaveBeenCalledTimes(1);
+
+    const updated = mockOystehrClient.fhir.update.mock.calls[0][0] as Device;
+    expect(updated.identifier).toHaveLength(1);
+    expect(updated.identifier![0]).toEqual({
+      system: STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM,
+      value: 'tml_replaced',
+    });
   });
 
-  it('removes terminal location extension when terminalLocationId is null', async () => {
-    const existingExt: Extension = {
-      url: SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL,
-      valueString: 'tml_old',
-    };
-    const otherExt: Extension = { url: 'http://other-ext', valueString: 'keep-me' };
-    mockOystehrClient.fhir.get.mockResolvedValue(makeLocation([existingExt, otherExt]));
-    mockOystehrClient.fhir.update.mockResolvedValue({});
+  it('deletes existing Device when terminalLocationId is null', async () => {
+    const existingDevice = makeDevice('tml_old');
+    mockedFindDevice.mockResolvedValue(existingDevice);
+    mockOystehrClient.fhir.delete.mockResolvedValue({});
 
-    await handler(makeInput({ locationId: 'loc-1', terminalLocationId: null }));
+    const result = await handler(makeInput({ locationId: 'loc-1', terminalLocationId: null }));
 
-    const updated = mockOystehrClient.fhir.update.mock.calls[0][0] as Location;
-    expect(updated.extension).toHaveLength(1);
-    expect(updated.extension![0].url).toBe('http://other-ext');
+    expect(result.statusCode).toBe(200);
+    expect(mockOystehrClient.fhir.delete).toHaveBeenCalledWith({
+      resourceType: 'Device',
+      id: 'device-1',
+    });
   });
 
-  it('preserves existing extensions while adding new terminal location', async () => {
-    const ext1: Extension = { url: 'http://ext-one', valueString: 'val1' };
-    const ext2: Extension = { url: 'http://ext-two', valueString: 'val2' };
-    mockOystehrClient.fhir.get.mockResolvedValue(makeLocation([ext1, ext2]));
-    mockOystehrClient.fhir.update.mockResolvedValue({});
+  it('does nothing when terminalLocationId is null and no device exists', async () => {
+    mockedFindDevice.mockResolvedValue(undefined);
 
-    await handler(makeInput({ locationId: 'loc-1', terminalLocationId: 'tml_fresh' }));
+    const result = await handler(makeInput({ locationId: 'loc-1', terminalLocationId: null }));
 
-    const updated = mockOystehrClient.fhir.update.mock.calls[0][0] as Location;
-    expect(updated.extension).toHaveLength(3);
+    expect(result.statusCode).toBe(200);
+    expect(mockOystehrClient.fhir.create).not.toHaveBeenCalled();
+    expect(mockOystehrClient.fhir.update).not.toHaveBeenCalled();
+    expect(mockOystehrClient.fhir.delete).not.toHaveBeenCalled();
   });
 });
