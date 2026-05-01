@@ -604,8 +604,6 @@ export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT = 'https://api.stripe.com/v1/accounts';
 export const SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/stripe-account-id';
 /** @deprecated Use Device resource with STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM and STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE instead */
-export const SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL =
-  'https://fhir.ottehr.com/Extension/stripe-terminal-location-id';
 export const SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/advapacs-location-id';
 
 // Device-based terminal location storage
