@@ -58,6 +58,11 @@ describe('getChartDataPostChangeTasks', () => {
       expect(tasks).toHaveLength(0);
     });
 
+    it('returns no tasks when addendumNote is null (e.g. from unvalidated JSON body)', () => {
+      const tasks = getChartDataPostChangeTasks({ addendumNote: null as any }, finishedEncounter, APPOINTMENT_ID);
+      expect(tasks).toHaveLength(0);
+    });
+
     it('returns no tasks when encounter status is not finished', () => {
       const tasks = getChartDataPostChangeTasks({ addendumNote }, inProgressEncounter, APPOINTMENT_ID);
       expect(tasks).toHaveLength(0);

@@ -70,13 +70,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     taskId = task.id;
 
-    const skipEmail =
-      task.input?.some(
-        (input) =>
-          input.type.coding?.some(
-            (c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.SKIP_EMAIL
-          ) && input.valueString === 'true'
-      ) ?? false;
+    const skipEmail = resolveSkipEmail(task);
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -188,7 +182,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         listResources
       );
 
-      // Send email unless skipped by feature flag
+      // Send completion email only when: email is enabled, this is not a follow-up (isPDFOnlyTask),
+      // the task does not carry a SKIP_EMAIL input (addendum re-generation), and the feature flag
+      // for skipping patient-portal delivery is not set.
       const emailClient = getEmailClient(secrets);
       const emailEnabled = emailClient.getFeatureFlag();
       let emailSent = false;
@@ -291,6 +287,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw error;
   }
 });
+
+export function resolveSkipEmail(task: Task): boolean {
+  return (
+    task.input?.some(
+      (taskInput) =>
+        taskInput.type.coding?.some(
+          (c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.SKIP_EMAIL
+        ) && taskInput.valueString === 'true'
+    ) ?? false
+  );
+}
 
 const patchTaskStatus = async (
   oystehr: Oystehr,

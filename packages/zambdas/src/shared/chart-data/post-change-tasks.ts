@@ -23,7 +23,7 @@ export function getChartDataPostChangeTasks(
   // Regenerate the visit note PDF when the addendum changes on an already-signed visit.
   // The SKIP_EMAIL input tells the subscription handler to skip the patient completion email
   // (this is a re-generation, not the initial post-signing send).
-  if (changedFields.addendumNote !== undefined && encounter.status === 'finished' && appointmentId) {
+  if (changedFields.addendumNote && encounter.status === 'finished' && appointmentId) {
     tasks.push({
       ...getTaskResource(TaskIndicator.visitNotePDFAndEmail, 'Regenerate visit note PDF', appointmentId, encounter.id),
       input: [
