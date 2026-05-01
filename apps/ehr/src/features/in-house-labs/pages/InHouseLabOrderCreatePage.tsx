@@ -44,7 +44,7 @@ import {
   DataEntryTestItem,
   getAttendingPractitionerId,
   isApiError,
-  LabListsDTO,
+  LabSetDTO,
   LabType,
   REPEAT_TEST_CPT_CODE_MODIFIER,
 } from 'utils';
@@ -271,7 +271,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     }
   };
 
-  const handleSetSelectedLabsViaLabSets = async (labSet: LabListsDTO): Promise<void> => {
+  const handleSetSelectedLabsViaLabSets = async (labSet: LabSetDTO): Promise<void> => {
     if (labSet.listType === LabType.inHouse) {
       const res = await apiClient?.getCreateInHouseLabOrderResources({
         selectedLabSet: labSet,

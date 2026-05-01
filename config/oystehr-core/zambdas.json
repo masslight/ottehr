@@ -1858,6 +1858,13 @@
       "src": "src/ehr/lab/in-house/admin-update-in-house-lab/index",
       "zip": ".dist/zips/admin-update-in-house-lab.zip"
     },
+    "ADMIN_GET_LAB_SETS": {
+      "name": "admin-get-lab-sets",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-get-lab-sets/index",
+      "zip": ".dist/zips/admin-get-lab-sets.zip"
+    },
     "ERX_NOTIFICATION": {
       "name": "erx-notification-subscription",
       "type": "subscription",

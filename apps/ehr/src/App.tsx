@@ -252,6 +252,9 @@ function App(): ReactElement {
                 <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                 <Route path="/admin/in-house-labs/add" element={<AdminAddInHouseLab />} />
                 <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
+                {/* todo sarah update elements */}
+                <Route path="/admin/lab-sets/add" element={<AdminAddInHouseLab />} />
+                <Route path="/admin/lab-sets/:listId" element={<AdminInHouseLabDetails />} />
                 {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                 <Route path="/tasks" element={<Tasks />} />
                 <Route path="*" element={<Navigate to={'/'} />} />

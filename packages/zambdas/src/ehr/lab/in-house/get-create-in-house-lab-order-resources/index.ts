@@ -9,7 +9,7 @@ import {
   getFullestAvailableName,
   getSecret,
   LAB_LIST_CODE_CODING,
-  LabListsDTO,
+  LabSetDTO,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -51,7 +51,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const testItems: DataEntryTestItem[] = [];
   let providerName: string | undefined;
-  let labSets: LabListsDTO[] | undefined;
+  let labSets: LabSetDTO[] | undefined;
 
   if (validatedParameters.encounterId) {
     const [attendingPractitionerName, activeActivityDefinitions, labLists] = await Promise.all([

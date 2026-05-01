@@ -5,6 +5,7 @@ import { enqueueSnackbar } from 'notistack';
 import {
   adminAddInHouseLab,
   adminGetInHouseLabConfig,
+  adminGetLabSets,
   adminListInHouseLabs,
   adminUpdateInHouseLab,
   bulkUpdateInsuranceStatus,
@@ -26,6 +27,9 @@ import {
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
   AdminGetInHouseLabConfigInput,
+  AdminGetLabSetDetailInput,
+  AdminGetLabSetDetailOutput,
+  AdminGetLabSetListOutput,
   AdminInHouseLabConfigOutput,
   AdminListInHouseLabsOutput,
   AdminUpdateInHouseLabInput,
@@ -475,5 +479,33 @@ export const useAdminUpdateInHouseLab = (
       }
       enqueueSnackbar(message, { variant: 'error' });
     },
+  });
+};
+
+export const useAdminGetLabSetsList = (): UseQueryResult<AdminGetLabSetListOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-get-lab-sets'],
+    queryFn: async () => {
+      return adminGetLabSets(oystehrZambda!);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
+  });
+};
+
+export const useAdminGetLabSetDetail = (
+  input: AdminGetLabSetDetailInput
+): UseQueryResult<AdminGetLabSetDetailOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-get-lab-sets'],
+    queryFn: async () => {
+      return adminGetLabSets(oystehrZambda!, input);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
   });
 };

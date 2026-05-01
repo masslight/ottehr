@@ -8,6 +8,9 @@ import {
   AdminDeleteTemplateInput,
   AdminDeleteTemplateOutput,
   AdminGetInHouseLabConfigInput,
+  AdminGetLabSetDetailInput,
+  AdminGetLabSetDetailOutput,
+  AdminGetLabSetListOutput,
   AdminGetTemplateDetailInput,
   AdminGetTemplateDetailOutput,
   AdminInHouseLabConfigOutput,
@@ -290,6 +293,7 @@ const ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID = 'admin-list-in-house-labs';
 const ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-add-in-house-lab';
 const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
 const ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-update-in-house-lab';
+const ADMIN_GET_LAB_SETS = 'admin-get-lab-sets';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1830,6 +1834,32 @@ export const adminUpdateInHouseLab = async (
     throw apiErrorToThrow(error);
   }
 };
+
+export function adminGetLabSets(oystehr: Oystehr): Promise<AdminGetLabSetListOutput>;
+
+export function adminGetLabSets(
+  oystehr: Oystehr,
+  parameters: AdminGetLabSetDetailInput
+): Promise<AdminGetLabSetDetailOutput>;
+
+export async function adminGetLabSets(
+  oystehr: Oystehr,
+  parameters?: AdminGetLabSetDetailInput
+): Promise<AdminGetLabSetListOutput | AdminGetLabSetDetailOutput> {
+  try {
+    if (ADMIN_GET_LAB_SETS == null) {
+      throw new Error('admin get lab sets environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_LAB_SETS,
+      ...(parameters ?? {}),
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+}
 
 // ── Legacy Records ─────────────────────────────────────────────────────────────
 

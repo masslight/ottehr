@@ -30,21 +30,21 @@ export interface InHouseLabListItem {
   activityDefinitionId: string;
 }
 
-export interface ExternalLabListDTO {
+export interface ExternalLabSetDTO {
   listId: string;
   listName: string;
   listType: LabType.external;
   labs: ExternalLabListItem[];
 }
 
-export interface InHouseLabListDTO {
+export interface InHouseLabSetDTO {
   listId: string;
   listName: string;
   listType: LabType.inHouse;
   labs: InHouseLabListItem[];
 }
 
-export type LabListsDTO = ExternalLabListDTO | InHouseLabListDTO;
+export type LabSetDTO = ExternalLabSetDTO | InHouseLabSetDTO;
 
 export interface sampleDTO {
   specimen: { id: string; collectionDate?: string }; // collectionDate exists after order is submitted
@@ -278,6 +278,14 @@ export enum LabType {
   unsolicited = 'unsolicited', // external but has less fhir resources available since it did not originate from ottehr
   reflex = 'reflex', // external but has less fhir resources available since it did not originate from ottehr
 }
+
+export const LabTypeDisplay: Record<LabType, string> = {
+  [LabType.external]: 'External',
+  [LabType.inHouse]: 'In-House',
+  [LabType.unsolicited]: 'Unsolicited',
+  [LabType.reflex]: 'Reflex',
+};
+
 /**
  * 'unsolicited', 'reflex'
  */
@@ -353,7 +361,7 @@ export type GetCreateLabOrderResources = {
   encounterId?: string;
   search?: string;
   labOrgIdsString?: string;
-  selectedLabSet?: ExternalLabListDTO;
+  selectedLabSet?: ExternalLabSetDTO;
 };
 
 export type ModifiedOrderingLocation = {
@@ -377,7 +385,7 @@ export type LabOrderResourcesRes = {
   labs: OrderableItemSearchResult[];
   appointmentIsWorkersComp: boolean;
   cptCodesToAddPerEncounter?: CPTCodeOption[]; // does not apply to psc orders and only once per encounter
-  labSets: LabListsDTO[] | undefined;
+  labSets: LabSetDTO[] | undefined;
 } & ExternalLabOrderingLocations;
 
 export type PatientLabItem = {
@@ -615,3 +623,12 @@ export type LabsTableColumn =
   | 'status'
   | 'detail'
   | 'actions';
+export interface AdminGetLabSetListOutput {
+  labSetDTO: LabSetDTO[];
+}
+export interface AdminGetLabSetDetailInput {
+  labSetId: string;
+}
+export interface AdminGetLabSetDetailOutput {
+  labSetDTO: LabSetDTO;
+}

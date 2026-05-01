@@ -8,7 +8,7 @@ import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehr
 import { useGetCreateExternalLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
-  LabListsDTO,
+  LabSetDTO,
   LabType,
   ModifiedOrderingLocation,
   nameLabTest,
@@ -23,7 +23,7 @@ type LabsAutocompleteProps = {
   selectedOrderingLocationId: string;
   labOrgIdsString: string;
   setSelectedLabs: React.Dispatch<React.SetStateAction<OrderableItemSearchResult[]>>;
-  labSets: LabListsDTO[] | undefined;
+  labSets: LabSetDTO[] | undefined;
 };
 
 export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
@@ -57,7 +57,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
 
   if (resourceFetchError) console.log('resourceFetchError', resourceFetchError);
 
-  const handleSetSelectedLabsViaLabSets = async (labSet: LabListsDTO): Promise<void> => {
+  const handleSetSelectedLabsViaLabSets = async (labSet: LabSetDTO): Promise<void> => {
     if (labSet.listType === LabType.external) {
       const res = await apiClient?.getCreateExternalLabResources({
         selectedLabSet: labSet,

@@ -17,8 +17,8 @@ import {
   getLabListType,
   LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
   LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL,
-  LabListsDTO,
   LabListSearchFieldKey,
+  LabSetDTO,
   LabType,
 } from 'utils';
 
@@ -67,9 +67,9 @@ export const makeSoftDeleteStatusPatchRequest = (
   };
 };
 
-export const formatLabListDTOs = (labLists: List[]): LabListsDTO[] | undefined => {
+export const formatLabListDTOs = (labLists: List[]): LabSetDTO[] | undefined => {
   if (labLists.length === 0) return;
-  const formattedListDTOs: LabListsDTO[] = [];
+  const formattedListDTOs: LabSetDTO[] = [];
   labLists.forEach((list, idx) => {
     const listType = getLabListType(list);
     if (!listType) return;
@@ -78,7 +78,7 @@ export const formatLabListDTOs = (labLists: List[]): LabListsDTO[] | undefined =
       listName: list.title ?? 'Lab List (title missing)',
     };
     if (listType === LabType.external) {
-      const formatted: LabListsDTO = {
+      const formatted: LabSetDTO = {
         ...formattedBase,
         listType,
         labs:
@@ -93,7 +93,7 @@ export const formatLabListDTOs = (labLists: List[]): LabListsDTO[] | undefined =
       };
       formattedListDTOs.push(formatted);
     } else if (listType === LabType.inHouse) {
-      const formatted: LabListsDTO = {
+      const formatted: LabSetDTO = {
         ...formattedBase,
         listType,
         labs:
