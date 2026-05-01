@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { GetChartDataResponse, ProcedureDTO, TelemedAppointmentStatusEnum } from 'utils';
+import { GetChartDataResponse, ProcedureDTO } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import Procedures from '../../src/features/visits/in-person/pages/Procedures';
@@ -122,9 +122,6 @@ describe('Procedures - Delete Procedure Tests', () => {
       isAppointmentReadOnly: false,
       isPractitionerLicensedInState: true,
       isEncounterAssignedToCurrentPractitioner: true,
-      isStatusEditable: true,
-      isCurrentUserHasAccessToAppointment: true,
-      status: TelemedAppointmentStatusEnum.ready,
       isAppointmentLocked: false,
       visitType: 'main',
     });
@@ -175,9 +172,6 @@ describe('Procedures - Delete Procedure Tests', () => {
       isAppointmentReadOnly: true,
       isPractitionerLicensedInState: true,
       isEncounterAssignedToCurrentPractitioner: true,
-      isStatusEditable: false,
-      isCurrentUserHasAccessToAppointment: true,
-      status: undefined,
       isAppointmentLocked: false,
       visitType: 'main',
     });
@@ -392,9 +386,6 @@ describe('Procedures - Delete Procedure Tests', () => {
       isAppointmentReadOnly: true,
       isPractitionerLicensedInState: true,
       isEncounterAssignedToCurrentPractitioner: true,
-      isStatusEditable: false,
-      isCurrentUserHasAccessToAppointment: true,
-      status: undefined,
       isAppointmentLocked: false,
       visitType: 'main',
     });
