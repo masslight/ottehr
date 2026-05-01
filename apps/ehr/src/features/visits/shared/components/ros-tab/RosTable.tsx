@@ -1,4 +1,16 @@
-import { Checkbox, Grid, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import {
+  alpha,
+  Checkbox,
+  Grid,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { FC, useCallback } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ExamObservationDTO, getRosFindingFieldKeys, RosCard, RosItemConfig } from 'utils';
@@ -27,6 +39,8 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
     {} as Record<string, ExamObservationDTO>
   );
 
+  const theme = useTheme();
+
   const handleCheck = useCallback(
     (field: string, label: string, pairedField: string, resourceId?: string, pairedResourceId?: string) => {
       const updates: ExamObservationDTO[] = [{ field, label, value: true, resourceId }];
@@ -49,8 +63,20 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
     <Paper key={systemKey} variant="outlined" sx={{ height: '100%' }}>
       <Table size="small" sx={{ tableLayout: 'fixed' }} data-testid={dataTestIds.reviewOfSystemsPage.rosTable}>
         <TableHead>
-          <TableRow>
-            <TableCell sx={{ fontWeight: 700, fontSize: 13, py: 0.5, borderBottom: '2px solid #e0e0e0' }}>
+          <TableRow
+            sx={{
+              backgroundColor: alpha(theme.palette.primary.main, 0.05),
+            }}
+          >
+            <TableCell
+              sx={{
+                fontWeight: 500,
+                fontSize: 13,
+                py: 0.5,
+                borderBottom: '2px solid #e0e0e0',
+                color: theme.palette.primary.dark,
+              }}
+            >
               {system.label}
             </TableCell>
             <TableCell

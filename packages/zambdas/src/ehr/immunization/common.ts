@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Medication, MedicationAdministration, Practitioner } from 'fhir/r4b';
+import { Medication, MedicationAdministration, Organization, Practitioner } from 'fhir/r4b';
 import {
   getCoding,
   getFullName,
@@ -16,6 +16,7 @@ import { createMedicationCopy } from '../create-update-medication-order/helpers'
 
 export const CONTAINED_MEDICATION_ID = 'medication';
 export const CONTAINED_EMERGENCY_CONTACT_ID = 'emergencyContact';
+export const CONTAINED_MANUFACTURER_ORG_ID = 'manufacturer-org';
 export const IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL = ottehrExtensionUrl(
   'immunization-order-created-date-time'
 );
@@ -26,7 +27,8 @@ export async function updateOrderDetails(
   orderDetails: InputImmunizationOrderDetails,
   oystehr: Oystehr
 ): Promise<void> {
-  const { medication, dose, units, orderedProvider, route, location, instructions } = orderDetails;
+  const { medication, dose, units, orderedProvider, route, location, instructions, associatedDx, manufacturer } =
+    orderDetails;
 
   const containedMedication = getContainedMedication(medicationAdministration);
   const currentMedicationId = containedMedication?.extension?.find(
@@ -53,6 +55,35 @@ export async function updateOrderDetails(
         id: CONTAINED_MEDICATION_ID,
       },
     ];
+  }
+
+  const containedMed = getContainedMedication(medicationAdministration);
+  if (containedMed) {
+    if (manufacturer) {
+      const manufacturerOrg: Organization = {
+        resourceType: 'Organization',
+        id: CONTAINED_MANUFACTURER_ORG_ID,
+        name: manufacturer,
+      };
+      medicationAdministration.contained = [
+        ...(medicationAdministration.contained ?? []).filter((r) => r.id !== CONTAINED_MANUFACTURER_ORG_ID),
+        manufacturerOrg,
+      ];
+      containedMed.manufacturer = { reference: '#' + CONTAINED_MANUFACTURER_ORG_ID };
+    } else {
+      medicationAdministration.contained = (medicationAdministration.contained ?? []).filter(
+        (r) => r.id !== CONTAINED_MANUFACTURER_ORG_ID
+      );
+      containedMed.manufacturer = undefined;
+    }
+  }
+
+  if (associatedDx?.resourceId) {
+    medicationAdministration.reasonReference = [
+      { reference: `Condition/${associatedDx.resourceId}`, display: associatedDx.display },
+    ];
+  } else {
+    medicationAdministration.reasonReference = undefined;
   }
 
   const routeCoding = route ? searchRouteByCode(route) : undefined;
