@@ -2,6 +2,7 @@ import {
   Appointment,
   Coding,
   Consent,
+  Coverage,
   DocumentReference,
   Encounter,
   Location,
@@ -619,6 +620,14 @@ export interface PatientDetails extends PdfData {
 }
 
 export interface PrimaryCarePhysician extends PdfData {
+  /**
+   * Mirrors `pcp-active` in `PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items`:
+   * `false` when the patient has explicitly indicated they do not have a PCP
+   * (no contained Practitioner, or `Practitioner.active === false`). When `false`
+   * the section renders the explanatory line instead of the field list — same as
+   * EHR's `PrimaryCareContainer`.
+   */
+  hasPcp: boolean;
   pcpName: string;
   pcpPracticeName: string;
   pcpAddress: string;
@@ -635,6 +644,8 @@ export interface Documents extends PdfData {
 }
 export interface Insurance {
   insuranceCarrier: string;
+  /** Human-readable insurance type, e.g. `"12 - PPO"`. Resolved from the candid code on Coverage. */
+  planType: string;
   memberId: string;
   policyHoldersName: string;
   policyHoldersDateOfBirth: string;
@@ -691,6 +702,8 @@ export interface EmergencyContactInfo extends PdfData {
 }
 
 export interface EmployerInfo extends PdfData {
+  workersCompInsuranceCarrier: string;
+  workersCompMemberId: string;
   employerName: string;
   streetAddress: string;
   addressLineOptional: string;
@@ -809,6 +822,9 @@ export interface EmergencyContactDataInput {
 
 export interface EmployerDataInput {
   employer?: Organization;
+  /** Workers' comp Coverage from `OrderedCoveragesWithSubscribers.workersComp`. Carrier name resolved via `insuranceOrgs`. */
+  workersCompCoverage?: Coverage;
+  insuranceOrgs?: Organization[];
 }
 
 export interface OccupationalMedicineEmployerDataInput {

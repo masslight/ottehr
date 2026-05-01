@@ -104,7 +104,11 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     documents: composeDocumentsData(documents),
     emergencyContact: composeEmergencyContactData({ emergencyContactResource }),
     attorney: composeAttorneyData({ attorneyRelatedPerson }),
-    employer: composeEmployerData({ employer: employerOrganization }),
+    employer: composeEmployerData({
+      employer: employerOrganization,
+      workersCompCoverage: coverages.workersComp,
+      insuranceOrgs,
+    }),
     omEmployer: composeOccupationalMedicineEmployerData({ employer: occupationalMedicineEmployerOrganization }),
     paymentHistory: composePatientPaymentsData({ payments }),
   };

@@ -1,8 +1,13 @@
-import { formatPhoneNumberDisplay } from 'utils';
+import { Identifier } from 'fhir/r4b';
+import { formatPhoneNumberDisplay, getPayerId } from 'utils';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { EmployerDataInput, EmployerInfo, PdfSection } from '../types';
 
-export const composeEmployerData: DataComposer<EmployerDataInput, EmployerInfo> = ({ employer }) => {
+export const composeEmployerData: DataComposer<EmployerDataInput, EmployerInfo> = ({
+  employer,
+  workersCompCoverage,
+  insuranceOrgs,
+}) => {
   const employerName = employer?.name ?? '';
   const address = employer?.address?.[0];
   const streetAddress = address?.line?.[0] ?? '';
@@ -27,7 +32,26 @@ export const composeEmployerData: DataComposer<EmployerDataInput, EmployerInfo> 
   const phone = formatPhoneNumberDisplay(getTelecomValue('phone'));
   const fax = formatPhoneNumberDisplay(getTelecomValue('fax'));
 
+  // Mirrors `composeInsuranceData`: resolve carrier name by matching the Coverage's
+  // `class[0].value` (payer id) against the same field on the cached insurance Orgs.
+  let workersCompInsuranceCarrier = '';
+  let workersCompMemberId = '';
+  if (workersCompCoverage) {
+    const payerId = workersCompCoverage.class?.[0]?.value;
+    const carrierOrg = payerId ? insuranceOrgs?.find((org) => getPayerId(org) === payerId) : undefined;
+    workersCompInsuranceCarrier = carrierOrg?.name ?? '';
+    workersCompMemberId =
+      workersCompCoverage.identifier?.find(
+        (i: Identifier) =>
+          i.type?.coding?.[0]?.code === 'MB' && i.assigner?.reference === workersCompCoverage.payor?.[0]?.reference
+      )?.value ??
+      workersCompCoverage.subscriberId ??
+      '';
+  }
+
   return {
+    workersCompInsuranceCarrier,
+    workersCompMemberId,
     employerName,
     streetAddress,
     addressLineOptional,
@@ -43,15 +67,62 @@ export const composeEmployerData: DataComposer<EmployerDataInput, EmployerInfo> 
   };
 };
 
+const hasEmployerInfo = (info: EmployerInfo): boolean =>
+  !!(
+    info.workersCompInsuranceCarrier ||
+    info.workersCompMemberId ||
+    info.employerName ||
+    info.streetAddress ||
+    info.addressLineOptional ||
+    info.city ||
+    info.state ||
+    info.zip ||
+    info.firstName ||
+    info.lastName ||
+    info.title ||
+    info.email ||
+    info.phone ||
+    info.fax
+  );
+
 export const createEmployerInfoSection = <TData extends { employer?: EmployerInfo }>(): PdfSection<
   TData,
   EmployerInfo
 > => {
   return createConfiguredSection('employerInformation', (shouldShow) => ({
-    title: 'Employer Information',
+    // Title mirrors `PATIENT_RECORD_CONFIG.FormFields.employerInformation.title`,
+    // matching the EHR's `EmployerInformationContainer`.
+    title: "Worker's Compensation Information",
     dataSelector: (data) => data.employer,
-    shouldRender: (employer) => !!employer.employerName,
+    // Any-of: section is shown when any WC/employer field is populated, mirroring
+    // the EHR container which always renders the section once its trigger fires
+    // (service-category = workers-comp).
+    shouldRender: (employer) => hasEmployerInfo(employer),
     render: (client, employerInfo, styles) => {
+      if (shouldShow('workers-comp-insurance-name')) {
+        client.drawLabelValueRow(
+          'Insurance carrier',
+          employerInfo.workersCompInsuranceCarrier,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
+      }
+      if (shouldShow('workers-comp-insurance-member-id')) {
+        client.drawLabelValueRow(
+          'Member ID',
+          employerInfo.workersCompMemberId,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
+      }
       if (shouldShow('employer-name')) {
         client.drawLabelValueRow(
           'Employer Name',
