@@ -496,5 +496,6 @@ async function manageAdditionalCptCodesForOrder(
     }
   } catch (e) {
     console.log('Error in manageAdditionalCptCodesForOrder: ', e, JSON.stringify(e));
+    throw new Error(`Error in manageAdditionalCptCodesForOrder: ${e}`);
   }
 }
