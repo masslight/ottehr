@@ -56,6 +56,18 @@ describe('save-terminal-location validateRequestParameters', () => {
       'terminalLocationId must be a string or null'
     );
   });
+
+  it('throws when terminalLocationId is an empty string', () => {
+    expect(() => validateRequestParameters(makeInput({ locationId: 'loc-1', terminalLocationId: '' }))).toThrow(
+      'terminalLocationId must not be an empty string'
+    );
+  });
+
+  it('throws when terminalLocationId is a whitespace-only string', () => {
+    expect(() => validateRequestParameters(makeInput({ locationId: 'loc-1', terminalLocationId: '  ' }))).toThrow(
+      'terminalLocationId must not be an empty string'
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

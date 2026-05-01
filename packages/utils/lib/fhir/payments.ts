@@ -57,6 +57,7 @@ export const findTerminalDeviceForLocation = async (
           value: `${STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM}|${STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE}`,
         },
         { name: 'location', value: `Location/${locationId}` },
+        { name: 'status', value: 'active' },
       ],
     })
   ).unbundle();

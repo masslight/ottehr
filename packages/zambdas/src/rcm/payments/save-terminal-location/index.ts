@@ -35,6 +35,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         {
           ...existingDevice,
           identifier: updatedIdentifiers,
+          status: 'active',
         },
         { optimisticLockingVersionId: existingDevice.meta?.versionId }
       );
