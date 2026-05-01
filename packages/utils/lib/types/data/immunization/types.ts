@@ -16,6 +16,11 @@ export interface ImmunizationOrderDetails {
     code: string;
   };
   instructions?: string;
+  associatedDx?: {
+    resourceId: string;
+    display: string;
+  };
+  manufacturer?: string;
 }
 
 export interface ImmunizationEmergencyContact {
