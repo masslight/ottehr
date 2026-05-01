@@ -39,7 +39,7 @@ export function useFhirQuickPicks<T>(
   const enabled = options?.enabled ?? true;
 
   const doFetch = useCallback(async () => {
-    if (!enabled || !oystehrZambda) {
+    if (!enabled || !oystehrZambda?.config.accessToken) {
       setQuickPicks([]);
       setLoading(false);
       return;
