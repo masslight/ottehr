@@ -15,6 +15,7 @@ export interface PaymentLocation {
   location: Location;
   supportsVirtualVisits: boolean;
   stripeTerminalLocationId: string | undefined;
+  terminalDeviceId: string | undefined;
 }
 
 export interface GetPaymentLocationsResponse {
@@ -54,8 +55,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     })
   ).unbundle();
 
-  // Build a map from Location ID to terminal location ID
+  // Build a map from Location ID to terminal location ID and Device ID
   const terminalLocationByLocationId = new Map<string, string>();
+  const terminalDeviceIdByLocationId = new Map<string, string>();
   for (const device of terminalDevices) {
     const locationRef = device.location?.reference;
     if (locationRef) {
@@ -63,6 +65,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const terminalLocationId = getTerminalLocationIdFromDevice(device);
       if (terminalLocationId) {
         terminalLocationByLocationId.set(locationId, terminalLocationId);
+      }
+      if (device.id) {
+        terminalDeviceIdByLocationId.set(locationId, device.id);
       }
     }
   }
@@ -77,6 +82,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       location,
       supportsVirtualVisits: isLocationVirtual(location),
       stripeTerminalLocationId: location.id ? terminalLocationByLocationId.get(location.id) : undefined,
+      terminalDeviceId: location.id ? terminalDeviceIdByLocationId.get(location.id) : undefined,
     }))
     .sort((a, b) => {
       const nameA = a.location.name || '';

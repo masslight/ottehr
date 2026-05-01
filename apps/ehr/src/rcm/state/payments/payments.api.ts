@@ -11,6 +11,7 @@ export interface PaymentLocation {
   location: Location;
   supportsVirtualVisits: boolean;
   stripeTerminalLocationId: string | undefined;
+  terminalDeviceId: string | undefined;
 }
 
 export interface GetPaymentLocationsResponse {

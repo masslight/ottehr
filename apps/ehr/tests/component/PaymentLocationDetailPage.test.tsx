@@ -117,6 +117,7 @@ describe('PaymentLocationDetailPage', () => {
           location: makeLocation({ id: 'other-loc' }),
           supportsVirtualVisits: false,
           stripeTerminalLocationId: undefined,
+          terminalDeviceId: undefined,
         },
       ],
       isLoading: false,
@@ -128,7 +129,14 @@ describe('PaymentLocationDetailPage', () => {
 
   it('renders location detail sections when data is loaded', () => {
     mockPaymentLocationsData.mockReturnValue({
-      data: [{ location: makeLocation(), supportsVirtualVisits: false, stripeTerminalLocationId: undefined }],
+      data: [
+        {
+          location: makeLocation(),
+          supportsVirtualVisits: false,
+          stripeTerminalLocationId: undefined,
+          terminalDeviceId: undefined,
+        },
+      ],
       isLoading: false,
     });
 
@@ -140,7 +148,14 @@ describe('PaymentLocationDetailPage', () => {
 
   it('renders telecom section when telecom data exists', () => {
     mockPaymentLocationsData.mockReturnValue({
-      data: [{ location: makeLocation(), supportsVirtualVisits: false, stripeTerminalLocationId: undefined }],
+      data: [
+        {
+          location: makeLocation(),
+          supportsVirtualVisits: false,
+          stripeTerminalLocationId: undefined,
+          terminalDeviceId: undefined,
+        },
+      ],
       isLoading: false,
     });
 
@@ -152,7 +167,14 @@ describe('PaymentLocationDetailPage', () => {
 
   it('shows "Virtual Visits Supported" chip when applicable', () => {
     mockPaymentLocationsData.mockReturnValue({
-      data: [{ location: makeLocation(), supportsVirtualVisits: true, stripeTerminalLocationId: undefined }],
+      data: [
+        {
+          location: makeLocation(),
+          supportsVirtualVisits: true,
+          stripeTerminalLocationId: undefined,
+          terminalDeviceId: undefined,
+        },
+      ],
       isLoading: false,
     });
 
@@ -162,7 +184,14 @@ describe('PaymentLocationDetailPage', () => {
 
   it('does not show virtual visits chip when not supported', () => {
     mockPaymentLocationsData.mockReturnValue({
-      data: [{ location: makeLocation(), supportsVirtualVisits: false, stripeTerminalLocationId: undefined }],
+      data: [
+        {
+          location: makeLocation(),
+          supportsVirtualVisits: false,
+          stripeTerminalLocationId: undefined,
+          terminalDeviceId: undefined,
+        },
+      ],
       isLoading: false,
     });
 
@@ -173,7 +202,14 @@ describe('PaymentLocationDetailPage', () => {
   it('renders "No address on file" when location has no address', () => {
     const loc = makeLocation({ address: undefined, telecom: undefined });
     mockPaymentLocationsData.mockReturnValue({
-      data: [{ location: loc, supportsVirtualVisits: false, stripeTerminalLocationId: undefined }],
+      data: [
+        {
+          location: loc,
+          supportsVirtualVisits: false,
+          stripeTerminalLocationId: undefined,
+          terminalDeviceId: undefined,
+        },
+      ],
       isLoading: false,
     });
 
@@ -185,7 +221,14 @@ describe('PaymentLocationDetailPage', () => {
   it('navigates back when "Payment Locations" breadcrumb is clicked', async () => {
     const user = userEvent.setup();
     mockPaymentLocationsData.mockReturnValue({
-      data: [{ location: makeLocation(), supportsVirtualVisits: false, stripeTerminalLocationId: undefined }],
+      data: [
+        {
+          location: makeLocation(),
+          supportsVirtualVisits: false,
+          stripeTerminalLocationId: undefined,
+          terminalDeviceId: undefined,
+        },
+      ],
       isLoading: false,
     });
 
@@ -199,7 +242,14 @@ describe('PaymentLocationDetailPage', () => {
       extension: [{ url: 'https://fhir.ottehr.com/Extension/stripe-account-id', valueString: 'bad_id' }],
     });
     mockPaymentLocationsData.mockReturnValue({
-      data: [{ location: loc, supportsVirtualVisits: false, stripeTerminalLocationId: undefined }],
+      data: [
+        {
+          location: loc,
+          supportsVirtualVisits: false,
+          stripeTerminalLocationId: undefined,
+          terminalDeviceId: undefined,
+        },
+      ],
       isLoading: false,
     });
 
@@ -212,7 +262,14 @@ describe('PaymentLocationDetailPage', () => {
       extension: [{ url: 'https://fhir.ottehr.com/Extension/stripe-account-id', valueString: 'acct_1234567890ab' }],
     });
     mockPaymentLocationsData.mockReturnValue({
-      data: [{ location: loc, supportsVirtualVisits: false, stripeTerminalLocationId: undefined }],
+      data: [
+        {
+          location: loc,
+          supportsVirtualVisits: false,
+          stripeTerminalLocationId: undefined,
+          terminalDeviceId: undefined,
+        },
+      ],
       isLoading: false,
     });
     mockStripeAccountInfoData.mockReturnValue({
@@ -235,7 +292,14 @@ describe('PaymentLocationDetailPage', () => {
       extension: [{ url: 'https://fhir.ottehr.com/Extension/stripe-account-id', valueString: 'acct_1234567890ab' }],
     });
     mockPaymentLocationsData.mockReturnValue({
-      data: [{ location: loc, supportsVirtualVisits: false, stripeTerminalLocationId: undefined }],
+      data: [
+        {
+          location: loc,
+          supportsVirtualVisits: false,
+          stripeTerminalLocationId: undefined,
+          terminalDeviceId: undefined,
+        },
+      ],
       isLoading: false,
     });
     mockStripeAccountInfoData.mockReturnValue({
