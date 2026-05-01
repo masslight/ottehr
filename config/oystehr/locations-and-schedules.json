@@ -4068,29 +4068,6 @@
           }
         ]
       }
-    },
-    "DEVICE_STRIPE_TERMINAL_CA": {
-      "resource": {
-        "resourceType": "Device",
-        "status": "active",
-        "type": {
-          "coding": [
-            {
-              "system": "https://fhir.ottehr.com/CodeSystem/device-type",
-              "code": "stripe-terminal-config"
-            }
-          ]
-        },
-        "location": {
-          "reference": "Location/#{ref/fhirResources/LOCATION_PHYSICAL_CA/id}"
-        },
-        "identifier": [
-          {
-            "system": "https://api.stripe.com/v1/terminal/locations",
-            "value": "#{var/stripe-terminal-location-1}"
-          }
-        ]
-      }
     }
   }
 }
