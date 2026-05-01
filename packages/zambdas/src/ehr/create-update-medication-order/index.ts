@@ -496,7 +496,7 @@ async function manageAdditionalCptCodesForOrder(
       console.log('Additional CPT codes added to chart data');
     }
   } catch (e) {
-    console.log('Error in manageAdditionalCptCodesForOrder: ', e);
+    console.log('Error in manageAdditionalCptCodesForOrder: ', e, JSON.stringify(e));
     captureException(e);
   }
 }
