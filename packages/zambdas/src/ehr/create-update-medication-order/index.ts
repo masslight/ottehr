@@ -1,4 +1,5 @@
 import Oystehr, { BatchInput, BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
@@ -495,7 +496,7 @@ async function manageAdditionalCptCodesForOrder(
       console.log('Additional CPT codes added to chart data');
     }
   } catch (e) {
-    console.log('Error in manageAdditionalCptCodesForOrder: ', e, JSON.stringify(e));
-    throw new Error(`Error in manageAdditionalCptCodesForOrder: ${e}`);
+    console.log('Error in manageAdditionalCptCodesForOrder: ', e);
+    captureException(e);
   }
 }
