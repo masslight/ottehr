@@ -2,7 +2,6 @@ import { Appointment, DocumentReference, Encounter, FhirResource } from 'fhir/r4
 import { Duration } from 'luxon';
 import {
   BRANDING_CONFIG,
-  GetTelemedAppointmentsInput,
   getTelemedVisitStatus,
   PATIENT_PHOTO_CODE,
   RefreshableAppointmentData,
@@ -94,20 +93,6 @@ export const extractReviewAndSignAppointmentData = (
     ? { signedOnDate: finishedAtTime }
     : undefined;
 };
-
-export type GetAppointmentsRequestParams = Pick<
-  GetTelemedAppointmentsInput,
-  | 'appointmentId'
-  | 'usStatesFilter'
-  | 'providersFilter'
-  | 'dateFilter'
-  | 'timeZone'
-  | 'groupsFilter'
-  | 'patientFilter'
-  | 'statusesFilter'
-  | 'locationsIdsFilter'
-  | 'visitTypesFilter'
->;
 
 export const getTelemedQuickTexts = (supportPhone: string): string[] => {
   const vars = {
