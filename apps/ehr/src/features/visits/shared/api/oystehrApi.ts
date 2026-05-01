@@ -12,6 +12,8 @@ import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
   CommunicationDTO,
+  DeleteApprovedPatientEducationInput,
+  DeleteApprovedPatientEducationOutput,
   DeleteChartDataRequest,
   DeleteChartDataResponse,
   DeletePatientInstructionInput,
@@ -31,6 +33,7 @@ import {
   InitTelemedSessionRequestParams,
   InitTelemedSessionResponse,
   LabOrderResourcesRes,
+  ListApprovedPatientEducationOutput,
   MakeMedicationHistoryPdfZambdaInput,
   MakeMedicationHistoryPdfZambdaOutput,
   NotFoundAppointmentErrorHandler,
@@ -40,6 +43,8 @@ import {
   ProcedureSuggestion,
   RemoveCoverageResponse,
   RemoveCoverageZambdaInput,
+  SaveApprovedPatientEducationInput,
+  SaveApprovedPatientEducationOutput,
   SaveChartDataRequest,
   SaveChartDataResponse,
   SavePatientInstructionInput,
@@ -96,6 +101,9 @@ enum ZambdaNames {
   'make medication history pdf' = 'make medication history pdf',
   'generate patient education' = 'generate patient education',
   'save patient education pdf' = 'save patient education pdf',
+  'list approved patient education' = 'list approved patient education',
+  'save approved patient education' = 'save approved patient education',
+  'delete approved patient education' = 'delete approved patient education',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
@@ -133,6 +141,9 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'make medication history pdf': false,
   'generate patient education': false,
   'save patient education pdf': false,
+  'list approved patient education': false,
+  'save approved patient education': false,
+  'delete approved patient education': false,
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
@@ -175,6 +186,9 @@ export const getOystehrTelemedAPI = (
   makeMedicationHistoryPdf: typeof makeMedicationHistoryPdf;
   generatePatientEducation: typeof generatePatientEducation;
   savePatientEducationPdf: typeof savePatientEducationPdf;
+  listApprovedPatientEducation: typeof listApprovedPatientEducation;
+  saveApprovedPatientEducation: typeof saveApprovedPatientEducation;
+  deleteApprovedPatientEducation: typeof deleteApprovedPatientEducation;
 } => {
   const {
     getTelemedAppointmentsZambdaID,
@@ -211,6 +225,9 @@ export const getOystehrTelemedAPI = (
     makeMedicationHistoryPdfID,
     generatePatientEducationZambdaID,
     savePatientEducationPdfZambdaID,
+    listApprovedPatientEducationZambdaID,
+    saveApprovedPatientEducationZambdaID,
+    deleteApprovedPatientEducationZambdaID,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
@@ -248,6 +265,9 @@ export const getOystehrTelemedAPI = (
     'make medication history pdf': makeMedicationHistoryPdfID,
     'generate patient education': generatePatientEducationZambdaID,
     'save patient education pdf': savePatientEducationPdfZambdaID,
+    'list approved patient education': listApprovedPatientEducationZambdaID,
+    'save approved patient education': saveApprovedPatientEducationZambdaID,
+    'delete approved patient education': deleteApprovedPatientEducationZambdaID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
@@ -449,6 +469,22 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('save patient education pdf', parameters);
   };
 
+  const listApprovedPatientEducation = async (): Promise<ListApprovedPatientEducationOutput> => {
+    return await makeZapRequest('list approved patient education', {});
+  };
+
+  const saveApprovedPatientEducation = async (
+    parameters: SaveApprovedPatientEducationInput
+  ): Promise<SaveApprovedPatientEducationOutput> => {
+    return await makeZapRequest('save approved patient education', parameters);
+  };
+
+  const deleteApprovedPatientEducation = async (
+    parameters: DeleteApprovedPatientEducationInput
+  ): Promise<DeleteApprovedPatientEducationOutput> => {
+    return await makeZapRequest('delete approved patient education', parameters);
+  };
+
   return {
     getTelemedAppointments,
     initTelemedSession,
@@ -484,5 +520,8 @@ export const getOystehrTelemedAPI = (
     makeMedicationHistoryPdf,
     generatePatientEducation,
     savePatientEducationPdf,
+    listApprovedPatientEducation,
+    saveApprovedPatientEducation,
+    deleteApprovedPatientEducation,
   };
 };

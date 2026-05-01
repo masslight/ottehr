@@ -383,6 +383,7 @@ export const BUCKET_NAMES = {
   DISCHARGE_SUMMARIES: 'discharge-summaries',
   STATEMENTS: 'statements',
   PATIENT_EDUCATION: 'patient-education',
+  PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];

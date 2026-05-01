@@ -42,6 +42,7 @@ export const PatientEducationCard: FC = () => {
     error: educationError,
     progress: educationProgress,
     allDiagnoses,
+    approvedByCode,
   } = usePatientEducation();
   const [editableSections, setEditableSections] = useState<EducationSection[]>([]);
   const { chartData, setPartialChartData } = useChartData();
@@ -58,7 +59,7 @@ export const PatientEducationCard: FC = () => {
       }
       if (!oystehr) return;
       try {
-        const docRef = await oystehr.fhir.read<import('fhir/r4b').DocumentReference>({
+        const docRef = await oystehr.fhir.get<import('fhir/r4b').DocumentReference>({
           resourceType: 'DocumentReference',
           id: docRefId,
         });
@@ -67,7 +68,12 @@ export const PatientEducationCard: FC = () => {
           enqueueSnackbar('Could not find PDF attachment.', { variant: 'error' });
           return;
         }
-        const presignedUrl = await getPresignedURL(z3Url, oystehr.config.accessToken);
+        const accessToken = oystehr.config.accessToken;
+        if (!accessToken) {
+          enqueueSnackbar('Auth token unavailable.', { variant: 'error' });
+          return;
+        }
+        const presignedUrl = await getPresignedURL(z3Url, accessToken);
         window.open(presignedUrl, '_blank');
       } catch (err) {
         console.error('Failed to open education PDF:', err);
@@ -203,6 +209,11 @@ export const PatientEducationCard: FC = () => {
                           (Primary)
                         </Typography>
                       )}
+                      {approvedByCode.has(diagnosis.code) && (
+                        <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1 }}>
+                          (Pre-approved PDF)
+                        </Typography>
+                      )}
                     </Typography>
                   }
                 />
@@ -226,10 +237,14 @@ export const PatientEducationCard: FC = () => {
             variant="contained"
             onClick={async () => {
               const selected = allDiagnoses.filter((d) => selectedDiagnoses.has(d.code));
-              await generateForDiagnoses(selected);
+              const outcome = await generateForDiagnoses(selected);
+              if (outcome === 'completed') {
+                setEducationModalOpen(false);
+                setSelectedDiagnoses(new Set());
+              }
             }}
-            disabled={selectedDiagnoses.size === 0 || isEducationLoading}
-            startIcon={isEducationLoading ? <CircularProgress size={16} /> : <SchoolIcon />}
+            disabled={selectedDiagnoses.size === 0 || isEducationLoading || isEducationSaving}
+            startIcon={isEducationLoading || isEducationSaving ? <CircularProgress size={16} /> : <SchoolIcon />}
           >
             Generate ({selectedDiagnoses.size})
           </RoundedButton>
