@@ -50,7 +50,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserParams 
     throw new Error('Invalid NPI format');
   }
 
-  if (selectedRoles) {
+  if (selectedRoles !== undefined) {
     if (!Array.isArray(selectedRoles) || selectedRoles.length === 0) {
       throw new Error('At least one role must be selected.');
     }
