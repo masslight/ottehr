@@ -85,13 +85,6 @@
       "src": "src/ehr/get-telemed-appointments/index",
       "zip": ".dist/zips/get-telemed-appointments.zip"
     },
-    "CHANGE-TELEMED-APPOINTMENT-STATUS": {
-      "name": "change-telemed-appointment-status",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/change-telemed-appointment-status/index",
-      "zip": ".dist/zips/change-telemed-appointment-status.zip"
-    },
     "ASSIGN-PRACTITIONER": {
       "name": "assign-practitioner",
       "type": "http_auth",

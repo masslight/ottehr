@@ -1,7 +1,6 @@
-import { Appointment, DocumentReference, Encounter, EncounterStatusHistory, FhirResource } from 'fhir/r4b';
-import { DateTime, Duration } from 'luxon';
+import { Appointment, DocumentReference, Encounter, FhirResource } from 'fhir/r4b';
+import { Duration } from 'luxon';
 import {
-  ApptTelemedTab,
   BRANDING_CONFIG,
   GetTelemedAppointmentsInput,
   getTelemedVisitStatus,
@@ -9,119 +8,10 @@ import {
   RefreshableAppointmentData,
   replaceTemplateVariablesArrows,
   ReviewAndSignData,
-  TelemedAppointmentInformation,
-  TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
-  TelemedStatusHistoryElement,
   TEXTING_CONFIG,
 } from 'utils';
 import { AppointmentResources } from '../../shared/stores/appointment/appointment.store';
-import { diffInMinutes } from './diffInMinutes';
-
-export const ApptTabToStatus: Record<ApptTelemedTab, TelemedAppointmentStatus[]> = {
-  [ApptTelemedTab.ready]: [TelemedAppointmentStatusEnum.ready],
-  [ApptTelemedTab.provider]: [TelemedAppointmentStatusEnum['pre-video'], TelemedAppointmentStatusEnum['on-video']],
-  [ApptTelemedTab['not-signed']]: [TelemedAppointmentStatusEnum.unsigned],
-  [ApptTelemedTab.complete]: [TelemedAppointmentStatusEnum.complete, TelemedAppointmentStatusEnum.cancelled],
-};
-
-export enum UnsignedFor {
-  'under12' = 'under12',
-  'more24' = 'more24',
-  'all' = 'all',
-}
-
-export const compareLuxonDates = (a: DateTime, b: DateTime): number => a.toMillis() - b.toMillis();
-
-export const getAppointmentUnsignedLengthTime = (history: TelemedStatusHistoryElement[]): number => {
-  const lastHistoryRecord = history.at(-1);
-  const currentTimeISO = new Date().toISOString();
-
-  return compareLuxonDates(
-    DateTime.fromISO(lastHistoryRecord?.end || currentTimeISO),
-    DateTime.fromISO(lastHistoryRecord?.start || currentTimeISO)
-  );
-};
-
-export const compareAppointments = (
-  isNotSignedTab: boolean,
-  appointmentA: TelemedAppointmentInformation,
-  appointmentB: TelemedAppointmentInformation
-): number => {
-  if (isNotSignedTab) {
-    return (
-      getAppointmentUnsignedLengthTime(appointmentB.telemedStatusHistory) -
-      getAppointmentUnsignedLengthTime(appointmentA.telemedStatusHistory)
-    );
-  } else {
-    return compareLuxonDates(DateTime.fromISO(appointmentA.start!), DateTime.fromISO(appointmentB.start!));
-  }
-};
-
-export const filterAppointments = (
-  appointments: TelemedAppointmentInformation[],
-  unsignedFor: UnsignedFor,
-  tab: ApptTelemedTab,
-  showOnlyNext: boolean,
-  availableStates: string[]
-): TelemedAppointmentInformation[] => {
-  if (![ApptTelemedTab['not-signed'], ApptTelemedTab.ready].includes(tab)) {
-    return appointments;
-  }
-
-  if (tab === ApptTelemedTab.ready) {
-    if (showOnlyNext) {
-      const oldest = appointments
-        .filter((appointment) => availableStates.includes(appointment.locationVirtual.state!))
-        .sort((a, b) => compareLuxonDates(DateTime.fromISO(a.start!), DateTime.fromISO(b.start!)))?.[0];
-
-      return oldest ? [oldest] : [];
-    } else {
-      return appointments;
-    }
-  }
-
-  const getUnsignedTime = (history: TelemedStatusHistoryElement[]): string => {
-    const unsigned = history.find((element) => element.status === TelemedAppointmentStatusEnum.unsigned);
-    if (!unsigned || !unsigned.start) {
-      return DateTime.now().toISO()!;
-    }
-    return unsigned.start;
-  };
-
-  const now = DateTime.now();
-
-  switch (unsignedFor) {
-    case UnsignedFor.under12:
-      return appointments.filter(
-        (appointment) => DateTime.fromISO(getUnsignedTime(appointment.telemedStatusHistory)) > now.minus({ hours: 12 })
-      );
-
-    case UnsignedFor.more24:
-      return appointments.filter(
-        (appointment) => DateTime.fromISO(getUnsignedTime(appointment.telemedStatusHistory)) <= now.minus({ hours: 24 })
-      );
-    default:
-      return appointments;
-  }
-};
-
-export const getAppointmentWaitingTime = (statuses?: TelemedStatusHistoryElement[]): number | string => {
-  if (!statuses) {
-    return '...';
-  }
-
-  const onVideoIndex = statuses?.findIndex((status) => status.status === TelemedAppointmentStatusEnum['on-video']);
-
-  const statusesToWait = onVideoIndex === -1 ? statuses : statuses.slice(0, onVideoIndex);
-
-  const start = statusesToWait.at(0)!.start!;
-  const end = statusesToWait.at(-1)?.end;
-
-  return end
-    ? diffInMinutes(DateTime.fromISO(end), DateTime.fromISO(start))
-    : diffInMinutes(DateTime.now(), DateTime.fromISO(start));
-};
 
 export const formatVideoTimerTime = (difference: Duration): string => {
   const m = Math.abs(difference.minutes);
@@ -132,33 +22,6 @@ export const formatVideoTimerTime = (difference: Duration): string => {
   };
 
   return `${m}:${addZero(s)}`;
-};
-
-export const updateEncounterStatusHistory = (
-  newStatus:
-    | 'planned'
-    | 'arrived'
-    | 'triaged'
-    | 'in-progress'
-    // cSpell:disable-next onleave
-    | 'onleave'
-    | 'finished'
-    | 'cancelled'
-    | 'entered-in-error'
-    | 'unknown',
-  history?: EncounterStatusHistory[]
-): EncounterStatusHistory[] => {
-  const now = DateTime.now().toString();
-  const newItem = { status: newStatus, period: { start: now } };
-
-  if (!history || history.length === 0) {
-    return [newItem];
-  }
-
-  history.at(-1)!.period.end = now;
-  history.push(newItem);
-
-  return history;
 };
 
 export const createRefreshableAppointmentData = (originalData: AppointmentResources[]): RefreshableAppointmentData => {
@@ -230,68 +93,6 @@ export const extractReviewAndSignAppointmentData = (
   return telemedAppointmentStatus === TelemedAppointmentStatusEnum.complete
     ? { signedOnDate: finishedAtTime }
     : undefined;
-};
-
-export const TelemedAppointmentStatusToPalette: {
-  [status in TelemedAppointmentStatusEnum]: {
-    background: {
-      primary: string;
-      secondary?: string;
-    };
-    color: {
-      primary: string;
-      secondary?: string;
-    };
-  };
-} = {
-  ready: {
-    background: {
-      primary: '#FFE0B2',
-    },
-    color: {
-      primary: '#E65100',
-    },
-  },
-  'pre-video': {
-    background: {
-      primary: '#B3E5FC',
-    },
-    color: {
-      primary: '#01579B',
-    },
-  },
-  'on-video': {
-    background: {
-      primary: '#D1C4E9',
-    },
-    color: {
-      primary: '#311B92',
-    },
-  },
-  unsigned: {
-    background: {
-      primary: '#FFCCBC',
-    },
-    color: {
-      primary: '#BF360C',
-    },
-  },
-  complete: {
-    background: {
-      primary: '#C8E6C9',
-    },
-    color: {
-      primary: '#1B5E20',
-    },
-  },
-  cancelled: {
-    background: {
-      primary: '#FFCCBC',
-    },
-    color: {
-      primary: '#BF360C',
-    },
-  },
 };
 
 export type GetAppointmentsRequestParams = Pick<
