@@ -2,6 +2,7 @@
   "schema-version": "2025-09-25",
   "fhirResources": {
     "value-set-em-codes": {
+      "managedFields": ["url", "version", "name", "title", "status"],
       "resource": {
         "resourceType": "ValueSet",
         "url": "https://fhir.ottehr.com/ValueSet/em-codes",
