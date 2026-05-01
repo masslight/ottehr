@@ -6,7 +6,6 @@
       "resource": {
         "resourceType": "ValueSet",
         "url": "https://fhir.ottehr.com/ValueSet/em-codes",
-        "version": "1.0.0",
         "name": "EMCodes",
         "title": "E&M Codes",
         "status": "active",
