@@ -78,13 +78,6 @@
       "src": "src/ehr/recent-patients-report/index",
       "zip": ".dist/zips/recent-patients-report.zip"
     },
-    "GET-TELEMED-APPOINTMENTS": {
-      "name": "get-telemed-appointments",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/get-telemed-appointments/index",
-      "zip": ".dist/zips/get-telemed-appointments.zip"
-    },
     "ASSIGN-PRACTITIONER": {
       "name": "assign-practitioner",
       "type": "http_auth",

@@ -23,7 +23,6 @@ import {
   getOystehrApiHelpers,
   GetPatientAccountZambdaInput,
   GetPatientInstructionsInput,
-  GetTelemedAppointmentsResponseEhr,
   GetUnsolicitedResultsResourcesInput,
   GetUnsolicitedResultsResourcesOutput,
   InitTelemedSessionRequestParams,
@@ -33,7 +32,6 @@ import {
   MakeMedicationHistoryPdfZambdaOutput,
   MergePatientsInput,
   MergePatientsResponse,
-  NotFoundAppointmentErrorHandler,
   OrderedCoveragesWithSubscribers,
   PatientAccountResponse,
   ProcedureDetail,
@@ -58,11 +56,9 @@ import {
   UpdatePatientAccountInput,
   UpdatePatientAccountResponse,
 } from 'utils';
-import { GetAppointmentsRequestParams } from '../../telemed/utils/appointments';
 import { GetOystehrTelemedAPIParams } from './types';
 
 enum ZambdaNames {
-  'get telemed appointments' = 'get telemed appointments',
   'init telemed session' = 'init telemed session',
   'get chart data' = 'get chart data',
   'save chart data' = 'save chart data',
@@ -97,7 +93,6 @@ enum ZambdaNames {
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
-  'get telemed appointments': false,
   'init telemed session': false,
   'get chart data': false,
   'save chart data': false,
@@ -137,7 +132,6 @@ export const getOystehrTelemedAPI = (
   params: GetOystehrTelemedAPIParams,
   oystehr: Oystehr
 ): {
-  getTelemedAppointments: typeof getTelemedAppointments;
   initTelemedSession: typeof initTelemedSession;
   getChartData: typeof getChartData;
   saveChartData: typeof saveChartData;
@@ -171,7 +165,6 @@ export const getOystehrTelemedAPI = (
   makeMedicationHistoryPdf: typeof makeMedicationHistoryPdf;
 } => {
   const {
-    getTelemedAppointmentsZambdaID,
     initTelemedSessionZambdaID,
     getChartDataZambdaID,
     saveChartDataZambdaID,
@@ -206,7 +199,6 @@ export const getOystehrTelemedAPI = (
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
-    'get telemed appointments': getTelemedAppointmentsZambdaID,
     'init telemed session': initTelemedSessionZambdaID,
     'get chart data': getChartDataZambdaID,
     'save chart data': saveChartDataZambdaID,
@@ -248,12 +240,6 @@ export const getOystehrTelemedAPI = (
     zambdasPublicityMap,
     isAppLocalProvided
   );
-
-  const getTelemedAppointments = async (
-    parameters: GetAppointmentsRequestParams
-  ): Promise<GetTelemedAppointmentsResponseEhr> => {
-    return await makeZapRequest('get telemed appointments', parameters, NotFoundAppointmentErrorHandler);
-  };
 
   const initTelemedSession = async (
     parameters: InitTelemedSessionRequestParams
@@ -415,7 +401,6 @@ export const getOystehrTelemedAPI = (
   };
 
   return {
-    getTelemedAppointments,
     initTelemedSession,
     getChartData,
     saveChartData,
