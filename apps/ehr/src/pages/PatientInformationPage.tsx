@@ -198,8 +198,8 @@ const usePatientData = (
     if (accountData && questionnaire) {
       const prepopulatedForm = prepopulatePatientRecordItems({
         ...accountData,
-        coverages: {},
-        insuranceOrgs: [],
+        coverages: insuranceData?.coverages ?? {},
+        insuranceOrgs: insuranceData?.insuranceOrgs ?? [],
         questionnaire,
         appointmentContext,
       });
@@ -207,7 +207,7 @@ const usePatientData = (
     }
 
     return { patient, isFetching, defaultFormVals };
-  }, [accountData, accountFetching, appointmentContext]);
+  }, [accountData, accountFetching, appointmentContext, insuranceData?.coverages, insuranceData?.insuranceOrgs]);
 
   return {
     accountData,
@@ -226,7 +226,8 @@ const useFormData = (
   insuranceData: any,
   accountData: any,
   isAddingInsurance?: boolean,
-  newInsuranceOrdinal?: number
+  newInsuranceOrdinal?: number,
+  patientId?: string
 ): {
   methods: ReturnType<typeof useForm>;
   coveragesFormValues: any;
@@ -270,15 +271,15 @@ const useFormData = (
     resolver: createDynamicValidationResolver({ renderedSectionCounts }),
   });
 
-  // Populate form when data first loads (defaultValues only applies at mount time,
-  // and the form mounts before data is available)
-  const initializedRef = useRef(false);
+  // Populate form when data loads, and re-populate when navigating to a different
+  // patient on the same mounted component (defaultValues only applies at mount time).
+  const initializedForPatientRef = useRef<string | null>(null);
   useEffect(() => {
-    if (defaultFormVals && !initializedRef.current) {
+    if (defaultFormVals && initializedForPatientRef.current !== (patientId ?? null)) {
       methods.reset(defaultFormVals);
-      initializedRef.current = true;
+      initializedForPatientRef.current = patientId ?? null;
     }
-  }, [defaultFormVals, methods]);
+  }, [defaultFormVals, methods, patientId]);
 
   const { coveragesFormValues } = useMemo(() => {
     let coveragesFormValues: any;
@@ -295,16 +296,27 @@ const useFormData = (
     return { coveragesFormValues };
   }, [accountData, coveragesFetching, insuranceData?.coverages, insuranceData?.insuranceOrgs]);
 
+  // Use resetField (not setValue) so the loaded coverage values become the form's
+  // defaultValues. Without this, RHF's dirty comparison (value vs defaultValue)
+  // marks fields dirty whenever masked inputs re-emit their value on mount.
+  // Re-run when the set of coverages changes (e.g. primary removed) so removed
+  // coverages' fields get cleared; keying on coverage IDs avoids clobbering
+  // in-progress edits on unrelated refetches.
+  const coveragesInitKeyRef = useRef<string>('');
   useEffect(() => {
     if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
+    const coverageKey = [
+      patientId ?? 'none',
+      insuranceData?.coverages?.primary?.id ?? 'none',
+      insuranceData?.coverages?.secondary?.id ?? 'none',
+    ].join(':');
+    if (coveragesInitKeyRef.current === coverageKey) return;
+    coveragesInitKeyRef.current = coverageKey;
 
     Object.entries(coveragesFormValues).forEach(([key, value]) => {
-      methods.setValue(key, value, {
-        shouldDirty: false,
-        shouldTouch: false,
-      });
+      methods.resetField(key, { defaultValue: value });
     });
-  }, [coveragesFormValues, methods]);
+  }, [coveragesFormValues, methods, insuranceData?.coverages, patientId]);
 
   return { methods, coveragesFormValues };
 };
@@ -358,13 +370,14 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
 
   const [isAddingInsurance, setIsAddingInsurance] = useState(false);
 
-  const { methods, coveragesFormValues } = useFormData(
+  const { methods } = useFormData(
     defaultFormVals,
     coveragesFetching,
     insuranceData,
     accountData,
     isAddingInsurance,
-    newInsuranceOrdinal
+    newInsuranceOrdinal,
+    id
   );
 
   const { submitQR, removeCoverage, queryClient } = useMutations();
@@ -385,25 +398,19 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   const { handleSubmit, formState } = methods;
   const { dirtyFields } = formState;
 
-  useEffect(() => {
-    if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
-
-    Object.entries(coveragesFormValues).forEach(([key, value]) => {
-      methods.setValue(key, value, {
-        shouldDirty: false,
-        shouldTouch: false,
-      });
-    });
-  }, [coveragesFormValues, methods, appointmentContext]);
-
   const insuranceItems = PATIENT_RECORD_CONFIG.FormFields.insurance.items;
 
   const handleStartAddInsurance = (): void => {
     setIsAddingInsurance(true);
-    // Set the priority default for the new insurance
     const index = newInsuranceOrdinal - 1;
     const fields = insuranceItems[index];
     if (fields) {
+      // RHF keeps field state after DOM unmount, so a removed coverage's
+      // values linger under keys the new inline form will reuse. Clear them
+      // before showing the form.
+      Object.values(fields).forEach((field) => {
+        methods.setValue(field.key, '', { shouldDirty: false });
+      });
       const priorityValue = newInsuranceOrdinal === 1 ? 'Primary' : 'Secondary';
       methods.setValue(fields.insurancePriority.key, priorityValue, { shouldDirty: true });
     }
@@ -505,10 +512,27 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
               />
               <Box sx={{ display: 'flex', gap: 3 }}>
                 <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <AboutPatientContainer isLoading={isFetching || submitQR.isPending} />
-                  <ContactContainer isLoading={isFetching || submitQR.isPending} />
-                  <PatientDetailsContainer patient={patient} isLoading={isFetching || submitQR.isPending} />
-                  <PrimaryCareContainer isLoading={isFetching || submitQR.isPending} />
+                  <AboutPatientContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <ContactContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <PatientDetailsContainer
+                    patient={patient}
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <PrimaryCareContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
                 </Box>
                 <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <InsuranceSection
@@ -521,13 +545,38 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     onStartAddInsurance={handleStartAddInsurance}
                     onCancelAddInsurance={handleCancelAddInsurance}
                     newInsuranceOrdinal={newInsuranceOrdinal}
+                    encounterId={appointmentContext?.encounterId}
                   />
-                  <ResponsibleInformationContainer isLoading={isFetching || submitQR.isPending} />
-                  <EmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
-                  <OccupationalMedicineEmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
-                  <AttorneyInformationContainer isLoading={isFetching || submitQR.isPending} />
-                  <EmergencyContactContainer isLoading={isFetching || submitQR.isPending} />
-                  <PharmacyContainer isLoading={isFetching || submitQR.isPending} />
+                  <ResponsibleInformationContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <EmployerInformationContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <OccupationalMedicineEmployerInformationContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <AttorneyInformationContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <EmergencyContactContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
+                  <PharmacyContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
                 </Box>
               </Box>
             </Box>

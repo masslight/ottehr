@@ -1,6 +1,6 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coding, Extension, MedicationAdministration, RelatedPerson } from 'fhir/r4b';
+import { Coding, Extension, MedicationAdministration, Organization, RelatedPerson } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_NDC,
@@ -30,6 +30,7 @@ import {
 } from '../../../shared';
 import {
   CONTAINED_EMERGENCY_CONTACT_ID,
+  CONTAINED_MANUFACTURER_ORG_ID,
   getContainedMedication,
   IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
   IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL,
@@ -120,6 +121,9 @@ function mapMedicationAdministrationToImmunizationOrder(
   const emergencyContactRelatedPerson = medicationAdministration.contained?.find(
     (resource) => resource.id === CONTAINED_EMERGENCY_CONTACT_ID
   ) as RelatedPerson;
+  const manufacturerOrg = medicationAdministration.contained?.find(
+    (resource) => resource.id === CONTAINED_MANUFACTURER_ORG_ID
+  ) as Organization | undefined;
   const locationCoding = getCoding(medicationAdministration.dosage?.site, MEDICATION_APPLIANCE_LOCATION_SYSTEM);
   return {
     id: medicationAdministration.id!,
@@ -146,6 +150,13 @@ function mapMedicationAdministrationToImmunizationOrder(
           }
         : undefined,
       instructions: medicationAdministration.dosage?.text,
+      associatedDx: medicationAdministration.reasonReference?.[0]?.reference
+        ? {
+            resourceId: medicationAdministration.reasonReference[0].reference.split('/')[1],
+            display: medicationAdministration.reasonReference[0].display ?? '',
+          }
+        : undefined,
+      manufacturer: manufacturerOrg?.name,
     },
     administrationDetails:
       isAdministered && medication

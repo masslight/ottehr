@@ -80,6 +80,8 @@ import {
   DeleteLabOrderZambdaOutput,
   DeletePatientDocumentInput,
   DeletePatientDocumentOutput,
+  DeleteUserZambdaInput,
+  DeleteUserZambdaOutput,
   DeleteVisitFilesInput,
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
@@ -214,6 +216,7 @@ const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
 const CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID = 'telemed-cancel-appointment';
 const INVITE_PARTICIPANT_ZAMBDA_ID = 'video-chat-invites-create';
 const CREATE_USER_ZAMBDA_ID = 'create-user';
+const DELETE_USER_ZAMBDA_ID = 'delete-user';
 const UPDATE_USER_ZAMBDA_ID = 'update-user';
 const ASSIGN_PRACTITIONER_ZAMBDA_ID = 'assign-practitioner';
 const UNASSIGN_PRACTITIONER_ZAMBDA_ID = 'unassign-practitioner';
@@ -635,6 +638,25 @@ export const createUser = async (oystehr: Oystehr, parameters: CreateUserParams)
     return chooseJson(response);
   } catch (error: unknown) {
     throw new Error(JSON.stringify(error));
+  }
+};
+
+export const deleteUser = async (
+  oystehr: Oystehr,
+  parameters: DeleteUserZambdaInput
+): Promise<DeleteUserZambdaOutput> => {
+  try {
+    if (DELETE_USER_ZAMBDA_ID == null) {
+      throw new Error('delete-user environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: DELETE_USER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
   }
 };
 

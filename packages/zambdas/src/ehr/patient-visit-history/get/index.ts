@@ -20,7 +20,6 @@ import {
   GetPatientVisitListInput,
   getReasonForVisitFromAppointment,
   getTelemedLength,
-  getTelemedVisitStatus,
   getVisitStatusHistory,
   getVisitTotalTime,
   INVALID_INPUT_ERROR,
@@ -35,9 +34,7 @@ import {
   Secrets,
   SERVICE_CATEGORY_SYSTEM,
   ServiceMode,
-  TelemedAppointmentStatusEnum,
   TIMEZONES,
-  VisitStatusLabel,
 } from 'utils';
 import { z } from 'zod';
 import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../../shared';
@@ -241,16 +238,6 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
 
     const dateTime = DateTime.fromISO(appointment.start!).setZone(timezone).toISO() || undefined;
     const serviceMode = isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person'];
-
-    let telemedStatus: TelemedAppointmentStatusEnum | undefined;
-    let inPersonStatus: VisitStatusLabel | undefined;
-    if (encounter) {
-      if (serviceMode === ServiceMode.virtual) {
-        telemedStatus = getTelemedVisitStatus(encounter.status, appointment.status);
-      } else {
-        inPersonStatus = getInPersonVisitStatus(appointment, encounter);
-      }
-    }
     const type = appointmentTypeForAppointment(appointment);
 
     const sendInvoiceTask = encounter?.id
@@ -280,19 +267,11 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
           : (encounter && getVisitTotalTime(appointment, getVisitStatusHistory(encounter), DateTime.now())) || 0,
       followUps,
     };
-    if (serviceMode === ServiceMode.virtual) {
-      return {
-        ...baseRow,
-        serviceMode: ServiceMode.virtual,
-        status: telemedStatus,
-      };
-    } else {
-      return {
-        ...baseRow,
-        serviceMode: ServiceMode['in-person'],
-        status: inPersonStatus,
-      };
-    }
+    return {
+      ...baseRow,
+      serviceMode: serviceMode,
+      status: encounter && getInPersonVisitStatus(appointment, encounter),
+    };
   });
 
   const visits = visitRows.filter((visit) => {

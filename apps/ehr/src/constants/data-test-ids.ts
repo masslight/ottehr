@@ -1,10 +1,4 @@
-import {
-  ApptTelemedTab,
-  DispositionType,
-  PractitionerQualificationCode,
-  RoleType,
-  TelemedAppointmentVisitTabs,
-} from 'utils';
+import { DispositionType, PractitionerQualificationCode, RoleType } from 'utils';
 
 export const dataTestIds = {
   closeIcon: 'CloseIcon',
@@ -183,11 +177,16 @@ export const dataTestIds = {
     addQualificationButton: 'add-qualification-button',
     deactivateUserButton: 'deactivate-user-button',
     statusChip: 'employee-status-chip',
+    needsReviewChip: 'employee-needs-review-chip',
+    assignRoleButton: 'employee-assign-role-button',
+    assignRoleDialog: 'employee-assign-role-dialog',
+    assignRoleSelect: 'employee-assign-role-select',
+    assignRoleSave: 'employee-assign-role-save',
+    quickDeleteButton: 'employee-quick-delete-button',
   },
   telemedEhrFlow: {
     trackingBoardLocationsSelect: 'telemed-tracking-board-location-select',
     trackingBoardLocationsSelectOption: (id: string) => `telemed-tracking-board-location-select-option-${id}`,
-    telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
     trackingBoardTableGroupRow: `telemed-tracking-board-table-group-row`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
     myPatientsButton: 'telemed-my-patients-button',
@@ -231,7 +230,6 @@ export const dataTestIds = {
     endVideoCallButton: 'telemed-end-video-call-button',
     pinVideoCallButton: 'telemed-pin-video-call-button',
     finishVisitButton: 'telemed-finish-visit-button',
-    appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
     closeChartButton: 'telemed-chart-close-icon',
@@ -281,6 +279,7 @@ export const dataTestIds = {
     dischargeSummaryButton: 'discharge-summary-button',
     missingCard: 'missing-card',
     missingCardText: 'missing-card-text',
+    patientVerificationLink: 'patient-verification-link',
     primaryDiagnosisLink: 'primary-diagnosis-link',
     secondaryDiagnosisLink: 'secondary-diagnosis-link',
     medicalDecisionLink: 'medical-decision-link',
@@ -304,6 +303,7 @@ export const dataTestIds = {
     hospitalizationContainer: 'hospitalization-container',
     alertIcon: 'WarningAmberOutlinedIcon',
     cptCodes: 'cpt-codes-container',
+    rosReviewContainer: 'in-person-progress-note-ros-review-container',
   },
   hpiAndTemplatesPage: {
     hpiTitle: 'hpi-title',
@@ -724,6 +724,13 @@ export const dataTestIds = {
     admin: {
       scanForStaleBtn: 'global-template-scan-staleness-btn',
     },
+  },
+
+  reviewOfSystemsPage: {
+    rosTableContainer: 'review-of-systems-table-container',
+    rosTable: 'review-of-systems-table',
+    deniesCheckboxCell: 'ros-denies-checkbox-cell',
+    reportsCheckboxCell: 'ros-reports-checkbox-cell',
   },
 
   externalLabs: {

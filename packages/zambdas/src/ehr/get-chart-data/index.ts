@@ -71,6 +71,7 @@ export async function getChartData(
     defaultSearchBy?: 'encounter' | 'patient';
   }): void {
     const fieldOptions = requestedFields?.[field as keyof ChartDataRequestedFields];
+
     const defaultSearchParams = defaultChartDataFieldsSearchParams[field];
 
     if (!requestedFields || fieldOptions) {

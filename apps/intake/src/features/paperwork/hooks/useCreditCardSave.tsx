@@ -27,6 +27,7 @@ export const useCreditCardSave = (): UseCreditCardSaveReturn => {
       if (cardState?.error) {
         setCardSaveError(cardState.error.message);
         setShowCardErrorDialog(true);
+        console.log(`card state error detected`);
         return { shouldContinue: false };
       }
 
@@ -38,6 +39,7 @@ export const useCreditCardSave = (): UseCreditCardSaveReturn => {
         if (!saveResult?.success && saveResult?.error) {
           setCardSaveError(saveResult.error);
           setShowCardErrorDialog(true);
+          console.log(`card save failed`);
           return { shouldContinue: false };
         }
 
@@ -56,6 +58,7 @@ export const useCreditCardSave = (): UseCreditCardSaveReturn => {
         if (creditCardFieldId && setFieldError) {
           setFieldError(creditCardFieldId, 'Please select or add a payment method to proceed.');
         }
+        console.log(`credit card has incorrect value`);
         return { shouldContinue: false };
       }
 

@@ -4,14 +4,37 @@ import { Row } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
+import { SectionSaveButton } from './SectionSaveButton';
 
 const { employerInformation } = PATIENT_RECORD_CONFIG.FormFields;
+const FIELD_KEYS = Object.values(employerInformation.items).map((item) => item.key);
+const REQUIRED_FIELD_KEYS = employerInformation.requiredFields ?? [];
 
-export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
+interface EmployerInformationContainerProps {
+  isLoading: boolean;
+  patientId?: string;
+  encounterId?: string;
+}
+
+export const EmployerInformationContainer: FC<EmployerInformationContainerProps> = ({
+  isLoading,
+  patientId,
+  encounterId,
+}) => {
   const { items, hiddenFields, requiredFields } = usePatientRecordFormSection({ formSection: employerInformation });
   const theme = useTheme();
   return (
-    <PatientRecordFormSection formSection={employerInformation}>
+    <PatientRecordFormSection
+      formSection={employerInformation}
+      titleWidget={
+        <SectionSaveButton
+          fieldKeys={FIELD_KEYS}
+          requiredFieldKeys={REQUIRED_FIELD_KEYS}
+          patientId={patientId}
+          encounterId={encounterId}
+        />
+      }
+    >
       <Typography sx={{ color: theme.palette.primary.dark, fontWeight: 600 }}>Insurance Information</Typography>
       <PatientRecordFormField
         item={items.workersCompInsurance}

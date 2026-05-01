@@ -13,17 +13,6 @@ export const getPhoneNumberFromQuestionnaire = (questionnaire: QuestionnaireResp
   return undefined;
 };
 
-export const getAppointmentWaitingTime = (appointment: Appointment): number | undefined => {
-  const rawDate = appointment.created;
-  if (rawDate) {
-    const apptDate = new Date(rawDate);
-    const timeDifference = Math.abs(new Date().getTime() - apptDate.getTime());
-
-    return timeDifference;
-  }
-  return undefined;
-};
-
 export const getLocationIdFromAppointment = (appointment: Appointment): string | undefined => {
   const locationParticipant = appointment.participant.find(
     (appointment) => appointment.actor?.reference?.startsWith('Location/')

@@ -5,7 +5,6 @@ export type GetOystehrTelemedAPIParams = {
   getChartDataZambdaID?: string;
   saveChartDataZambdaID?: string;
   deleteChartDataZambdaID?: string;
-  changeTelemedAppointmentStatusZambdaID?: string;
   changeInPersonVisitStatusZambdaID?: string;
   assignPractitionerZambdaID?: string;
   unassignPractitionerZambdaID?: string;

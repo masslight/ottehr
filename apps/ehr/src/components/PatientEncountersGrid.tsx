@@ -45,7 +45,6 @@ import {
   PatientVisitListResponse,
   ServiceMode,
   TelemedAppointmentStatus,
-  TelemedCallStatusesArr,
   visitStatusArray,
 } from 'utils';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
@@ -413,13 +412,11 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           onChange={(e) => setStatus(e.target.value)}
         >
           <MenuItem value="all">All</MenuItem>
-          {[...new Set([...TelemedCallStatusesArr, ...visitStatusArray.filter((item) => item !== 'cancelled')])].map(
-            (status) => (
-              <MenuItem key={status} value={status}>
-                {capitalize(status)}
-              </MenuItem>
-            )
-          )}
+          {[...new Set(visitStatusArray.filter((item) => item !== 'cancelled'))].map((status) => (
+            <MenuItem key={status} value={status}>
+              {capitalize(status)}
+            </MenuItem>
+          ))}
         </TextField>
 
         <FormControlLabel
