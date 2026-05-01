@@ -95,34 +95,8 @@ export type TelemedAppointmentStatus = `${TelemedAppointmentStatusEnum}`;
 
 export type TelemedCallStatuses = `${TelemedAppointmentStatus}`;
 
-export const TelemedCallStatusesArr: TelemedAppointmentStatus[] = [
-  'ready',
-  'pre-video',
-  'on-video',
-  'unsigned',
-  'complete',
-  'cancelled',
-];
-
 export interface TelemedStatusHistoryElement {
   start?: string;
   end?: string;
   status?: TelemedCallStatuses;
-}
-
-export enum TelemedAppointmentVisitTabs {
-  'hpi' = 'hpi',
-  'vitals' = 'vitals',
-  'exam' = 'exam',
-  'assessment' = 'assessment',
-  'plan' = 'plan',
-  'sign' = 'sign',
-  'ottehrai' = 'ottehrai',
-}
-
-export enum ApptTelemedTab {
-  'ready' = 'ready',
-  'provider' = 'provider',
-  'not-signed' = 'not-signed',
-  'complete' = 'complete',
 }
