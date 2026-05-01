@@ -239,7 +239,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             ? existingPractitionerResource.identifier
             : undefined,
         photo: existingPractitionerResource.photo,
-        name: name ? [name] : undefined,
+        name: name
+          ? [name]
+          : [
+              // self-registered users end up with no name if we don't do this
+              {
+                given: ['FIRST_NAME'],
+                family: 'LAST_NAME',
+              },
+            ],
         qualification: practitionerQualificationExtension,
         extension: providerTypeExtension,
         telecom: updatedTelecom.length > 0 ? updatedTelecom : undefined,
