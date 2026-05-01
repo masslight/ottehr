@@ -4,6 +4,9 @@ import {
   Box,
   CircularProgress,
   Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
   IconButton,
   Radio,
@@ -25,7 +28,6 @@ import { Organization, Patient, Questionnaire, QuestionnaireItem, QuestionnaireR
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
@@ -134,8 +136,8 @@ const formatDisplayValue = (value: any): string => {
   if (value === undefined || value === null) return '-';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (typeof value === 'object') {
-    if (value.reference) return value.reference;
     if (value.display) return value.display;
+    if (value.reference) return value.reference;
     return JSON.stringify(value);
   }
   const str = String(value).trim();
@@ -190,6 +192,7 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
   const otherPatientId = patientIds.find((id) => id !== mainPatientId)!;
 
   const [showVariant, setShowVariant] = useState<'different' | 'all'>('different');
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const apiClient = useOystehrAPIClient();
   const queryClient = useQueryClient();
@@ -314,7 +317,7 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
   }, [questionnaireFields, mainPatientId]);
 
   const methods = useForm<FormValues>({ defaultValues: defaultFormValues });
-  const { control, handleSubmit, reset } = methods;
+  const { control, getValues, reset } = methods;
 
   // ── Mutations ──
 
@@ -339,6 +342,7 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
       await queryClient.invalidateQueries({ queryKey: ['otherPatientsWithSameNameResources'] });
       enqueueSnackbar('Patients merged successfully', { variant: 'success' });
       onSuccess?.();
+      close();
     },
     onError: (error) => {
       const message = error instanceof Error && error.message ? error.message : 'Failed to merge patients';
@@ -358,9 +362,10 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
     reset(newValues);
   };
 
-  const onSave = (values: FormValues): void => {
+  const onSave = (): void => {
     if (!mainFormVals || !otherFormVals) return;
 
+    const values = getValues();
     const mainPid = mainPatientId;
 
     const mergedFormValues: Record<string, any> = {};
@@ -369,6 +374,15 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
       const patientVals = formValsByPatient[selectedPatientId];
       if (patientVals) {
         mergedFormValues[linkId] = patientVals[linkId];
+      }
+    }
+
+    // Copy hidden logical fields (e.g. should-display-ssn-field) from main so the
+    // server-side enableWhen filter doesn't strip dependent answers like patient-ssn.
+    for (const linkId of HIDDEN_LINK_IDS) {
+      const value = mainFormVals[linkId] ?? otherFormVals[linkId];
+      if (value !== undefined) {
+        mergedFormValues[linkId] = value;
       }
     }
 
@@ -384,7 +398,7 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
       structureQuestionnaireResponse(questionnaire, mergedFormValues, mainPid, dirtyFields)
     );
 
-    close();
+    setConfirmOpen(false);
 
     mergeMutation.mutate({
       mainPatientId: mainPid,
@@ -534,44 +548,51 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
 
               <Stack direction="row" spacing={2} justifyContent="space-between">
                 <RoundedButton onClick={close}>Cancel</RoundedButton>
-                <ConfirmationDialog
-                  title="Merge Patient"
-                  description={
-                    <Stack spacing={2}>
-                      <Typography>
-                        Are you sure you want to merge patient records? Merged records will be deactivated.
-                      </Typography>
-                      <Stack>
-                        <Typography fontWeight={600}>Merged patient record PID:</Typography>
-                        <Typography sx={{ wordBreak: 'break-all' }}>{otherPatientId}</Typography>
-                      </Stack>
-                      <Stack>
-                        <Typography fontWeight={600}>Main patient record PID:</Typography>
-                        <Typography sx={{ wordBreak: 'break-all' }}>{mainPatientId}</Typography>
-                      </Stack>
-                    </Stack>
-                  }
-                  response={handleSubmit(onSave)}
-                  actionButtons={{
-                    proceed: { text: 'Confirm merge' },
-                    back: { text: 'Cancel' },
-                    reverse: true,
-                  }}
+                <RoundedButton
+                  variant="contained"
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={isLoading || mergeMutation.isPending}
                 >
-                  {(showDialog) => (
-                    <RoundedButton
-                      variant="contained"
-                      onClick={showDialog}
-                      disabled={isLoading || mergeMutation.isPending}
-                    >
-                      {mergeMutation.isPending ? 'Merging...' : 'Merge Patients'}
-                    </RoundedButton>
-                  )}
-                </ConfirmationDialog>
+                  {mergeMutation.isPending ? 'Merging...' : 'Merge Patients'}
+                </RoundedButton>
               </Stack>
             </>
           )}
         </Stack>
+      </Dialog>
+
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth>
+        <IconButton
+          size="small"
+          onClick={() => setConfirmOpen(false)}
+          sx={{ position: 'absolute', right: 16, top: 16 }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+        <DialogTitle component={Typography} variant="h5" color="primary.dark" sx={{ pb: 1 }}>
+          Merge Patient
+        </DialogTitle>
+        <DialogContent sx={{ pb: 2 }}>
+          <Stack spacing={2}>
+            <Typography>Are you sure you want to merge patient records? Merged records will be deactivated.</Typography>
+            <Stack>
+              <Typography fontWeight={600}>Merged patient record PID:</Typography>
+              <Typography sx={{ wordBreak: 'break-all' }}>{otherPatientId}</Typography>
+            </Stack>
+            <Stack>
+              <Typography fontWeight={600}>Main patient record PID:</Typography>
+              <Typography sx={{ wordBreak: 'break-all' }}>{mainPatientId}</Typography>
+            </Stack>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Stack direction="row" spacing={2}>
+            <RoundedButton onClick={() => setConfirmOpen(false)}>Cancel</RoundedButton>
+            <RoundedButton variant="contained" onClick={onSave}>
+              Confirm merge
+            </RoundedButton>
+          </Stack>
+        </DialogActions>
       </Dialog>
     </FormProvider>
   );

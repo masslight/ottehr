@@ -1,5 +1,6 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
+import { waitForSaveChartDataResponse } from 'test-utils';
 import {
   expectEditVaccineOrderPage,
   openCreateVaccineOrderPage,
@@ -22,6 +23,8 @@ interface VaccineInfo {
   route: string;
   location: string;
   instructions: string;
+  manufacturer: string;
+  associatedDx: string;
 }
 
 interface AdministrationDetails {
@@ -43,6 +46,9 @@ const vaccine =
   vaccines.fhirResources[Object.keys(vaccines.fhirResources)[0] as keyof typeof vaccines.fhirResources]?.resource
     .identifier[1].value;
 
+const DIAGNOSIS_CODE_ONE = 'J45.901';
+const DIAGNOSIS_CODE_TWO = 'J45.991';
+
 const VACCINE: VaccineInfo = {
   vaccine,
   dose: '0.5',
@@ -50,6 +56,8 @@ const VACCINE: VaccineInfo = {
   route: medicationApplianceRoutes.BODY_CAVITY.display!,
   location: medicationApplianceLocations[0].name!,
   instructions: 'test vaccine instructions',
+  manufacturer: 'example',
+  associatedDx: DIAGNOSIS_CODE_ONE,
 };
 
 const EDITED_VACCINE: VaccineInfo = {
@@ -59,6 +67,8 @@ const EDITED_VACCINE: VaccineInfo = {
   route: medicationApplianceRoutes.CAUDAL.display!,
   location: medicationApplianceLocations[1].name!,
   instructions: 'test vaccine instructions edited',
+  manufacturer: 'example edited',
+  associatedDx: DIAGNOSIS_CODE_TWO,
 };
 
 const ADMINISTRATION_DETAILS: AdministrationDetails = {
@@ -92,6 +102,7 @@ test.describe('Immunization Page mutating tests', () => {
     await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
     await setupPractitioners(page);
+    await setupDiagnosis(page);
   });
 
   test.afterEach(async () => {
@@ -209,7 +220,6 @@ test.describe('Immunization Page mutating tests', () => {
     const marTab = await vaccineDetailsTab.clickMarTab();
     await marTab.verifyVaccinePresent({
       ...VACCINE,
-      givenPerson: await getCurrentPractitionerName(),
       status: NOT_ADMINISTERED,
       reason: PATIENT_REFUSED,
     });
@@ -225,6 +235,26 @@ test.describe('Immunization Page mutating tests', () => {
     await sideMenu.clickCcAndIntakeNotes();
   }
 
+  async function setupDiagnosis(page: Page): Promise<void> {
+    const sideMenu = new SideMenu(page);
+    const assessmentPage = await sideMenu.clickAssessment();
+    await assessmentPage.expectDiagnosisDropdown();
+    await assessmentPage.selectDiagnosis({ diagnosisCode: DIAGNOSIS_CODE_ONE });
+    await waitForSaveChartDataResponse(
+      page,
+      (json) =>
+        json.chartData.diagnosis?.some((dx) => dx.code.toLowerCase().includes(DIAGNOSIS_CODE_ONE.toLowerCase())) ??
+        false
+    );
+    await assessmentPage.selectDiagnosis({ diagnosisCode: DIAGNOSIS_CODE_TWO });
+    await waitForSaveChartDataResponse(
+      page,
+      (json) =>
+        json.chartData.diagnosis?.some((dx) => dx.code.toLowerCase().includes(DIAGNOSIS_CODE_TWO.toLowerCase())) ??
+        false
+    );
+  }
+
   async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {
     await orderDetailsSection.selectVaccine(vaccineInfo.vaccine);
     await orderDetailsSection.enterDose(vaccineInfo.dose);
@@ -232,6 +262,8 @@ test.describe('Immunization Page mutating tests', () => {
     await orderDetailsSection.selectRoute(vaccineInfo.route);
     await orderDetailsSection.selectLocation(vaccineInfo.location);
     await orderDetailsSection.enterInstructions(vaccineInfo.instructions);
+    await orderDetailsSection.enterManufacturer(vaccineInfo.manufacturer);
+    await orderDetailsSection.selectAssociatedDx(vaccineInfo.associatedDx);
   }
 
   async function verifyVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {
@@ -241,6 +273,8 @@ test.describe('Immunization Page mutating tests', () => {
     await orderDetailsSection.verifyRoute(vaccineInfo.route);
     await orderDetailsSection.verifyLocation(vaccineInfo.location);
     await orderDetailsSection.verifyInstructions(vaccineInfo.instructions);
+    await orderDetailsSection.verifyManufacturer(vaccineInfo.manufacturer);
+    await orderDetailsSection.verifyAssociatedDx(vaccineInfo.associatedDx);
   }
 
   async function enterAdministrationDetails(

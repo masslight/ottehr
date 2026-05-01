@@ -35,12 +35,12 @@ import {
   formatPhoneNumber,
   genderMap,
   GetPaperworkAnswers,
+  IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
   RelationshipOption,
   SampleAppointmentResponse,
   ServiceMode,
   VALUE_SETS,
 } from 'utils';
-import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { VisitDetailsPage } from '../../tests/e2e/page/VisitDetailsPage';
 import { getAuth0Token } from './auth/getAuth0Token';
 import {
@@ -346,23 +346,13 @@ export class ResourceHandler {
       })
     ).unbundle()[0] as Schedule;
 
-    const questionnaire = Object.values(inPersonIntakeQuestionnaire.fhirResources).find(
-      (q) =>
-        q.resource.resourceType === 'Questionnaire' &&
-        q.resource.status === 'active' &&
-        q.resource.url.includes('intake-paperwork-inperson')
-    );
-    if (!questionnaire) {
-      throw new Error('Questionnaire not found in local config');
-    }
+    // Seed data only needs the canonical URL+version pair, not a full Q body.
+    const { url, version } = IN_PERSON_INTAKE_PAPERWORK_CANONICAL;
 
     let seedDataString = JSON.stringify(fastSeedData);
     seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
     seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
-    seedDataString = seedDataString.replace(
-      /\{\{questionnaireUrl\}\}/g,
-      `${questionnaire.resource.url}|${questionnaire.resource.version}`
-    );
+    seedDataString = seedDataString.replace(/\{\{questionnaireUrl\}\}/g, `${url}|${version}`);
     seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
 
     // TODO do something about the DocumentReference attachments? For the moment all of these tests point to the exact same files. Maybe that's great. Or maybe we should upload images each time?

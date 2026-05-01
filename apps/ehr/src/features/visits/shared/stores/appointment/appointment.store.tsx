@@ -26,6 +26,7 @@ import {
   CHART_FIELDS_QUERY_KEY,
   QUERY_STALE_TIME,
 } from 'src/constants';
+import { useRosObservations } from 'src/features/visits/shared/hooks/useRosObservations';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import {
   createRefreshableAppointmentData,
@@ -120,7 +121,7 @@ type ReactQueryState = {
   isPending: boolean;
 };
 
-type ChartDataResponse = Omit<
+export type ChartDataResponse = Omit<
   GetChartDataResponse,
   Exclude<
     RequestedFields,
@@ -601,7 +602,18 @@ const useGetAppointment = (
           }
         }
 
-        return selectAppointmentData(data, currentSelectedEncounterId || scheduledFollowupEncounter?.id, appointmentId);
+        // Only fall back to the scheduled follow-up encounter when the URL actually targets it.
+        // Otherwise, on a main-appointment URL the bundle's child follow-up encounter would hijack
+        // the selection and vitals would get saved against the follow-up's id.
+        const hasMainEncounterForRequestedAppt = data.some(
+          (r) =>
+            r.resourceType === 'Encounter' &&
+            !(r as Encounter).partOf &&
+            (r as Encounter).appointment?.some((ref) => ref.reference === `Appointment/${appointmentId}`)
+        );
+        const fallbackEncounterId = hasMainEncounterForRequestedAppt ? undefined : scheduledFollowupEncounter?.id;
+
+        return selectAppointmentData(data, currentSelectedEncounterId || fallbackEncounterId, appointmentId);
       }
       throw new Error('fhir client not defined or appointmentId not provided');
     },
@@ -774,6 +786,7 @@ export const useChartData = ({
   ReactQueryState => {
   const apiClient = useOystehrAPIClient();
   const { update: updateExamObservations } = useExamObservations();
+  const { update: updateRosObservations } = useRosObservations();
   const { id: appointmentIdFromUrl } = useParams();
   const { encounter } = useAppointmentData(appointmentId || appointmentIdFromUrl);
   const encounterId = encounter?.id ?? paramEncounterId;
@@ -797,6 +810,7 @@ export const useChartData = ({
       onSuccess?.(data);
       if (shouldUpdateExams) {
         updateExamObservations(data.examObservations, true);
+        updateRosObservations(data.rosObservations || [], true);
       }
     },
     (error) => {

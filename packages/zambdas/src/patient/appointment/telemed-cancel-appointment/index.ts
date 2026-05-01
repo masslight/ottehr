@@ -16,7 +16,7 @@ import {
   getLocationResource,
   getPatchBinary,
   getPatientContactEmail,
-  getRelatedPersonForPatient,
+  getRelatedPersonsForPatient,
   getSecret,
   getSupportPhoneFor,
   Secrets,
@@ -29,7 +29,8 @@ import {
   createAuditEvent,
   getEmailClient,
   getVideoEncounterForAppointment,
-  sendSms,
+  reportMissingUserRelatedPerson,
+  sendSmsToRelatedPersons,
   validateBundleAndExtractAppointment,
   wrapHandler,
   ZambdaInput,
@@ -202,14 +203,19 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
 
   console.log('Send cancel message request');
 
-  const relatedPerson = await getRelatedPersonForPatient(patient.id || '', oystehr);
-  if (relatedPerson) {
-    const message = `Sorry to see you go. Questions? Call ${getSupportPhoneFor(locationName)} `;
-
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-    await sendSms(message, `RelatedPerson/${relatedPerson.id}`, oystehr, ENVIRONMENT);
+  const relatedPersons = await getRelatedPersonsForPatient(patient.id || '', oystehr);
+  if (!relatedPersons.length) {
+    console.log(`No user-relatedperson found for patient ${patient.id}; not sending cancellation text`);
+    reportMissingUserRelatedPerson('telemed-cancel-appointment', patient.id);
   } else {
-    console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
+    const message = `Sorry to see you go. Questions? Call ${getSupportPhoneFor(locationName)} `;
+    await sendSmsToRelatedPersons({
+      relatedPersons,
+      message,
+      oystehr,
+      env: getSecret(SecretsKeys.ENVIRONMENT, secrets),
+      failStrategy: 'never-throw',
+    });
   }
 
   await createAuditEvent(AuditableZambdaEndpoints.appointmentCancel, oystehr, input, patient.id || '', secrets);

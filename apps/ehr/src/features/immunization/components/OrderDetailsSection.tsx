@@ -14,7 +14,9 @@ export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
   const { data: vaccines, isLoading } = useGetVaccines();
   const { chartData } = useChartData();
-  const diagnosisOptions = (chartData?.diagnosis ?? []).map((dx) => `${dx.code} - ${dx.display}`);
+  const diagnosisOptions = (chartData?.diagnosis ?? [])
+    .filter((dx) => dx.resourceId)
+    .map((dx) => ({ resourceId: dx.resourceId!, display: `${dx.code} - ${dx.display}` }));
 
   return (
     <Grid container spacing={2}>
@@ -46,7 +48,9 @@ export const OrderDetailsSection: React.FC = () => {
           name="details.associatedDx"
           label="Associated Dx"
           options={diagnosisOptions}
-          freeSolo
+          getOptionLabel={(option) => option.display}
+          getOptionKey={(option) => option.resourceId}
+          isOptionEqualToValue={(option, value) => option.resourceId === value.resourceId}
           dataTestId={dataTestIds.orderVaccinePage.associatedDx}
         />
       </Grid>

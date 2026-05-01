@@ -7,6 +7,8 @@ import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { parseCommaSeparatedTags, RoleType, setupSentry } from 'utils';
 import Banner from './components/Banner';
+import { CommandPalette } from './components/CommandPalette';
+import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
@@ -20,7 +22,6 @@ import { UnsolicitedResultsReview } from './features/external-labs/pages/Unsolic
 import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
-import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAppFlags';
 import EditChargeItem from './features/visits/telemed/components/admin/EditChargeItem';
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
@@ -77,11 +78,6 @@ setupSentry({
 });
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
-
-const TelemedAppointmentPageLazy = lazy(async () => {
-  const TelemedAppointmentPage = await import('./features/visits/telemed/pages/AppointmentPage');
-  return { default: TelemedAppointmentPage.AppointmentPage };
-});
 
 export const INSURANCES_URL = '/admin/insurances';
 export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
@@ -144,180 +140,158 @@ function App(): ReactElement {
 
   return (
     <CustomThemeProvider>
-      <AppFlagsProvider>
-        <CssBaseline />
-        <LogoutWarning
-          modalOpen={isModalOpen}
-          onEnd={handleEndSession}
-          onContinue={handleContinue}
-          timeoutInSeconds={timeLeft}
-        />
-        {showEnvironmentBanner && (
-          <>
-            <Banner
-              text={`${import.meta.env.VITE_APP_ENV?.toUpperCase()} environment`}
-              icon="warning"
-              iconSize="medium"
-              bgcolor="info.main"
-              color="info.contrast"
-            />
-          </>
-        )}
-        <BrowserRouter>
-          <Routes>
-            <Route
-              path="/in-person/:id/*"
-              element={
+      <CssBaseline />
+      <LogoutWarning
+        modalOpen={isModalOpen}
+        onEnd={handleEndSession}
+        onContinue={handleContinue}
+        timeoutInSeconds={timeLeft}
+      />
+      {showEnvironmentBanner && (
+        <>
+          <Banner
+            text={`${import.meta.env.VITE_APP_ENV?.toUpperCase()} environment`}
+            icon="warning"
+            iconSize="medium"
+            bgcolor="info.main"
+            color="info.contrast"
+          />
+        </>
+      )}
+      <BrowserRouter>
+        <Routes>
+          <Route
+            path="/in-person/:id/*"
+            element={
+              <ProtectedRoute
+                showWhenAuthenticated={
+                  <Suspense fallback={<LoadingScreen />}>
+                    <InPersonRoutingLazy />
+                  </Suspense>
+                }
+              />
+            }
+          />
+          <Route
+            element={
+              <TabContext value={currentTab}>
+                <Navbar />
                 <ProtectedRoute
                   showWhenAuthenticated={
-                    <Suspense fallback={<LoadingScreen />}>
-                      <InPersonRoutingLazy />
-                    </Suspense>
+                    <>
+                      <Outlet />
+                    </>
                   }
                 />
-              }
-            />
-            <Route
-              element={
-                <TabContext value={currentTab}>
-                  <Navbar />
-                  <ProtectedRoute
-                    showWhenAuthenticated={
-                      <>
-                        <Outlet />
-                      </>
-                    }
-                  />
-                </TabContext>
-              }
-            >
-              {roleUnknown && (
-                <>
-                  <Route path="/logout" element={<Logout />} />
-                  <Route path="*" element={<LoadingScreen />} />
-                </>
-              )}
-              {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
-                <>
-                  <Route path="/tasks-observability" element={<TaskAdmin />} />
-                  <Route path="/reports" element={<Reports />} />
-                  <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
-                  <Route path="/reports/complete-encounters" element={<CompleteEncounters />} />
-                  <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
-                  <Route path="/reports/daily-payments" element={<DailyPayments />} />
-                  <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
-                  <Route path="/reports/data-exports" element={<DataExports />} />
-                  <Route path="/reports/visits-overview" element={<VisitsOverview />} />
-                  <Route path="/reports/recent-patients" element={<RecentPatients />} />
-                  <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
-                </>
-              )}
-              {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) && (
-                <>
-                  <Route path="/" element={<Navigate to="/visits" />} />
-                  <Route path="/logout" element={<Logout />} />
-                  <Route path="/visits" element={<AppointmentsPage />} />
-                  <Route path="/visits/add" element={<AddPatient />} />
-                  <Route path="/visit/:id" element={<VisitDetailsPage />} />
-                  <Route path="/profile" element={<EmployeeProfilePage />} />
-                  <Route path="/patients" element={<PatientsPage />} />
-                  <Route path="/patient/:id" element={<PatientPage />} />
-                  <Route path="/patient/:id/info" element={<PatientInformationPage />} />
-                  <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
-                  <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                  {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
-                    <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
-                  )}
-                  <Route path="/admin" element={<AdminPage />} />
-                  <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
-                  <Route path="/admin/:adminTab" element={<AdminPage />} />
-                  <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
-                  <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
-                  <Route
-                    path="/admin/quick-picks/immunization/:quickPickId"
-                    element={<ImmunizationQuickPickDetailPage />}
-                  />
-                  <Route
-                    path="/admin/quick-picks/in-house-medication/:quickPickId"
-                    element={<InHouseMedicationQuickPickDetailPage />}
-                  />
-                  <Route path="/admin/employees/add" element={<AddEmployeePage />} />
-                  <Route path="/admin/employee/:id" element={<EditEmployeePage />} />
-                  <Route path="/admin/schedule/:schedule-type/add" element={<AddSchedulePage />} />
-                  <Route path="/admin/group/id/:group-id" element={<GroupPage />} />
-                  <Route path="/admin/schedule/id/:schedule-id" element={<SchedulePage />} />
-                  <Route path="/admin/schedule/new/:schedule-type/:owner-id" element={<SchedulePage />} />
-                  <Route path="/admin/medications/add" element={<AddMedicationPage />} />
-                  <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
-                  <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
-                  <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
-                  <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
-                  <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
-                  <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />
-                  <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
-                  <Route path="/admin/in-house-labs/add" element={<AdminAddInHouseLab />} />
-                  <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
-                  {/** telemed */}
-                  <Route
-                    path="/telemed/appointments/:id"
-                    element={
-                      <Suspense fallback={<LoadingScreen />}>
-                        <TelemedAppointmentPageLazy />
-                      </Suspense>
-                    }
-                  />
-                  {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
-                  <Route path="/tasks" element={<Tasks />} />
-                  <Route path="*" element={<Navigate to={'/'} />} />
-                </>
-              )}
-              {currentUser?.hasRole([RoleType.Staff, RoleType.Provider, RoleType.CustomerSupport]) && (
-                <>
-                  <Route path="/" element={<Navigate to="/visits" />} />
-                  <Route path="/logout" element={<Logout />} />
-                  <Route path="/visits" element={<AppointmentsPage />} />
-                  <Route path="/visits/add" element={<AddPatient />} />
-                  <Route path="/visit/:id" element={<VisitDetailsPage />} />
-                  <Route path="/profile" element={<EmployeeProfilePage />} />
-                  <Route path="/patient/:id" element={<PatientPage />} />
-                  <Route path="/patient/:id/info" element={<PatientInformationPage />} />
-                  <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
-                  <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                  {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
-                    <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
-                  )}
-                  <Route path="/patients" element={<PatientsPage />} />
+              </TabContext>
+            }
+          >
+            {roleUnknown && (
+              <>
+                <Route path="/logout" element={<Logout />} />
+                <Route path="*" element={<LoadingScreen />} />
+              </>
+            )}
+            {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
+              <>
+                <Route path="/tasks-observability" element={<TaskAdmin />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
+                <Route path="/reports/complete-encounters" element={<CompleteEncounters />} />
+                <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
+                <Route path="/reports/daily-payments" element={<DailyPayments />} />
+                <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
+                <Route path="/reports/data-exports" element={<DataExports />} />
+                <Route path="/reports/visits-overview" element={<VisitsOverview />} />
+                <Route path="/reports/recent-patients" element={<RecentPatients />} />
+                <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
+              </>
+            )}
+            {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) && (
+              <>
+                <Route path="/" element={<Navigate to="/visits" />} />
+                <Route path="/logout" element={<Logout />} />
+                <Route path="/visits" element={<AppointmentsPage />} />
+                <Route path="/visits/add" element={<AddPatient />} />
+                <Route path="/visit/:id" element={<VisitDetailsPage />} />
+                <Route path="/profile" element={<EmployeeProfilePage />} />
+                <Route path="/patients" element={<PatientsPage />} />
+                <Route path="/patient/:id" element={<PatientPage />} />
+                <Route path="/patient/:id/info" element={<PatientInformationPage />} />
+                <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
+                <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
+                {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
+                  <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                )}
+                <Route path="/admin" element={<AdminPage />} />
+                <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
+                <Route path="/admin/:adminTab" element={<AdminPage />} />
+                <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
+                <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
+                <Route
+                  path="/admin/quick-picks/immunization/:quickPickId"
+                  element={<ImmunizationQuickPickDetailPage />}
+                />
+                <Route
+                  path="/admin/quick-picks/in-house-medication/:quickPickId"
+                  element={<InHouseMedicationQuickPickDetailPage />}
+                />
+                <Route path="/admin/employees/add" element={<AddEmployeePage />} />
+                <Route path="/admin/employee/:id" element={<EditEmployeePage />} />
+                <Route path="/admin/schedule/:schedule-type/add" element={<AddSchedulePage />} />
+                <Route path="/admin/group/id/:group-id" element={<GroupPage />} />
+                <Route path="/admin/schedule/id/:schedule-id" element={<SchedulePage />} />
+                <Route path="/admin/schedule/new/:schedule-type/:owner-id" element={<SchedulePage />} />
+                <Route path="/admin/medications/add" element={<AddMedicationPage />} />
+                <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
+                <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
+                <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
+                <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
+                <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
+                <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />
+                <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
+                <Route path="/admin/in-house-labs/add" element={<AdminAddInHouseLab />} />
+                <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
+                {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
+                <Route path="/tasks" element={<Tasks />} />
+                <Route path="*" element={<Navigate to={'/'} />} />
+              </>
+            )}
+            {currentUser?.hasRole([RoleType.Staff, RoleType.Provider, RoleType.CustomerSupport]) && (
+              <>
+                <Route path="/" element={<Navigate to="/visits" />} />
+                <Route path="/logout" element={<Logout />} />
+                <Route path="/visits" element={<AppointmentsPage />} />
+                <Route path="/visits/add" element={<AddPatient />} />
+                <Route path="/visit/:id" element={<VisitDetailsPage />} />
+                <Route path="/profile" element={<EmployeeProfilePage />} />
+                <Route path="/patient/:id" element={<PatientPage />} />
+                <Route path="/patient/:id/info" element={<PatientInformationPage />} />
+                <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
+                <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
+                {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
+                  <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                )}
+                <Route path="/patients" element={<PatientsPage />} />
 
-                  <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
-                  <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />
-                  <Route
-                    path="/unsolicited-results/:diagnosticReportId/review"
-                    element={<UnsolicitedResultsReview />}
-                  />
+                <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
+                <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />
+                <Route path="/unsolicited-results/:diagnosticReportId/review" element={<UnsolicitedResultsReview />} />
 
-                  <Route path="/rcm/claims" element={<Claims />} />
-                  <Route path="/rcm/claims/:id" element={<Claim />} />
-                  {/** telemed */}
-                  <Route path="/telemed/appointments/:id/visit-details" element={<VisitDetailsPage />} />
-                  <Route
-                    path="/telemed/appointments/:id"
-                    element={
-                      <Suspense fallback={<LoadingScreen />}>
-                        <TelemedAppointmentPageLazy />
-                      </Suspense>
-                    }
-                  />
-                  {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
-                  <Route path="/tasks" element={<Tasks />} />
-                  <Route path="*" element={<Navigate to={'/'} />} />
-                </>
-              )}
-            </Route>
-            <Route path="/test-error" element={<TestErrorPage />} />
-          </Routes>
-          <SnackbarProvider maxSnack={5} autoHideDuration={6000} />
-        </BrowserRouter>
-      </AppFlagsProvider>
+                <Route path="/rcm/claims" element={<Claims />} />
+                <Route path="/rcm/claims/:id" element={<Claim />} />
+                {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
+                <Route path="/tasks" element={<Tasks />} />
+                <Route path="*" element={<Navigate to={'/'} />} />
+              </>
+            )}
+          </Route>
+          <Route path="/test-error" element={<TestErrorPage />} />
+        </Routes>
+        <CommandPaletteRegistrations />
+        <CommandPalette />
+        <SnackbarProvider maxSnack={5} autoHideDuration={6000} />
+      </BrowserRouter>
     </CustomThemeProvider>
   );
 }

@@ -16,7 +16,7 @@ import {
   getEncounterPaymentVariantExtension,
   getPaymentVariantFromEncounter,
   getPhoneNumberForIndividual,
-  getRelatedPersonForPatient,
+  getRelatedPersonsForPatient,
   type HarvestStrategy,
   INSURANCE_PAY_OPTION,
   OCC_MED_EMPLOYER_PAY_OPTION,
@@ -37,7 +37,7 @@ import {
   mergeEncounterAccounts,
   updatePatientAccountFromQuestionnaire,
 } from '../../../ehr/shared/harvest';
-import { getAuth0Token } from '../../../shared';
+import { getAuth0Token, reportMissingUserRelatedPerson } from '../../../shared';
 
 type WithId<T> = T & { id: string };
 
@@ -279,12 +279,20 @@ const consentStrategy: HarvestStrategyHandler = async (ctx) => {
 const erxContactStrategy: HarvestStrategyHandler = async (ctx) => {
   const { patient, oystehr } = ctx;
 
-  const relatedPerson = await getRelatedPersonForPatient(patient.id!, oystehr);
-  if (!relatedPerson || !relatedPerson.id) {
-    console.log(`No RelatedPerson found for patient ${patient.id}, skipping erx-contact harvest`);
-    return 'erx-contact skipped (no RelatedPerson)';
+  const relatedPersons = await getRelatedPersonsForPatient(patient.id!, oystehr);
+  if (!relatedPersons.length) {
+    console.log(`No user-relatedperson for patient ${patient.id}; skipping erx-contact harvest`);
+    reportMissingUserRelatedPerson('sub-harvest-paperwork:erx-contact', patient.id);
+    return 'erx-contact skipped (no user-relatedperson)';
+  }
+  if (relatedPersons.length > 1) {
+    console.log(
+      `Patient ${patient.id} has ${relatedPersons.length} user-relatedpersons; skipping erx-contact harvest (ambiguous login phone)`
+    );
+    return 'erx-contact skipped (ambiguous login phone)';
   }
 
+  const relatedPerson = relatedPersons[0];
   const verifiedPhone = getPhoneNumberForIndividual(relatedPerson);
   if (!verifiedPhone) {
     console.log(`No verified phone number for patient ${patient.id}, skipping erx-contact harvest`);

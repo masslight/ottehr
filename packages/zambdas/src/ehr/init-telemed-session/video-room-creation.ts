@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, RelatedPerson } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import { getRelatedPersonForPatient, getSecret, Secrets, SecretsKeys } from 'utils';
+import { getRelatedPersonsForPatient, getSecret, Secrets, SecretsKeys } from 'utils';
 import { getAuth0Token } from '../../shared';
 import { getPatientFromAppointment } from '../../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../../shared/helpers';
@@ -17,9 +16,9 @@ export const createVideoRoom = async (
   if (!patientId) {
     throw new Error(`Patient id not defined on appointment ${appointment.id}`);
   }
-  const relatedPerson = await getRelatedPersonForPatient(patientId, oystehr);
+  const relatedPersons = await getRelatedPersonsForPatient(patientId, oystehr);
 
-  const updatedEncounter = updateVideoRoomEncounter(currentVideoEncounter, relatedPerson);
+  const updatedEncounter = updateVideoRoomEncounter(currentVideoEncounter, relatedPersons);
   const videoRoomEncounterResource = await execCreateVideoRoomRequest(secrets, updatedEncounter);
 
   return videoRoomEncounterResource as CreateTelemedVideoRoomResponse['encounter'];
@@ -44,39 +43,22 @@ const execCreateVideoRoomRequest = async (
   return responseData.encounter;
 };
 
-const updateVideoRoomEncounter = (
-  encounter: Encounter,
-  relatedPerson?: RelatedPerson,
-  startTime: DateTime = DateTime.now()
-): Encounter => {
-  encounter.status = 'in-progress';
-  const startTimeIso = startTime.toUTC().toISO()!;
-
-  encounter.statusHistory ??= [];
-
-  const previousStatus = encounter.statusHistory?.[encounter.statusHistory?.length - 1];
-  if (previousStatus) {
-    previousStatus.period = {
-      ...previousStatus.period,
-      end: startTimeIso!,
-    };
-  }
-
-  encounter.statusHistory?.push({
-    status: encounter.status,
-    period: {
-      start: startTimeIso!,
-    },
-  });
-
+const updateVideoRoomEncounter = (encounter: Encounter, relatedPersons: RelatedPerson[]): Encounter => {
   encounter.participant ??= [];
 
-  if (relatedPerson) {
-    encounter.participant?.push({
-      individual: {
-        reference: `RelatedPerson/${relatedPerson?.id}`,
-      },
-    });
+  const existingRefs = new Set(
+    encounter.participant.map((p) => p.individual?.reference).filter((r): r is string => !!r)
+  );
+  for (const rp of relatedPersons) {
+    if (!rp.id) {
+      console.warn('Skipping RelatedPerson without id when adding to video encounter participant list');
+      continue;
+    }
+    const ref = `RelatedPerson/${rp.id}`;
+    if (!existingRefs.has(ref)) {
+      encounter.participant.push({ individual: { reference: ref } });
+      existingRefs.add(ref);
+    }
   }
 
   const videoRoomExt = getVideoRoomResourceExtension(encounter);

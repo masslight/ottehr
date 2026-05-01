@@ -17,8 +17,9 @@ export interface UseListTemplatesResult {
   error: Error | null;
 }
 
-export const useListTemplates = (examType: ExamType): UseListTemplatesResult => {
+export const useListTemplates = (examType: ExamType, options?: { enabled?: boolean }): UseListTemplatesResult => {
   const { oystehrZambda } = useApiClients();
+  const enabled = (options?.enabled ?? true) && !!oystehrZambda;
 
   const queryResult = useQuery<ListTemplatesZambdaOutput, Error>({
     queryKey: ['list-templates', examType],
@@ -26,9 +27,9 @@ export const useListTemplates = (examType: ExamType): UseListTemplatesResult => 
       if (!oystehrZambda) {
         throw new Error('API client not available');
       }
-      return await listTemplates(oystehrZambda, { examType });
+      return await listTemplates(oystehrZambda, { examType, includeVersionData: true });
     },
-    enabled: !!oystehrZambda,
+    enabled,
     staleTime: QUERY_STALE_TIME,
   });
 
@@ -39,7 +40,7 @@ export const useListTemplates = (examType: ExamType): UseListTemplatesResult => 
           value: template.title,
           label: template.title,
           id: template.id,
-          isCurrentVersion: template.isCurrentVersion ?? true,
+          isCurrentVersion: template.versionData?.isCurrentVersion ?? true,
         }))
     : [];
 
