@@ -51,6 +51,9 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserParams 
   }
 
   if (selectedRoles) {
+    if (!Array.isArray(selectedRoles) || selectedRoles.length === 0) {
+      throw new Error('At least one role must be selected.');
+    }
     for (const role of selectedRoles) {
       if (!Object.values(RoleType).includes(role))
         throw new Error(
