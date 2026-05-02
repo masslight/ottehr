@@ -1,0 +1,169 @@
+{
+  "schemaVersion": "1.0",
+  "label": "David Chen — 38yo cervical strain after low-speed rear-end MVC",
+
+  "patient": {
+    "firstName": "David",
+    "lastName": "Chen",
+    "dateOfBirth": "1987-12-11",
+    "sex": "male",
+    "email": "david.chen@example.com",
+    "phoneNumber": "+17325550299",
+    "address": {
+      "line1": "144 Linden Drive",
+      "city": "Edison",
+      "state": "NJ",
+      "postalCode": "08820"
+    },
+    "race": "Asian",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "emergencyContact": {
+      "relationship": "Spouse",
+      "firstName": "Lin",
+      "lastName": "Chen",
+      "phone": "+17325550301",
+      "addressAsPatient": true
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Cigna",
+        "memberId": "CIG998877665",
+        "groupNumber": "GRP-CIG-823",
+        "planName": "Cigna Open Access Plus",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Auto accident - low-speed rear-end 2 hours ago, neck pain, mild headache, R hand tingling",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "ready for provider"
+  },
+
+  "template": {
+    "name": "Automobile Accident",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99213", "display": "Office visit, established, low complexity" },
+
+  "history": {
+    "allergies": [],
+    "medications": [],
+    "conditions": [
+      { "code": "I10", "display": "Essential hypertension (borderline, unmedicated, monitored)", "current": true }
+    ],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "screening": [
+      { "field": "tobacco-use", "value": false }
+    ],
+    "screenNotes": [
+      { "code": "internal", "text": "38yo male restrained driver in low-speed rear-end MVC ~2h ago. Airbags did not deploy. No LOC. NEXUS not all met → C-spine X-ray ordered, read negative for fracture/malalignment. Mild C6-C7 paresthesia on right." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 37.0, "unit": "C" },
+    "heartRate": { "value": 82 },
+    "bloodPressure": { "systolic": 138, "diastolic": 86 },
+    "respirationRate": { "value": 16 },
+    "oxygenSaturation": { "value": 99 },
+    "weight": { "value": 84, "unit": "kg" },
+    "height": { "value": 178, "unit": "cm" }
+  },
+
+  "modules": {
+    "radiology": [
+      {
+        "studyName": "X-ray cervical spine, 4-5 views",
+        "cptCode": "72050",
+        "diagnosisCode": "S13.4XXA",
+        "stat": false,
+        "clinicalHistory": "38yo male restrained driver in low-speed rear-end MVC. Posterior cervical paraspinal tenderness, no midline tenderness. Rule out fracture/malalignment.",
+        "consentObtained": true
+      }
+    ]
+  },
+
+  "eligibility": {
+    "plan": "Cigna Open Access Plus",
+    "coverageActive": true,
+    "deductible": { "individual": 2000, "family": 4000, "met": 1100 },
+    "outOfPocketMax": { "individual": 7000, "family": 14000 },
+    "copays": { "officeVisit": 30, "urgentCare": 60, "specialist": 70, "emergencyRoom": 300 },
+    "coinsurancePercent": 20,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99213",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 95,
+        "patientResponsibility": 60,
+        "insuranceResponsibility": 35
+      },
+      {
+        "cpt": "72050",
+        "serviceType": "73",
+        "inNetwork": true,
+        "allowedAmount": 165,
+        "patientResponsibility": 33,
+        "insuranceResponsibility": 132
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "Cigna Open Access Plus",
+    "cptPrices": [
+      { "cpt": "99213", "chargedAmount": 150, "allowedAmount": 95 },
+      { "cpt": "72050", "chargedAmount": 240, "allowedAmount": 165 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [],
+    "patientEducationDocs": [
+      { "topic": "cervical strain", "title": "Caring for a Neck Strain (Whiplash)" }
+    ]
+  },
+
+  "disposition": {
+    "type": "pcp",
+    "text": "Discharge home with PCP follow-up",
+    "note": "Naproxen 500 mg PO BID × 7 days. Cyclobenzaprine 5 mg PO TID prn × 5 days. Ice/heat alternation, gentle ROM. Follow up with PCP in 1 week. Return for worsening neurologic symptoms, severe headache, or new weakness.",
+    "followUpIn": 7,
+    "followUp": []
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

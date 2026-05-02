@@ -1,0 +1,189 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Olivia Bennett — 6yo left forearm laceration with sutures",
+
+  "patient": {
+    "firstName": "Olivia",
+    "lastName": "Bennett",
+    "dateOfBirth": "2020-06-22",
+    "sex": "female",
+    "email": "jessica.bennett@example.com",
+    "phoneNumber": "+16095550117",
+    "address": {
+      "line1": "521 Maple Avenue",
+      "city": "Princeton",
+      "state": "NJ",
+      "postalCode": "08540"
+    },
+    "race": "White",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "primaryCarePhysician": {
+      "firstName": "Amir",
+      "lastName": "Hassan",
+      "practice": "Princeton Family Medicine"
+    },
+    "responsibleParty": {
+      "relationship": "Parent",
+      "firstName": "Jessica",
+      "lastName": "Bennett",
+      "phone": "+16095550117",
+      "email": "jessica.bennett@example.com",
+      "addressAsPatient": true
+    },
+    "emergencyContact": {
+      "relationship": "Parent",
+      "firstName": "David",
+      "lastName": "Bennett",
+      "phone": "+16095550118",
+      "addressAsPatient": true
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signatureName": "Jessica Bennett",
+      "signerRelationship": "Parent/Legal Guardian"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Blue Cross Blue Shield",
+        "memberId": "XBC987654321",
+        "groupNumber": "GRP-BCBS-882",
+        "planName": "BCBS PPO Family",
+        "subscriberRelationship": "child",
+        "subscriberName": "David Bennett",
+        "subscriberDob": "1985-03-14",
+        "subscriberSex": "Male"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Cut to arm or leg - left forearm laceration from scooter fall, 4cm",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "ready"
+  },
+
+  "template": {
+    "name": "Laceration, Face Sutures",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99213", "display": "Office visit, established, low complexity" },
+
+  "history": {
+    "allergies": [],
+    "medications": [],
+    "conditions": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "screening": [],
+    "screenNotes": [
+      { "code": "internal", "text": "6yo female with left volar mid-forearm laceration ~4 cm from scooter fall ~90 min ago. Tetanus UTD (last DTaP age 5). No LOC, no other injuries. Distal NV exam intact." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 37.0, "unit": "C" },
+    "heartRate": { "value": 96 },
+    "bloodPressure": { "systolic": 95, "diastolic": 60 },
+    "respirationRate": { "value": 18 },
+    "oxygenSaturation": { "value": 100 },
+    "weight": { "value": 21, "unit": "kg" }
+  },
+
+  "modules": {
+    "procedures": [
+      {
+        "procedureType": "laceration-repair-simple",
+        "occurrenceDateTime": "2026-04-25T14:15:00Z",
+        "documentedDateTime": "2026-04-25T14:30:00Z",
+        "performerType": "Provider",
+        "bodySite": "Arm",
+        "technique": ["Sterile"],
+        "suppliesUsed": "1% lidocaine, sterile saline, 5-0 nylon suture, bacitracin, gauze dressing",
+        "procedureDetails": "Left volar mid-forearm 4 cm linear laceration anesthetized with 1% lidocaine. Wound irrigated with sterile saline; no foreign body identified. Closed with 4 simple interrupted 5-0 nylon sutures. Bacitracin and dry sterile dressing applied. Patient tolerated well.",
+        "complications": "None",
+        "patientResponse": "Tolerated Well",
+        "timeSpent": "10-20 min",
+        "documentedBy": "Provider",
+        "consentObtained": true,
+        "cptCode": "12002",
+        "diagnosisCode": "S51.812A"
+      }
+    ]
+  },
+
+  "eligibility": {
+    "plan": "BCBS PPO Family",
+    "coverageActive": true,
+    "deductible": { "individual": 1000, "family": 2000, "met": 250 },
+    "outOfPocketMax": { "individual": 5000, "family": 10000 },
+    "copays": { "officeVisit": 25, "urgentCare": 40, "specialist": 50, "emergencyRoom": 200 },
+    "coinsurancePercent": 20,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99213",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 95,
+        "patientResponsibility": 40,
+        "insuranceResponsibility": 55
+      },
+      {
+        "cpt": "12002",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 220,
+        "patientResponsibility": 44,
+        "insuranceResponsibility": 176
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "BCBS PPO Standard",
+    "cptPrices": [
+      { "cpt": "99213", "chargedAmount": 150, "allowedAmount": 95 },
+      { "cpt": "12002", "chargedAmount": 350, "allowedAmount": 220 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [
+      { "text": "Mom called next morning — wound clean, no bleeding, Olivia comfortable.", "authorName": "Demo Admin" }
+    ],
+    "patientEducationDocs": [
+      { "topic": "wound care", "title": "Caring for Your Child's Stitches" }
+    ]
+  },
+
+  "disposition": {
+    "type": "pcp",
+    "text": "Discharge home with PCP follow-up for suture removal",
+    "note": "Discharged home with mother. Wound care instructions reviewed. Return to PCP or urgent care for suture removal in 7-10 days.",
+    "followUpIn": 8,
+    "followUp": []
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

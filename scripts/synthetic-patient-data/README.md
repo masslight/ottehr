@@ -4,6 +4,82 @@ Reference for synthesizing a complete, signed in-person visit in Ottehr by calli
 
 > **Scope.** In-person walk-in urgent-care visits. The output of a synthesis run is a Patient and a fully-completed, signed Encounter with one of every chart-data module element, plus the supporting/preceding resources you'd expect from a real visit produced through the EHR + intake apps.
 
+## How to use it
+
+There's one runner — `synthesize-visit.ts` — and two ways to feed it. Both end with a single CLI invocation that creates a real visit on a target Oystehr project.
+
+### Path 1 — start with a clinical narrative (LLM-assisted)
+
+Best for: turning real-feeling case write-ups into demo data, batch-generating scenarios, exploratory variation. You hand an LLM the narrative plus the Zod schema (`schema.ts`); the LLM emits a scenario JSON that conforms to it; you run that JSON.
+
+The repo ships a 15-patient narrative file at [`examples/urgent-care-narratives.md`](./examples/urgent-care-narratives.md) covering a range of ages and typical UC presentations (8mo otitis through 82yo dementia + UTI). Each derived scenario JSON lives next to it (`examples/maya-carter-otitis.json`, `examples/aiden-thompson-ankle-sprain.json`, …) — those are exactly the artifacts an LLM produced from the narratives, so they double as a worked example of the conversion.
+
+**What you're asking the LLM to do.** Read the narrative for one patient, read the Zod schema (`scripts/synthetic-patient-data/schema.ts`), and emit a JSON object that (a) conforms to the schema, (b) faithfully captures the clinical content of the narrative, and (c) uses one of the existing `examples/*.json` as a shape reference so subtle conventions (FHIR-flavored field names, ICD-10 in `code` and human label in `display`, the `" - "` separator inside `reasonForVisit`, the `targetStatus` enum, etc.) come out right. The LLM is also expected to **dry-run** the result through `synthesize-visit.ts` so any schema-validation failure surfaces immediately, with the exact field path that's wrong, and gets fixed in-loop instead of at execute time.
+
+**Claude Code prompt that works end-to-end.** From inside the repo, run `claude` and paste:
+
+```
+Convert the [Patient N — <Name>, <age>, <chief complaint>] block in
+scripts/synthetic-patient-data/examples/urgent-care-narratives.md to a
+scenario JSON. Conform to the Zod schema at
+scripts/synthetic-patient-data/schema.ts. Use
+scripts/synthetic-patient-data/examples/jane-doe-urgent-care.json as a
+shape reference for field naming and shape (every field the pipeline reads
+appears there). Save the output to
+scripts/synthetic-patient-data/examples/<firstname>-<lastname>-<short-condition>.json
+matching the existing kebab-case naming. Then dry-run the pipeline against
+it (no --execute) and iterate on any Zod validation errors until it parses
+clean. Report the final filename + dry-run summary. Don't run --execute
+until I say so.
+```
+
+Same prompt shape works with a fresh narrative the user pastes inline (replace the `examples/urgent-care-narratives.md` reference with "Here is the narrative: <paste>"). Once the dry-run is clean, follow up with `--execute` to actually create the visit:
+
+```
+Looks good — go ahead and run it with --execute against the synth project
+(packages/zambdas/.env/synth.json).
+```
+
+**Why this works without hallucination.** The Zod schema enforces strict picklist enums, ICD-10 / CPT shapes, the urgent-care `reasonForVisit` allow-list, the `targetStatus` lifecycle states, the `screenNotes.code` enum, etc. Every validation failure prints the exact JSON path that's wrong (e.g., `disposition.followUp.0.type — Invalid enum value. Expected 'dentistry' | 'ent' | …`), so the LLM can correct in one or two passes. Validation runs *before* any zambda call, so a malformed scenario can't pollute the project.
+
+If you don't have Claude Code, the same conversion works in a regular Claude.ai or ChatGPT session — paste the narrative + the contents of `schema.ts` + a known-good example (e.g., `examples/jane-doe-urgent-care.json`) with the prompt "convert to a scenario JSON conforming to this schema, return JSON only," save the response to a file, and run the CLI yourself.
+
+### Path 2 — start with structured JSON
+
+Best for: test fixtures, deterministic CI seed data, hand-tuning a known scenario, copying-and-modifying an existing example. You write (or copy) a scenario JSON directly.
+
+```bash
+# Dry-run first (no FHIR writes; logs every planned zambda call):
+npx env-cmd -f packages/zambdas/.env/<env>.json \
+  npx tsx scripts/synthetic-patient-data/synthesize-visit.ts \
+  scripts/synthetic-patient-data/examples/jane-doe-urgent-care.json
+
+# Execute when ready:
+npx env-cmd -f packages/zambdas/.env/<env>.json \
+  npx tsx scripts/synthetic-patient-data/synthesize-visit.ts \
+  scripts/synthetic-patient-data/examples/jane-doe-urgent-care.json --execute
+```
+
+[`examples/jane-doe-urgent-care.json`](./examples/jane-doe-urgent-care.json) is the canonical demo — every field used by the pipeline is present and commented-by-example. Copy it, tweak the patient + visit + history fields, and you have a new scenario.
+
+### Either way, what happens on `--execute`
+
+The script validates the JSON, then walks a fixed pipeline against the target project: prerequisite lookups → create slot + appointment → fill the intake QR (uploads ID + insurance images to Z3 along the way) → assign attending → save chart data → apply a global template for the visit narrative → place orders (in-house meds, in-house labs, immunizations, radiology) → set up a synthetic eligibility check + charge-master entries → walk the visit-status lifecycle → sign-off (locks the visit). Reruns are idempotent on Patient (same scenario reuses the same Jane Doe across visits), and a `--orphan-cleanup` flag on `cleanup-synth-patient.ts` mops up any partially-created visits left by failed runs.
+
+### How EHR project preconditions are handled
+
+Some catalog data the pipeline depends on is **created by synth on-demand**; some **must already exist on the target project** (one-time bootstrap); some is **silently skipped if absent** (visit still completes, warning logged). Knowing which is which lets you predict whether a fresh project will work end-to-end and what failures mean when they happen.
+
+| Bucket | Examples | What synth does | Where it's bootstrapped |
+| --- | --- | --- | --- |
+| **Created on-demand by synth** (idempotent) | Charge master + fee schedule + per-CPT prices for the payer; `CoverageEligibilityRequest` + `CoverageEligibilityResponse` with realistic copay/deductible/OOP-max benefits; payer `Organization.telecom` backfill; `Coverage.class` plan/group entries | Phase 10. Searches by name/tag for existing entries; creates if missing, adds missing CPT codes to existing CMs/FSs, supersedes prior CERs so the newest wins. Reruns are no-ops on the catalog side. | n/a — synth owns these |
+| **Must exist** (loud failure if missing) | Global templates (`scenario.template.name`); payer Organizations matching `scenario.patient.insurance.primary.carrier` (with the Candid `XX` payer-id identifier the harvest needs); Demo Admin Practitioner with role assignments; Locations + Schedules | Phase 0 verifies each by FHIR search. A missing template throws `"template X not found"`; a missing payer Org throws with bootstrap-script guidance; a missing practitioner fails attending assignment. | One-time per project: `create-demo-user.ts`, `copy-templates.ts`, `copy-payer-organizations.ts` (Locations + Schedules are IaC). See §1.7. |
+| **Silently skipped if absent** (warning, visit still completes) | In-house Medications (formulary lookup by name); in-house lab tests (encounter catalog lookup); vaccines (Medication catalog lookup) | The orders module logs a warning like `"medication X not found in formulary — skipping order"` and continues. The visit signs off without those orders attached. | One-time per project: `copy-medications.ts --also-create '<med spec>'` for the specific meds your scenarios reference. The default copy doesn't seed every common UC drug. |
+
+**Why this split.** Templates and payers are reference data the EHR ships and curates — they're a project-level dependency, and the synth pipeline shouldn't fabricate them (a fake "Aetna" Organization without a real Candid payer-id would silently break the harvest's account-coverage handler). Charge masters and fee schedules, on the other hand, are RCM demo data the synth pipeline is the only consumer of, so it's safe to create-and-own them automatically. The "silently skipped" tier exists because forgetting to seed Ondansetron in the formulary shouldn't kill a 17-phase visit run that doesn't otherwise need it.
+
+**Diagnosing a fresh-project failure.** First synth run on a new project, in order: if it dies in Phase 0 with `"template X not found"` or `"Payer Organization not found"`, run the bootstrap scripts in §1.7. If the first signed visit looks fine but specific in-house orders are missing, look for `⚠ … not found … skipping` lines in the output and add the catalog entries via `copy-medications` / `copy-templates` as needed. Charge-master / eligibility data appears automatically once the rest is in place.
+
 The synthesizer drives the same backend code paths the EHR and intake apps use, so the resulting record is structurally identical to one a real provider would produce.
 
 A central simplification: most of the visit narrative — Chief Complaint, HPI, Mechanism of Injury, ROS (structured), exam findings, Medical Decision-Making, Diagnoses, CPT, E&M, and patient instructions — comes from a **global template** applied with one zambda call. The script only writes patient-specific data (vitals, allergies, history, etc.) and orchestration around the template.
@@ -11,6 +87,9 @@ A central simplification: most of the visit narrative — Chief Complaint, HPI, 
 ---
 
 ## Table of contents
+
+- [How to use it (quickstart)](#how-to-use-it)
+  - [How EHR project preconditions are handled](#how-ehr-project-preconditions-are-handled)
 
 1. [Setup and conventions](#1-setup-and-conventions)
 2. [The visit lifecycle](#2-the-visit-lifecycle)
@@ -120,7 +199,63 @@ All examples in this doc target the same patient and visit:
 
 The bulk of the visit narrative — chief complaint, HPI, ROS structure, exam findings, MDM, diagnoses, CPT/E&M, instructions — comes from a global template named (for this example) `'URI Walk-in Standard'`. The remaining patient-specific data is set explicitly.
 
-### 1.7 Idempotency
+### 1.7 One-time bootstrap of a fresh project
+
+A brand-new Oystehr project doesn't have the catalog data the synthesizer
+expects. Run these helpers once per project, in order, before invoking
+`synthesize-visit.ts`:
+
+```bash
+# 1. Provision a demo Administrator user (creates the role-assigned
+#    Practitioner the synth pipeline attributes work to).
+npx env-cmd -f packages/zambdas/.env/<env>.json \
+  npx tsx scripts/synthetic-patient-data/create-demo-user.ts --execute
+
+# 2. Copy the global-template catalog from a known-good source project
+#    (typically demo).
+npx env-cmd -f packages/zambdas/.env/<env>.json \
+  npx tsx scripts/synthetic-patient-data/copy-templates.ts \
+  --source-env packages/zambdas/.env/demo.json \
+  --dest-env  packages/zambdas/.env/<env>.json \
+  --execute
+
+# 3. Copy the in-house formulary.
+npx env-cmd -f packages/zambdas/.env/<env>.json \
+  npx tsx scripts/synthetic-patient-data/copy-medications.ts \
+  --source-env packages/zambdas/.env/demo.json \
+  --dest-env  packages/zambdas/.env/<env>.json \
+  --also-create 'Ibuprofen 400mg Tablet PO=tablet=PO=400=mg' \
+  --execute
+
+# 4. Add ERX coding to any inventory Medications that lack it (always needed
+#    if `--also-create` was used in step 3; idempotent on already-patched
+#    meds).
+npx env-cmd -f packages/zambdas/.env/<env>.json \
+  npx tsx scripts/synthetic-patient-data/patch-medication-erx.ts --execute
+
+# 5. Copy a curated sample of payer Organizations from the source project so
+#    the intake QR harvest can build Coverage from real Candid payer-id
+#    identifiers. A fresh project's Organization catalog rarely seeds
+#    insurance carriers; without this step the synth pipeline aborts in
+#    Phase 0 with "Payer Organization not found".
+npx tsx scripts/synthetic-patient-data/copy-payer-organizations.ts \
+  --source-env packages/zambdas/.env/demo.json \
+  --dest-env  packages/zambdas/.env/<env>.json \
+  --execute
+```
+
+After this, the project has: a role-assigned Practitioner; templates indexed
+under the global-template holder list; an in-house formulary with valid
+ERX coding for the administer-status transition; a curated set of payer
+Organizations with valid Candid identifiers for the harvest's Coverage
+creation; and (assuming the project already has IaC-provisioned
+Locations/Schedules) the full set of dependencies the synth pipeline needs.
+
+External-system integrations (DoseSpot, AdvaPACS, Stripe) are NOT bootstrapped
+by these scripts — the corresponding modules in synth scenarios should be
+omitted unless those integrations are configured. See §8.
+
+### 1.8 Idempotency
 
 **Zambdas are not idempotent.** Calling `save-chart-data` twice with the same input creates duplicates unless you pass each chart-data row's prior `resourceId`. `apply-template` *does* delete and rewrite the modules it owns each time it's called (so re-applying a template is non-destructive to other chart-data and produces a clean state for the templated modules).
 
@@ -146,6 +281,10 @@ arrived → ready → intake → ready for provider → provider → discharged 
 ```
 
 Each transition is driven by a `change-in-person-visit-status` zambda call, which patches Appointment.status, Encounter.status, statusHistory entries, and the practitioner participant periods.
+
+> **Synth note: targeting an intermediate state.** Scenarios can set `visit.targetStatus` (default `'completed'`) to any of `'pending' | 'arrived' | 'ready' | 'intake' | 'ready for provider' | 'provider' | 'discharged' | 'completed'`. The synth pipeline truncates the Phase 13 walk at the named state and skips Phase 14 sign-off when target ≠ `'completed'` (visit stays unlocked, no `APPOINTMENT_LOCKED` tag). Useful for distributing demo patients across the EHR's pre-booked / waiting-room / in-exam / discharged tabs.
+>
+> The clinical phases (3–12: chart data, template, orders, eligibility, etc.) ALWAYS run regardless of `targetStatus`. The chart can be fully populated even on early-lifecycle visits — this mirrors real EHR workflow, where intake nurses enter vitals while the provider is still away. The target only controls dashboard placement, not chart contents.
 
 ### 2.2 Creating the appointment (start of the lifecycle)
 
@@ -335,7 +474,7 @@ const schedules = await oystehr.fhir.search<Schedule>({
 });
 ```
 
-#### Attending Practitioner (must have NPI)
+#### Attending Practitioner (must have NPI **and an EHR role assignment**)
 
 ```ts
 const providers = await oystehr.fhir.search<Practitioner>({
@@ -349,6 +488,27 @@ const providers = await oystehr.fhir.search<Practitioner>({
 const provider = pickRandom(providers.unbundle());
 ```
 
+> ⚠ **Practitioners must also have an Auth0/Oystehr IAM role assignment**
+> (e.g. `Provider`, `Administrator`) for the EHR's role-assignment dropdowns
+> to recognize them. The Header's intake-staff and attending Selects fetch
+> their option list from the `get-employees` zambda, which returns only
+> Practitioners that are members of an active EHR role. Picking a
+> Practitioner by FHIR alone — even one with NPI and an active flag — yields
+> a chart whose Plan tab is full of MUI "out-of-range value" warnings and
+> whose role assignments don't render.
+>
+> The synthesizer should call `get-employees` to learn the role-assigned set
+> and either (a) pick from it directly when no name is specified, or (b)
+> verify the named Practitioner is in the set and fall back to a role-assigned
+> ID with a warning when not. See `phase0_lookups` in
+> `scripts/synthetic-patient-data/synthesize-visit.ts` for the reference
+> implementation.
+>
+> A fresh synth project typically only has the demo admin user as a
+> role-assigned Practitioner. To get realistic provider names, assign the
+> Provider role to additional users via the Oystehr console, or invite new
+> ones with `create-demo-user.ts`.
+
 #### Intake-staff Practitioner
 
 ```ts
@@ -361,6 +521,11 @@ const intakeStaff = await oystehr.fhir.search<Practitioner>({
   ],
 });
 ```
+
+Same role-membership constraint as the attending — pick a Practitioner that
+also has an EHR role assignment. If the project has only one role-assigned
+Practitioner, reuse the same ID for both intake and attending; the EHR
+accepts that and it matches the small-clinic case.
 
 #### Payer Organization (insured patients)
 
@@ -713,7 +878,56 @@ await oystehr.zambda.execute({
 
 ## 7. Per-module synthesis (what templates don't carry)
 
-This section covers everything `apply-template` does **not** handle — the patient-specific chart data, multi-resource workflows, and visit infrastructure. Most of it goes through one big `save-chart-data` call (§7.1); a handful of modules have dedicated zambdas (in-house meds, in-house labs, immunizations, radiology).
+This section covers everything `apply-template` does **not** handle — the patient-specific chart data, multi-resource workflows, and visit infrastructure. Most of it goes through one big `save-chart-data` call (§7.1); a handful of modules have dedicated zambdas (in-house meds, in-house labs, immunizations, radiology); and the entire registration / billing record is populated by §7.0 (intake QR + harvest).
+
+### 7.0 Intake QR + harvest (drives Patient demographics, Coverage, RelatedPerson, Consent, DocumentReference)
+
+Almost every field on the EHR Visit Details panel — full address, race / ethnicity / pronouns, preferred language, insurance carrier + member ID, responsible party, emergency contact, signed consent forms, ID/insurance card uploads — is *not* in chart-data. It's populated by Ottehr's intake QuestionnaireResponse harvest.
+
+**Architecture.** `create-appointment` (§2.2) creates an empty intake QR. The patient app (`apps/intake/`) calls `patch-paperwork` once per intake page with that page's answers. Each `patch-paperwork` call creates a Task, which fires the `sub-harvest-paperwork-page` Task subscription, which runs the page-specific harvest handler:
+
+| QR page | Harvest handler(s) | Resources written |
+| --- | --- | --- |
+| `contact-information-page` | master-record, erx-contact | `Patient` (name, address, telecom, birthDate, gender) |
+| `patient-details-page` | master-record | `Patient.extension` (race, ethnicity, pronouns, language) |
+| `primary-care-physician-page` | master-record | `Patient.extension` (PCP) |
+| `pharmacy-page` | pharmacy | `Patient.extension` (preferred pharmacy) |
+| `payment-option-page` | account-coverage, payment-variant, documents | `Coverage` + `RelatedPerson` + `Account.coverage[]` + `Encounter.account` + `Encounter.extension['payment-variant']` + DocumentReference for insurance cards |
+| `responsible-party-page` | account-coverage | `Account.guarantor` |
+| `emergency-contact-page` | account-coverage | `RelatedPerson` (or `Patient.contact[]`) |
+| `photo-id-page` | documents | `DocumentReference` for ID front/back |
+| `consent-forms-page` | consent | `Consent` resources + `DocumentReference` (signed consent PDFs) |
+
+`patch-paperwork` on the *consent-forms-page* additionally flips the QR to `status: 'completed'`, which fires `sub-intake-harvest` (the QR subscription) for finalization (Stripe customer sync, Appointment harvesting tag).
+
+**Why drive this through patch-paperwork instead of writing FHIR directly.** It exercises the same code paths as a real patient intake. Any change to the harvest handlers, intake schema, validators, or Coverage shape is automatically picked up on the next synth run — no need to track them separately. See `phase1_5_intakePaperwork` in `synthesize-visit.ts`.
+
+**Pages submitted in QR-item order; consent-forms-page MUST be last** (it's what flips the QR to completed and fires the final harvest).
+
+**Photo ID + insurance card uploads.** The synth pipeline reads sample images from a `fixtures/` directory next to the example scenarios, uploads each to Z3 via `get-presigned-file-url` + a PUT to the returned signed URL, and threads the resulting Z3 URLs into the QR as `valueAttachment` answers on `photo-id-front` / `photo-id-back` (photo-id-page) and `insurance-card-front` / `insurance-card-back` (payment-option-page). The harvest's `documents` strategy then creates DocumentReferences against those Z3 attachments, just as it does for a real patient submission.
+
+> ⚠ **`attachment.title` must equal a `DocumentType` enum value** (machine key like `'photo-id-front'`, `'insurance-card-back'`, etc. — see `packages/utils/lib/types/data/documents/index.ts`), NOT a friendly display string like `"Photo ID front"`. The EHR's `get-visit-files` zambda filters DRs whose title isn't in the enum and silently skips them, so display-style titles cause the visit-detail panel to render empty even though the DocumentReferences exist in FHIR with correct types, subjects, and Lists. The linkId and the enum value are intentionally identical, so passing the linkId verbatim as the title is the right move.
+
+The fixture paths are declared in the scenario JSON under `patient.fixtures` and resolved relative to the scenario file:
+
+```json
+{
+  "patient": {
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    }
+  }
+}
+```
+
+The repo ships with sample images at `scripts/synthetic-patient-data/fixtures/` (sample driver's license + insurance card, front and back). Adding new scenarios can either reference those or supply their own images. Missing fixture files are warned about but don't fail the run — the rest of the harvest proceeds and the corresponding DocumentReference is just skipped.
+
+**Required project bootstrap:** payer Organizations must exist on the project (with a Candid `XX` payer-id identifier), or the harvest's `account-coverage` Task fails silently with `statusReason.code: "{}"` and no Coverage is written. A fresh project's Organization catalog rarely includes insurance carriers — run `copy-payer-organizations.ts` once per project to copy a curated sample from a source environment. The synthesizer's Phase 0 throws if the carrier named in the scenario doesn't match any existing payer.
+
+**Scenario JSON shape** — see `PatientSchema` in `schema.ts`. Defaults are sensible (consents auto-true, signature derived from patient name, responsibleParty defaults to "Self"); the only field worth always populating is `emergencyContact`, since the EHR shows a blank panel without it.
 
 ### 7.1 The save-chart-data zambda
 
@@ -784,12 +998,14 @@ The remaining subsections below show the realistic Jane Doe payload per module.
       code:     '1191',
       system:   'https://terminology.fhir.oystehr.com/CodeSystem/medispan-allergen-id',
       severity: 'severe',
+      current:  true,                                            // see note below
       note:     'Anaphylaxis as a child — carries epinephrine auto-injector',
     },
     {
       name:     'Shellfish',
       system:   'https://terminology.fhir.oystehr.com/CodeSystem/other-allergy',
       category: 'food',
+      current:  true,
     },
   ],
   notes: [
@@ -799,6 +1015,13 @@ The remaining subsections below show the realistic Jane Doe payload per module.
 ```
 
 The free-text "Notes" field on the Allergies screen is captured via the `notes` array (system `css-note`).
+
+**`current` defaults to `true` in the synthesizer.** The `save-chart-data` zambda
+maps `current: true` → `clinicalStatus: active`. If `current` is not sent, the
+zambda creates the AllergyIntolerance with no `clinicalStatus`, which the EHR
+reads back as **inactive** (showing "Inactive now" in gray). Only set
+`current: false` when the scenario narrative explicitly says the allergy
+resolved or is no longer active.
 
 ### 7.3 Medication history
 
@@ -849,22 +1072,44 @@ The actual `MedicationDTO` shape required by `save-chart-data` is **not** what t
 
 ### 7.5 Hospitalization (past inpatient stays)
 
+The Hospitalization form on the EHR is a **picklist** (SNOMED-CT codes). Free
+text is not allowed — `display` must match a picklist label, and `code` must
+be the matching SNOMED code from
+`apps/ehr/src/features/visits/in-person/components/hospitalization/hospitalizationOptions.ts`
+(e.g. `233604007` = Pneumonia, `74400008` = Appendicitis, `39579001` =
+Anaphylaxis). For a hospitalization that doesn't fit any picklist option, use
+display `Other` (with the appropriate "Other" code from the options file).
+
+Date, year, hospital name, etc. don't fit in `display` — put them in a
+`notes` entry of type `hospitalization`:
+
 ```ts
 {
   episodeOfCare: [
-    { display: 'Pneumonia, hospitalized 2023' },
+    { code: '233604007', display: 'Pneumonia' },
+  ],
+  notes: [
+    { code: 'hospitalization', text: 'Hospitalized for pneumonia in 2023; recovered without complication.' },
   ],
 }
 ```
 
 ### 7.6 Surgical History
 
+Like hospitalizations, the Surgical History form is a **picklist** (CPT codes).
+`display` must match a picklist label and `code` must be the matching CPT code
+from
+`apps/ehr/src/features/visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions.ts`
+(e.g. `44950` = Appendectomy, `42830` = Adenoidectomy, `47600` = Gallbladder
+removal). Use `Other` (code `41899`) for surgeries that aren't on the list.
+Date / context / details belong in `surgicalHistoryNote`, not in `display`:
+
 ```ts
 {
   surgicalHistory: [
-    { display: 'Appendectomy, 2018' },
+    { code: '44950', display: 'Appendectomy' },
   ],
-  surgicalHistoryNote: { text: 'Tonsillectomy planned 2019, cancelled.' },
+  surgicalHistoryNote: { text: 'Appendectomy 2018. Tonsillectomy planned 2019, cancelled.' },
 }
 ```
 
@@ -923,16 +1168,16 @@ The Procedures screen captures procedures performed *during this visit* with ric
     procedureType:    'throat-swab-collection',
     occurrenceDateTime: '2026-04-25T14:25:00Z',
     documentedDateTime: '2026-04-25T14:30:00Z',
-    performerType:    'Provider',
-    bodySite:         'pharynx',
-    technique:        ['swabbing'],
+    performerType:    'Provider',                               // 'Healthcare staff' | 'Provider' | 'Both'
+    bodySite:         'Other',                                  // see picklist below
+    technique:        ['Clean'],                                // asepsis technique only
     suppliesUsed:     'Sterile swab',
     procedureDetails: 'Throat swab obtained from posterior pharynx with sterile swab.',
     specimenSent:     true,
-    complications:    'None',
-    patientResponse:  'Tolerated procedure well',
-    timeSpent:        '2 minutes',
-    documentedBy:     'Provider',
+    complications:    'None',                                   // see picklist below
+    patientResponse:  'Tolerated Well',                         // exact picklist value
+    timeSpent:        '< 5 min',                                // bucket only — no free-text minutes
+    documentedBy:     'Provider',                               // 'Provider' | 'Healthcare staff'
     consentObtained:  true,
     diagnoses:        [{ resourceId: '<diagnosis-condition-id-from-template>' }],
     cptCodes:         [{ resourceId: '<cpt-procedure-id-from-template>' }],
@@ -940,22 +1185,95 @@ The Procedures screen captures procedures performed *during this visit* with ric
 }
 ```
 
-The `diagnoses` and `cptCodes` arrays cross-reference Conditions and CPT Procedures created **by the template** (`apply-template` returns the new ids in its response). Capture them when calling apply-template and reference them here.
+**Procedure dropdowns are strict picklists.** The EHR Procedures screen renders
+each as a MUI `Select` / `Autocomplete` and warns "out-of-range value" if the
+saved value doesn't match exactly. The valid sets:
+
+| Field | Valid values |
+|---|---|
+| `performerType` | `Healthcare staff`, `Provider`, `Both` |
+| `documentedBy` | `Provider`, `Healthcare staff` |
+| `bodySite` | `Head`, `Face`, `Arm`, `Leg`, `Torso`, `Genital`, `Ear`, `Nose`, `Eye`, `Other` |
+| `technique` (array) | `Sterile`, `Clean`, `Aseptic`, `Field` — *asepsis level only*, NOT the procedure motion. A throat swab is `Clean`, not `swabbing`. |
+| `complications` | `None`, `Bleeding`, `Incomplete Removal`, `Allergic Reaction`, `Other` |
+| `patientResponse` | `Tolerated Well`, `Mild Distress`, `Severe Distress`, `Improved`, `Stable`, `Worsened` |
+| `timeSpent` | `< 5 min`, `5-10 min`, `10-20 min`, `20-30 min`, `> 30 min` (bucketed — don't write `2 minutes`) |
+
+Source: `apps/ehr/src/features/visits/in-person/pages/ProceduresNew.tsx` and
+the `procedure-*.json` ValueSet files in `config/oystehr/`.
+
+The `diagnoses` and `cptCodes` arrays cross-reference Conditions and CPT
+Procedures created **by the template** (`apply-template` returns the new ids
+in its response). Capture them when calling apply-template and reference them
+here.
+
+### 7.10.5 E&M code (Evaluation & Management billing)
+
+The visit's E&M CPT code (e.g. `99213` for an established-patient office
+visit, low complexity) is *not* carried by templates — even though the
+template covers visit narrative, exam findings, and procedure CPTs. Synth
+must supply it explicitly.
+
+```ts
+{
+  emCode: { code: '99213', display: 'Office visit, established, low complexity' },
+}
+```
+
+`save-chart-data` accepts `emCode: CPTCodeDTO` (`{ code, display, resourceId? }`)
+on the top-level chart payload. The zambda creates a `Procedure` resource
+tagged with system `em-code` (separate from regular billable CPTs, which use
+the `cpt-code` tag). The EHR's Assessment / Billing tab queries Procedures by
+that tag to render the E&M line.
+
+Send `emCode` in Pass 2 alongside disposition — both depend on the template's
+diagnoses already existing on the encounter.
 
 ### 7.11 Disposition / follow-up
 
 The `disposition` payload produces three coordinated changes: a parent `ServiceRequest`, sub-follow-up `ServiceRequest`s, and a patch to `Encounter.hospitalization.dischargeDisposition`. None fit in templates (`ServiceRequest` isn't a templated type).
 
+**`disposition.type` is a strict enum.** Valid values come from `DispositionType`
+in `packages/utils/lib/types/api/chart-data/chart-data.types.ts`:
+
+| Value | EHR label | Use for |
+|---|---|---|
+| `pcp` | Primary Care Physician | Routine discharge home with PCP follow-up |
+| `pcp-no-type` | Primary Care Physician | PCP follow-up without specialty referrals |
+| `ed` | ED Transfer | Send to emergency department |
+| `ip` | Ottehr IP Transfer | Inpatient transfer (in-network) |
+| `ip-oth` | Non-Ottehr IP Transfer | Inpatient transfer (out-of-network) |
+| `ip-lab` | Ottehr IP Lab | Send-out lab + IP transfer |
+| `specialty` | Specialty Transfer | Outpatient specialty referral |
+| `another` | Transfer to Another Location | Other transfer reason |
+
+**`disposition.followUp[].type` is a separate enum** for *specialty referral
+checkboxes only* — it does NOT include "primary-care". Valid values come from
+`dispositionCheckboxOptions` in `packages/utils/lib/fhir/disposition.ts`:
+`dentistry`, `ent`, `ophthalmology`, `orthopedics`, `other`, `lurie-ct`.
+
+**For PCP follow-up, use the top-level `followUpIn` field (number of days),
+not a `followUp[]` entry:**
+
 ```ts
 {
   disposition: {
-    type: 'home',
-    text: 'Discharge home',
-    note: 'Patient stable for discharge.',
-    followUp: [{ type: 'primary-care', note: 'Follow up with PCP if no improvement in 5 days' }],
+    type:       'pcp',
+    text:       'Discharge home with PCP follow-up',
+    note:       'Patient stable for discharge. Follow up with PCP if no improvement in 5 days.',
+    followUpIn: 5,                                              // PCP / visit follow-up window in days
+    followUp: [
+      { type: 'ent', note: 'Refer to ENT if symptoms persist beyond 7 days' },
+    ],
   },
 }
 ```
+
+> ⚠ Sending `disposition.type: 'home'` (a previously-documented value) will
+> render the visit but **crashes the EHR Care Plan tab** in older builds —
+> `mapDispositionToForm` does `dispositionFieldsPerType[type].includes(...)`
+> and throws on the undefined lookup. The EHR has been hardened to fall back
+> to `[]` when the type is unknown, but use a valid type either way.
 
 ### 7.12 Per-screen free-text Notes (css-note)
 
@@ -1002,6 +1320,26 @@ Visit-specific extensions:
 
 Note `reasonForVisit` takes `{ text: string }`, not a plain string. `updateEncounterReasonForVisit` reads `data.text`; passing a string makes it `undefined` and the resulting Encounter extension has neither a value nor children, violating FHIR's `ext-1` constraint.
 
+> ⚠ **Don't combine multiple extension fields in a single save-chart-data
+> call against a brand-new Encounter.** Each extension-field handler in
+> `save-chart-data` (`updateEncounterPatientInfoConfirmed`,
+> `updateEncounterReasonForVisit`, `updateEncounterAddToVisitNote`,
+> `updateEncounterAddendumNote`) emits its own `add /extension []` JSON-Patch
+> op when `encounter.extension` is undefined — and a transaction with two of
+> those `add` ops applied in order means the second clobbers the array the
+> first one populated. The first extension is silently lost.
+>
+> **Workaround:** send `reasonForVisit` in Pass 1 (alongside the rest of the
+> chart-data history) and send `patientInfoConfirmed` / `addendumNote` /
+> `addToVisitNote` in Pass 2, by which point the Encounter already has an
+> `extension` array from Pass 1's reasonForVisit. The synthesizer
+> (`synthesize-visit.ts`) does this — see the comment in `phase3_saveChartDataPass1`.
+>
+> An "I verified the patient's name and DOB" checkbox left unchecked on every
+> signed visit is the visible symptom: the synth was silently losing
+> `patient-info-confirmed` because reasonForVisit's array-add overwrote it
+> on the brand-new Encounter.
+
 ### 7.14 Documents and DocumentReferences
 
 For most attachments — insurance card photos, photo ID, signed consent PDFs — the synthesizer:
@@ -1014,26 +1352,64 @@ For the **visit-note PDF**, sign-off (§3) triggers a subscription that generate
 
 ### 7.15 In-house medications
 
+The `create-update-medication-order` zambda has three quirks worth knowing
+before you call it:
+
+1. **Validator/builder field-name mismatch.** The validator requires
+   `orderData.encounter` (without the `Id` suffix) but the FHIR resource
+   builder reads `orderData.encounterId`. Send **both** to get a properly
+   linked `MedicationAdministration` + `MedicationRequest`. Sending only one
+   passes validation but produces orphaned resources that the EHR's
+   encounter-context search misses entirely.
+
+2. **`newStatus` is ignored on creation.** A first call with `orderData` only
+   creates the order in `pending` status regardless of `newStatus`. To end up
+   `administered`, make a **second call** with the returned `orderId` plus
+   `newStatus: 'administered'`.
+
+3. **Administering requires ERX coding on the Medication.** The administer
+   step creates a `MedicationStatement` whose code copies a coding with
+   system `https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id`
+   from the Medication. If the Medication catalog entry was created via
+   `copy-medications.ts --also-create '...'` (a stub), it has no ERX coding
+   and the administer call returns code `4340`. Run `patch-medication-erx.ts`
+   once on the project to add a synthetic dispensable-drug-id to every
+   inventory medication that's missing one.
+
 ```ts
-const order = await oystehr.zambda.execute({
+// Step 1 — create order (always lands in `pending`)
+const orderData = {
+  patient:           patientId,
+  encounter:         encounterId,                                // validator reads this
+  encounterId,                                                   // FHIR resource builder reads this
+  providerId:        config.provider.id,                         // becomes the "ordered by" performer
+  medicationId:      ibuprofenMedicationId,
+  dose:              400,                                        // Number, not string
+  units:             'mg',
+  route:             '26643006',                                 // SNOMED Oral (PO)
+  effectiveDateTime: '2026-04-25T14:50:00Z',
+};
+const created = await oystehr.zambda.execute({
   id: 'create-update-medication-order',
   orderId: null,
+  orderData,
+});
+const orderId = created.id;
+
+// Step 2 — transition to administered
+await oystehr.zambda.execute({
+  id: 'create-update-medication-order',
+  orderId,
   newStatus: 'administered',
-  orderData: {
-    patient:           patientId,
-    encounterId,
-    medicationId:      'ibuprofen-400mg',
-    dose:              400,
-    units:             'mg',
-    route:             '26643006',        // SNOMED Oral
-    effectiveDateTime: '2026-04-25T14:50:00Z',
-    orderingProviderId: config.provider.id,
-    administeringProviderId: config.intakeStaff.id,
-    reason: 'Pyrexia and pharyngeal pain',
-    reasonReference: [{ resourceId: '<diagnosis-id-from-template>' }],
-  },
+  orderData,
 });
 ```
+
+The display in the EHR ("In-House Medications" container on the Plan tab)
+queries `MedicationAdministration` filtered by tag
+`MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE` and `context=Encounter/{id}`,
+revincluding `MedicationStatement:part-of`. All three need to be linked for
+the order to appear.
 
 ### 7.16 Immunizations
 
@@ -1115,38 +1491,61 @@ await oystehr.zambda.execute({
 
 ### 7.18 Radiology
 
+> ⚠ **Radiology requires AdvaPACS credentials in the project secrets
+> (`ADVAPACS_CLIENT_ID`, `ADVAPACS_CLIENT_SECRET`).** Without them, no
+> radiology order will appear in the EHR even though the synthesizer reports
+> success. Skip this phase in projects that don't have PACS configured.
+
+The `radiology-create-order` zambda creates the local `ServiceRequest` first,
+then forwards the order to AdvaPACS in a try/catch. If the AdvaPACS call
+fails for *any* reason — missing secrets, wrong creds, network error — the
+zambda silently calls `rollbackOurServiceRequest` which **deletes the local
+SR**, and then returns 200 with the now-stale `serviceRequestId`:
+
 ```ts
-const order = await oystehr.zambda.execute({
-  id: 'radiology/create-order',
-  encounterId,
-  procedureCode: '71046',           // CPT
-  modality:      'DX',              // DICOM
-  reasonCode:    [{ code: 'R05', system: 'http://hl7.org/fhir/sid/icd-10', display: 'Cough' }],
-  priority:      'routine',
-  clinicalHistory: 'Sore throat with cervical adenopathy; rule out infectious source',
-  notes: '',
-});
-
-await oystehr.zambda.execute({
-  id: 'radiology/save-preliminary-report',
-  serviceRequestId: order.serviceRequestId,
-  conclusion: 'No acute cardiopulmonary process. Heart size normal. Lungs clear.',
-  reportData: '<base64 HTML report>',
-});
-
-await oystehr.zambda.execute({
-  id: 'radiology/send-for-final-read',
-  serviceRequestId: order.serviceRequestId,
-});
+// packages/zambdas/src/ehr/radiology/create-order/index.ts (~line 122)
+const ourServiceRequest = await writeOurServiceRequest(...);
+const cptCodeDTO        = await writeOurProcedure(...);
+try {
+  await writeAdvaPacsTransaction(...);
+} catch (error) {
+  captureException(error);
+  await rollbackOurServiceRequest(ourServiceRequest, oystehr);   // ← deletes the SR
+}
+return { serviceRequestId: ourServiceRequest.id, cptCodesSaved };
 ```
 
-`radiology/launch-viewer` requires a real AdvaPACS connection and will fail with a synthesized accession. Acceptable — every other UI element renders correctly.
+The synth project (`673512f8-…`) does not have AdvaPACS configured, so the
+canonical `jane-doe-urgent-care.json` scenario omits the `radiology` module
+entirely. Adding it back will surface no order in the EHR but will succeed at
+the script level — easy to mistake for a working state.
+
+**To synthesize radiology orders in a project that has AdvaPACS:**
+
+```ts
+const order = await oystehr.zambda.execute({
+  id: 'radiology-create-order',                                  // hyphens, not slashes
+  encounterId,
+  cptCode: { code: '71046', system: 'http://www.ama-assn.org/go/cpt' },
+  diagnosis: { code: 'R05.9', system: 'http://hl7.org/fhir/sid/icd-10', display: 'Cough, unspecified' },
+  stat: false,
+  clinicalHistory: 'Sore throat with cervical adenopathy; rule out infectious source',
+  consentObtained: true,
+  studyName: 'Chest X-ray, 2 views',
+});
+
+// Verify the SR actually persisted before reporting success — see
+// scripts/synthetic-patient-data/inspect-orders.ts.
+```
+
+`radiology-launch-viewer` requires a real AdvaPACS connection and a real
+accession; not exercised in synth.
 
 ### 7.19 Coverage and Account (insured patients)
 
-For walk-in urgent-care, `create-appointment` (§2.2) creates the Account. If the patient indicates insurance during intake, the harvest flow creates the Coverage; if self-pay, no Coverage is created.
+> **Prefer §7.0** — the synth pipeline writes Coverage / Account / RelatedPerson via the intake QR harvest path (drive `patch-paperwork` per page, then the `consent-forms-page` patch flips the QR to `completed` and the harvest creates everything). The direct-FHIR approach below is documented for one-off scripts that need to bypass the harvest, but should not be used by the main synthesis pipeline — driving the harvest exercises the same validators and side effects (Coverage.payor with proper Candid payer-id, Account.coverage[].priority ordering, Encounter.extension['payment-variant']) that production traffic does.
 
-For pure synthesis, create the Coverage directly:
+For pure synthesis without the harvest, create the Coverage directly:
 
 ```ts
 const coverage = await oystehr.fhir.create<Coverage>({
@@ -1721,7 +2120,7 @@ Some modules integrate with external systems whose IDs aren't reproducible in sy
 | --- | --- | --- |
 | **DoseSpot** (eRx) | **Skip entirely.** | eRx prescriptions require a real DoseSpot prescription ID; Send-to-Pharmacy / refill / cancel all fail without it. Use `MedicationStatement` for medication history (§7.3) and `MedicationAdministration` for in-house dispensing (§7.15). |
 | **Stripe** (payments) | **Skip — default to insurance or self-pay-cash.** | Card-on-file requires real Stripe customer + payment method IDs. |
-| **AdvaPACS** (radiology) | **Synthesize the order and report; accept that "View Images" is broken.** | Order list, status pill, report viewer, and provider review workflow all derive from FHIR state and work correctly. Only the "View Images" launch button requires a real AdvaPACS account. |
+| **AdvaPACS** (radiology) | **Skip entirely unless `ADVAPACS_CLIENT_ID/SECRET` are set on the project.** | The `radiology-create-order` zambda *requires* AdvaPACS to succeed: on any AdvaPACS failure (missing creds included) it silently rolls back the local ServiceRequest and returns 200 with a now-stale id. No order appears in the EHR despite an apparently-successful zambda call. See §7.18. |
 | **External lab connectors** (LabCorp, Quest) | **Use in-house labs (§7.17) instead.** | External labs require a fully-onboarded lab connector; results normally arrive via webhook with real accession numbers. |
 | **Eligibility connector** (pVerify, etc.) | **Synthesize the response directly (§7.20).** | The patient-app `get-eligibility` zambda calls a real connector. |
 | **Twilio** (SMS) | **Mark Communication.status = completed; no SMS sent.** | Communication resources are stored in the chart but no actual SMS goes out. |
@@ -1951,6 +2350,25 @@ async function cleanup(oystehr: Oystehr, seedName: string) {
   }
 }
 ```
+
+---
+
+## Helper scripts in this directory
+
+These accompany `synthesize-visit.ts` (the main Stage 2 driver). Each script
+takes `--execute` to actually write; defaults to dry-run.
+
+| Script | Purpose |
+| --- | --- |
+| `synthesize-visit.ts` | Main orchestrator. Runs the full 15-phase pipeline against a scenario JSON. |
+| `cleanup-test-patients.ts` | Deletes a synthesized patient and every related Appointment, Encounter, Coverage, RelatedPerson, QuestionnaireResponse, AllergyIntolerance, MedicationStatement, Condition, Observation, Communication. Match by `--email` or `--identifier`. |
+| `inspect-project.ts` | Read-only inventory of Locations, Schedules, Practitioners, Organizations, Medications, and Templates on a project. |
+| `inspect-orders.ts` | Read-only dump of ServiceRequests / MedicationAdministrations / MedicationRequests / MedicationStatements attached to a specific Encounter. Use after a synth run to verify what actually persisted vs. what the zambda *reported* persisting (some zambdas — radiology — silently roll back on external-system failure). |
+| `copy-templates.ts` | Copy `apply-template`-compatible List resources + their contained chart-data from a source project to a destination project. Used when bootstrapping a fresh synth project from a known-good demo. |
+| `copy-medications.ts` | Copy in-house formulary `Medication` resources from source to destination, deduped by `virtual-medication-identifier-name-system`. Supports `--also-create '<name>=<type>=<route>=<dose>=<units>'` for adding stub entries that don't exist in source. **Stub entries created via `--also-create` lack ERX coding** — run `patch-medication-erx.ts` afterward, otherwise administer-status transitions on those meds will fail with code 4340. |
+| `copy-payer-organizations.ts` | Copy a curated sample of payer `Organization` resources (insurance carriers) from a source project. Defaults to ~10 national carriers (Aetna, BCBS, Cigna, UnitedHealth, Humana, Kaiser, Anthem, Medicare, Medicaid, Tricare); use `--carrier <name>` to pull a specific one or `--all` to bulk-copy every type=pay Org (NOT recommended — there are thousands). Required so the intake QR harvest can build Coverage from real Candid payer-ids; without this, Phase 0 of synthesis aborts with "Payer Organization not found". |
+| `patch-medication-erx.ts` | Patch every inventory `Medication` on the project that's missing a coding with system `https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id` to add a stable synthetic dispensable-drug-id. Required for the `create-update-medication-order` zambda's administer step (which builds a `MedicationStatement` whose code copies that coding). Idempotent — re-running on already-patched meds is a no-op. |
+| `create-demo-user.ts` | Provision a `demo@ottehr.com` Administrator user via Auth0 invite + `changePassword`. Use this once per fresh synth project so there's at least one role-assigned Practitioner for the synth pipeline to attribute work to. |
 
 ---
 

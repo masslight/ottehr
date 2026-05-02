@@ -12,6 +12,13 @@
  *   Phase 0.5 — Create slot on the resolved schedule.
  *   Phase 1   — create-appointment (creates Patient, Coverage, Appointment,
  *               Encounter, initial QuestionnaireResponse, RelatedPerson).
+ *   Phase 1.5 — Intake QR fill: uploads scenario fixture images (ID cards,
+ *               insurance cards) to Z3 via get-presigned-file-url + signed
+ *               PUT, slots the Z3 URLs into the QR's photo-id and insurance
+ *               pages as valueAttachments, and walks the QR page-by-page
+ *               via patch-paperwork. Final consent-page submission triggers
+ *               sub-intake-harvest, which converts attachments into
+ *               DocumentReferences on the patient's photo-ID/insurance Lists.
  *   Phase 1.7 — assign-practitioner (ATND): attending practitioner assigned
  *               early so later module phases that require an attender work.
  *               (Formal lifecycle assigns at Phase 13 — pulled forward.)
@@ -33,19 +40,38 @@
  *               maps route abbreviations to SNOMED).
  *   Phase 8   — Immunization orders (create + administer).
  *   Phase 9   — Radiology orders (create + preliminary report).
+ *   Phase 10  — Eligibility & pricing: charge-master + fee-schedule setup
+ *               via RCM zambdas (idempotent), Coverage enrichment with
+ *               plan/group class entries, payer Organization telecom
+ *               backfill, and synthesis of CoverageEligibilityRequest +
+ *               CoverageEligibilityResponse with realistic copay/deductible/
+ *               OOP-max benefits (raw-request/raw-response extensions
+ *               shaped like the pVerify/Candid response the EHR parses).
  *   Phase 13  — Visit-status walk + intake-practitioner assignment:
  *               arrived → ready → intake → ready for provider → provider
- *               → discharged → completed.
+ *               → discharged → completed. The walk truncates at
+ *               `scenario.visit.targetStatus` (default 'completed') so
+ *               scenarios can be parked at any lifecycle state for
+ *               dashboard-distribution demos. Clinical phases (3–12) ALWAYS
+ *               run regardless — chart can be fully populated even on
+ *               early-lifecycle visits, mirroring real EHR workflow where
+ *               intake nurses enter vitals while the provider is still away.
  *   Phase 14  — Sign-off (sign-appointment, locks the visit, triggers
- *               visit-note PDF subscription).
+ *               visit-note PDF subscription). Skipped when targetStatus is
+ *               not 'completed' so the visit remains editable / unlocked.
  *
- * Phase 2 (Z3 fixture uploads), Phase 10 (eligibility/pricing), Phase 11
- * (appointment notes), and Phase 12 (patient education) are plan-only —
- * they log what they would do but do NOT write to the FHIR datastore.
+ * Phase 2 (Z3 fixture uploads — superseded by Phase 1.5, kept as a no-op
+ * narrative log for compatibility with the README phase numbering),
+ * Phase 11 (appointment notes), and Phase 12 (patient education) are
+ * plan-only — they log what they would do but do NOT write to the FHIR
+ * datastore.
  *
- * Use --execute against an environment to validate connectivity end-to-end
- * through Phase 1, producing a real Patient + Appointment + Encounter on the
- * target project.
+ * Use --execute against an environment to run the full pipeline (Phase 0
+ * through Phase 14 sign-off), producing a complete signed visit on the target
+ * project: Patient + Appointment + Encounter + intake-harvested demographics,
+ * Coverage, RelatedPerson, photo-ID/insurance DocumentReferences, chart-data
+ * (vitals/allergies/etc.), template-applied narrative, orders (in-house
+ * meds/labs, immunizations, radiology), full status walk, and visit-note PDF.
  *
  * Usage:
  *   npx tsx scripts/synthetic-patient-data/synthesize-visit.ts <scenario.json> [--execute]
@@ -55,8 +81,13 @@
  * Env (required when --execute):
  *   AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE,
  *   PROJECT_ID, PROJECT_API
- *   ZAMBDA_API (optional — defaults to PROJECT_API; set to
- *               http://localhost:3000 for local zambdas server)
+ *   ZAMBDA_API (optional — defaults to http://localhost:3000/local so zambda
+ *               calls hit the local-server emulator running your current
+ *               source. The /local suffix is REQUIRED for the emulator to
+ *               match routes; do not strip it. Override only if you want to
+ *               exercise the deployed cloud zambdas (rare; in that case use
+ *               the project API base, e.g. https://project-api.zapehr.com/v1,
+ *               with no /local).)
  *
  * Recommended invocation:
  *   npx env-cmd -f packages/zambdas/.env/<env>.json \
@@ -64,10 +95,28 @@
  *     scripts/synthetic-patient-data/examples/jane-doe-urgent-care.json --execute
  */
 import Oystehr from '@oystehr/sdk';
-import type { Location, Medication, Organization, Patient, Practitioner, Schedule } from 'fhir/r4b';
+import type {
+  AllergyIntolerance,
+  ChargeItemDefinition,
+  Condition,
+  Coverage,
+  CoverageEligibilityRequest,
+  CoverageEligibilityResponse,
+  EpisodeOfCare,
+  Location,
+  Medication,
+  MedicationStatement,
+  Organization,
+  Patient,
+  Practitioner,
+  Procedure,
+  Schedule,
+} from 'fhir/r4b';
+import * as fs from 'fs';
 import { readFileSync } from 'fs';
+import * as path from 'path';
 import { resolve } from 'path';
-import { type VisitScenario, VisitScenarioSchema } from './schema';
+import { type History as ScenarioHistory, type VisitScenario, VisitScenarioSchema } from './schema';
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
 
@@ -120,6 +169,7 @@ interface SynthesisContext {
   projectApi: string | null;
   zambdaApi: string | null;
   scenario: VisitScenario;
+  scenarioPath: string;
   // Resolved in Phase 0:
   locationId?: string;
   scheduleId?: string;
@@ -162,7 +212,13 @@ async function createOystehr(): Promise<{
   const auth0Audience = requireEnv('AUTH0_AUDIENCE');
   const projectId = requireEnv('PROJECT_ID');
   const projectApi = requireEnv('PROJECT_API');
-  const zambdaApi = process.env.ZAMBDA_API ?? projectApi;
+  // The synth pipeline always routes zambda calls through the local Express
+  // zambda server (`packages/zambdas/src/local-server`), which runs the
+  // current source — never the cloud-deployed copy that may be stale. The
+  // local server uses the same M2M token + FHIR backend, so resources still
+  // land in the target Oystehr project. Override with ZAMBDA_API only if you
+  // explicitly want to hit a remote zambda runtime (rarely useful).
+  const zambdaApi = process.env.ZAMBDA_API ?? 'http://localhost:3000/local';
 
   const tokenResponse = await fetch(auth0Endpoint, {
     method: 'POST',
@@ -249,6 +305,42 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
   }
 
   // Attending practitioner
+  // Fetch role-assigned employees via get-employees. Only practitioners with
+  // active EHR role membership (Provider/Administrator/etc.) are valid options
+  // for the EHR's role-assignment dropdowns — picking by FHIR Practitioner
+  // alone gives MUI "out-of-range" warnings for any unassigned practitioner.
+  const roleAssignedIds: Set<string> = new Set();
+  if (ctx.mode === 'execute' && ctx.oystehr) {
+    try {
+      const employeesRes = await fetch(`${ctx.zambdaApi}/zambda/get-employees/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${ctx.accessToken}`,
+          'x-zapehr-project-id': ctx.projectId ?? '',
+        },
+        body: JSON.stringify({}),
+      });
+      if (employeesRes.ok) {
+        const j = (await employeesRes.json()) as {
+          output?: { employees?: Array<{ profile?: string; id?: string; status?: string }> };
+          employees?: Array<{ profile?: string; id?: string; status?: string }>;
+        };
+        const list = j.output?.employees ?? j.employees ?? [];
+        for (const e of list) {
+          if (e.status && e.status !== 'Active') continue;
+          const id = e.profile?.replace('Practitioner/', '') ?? e.id;
+          if (id) roleAssignedIds.add(id);
+        }
+        logNote(`role-assigned practitioners: ${roleAssignedIds.size}`);
+      } else {
+        console.warn(`  ⚠ get-employees failed: ${employeesRes.status}`);
+      }
+    } catch (err) {
+      console.warn(`  ⚠ get-employees errored: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
   if (s.signOff?.practitionerName) {
     logFhir('search', `Practitioner with name="${s.signOff.practitionerName}" (attending)`);
     if (ctx.mode === 'execute' && ctx.oystehr) {
@@ -265,51 +357,85 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
           `Practitioner not found: "${s.signOff.practitionerName}" (searched given="${given}" family="${family}")`
         );
       }
-      ctx.attendingPractitionerId = practitioner.id;
+      if (roleAssignedIds.size && !roleAssignedIds.has(practitioner.id)) {
+        const fallback = roleAssignedIds.values().next().value;
+        console.warn(
+          `  ⚠ "${s.signOff.practitionerName}" (${practitioner.id}) is not a role-assigned employee — falling back to ${fallback} so EHR Select dropdowns recognize the assignment`
+        );
+        ctx.attendingPractitionerId = fallback;
+      } else {
+        ctx.attendingPractitionerId = practitioner.id;
+      }
       logNote(`resolved Practitioner → ${ctx.attendingPractitionerId}`);
     }
   } else {
     logFhir('search', `Practitioner — auto-pick attending`);
     if (ctx.mode === 'execute' && ctx.oystehr) {
-      const result = await ctx.oystehr.fhir.search<Practitioner>({
-        resourceType: 'Practitioner',
-        params: [{ name: '_count', value: '1' }],
-      });
-      const practitioner = result.unbundle()[0];
-      if (!practitioner?.id) throw new Error('No Practitioners exist on this project');
-      ctx.attendingPractitionerId = practitioner.id;
+      const fromRoles = roleAssignedIds.values().next().value;
+      if (fromRoles) {
+        ctx.attendingPractitionerId = fromRoles;
+      } else {
+        const result = await ctx.oystehr.fhir.search<Practitioner>({
+          resourceType: 'Practitioner',
+          params: [{ name: '_count', value: '1' }],
+        });
+        const practitioner = result.unbundle()[0];
+        if (!practitioner?.id) throw new Error('No Practitioners exist on this project');
+        ctx.attendingPractitionerId = practitioner.id;
+      }
       logNote(`auto-picked Practitioner → ${ctx.attendingPractitionerId}`);
     }
   }
 
-  // Intake staff (separate from attending — first different practitioner found)
+  // Intake staff — must also be role-assigned. Prefer a different employee
+  // from attending; if only one role-assigned employee exists (typical of
+  // synth projects), reuse them as both intake and attending — that matches
+  // the small-clinic case and avoids EHR Select out-of-range warnings.
   logFhir('search', `Practitioner — intake staff`);
   if (ctx.mode === 'execute' && ctx.oystehr) {
-    const result = await ctx.oystehr.fhir.search<Practitioner>({
-      resourceType: 'Practitioner',
-      params: [{ name: '_count', value: '10' }],
-    });
-    const practitioners = result.unbundle();
-    const intake = practitioners.find((p) => p.id !== ctx.attendingPractitionerId) ?? practitioners[0];
-    if (!intake?.id) throw new Error('No Practitioner available for intake staff');
-    ctx.intakeStaffId = intake.id;
+    const candidates = [...roleAssignedIds].filter((id) => id !== ctx.attendingPractitionerId);
+    if (candidates.length) {
+      ctx.intakeStaffId = candidates[0];
+    } else if (ctx.attendingPractitionerId) {
+      ctx.intakeStaffId = ctx.attendingPractitionerId;
+    } else {
+      const result = await ctx.oystehr.fhir.search<Practitioner>({
+        resourceType: 'Practitioner',
+        params: [{ name: '_count', value: '10' }],
+      });
+      const practitioners = result.unbundle();
+      const intake = practitioners.find((p) => p.id !== ctx.attendingPractitionerId) ?? practitioners[0];
+      if (!intake?.id) throw new Error('No Practitioner available for intake staff');
+      ctx.intakeStaffId = intake.id;
+    }
     logNote(`auto-picked intake staff → ${ctx.intakeStaffId}`);
   }
 
   // Payer organization
   if (s.patient.insurance?.primary) {
-    logFhir('search', `Organization with name="${s.patient.insurance.primary.carrier}" (payer)`);
+    const carrier = s.patient.insurance.primary.carrier;
+    logFhir('search', `Organization name:contains="${carrier}" (payer, type=pay)`);
     if (ctx.mode === 'execute' && ctx.oystehr) {
+      // `name:contains` matches the carrier as a substring — needed because
+      // copied payers from demo are state-specific ("TN BCBS", "Aetna Better
+      // Health of Kansas") and our scenarios use generic names like "Blue
+      // Cross Blue Shield" or "Aetna".
       const result = await ctx.oystehr.fhir.search<Organization>({
         resourceType: 'Organization',
-        params: [{ name: 'name', value: s.patient.insurance.primary.carrier }],
+        params: [
+          { name: 'name:contains', value: carrier },
+          { name: 'type', value: 'http://terminology.hl7.org/CodeSystem/organization-type|pay' },
+          { name: '_count', value: '1' },
+        ],
       });
       const org = result.unbundle()[0];
       if (org?.id) {
         ctx.payerOrganizationId = org.id;
-        logNote(`resolved Organization → ${ctx.payerOrganizationId}`);
+        logNote(`resolved Organization → ${ctx.payerOrganizationId} ("${org.name}")`);
       } else {
-        logNote(`payer Organization not found — Coverage will reference by display only`);
+        throw new Error(
+          `No payer Organization with name containing "${carrier}" found on this project. Bootstrap step missing — run scripts/synthetic-patient-data/copy-payer-organizations.ts to copy real payer Orgs (with their Candid payer-id identifiers) from a working environment.`
+        );
       }
     }
   }
@@ -567,6 +693,493 @@ async function phase1_createAppointment(ctx: SynthesisContext): Promise<void> {
   }
 }
 
+// ── Phase 1.5 — intake paperwork (drives the harvest subscription) ───────────
+
+/**
+ * Fill out the intake QuestionnaireResponse page-by-page using the same
+ * `patch-paperwork` zambda the patient app calls. Each page submission with
+ * a `pageHarvestStrategy` mapping creates a Task that triggers
+ * `sub-harvest-paperwork-page`, which writes the page-specific resources
+ * (Patient demographics, Coverage, RelatedPerson, Consent, DocumentReference,
+ * etc.). The final patch-paperwork on `consent-forms-page` auto-flips the QR
+ * to status=completed, which fires `sub-intake-harvest` for finalization.
+ *
+ * Calling these zambdas — instead of writing the FHIR resources directly —
+ * means the synth pipeline exercises the same code paths as a real patient
+ * intake, so any harvest-side change (new field, schema migration, validator
+ * tightening) is caught automatically on the next synth run.
+ */
+async function phase1_5_intakePaperwork(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  const p = s.patient;
+
+  startPhase('Intake paperwork (patch-paperwork per page → submit-paperwork)');
+
+  if (!ctx.questionnaireResponseId || !ctx.appointmentId) {
+    if (ctx.mode === 'execute') {
+      throw new Error('Phase 1.5 requires questionnaireResponseId + appointmentId from Phase 1');
+    }
+    logNote('(plan-only — IDs come from Phase 1)');
+    return;
+  }
+
+  const phone = p.phoneNumber ?? '';
+  const consentName = p.consents?.signatureName ?? `${p.firstName} ${p.lastName}`;
+
+  const stringAnswer = (linkId: string, value: string | undefined): unknown =>
+    value !== undefined && value !== '' ? { linkId, answer: [{ valueString: value }] } : { linkId };
+  const boolAnswer = (linkId: string, value: boolean | undefined): unknown =>
+    value !== undefined ? { linkId, answer: [{ valueBoolean: value }] } : { linkId };
+  const refAnswer = (linkId: string, ref: string | undefined, display: string | undefined): unknown =>
+    ref ? { linkId, answer: [{ valueReference: { reference: ref, display } }] } : { linkId };
+  // `creation` is required — the harvest's documents handler propagates it
+  // to DocumentReference.date, which Oystehr rejects as an empty string.
+  const attachmentAnswer = (
+    linkId: string,
+    url: string | undefined,
+    contentType: string | undefined,
+    title: string
+  ): unknown =>
+    url
+      ? { linkId, answer: [{ valueAttachment: { url, contentType, title, creation: new Date().toISOString() } }] }
+      : { linkId };
+
+  // Upload a fixture file via get-presigned-file-url + PUT to the returned
+  // signed URL. Returns the canonical Z3 URL the harvest's documents handler
+  // resolves into a DocumentReference attachment.
+  const uploadFixture = async (
+    fixturePath: string | undefined,
+    fileType: string
+  ): Promise<{ z3Url: string; contentType: string } | undefined> => {
+    if (!fixturePath || ctx.mode !== 'execute') return undefined;
+    const scenarioDir = path.dirname(path.resolve(ctx.scenarioPath));
+    const absPath = path.resolve(scenarioDir, fixturePath);
+    if (!fs.existsSync(absPath)) {
+      console.warn(`  ⚠ fixture not found: ${absPath} — skipping upload for ${fileType}`);
+      return undefined;
+    }
+    const ext = path.extname(absPath).slice(1).toLowerCase();
+    const fileFormat = ext === 'jpg' ? 'jpeg' : ext;
+    const contentType =
+      fileFormat === 'png' ? 'image/png' : fileFormat === 'jpeg' ? 'image/jpeg' : 'application/octet-stream';
+
+    const presignRes = await fetch(`${ctx.zambdaApi}/zambda/get-presigned-file-url/execute-public`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ctx.accessToken}`,
+        'x-zapehr-project-id': ctx.projectId ?? '',
+      },
+      body: JSON.stringify({ appointmentID: ctx.appointmentId, fileType, fileFormat }),
+    });
+    if (!presignRes.ok) {
+      console.warn(
+        `  ⚠ get-presigned-file-url(${fileType}) failed: ${presignRes.status} ${(await presignRes.text()).slice(
+          0,
+          200
+        )}`
+      );
+      return undefined;
+    }
+    const presignJson = (await presignRes.json()) as {
+      output?: { presignedURL?: string; z3URL?: string };
+      presignedURL?: string;
+      z3URL?: string;
+    };
+    const out = presignJson.output ?? presignJson;
+    const presignedURL = out.presignedURL;
+    const z3Url = out.z3URL;
+    if (!presignedURL || !z3Url) {
+      console.warn(`  ⚠ get-presigned-file-url(${fileType}) returned no URLs`);
+      return undefined;
+    }
+
+    const body = fs.readFileSync(absPath);
+    const putRes = await fetch(presignedURL, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType },
+      body,
+    });
+    if (!putRes.ok) {
+      console.warn(`  ⚠ Z3 upload(${fileType}) failed: ${putRes.status}`);
+      return undefined;
+    }
+    logNote(`uploaded ${fileType} (${body.length} bytes) → ${z3Url}`);
+    return { z3Url, contentType };
+  };
+
+  // Upload all fixtures up front; we slot them into the right QR pages below.
+  const fx = p.fixtures;
+  const idFront = await uploadFixture(fx?.idCardFront, 'photo-id-front');
+  const idBack = await uploadFixture(fx?.idCardBack, 'photo-id-back');
+  const insFront = await uploadFixture(fx?.insuranceCardFront, 'insurance-card-front');
+  const insBack = await uploadFixture(fx?.insuranceCardBack, 'insurance-card-back');
+
+  type Page = { linkId: string; item: unknown[] };
+  const pages: Page[] = [];
+
+  // Contact information page — patient address + phone + email.
+  pages.push({
+    linkId: 'contact-information-page',
+    item: [
+      stringAnswer('patient-street-address', p.address?.line1),
+      stringAnswer('patient-street-address-2', p.address?.line2),
+      stringAnswer('patient-city', p.address?.city),
+      stringAnswer('patient-state', p.address?.state),
+      stringAnswer('patient-zip', p.address?.postalCode),
+      stringAnswer('patient-email', p.email),
+      stringAnswer('patient-number', phone),
+      stringAnswer('patient-preferred-communication-method', p.preferredCommunication ?? 'Cell Phone'),
+      boolAnswer('mobile-opt-in', p.mobileOptIn ?? true),
+    ],
+  });
+
+  // Patient details page — demographics for the harvest's master-record handler.
+  pages.push({
+    linkId: 'patient-details-page',
+    item: [
+      stringAnswer('patient-ethnicity', p.ethnicity),
+      stringAnswer('patient-race', p.race),
+      stringAnswer('patient-pronouns', p.pronouns),
+      stringAnswer('preferred-language', p.preferredLanguage ?? 'English'),
+      stringAnswer('patient-point-of-discovery', p.pointOfDiscovery),
+    ],
+  });
+
+  // PCP page — only fill if scenario provided one (the page is optional).
+  if (p.primaryCarePhysician) {
+    const pcp = p.primaryCarePhysician;
+    pages.push({
+      linkId: 'primary-care-physician-page',
+      item: [
+        stringAnswer('pcp-first', pcp.firstName),
+        stringAnswer('pcp-last', pcp.lastName),
+        stringAnswer('pcp-practice', pcp.practice),
+        stringAnswer('pcp-address', pcp.address),
+        stringAnswer('pcp-number', pcp.phone),
+      ],
+    });
+  }
+
+  // Pharmacy page (optional).
+  if (p.preferredPharmacy) {
+    pages.push({
+      linkId: 'pharmacy-page',
+      item: [
+        stringAnswer('pharmacy-name', p.preferredPharmacy.name),
+        stringAnswer('pharmacy-address', p.preferredPharmacy.address),
+      ],
+    });
+  }
+
+  // Payment / insurance page — drives the account-coverage harvest handler
+  // (creates Coverage + RelatedPerson, links Encounter.account).
+  if (p.insurance?.primary && ctx.payerOrganizationId) {
+    const ins = p.insurance.primary;
+    const subscriberIsSelf = (ins.subscriberRelationship ?? 'self') === 'self';
+    pages.push({
+      linkId: 'payment-option-page',
+      item: [
+        stringAnswer('payment-option', 'I have insurance'),
+        refAnswer('insurance-carrier', `Organization/${ctx.payerOrganizationId}`, ins.carrier),
+        stringAnswer('insurance-member-id', ins.memberId),
+        stringAnswer('policy-holder-first-name', subscriberIsSelf ? p.firstName : ins.subscriberName?.split(' ')[0]),
+        stringAnswer(
+          'policy-holder-last-name',
+          subscriberIsSelf ? p.lastName : ins.subscriberName?.split(' ').slice(1).join(' ')
+        ),
+        stringAnswer('policy-holder-date-of-birth', subscriberIsSelf ? p.dateOfBirth : ins.subscriberDob),
+        // policy-holder-birth-sex and policy-holder-date-of-birth are REQUIRED
+        // by the harvest's policyHolder extractor (extractPolicyHolderContact in
+        // packages/zambdas/src/ehr/shared/harvest/index.ts) — if missing, the
+        // policy holder is rejected and NO Coverage resource gets created
+        // (silent failure). Always pass them, sourced from the patient when
+        // self or from scenario.patient.insurance.primary.subscriberSex /
+        // .subscriberDob otherwise.
+        stringAnswer('policy-holder-birth-sex', subscriberIsSelf ? capitalize(p.sex) : ins.subscriberSex),
+        // For non-self subscribers (typically a parent for a minor patient),
+        // assume the policy holder shares the patient's address — true in
+        // almost every case and matches what the intake form would default to.
+        boolAnswer('policy-holder-address-as-patient', true),
+        stringAnswer(
+          'patient-relationship-to-insured',
+          subscriberIsSelf ? 'Self' : capitalize(ins.subscriberRelationship ?? 'self')
+        ),
+        // Title MUST match a DocumentType enum value (machine key, not a
+        // display string). EHR's get-visit-files zambda filters DRs whose
+        // title isn't in DocumentType, so display titles like "Insurance
+        // card front" cause images to silently disappear from the visit
+        // detail page even though the DRs exist.
+        attachmentAnswer('insurance-card-front', insFront?.z3Url, insFront?.contentType, 'insurance-card-front'),
+        attachmentAnswer('insurance-card-back', insBack?.z3Url, insBack?.contentType, 'insurance-card-back'),
+      ],
+    });
+  } else if (p.insurance?.primary && !ctx.payerOrganizationId) {
+    logNote(`payer Organization not resolved — payment-option-page will go self-pay`);
+    pages.push({
+      linkId: 'payment-option-page',
+      item: [stringAnswer('payment-option', 'I will pay without insurance')],
+    });
+  } else {
+    pages.push({
+      linkId: 'payment-option-page',
+      item: [stringAnswer('payment-option', 'I will pay without insurance')],
+    });
+  }
+
+  // Responsible party page — Self by default, harvested into Account.
+  const rp = p.responsibleParty;
+  const rpRelationship = rp?.relationship ?? 'Self';
+  if (rpRelationship === 'Self') {
+    pages.push({
+      linkId: 'responsible-party-page',
+      item: [
+        stringAnswer('responsible-party-relationship', 'Self'),
+        stringAnswer('responsible-party-first-name', p.firstName),
+        stringAnswer('responsible-party-last-name', p.lastName),
+        stringAnswer('responsible-party-date-of-birth', p.dateOfBirth),
+        stringAnswer('responsible-party-birth-sex', capitalize(p.sex)),
+        boolAnswer('responsible-party-address-as-patient', true),
+        stringAnswer('responsible-party-number', phone),
+        stringAnswer('responsible-party-email', p.email),
+      ],
+    });
+  } else {
+    pages.push({
+      linkId: 'responsible-party-page',
+      item: [
+        stringAnswer('responsible-party-relationship', rpRelationship),
+        stringAnswer('responsible-party-first-name', rp?.firstName),
+        stringAnswer('responsible-party-last-name', rp?.lastName),
+        stringAnswer('responsible-party-date-of-birth', rp?.dateOfBirth),
+        stringAnswer('responsible-party-birth-sex', rp?.sex),
+        boolAnswer('responsible-party-address-as-patient', rp?.addressAsPatient ?? false),
+        ...(rp?.address
+          ? [
+              stringAnswer('responsible-party-address', rp.address.line1),
+              stringAnswer('responsible-party-address-2', rp.address.line2),
+              stringAnswer('responsible-party-city', rp.address.city),
+              stringAnswer('responsible-party-state', rp.address.state),
+              stringAnswer('responsible-party-zip', rp.address.postalCode),
+            ]
+          : []),
+        stringAnswer('responsible-party-number', rp?.phone),
+        stringAnswer('responsible-party-email', rp?.email),
+      ],
+    });
+  }
+
+  // Emergency contact page — harvested into Patient.contact / RelatedPerson.
+  if (p.emergencyContact) {
+    const ec = p.emergencyContact;
+    pages.push({
+      linkId: 'emergency-contact-page',
+      item: [
+        stringAnswer('emergency-contact-relationship', ec.relationship),
+        stringAnswer('emergency-contact-first-name', ec.firstName),
+        stringAnswer('emergency-contact-middle-name', ec.middleName),
+        stringAnswer('emergency-contact-last-name', ec.lastName),
+        stringAnswer('emergency-contact-number', ec.phone),
+        boolAnswer('emergency-contact-address-as-patient', ec.addressAsPatient ?? false),
+        ...(ec.address && !ec.addressAsPatient
+          ? [
+              stringAnswer('emergency-contact-address', ec.address.line1),
+              stringAnswer('emergency-contact-address-2', ec.address.line2),
+              stringAnswer('emergency-contact-city', ec.address.city),
+              stringAnswer('emergency-contact-state', ec.address.state),
+              stringAnswer('emergency-contact-zip', ec.address.postalCode),
+            ]
+          : []),
+      ],
+    });
+  }
+
+  // Photo ID page — uploaded photos go through Z3 + the documents harvest
+  // handler, which creates a DocumentReference and adds it to the patient's
+  // List for "Photo ID cards".
+  if (idFront || idBack) {
+    pages.push({
+      linkId: 'photo-id-page',
+      item: [
+        // Title MUST match a DocumentType enum value (see insurance-card
+        // section above for rationale).
+        attachmentAnswer('photo-id-front', idFront?.z3Url, idFront?.contentType, 'photo-id-front'),
+        attachmentAnswer('photo-id-back', idBack?.z3Url, idBack?.contentType, 'photo-id-back'),
+      ],
+    });
+  }
+
+  // Consent forms page — MUST be last; patch-paperwork on this page also
+  // flips the QR to status=completed and fires sub-intake-harvest.
+  const c = p.consents;
+  pages.push({
+    linkId: 'consent-forms-page',
+    item: [
+      {
+        linkId: 'consent-forms-checkbox-group',
+        item: [
+          { linkId: 'hipaa-acknowledgement', answer: [{ valueBoolean: c?.hipaa ?? true }] },
+          { linkId: 'consent-to-treat', answer: [{ valueBoolean: c?.treat ?? true }] },
+        ],
+      },
+      stringAnswer('signature', consentName),
+      stringAnswer('full-name', consentName),
+      stringAnswer('consent-form-signer-relationship', c?.signerRelationship ?? 'Self'),
+    ],
+  });
+
+  for (const page of pages) {
+    const body = {
+      answers: { linkId: page.linkId, item: page.item },
+      questionnaireResponseId: ctx.questionnaireResponseId,
+      appointmentId: ctx.appointmentId,
+    };
+    logCall('patch-paperwork', { page: page.linkId, items: (page.item as unknown[]).length });
+
+    if (ctx.mode === 'execute' && ctx.oystehr) {
+      const res = await withRetry(`patch-paperwork ${page.linkId}`, 3, () =>
+        fetch(`${ctx.zambdaApi}/zambda/patch-paperwork/execute-public`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${ctx.accessToken}`,
+            'x-zapehr-project-id': ctx.projectId ?? '',
+          },
+          body: JSON.stringify(body),
+        })
+      );
+      if (!res.ok) {
+        console.warn(`  ⚠ patch-paperwork (${page.linkId}) failed: ${res.status} ${(await res.text()).slice(0, 300)}`);
+        continue;
+      }
+      logNote(`patched ${page.linkId}`);
+
+      // patch-paperwork creates a `requested` Task with focus=QR + page-index;
+      // the cloud-side Task subscription will *also* fire and call the
+      // deployed sub-harvest-paperwork-page (potentially stale). To make sure
+      // the harvest runs against current source, invoke the local handler
+      // directly with the just-created Task. Dedup logic inside the harvest
+      // strategies prevents double-writes if cloud runs in parallel.
+      await runLocalHarvest(ctx, page.linkId);
+    }
+  }
+
+  if (ctx.mode === 'execute') {
+    logNote('QR auto-completed via consent-forms-page; sub-intake-harvest will run async');
+  }
+}
+
+/**
+ * Retry a network operation up to `attempts` times with exponential backoff.
+ * Catches transient `fetch failed` / network errors only — wraps idempotent
+ * operations (FHIR GET/SEARCH, idempotent PATCH, idempotent harvest POST).
+ */
+async function withRetry<T>(label: string, attempts: number, fn: () => Promise<T>): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      // Only retry transient network failures, not 4xx/5xx-style errors that
+      // come back via the SDK's typed error path.
+      if (!msg.includes('fetch failed') && !msg.includes('ECONNRESET') && !msg.includes('ETIMEDOUT')) {
+        throw err;
+      }
+      if (i === attempts - 1) break;
+      const delayMs = 500 * Math.pow(2, i); // 500ms, 1000ms, 2000ms
+      console.warn(`  ⚠ ${label}: transient error (attempt ${i + 1}/${attempts}), retrying in ${delayMs}ms...`);
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw lastErr;
+}
+
+async function runLocalHarvest(ctx: SynthesisContext, pageLinkId: string): Promise<void> {
+  if (!ctx.oystehr || !ctx.questionnaireResponseId) return;
+
+  // Find the just-created Task for this page (status=requested, matching
+  // page-index). patch-paperwork only creates Tasks for pages with a
+  // registered harvest strategy — silently no-op if none.
+  const tasks = (
+    await withRetry('Task search', 3, () =>
+      ctx.oystehr!.fhir.search({
+        resourceType: 'Task',
+        params: [
+          { name: 'focus', value: `QuestionnaireResponse/${ctx.questionnaireResponseId}` },
+          { name: 'code', value: 'harvest-paperwork' },
+          { name: 'status', value: 'requested,in-progress' },
+        ],
+      })
+    )
+  ).unbundle() as Array<{
+    id?: string;
+    status?: string;
+    input?: Array<{ type?: { coding?: Array<{ code?: string }> }; valueUnsignedInt?: number }>;
+  }>;
+
+  // We need the Task whose page-index matches `pageLinkId`. Resolve via the QR.
+  const qr = (await withRetry('QR get', 3, () =>
+    ctx.oystehr!.fhir.get({
+      resourceType: 'QuestionnaireResponse',
+      id: ctx.questionnaireResponseId!,
+    })
+  )) as { item?: Array<{ linkId: string }> };
+  const pageIndex = (qr.item ?? []).findIndex((p) => p.linkId === pageLinkId);
+  if (pageIndex < 0) return;
+  const task = tasks.find(
+    (t) => t.input?.some((i) => i.type?.coding?.[0]?.code === 'page-index' && i.valueUnsignedInt === pageIndex)
+  );
+  if (!task) return;
+
+  // Reset to 'requested' so the local subscription handler accepts it (it
+  // rejects 'failed' tasks, and cloud may have already raced and failed).
+  if (task.status !== 'requested') {
+    try {
+      await withRetry('Task patch', 3, () =>
+        ctx.oystehr!.fhir.patch({
+          resourceType: 'Task',
+          id: task.id!,
+          operations: [{ op: 'replace', path: '/status', value: 'requested' }],
+        })
+      );
+    } catch {
+      /* tolerate optimistic-lock conflict if cloud is racing */
+    }
+  }
+
+  const refreshedTask = (await withRetry('Task refresh', 3, () =>
+    ctx.oystehr!.fhir.get({
+      resourceType: 'Task',
+      id: task.id!,
+    })
+  )) as Record<string, unknown>;
+  const harvestRes = await withRetry('harvest POST', 3, () =>
+    fetch(`${ctx.zambdaApi}/zambda/sub-harvest-paperwork-page/execute-public`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ctx.accessToken}`,
+        'x-zapehr-project-id': ctx.projectId ?? '',
+      },
+      body: JSON.stringify(refreshedTask),
+    })
+  );
+  if (!harvestRes.ok) {
+    console.warn(
+      `  ⚠ local harvest (${pageLinkId}) failed: ${harvestRes.status} ${(await harvestRes.text()).slice(0, 300)}`
+    );
+    return;
+  }
+  logNote(`harvested ${pageLinkId} (local)`);
+}
+
+function capitalize(s: string | undefined): string | undefined {
+  if (!s) return undefined;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 // ── Phase 1.7 — assign attending practitioner ───────────────────────────────
 
 /**
@@ -595,8 +1208,7 @@ async function phase1_7_assignAttending(ctx: SynthesisContext): Promise<void> {
   if (ctx.mode === 'execute' && ctx.oystehr) {
     // assign-practitioner is one of the OTR-2428 zambdas. Cloud-deployed
     // version lacks the M2M fix; route through local until deploy catches up.
-    const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
-    const res = await fetch(`${localZambdaApi}/zambda/assign-practitioner/execute`, {
+    const res = await fetch(`${ctx.zambdaApi}/zambda/assign-practitioner/execute`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -612,7 +1224,10 @@ async function phase1_7_assignAttending(ctx: SynthesisContext): Promise<void> {
   }
 }
 
-// ── Phase 2 — Z3 fixture uploads (plan-only) ─────────────────────────────────
+// ── Phase 2 — Z3 fixture uploads (narrative log only) ────────────────────────
+// The actual uploads happen in Phase 1.5 (so the QR can reference the Z3 URLs
+// before the harvest fires). This phase remains as a narrative log to keep
+// numbering aligned with the README; it never writes to FHIR or Z3.
 
 async function phase2_z3Uploads(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
@@ -665,20 +1280,202 @@ function buildVitalsObservations(vitals: VisitScenario['vitals']): unknown[] {
   return out;
 }
 
+/**
+ * Filter scenario.history.* arrays down to entries the patient does NOT
+ * already have on file. The chart-data resources here (AllergyIntolerance,
+ * MedicationStatement, Condition, Procedure[surgical-history], EpisodeOfCare)
+ * are bound to the Patient — not the Encounter — so a rerun for the same
+ * Jane Doe would otherwise create N copies of every allergy/condition/etc.
+ *
+ * Each resource carries a meta tag identifying which chart-data field it
+ * came from (`getMetaWFieldName` in packages/zambdas/src/shared/chart-data),
+ * so we filter the FHIR search by that tag to avoid sweeping in unrelated
+ * Procedures (CPT codes from apply-template) or unrelated Conditions
+ * (chief-complaint, HPI, ROS — all stored as Conditions with different tags).
+ *
+ * Dedup keys are pragmatic: ICD-10 / RxNorm code if the scenario provides
+ * one, otherwise the lowercased display name. False-positive skips (a real
+ * variant misclassified as duplicate) are acceptable for synth; false
+ * negatives (still creating duplicates) are not.
+ */
+type FilteredHistory = Pick<
+  NonNullable<ScenarioHistory>,
+  'allergies' | 'medications' | 'conditions' | 'surgicalHistory' | 'hospitalizations'
+>;
+
+async function filterPreExistingHistory(ctx: SynthesisContext): Promise<FilteredHistory> {
+  const history = ctx.scenario.history;
+  if (!history || ctx.mode !== 'execute' || !ctx.oystehr || !ctx.patientId) {
+    return {
+      allergies: history?.allergies,
+      medications: history?.medications,
+      conditions: history?.conditions,
+      surgicalHistory: history?.surgicalHistory,
+      hospitalizations: history?.hospitalizations,
+    };
+  }
+
+  const patientRef = `Patient/${ctx.patientId}`;
+  const [allergies, medications, conditions, procedures, episodesOfCare] = await Promise.all([
+    ctx.oystehr.fhir
+      .search<AllergyIntolerance>({
+        resourceType: 'AllergyIntolerance',
+        params: [
+          { name: 'patient', value: patientRef },
+          { name: '_tag', value: 'known-allergy' },
+        ],
+      })
+      .then((r) => r.unbundle()),
+    ctx.oystehr.fhir
+      .search<MedicationStatement>({
+        resourceType: 'MedicationStatement',
+        params: [
+          { name: 'subject', value: patientRef },
+          { name: '_tag', value: 'current-medication' },
+        ],
+      })
+      .then((r) => r.unbundle()),
+    ctx.oystehr.fhir
+      .search<Condition>({
+        resourceType: 'Condition',
+        params: [
+          { name: 'subject', value: patientRef },
+          { name: '_tag', value: 'medical-condition' },
+        ],
+      })
+      .then((r) => r.unbundle()),
+    ctx.oystehr.fhir
+      .search<Procedure>({
+        resourceType: 'Procedure',
+        params: [
+          { name: 'subject', value: patientRef },
+          { name: '_tag', value: 'surgical-history' },
+        ],
+      })
+      .then((r) => r.unbundle()),
+    ctx.oystehr.fhir
+      .search<EpisodeOfCare>({
+        resourceType: 'EpisodeOfCare',
+        params: [
+          { name: 'patient', value: patientRef },
+          { name: '_tag', value: 'hospitalization' },
+        ],
+      })
+      .then((r) => r.unbundle()),
+  ]);
+
+  const norm = (s: string | undefined): string => (s ?? '').trim().toLowerCase();
+
+  // Existing dedup-key sets per category.
+  const allergyKeys = new Set(
+    allergies.flatMap((a) => [norm(a.code?.coding?.[0]?.display), norm(a.code?.text)]).filter(Boolean)
+  );
+  const medicationKeys = new Set(
+    medications.map((m) => norm(m.medicationCodeableConcept?.coding?.[0]?.display)).filter(Boolean)
+  );
+  const conditionKeys = new Set(
+    conditions
+      .flatMap((c) => [
+        norm(c.code?.coding?.find((cd) => cd.system?.includes('icd-10') || cd.system?.includes('icd10'))?.code),
+        norm(c.code?.coding?.[0]?.code),
+        norm(c.code?.coding?.[0]?.display),
+        norm(c.code?.text),
+      ])
+      .filter(Boolean)
+  );
+  const procedureKeys = new Set(
+    procedures
+      .flatMap((p) => [norm(p.code?.coding?.[0]?.code), norm(p.code?.coding?.[0]?.display), norm(p.note?.[0]?.text)])
+      .filter(Boolean)
+  );
+  const episodeKeys = new Set(episodesOfCare.map((e) => norm(e.type?.[0]?.text)).filter(Boolean));
+
+  const dropped = { allergies: 0, medications: 0, conditions: 0, surgicalHistory: 0, hospitalizations: 0 };
+
+  const filteredAllergies = history.allergies?.filter((a) => {
+    const key = norm(a.name);
+    if (key && allergyKeys.has(key)) {
+      dropped.allergies += 1;
+      return false;
+    }
+    return true;
+  });
+  const filteredMedications = history.medications?.filter((m) => {
+    const key = norm(m.name);
+    if (key && medicationKeys.has(key)) {
+      dropped.medications += 1;
+      return false;
+    }
+    return true;
+  });
+  const filteredConditions = history.conditions?.filter((c) => {
+    const codeKey = norm(c.code);
+    const displayKey = norm(c.display);
+    if ((codeKey && conditionKeys.has(codeKey)) || (displayKey && conditionKeys.has(displayKey))) {
+      dropped.conditions += 1;
+      return false;
+    }
+    return true;
+  });
+  const filteredSurgical = history.surgicalHistory?.filter((sh) => {
+    const codeKey = norm(sh.code);
+    const displayKey = norm(sh.display);
+    if ((codeKey && procedureKeys.has(codeKey)) || (displayKey && procedureKeys.has(displayKey))) {
+      dropped.surgicalHistory += 1;
+      return false;
+    }
+    return true;
+  });
+  const filteredHospitalizations = history.hospitalizations?.filter((h) => {
+    const key = norm(h.display);
+    if (key && episodeKeys.has(key)) {
+      dropped.hospitalizations += 1;
+      return false;
+    }
+    return true;
+  });
+
+  const totalDropped =
+    dropped.allergies + dropped.medications + dropped.conditions + dropped.surgicalHistory + dropped.hospitalizations;
+  if (totalDropped > 0) {
+    logNote(
+      `dedup: skipping ${totalDropped} pre-existing history items ` +
+        `(allergies=${dropped.allergies}, meds=${dropped.medications}, conditions=${dropped.conditions}, ` +
+        `surgical=${dropped.surgicalHistory}, hospitalizations=${dropped.hospitalizations})`
+    );
+  }
+
+  return {
+    allergies: filteredAllergies,
+    medications: filteredMedications,
+    conditions: filteredConditions,
+    surgicalHistory: filteredSurgical,
+    hospitalizations: filteredHospitalizations,
+  };
+}
+
 async function phase3_chartDataPass1(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   startPhase('save-chart-data Pass 1 (non-templated patient data)');
 
+  // Filter out chart-data history items the patient already has on file
+  // (allergies/meds/conditions/surgical-hx/hospitalizations are all
+  // patient-record-level — re-sending them would create duplicates).
+  // Vitals, screening notes, RFV, CC, patientInfoConfirmed are intentionally
+  // per-encounter and continue to flow through unchanged.
+  const filtered = await filterPreExistingHistory(ctx);
+
   const body: Record<string, unknown> = { encounterId: ctx.encounterId ?? '<from Phase 1>' };
 
-  if (s.history?.allergies?.length) {
-    body.allergies = s.history.allergies.map((a) => ({
+  if (filtered.allergies?.length) {
+    body.allergies = filtered.allergies.map((a) => ({
       name: a.name,
+      current: a.current ?? true,
       ...(a.note ? { note: a.note } : {}),
     }));
   }
-  if (s.history?.medications?.length) {
-    body.medications = s.history.medications.map((m) => {
+  if (filtered.medications?.length) {
+    body.medications = filtered.medications.map((m) => {
       const doseParts = [m.dose, m.frequency, m.route].filter(Boolean);
       // makeMedicationResource builds `identifier: [{ value: data.id }]` and
       // FHIR's ele-1 constraint rejects an identifier with no value/children,
@@ -696,16 +1493,16 @@ async function phase3_chartDataPass1(ctx: SynthesisContext): Promise<void> {
       };
     });
   }
-  if (s.history?.conditions?.length) {
-    body.conditions = s.history.conditions.map((c) => ({
+  if (filtered.conditions?.length) {
+    body.conditions = filtered.conditions.map((c) => ({
       ...(c.code ? { code: c.code } : {}),
       display: c.display,
       ...(c.current !== undefined ? { current: c.current } : {}),
       ...(c.note ? { note: c.note } : {}),
     }));
   }
-  if (s.history?.surgicalHistory?.length) {
-    body.surgicalHistory = s.history.surgicalHistory.map((sh) => ({
+  if (filtered.surgicalHistory?.length) {
+    body.surgicalHistory = filtered.surgicalHistory.map((sh) => ({
       ...(sh.code ? { code: sh.code } : {}),
       display: sh.display,
     }));
@@ -713,8 +1510,8 @@ async function phase3_chartDataPass1(ctx: SynthesisContext): Promise<void> {
   if (s.history?.surgicalHistoryNote) {
     body.surgicalHistoryNote = { text: s.history.surgicalHistoryNote };
   }
-  if (s.history?.hospitalizations?.length) {
-    body.episodeOfCare = s.history.hospitalizations.map((h) => ({
+  if (filtered.hospitalizations?.length) {
+    body.episodeOfCare = filtered.hospitalizations.map((h) => ({
       ...(h.code ? { code: h.code } : {}),
       display: h.display,
     }));
@@ -742,9 +1539,13 @@ async function phase3_chartDataPass1(ctx: SynthesisContext): Promise<void> {
   // reasonForVisit takes a FreeTextNoteDTO (`{ text }`), not a plain string.
   // (The doc shows it as a string; the zambda actually reads data.text.)
   body.reasonForVisit = { text: s.visit.reasonForVisit };
-  if (s.signOff?.patientInfoConfirmed !== false) {
-    body.patientInfoConfirmed = { value: true };
-  }
+  // NB: patientInfoConfirmed is intentionally NOT sent in Pass 1. The
+  // save-chart-data zambda's per-Encounter-extension handlers each emit
+  // their own `add /extension []` op when the Encounter has no extension
+  // array yet, and later ops in the same transaction overwrite earlier
+  // ones — so combining patientInfoConfirmed + reasonForVisit on a fresh
+  // Encounter loses one of the two. We send patientInfoConfirmed in Pass 2
+  // (Phase 4) where the array already exists from Pass 1's reasonForVisit.
 
   logCall('save-chart-data', body);
 
@@ -915,16 +1716,24 @@ async function phase5_chartDataPass2(ctx: SynthesisContext): Promise<void> {
       type: s.disposition.type,
       ...(s.disposition.text ? { text: s.disposition.text } : {}),
       ...(s.disposition.note ? { note: s.disposition.note } : {}),
+      ...(s.disposition.followUpIn !== undefined ? { followUpIn: s.disposition.followUpIn } : {}),
       ...(s.disposition.followUp?.length
         ? {
             followUp: s.disposition.followUp.map((f) => ({
               type: f.type,
               ...(f.note ? { note: f.note } : {}),
-              ...(f.daysOut !== undefined ? { followUpIn: f.daysOut } : {}),
             })),
           }
         : {}),
     };
+  }
+
+  if (s.emCode) {
+    body.emCode = { code: s.emCode.code, display: s.emCode.display };
+  }
+
+  if (s.signOff?.patientInfoConfirmed !== false) {
+    body.patientInfoConfirmed = { value: true };
   }
 
   logCall('save-chart-data', body);
@@ -964,14 +1773,8 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
       continue;
     }
 
-    // The cloud-deployed zambdas don't yet have the OTR-2428 fix to
-    // getMyPractitionerId, so route in-house lab calls through the local
-    // zambdas server (which uses local source). Override with LOCAL_ZAMBDA_API
-    // env var if needed. Remove this once cloud deploys catch up.
-    const labZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
-
     // 1. Fetch the catalog of test items available for this encounter.
-    const catalogRes = await fetch(`${labZambdaApi}/zambda/get-create-in-house-lab-order-resources/execute`, {
+    const catalogRes = await fetch(`${ctx.zambdaApi}/zambda/get-create-in-house-lab-order-resources/execute`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1007,7 +1810,7 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
       diagnosesNew: lab.diagnoses,
       notes: lab.notes ?? '',
     });
-    const orderRes = await fetch(`${labZambdaApi}/zambda/create-in-house-lab-order/execute`, {
+    const orderRes = await fetch(`${ctx.zambdaApi}/zambda/create-in-house-lab-order/execute`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1042,7 +1845,7 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
     //    which requires walking testItem.components — left as a follow-up.)
     if (lab.results) {
       logCall('collect-in-house-lab-specimen', { serviceRequestId });
-      const collectRes = await fetch(`${labZambdaApi}/zambda/collect-in-house-lab-specimen/execute`, {
+      const collectRes = await fetch(`${ctx.zambdaApi}/zambda/collect-in-house-lab-specimen/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1134,27 +1937,32 @@ async function phase7_inHouseMedications(ctx: SynthesisContext): Promise<void> {
   if (!s.modules?.inHouseMedications?.length) return;
 
   startPhase('In-house medication orders');
-  const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
 
   for (const med of s.modules.inHouseMedications) {
     const medicationId = ctx.mode === 'execute' ? await resolveMedicationId(ctx, med.medicationName) : undefined;
     const routeCode = ROUTE_SNOMED_MAP[(med.route ?? '').toUpperCase()] ?? med.route;
 
-    const body = {
-      orderId: null,
-      newStatus: med.administered ? 'administered' : 'pending',
-      orderData: {
-        patient: ctx.patientId,
-        encounter: ctx.encounterId,
-        medicationId: medicationId ?? `<unresolved: ${med.medicationName}>`,
-        // dose must be a Number (FHIR Quantity.value). Scenario stores as string.
-        dose: Number(med.dose),
-        units: med.units,
-        route: routeCode,
-        ...(med.effectiveDateTime ? { effectiveDateTime: med.effectiveDateTime } : {}),
-      },
+    // The zambda always creates orders in `pending` status regardless of
+    // newStatus. To end up `administered`, we make two calls: first creates
+    // the order, second transitions to administered.
+    const orderData = {
+      patient: ctx.patientId,
+      // The zambda's validator reads `encounter` while the FHIR resource builder
+      // reads `encounterId` — both fields are needed to get a linked MA + MR.
+      encounter: ctx.encounterId,
+      encounterId: ctx.encounterId,
+      // Same provider mismatch — the MA's "ordered by" performer comes from
+      // orderData.providerId; pass the attending so the order is attributed.
+      providerId: ctx.attendingPractitionerId,
+      medicationId: medicationId ?? `<unresolved: ${med.medicationName}>`,
+      // dose must be a Number (FHIR Quantity.value). Scenario stores as string.
+      dose: Number(med.dose),
+      units: med.units,
+      route: routeCode,
+      ...(med.effectiveDateTime ? { effectiveDateTime: med.effectiveDateTime } : {}),
     };
-    logCall('create-update-medication-order', body);
+    const createBody = { orderId: null, orderData };
+    logCall('create-update-medication-order', createBody);
 
     if (ctx.mode === 'execute' && ctx.oystehr) {
       if (!medicationId) {
@@ -1162,19 +1970,40 @@ async function phase7_inHouseMedications(ctx: SynthesisContext): Promise<void> {
         continue;
       }
       // Routed to local: cloud-deployed zambda lacks the OTR-2428 fix.
-      const res = await fetch(`${localZambdaApi}/zambda/create-update-medication-order/execute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ctx.accessToken}`,
-          'x-zapehr-project-id': ctx.projectId ?? '',
-        },
-        body: JSON.stringify(body),
-      });
+      const callZambda = (b: unknown): Promise<Response> =>
+        fetch(`${ctx.zambdaApi}/zambda/create-update-medication-order/execute`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${ctx.accessToken}`,
+            'x-zapehr-project-id': ctx.projectId ?? '',
+          },
+          body: JSON.stringify(b),
+        });
+      const res = await callZambda(createBody);
       if (!res.ok) {
-        console.warn(`  ⚠ create-update-medication-order failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
-      } else {
-        logNote(`order created for ${med.medicationName}`);
+        console.warn(
+          `  ⚠ create-update-medication-order (create) failed: ${res.status} ${(await res.text()).slice(0, 200)}`
+        );
+        continue;
+      }
+      const created = (await res.json()) as { id?: string; output?: { id?: string } };
+      const orderId = created.id ?? created.output?.id;
+      logNote(`order created for ${med.medicationName} → ${orderId}`);
+
+      if (med.administered && orderId) {
+        const adminBody = { orderId, newStatus: 'administered', orderData };
+        logCall('create-update-medication-order (administer)', adminBody);
+        const adminRes = await callZambda(adminBody);
+        if (!adminRes.ok) {
+          console.warn(
+            `  ⚠ create-update-medication-order (administer) failed: ${adminRes.status} ${(
+              await adminRes.text()
+            ).slice(0, 200)}`
+          );
+        } else {
+          logNote(`order administered: ${med.medicationName}`);
+        }
       }
     }
   }
@@ -1187,7 +2016,6 @@ async function phase8_immunizations(ctx: SynthesisContext): Promise<void> {
   if (!s.modules?.immunizations?.length) return;
 
   startPhase('Immunization orders');
-  const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
 
   for (const imm of s.modules.immunizations) {
     const medicationId = ctx.mode === 'execute' ? await resolveMedicationId(ctx, imm.vaccineName) : undefined;
@@ -1210,7 +2038,7 @@ async function phase8_immunizations(ctx: SynthesisContext): Promise<void> {
         console.warn(`  ⚠ vaccine "${imm.vaccineName}" not found in catalog — skipping immunization order`);
         continue;
       }
-      const res = await fetch(`${localZambdaApi}/zambda/create-update-immunization-order/execute`, {
+      const res = await fetch(`${ctx.zambdaApi}/zambda/create-update-immunization-order/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1233,7 +2061,7 @@ async function phase8_immunizations(ctx: SynthesisContext): Promise<void> {
           administrationDetails: { dose: { value: parseFloat(imm.dose), unit: imm.units } },
         };
         logCall('administer-immunization-order', adminBody);
-        const adminRes = await fetch(`${localZambdaApi}/zambda/administer-immunization-order/execute`, {
+        const adminRes = await fetch(`${ctx.zambdaApi}/zambda/administer-immunization-order/execute`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1283,8 +2111,7 @@ async function phase9_radiology(ctx: SynthesisContext): Promise<void> {
     if (ctx.mode === 'execute' && ctx.oystehr) {
       // Cloud-deployed radiology zambdas appear to be running older code that
       // 500s — route through local until cloud catches up.
-      const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
-      const res = await fetch(`${localZambdaApi}/zambda/radiology-create-order/execute`, {
+      const res = await fetch(`${ctx.zambdaApi}/zambda/radiology-create-order/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1307,8 +2134,7 @@ async function phase9_radiology(ctx: SynthesisContext): Promise<void> {
       if (rad.preliminaryReport && serviceRequestId) {
         const reportBody = { serviceRequestId, preliminaryReport: rad.preliminaryReport };
         logCall('radiology-save-preliminary-report', reportBody);
-        const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
-        const rRes = await fetch(`${localZambdaApi}/zambda/radiology-save-preliminary-report/execute`, {
+        const rRes = await fetch(`${ctx.zambdaApi}/zambda/radiology-save-preliminary-report/execute`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1332,27 +2158,547 @@ async function phase9_radiology(ctx: SynthesisContext): Promise<void> {
   }
 }
 
-// ── Phase 10 — eligibility & pricing (plan-only) ─────────────────────────────
+// ── Phase 10 — eligibility & pricing ──────────────────────────────────────────
+//
+// Two sub-phases run end-to-end:
+//
+//   10A. Charge master + fee schedule setup. Idempotent — finds existing
+//        ChargeItemDefinitions by name+designation/tag (via list-charge-masters
+//        / list-fee-schedules) and adds CPT entries via cm-add-procedure-code
+//        / add-procedure-code. Associates the fee schedule with the payer
+//        Organization via associate-payer. The EHR's PatientPaymentsList uses
+//        find-applicable-fee-schedule (payer + dateOfService → fee schedule)
+//        and get-charge-master-entry to compute the patient-responsibility
+//        column.
+//
+//   10B. Coverage enrichment + synthetic eligibility check. We patch the
+//        Coverage created by the harvest with extra `class` entries (plan
+//        name, group number) — there's no zambda for this since the harvest
+//        itself doesn't accept those fields, so a direct FHIR PATCH is
+//        unavoidable. Then we create CoverageEligibilityRequest +
+//        CoverageEligibilityResponse FHIR resources directly. The only
+//        zambda that produces a CER is `get-eligibility`, which POSTs to
+//        an external RCM `/rcm/eligibility-check` endpoint that synth
+//        doesn't have wired up — so we synthesize the FHIR shape the EHR
+//        reads (parseCoverageEligibilityResponse) instead, including the
+//        oystehr `raw-request` / `raw-response` extensions that carry the
+//        copay/deductible/OOP-max benefit detail.
+//
+// Critical filter to be aware of:
+//   - The eligibility chip flips to ELIGIBLE only when at least one
+//     `insurance[0].item[]` has `category.coding[0].code` ∈ 'UC,86,30' AND
+//     a `benefit[]` entry with `type.text === 'Active Coverage'`.
+//   - CopayWidget.tsx filters benefits to `code === 'UC'` only — anything
+//     with a different benefit_code is silently dropped from the panel.
 
 async function phase10_eligibilityAndPricing(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   if (!s.eligibility && !s.pricing) return;
 
-  startPhase('Eligibility & pricing polish');
-  if (s.pricing?.cptPrices?.length) {
-    for (const price of s.pricing.cptPrices) {
-      logCall('cm-add-procedure-code', { code: price.cpt, chargedAmount: price.chargedAmount });
-      logCall('add-procedure-code', { code: price.cpt, allowedAmount: price.allowedAmount });
+  startPhase('Eligibility & pricing');
+
+  if (ctx.mode !== 'execute' || !ctx.oystehr) {
+    if (s.pricing?.cptPrices?.length) {
+      for (const price of s.pricing.cptPrices) {
+        logCall('cm-add-procedure-code', { code: price.cpt, chargedAmount: price.chargedAmount });
+        logCall('add-procedure-code', { code: price.cpt, allowedAmount: price.allowedAmount });
+      }
+    }
+    if (s.eligibility) {
+      logFhir('patch', 'Coverage.class entries for plan name + group number');
+      logFhir(
+        'create',
+        'CoverageEligibilityRequest + CoverageEligibilityResponse with raw-request/raw-response extensions'
+      );
+    }
+    return;
+  }
+
+  // ── 10A — charge master + fee schedule (idempotent) ──────────────────────
+  if (s.pricing?.cptPrices?.length && ctx.payerOrganizationId) {
+    await ensureChargeMasterAndFeeSchedule(ctx, s);
+  }
+
+  // ── 10B — Coverage enrichment + eligibility synthesis ────────────────────
+  if (s.eligibility) {
+    await enrichCoverageAndSynthesizeEligibility(ctx, s);
+  }
+}
+
+/**
+ * Idempotent setup: a default-insurance Charge Master with chargedAmounts
+ * and a per-payer Fee Schedule with allowedAmounts. Re-runs no-op when
+ * names match and CPT entries already exist.
+ */
+async function ensureChargeMasterAndFeeSchedule(ctx: SynthesisContext, s: VisitScenario): Promise<void> {
+  if (!ctx.oystehr || !s.pricing) return;
+
+  const cmName = 'Ottehr Synth Default Insurance Charge Master';
+  const fsName = s.pricing.feeScheduleName ?? 'Ottehr Synth Fee Schedule';
+  const effectiveDate = '2024-01-01';
+
+  // 1. Find or create the default-insurance Charge Master.
+  const cmList = (await zambdaExecute(ctx, 'list-charge-masters', {})) as ChargeItemDefinition[];
+  let cm = cmList.find((entry) => entry.title === cmName);
+  if (!cm) {
+    cm = (await zambdaExecute(ctx, 'create-charge-master', {
+      name: cmName,
+      effectiveDate,
+      description: 'Default insurance charge master seeded by synth pipeline',
+    })) as ChargeItemDefinition;
+    logNote(`created Charge Master "${cmName}" → ${cm.id}`);
+    await zambdaExecute(ctx, 'designate-charge-master-entry', {
+      chargeMasterId: cm.id,
+      designation: 'default-insurance',
+    });
+    logNote(`designated Charge Master as default-insurance`);
+  } else {
+    logNote(`Charge Master "${cmName}" already exists → ${cm.id}`);
+  }
+
+  // 2. Find or create the payer-specific Fee Schedule.
+  const fsList = (await zambdaExecute(ctx, 'list-fee-schedules', {})) as ChargeItemDefinition[];
+  let fs = fsList.find((entry) => entry.title === fsName);
+  if (!fs) {
+    fs = (await zambdaExecute(ctx, 'create-fee-schedule', {
+      name: fsName,
+      effectiveDate,
+      description: `Fee schedule for ${fsName} seeded by synth pipeline`,
+    })) as ChargeItemDefinition;
+    logNote(`created Fee Schedule "${fsName}" → ${fs.id}`);
+  } else {
+    logNote(`Fee Schedule "${fsName}" already exists → ${fs.id}`);
+  }
+
+  // 3. Associate fee schedule with the payer Organization (idempotent —
+  //    the zambda no-ops if association already exists).
+  try {
+    await zambdaExecute(ctx, 'associate-payer', {
+      feeScheduleId: fs.id,
+      organizationId: ctx.payerOrganizationId,
+    });
+    logNote(`associated Fee Schedule with payer Organization/${ctx.payerOrganizationId}`);
+  } catch (err) {
+    // Ignore "already associated" errors; surface real failures.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.toLowerCase().includes('already')) {
+      console.warn(`  ⚠ associate-payer failed: ${msg}`);
     }
   }
-  if (s.eligibility) {
-    logFhir(
-      'create',
-      `CoverageEligibilityResponse with Candid raw-request/raw-response extensions for ${
-        s.eligibility.cptScenarios?.length ?? 0
-      } CPT scenarios`
+
+  // 4. Add per-CPT prices. cm-add-procedure-code and add-procedure-code throw
+  //    if the entry already exists, so swallow duplicate errors.
+  for (const price of s.pricing.cptPrices ?? []) {
+    try {
+      await zambdaExecute(ctx, 'cm-add-procedure-code', {
+        chargeMasterId: cm.id,
+        code: price.cpt,
+        amount: price.chargedAmount,
+      });
+      logNote(`CM ${price.cpt}: charged $${price.chargedAmount}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.toLowerCase().includes('already')) console.warn(`  ⚠ cm-add ${price.cpt}: ${msg}`);
+    }
+    try {
+      await zambdaExecute(ctx, 'add-procedure-code', {
+        feeScheduleId: fs.id,
+        code: price.cpt,
+        amount: price.allowedAmount,
+      });
+      logNote(`FS ${price.cpt}: allowed $${price.allowedAmount}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.toLowerCase().includes('already')) console.warn(`  ⚠ fs-add ${price.cpt}: ${msg}`);
+    }
+  }
+}
+
+/**
+ * Patch Coverage with plan-name + group-number class entries (the harvest
+ * doesn't propagate these fields), then create CER + CoverageEligibilityResponse
+ * resources with synthetic benefit data. The EHR's get-patient-account zambda
+ * picks up the most recent CERs by patient and renders the eligibility chip
+ * + CopayWidget from them.
+ */
+async function enrichCoverageAndSynthesizeEligibility(ctx: SynthesisContext, s: VisitScenario): Promise<void> {
+  if (!ctx.oystehr || !s.eligibility || !ctx.patientId) return;
+
+  const e = s.eligibility;
+  const ins = s.patient.insurance?.primary;
+  if (!ins) {
+    console.warn('  ⚠ no primary insurance in scenario — skipping eligibility synthesis');
+    return;
+  }
+
+  // Find the Coverage created by the harvest.
+  const coverages = (
+    await ctx.oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: 'patient', value: `Patient/${ctx.patientId}` }],
+    })
+  ).unbundle();
+  const coverage = coverages.find((c) => c.status === 'active');
+  if (!coverage?.id) {
+    console.warn('  ⚠ no active Coverage found — skipping eligibility synthesis');
+    return;
+  }
+
+  // Add telecom to the payer Organization if it's missing — the EHR's
+  // carrier panel renders phone/website/fax from Organization.telecom.
+  if (ctx.payerOrganizationId) {
+    const payer = await ctx.oystehr.fhir.get<Organization>({
+      resourceType: 'Organization',
+      id: ctx.payerOrganizationId,
+    });
+    if (!payer.telecom?.length) {
+      const updated: Organization = {
+        ...payer,
+        telecom: [
+          // ALL phone/fax numbers in synth must use the 555 central exchange
+          // (NANPA's 555-01XX range is reserved for fictitious use) so a
+          // real person can never be called/texted/faxed by accident if
+          // these synthetic numbers ever leak into a sent communication.
+          { system: 'phone', value: '1-800-555-0140', use: 'work' },
+          { system: 'fax', value: '1-423-555-0109' },
+          { system: 'url', value: 'https://www.bcbst.com' },
+        ],
+      };
+      await ctx.oystehr.fhir.update<Organization>(updated);
+      logNote(`patched payer Organization/${ctx.payerOrganizationId} with synth telecom`);
+    }
+  }
+
+  // Patch Coverage.class with plan-name + group-number, dedup-aware.
+  const existingClasses = coverage.class ?? [];
+  const newClasses: typeof existingClasses = [];
+  const planName = ins.planName;
+  const groupNumber = ins.groupNumber;
+  const hasPlanClass = existingClasses.some(
+    (c) => c.value === planName && c.type?.coding?.some((cd) => cd.code === 'plan')
+  );
+  const hasGroupClass = existingClasses.some(
+    (c) => c.value === groupNumber && c.type?.coding?.some((cd) => cd.code === 'group')
+  );
+  if (planName && !hasPlanClass) {
+    newClasses.push({
+      type: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/coverage-class', code: 'plan' }] },
+      value: planName,
+      name: planName,
+    });
+  }
+  if (groupNumber && !hasGroupClass) {
+    newClasses.push({
+      type: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/coverage-class', code: 'group' }] },
+      value: groupNumber,
+      name: groupNumber,
+    });
+  }
+  if (newClasses.length) {
+    const updated: Coverage = { ...coverage, class: [...existingClasses, ...newClasses] };
+    await ctx.oystehr.fhir.update<Coverage>(updated);
+    logNote(`patched Coverage with ${newClasses.length} class entries (plan/group)`);
+  }
+
+  // Build the synthetic eligibility request → response pair.
+  const nowISO = new Date().toISOString();
+  const todayDate = nowISO.slice(0, 10);
+
+  // Supersede any prior active CERs for this patient + Coverage so the EHR's
+  // coverageChecks.find() unambiguously picks the new one. Without this, the
+  // old CER stays sorted into the array (only filtered by Coverage match) and
+  // a stale browser cache could surface its data even though the new one
+  // would normally win on `_sort=-created`.
+  const priorCERs = (
+    await ctx.oystehr.fhir.search<CoverageEligibilityResponse>({
+      resourceType: 'CoverageEligibilityResponse',
+      params: [
+        { name: 'patient', value: `Patient/${ctx.patientId}` },
+        { name: 'status', value: 'active' },
+      ],
+    })
+  ).unbundle();
+  for (const prior of priorCERs) {
+    if (prior.insurance?.[0]?.coverage?.reference !== `Coverage/${coverage.id}`) continue;
+    if (!prior.id) continue;
+    await ctx.oystehr.fhir.patch<CoverageEligibilityResponse>({
+      resourceType: 'CoverageEligibilityResponse',
+      id: prior.id,
+      operations: [{ op: 'replace', path: '/status', value: 'cancelled' }],
+    });
+  }
+  if (priorCERs.length) {
+    logNote(`superseded ${priorCERs.length} prior CER(s) (status → cancelled)`);
+  }
+
+  const cer: CoverageEligibilityRequest = {
+    resourceType: 'CoverageEligibilityRequest',
+    status: 'active',
+    purpose: ['benefits'],
+    patient: { reference: `Patient/${ctx.patientId}` },
+    created: nowISO,
+    insurer: { reference: `Organization/${ctx.payerOrganizationId}` },
+    insurance: [{ coverage: { reference: `Coverage/${coverage.id}` } }],
+  };
+  const requestCreated = await ctx.oystehr.fhir.create<CoverageEligibilityRequest>(cer);
+  logNote(`created CoverageEligibilityRequest → ${requestCreated.id}`);
+
+  // Synthetic raw-request payload (mirrors what pVerify/Candid sends).
+  const dobYYYYMMDD = (s.patient.dateOfBirth ?? '').replace(/-/g, '');
+  const rawRequest = {
+    pat_name_f: s.patient.firstName,
+    pat_name_m: s.patient.middleName ?? '',
+    pat_name_l: s.patient.lastName,
+    pat_dob: dobYYYYMMDD,
+  };
+
+  // Synthetic raw-response payload — the parser pulls copay/deductible/OOP-max
+  // from elig.benefit[] entries shaped like pVerify's response.
+  const carrierName = ins.carrier;
+  const payerEntity = {
+    entity_name: [carrierName],
+    entity_id: ['00390'],
+    entity_addr_1: ['1 Cameron Hill Cir'],
+    entity_city: 'Chattanooga',
+    entity_state: 'TN',
+    entity_zip: '37402',
+    entity_website: ['https://www.bcbst.com'],
+    // 555-central-exchange (NANPA-reserved fictitious range, see comment
+    // on the Organization telecom above) — synth must never embed a real
+    // payer phone/fax that could be accidentally dialed or faxed.
+    entity_phone: ['1-800-555-0140'],
+    entity_fax: ['1-423-555-0109'],
+  };
+
+  const benefits: unknown[] = [];
+
+  // Active Coverage marker — required for the eligibility chip to flip green.
+  benefits.push({
+    benefit_coverage_code: '1',
+    benefit_code: 'UC',
+    benefit_amount: 0,
+    benefit_percent: 0,
+    benefit_description: 'Active Coverage',
+    benefit_coverage_description: 'Active Coverage',
+    benefit_period_code: '23',
+    benefit_period_description: 'Calendar Year',
+    benefit_level_code: 'IND',
+    benefit_level_description: 'Individual',
+    inplan_network: 'Y',
+    policy_number: ins.memberId ?? '',
+    insurance_type_code: '12',
+    insurance_type_description: 'Preferred Provider Organization (PPO)',
+    plan_number: ins.planName ?? '',
+    ...payerEntity,
+  });
+
+  // Health Benefit Plan Coverage (code 30) — populates the insurance details panel.
+  benefits.push({
+    benefit_coverage_code: '1',
+    benefit_code: '30',
+    benefit_amount: 0,
+    benefit_percent: 0,
+    benefit_description: 'Health Benefit Plan Coverage',
+    benefit_coverage_description: 'Active Coverage',
+    benefit_period_code: '23',
+    benefit_period_description: 'Calendar Year',
+    benefit_level_code: 'IND',
+    benefit_level_description: 'Individual',
+    inplan_network: 'Y',
+    policy_number: ins.memberId ?? '',
+    insurance_type_code: '12',
+    insurance_type_description: 'Preferred Provider Organization (PPO)',
+    plan_number: ins.planName ?? '',
+    ...payerEntity,
+  });
+
+  // Copay (code B): urgent care, in-network and out-of-network.
+  if (e.copays?.urgentCare !== undefined) {
+    benefits.push({
+      benefit_coverage_code: 'B',
+      benefit_code: 'UC',
+      benefit_amount: e.copays.urgentCare,
+      benefit_percent: 0,
+      benefit_description: 'Copay',
+      benefit_coverage_description: 'Co-Payment',
+      benefit_period_code: '27',
+      benefit_period_description: 'Visit',
+      benefit_level_code: 'IND',
+      benefit_level_description: 'Individual',
+      inplan_network: 'Y',
+      ...payerEntity,
+    });
+    benefits.push({
+      benefit_coverage_code: 'B',
+      benefit_code: 'UC',
+      benefit_amount: Math.round((e.copays.urgentCare ?? 0) * 2),
+      benefit_percent: 0,
+      benefit_description: 'Copay',
+      benefit_coverage_description: 'Co-Payment',
+      benefit_period_code: '27',
+      benefit_period_description: 'Visit',
+      benefit_level_code: 'IND',
+      benefit_level_description: 'Individual',
+      inplan_network: 'N',
+      ...payerEntity,
+    });
+  }
+
+  // Coinsurance (code A): in/out-of-network percentages.
+  if (e.coinsurancePercent !== undefined) {
+    benefits.push({
+      benefit_coverage_code: 'A',
+      benefit_code: 'UC',
+      benefit_amount: 0,
+      benefit_percent: e.coinsurancePercent,
+      benefit_description: 'Coinsurance',
+      benefit_coverage_description: 'Co-Insurance',
+      benefit_period_code: '23',
+      benefit_period_description: 'Calendar Year',
+      benefit_level_code: 'IND',
+      benefit_level_description: 'Individual',
+      inplan_network: 'Y',
+      ...payerEntity,
+    });
+    benefits.push({
+      benefit_coverage_code: 'A',
+      benefit_code: 'UC',
+      benefit_amount: 0,
+      benefit_percent: Math.min(100, e.coinsurancePercent + 20),
+      benefit_description: 'Coinsurance',
+      benefit_coverage_description: 'Co-Insurance',
+      benefit_period_code: '23',
+      benefit_period_description: 'Calendar Year',
+      benefit_level_code: 'IND',
+      benefit_level_description: 'Individual',
+      inplan_network: 'N',
+      ...payerEntity,
+    });
+  }
+
+  // Deductible (code C): individual + family, total/used/remaining.
+  if (e.deductible) {
+    const indTotal = e.deductible.individual ?? 0;
+    const indMet = e.deductible.met ?? 0;
+    const indRemaining = Math.max(0, indTotal - indMet);
+    const famTotal = e.deductible.family ?? 0;
+    benefits.push(
+      makeFinancialBenefit('C', 'Deductible', '23', 'Calendar Year', 'IND', indTotal, payerEntity),
+      makeFinancialBenefit('C', 'Deductible', '24', 'Year-to-Date', 'IND', indMet, payerEntity),
+      makeFinancialBenefit('C', 'Deductible', '29', 'Remaining', 'IND', indRemaining, payerEntity),
+      makeFinancialBenefit('C', 'Deductible', '23', 'Calendar Year', 'FAM', famTotal, payerEntity)
     );
   }
+
+  // Out-of-Pocket Max (code G): individual total/used/remaining + family total.
+  if (e.outOfPocketMax) {
+    const indTotal = e.outOfPocketMax.individual ?? 0;
+    const indMet = e.deductible?.met ?? 0; // Use deductible-met as proxy for OOP used.
+    const indRemaining = Math.max(0, indTotal - indMet);
+    const famTotal = e.outOfPocketMax.family ?? 0;
+    benefits.push(
+      makeFinancialBenefit('G', 'Out-of-Pocket Maximum', '23', 'Calendar Year', 'IND', indTotal, payerEntity),
+      makeFinancialBenefit('G', 'Out-of-Pocket Maximum', '24', 'Year-to-Date', 'IND', indMet, payerEntity),
+      makeFinancialBenefit('G', 'Out-of-Pocket Maximum', '29', 'Remaining', 'IND', indRemaining, payerEntity),
+      makeFinancialBenefit('G', 'Out-of-Pocket Maximum', '23', 'Calendar Year', 'FAM', famTotal, payerEntity)
+    );
+  }
+
+  const rawResponse = {
+    elig: {
+      ins_name_f: s.patient.firstName,
+      ins_name_m: s.patient.middleName ?? '',
+      ins_name_l: s.patient.lastName,
+      ins_dob: dobYYYYMMDD,
+      ins_number: ins.memberId ?? '',
+      ins_addr_1: s.patient.address?.line1 ?? '',
+      ins_city: s.patient.address?.city ?? '',
+      ins_state: s.patient.address?.state ?? '',
+      ins_zip: s.patient.address?.postalCode ?? '',
+      plan_number: ins.planName ?? '',
+      benefit: benefits,
+    },
+  };
+
+  const response: CoverageEligibilityResponse = {
+    resourceType: 'CoverageEligibilityResponse',
+    status: 'active',
+    purpose: ['benefits'],
+    patient: { reference: `Patient/${ctx.patientId}` },
+    created: nowISO,
+    request: { reference: `CoverageEligibilityRequest/${requestCreated.id}` },
+    outcome: 'complete',
+    insurer: { reference: `Organization/${ctx.payerOrganizationId}` },
+    servicedDate: todayDate,
+    insurance: [
+      {
+        coverage: { reference: `Coverage/${coverage.id}` },
+        item: [
+          {
+            category: { coding: [{ code: 'UC', display: 'Urgent Care' }] },
+            benefit: [{ type: { text: 'Active Coverage' } }],
+          },
+        ],
+      },
+    ],
+    extension: [
+      { url: 'https://extensions.fhir.oystehr.com/raw-request', valueString: JSON.stringify(rawRequest) },
+      { url: 'https://extensions.fhir.oystehr.com/raw-response', valueString: JSON.stringify(rawResponse) },
+    ],
+  };
+  const responseCreated = await ctx.oystehr.fhir.create<CoverageEligibilityResponse>(response);
+  logNote(`created CoverageEligibilityResponse (${benefits.length} benefits) → ${responseCreated.id}`);
+}
+
+function makeFinancialBenefit(
+  coverageCode: 'C' | 'G',
+  description: string,
+  periodCode: string,
+  periodDescription: string,
+  levelCode: 'IND' | 'FAM',
+  amount: number,
+  payerEntity: Record<string, unknown>
+): Record<string, unknown> {
+  return {
+    benefit_coverage_code: coverageCode,
+    // Plan-level financial benefits use service-type '30' (Health Benefit Plan
+    // Coverage), not 'UC'. PatientPaymentsList.tsx:654 looks up the remaining
+    // deductible with `code: '30'` when computing patient responsibility, so
+    // tagging deductible/OOP-max with 'UC' (the urgent-care service code)
+    // makes the EHR's responsibility projection ignore the deductible and
+    // collapse to copay-only. Real pVerify/Candid responses follow the same
+    // convention: per-service copays are 'UC', plan-wide financials are '30'.
+    benefit_code: '30',
+    benefit_amount: amount,
+    benefit_percent: 0,
+    benefit_description: description,
+    benefit_coverage_description: description,
+    benefit_period_code: periodCode,
+    benefit_period_description: periodDescription,
+    benefit_level_code: levelCode,
+    benefit_level_description: levelCode === 'IND' ? 'Individual' : 'Family',
+    inplan_network: 'Y',
+    ...payerEntity,
+  };
+}
+
+async function zambdaExecute(ctx: SynthesisContext, id: string, body: Record<string, unknown>): Promise<unknown> {
+  const res = await fetch(`${ctx.zambdaApi}/zambda/${id}/execute`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${ctx.accessToken}`,
+      'x-zapehr-project-id': ctx.projectId ?? '',
+    },
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`${id} failed: ${res.status} ${text.slice(0, 300)}`);
+  }
+  if (!text) return undefined;
+  const parsed = JSON.parse(text) as { output?: unknown };
+  return parsed.output ?? parsed;
 }
 
 // ── Phase 11 — appointment notes (plan-only) ─────────────────────────────────
@@ -1401,14 +2747,13 @@ async function changeStatus(ctx: SynthesisContext, status: string): Promise<void
 
 async function assignIntakePractitioner(ctx: SynthesisContext): Promise<void> {
   if (!ctx.oystehr || !ctx.intakeStaffId) return;
-  const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
   const body = {
     encounterId: ctx.encounterId,
     practitionerId: ctx.intakeStaffId,
     userRole: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ADM' }],
   };
   // assign-practitioner has the OTR-2428 fix locally; cloud not yet — route local.
-  const res = await fetch(`${localZambdaApi}/zambda/assign-practitioner/execute`, {
+  const res = await fetch(`${ctx.zambdaApi}/zambda/assign-practitioner/execute`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -1422,42 +2767,97 @@ async function assignIntakePractitioner(ctx: SynthesisContext): Promise<void> {
   }
 }
 
+/**
+ * Phase 13 — Visit-status walk + intake-practitioner assignment.
+ *
+ * Walks the EHR's in-person visit-status lifecycle as far as
+ * `scenario.visit.targetStatus` (default: 'completed'). Earlier targets stop
+ * the walk at the named state, leaving the visit visible in the corresponding
+ * dashboard tab (e.g. 'intake' → "Active" tab, 'discharged' → "Discharged"
+ * tab without sign-off lock).
+ *
+ * Phases 1–12 (clinical work — chart data, template, orders, eligibility,
+ * etc.) ran unconditionally regardless of `targetStatus`. This mirrors how a
+ * real EHR works: intake nurses enter vitals while the provider is still
+ * away, so a chart can be fully populated long before the lifecycle reaches
+ * 'provider' or 'completed'. The target field controls dashboard placement,
+ * not chart contents.
+ */
+const VISIT_STATUS_ORDER = [
+  'pending',
+  'arrived',
+  'ready',
+  'intake',
+  'ready for provider',
+  'provider',
+  'discharged',
+  'completed',
+] as const;
+
 async function phase13_statusWalk(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   if (s.signOff?.complete === false) return;
 
-  startPhase('Visit-status walk + practitioner assignment');
+  const target = s.visit.targetStatus ?? 'completed';
+  const targetIdx = VISIT_STATUS_ORDER.indexOf(target);
+  const reach = (status: (typeof VISIT_STATUS_ORDER)[number]): boolean =>
+    VISIT_STATUS_ORDER.indexOf(status) <= targetIdx;
 
-  if (ctx.mode !== 'execute' || !ctx.oystehr) {
-    logNote('change-in-person-visit-status: arrived → ready');
-    logNote('assign-practitioner (intake staff, ADM)');
-    logNote('change-in-person-visit-status: ready → intake → ready for provider');
-    logNote('change-in-person-visit-status: ready for provider → provider → discharged → completed');
+  startPhase(`Visit-status walk + practitioner assignment (target: ${target})`);
+
+  // 'pending' is the lifecycle state Phase 1's create-appointment leaves
+  // the visit in already (Appointment.status='booked'). Nothing to do.
+  if (target === 'pending') {
+    logNote(`target=${target} — leaving visit at pending (no walk)`);
     return;
   }
 
-  // arrived → ready
-  await changeStatus(ctx, 'ready');
-  logNote('status → ready');
+  if (ctx.mode !== 'execute' || !ctx.oystehr) {
+    if (reach('arrived')) logNote('change-in-person-visit-status → arrived');
+    if (reach('ready')) logNote('change-in-person-visit-status → ready');
+    if (reach('intake')) {
+      logNote('assign-practitioner (intake staff, ADM)');
+      logNote('change-in-person-visit-status → intake');
+    }
+    if (reach('ready for provider')) logNote('change-in-person-visit-status → ready for provider');
+    if (reach('provider')) logNote('change-in-person-visit-status → provider');
+    if (reach('discharged')) logNote('change-in-person-visit-status → discharged');
+    if (reach('completed')) logNote('change-in-person-visit-status → completed');
+    return;
+  }
 
-  // assign intake staff before transitioning to intake
-  await assignIntakePractitioner(ctx);
-  logNote('intake staff assigned (ADM)');
-
-  // ready → intake → ready for provider
-  await changeStatus(ctx, 'intake');
-  logNote('status → intake');
-  await changeStatus(ctx, 'ready for provider');
-  logNote('status → ready for provider');
-
+  if (reach('arrived')) {
+    await changeStatus(ctx, 'arrived');
+    logNote('status → arrived');
+  }
+  if (reach('ready')) {
+    await changeStatus(ctx, 'ready');
+    logNote('status → ready');
+  }
+  if (reach('intake')) {
+    // assign intake staff before transitioning to intake
+    await assignIntakePractitioner(ctx);
+    logNote('intake staff assigned (ADM)');
+    await changeStatus(ctx, 'intake');
+    logNote('status → intake');
+  }
+  if (reach('ready for provider')) {
+    await changeStatus(ctx, 'ready for provider');
+    logNote('status → ready for provider');
+  }
   // attending was already assigned in Phase 1.7 — no need to reassign
-  // ready for provider → provider → discharged → completed
-  await changeStatus(ctx, 'provider');
-  logNote('status → provider');
-  await changeStatus(ctx, 'discharged');
-  logNote('status → discharged');
-  await changeStatus(ctx, 'completed');
-  logNote('status → completed');
+  if (reach('provider')) {
+    await changeStatus(ctx, 'provider');
+    logNote('status → provider');
+  }
+  if (reach('discharged')) {
+    await changeStatus(ctx, 'discharged');
+    logNote('status → discharged');
+  }
+  if (reach('completed')) {
+    await changeStatus(ctx, 'completed');
+    logNote('status → completed');
+  }
 }
 
 // ── Phase 14 — sign-off ──────────────────────────────────────────────────────
@@ -1465,6 +2865,16 @@ async function phase13_statusWalk(ctx: SynthesisContext): Promise<void> {
 async function phase14_signOff(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   if (s.signOff?.complete === false) return;
+
+  // Sign-off is the final step of the lifecycle — only run when the scenario
+  // wants the visit fully signed (the default). Skipping leaves the visit
+  // unlocked (no APPOINTMENT_LOCKED tag) so it can still be edited from the
+  // EHR, which is what targetStatus < 'completed' implies.
+  const target = s.visit.targetStatus ?? 'completed';
+  if (target !== 'completed') {
+    startPhase(`Sign-off (skipped — targetStatus=${target}, visit remains unlocked)`);
+    return;
+  }
 
   startPhase('Sign-off');
   const body = {
@@ -1477,8 +2887,7 @@ async function phase14_signOff(ctx: SynthesisContext): Promise<void> {
 
   if (ctx.mode === 'execute' && ctx.oystehr) {
     // sign-appointment has the OTR-2428 fix locally; cloud not yet — route local.
-    const localZambdaApi = process.env.LOCAL_ZAMBDA_API ?? 'http://localhost:3000/local';
-    const res = await fetch(`${localZambdaApi}/zambda/sign-appointment/execute`, {
+    const res = await fetch(`${ctx.zambdaApi}/zambda/sign-appointment/execute`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1496,6 +2905,53 @@ async function phase14_signOff(ctx: SynthesisContext): Promise<void> {
   }
 }
 
+// ── Failed-run cleanup ───────────────────────────────────────────────────────
+
+/**
+ * On uncaught script error, delete the visit-level resources Phase 1 just
+ * created — Appointment, Encounter, QuestionnaireResponse, and any Tasks
+ * tied to the QR (the harvest opens these per-page). Patient/Account/
+ * Coverage/RelatedPerson are left in place: they persist across visits
+ * and the synth Patient dedup will reuse them on the next run.
+ *
+ * Best-effort — failures here are logged but never re-thrown, so the
+ * original pipeline error remains the visible one.
+ */
+async function cleanupFailedRun(ctx: SynthesisContext): Promise<void> {
+  if (!ctx.oystehr || !ctx.appointmentId) return;
+
+  const tryDelete = async (resourceType: string, id: string): Promise<void> => {
+    try {
+      await ctx.oystehr!.fhir.delete({ resourceType: resourceType as 'Appointment', id });
+      console.log(`  • deleted ${resourceType}/${id}`);
+    } catch (err) {
+      console.warn(`  ⚠ could not delete ${resourceType}/${id}: ${err instanceof Error ? err.message : err}`);
+    }
+  };
+
+  // Tasks tied to the QR (harvest-paperwork tasks created per page).
+  if (ctx.questionnaireResponseId) {
+    try {
+      const tasks = (
+        await ctx.oystehr.fhir.search({
+          resourceType: 'Task',
+          params: [{ name: 'focus', value: `QuestionnaireResponse/${ctx.questionnaireResponseId}` }],
+        })
+      ).unbundle() as Array<{ id?: string }>;
+      for (const t of tasks) {
+        if (t.id) await tryDelete('Task', t.id);
+      }
+    } catch (err) {
+      console.warn(`  ⚠ Task search failed: ${err instanceof Error ? err.message : err}`);
+    }
+    await tryDelete('QuestionnaireResponse', ctx.questionnaireResponseId);
+  }
+  if (ctx.encounterId) {
+    await tryDelete('Encounter', ctx.encounterId);
+  }
+  await tryDelete('Appointment', ctx.appointmentId);
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -1511,6 +2967,7 @@ async function main(): Promise<void> {
     projectApi: null,
     zambdaApi: null,
     scenario,
+    scenarioPath,
   };
 
   if (isExecute) {
@@ -1536,6 +2993,7 @@ async function main(): Promise<void> {
     phase0_lookups,
     phase0_5_createSlot,
     phase1_createAppointment,
+    phase1_5_intakePaperwork,
     phase1_7_assignAttending,
     phase2_z3Uploads,
     phase3_chartDataPass1,
@@ -1552,8 +3010,31 @@ async function main(): Promise<void> {
     phase14_signOff,
   ];
 
-  for (const fn of phases) {
-    await fn(ctx);
+  // Track whether the visit signed off cleanly. If not (uncaught error in
+  // any phase), the per-visit resources created in Phase 1 (Appointment,
+  // Encounter, QuestionnaireResponse, plus the Tasks the harvest opens)
+  // are orphaned: status='booked' on the Appointment maps to 'pending' →
+  // appears in the EHR's pre-booked tab as if it were an upcoming visit.
+  // Clean them up so the dashboard stays uncluttered. Patient/Account/
+  // Coverage are intentionally NOT touched — they persist across visits
+  // and the synth dedup will reuse them on the next run.
+  let signedSuccessfully = false;
+  try {
+    for (const fn of phases) {
+      await fn(ctx);
+    }
+    signedSuccessfully = true;
+  } catch (err) {
+    console.log('');
+    console.error(`Pipeline aborted: ${err instanceof Error ? err.message : err}`);
+    if (isExecute && ctx.appointmentId && ctx.oystehr) {
+      console.log('');
+      console.log('── Cleanup: deleting orphan visit resources from this run ───────────────');
+      await cleanupFailedRun(ctx);
+    }
+    throw err;
+  } finally {
+    void signedSuccessfully;
   }
 
   console.log('');
@@ -1561,8 +3042,9 @@ async function main(): Promise<void> {
   if (isExecute) {
     console.log('');
     console.log('Mode summary: --execute ran the synthesis pipeline through sign-off.');
-    console.log('Phases 2 (Z3 uploads), 10 (eligibility/pricing), 11 (notes), and 12 (patient');
-    console.log('education) are plan-only.');
+    console.log('Z3 fixture uploads (ID/insurance cards) happen inside Phase 1.5; the');
+    console.log('Phase 2 stub is a narrative log only. Plan-only phases (no FHIR writes):');
+    console.log('Phase 11 (appointment notes), Phase 12 (patient education).');
     console.log('');
     console.log('Resolved IDs:');
     if (ctx.locationId) console.log(`  Location:                ${ctx.locationId}`);

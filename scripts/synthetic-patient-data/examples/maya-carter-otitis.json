@@ -1,0 +1,159 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Maya Carter — 8-month-old AOM right (smoke test, parent responsible party)",
+
+  "patient": {
+    "firstName": "Maya",
+    "lastName": "Carter",
+    "dateOfBirth": "2025-09-12",
+    "sex": "female",
+    "email": "aisha.carter@example.com",
+    "phoneNumber": "+16095550142",
+    "address": {
+      "line1": "412 Beech Lane",
+      "line2": "Apt 2B",
+      "city": "Trenton",
+      "state": "NJ",
+      "postalCode": "08609"
+    },
+    "race": "Black or African American",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "primaryCarePhysician": {
+      "firstName": "Linda",
+      "lastName": "Park",
+      "practice": "Trenton Pediatrics"
+    },
+    "responsibleParty": {
+      "relationship": "Parent",
+      "firstName": "Aisha",
+      "lastName": "Carter",
+      "phone": "+16095550142",
+      "email": "aisha.carter@example.com",
+      "addressAsPatient": true
+    },
+    "emergencyContact": {
+      "relationship": "Parent",
+      "firstName": "Marcus",
+      "lastName": "Carter",
+      "phone": "+16095550188",
+      "addressAsPatient": true
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signatureName": "Aisha Carter",
+      "signerRelationship": "Parent/Legal Guardian"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Aetna",
+        "memberId": "W123456789",
+        "groupNumber": "GRP-AET-2245",
+        "planName": "Aetna Better Health Kids HMO",
+        "subscriberRelationship": "child",
+        "subscriberName": "Aisha Carter",
+        "subscriberDob": "1992-04-21",
+        "subscriberSex": "Female"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Ear pain - right ear, fever 102.4°F, fussy, pulling at ear",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "arrived"
+  },
+
+  "template": {
+    "name": "AOM Right",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99213", "display": "Office visit, established, low complexity" },
+
+  "history": {
+    "allergies": [],
+    "medications": [],
+    "conditions": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "screening": [],
+    "screenNotes": [
+      { "code": "internal", "text": "Provider note: 8-month-old female with right-sided AOM. UTD on vaccinations. Mother is primary caregiver." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 38.9, "unit": "C" },
+    "heartRate": { "value": 142 },
+    "respirationRate": { "value": 32 },
+    "oxygenSaturation": { "value": 98 },
+    "weight": { "value": 8.2, "unit": "kg" }
+  },
+
+  "eligibility": {
+    "plan": "Aetna Better Health Kids HMO",
+    "coverageActive": true,
+    "deductible": { "individual": 0, "family": 0, "met": 0 },
+    "outOfPocketMax": { "individual": 2000, "family": 4000 },
+    "copays": { "officeVisit": 0, "urgentCare": 25, "specialist": 30, "emergencyRoom": 75 },
+    "coinsurancePercent": 0,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99213",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 95,
+        "patientResponsibility": 25,
+        "insuranceResponsibility": 70
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "Aetna Kids HMO",
+    "cptPrices": [
+      { "cpt": "99213", "chargedAmount": 150, "allowedAmount": 95 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [
+      { "text": "Mother contacted at 6 PM; tolerating amoxicillin without issue, fever down to 100.1°F.", "authorName": "Demo Admin" }
+    ],
+    "patientEducationDocs": [
+      { "topic": "ear infections", "title": "Caring for Your Child's Ear Infection" },
+      { "topic": "fever", "title": "Managing Fever in Infants" }
+    ]
+  },
+
+  "disposition": {
+    "type": "pcp",
+    "text": "Discharge home with PCP follow-up",
+    "note": "Discharged home with mother. Amoxicillin Rx for AOM. Follow up with Dr. Park at Trenton Pediatrics in 48-72 hours if no improvement.",
+    "followUpIn": 3,
+    "followUp": []
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

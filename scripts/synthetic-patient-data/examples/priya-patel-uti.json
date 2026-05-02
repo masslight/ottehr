@@ -1,0 +1,181 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Priya Patel — 32yo acute uncomplicated cystitis (sulfa allergy)",
+
+  "patient": {
+    "firstName": "Priya",
+    "lastName": "Patel",
+    "dateOfBirth": "1993-07-04",
+    "sex": "female",
+    "email": "priya.patel@example.com",
+    "phoneNumber": "+12015550277",
+    "address": {
+      "line1": "92 Park Avenue",
+      "line2": "Apt 4C",
+      "city": "Jersey City",
+      "state": "NJ",
+      "postalCode": "07306"
+    },
+    "race": "Asian",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "emergencyContact": {
+      "relationship": "Spouse",
+      "firstName": "Rajiv",
+      "lastName": "Patel",
+      "phone": "+12015550278",
+      "addressAsPatient": true
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Aetna",
+        "memberId": "AET556677889",
+        "groupNumber": "GRP-AET-1188",
+        "planName": "Aetna Choice PPO",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Urinary problem - 2 days dysuria, frequency, suprapubic discomfort",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "ready for provider"
+  },
+
+  "template": {
+    "name": "UTI",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99213", "display": "Office visit, established, low complexity" },
+
+  "history": {
+    "allergies": [
+      { "name": "Sulfa drugs", "current": true, "note": "Rash with sulfonamide antibiotics — avoid Bactrim" }
+    ],
+    "medications": [
+      {
+        "name": "Drospirenone/Ethinyl Estradiol oral contraceptive",
+        "status": "active",
+        "dose": "1 tablet",
+        "frequency": "once daily",
+        "route": "PO"
+      }
+    ],
+    "conditions": [],
+    "surgicalHistory": [
+      { "code": "44970", "display": "Laparoscopic appendectomy (age 19)" }
+    ],
+    "hospitalizations": [],
+    "screening": [],
+    "screenNotes": [
+      { "code": "internal", "text": "32yo female with acute uncomplicated cystitis. Sulfa allergy precludes Bactrim. Prior UTI 3 years ago. Sexually active with one partner, on OCP." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 37.1, "unit": "C" },
+    "heartRate": { "value": 78 },
+    "bloodPressure": { "systolic": 118, "diastolic": 70 },
+    "respirationRate": { "value": 14 },
+    "oxygenSaturation": { "value": 99 },
+    "weight": { "value": 62, "unit": "kg" },
+    "height": { "value": 163, "unit": "cm" }
+  },
+
+  "modules": {
+    "inHouseLabs": [
+      {
+        "testName": "Urinalysis",
+        "diagnoses": [
+          { "code": "N30.00", "display": "Acute cystitis without hematuria", "isPrimary": true }
+        ],
+        "results": [
+          { "analyte": "Leukocyte Esterase", "value": "positive", "flag": "abnormal" },
+          { "analyte": "Nitrites", "value": "positive", "flag": "abnormal" },
+          { "analyte": "Blood", "value": "trace", "flag": "abnormal" }
+        ]
+      }
+    ]
+  },
+
+  "eligibility": {
+    "plan": "Aetna Choice PPO",
+    "coverageActive": true,
+    "deductible": { "individual": 1500, "family": 3000, "met": 900 },
+    "outOfPocketMax": { "individual": 6000, "family": 12000 },
+    "copays": { "officeVisit": 30, "urgentCare": 50, "specialist": 60, "emergencyRoom": 250 },
+    "coinsurancePercent": 20,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99213",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 95,
+        "patientResponsibility": 50,
+        "insuranceResponsibility": 45
+      },
+      {
+        "cpt": "81002",
+        "serviceType": "5",
+        "inNetwork": true,
+        "allowedAmount": 12,
+        "patientResponsibility": 0,
+        "insuranceResponsibility": 12
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "Aetna Choice PPO",
+    "cptPrices": [
+      { "cpt": "99213", "chargedAmount": 150, "allowedAmount": 95 },
+      { "cpt": "81002", "chargedAmount": 25, "allowedAmount": 12 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [],
+    "patientEducationDocs": [
+      { "topic": "UTI", "title": "Urinary Tract Infection: What to Know" }
+    ]
+  },
+
+  "disposition": {
+    "type": "pcp",
+    "text": "Discharge home with PCP follow-up if needed",
+    "note": "Discharged with nitrofurantoin 100 mg PO BID × 5 days. Phenazopyridine 100 mg TID × 2 days for symptom relief. Hydration encouraged. Return for fever, flank pain, or worsening symptoms after 48-72 hours.",
+    "followUpIn": 5,
+    "followUp": []
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

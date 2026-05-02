@@ -1,0 +1,195 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Marcus Williams — 24yo moderate asthma exacerbation",
+
+  "patient": {
+    "firstName": "Marcus",
+    "lastName": "Williams",
+    "dateOfBirth": "2001-08-19",
+    "sex": "male",
+    "email": "marcus.williams@example.com",
+    "phoneNumber": "+12015550245",
+    "address": {
+      "line1": "211 Hudson Street",
+      "city": "Hoboken",
+      "state": "NJ",
+      "postalCode": "07030"
+    },
+    "race": "Black or African American",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "emergencyContact": {
+      "relationship": "Sibling",
+      "firstName": "Vanessa",
+      "lastName": "Williams",
+      "phone": "+12015550249",
+      "addressAsPatient": false,
+      "address": {
+        "line1": "456 Garden Street",
+        "city": "Hoboken",
+        "state": "NJ",
+        "postalCode": "07030"
+      }
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "UnitedHealthcare",
+        "memberId": "UHC334455667",
+        "groupNumber": "GRP-UHC-219",
+        "planName": "UHC Choice POS",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Breathing problem - 2-day asthma flare, increased albuterol use, SpO2 92%",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "provider"
+  },
+
+  "template": {
+    "name": "Asthma",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99214", "display": "Office visit, established, moderate complexity" },
+
+  "history": {
+    "allergies": [
+      { "name": "Cat dander", "current": true, "note": "Environmental allergen, contributes to asthma triggers" }
+    ],
+    "medications": [
+      {
+        "name": "Albuterol HFA inhaler 90 mcg",
+        "status": "active",
+        "dose": "2 puffs",
+        "frequency": "every 4-6 hours as needed",
+        "route": "inhaled"
+      },
+      {
+        "name": "Fluticasone HFA inhaler 110 mcg",
+        "status": "active",
+        "dose": "2 puffs",
+        "frequency": "twice daily",
+        "route": "inhaled"
+      }
+    ],
+    "conditions": [
+      { "code": "J45.40", "display": "Moderate persistent asthma, uncomplicated", "current": true, "note": "Diagnosed age 8" }
+    ],
+    "surgicalHistory": [],
+    "hospitalizations": [
+      { "code": "195967001", "display": "Asthma exacerbation (hospitalized age 14, no ICU)" }
+    ],
+    "screening": [
+      { "field": "tobacco-use", "value": false }
+    ],
+    "screenNotes": [
+      { "code": "internal", "text": "24yo male with moderate persistent asthma, presenting with 2-day flare. Increased albuterol use (6×/day). Initial SpO2 92% RA, peak flow 280 (PB 480). After albuterol/ipratropium neb + PO prednisone: SpO2 96% RA, peak flow 360, decreased wheezing. Stable for outpatient management." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 36.9, "unit": "C" },
+    "heartRate": { "value": 108 },
+    "bloodPressure": { "systolic": 130, "diastolic": 82 },
+    "respirationRate": { "value": 26 },
+    "oxygenSaturation": { "value": 92 },
+    "weight": { "value": 78, "unit": "kg" },
+    "height": { "value": 180, "unit": "cm" }
+  },
+
+  "modules": {
+    "inHouseMedications": [
+      {
+        "medicationName": "Albuterol Sulfate 2.5mg/3mL Nebulizer Solution",
+        "dose": "2.5",
+        "units": "mg",
+        "route": "inhaled",
+        "administered": true,
+        "effectiveDateTime": "2026-04-25T14:00:00Z"
+      },
+      {
+        "medicationName": "Prednisone 50mg Oral Tablet",
+        "dose": "50",
+        "units": "mg",
+        "route": "PO",
+        "administered": true,
+        "effectiveDateTime": "2026-04-25T14:05:00Z"
+      }
+    ]
+  },
+
+  "eligibility": {
+    "plan": "UHC Choice POS",
+    "coverageActive": true,
+    "deductible": { "individual": 2000, "family": 4000, "met": 1500 },
+    "outOfPocketMax": { "individual": 7000, "family": 14000 },
+    "copays": { "officeVisit": 35, "urgentCare": 50, "specialist": 65, "emergencyRoom": 300 },
+    "coinsurancePercent": 20,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99214",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 145,
+        "patientResponsibility": 50,
+        "insuranceResponsibility": 95
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "UHC Choice POS",
+    "cptPrices": [
+      { "cpt": "99213", "chargedAmount": 150, "allowedAmount": 95 },
+      { "cpt": "99214", "chargedAmount": 220, "allowedAmount": 145 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [],
+    "patientEducationDocs": [
+      { "topic": "asthma exacerbation", "title": "Managing an Asthma Flare-Up at Home" },
+      { "topic": "asthma action plan", "title": "Your Asthma Action Plan" }
+    ]
+  },
+
+  "disposition": {
+    "type": "pcp",
+    "text": "Discharge home with PCP follow-up",
+    "note": "Discharged after improvement post-nebulizer/prednisone. Prednisone 50 mg PO daily × 5 days, continue albuterol q4h prn. Follow up with PCP within 1 week. Return immediately for worsening SOB, inability to speak in full sentences, or SpO2 <92%.",
+    "followUpIn": 7,
+    "followUp": []
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

@@ -4,6 +4,7 @@
 
   "patient": {
     "firstName": "Jane",
+    "middleName": "M",
     "lastName": "Doe",
     "dateOfBirth": "1990-05-15",
     "sex": "female",
@@ -14,6 +15,38 @@
       "city": "Trenton",
       "state": "NJ",
       "postalCode": "08609"
+    },
+    "race": "White",
+    "ethnicity": "Not Hispanic or Latino",
+    "pronouns": "She/her",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "primaryCarePhysician": {
+      "firstName": "Aisha",
+      "lastName": "Patel",
+      "practice": "Trenton Family Health"
+    },
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "emergencyContact": {
+      "relationship": "Spouse",
+      "firstName": "John",
+      "lastName": "Doe",
+      "phone": "+15555550199",
+      "addressAsPatient": true
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
     },
     "insurance": {
       "primary": {
@@ -30,7 +63,7 @@
     "type": "in-person",
     "date": "2026-04-25",
     "time": "13:45",
-    "reasonForVisit": "Sore throat × 3 days",
+    "reasonForVisit": "Throat pain - sore throat × 3 days",
     "locationName": "New York",
     "language": "en"
   },
@@ -40,18 +73,22 @@
     "examType": "inPerson"
   },
 
+  "emCode": { "code": "99213", "display": "Office visit, established, low complexity" },
+
   "history": {
     "allergies": [
       {
         "name": "Penicillin",
         "severity": "severe",
         "reaction": "anaphylaxis",
+        "current": true,
         "note": "Anaphylaxis as a child — carries epinephrine auto-injector"
       },
       {
         "name": "Shellfish",
         "severity": "moderate",
-        "reaction": "hives"
+        "reaction": "hives",
+        "current": true
       }
     ],
     "medications": [
@@ -75,11 +112,11 @@
       { "code": "E78.5", "display": "Hyperlipidemia, unspecified", "current": true }
     ],
     "surgicalHistory": [
-      { "display": "Appendectomy, 2018" }
+      { "code": "44950", "display": "Appendectomy" }
     ],
-    "surgicalHistoryNote": "Tonsillectomy planned 2019, cancelled.",
+    "surgicalHistoryNote": "Appendectomy 2018. Tonsillectomy planned 2019, cancelled.",
     "hospitalizations": [
-      { "display": "Pneumonia, hospitalized 2023" }
+      { "code": "233604007", "display": "Pneumonia" }
     ],
     "screening": [
       { "field": "tobacco-use", "value": false }
@@ -87,6 +124,7 @@
     "screenNotes": [
       { "code": "allergy", "text": "Patient reports allergy worsened over the past year." },
       { "code": "medication", "text": "Patient takes Lisinopril daily; reports good adherence." },
+      { "code": "hospitalization", "text": "Hospitalized for pneumonia in 2023; recovered without complication." },
       { "code": "internal", "text": "Provider-only: patient seemed anxious about strep result." }
     ]
   },
@@ -123,16 +161,6 @@
         "effectiveDateTime": "2026-04-25T14:50:00Z"
       }
     ],
-    "radiology": [
-      {
-        "studyName": "Chest X-ray, 2 views",
-        "cptCode": "71046",
-        "diagnosisCode": "R05.9",
-        "stat": false,
-        "clinicalHistory": "Sore throat with cervical adenopathy; rule out infectious source",
-        "consentObtained": true
-      }
-    ],
     "immunizations": [
       {
         "vaccineName": "Tdap",
@@ -143,20 +171,30 @@
         "administered": true
       }
     ],
+    "radiology": [
+      {
+        "studyName": "Chest X-ray, 2 views",
+        "cptCode": "71046",
+        "diagnosisCode": "R05.9",
+        "stat": false,
+        "clinicalHistory": "Sore throat with cervical adenopathy; rule out infectious source",
+        "consentObtained": true
+      }
+    ],
     "procedures": [
       {
         "procedureType": "throat-swab-collection",
         "occurrenceDateTime": "2026-04-25T14:25:00Z",
         "documentedDateTime": "2026-04-25T14:30:00Z",
         "performerType": "Provider",
-        "bodySite": "pharynx",
-        "technique": ["swabbing"],
+        "bodySite": "Other",
+        "technique": ["Clean"],
         "suppliesUsed": "Sterile swab",
         "procedureDetails": "Throat swab obtained from posterior pharynx with sterile swab.",
         "specimenSent": true,
         "complications": "None",
-        "patientResponse": "Tolerated procedure well",
-        "timeSpent": "2 minutes",
+        "patientResponse": "Tolerated Well",
+        "timeSpent": "< 5 min",
         "documentedBy": "Provider",
         "consentObtained": true,
         "cptCode": "87880",
@@ -230,16 +268,17 @@
   },
 
   "disposition": {
-    "type": "home",
-    "text": "Discharge home",
-    "note": "Patient stable for discharge.",
+    "type": "pcp",
+    "text": "Discharge home with PCP follow-up",
+    "note": "Patient stable for discharge. Follow up with PCP if no improvement in 5 days.",
+    "followUpIn": 5,
     "followUp": [
-      { "type": "primary-care", "note": "Follow up with PCP if no improvement in 5 days", "daysOut": 5 }
+      { "type": "ent", "note": "Refer to ENT if symptoms persist beyond 7 days" }
     ]
   },
 
   "signOff": {
-    "practitionerName": "Kevin Brown",
+    "practitionerName": "Demo Admin",
     "userRole": "Provider",
     "timezone": "America/New_York",
     "supervisorApproval": false,

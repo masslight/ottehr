@@ -62,29 +62,126 @@ const InsurancePlanSchema = z
     planName: z.string().optional().describe('e.g. "PPO Gold 1500"'),
     subscriberRelationship: z.enum(['self', 'spouse', 'child', 'other']).optional(),
     subscriberName: z.string().optional().describe('Required if relationship is not "self"'),
-    subscriberDob: isoDate.optional(),
+    subscriberDob: isoDate
+      .optional()
+      .describe(
+        'Subscriber date of birth — REQUIRED by the harvest when subscriberRelationship is not "self", or no Coverage gets created.'
+      ),
+    subscriberSex: z
+      .enum(['Male', 'Female', 'Intersex'])
+      .optional()
+      .describe(
+        'Subscriber birth sex — REQUIRED by the harvest when subscriberRelationship is not "self", or no Coverage gets created.'
+      ),
   })
   .describe('A single insurance plan (primary or secondary)');
 
 const FixturesSchema = z
   .object({
-    idCardFront: z.string().optional().describe('Path relative to scenario file'),
-    idCardBack: z.string().optional(),
-    insuranceCardFront: z.string().optional(),
+    idCardFront: z
+      .string()
+      .optional()
+      .describe(
+        'Path to photo ID front image, relative to scenario file. Uploaded to Z3 and attached to the photo-id-page in the intake QR.'
+      ),
+    idCardBack: z.string().optional().describe('Path to photo ID back image.'),
+    insuranceCardFront: z
+      .string()
+      .optional()
+      .describe(
+        'Path to insurance card front image. Uploaded to Z3 and attached to payment-option-page.insurance-card-front.'
+      ),
     insuranceCardBack: z.string().optional(),
     consentSignature: z.string().optional().describe('Patient signature image path'),
   })
   .describe('Binary fixture paths uploaded to Z3 by Stage 2');
 
+const EmergencyContactSchema = z
+  .object({
+    relationship: z.string().describe('e.g. "Parent", "Spouse", "Sibling", "Friend"'),
+    firstName: z.string(),
+    middleName: z.string().optional(),
+    lastName: z.string(),
+    phone: z.string().describe('US 10-digit or formatted'),
+    addressAsPatient: z.boolean().optional().describe('If true, emergency contact reuses patient address'),
+    address: AddressSchema.optional(),
+  })
+  .describe('Emergency contact captured on the intake emergency-contact-page');
+
+const ResponsiblePartySchema = z
+  .object({
+    relationship: z.enum(['Self', 'Parent', 'Spouse', 'Other', 'Legal Guardian']).default('Self'),
+    firstName: z.string().optional().describe('Only used when relationship !== "Self"'),
+    lastName: z.string().optional(),
+    middleName: z.string().optional(),
+    dateOfBirth: isoDate.optional(),
+    sex: z.enum(['Male', 'Female', 'Other', 'Unknown']).optional(),
+    phone: z.string().optional(),
+    email: z.string().email().optional(),
+    addressAsPatient: z.boolean().optional().describe('If true, responsible-party reuses patient address'),
+    address: AddressSchema.optional(),
+  })
+  .describe('Responsible party for billing — defaults to "Self" with patient demographics');
+
+const ConsentsSchema = z
+  .object({
+    hipaa: z.boolean().default(true).describe('HIPAA acknowledgement'),
+    treat: z.boolean().default(true).describe('Consent to treat'),
+    signatureName: z.string().optional().describe('Name typed/drawn for signature; defaults to patient first+last'),
+    signerRelationship: z
+      .enum(['Self', 'Parent/Legal Guardian', 'Other'])
+      .default('Self')
+      .describe('Who signed the consent forms'),
+  })
+  .describe(
+    'Captured on the intake consent-forms-page; defaults are sane and harvest produces Consent + DocumentReference resources'
+  );
+
+const PrimaryCarePhysicianSchema = z
+  .object({
+    firstName: z.string(),
+    lastName: z.string(),
+    practice: z.string().optional(),
+    address: z.string().optional().describe('Free-text address line'),
+    phone: z.string().optional(),
+  })
+  .describe('Optional PCP captured on the intake primary-care-physician-page');
+
+const PreferredPharmacySchema = z
+  .object({
+    name: z.string(),
+    address: z.string().describe('Free-text address line'),
+  })
+  .describe('Optional preferred pharmacy captured on the intake pharmacy-page');
+
 const PatientSchema = z
   .object({
     firstName: z.string(),
+    middleName: z.string().optional(),
     lastName: z.string(),
     dateOfBirth: isoDate,
     sex: sexCode,
     email: z.string().email().optional(),
     phoneNumber: z.string().optional().describe('E.164 or US 10-digit'),
     address: AddressSchema.optional(),
+    // Demographics captured on the intake patient-details-page (harvested into Patient).
+    race: z.string().optional().describe('e.g. "White", "Black or African American", "Asian", "Decline to answer"'),
+    ethnicity: z.string().optional().describe('"Hispanic or Latino", "Not Hispanic or Latino", "Decline to answer"'),
+    pronouns: z.string().optional().describe('e.g. "He/him", "She/her", "They/them"'),
+    preferredLanguage: z.string().optional().describe('e.g. "English", "Spanish"'),
+    pointOfDiscovery: z.string().optional().describe('How patient heard about us'),
+    preferredCommunication: z.enum(['Cell Phone', 'Email']).optional(),
+    mobileOptIn: z.boolean().optional().describe('Defaults to true'),
+    // Registration data captured by the intake QR (see Phase 1.5 in the synthesizer).
+    primaryCarePhysician: PrimaryCarePhysicianSchema.optional(),
+    preferredPharmacy: PreferredPharmacySchema.optional(),
+    responsibleParty: ResponsiblePartySchema.optional().describe(
+      'Defaults to "Self" — patient is their own responsible party'
+    ),
+    emergencyContact: EmergencyContactSchema.optional().describe(
+      'Strongly recommended — leaves the EHR Visit Details emergency contact section blank if omitted'
+    ),
+    consents: ConsentsSchema.optional().describe('Defaults to all-true with signature derived from patient name'),
     insurance: z
       .object({
         primary: InsurancePlanSchema,
@@ -93,7 +190,7 @@ const PatientSchema = z
       .optional(),
     fixtures: FixturesSchema.optional(),
   })
-  .describe('Patient demographics, insurance, and fixture references');
+  .describe('Patient demographics, insurance, and registration data harvested via the intake QR');
 
 // ── Visit ─────────────────────────────────────────────────────────────────────
 
@@ -106,12 +203,35 @@ const VisitSchema = z
       .regex(/^\d{2}:\d{2}$/, 'must be HH:MM')
       .optional()
       .describe('Appointment time-of-day; Stage 2 finds or creates a Slot at this time'),
-    reasonForVisit: z.string().max(500).describe('Patient-stated reason; max 500 chars'),
+    reasonForVisit: z
+      .string()
+      .max(500)
+      .describe(
+        'Patient-stated reason. The EHR splits this on " - " (separator); the part before is validated against ' +
+          "the booking-config reason-for-visit options for the visit's service category (e.g., for urgent care: " +
+          '"Throat pain", "Fever", "Cough and/or congestion", … — see BOOKING_CONFIG.serviceCategories[].reasonsForVisit ' +
+          'in packages/utils). The part after the separator is free-text additional detail. Example: ' +
+          '"Throat pain - × 3 days". An unrecognized leading value renders as the literal string "undefined" on the ' +
+          'visit-detail page.'
+      ),
     locationName: z.string().describe('Logical location name; Stage 2 resolves to FHIR Location ID'),
     locationState: usStateCode
       .optional()
       .describe('Required for telemed visits if Stage 2 cannot derive it from the location'),
     language: z.enum(['en', 'es']).optional(),
+    targetStatus: z
+      .enum(['pending', 'arrived', 'ready', 'intake', 'ready for provider', 'provider', 'discharged', 'completed'])
+      .optional()
+      .default('completed')
+      .describe(
+        'How far the EHR visit-status lifecycle should walk. Defaults to "completed" (full walk + sign-off, ' +
+          'visit ends APPOINTMENT_LOCKED). Earlier targets stop the Phase 13 status walk at the named state and ' +
+          'skip Phase 14 sign-off, leaving the visit unlocked. ' +
+          'IMPORTANT: clinical phases (chart data, template, orders, eligibility, etc.) ALWAYS run regardless of ' +
+          'targetStatus — the chart can be fully populated even on early-lifecycle visits, just like in the real ' +
+          'EHR where intake nurses enter vitals while the provider is still away. The target only controls the ' +
+          'dashboard tab the visit lands in (preBooked / waitingRoom / inExam / checkedOut), not the chart contents.'
+      ),
   })
   .describe('Visit metadata; Stage 2 uses date+time+location to resolve the slot');
 
@@ -133,6 +253,10 @@ const AllergyEntrySchema = z
     name: z.string().describe('Allergen name, e.g. "Penicillin"'),
     severity: z.enum(['mild', 'moderate', 'severe']).optional(),
     reaction: z.string().optional().describe('Free-text, e.g. "hives", "anaphylaxis"'),
+    current: z
+      .boolean()
+      .optional()
+      .describe('Defaults to true if omitted; set false only when narrative says the allergy resolved.'),
     note: z.string().optional(),
   })
   .describe('Maps to save-chart-data.allergies[]');
@@ -175,8 +299,19 @@ const AccidentSchema = z
 
 const HospitalizationEntrySchema = z
   .object({
-    code: z.string().optional().describe('ICD-10 if known'),
-    display: z.string().describe('e.g. "Pneumonia, hospitalized 2023"'),
+    code: z
+      .string()
+      .optional()
+      .describe(
+        'SNOMED code from the EHR hospitalization picklist (e.g. "233604007" for Pneumonia). Free-text is not allowed; use code "OTH" with display "Other" if no match exists.'
+      ),
+    display: z
+      .string()
+      .describe('Picklist label only — e.g. "Pneumonia". Date / context belongs in `note`, not in `display`.'),
+    note: z
+      .string()
+      .optional()
+      .describe('Free-text detail like the year hospitalized; goes in the hospitalization note field, not in display.'),
   })
   .describe('Maps to save-chart-data.episodeOfCare[]');
 
@@ -324,16 +459,24 @@ const ProcedureEntrySchema = z
     procedureType: z.string().describe('e.g. "throat-swab-collection"'),
     occurrenceDateTime: isoDateTime,
     documentedDateTime: isoDateTime.optional(),
-    performerType: z.string().default('Provider'),
-    bodySite: z.string().optional().describe('e.g. "pharynx"'),
-    technique: z.array(z.string()).optional().describe('e.g. ["swabbing"]'),
+    performerType: z.enum(['Healthcare staff', 'Provider', 'Both']).default('Provider'),
+    bodySite: z.enum(['Head', 'Face', 'Arm', 'Leg', 'Torso', 'Genital', 'Ear', 'Nose', 'Eye', 'Other']).optional(),
+    technique: z
+      .array(z.enum(['Sterile', 'Clean', 'Aseptic', 'Field']))
+      .optional()
+      .describe('Asepsis technique only — NOT the procedure motion. Throat swab → "Clean".'),
     suppliesUsed: z.string().optional(),
     procedureDetails: z.string().describe('Free-text description'),
     specimenSent: z.boolean().optional(),
-    complications: z.string().default('None'),
-    patientResponse: z.string().default('Tolerated procedure well'),
-    timeSpent: z.string().optional().describe('e.g. "2 minutes"'),
-    documentedBy: z.string().default('Provider'),
+    complications: z.enum(['None', 'Bleeding', 'Incomplete Removal', 'Allergic Reaction', 'Other']).default('None'),
+    patientResponse: z
+      .enum(['Tolerated Well', 'Mild Distress', 'Severe Distress', 'Improved', 'Stable', 'Worsened'])
+      .default('Tolerated Well'),
+    timeSpent: z
+      .enum(['< 5 min', '5-10 min', '10-20 min', '20-30 min', '> 30 min'])
+      .optional()
+      .describe('Time bucket only; do not write free-text minute counts.'),
+    documentedBy: z.enum(['Provider', 'Healthcare staff']).default('Provider'),
     consentObtained: z.boolean().default(true),
     cptCode: z
       .string()
@@ -444,18 +587,22 @@ const NotesSchema = z
 
 const FollowUpSchema = z
   .object({
-    type: z.string().describe('e.g. "primary-care", "specialty"'),
+    type: z
+      .enum(['dentistry', 'ent', 'ophthalmology', 'orthopedics', 'other', 'lurie-ct'])
+      .describe('Specialty referral checkbox; PCP follow-up belongs in disposition.followUpIn instead.'),
     note: z.string().optional(),
-    daysOut: z.number().optional().describe('Follow-up window in days'),
   })
-  .describe('Maps to disposition.followUp[]');
+  .describe('Maps to disposition.followUp[] — specialty referrals only.');
 
 const DispositionSchema = z
   .object({
-    type: z.string().describe('e.g. "home", "transfer", "specialty"'),
+    type: z
+      .enum(['ip', 'ip-lab', 'pcp', 'ed', 'ip-oth', 'pcp-no-type', 'another', 'specialty'])
+      .describe('Discharge type — must match DispositionType. Use "pcp" for routine discharge with PCP follow-up.'),
     text: z.string().optional(),
     note: z.string().optional(),
-    followUp: z.array(FollowUpSchema).optional(),
+    followUpIn: z.number().optional().describe('Number of days for PCP/visit follow-up (1, 2, 3, 4, 7, 14, 30 etc.).'),
+    followUp: z.array(FollowUpSchema).optional().describe('Specialty referral checkboxes only.'),
   })
   .describe('Maps to save-chart-data.disposition');
 
@@ -488,6 +635,15 @@ export const VisitScenarioSchema = z
     patient: PatientSchema,
     visit: VisitSchema,
     template: TemplateSchema.optional(),
+    emCode: z
+      .object({
+        code: z.string().describe('CPT E&M code, e.g. "99213"'),
+        display: z.string().describe('Human-readable description, e.g. "Office visit, established, low complexity"'),
+      })
+      .optional()
+      .describe(
+        'Evaluation & Management CPT code billed for the visit. Templates do not carry E&M, so synth must supply it.'
+      ),
     history: HistorySchema.optional(),
     vitals: VitalsSchema.optional(),
     modules: ModulesSchema.optional(),

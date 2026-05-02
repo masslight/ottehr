@@ -1,0 +1,176 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Aiden Thompson — 16yo right ankle sprain after soccer injury",
+
+  "patient": {
+    "firstName": "Aiden",
+    "lastName": "Thompson",
+    "dateOfBirth": "2010-03-08",
+    "sex": "male",
+    "email": "karen.thompson@example.com",
+    "phoneNumber": "+16095550203",
+    "address": {
+      "line1": "19 Sycamore Street",
+      "city": "Lawrenceville",
+      "state": "NJ",
+      "postalCode": "08648"
+    },
+    "race": "White",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Parent",
+      "firstName": "Karen",
+      "lastName": "Thompson",
+      "phone": "+16095550203",
+      "email": "karen.thompson@example.com",
+      "addressAsPatient": true
+    },
+    "emergencyContact": {
+      "relationship": "Parent",
+      "firstName": "Robert",
+      "lastName": "Thompson",
+      "phone": "+16095550205",
+      "addressAsPatient": true
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signatureName": "Karen Thompson",
+      "signerRelationship": "Parent/Legal Guardian"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Cigna",
+        "memberId": "CIG112233445",
+        "groupNumber": "GRP-CIG-407",
+        "planName": "Cigna Open Access Plus",
+        "subscriberRelationship": "child",
+        "subscriberName": "Karen Thompson",
+        "subscriberDob": "1976-09-12",
+        "subscriberSex": "Female"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Injury to leg - right ankle, soccer injury, heard pop, unable to bear weight",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "intake"
+  },
+
+  "template": {
+    "name": "Sprain, Ankle R",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99213", "display": "Office visit, established, low complexity" },
+
+  "history": {
+    "allergies": [],
+    "medications": [],
+    "conditions": [],
+    "surgicalHistory": [
+      { "code": "49505", "display": "Right inguinal hernia repair (age 4)" }
+    ],
+    "hospitalizations": [],
+    "screening": [],
+    "screenNotes": [
+      { "code": "internal", "text": "16yo male, soccer player, came down on right ankle awkwardly with audible pop. Unable to bear weight. Ottawa rule positive. X-ray negative for fracture. Treated as moderate lateral ankle sprain." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 36.9, "unit": "C" },
+    "heartRate": { "value": 88 },
+    "bloodPressure": { "systolic": 118, "diastolic": 72 },
+    "respirationRate": { "value": 16 },
+    "oxygenSaturation": { "value": 99 },
+    "weight": { "value": 65, "unit": "kg" },
+    "height": { "value": 175, "unit": "cm" }
+  },
+
+  "modules": {
+    "radiology": [
+      {
+        "studyName": "X-ray right ankle, complete (3+ views)",
+        "cptCode": "73610",
+        "diagnosisCode": "S93.421A",
+        "stat": false,
+        "clinicalHistory": "16yo male with right ankle inversion injury during soccer. Audible pop, unable to bear weight. Rule out fracture.",
+        "consentObtained": true
+      }
+    ]
+  },
+
+  "eligibility": {
+    "plan": "Cigna Open Access Plus",
+    "coverageActive": true,
+    "deductible": { "individual": 2000, "family": 4000, "met": 1100 },
+    "outOfPocketMax": { "individual": 7000, "family": 14000 },
+    "copays": { "officeVisit": 30, "urgentCare": 60, "specialist": 70, "emergencyRoom": 300 },
+    "coinsurancePercent": 20,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99213",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 95,
+        "patientResponsibility": 60,
+        "insuranceResponsibility": 35
+      },
+      {
+        "cpt": "73610",
+        "serviceType": "73",
+        "inNetwork": true,
+        "allowedAmount": 145,
+        "patientResponsibility": 29,
+        "insuranceResponsibility": 116
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "Cigna Open Access Plus",
+    "cptPrices": [
+      { "cpt": "99213", "chargedAmount": 150, "allowedAmount": 95 },
+      { "cpt": "73610", "chargedAmount": 220, "allowedAmount": 145 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [],
+    "patientEducationDocs": [
+      { "topic": "ankle sprain", "title": "Caring for an Ankle Sprain (RICE Protocol)" }
+    ]
+  },
+
+  "disposition": {
+    "type": "pcp",
+    "text": "Discharge home with PCP follow-up",
+    "note": "Discharged home with mother. Aircast splint applied, crutches provided. Non-weight-bearing × 48 hours then progressive WB as tolerated. Ibuprofen 600 mg q6h prn. Follow up with PCP or sports medicine in 5-7 days if not improved.",
+    "followUpIn": 7,
+    "followUp": []
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

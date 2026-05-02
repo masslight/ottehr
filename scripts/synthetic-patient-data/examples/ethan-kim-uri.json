@@ -1,0 +1,176 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Ethan Kim — 11yo viral URI with flu shot administration",
+
+  "patient": {
+    "firstName": "Ethan",
+    "lastName": "Kim",
+    "dateOfBirth": "2014-11-30",
+    "sex": "male",
+    "email": "sooj.kim@example.com",
+    "phoneNumber": "+17325550162",
+    "address": {
+      "line1": "7 Willow Court",
+      "city": "Edison",
+      "state": "NJ",
+      "postalCode": "08820"
+    },
+    "race": "Asian",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Parent",
+      "firstName": "Soo-jin",
+      "lastName": "Kim",
+      "phone": "+17325550162",
+      "email": "sooj.kim@example.com",
+      "addressAsPatient": true
+    },
+    "emergencyContact": {
+      "relationship": "Parent",
+      "firstName": "Min-jun",
+      "lastName": "Kim",
+      "phone": "+17325550167",
+      "addressAsPatient": true
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signatureName": "Soo-jin Kim",
+      "signerRelationship": "Parent/Legal Guardian"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "UnitedHealthcare",
+        "memberId": "UHC456789012",
+        "groupNumber": "GRP-UHC-114",
+        "planName": "UHC Choice Plus PPO",
+        "subscriberRelationship": "child",
+        "subscriberName": "Min-jun Kim",
+        "subscriberDob": "1980-08-22",
+        "subscriberSex": "Male"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Cough and/or congestion - 3 days, low-grade fever 100.8°F, productive cough",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "arrived"
+  },
+
+  "template": {
+    "name": "Viral illness with fever",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99213", "display": "Office visit, established, low complexity" },
+
+  "history": {
+    "allergies": [],
+    "medications": [],
+    "conditions": [
+      { "code": "J45.20", "display": "Mild intermittent asthma, uncomplicated", "current": true, "note": "Last flare 6 months ago, well-controlled, no daily controller" }
+    ],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "screening": [],
+    "screenNotes": [
+      { "code": "internal", "text": "11yo male with 3-day viral URI. Has mild seasonal asthma (last flare 6 months ago) — currently no respiratory distress. Younger sibling has similar symptoms. Eligible for flu shot — not yet given this season." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 37.6, "unit": "C" },
+    "heartRate": { "value": 92 },
+    "bloodPressure": { "systolic": 102, "diastolic": 68 },
+    "respirationRate": { "value": 20 },
+    "oxygenSaturation": { "value": 98 },
+    "weight": { "value": 38, "unit": "kg" }
+  },
+
+  "modules": {
+    "immunizations": [
+      {
+        "vaccineName": "Influenza Vaccine",
+        "dose": "0.5",
+        "units": "mL",
+        "route": "IM",
+        "location": { "name": "left deltoid", "code": "LD" },
+        "administered": true
+      }
+    ]
+  },
+
+  "eligibility": {
+    "plan": "UHC Choice Plus PPO",
+    "coverageActive": true,
+    "deductible": { "individual": 1500, "family": 3000, "met": 600 },
+    "outOfPocketMax": { "individual": 6000, "family": 12000 },
+    "copays": { "officeVisit": 30, "urgentCare": 50, "specialist": 60, "emergencyRoom": 250 },
+    "coinsurancePercent": 20,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99213",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 95,
+        "patientResponsibility": 50,
+        "insuranceResponsibility": 45
+      },
+      {
+        "cpt": "90471",
+        "serviceType": "BG",
+        "inNetwork": true,
+        "allowedAmount": 25,
+        "patientResponsibility": 0,
+        "insuranceResponsibility": 25
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "UHC PPO Standard",
+    "cptPrices": [
+      { "cpt": "99213", "chargedAmount": 150, "allowedAmount": 95 },
+      { "cpt": "90471", "chargedAmount": 40, "allowedAmount": 25 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [],
+    "patientEducationDocs": [
+      { "topic": "viral URI", "title": "Caring for the Common Cold in Children" },
+      { "topic": "flu vaccination", "title": "What to Expect After the Flu Shot" }
+    ]
+  },
+
+  "disposition": {
+    "type": "pcp",
+    "text": "Discharge home with PCP follow-up",
+    "note": "Symptomatic care for viral URI. Flu shot administered. Return precautions for shortness of breath, persistent fever >5 days, or worsening cough.",
+    "followUpIn": 5,
+    "followUp": []
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

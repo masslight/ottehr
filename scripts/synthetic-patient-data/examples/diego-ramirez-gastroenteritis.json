@@ -1,0 +1,169 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Diego Ramirez — 3yo viral gastroenteritis with mild dehydration",
+
+  "patient": {
+    "firstName": "Diego",
+    "lastName": "Ramirez",
+    "dateOfBirth": "2023-02-04",
+    "sex": "male",
+    "email": "carlos.ramirez@example.com",
+    "phoneNumber": "+16095550173",
+    "address": {
+      "line1": "88 Oak Ridge Drive",
+      "city": "Trenton",
+      "state": "NJ",
+      "postalCode": "08611"
+    },
+    "race": "White",
+    "ethnicity": "Hispanic or Latino",
+    "preferredLanguage": "Spanish",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "primaryCarePhysician": {
+      "firstName": "Linda",
+      "lastName": "Park",
+      "practice": "Trenton Pediatrics"
+    },
+    "responsibleParty": {
+      "relationship": "Parent",
+      "firstName": "Carlos",
+      "lastName": "Ramirez",
+      "phone": "+16095550173",
+      "email": "carlos.ramirez@example.com",
+      "addressAsPatient": true
+    },
+    "emergencyContact": {
+      "relationship": "Parent",
+      "firstName": "Sofia",
+      "lastName": "Ramirez",
+      "phone": "+16095550179",
+      "addressAsPatient": true
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signatureName": "Carlos Ramirez",
+      "signerRelationship": "Parent/Legal Guardian"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Medicaid",
+        "memberId": "123456789",
+        "planName": "NJ FamilyCare Plan A",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Vomiting and/or diarrhea - 4 episodes overnight, watery stools, refusing food",
+    "locationName": "New York",
+    "language": "es",
+    "targetStatus": "pending"
+  },
+
+  "template": {
+    "name": "Gastroenteritis, ZOFRAN",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99213", "display": "Office visit, established, low complexity" },
+
+  "history": {
+    "allergies": [],
+    "medications": [],
+    "conditions": [
+      { "code": "L20.9", "display": "Atopic dermatitis, unspecified", "current": true, "note": "Mild eczema, controlled with topical emollients" }
+    ],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "screening": [],
+    "screenNotes": [
+      { "code": "internal", "text": "3yo male presenting with acute viral gastroenteritis with mild dehydration. Daycare-attending; classmate had similar symptoms. Father is primary contact, Spanish-speaking family." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 37.3, "unit": "C" },
+    "heartRate": { "value": 120 },
+    "respirationRate": { "value": 26 },
+    "oxygenSaturation": { "value": 99 },
+    "weight": { "value": 14, "unit": "kg" }
+  },
+
+  "modules": {
+    "inHouseMedications": [
+      {
+        "medicationName": "Ondansetron 4mg ODT",
+        "dose": "2",
+        "units": "mg",
+        "route": "PO",
+        "administered": true,
+        "effectiveDateTime": "2026-04-25T13:50:00Z"
+      }
+    ]
+  },
+
+  "eligibility": {
+    "plan": "NJ FamilyCare Plan A",
+    "coverageActive": true,
+    "deductible": { "individual": 0, "family": 0, "met": 0 },
+    "outOfPocketMax": { "individual": 0, "family": 0 },
+    "copays": { "officeVisit": 0, "urgentCare": 0, "specialist": 0, "emergencyRoom": 0 },
+    "coinsurancePercent": 0,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99213",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 75,
+        "patientResponsibility": 0,
+        "insuranceResponsibility": 75
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "NJ FamilyCare",
+    "cptPrices": [
+      { "cpt": "99213", "chargedAmount": 150, "allowedAmount": 75 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [
+      { "text": "Mother called at 7 PM — Diego tolerated 4 oz Pedialyte without vomiting; will continue at home.", "authorName": "Demo Admin" }
+    ],
+    "patientEducationDocs": [
+      { "topic": "gastroenteritis", "title": "Caring for Your Child's Stomach Bug" },
+      { "topic": "dehydration", "title": "Signs of Dehydration in Children" }
+    ]
+  },
+
+  "disposition": {
+    "type": "pcp",
+    "text": "Discharge home with PCP follow-up",
+    "note": "Stable for discharge after Zofran. Strict return precautions for worsening dehydration. Follow up with PCP in 2-3 days if not improving.",
+    "followUpIn": 3,
+    "followUp": []
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

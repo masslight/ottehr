@@ -1,0 +1,196 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Helen Rivera — 74yo left intertrochanteric hip fracture, EMS transfer to hospital",
+
+  "patient": {
+    "firstName": "Helen",
+    "lastName": "Rivera",
+    "dateOfBirth": "1951-06-18",
+    "sex": "female",
+    "email": "helen.rivera@example.com",
+    "phoneNumber": "+17325550398",
+    "address": {
+      "line1": "71 Cedar Avenue",
+      "city": "Toms River",
+      "state": "NJ",
+      "postalCode": "08753"
+    },
+    "race": "White",
+    "ethnicity": "Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "emergencyContact": {
+      "relationship": "Other",
+      "firstName": "Miguel",
+      "lastName": "Rivera",
+      "phone": "+17325550401",
+      "addressAsPatient": false,
+      "address": {
+        "line1": "412 Pine Road",
+        "city": "Toms River",
+        "state": "NJ",
+        "postalCode": "08755"
+      }
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Medicare",
+        "memberId": "9AB1CD2EF34",
+        "planName": "Medicare Part B",
+        "subscriberRelationship": "self"
+      },
+      "secondary": {
+        "carrier": "Tricare",
+        "memberId": "TR223344558",
+        "planName": "Tricare for Life",
+        "subscriberRelationship": "spouse",
+        "subscriberName": "Roberto Rivera",
+        "subscriberDob": "1948-11-23",
+        "subscriberSex": "Male"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Injury (Other) - fall on icy steps, left hip pain, unable to bear weight, on warfarin",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "discharged"
+  },
+
+  "emCode": { "code": "99214", "display": "Office visit, established, moderate complexity" },
+
+  "history": {
+    "allergies": [
+      { "name": "Codeine", "current": true, "note": "Nausea and dizziness — avoid codeine-containing analgesics" }
+    ],
+    "medications": [
+      { "name": "Warfarin 4mg Oral Tablet", "status": "active", "dose": "4 mg", "frequency": "once daily", "route": "PO" },
+      { "name": "Metoprolol Tartrate 50mg Oral Tablet", "status": "active", "dose": "50 mg", "frequency": "twice daily", "route": "PO" },
+      { "name": "Furosemide 20mg Oral Tablet", "status": "active", "dose": "20 mg", "frequency": "once daily", "route": "PO" },
+      { "name": "Simvastatin 20mg Oral Tablet", "status": "active", "dose": "20 mg", "frequency": "once nightly", "route": "PO" },
+      { "name": "Calcium Carbonate / Vitamin D3 600mg/400 IU", "status": "active", "dose": "1 tablet", "frequency": "twice daily", "route": "PO" }
+    ],
+    "conditions": [
+      { "code": "I48.91", "display": "Atrial fibrillation, unspecified", "current": true },
+      { "code": "I50.32", "display": "Heart failure with preserved ejection fraction (HFpEF)", "current": true },
+      { "code": "M81.0", "display": "Osteoporosis (T-score -2.7)", "current": true },
+      { "code": "I10", "display": "Essential hypertension", "current": true }
+    ],
+    "surgicalHistory": [
+      { "code": "66984", "display": "Cataract removal, right eye (2019)" },
+      { "code": "66984", "display": "Cataract removal, left eye (2020)" }
+    ],
+    "hospitalizations": [
+      { "code": "84114007", "display": "CHF exacerbation (hospitalized ~2 years ago)" }
+    ],
+    "screening": [],
+    "screenNotes": [
+      { "code": "internal", "text": "74yo female on warfarin (last INR 2.4 last week, today 2.6) with mechanical fall on icy steps. Left hip shortened + externally rotated, pain with any motion, GT tenderness. CXR + pelvis X-ray show displaced left intertrochanteric femur fracture. Acetaminophen 1g IV given. Holding warfarin pending ortho. EMS transfer arranged. Family + PCP + cardiology notified." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 36.7, "unit": "C" },
+    "heartRate": { "value": 78 },
+    "bloodPressure": { "systolic": 142, "diastolic": 82 },
+    "respirationRate": { "value": 18 },
+    "oxygenSaturation": { "value": 96 },
+    "weight": { "value": 68, "unit": "kg" },
+    "height": { "value": 158, "unit": "cm" }
+  },
+
+  "modules": {
+    "radiology": [
+      {
+        "studyName": "X-ray left hip and pelvis",
+        "cptCode": "73510",
+        "diagnosisCode": "S72.142A",
+        "stat": true,
+        "clinicalHistory": "74yo female on warfarin with mechanical fall, left hip shortened/externally rotated, unable to bear weight. Rule out fracture.",
+        "consentObtained": true
+      }
+    ]
+  },
+
+  "eligibility": {
+    "plan": "Medicare Part B + Tricare for Life",
+    "coverageActive": true,
+    "deductible": { "individual": 240, "family": 0, "met": 240 },
+    "outOfPocketMax": { "individual": 0, "family": 0 },
+    "copays": { "officeVisit": 0, "urgentCare": 0, "specialist": 0, "emergencyRoom": 0 },
+    "coinsurancePercent": 0,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99214",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 145,
+        "patientResponsibility": 0,
+        "insuranceResponsibility": 145
+      },
+      {
+        "cpt": "73510",
+        "serviceType": "73",
+        "inNetwork": true,
+        "allowedAmount": 175,
+        "patientResponsibility": 0,
+        "insuranceResponsibility": 175
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "Medicare Part B",
+    "cptPrices": [
+      { "cpt": "99214", "chargedAmount": 220, "allowedAmount": 145 },
+      { "cpt": "73510", "chargedAmount": 280, "allowedAmount": 175 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [
+      { "text": "EMS arrival logged 18:42; patient transferred to community hospital ED for orthopedic surgery evaluation.", "authorName": "Demo Admin" }
+    ],
+    "patientEducationDocs": [
+      { "topic": "hip fracture", "title": "What to Expect with Hip Fracture Care" }
+    ]
+  },
+
+  "disposition": {
+    "type": "specialty",
+    "text": "Transfer to higher level of care — orthopedic surgery",
+    "note": "Displaced left intertrochanteric femur fracture on warfarin; transferred via EMS to community hospital ED for orthopedic surgery evaluation. Anticipate operative repair within 24-48 hours per ortho referral. Warfarin held pending consult. Cardiology + PCP notified.",
+    "followUpIn": 1,
+    "followUp": [
+      { "type": "orthopedics", "note": "Inpatient orthopedic surgery evaluation and operative repair" }
+    ]
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

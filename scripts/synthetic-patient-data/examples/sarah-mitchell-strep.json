@@ -1,0 +1,203 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Sarah Mitchell — 19yo streptococcal pharyngitis (adult on parent insurance)",
+
+  "patient": {
+    "firstName": "Sarah",
+    "lastName": "Mitchell",
+    "dateOfBirth": "2007-01-15",
+    "sex": "female",
+    "email": "sarah.mitchell@example.com",
+    "phoneNumber": "+18485550224",
+    "address": {
+      "line1": "33 College Avenue",
+      "city": "New Brunswick",
+      "state": "NJ",
+      "postalCode": "08901"
+    },
+    "race": "White",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "emergencyContact": {
+      "relationship": "Parent",
+      "firstName": "Janet",
+      "lastName": "Mitchell",
+      "phone": "+17325550231",
+      "addressAsPatient": false,
+      "address": {
+        "line1": "47 Birch Road",
+        "city": "Edison",
+        "state": "NJ",
+        "postalCode": "08820"
+      }
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Anthem",
+        "memberId": "ANT778899001",
+        "groupNumber": "GRP-ANT-552",
+        "planName": "Anthem Blue PPO Family",
+        "subscriberRelationship": "child",
+        "subscriberName": "Janet Mitchell",
+        "subscriberDob": "1971-08-04",
+        "subscriberSex": "Female"
+      }
+    }
+  },
+
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Throat pain - 3 days, fever 101.5°F, difficulty swallowing, exudate",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "intake"
+  },
+
+  "template": {
+    "name": "Pharyngitis Strep",
+    "examType": "inPerson"
+  },
+
+  "emCode": { "code": "99213", "display": "Office visit, established, low complexity" },
+
+  "history": {
+    "allergies": [],
+    "medications": [
+      {
+        "name": "Ethinyl estradiol/norgestimate oral contraceptive",
+        "status": "active",
+        "dose": "1 tablet",
+        "frequency": "once daily",
+        "route": "PO"
+      }
+    ],
+    "conditions": [],
+    "surgicalHistory": [],
+    "hospitalizations": [],
+    "screening": [],
+    "screenNotes": [
+      { "code": "internal", "text": "19yo college sophomore home for spring break. CENTOR criteria 4 (fever, exudate, tender LAD, no cough). Rapid strep positive. No tonsillectomy." }
+    ]
+  },
+
+  "vitals": {
+    "temperature": { "value": 38.4, "unit": "C" },
+    "heartRate": { "value": 102 },
+    "bloodPressure": { "systolic": 116, "diastolic": 74 },
+    "respirationRate": { "value": 16 },
+    "oxygenSaturation": { "value": 99 },
+    "weight": { "value": 58, "unit": "kg" },
+    "height": { "value": 165, "unit": "cm" }
+  },
+
+  "modules": {
+    "inHouseLabs": [
+      {
+        "testName": "Rapid Strep A",
+        "diagnoses": [
+          { "code": "J02.0", "display": "Streptococcal pharyngitis", "isPrimary": true }
+        ],
+        "results": [
+          { "analyte": "Strep A", "value": "positive", "flag": "abnormal" }
+        ]
+      }
+    ],
+    "procedures": [
+      {
+        "procedureType": "throat-swab-collection",
+        "occurrenceDateTime": "2026-04-25T14:00:00Z",
+        "documentedDateTime": "2026-04-25T14:05:00Z",
+        "performerType": "Provider",
+        "bodySite": "Other",
+        "technique": ["Clean"],
+        "suppliesUsed": "Sterile swab",
+        "procedureDetails": "Throat swab obtained from posterior pharynx for rapid strep test.",
+        "specimenSent": true,
+        "complications": "None",
+        "patientResponse": "Tolerated Well",
+        "timeSpent": "< 5 min",
+        "documentedBy": "Provider",
+        "consentObtained": true,
+        "cptCode": "87880",
+        "diagnosisCode": "J02.0"
+      }
+    ]
+  },
+
+  "eligibility": {
+    "plan": "Anthem Blue PPO Family",
+    "coverageActive": true,
+    "deductible": { "individual": 1500, "family": 3000, "met": 750 },
+    "outOfPocketMax": { "individual": 6000, "family": 12000 },
+    "copays": { "officeVisit": 30, "urgentCare": 50, "specialist": 60, "emergencyRoom": 250 },
+    "coinsurancePercent": 20,
+    "inNetwork": true,
+    "cptScenarios": [
+      {
+        "cpt": "99213",
+        "serviceType": "UC",
+        "inNetwork": true,
+        "allowedAmount": 95,
+        "patientResponsibility": 50,
+        "insuranceResponsibility": 45
+      },
+      {
+        "cpt": "87880",
+        "serviceType": "5",
+        "inNetwork": true,
+        "allowedAmount": 20,
+        "patientResponsibility": 0,
+        "insuranceResponsibility": 20
+      }
+    ]
+  },
+
+  "pricing": {
+    "feeScheduleName": "Anthem Blue PPO",
+    "cptPrices": [
+      { "cpt": "99213", "chargedAmount": 150, "allowedAmount": 95 },
+      { "cpt": "87880", "chargedAmount": 35, "allowedAmount": 20 }
+    ]
+  },
+
+  "notes": {
+    "appointmentNotes": [],
+    "patientEducationDocs": [
+      { "topic": "strep throat", "title": "Caring for Strep Throat" }
+    ]
+  },
+
+  "disposition": {
+    "type": "pcp",
+    "text": "Discharge home with PCP follow-up if needed",
+    "note": "Discharged with amoxicillin 500 mg PO BID × 10 days. Encouraged hydration and rest. Return for inability to swallow fluids, worsening fever, or rash.",
+    "followUpIn": 3,
+    "followUp": []
+  },
+
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}
