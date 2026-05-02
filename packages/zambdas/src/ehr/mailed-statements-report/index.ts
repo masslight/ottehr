@@ -1,0 +1,137 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Communication, Patient } from 'fhir/r4b';
+import { getPatientFirstName, getPatientLastName, MailedStatementItem, Secrets } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { validateRequestParameters } from './validateRequestParameters';
+
+let m2mToken: string;
+
+const ZAMBDA_NAME = 'mailed-statements-report';
+const MAIL_VENDOR_EXTENSION_URL = 'https://extensions.fhir.ottehr.com/mail-vendor';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const validatedParameters = validateRequestParameters(input);
+  const { dateRange, secrets }: { dateRange: { start: string; end: string }; secrets: Secrets } = validatedParameters;
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
+
+  console.log('Searching for mailed statement Communications in date range:', dateRange);
+
+  // Search for Communication resources with medium MAILWRIT in the date range
+  let allCommunications: Communication[] = [];
+  let offset = 0;
+  const pageSize = 200;
+
+  let searchBundle = await oystehr.fhir.search<Communication>({
+    resourceType: 'Communication',
+    params: [
+      { name: 'medium', value: 'MAILWRIT' },
+      { name: 'sent', value: `ge${dateRange.start}` },
+      { name: 'sent', value: `le${dateRange.end}` },
+      { name: '_sort', value: '-sent' },
+      { name: '_count', value: pageSize.toString() },
+      { name: '_offset', value: offset.toString() },
+    ],
+  });
+
+  let pageCount = 1;
+  let pageCommunications = searchBundle.unbundle();
+  allCommunications = allCommunications.concat(pageCommunications);
+
+  while (searchBundle.link?.find((link) => link.relation === 'next')) {
+    offset += pageSize;
+    pageCount++;
+
+    searchBundle = await oystehr.fhir.search<Communication>({
+      resourceType: 'Communication',
+      params: [
+        { name: 'medium', value: 'MAILWRIT' },
+        { name: 'sent', value: `ge${dateRange.start}` },
+        { name: 'sent', value: `le${dateRange.end}` },
+        { name: '_sort', value: '-sent' },
+        { name: '_count', value: pageSize.toString() },
+        { name: '_offset', value: offset.toString() },
+      ],
+    });
+
+    pageCommunications = searchBundle.unbundle();
+    allCommunications = allCommunications.concat(pageCommunications);
+
+    if (pageCount > 50) {
+      console.warn('Reached maximum pagination limit (50 pages). Stopping search.');
+      break;
+    }
+  }
+
+  console.log(`Found ${allCommunications.length} mailed statement Communications across ${pageCount} pages`);
+
+  // Collect unique patient IDs
+  const patientIds = new Set<string>();
+  for (const comm of allCommunications) {
+    const patientId = comm.subject?.reference?.split('/')[1];
+    if (patientId) {
+      patientIds.add(patientId);
+    }
+  }
+
+  // Fetch patient details in batches
+  const patientMap = new Map<string, Patient>();
+  const patientIdArray = Array.from(patientIds);
+  const PATIENT_BATCH_SIZE = 50;
+
+  for (let i = 0; i < patientIdArray.length; i += PATIENT_BATCH_SIZE) {
+    const batch = patientIdArray.slice(i, i + PATIENT_BATCH_SIZE);
+    const patientBundle = await oystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
+      params: [{ name: '_id', value: batch.join(',') }],
+    });
+    for (const patient of patientBundle.unbundle()) {
+      if (patient.id) {
+        patientMap.set(patient.id, patient);
+      }
+    }
+  }
+
+  // Map Communications to report items
+  const statements: MailedStatementItem[] = allCommunications.map((comm) => {
+    const patientId = comm.subject?.reference?.split('/')[1] ?? '';
+    const patient = patientMap.get(patientId);
+    const patientName = patient ? `${getPatientLastName(patient)}, ${getPatientFirstName(patient)}` : 'Unknown';
+
+    const encounterId = comm.encounter?.reference?.split('/')[1] ?? '';
+    const recipientName = comm.recipient?.[0]?.display ?? '';
+    const sentDate = comm.sent ?? '';
+    const description = comm.payload?.[0]?.contentString ?? '';
+
+    // Extract PostGrid vendor info from extensions
+    const mailVendorExt = comm.extension?.find((ext) => ext.url === MAIL_VENDOR_EXTENSION_URL);
+    const vendorLetterId = mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-letter-id')?.valueString ?? '';
+    const vendorLetterStatus =
+      mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-letter-status')?.valueString ?? '';
+    const vendorSendDate = mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-send-date')?.valueString ?? '';
+    const vendorLetterUrl = mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-letter-url')?.valueString ?? '';
+
+    return {
+      communicationId: comm.id ?? '',
+      patientId,
+      patientName,
+      encounterId,
+      recipientName,
+      sentDate,
+      vendorLetterId,
+      vendorLetterStatus,
+      vendorSendDate,
+      vendorLetterUrl,
+      description,
+    };
+  });
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      message: `Found ${statements.length} mailed statements`,
+      statements,
+    }),
+  };
+});
