@@ -206,10 +206,14 @@ async function createOystehr(): Promise<{
   projectApi: string;
   zambdaApi: string;
 }> {
-  const auth0Endpoint = requireEnv('AUTH0_ENDPOINT');
-  const auth0Client = requireEnv('AUTH0_CLIENT');
-  const auth0Secret = requireEnv('AUTH0_SECRET');
-  const auth0Audience = requireEnv('AUTH0_AUDIENCE');
+  // Env var names are AUTH0_* for compatibility with the broader Ottehr
+  // .env files, but the surface here is "Oystehr IAM": an OAuth 2.0 client-
+  // credentials exchange for an M2M access token. If the underlying IAM
+  // vendor changes, the prose stays accurate even if the env vars don't.
+  const oystehrAuthEndpoint = requireEnv('AUTH0_ENDPOINT');
+  const oystehrAuthClient = requireEnv('AUTH0_CLIENT');
+  const oystehrAuthSecret = requireEnv('AUTH0_SECRET');
+  const oystehrAuthAudience = requireEnv('AUTH0_AUDIENCE');
   const projectId = requireEnv('PROJECT_ID');
   const projectApi = requireEnv('PROJECT_API');
   // The synth pipeline always routes zambda calls through the local Express
@@ -220,19 +224,19 @@ async function createOystehr(): Promise<{
   // explicitly want to hit a remote zambda runtime (rarely useful).
   const zambdaApi = process.env.ZAMBDA_API ?? 'http://localhost:3000/local';
 
-  const tokenResponse = await fetch(auth0Endpoint, {
+  const tokenResponse = await fetch(oystehrAuthEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id: auth0Client,
-      client_secret: auth0Secret,
-      audience: auth0Audience,
+      client_id: oystehrAuthClient,
+      client_secret: oystehrAuthSecret,
+      audience: oystehrAuthAudience,
       grant_type: 'client_credentials',
     }),
   });
   if (!tokenResponse.ok) {
     const errorText = await tokenResponse.text();
-    throw new Error(`Auth0 token request failed: ${tokenResponse.status} ${errorText}`);
+    throw new Error(`Oystehr IAM token request failed: ${tokenResponse.status} ${errorText}`);
   }
   const tokenData = (await tokenResponse.json()) as { access_token: string };
   const oystehr = new Oystehr({
@@ -2971,7 +2975,7 @@ async function main(): Promise<void> {
   };
 
   if (isExecute) {
-    console.log('Authenticating with Auth0...');
+    console.log('Authenticating with Oystehr IAM...');
     const created = await createOystehr();
     ctx.oystehr = created.oystehr;
     ctx.accessToken = created.accessToken;

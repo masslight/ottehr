@@ -55,7 +55,7 @@ async function createOystehr(): Promise<Oystehr> {
       grant_type: 'client_credentials',
     }),
   });
-  if (!tokenRes.ok) throw new Error(`Auth0 failed: ${tokenRes.status} ${await tokenRes.text()}`);
+  if (!tokenRes.ok) throw new Error(`Oystehr IAM auth failed: ${tokenRes.status} ${await tokenRes.text()}`);
   const { access_token } = (await tokenRes.json()) as { access_token: string };
   return new Oystehr({
     accessToken: access_token,

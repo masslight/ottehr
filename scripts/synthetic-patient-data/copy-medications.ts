@@ -71,7 +71,7 @@ async function createOystehrFromEnv(env: EnvConfig, label: string): Promise<Oyst
       audience: env.AUTH0_AUDIENCE,
     }),
   });
-  if (!tokenRes.ok) throw new Error(`[${label}] Auth0 failed: ${tokenRes.status} ${await tokenRes.text()}`);
+  if (!tokenRes.ok) throw new Error(`[${label}] Oystehr IAM auth failed: ${tokenRes.status} ${await tokenRes.text()}`);
   const { access_token } = (await tokenRes.json()) as { access_token: string };
   return new Oystehr({
     accessToken: access_token,

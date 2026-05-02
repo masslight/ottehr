@@ -73,7 +73,7 @@ async function main(): Promise<void> {
     }),
   });
   if (!tokenResponse.ok) {
-    throw new Error(`Auth0 token request failed: ${tokenResponse.status} ${await tokenResponse.text()}`);
+    throw new Error(`Oystehr IAM token request failed: ${tokenResponse.status} ${await tokenResponse.text()}`);
   }
   const { access_token } = (await tokenResponse.json()) as { access_token: string };
 

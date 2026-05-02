@@ -59,7 +59,7 @@ async function main(): Promise<void> {
       grant_type: 'client_credentials',
     }),
   });
-  if (!tokenRes.ok) throw new Error(`Auth0 failed: ${tokenRes.status} ${await tokenRes.text()}`);
+  if (!tokenRes.ok) throw new Error(`Oystehr IAM auth failed: ${tokenRes.status} ${await tokenRes.text()}`);
   const { access_token } = (await tokenRes.json()) as { access_token: string };
 
   const oystehr = new Oystehr({
