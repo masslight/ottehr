@@ -2153,18 +2153,36 @@ Phase 4  Module-specific orders                                                (
 Phase 5  Walk visit-status transitions                                         (§2.3)
          - assign-practitioner before each transition that needs an assignment
          - change-in-person-visit-status per status
+         - Truncates at scenario.visit.targetStatus (default 'completed')
+           — earlier targets stop the walk and skip Phase 7 sign-off so
+           the visit lands in pre-booked / waiting-room / in-exam without
+           getting locked.
 Phase 6  Coverage + Eligibility (if insured)                                   (§§7.19, 7.20)
 Phase 7  Sign-off                                                              (§3)
+         Skipped when targetStatus !== 'completed'; visit stays unlocked.
 ```
 
 ### 9.2 Sample script structure
 
+> **Note: this is a conceptual scaffold, not a literal mirror of `synthesize-visit.ts`.** It shows the call-site shape for the major phases; the actual implementation has more orchestration glue (retry on transient `fetch failed`, try/finally orphan cleanup on uncaught errors, history dedup before save-chart-data, fixture upload during the intake QR phase, idempotent charge-master/fee-schedule setup, etc.) that's omitted here for readability. Treat this as a "what would I write to do this from scratch?" reference; for production behavior, read `synthesize-visit.ts` and `cleanup-synth-patient.ts` directly.
+
 ```ts
 import Oystehr from '@oystehr/sdk';
 
-async function synthesizeVisit(seedName: string) {
+// Must match SYNTHETIC_PATIENT_ID_SYSTEM in synthesize-visit.ts; cleanup
+// scripts (cleanup-synth-patient.ts, cleanup-duplicate-history.ts) search
+// patients by this identifier system, so don't drift it.
+const SYNTH_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/sid/synthetic-patient-id';
+
+async function synthesizeVisit(seedName: string, targetStatus = 'completed') {
   const m2mToken = await mintM2MToken(env);
-  const oystehr  = new Oystehr({ accessToken: m2mToken, projectApi: env.PROJECT_API });
+  const oystehr  = new Oystehr({
+    accessToken: m2mToken,
+    projectApi: env.PROJECT_API,
+    // For local-zambdas dev, also set services.zambdaApiUrl to
+    // http://localhost:3000/local — otherwise zambda.execute() routes to
+    // the cloud (project-api.zapehr.com) regardless of where the script runs.
+  });
 
   // Phase 0
   const config = await bootstrap(oystehr);
@@ -2185,11 +2203,15 @@ async function synthesizeVisit(seedName: string) {
     resourceType: 'Patient',
     id: patientId,
     operations: [
-      { op: 'add', path: '/identifier/-', value: { system: 'https://synth.ottehr.com/patient', value: `${seedName}-patient` } },
+      { op: 'add', path: '/identifier/-', value: { system: SYNTH_IDENTIFIER_SYSTEM, value: `${seedName}-patient` } },
     ],
   });
 
-  // Phase 2
+  // Phase 2 — Z3 fixture uploads happen inline during Phase 1.5 intake-QR
+  // submission in the real script (the QR's valueAttachments reference
+  // the just-uploaded Z3 URLs, and the documents harvest creates
+  // DocumentReferences from there). This sample inlines them as a
+  // separate step for clarity.
   const docs = await uploadAllDocs(oystehr, env, patientId);
   await createDocumentReferences(oystehr, patientId, encounterId, docs);
 
@@ -2239,32 +2261,59 @@ async function synthesizeVisit(seedName: string) {
   await administerImmunization(oystehr, encounterId, config);
   await orderRadiology(oystehr, encounterId, config);
 
-  // Phase 5 — assignments + status transitions
-  await oystehr.zambda.execute({
-    id: 'assign-practitioner',
-    encounterId,
-    practitionerId: config.intakeStaff.id,
-    userRole: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ADM' }],
-  });
-  for (const updatedStatus of ['ready', 'intake', 'ready for provider'] as const) {
-    await oystehr.zambda.execute({ id: 'change-in-person-visit-status', encounterId, updatedStatus });
-  }
-  await oystehr.zambda.execute({
-    id: 'assign-practitioner',
-    encounterId,
-    practitionerId: config.provider.id,
-    userRole: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }],
-  });
-  for (const updatedStatus of ['provider', 'discharged', 'completed'] as const) {
-    await oystehr.zambda.execute({ id: 'change-in-person-visit-status', encounterId, updatedStatus });
-  }
+  // Phase 5 — assignments + status transitions, truncated at targetStatus.
+  // The real script's Phase 13 (visit-status walk) uses an ordered list of
+  // status names and calls change-in-person-visit-status for each one
+  // up to and including the target; if target === 'pending', the walk is
+  // a no-op (Phase 1 already left the appointment at status='booked').
+  const STATUS_ORDER = [
+    'pending', 'arrived', 'ready', 'intake', 'ready for provider',
+    'provider', 'discharged', 'completed',
+  ] as const;
+  const targetIdx = STATUS_ORDER.indexOf(targetStatus);
+  const reach = (s: typeof STATUS_ORDER[number]) => STATUS_ORDER.indexOf(s) <= targetIdx;
 
-  // Phase 6 — insurance + eligibility
-  const coverage = await createCoverageAndAccountLink(oystehr, patientId, accountId, config);
-  await createEligibilityResources(oystehr, patientId, coverage.id, config);
+  if (reach('arrived')) await oystehr.zambda.execute({ id: 'change-in-person-visit-status', encounterId, updatedStatus: 'arrived' });
+  if (reach('ready')) await oystehr.zambda.execute({ id: 'change-in-person-visit-status', encounterId, updatedStatus: 'ready' });
+  if (reach('intake')) {
+    // Intake-staff assignment must precede the 'intake' transition.
+    await oystehr.zambda.execute({
+      id: 'assign-practitioner',
+      encounterId,
+      practitionerId: config.intakeStaff.id,
+      userRole: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ADM' }],
+    });
+    await oystehr.zambda.execute({ id: 'change-in-person-visit-status', encounterId, updatedStatus: 'intake' });
+  }
+  if (reach('ready for provider')) await oystehr.zambda.execute({ id: 'change-in-person-visit-status', encounterId, updatedStatus: 'ready for provider' });
+  // Attending was assigned earlier (Phase 1.7) so later module phases that
+  // need an attender work; no need to re-assign here.
+  if (reach('provider')) await oystehr.zambda.execute({ id: 'change-in-person-visit-status', encounterId, updatedStatus: 'provider' });
+  if (reach('discharged')) await oystehr.zambda.execute({ id: 'change-in-person-visit-status', encounterId, updatedStatus: 'discharged' });
+  if (reach('completed')) await oystehr.zambda.execute({ id: 'change-in-person-visit-status', encounterId, updatedStatus: 'completed' });
 
-  // Phase 7 — sign-off
-  await oystehr.zambda.execute({ id: 'sign-appointment', appointmentId, encounterId });
+  // Phase 6 — insurance + eligibility synthesis. Coverage was already
+  // created by the intake QR's account-coverage harvest in Phase 1.5,
+  // so this phase enriches it (adds plan/group class entries from the
+  // scenario, backfills payer Org telecom if missing) and creates a
+  // synthetic CoverageEligibilityRequest + Response with realistic
+  // benefits in the pVerify/Candid raw-response shape — bypassing the
+  // get-eligibility zambda entirely (which would call an external RCM
+  // API that synth doesn't have configured).
+  const coverage = await findExistingCoverage(oystehr, patientId);
+  await enrichCoverageWithClassEntries(oystehr, coverage, jane.insurance);
+  await backfillPayerTelecomIfMissing(oystehr, config.payerOrgId);
+  await synthesizeEligibilityResponse(oystehr, patientId, coverage.id, config.payerOrgId);
+  // Plus: charge-master + fee-schedule setup via RCM zambdas
+  // (idempotent — searches by name/tag, creates if missing,
+  // adds CPT entries on rerun if any are new).
+  await ensureChargeMasterAndFeeSchedule(oystehr, jane.pricing, config.payerOrgId);
+
+  // Phase 7 — sign-off (skipped when target !== 'completed' so the
+  // visit stays unlocked / editable from the EHR).
+  if (targetStatus === 'completed') {
+    await oystehr.zambda.execute({ id: 'sign-appointment', appointmentId, encounterId });
+  }
 
   console.log(`Synthesized visit ${encounterId} for patient ${patientId}`);
   return { patientId, appointmentId, encounterId };
@@ -2290,7 +2339,7 @@ For repeatable seeding:
    ```ts
    const existing = await oystehr.fhir.search<Patient>({
      resourceType: 'Patient',
-     params: [{ name: 'identifier', value: `https://synth.ottehr.com/patient|${seedName}-patient` }],
+     params: [{ name: 'identifier', value: `https://fhir.ottehr.com/sid/synthetic-patient-id|${seedName}-patient` }],
    });
    ```
 
@@ -2308,7 +2357,7 @@ For repeatable seeding:
 async function cleanup(oystehr: Oystehr, seedName: string) {
   const patient = (await oystehr.fhir.search<Patient>({
     resourceType: 'Patient',
-    params: [{ name: 'identifier', value: `https://synth.ottehr.com/patient|${seedName}-patient` }],
+    params: [{ name: 'identifier', value: `https://fhir.ottehr.com/sid/synthetic-patient-id|${seedName}-patient` }],
   })).unbundle()[0];
   if (!patient) return;
   const patientId = patient.id!;
@@ -2351,6 +2400,29 @@ async function cleanup(oystehr: Oystehr, seedName: string) {
 }
 ```
 
+### 9.6 Operational machinery (retry, orphan cleanup, history dedup, CER supersede)
+
+The pipeline ships with several operational features layered around the phase calls. They aren't part of the FHIR/clinical model — they exist because synth runs hit transient failures, get re-run, and need to behave well in both cases.
+
+**Transient-failure retry (`withRetry`).** All FHIR `get`/`search`/`patch` and `fetch`-to-zambda calls inside `runLocalHarvest` and `patch-paperwork` are wrapped in a `withRetry(label, attempts, fn)` helper that catches `fetch failed` / `ECONNRESET` / `ETIMEDOUT` and retries up to 3× with exponential backoff (500ms / 1s / 2s). The cause is almost always a Node undici `HeadersTimeoutError` on a cloud-Oystehr-API call (10s default header timeout), and one retry usually clears it. Non-transient errors (4xx/5xx with a body) bubble up immediately.
+
+**Try/finally orphan cleanup on uncaught error.** The phase loop in `synthesize-visit.ts:main()` is wrapped in `try / catch`. If any phase throws past the retry layer, `cleanupFailedRun(ctx)` deletes the visit-level resources Phase 1 just created — `Appointment`, `Encounter`, `QuestionnaireResponse`, and any harvest `Task`s tied to the QR. `Patient` / `Account` / `Coverage` / `RelatedPerson` are intentionally **not** deleted: they persist across visits and the synth dedup will reuse them on the next run. Without this, a mid-pipeline `fetch failed` would leave an `Appointment.status='booked'` (= `pending` in the EHR) appointment cluttering the dashboard's pre-booked tab. The original error is re-thrown so the failure is still visible in the script's exit code + stderr.
+
+**History dedup before save-chart-data (`filterPreExistingHistory`).** Phase 3 calls `save-chart-data` with allergies / medications / conditions / surgical-hx / hospitalizations — but those are `Patient`-bound (not `Encounter`-bound), so re-running for the same Jane Doe would otherwise create N copies of every history row. Before the call, the helper FHIR-searches each tag (`_tag=known-allergy`, `_tag=current-medication`, `_tag=medical-condition`, `_tag=surgical-history`, `_tag=hospitalization`) scoped to the patient, builds dedup-key sets per category (lowercased name/display, ICD-10 / RxNorm code if present), and filters the input arrays so only items the patient does NOT already have are sent. Vitals / screening notes / RFV / chief complaint / `patientInfoConfirmed` are intentionally per-Encounter and continue to flow through unchanged on every run.
+
+**CoverageEligibilityResponse supersede.** Phase 10's eligibility synthesis searches for prior `active` CERs for the same patient + Coverage and `PATCH`es their `status` to `'cancelled'` before creating the new one. Without this, the EHR's `coverageChecks.find()` (sorted by `-created`) does pick the newest, but stale browser caches can surface older CER data on a refresh. Marking prior CERs as cancelled makes the FHIR state unambiguous.
+
+**Charge-master + fee-schedule idempotency.** Phase 10A uses `list-charge-masters` / `list-fee-schedules` to find existing entries by `title` before calling `create-charge-master` / `create-fee-schedule`. Per-CPT entries (`cm-add-procedure-code`, `add-procedure-code`) catch and swallow "already exists" errors, so reruns are no-ops on the catalog side. Designed so a clean project becomes demo-ready by the end of the first synth run, and stays clean across reruns.
+
+**Recovery from accumulated state:**
+
+| Symptom | Tool |
+| --- | --- |
+| Pre-booked tab cluttered with failed-mid-flight visits (older orphans created before try/finally was added) | `cleanup-synth-patient.ts --all --orphan-cleanup` (deletes only `status='booked'` Appointments + dependents) |
+| Patient has duplicate allergies/meds/conditions accumulated by pre-dedup runs | `cleanup-duplicate-history.ts <patientId>` (keeps oldest of each dedup group) |
+| Want to wipe one (or all) synth patients entirely and start fresh | `cleanup-synth-patient.ts <patientId>` or `--all` (does NOT delete bootstrap-tier data — payer Orgs, ChargeItemDefinitions, Practitioners, Locations, templates, formulary all stay) |
+| Want to verify FHIR state for a patient (Coverage, CER benefits, DocumentReferences, chart-data counts) | `inspect-coverage.ts` / `inspect-cer.ts` / `inspect-docs.ts` / `inspect-history-counts.ts` |
+
 ---
 
 ## Helper scripts in this directory
@@ -2369,6 +2441,14 @@ takes `--execute` to actually write; defaults to dry-run.
 | `copy-payer-organizations.ts` | Copy a curated sample of payer `Organization` resources (insurance carriers) from a source project. Defaults to ~10 national carriers (Aetna, BCBS, Cigna, UnitedHealth, Humana, Kaiser, Anthem, Medicare, Medicaid, Tricare); use `--carrier <name>` to pull a specific one or `--all` to bulk-copy every type=pay Org (NOT recommended — there are thousands). Required so the intake QR harvest can build Coverage from real Candid payer-ids; without this, Phase 0 of synthesis aborts with "Payer Organization not found". |
 | `patch-medication-erx.ts` | Patch every inventory `Medication` on the project that's missing a coding with system `https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id` to add a stable synthetic dispensable-drug-id. Required for the `create-update-medication-order` zambda's administer step (which builds a `MedicationStatement` whose code copies that coding). Idempotent — re-running on already-patched meds is a no-op. |
 | `create-demo-user.ts` | Provision a `demo@ottehr.com` Administrator user via Auth0 invite + `changePassword`. Use this once per fresh synth project so there's at least one role-assigned Practitioner for the synth pipeline to attribute work to. |
+| `cleanup-synth-patient.ts` | Wipe one (or all) synth-tagged Patients and every per-visit FHIR resource produced for them — Appointments, Encounters, QRs, Tasks, ServiceRequests, MedicationAdministrations, Procedures, Observations, Conditions, MedicationStatements, AllergyIntolerance, EpisodeOfCare, DocumentReferences, Lists, CoverageEligibilityRequests/Responses, Coverage, Account, RelatedPersons. Bootstrap-tier data (payer Orgs, ChargeItemDefinitions, Practitioners, Locations, templates, formulary) is intentionally **not** touched so the next synth run reuses it. Pass `<patientId>` to scope to one patient, or `--all` to wipe every synth-tagged Patient. **`--orphan-cleanup`** subset: deletes only `status='booked'` Appointments + their dependents — useful for cleaning up partially-created visits left in the EHR's preBooked tab by pre-`try/finally` failed runs. Defaults to dry-run; pass `--execute` to commit. |
+| `cleanup-duplicate-history.ts` | One-time cleanup of duplicate chart-data history rows (AllergyIntolerance, MedicationStatement, Condition, Procedure[surgical-history], EpisodeOfCare) accumulated by synth runs that predated `filterPreExistingHistory` in Phase 3. Groups each tagged resource by a pragmatic dedup key (lowercased display, ICD-10 code if present), keeps the oldest member by `meta.lastUpdated`, deletes the rest. The current Phase 3 dedup prevents new duplicates going forward; this script is for cleaning up legacy state. |
+| `inspect-cer.ts` | Read-only dump of every `CoverageEligibilityResponse` for a Patient, including the parsed benefits inside the `raw-response` extension JSON (Active / Coinsurance / Copay / Deductible / OOP-Max grouped, with `code` / `period` / `level` / `network`). Use to verify the EHR's eligibility chip + copay/deductible widget will pick up the right benefits. |
+| `inspect-coverage.ts` | Read-only dump of Coverage, Account, Encounter (payment-variant + account ref), CER count, and the resolved payer Organization (with telecom + identifier). One-stop "is this patient's insurance set up correctly" check. |
+| `inspect-docs.ts` | Read-only dump of every `DocumentReference` and patient-docs-folder `List` for a Patient. Surfaces silent issues like image titles that don't match the `DocumentType` enum (the visit-detail page renders empty when titles aren't enum keys). |
+| `inspect-encounter-cpts.ts` | Read-only listing of `Procedure` resources on a specific Encounter — code system, code, display, category, status. Use to verify CPT codes are wired to the encounter (input to the EHR's patient-responsibility calc). |
+| `inspect-fee-schedule.ts` | Calls `find-applicable-fee-schedule` and `find-applicable-charge-master` for a hard-coded payer/date/location triple. Use to verify the RCM lookups the EHR's `PatientPaymentsList` does will return entries (i.e., `lineItemsTotal > 0`). |
+| `inspect-history-counts.ts` | Read-only counts of each tagged chart-data category (allergies, meds, conditions, surgical hx, hospitalizations, CER) for a Patient. Use to detect duplicate accumulation from pre-dedup synth runs. |
 
 ---
 
