@@ -23,6 +23,7 @@ export interface MailedStatementItem {
   vendorEnvelopeType: string;
   vendorStatusSyncedAt: string;
   description: string;
+  htmlContent: string;
 }
 
 export interface MailedStatementsReportZambdaOutput {

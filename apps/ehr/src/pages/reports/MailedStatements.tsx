@@ -1,7 +1,9 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
+import PreviewIcon from '@mui/icons-material/Preview';
 import SyncIcon from '@mui/icons-material/Sync';
 import {
   Alert,
@@ -9,6 +11,9 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   FormControl,
   IconButton,
   InputLabel,
@@ -19,6 +24,7 @@ import {
   SelectChangeEvent,
   Snackbar,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import {
@@ -300,6 +306,51 @@ function StatusChipWithPopover({
         </Paper>
       </Popper>
     </Box>
+  );
+}
+
+function PreviewButton({ htmlContent, description }: { htmlContent: string; description: string }): React.ReactElement {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Tooltip title={description || 'Preview statement'} placement="top">
+        <Button
+          size="small"
+          variant="text"
+          startIcon={<PreviewIcon />}
+          onClick={() => setOpen(true)}
+          sx={{ textTransform: 'none' }}
+        >
+          Preview
+        </Button>
+      </Tooltip>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 1 }}>
+          <Typography variant="h3" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+            Statement Preview
+          </Typography>
+          <IconButton onClick={() => setOpen(false)} aria-label="close">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box
+            component="iframe"
+            title="Statement Preview"
+            sandbox="allow-same-origin allow-scripts"
+            srcDoc={htmlContent}
+            sx={{
+              width: '100%',
+              minHeight: 800,
+              border: 'none',
+              backgroundColor: '#fff',
+              borderRadius: 1,
+              filter: 'grayscale(100%)',
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -612,7 +663,26 @@ export default function MailedStatements(): React.ReactElement {
         sortable: true,
         renderCell: (params: GridRenderCellParams) => {
           const val = params.value as string;
-          return formatDisplayName(val, {});
+          const display = formatDisplayName(val, {});
+          return (
+            <Tooltip title={display} placement="top">
+              <span>{display}</span>
+            </Tooltip>
+          );
+        },
+      },
+      {
+        field: 'htmlContent',
+        headerName: 'Preview',
+        width: 100,
+        sortable: false,
+        filterable: false,
+        disableExport: true,
+        renderCell: (params: GridRenderCellParams) => {
+          const htmlContent = params.value as string;
+          const description = params.row.description as string;
+          if (!htmlContent) return null;
+          return <PreviewButton htmlContent={htmlContent} description={description} />;
         },
       },
     ],

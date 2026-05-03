@@ -149,6 +149,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const sentDate = comm.sent ?? '';
     const description = comm.payload?.[0]?.contentString ?? '';
 
+    // Extract HTML content from payload attachment
+    const htmlAttachment = comm.payload?.find(
+      (p) => p.contentAttachment?.contentType === 'text/html' && p.contentAttachment?.data
+    );
+    const htmlContent = htmlAttachment?.contentAttachment?.data
+      ? Buffer.from(htmlAttachment.contentAttachment.data, 'base64').toString('utf-8')
+      : '';
+
     // Extract PostGrid vendor info from extensions
     const mailVendorExt = comm.extension?.find((ext) => ext.url === MAIL_VENDOR_EXTENSION_URL);
     const vendorLetterId = mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-letter-id')?.valueString ?? '';
@@ -182,6 +190,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       vendorEnvelopeType,
       vendorStatusSyncedAt,
       description,
+      htmlContent,
     };
   });
 
