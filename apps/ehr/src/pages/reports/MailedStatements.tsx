@@ -1,4 +1,6 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CheckIcon from '@mui/icons-material/Check';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import SyncIcon from '@mui/icons-material/Sync';
 import {
@@ -7,7 +9,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  ClickAwayListener,
   FormControl,
   IconButton,
   InputLabel,
@@ -229,19 +230,19 @@ function CopyableField({ label, value }: { label: string; value: string }): Reac
         sx={{
           fontFamily: 'monospace',
           fontSize: '0.7rem',
-          cursor: 'pointer',
-          '&:hover': { textDecoration: 'underline' },
           userSelect: 'all',
         }}
-        onClick={handleCopy}
-        title="Click to copy"
       >
         {value || '-'}
       </Typography>
-      {copied && (
-        <Typography variant="caption" color="success.main" sx={{ fontSize: '0.65rem' }}>
-          Copied!
-        </Typography>
+      {value && (
+        <IconButton size="small" onClick={handleCopy} sx={{ p: 0.25 }}>
+          {copied ? (
+            <CheckIcon sx={{ fontSize: 14, color: 'success.main' }} />
+          ) : (
+            <ContentCopyIcon sx={{ fontSize: 14 }} />
+          )}
+        </IconButton>
       )}
     </Box>
   );
@@ -260,40 +261,45 @@ function StatusChipWithPopover({
 }): React.ReactElement {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement | null>(null);
+  const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleMouseEnter = (): void => {
+    if (closeTimeout.current) {
+      clearTimeout(closeTimeout.current);
+      closeTimeout.current = null;
+    }
+    setOpen(true);
+  };
+
+  const handleMouseLeave = (): void => {
+    closeTimeout.current = setTimeout(() => setOpen(false), 200);
+  };
 
   return (
-    <>
-      <Chip
-        ref={anchorRef}
-        label={displayStatus}
-        color={getMailStatusColor(status)}
-        size="small"
-        variant="outlined"
-        onClick={() => setOpen((prev) => !prev)}
-        sx={{ cursor: 'pointer' }}
-      />
+    <Box onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} sx={{ display: 'inline-flex' }}>
+      <Chip ref={anchorRef} label={displayStatus} color={getMailStatusColor(status)} size="small" variant="outlined" />
       <Popper open={open} anchorEl={anchorRef.current} placement="bottom-start" sx={{ zIndex: 1300 }}>
-        <ClickAwayListener onClickAway={() => setOpen(false)}>
-          <Paper
-            elevation={8}
-            sx={{
-              p: 1.5,
-              mt: 0.5,
-              minWidth: 280,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 0.5,
-            }}
-          >
-            <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5 }}>
-              Mail Details
-            </Typography>
-            <CopyableField label="Letter ID" value={letterId} />
-            <CopyableField label="Comm ID" value={communicationId} />
-          </Paper>
-        </ClickAwayListener>
+        <Paper
+          elevation={8}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          sx={{
+            p: 1.5,
+            mt: 0.5,
+            minWidth: 280,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0.5,
+          }}
+        >
+          <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5 }}>
+            Mail Details
+          </Typography>
+          <CopyableField label="Letter ID" value={letterId} />
+          <CopyableField label="Comm ID" value={communicationId} />
+        </Paper>
       </Popper>
-    </>
+    </Box>
   );
 }
 
@@ -515,7 +521,7 @@ export default function MailedStatements(): React.ReactElement {
       },
       {
         field: 'appointmentDate',
-        headerName: 'Date of Visit',
+        headerName: 'Visit Date',
         width: 160,
         sortable: true,
         valueFormatter: (params) => {
