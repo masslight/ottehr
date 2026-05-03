@@ -7,11 +7,13 @@ import {
   Button,
   Chip,
   CircularProgress,
+  ClickAwayListener,
   FormControl,
   IconButton,
   InputLabel,
   MenuItem,
   Paper,
+  Popper,
   Select,
   SelectChangeEvent,
   Snackbar,
@@ -30,7 +32,7 @@ import {
 } from '@mui/x-data-grid-pro';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DEFAULT_BATCH_DAYS, MailedStatementItem, splitDateRangeIntoBatches } from 'utils';
 import { getMailedStatementsReport, syncMailedStatementStatuses } from '../../api/api';
@@ -176,6 +178,124 @@ const getMailStatusColor = (
       return 'default';
   }
 };
+
+const MAIL_STATUS_DISPLAY: Record<string, string> = {
+  ready: 'Ready',
+  printing: 'Printing',
+  processed_for_delivery: 'Processed for Delivery',
+  completed: 'Delivered',
+  cancelled: 'Cancelled',
+};
+
+const MAILING_CLASS_DISPLAY: Record<string, string> = {
+  first_class: 'First Class',
+  standard_class: 'Standard Class',
+  express: 'Express',
+  certified: 'Certified',
+  certified_return_receipt: 'Certified (Return Receipt)',
+  registered: 'Registered',
+  usps_first_class: 'USPS First Class',
+  usps_standard_class: 'USPS Standard Class',
+  usps_express_3_day: 'USPS Priority (2-3 Day)',
+  usps_first_class_certified: 'USPS Certified First Class',
+  usps_first_class_certified_return_receipt: 'USPS Certified First Class (Return Receipt)',
+  ca_post_lettermail: 'Canada Post Lettermail',
+  ca_post_personalized: 'Canada Post Personalized',
+  ca_post_registered: 'Canada Post Registered',
+  royal_mail_first_class: 'Royal Mail First Class',
+  royal_mail_standard_class: 'Royal Mail Standard',
+};
+
+function formatDisplayName(raw: string, displayMap: Record<string, string>): string {
+  if (!raw) return '-';
+  return displayMap[raw] ?? raw.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function CopyableField({ label, value }: { label: string; value: string }): React.ReactElement {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = (): void => {
+    void navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ minWidth: 70 }}>
+        {label}:
+      </Typography>
+      <Typography
+        variant="caption"
+        sx={{
+          fontFamily: 'monospace',
+          fontSize: '0.7rem',
+          cursor: 'pointer',
+          '&:hover': { textDecoration: 'underline' },
+          userSelect: 'all',
+        }}
+        onClick={handleCopy}
+        title="Click to copy"
+      >
+        {value || '-'}
+      </Typography>
+      {copied && (
+        <Typography variant="caption" color="success.main" sx={{ fontSize: '0.65rem' }}>
+          Copied!
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+function StatusChipWithPopover({
+  status,
+  displayStatus,
+  letterId,
+  communicationId,
+}: {
+  status: string;
+  displayStatus: string;
+  letterId: string;
+  communicationId: string;
+}): React.ReactElement {
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+
+  return (
+    <>
+      <Chip
+        ref={anchorRef}
+        label={displayStatus}
+        color={getMailStatusColor(status)}
+        size="small"
+        variant="outlined"
+        onClick={() => setOpen((prev) => !prev)}
+        sx={{ cursor: 'pointer' }}
+      />
+      <Popper open={open} anchorEl={anchorRef.current} placement="bottom-start" sx={{ zIndex: 1300 }}>
+        <ClickAwayListener onClickAway={() => setOpen(false)}>
+          <Paper
+            elevation={8}
+            sx={{
+              p: 1.5,
+              mt: 0.5,
+              minWidth: 280,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0.5,
+            }}
+          >
+            <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5 }}>
+              Mail Details
+            </Typography>
+            <CopyableField label="Letter ID" value={letterId} />
+            <CopyableField label="Comm ID" value={communicationId} />
+          </Paper>
+        </ClickAwayListener>
+      </Popper>
+    </>
+  );
+}
 
 const useMailedStatements = (
   dateRange: DateRangeFilter,
@@ -441,22 +561,32 @@ export default function MailedStatements(): React.ReactElement {
       },
       {
         field: 'vendorLetterStatus',
-        headerName: 'Status',
-        width: 160,
+        headerName: 'Mail Status',
+        width: 200,
         sortable: true,
         renderCell: (params: GridRenderCellParams) => {
           const status = (params.value as string) || 'unknown';
-          return <Chip label={status} color={getMailStatusColor(status)} size="small" variant="outlined" />;
+          const displayStatus = formatDisplayName(status, MAIL_STATUS_DISPLAY);
+          const letterId = params.row.vendorLetterId as string;
+          const commId = params.row.communicationId as string;
+          return (
+            <StatusChipWithPopover
+              status={status}
+              displayStatus={displayStatus}
+              letterId={letterId}
+              communicationId={commId}
+            />
+          );
         },
       },
       {
         field: 'vendorMailingClass',
         headerName: 'Mail Class',
-        width: 130,
+        width: 150,
         sortable: true,
         renderCell: (params: GridRenderCellParams) => {
           const val = params.value as string;
-          return val || '-';
+          return formatDisplayName(val, MAILING_CLASS_DISPLAY);
         },
       },
       {
@@ -476,19 +606,7 @@ export default function MailedStatements(): React.ReactElement {
         sortable: true,
         renderCell: (params: GridRenderCellParams) => {
           const val = params.value as string;
-          return val || '-';
-        },
-      },
-      {
-        field: 'communicationId',
-        headerName: 'Communication ID',
-        width: 320,
-        sortable: true,
-        disableExport: true,
-        renderCell: (params: GridRenderCellParams) => {
-          const id = params.value as string;
-          if (!id) return '-';
-          return <span style={{ fontFamily: 'monospace' }}>{id}</span>;
+          return formatDisplayName(val, {});
         },
       },
     ],
