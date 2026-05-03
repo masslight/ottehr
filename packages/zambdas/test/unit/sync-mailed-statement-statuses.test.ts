@@ -12,12 +12,6 @@ vi.mock('../../src/shared/postgrid', () => ({
   getPostGridLetter: (...args: unknown[]) => mockGetPostGridLetter(args[0] as string, args[1]),
 }));
 
-// Speed up tests by eliminating the rate-limit delay
-vi.spyOn(globalThis, 'setTimeout').mockImplementation((fn: TimerHandler) => {
-  if (typeof fn === 'function') fn();
-  return 0 as unknown as ReturnType<typeof setTimeout>;
-});
-
 // We also need to mock luxon DateTime.now() for deterministic timestamps
 vi.mock('luxon', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -94,6 +88,11 @@ const secrets = { POSTGRID_API_KEY: 'test-key' } as any;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Speed up tests by eliminating the rate-limit delay
+  vi.spyOn(globalThis, 'setTimeout').mockImplementation((fn: TimerHandler) => {
+    if (typeof fn === 'function') fn();
+    return 0 as unknown as ReturnType<typeof setTimeout>;
+  });
   mockOystehr = {
     fhir: {
       search: vi.fn(),
@@ -115,6 +114,7 @@ describe('syncMailedStatementStatuses', () => {
     expect(result).toEqual({
       total: 0,
       updated: 0,
+      unchanged: 0,
       alreadyTerminal: 0,
       errors: [],
     });
@@ -197,6 +197,20 @@ describe('syncMailedStatementStatuses', () => {
     expect(result.alreadyTerminal).toBe(1);
     expect(result.updated).toBe(0);
     expect(mockGetPostGridLetter).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
+  });
+
+  it('skips FHIR update when PostGrid returns the same status', async () => {
+    const comm = makeCommunication('comm-unchanged', 'letter_same', 'ready');
+    mockOystehr.fhir.search.mockResolvedValueOnce(makeSearchBundle([comm]));
+    mockGetPostGridLetter.mockResolvedValueOnce(makePostGridLetter({ status: 'ready' as PostGridLetterStatus }));
+
+    const result = await syncMailedStatementStatuses(mockOystehr as any, secrets);
+
+    expect(result.total).toBe(1);
+    expect(result.unchanged).toBe(1);
+    expect(result.updated).toBe(0);
+    expect(mockGetPostGridLetter).toHaveBeenCalledOnce();
     expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
   });
 

@@ -242,7 +242,7 @@ function CopyableField({ label, value }: { label: string; value: string }): Reac
         {value || '-'}
       </Typography>
       {value && (
-        <IconButton size="small" onClick={handleCopy} sx={{ p: 0.25 }}>
+        <IconButton size="small" onClick={handleCopy} sx={{ p: 0.25 }} aria-label={`Copy ${label}`}>
           {copied ? (
             <CheckIcon sx={{ fontSize: 14, color: 'success.main' }} />
           ) : (
@@ -337,7 +337,7 @@ function PreviewButton({ htmlContent, description }: { htmlContent: string; desc
           <Box
             component="iframe"
             title="Statement Preview"
-            sandbox="allow-same-origin allow-scripts"
+            sandbox="allow-scripts"
             srcDoc={htmlContent}
             sx={{
               width: '100%',
@@ -395,7 +395,7 @@ const useMailedStatements = (
 
       return unique.sort((a, b) => DateTime.fromISO(b.sentDate).toMillis() - DateTime.fromISO(a.sentDate).toMillis());
     },
-    enabled: Boolean(oystehrZambda && dateRange !== 'custom' && dateRange !== 'customRange'),
+    enabled: Boolean(oystehrZambda && start && end),
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 5,
   });
@@ -552,6 +552,9 @@ export default function MailedStatements(): React.ReactElement {
         sortable: true,
         renderCell: (params: GridRenderCellParams) => {
           const patientId = params.row.patientId;
+          if (!patientId) {
+            return <Typography variant="body2">{params.value}</Typography>;
+          }
           return (
             <Link
               to={`/patient/${patientId}`}
@@ -706,7 +709,7 @@ export default function MailedStatements(): React.ReactElement {
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
           This report shows patient statements sent by mail via PostGrid. Click a patient name to navigate to their
-          chart. Use the PDF link to view the mailed letter.
+          chart. Click the preview icon to view the mailed statement.
         </Typography>
 
         {/* Date Filter */}

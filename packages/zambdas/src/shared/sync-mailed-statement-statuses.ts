@@ -10,6 +10,7 @@ const POSTGRID_GET_RATE_LIMIT_DELAY_MS = 1_250; // ~48 req/min, safely under 50/
 export interface SyncMailedStatementStatusesResult {
   total: number;
   updated: number;
+  unchanged: number;
   alreadyTerminal: number;
   errors: { communicationId: string; error: string }[];
 }
@@ -76,6 +77,7 @@ export async function syncMailedStatementStatuses(
   const result: SyncMailedStatementStatusesResult = {
     total: 0,
     updated: 0,
+    unchanged: 0,
     alreadyTerminal: 0,
     errors: [],
   };
@@ -153,6 +155,12 @@ export async function syncMailedStatementStatuses(
 
       const postGridLetter = await getPostGridLetter(letterId, secrets);
 
+      // Skip update if status hasn't changed
+      if (postGridLetter.status === currentStatus) {
+        result.unchanged++;
+        continue;
+      }
+
       const updatedMailVendorExt = buildUpdatedMailVendorExtension(mailVendorExt, {
         status: postGridLetter.status,
         url: postGridLetter.url,
@@ -191,7 +199,7 @@ export async function syncMailedStatementStatuses(
   }
 
   console.log(
-    `Sync complete: ${result.updated} updated, ${result.alreadyTerminal} already terminal, ${result.errors.length} errors out of ${result.total} total`
+    `Sync complete: ${result.updated} updated, ${result.unchanged} unchanged, ${result.alreadyTerminal} already terminal, ${result.errors.length} errors out of ${result.total} total`
   );
 
   return result;
