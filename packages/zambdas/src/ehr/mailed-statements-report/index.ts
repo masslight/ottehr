@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Communication, Patient } from 'fhir/r4b';
+import { Appointment, Communication, Encounter, Patient } from 'fhir/r4b';
 import { getPatientFirstName, getPatientLastName, MailedStatementItem, Secrets } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -66,12 +66,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log(`Found ${allCommunications.length} mailed statement Communications across ${pageCount} pages`);
 
-  // Collect unique patient IDs
+  // Collect unique patient IDs and encounter IDs
   const patientIds = new Set<string>();
+  const encounterIds = new Set<string>();
   for (const comm of allCommunications) {
     const patientId = comm.subject?.reference?.split('/')[1];
     if (patientId) {
       patientIds.add(patientId);
+    }
+    const encounterId = comm.encounter?.reference?.split('/')[1];
+    if (encounterId) {
+      encounterIds.add(encounterId);
     }
   }
 
@@ -93,6 +98,43 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   }
 
+  // Fetch encounters with their appointments in a single query per batch using _include
+  const encounterAppointmentData = new Map<string, { appointmentDate: string; appointmentId: string }>();
+  const encounterIdArray = Array.from(encounterIds);
+  const ENCOUNTER_BATCH_SIZE = 50;
+
+  for (let i = 0; i < encounterIdArray.length; i += ENCOUNTER_BATCH_SIZE) {
+    const batch = encounterIdArray.slice(i, i + ENCOUNTER_BATCH_SIZE);
+    const encounterBundle = await oystehr.fhir.search<Encounter | Appointment>({
+      resourceType: 'Encounter',
+      params: [
+        { name: '_id', value: batch.join(',') },
+        { name: '_include', value: 'Encounter:appointment' },
+      ],
+    });
+
+    const appointments = new Map<string, Appointment>();
+    const encounters: Encounter[] = [];
+
+    for (const resource of encounterBundle.unbundle()) {
+      if (resource.resourceType === 'Appointment' && resource.id) {
+        appointments.set(resource.id, resource as Appointment);
+      } else if (resource.resourceType === 'Encounter') {
+        encounters.push(resource as Encounter);
+      }
+    }
+
+    for (const encounter of encounters) {
+      if (!encounter.id) continue;
+      const appointmentRef = encounter.appointment?.[0]?.reference?.split('/')[1];
+      const appointment = appointmentRef ? appointments.get(appointmentRef) : undefined;
+      encounterAppointmentData.set(encounter.id, {
+        appointmentDate: appointment?.start ?? encounter.period?.start ?? '',
+        appointmentId: appointmentRef ?? '',
+      });
+    }
+  }
+
   // Map Communications to report items
   const statements: MailedStatementItem[] = allCommunications.map((comm) => {
     const patientId = comm.subject?.reference?.split('/')[1] ?? '';
@@ -100,6 +142,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const patientName = patient ? `${getPatientLastName(patient)}, ${getPatientFirstName(patient)}` : 'Unknown';
 
     const encounterId = comm.encounter?.reference?.split('/')[1] ?? '';
+    const apptData = encounterAppointmentData.get(encounterId);
+    const appointmentDate = apptData?.appointmentDate ?? '';
+    const appointmentId = apptData?.appointmentId ?? '';
     const recipientName = comm.recipient?.[0]?.display ?? '';
     const sentDate = comm.sent ?? '';
     const description = comm.payload?.[0]?.contentString ?? '';
@@ -119,6 +164,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounterId,
       recipientName,
       sentDate,
+      appointmentDate,
+      appointmentId,
       vendorLetterId,
       vendorLetterStatus,
       vendorSendDate,

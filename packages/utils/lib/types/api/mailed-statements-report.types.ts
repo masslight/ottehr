@@ -12,6 +12,8 @@ export interface MailedStatementItem {
   encounterId: string;
   recipientName: string;
   sentDate: string;
+  appointmentDate: string;
+  appointmentId: string;
   vendorLetterId: string;
   vendorLetterStatus: string;
   vendorSendDate: string;

@@ -1,9 +1,7 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   Box,
-  Button,
   Chip,
   FormControl,
   IconButton,
@@ -300,7 +298,7 @@ export default function MailedStatements(): React.ReactElement {
   );
 
   const { start, end } = getDateRange(dateRange);
-  const { data: statements = [], isLoading, error, refetch } = useMailedStatements(dateRange, start, end);
+  const { data: statements = [], isLoading, error } = useMailedStatements(dateRange, start, end);
 
   const handleBack = (): void => {
     navigate('/reports');
@@ -322,10 +320,6 @@ export default function MailedStatements(): React.ReactElement {
     setCustomEndDate(event.target.value);
   };
 
-  const handleRefresh = (): void => {
-    void refetch();
-  };
-
   const CustomToolbar = (): React.ReactElement => {
     return (
       <GridToolbarContainer>
@@ -336,18 +330,6 @@ export default function MailedStatements(): React.ReactElement {
 
   const columns: GridColDef[] = useMemo(
     () => [
-      {
-        field: 'sentDate',
-        headerName: 'Sent Date',
-        width: 180,
-        sortable: true,
-        filterOperators: sentDateFilterOperators,
-        renderCell: (params: GridRenderCellParams) => {
-          const iso = params.value as string;
-          if (!iso) return 'Unknown';
-          return DateTime.fromISO(iso).toFormat('MM/dd/yyyy hh:mm a');
-        },
-      },
       {
         field: 'patientName',
         headerName: 'Patient',
@@ -369,13 +351,54 @@ export default function MailedStatements(): React.ReactElement {
       },
       {
         field: 'recipientName',
-        headerName: 'Recipient (Resp. Party)',
+        headerName: 'Responsible Party',
         width: 200,
         sortable: true,
       },
       {
+        field: 'appointmentDate',
+        headerName: 'Date of Visit',
+        width: 160,
+        sortable: true,
+        renderCell: (params: GridRenderCellParams) => {
+          const val = params.value as string;
+          if (!val) return '-';
+          const dt = DateTime.fromISO(val);
+          const formatted = dt.isValid ? dt.toFormat('MM/dd/yyyy') : val;
+          const appointmentId = params.row.appointmentId as string;
+          if (!appointmentId) return formatted;
+          return (
+            <Link
+              to={`/visit/${appointmentId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#1976d2', textDecoration: 'underline' }}
+            >
+              {formatted}
+            </Link>
+          );
+        },
+      },
+      {
+        field: 'sentDate',
+        headerName: 'Send Date',
+        width: 180,
+        sortable: true,
+        filterOperators: sentDateFilterOperators,
+        valueFormatter: (params) => {
+          if (!params.value) return 'Unknown';
+          return DateTime.fromISO(params.value as string).toFormat('yyyy-MMM-dd');
+        },
+        renderCell: (params: GridRenderCellParams) => {
+          const iso = params.value as string;
+          if (!iso) return 'Unknown';
+          const dt = DateTime.fromISO(iso);
+          return <span title={dt.toFormat('yyyy-MMM-dd hh:mm a')}>{dt.toFormat('yyyy-MMM-dd')}</span>;
+        },
+      },
+      {
         field: 'vendorLetterStatus',
-        headerName: 'Mail Status',
+        headerName: 'Status',
         width: 160,
         sortable: true,
         renderCell: (params: GridRenderCellParams) => {
@@ -384,58 +407,15 @@ export default function MailedStatements(): React.ReactElement {
         },
       },
       {
-        field: 'vendorSendDate',
-        headerName: 'Vendor Send Date',
-        width: 160,
-        sortable: true,
-        renderCell: (params: GridRenderCellParams) => {
-          const val = params.value as string;
-          if (!val) return '-';
-          const dt = DateTime.fromISO(val);
-          return dt.isValid ? dt.toFormat('MM/dd/yyyy') : val;
-        },
-      },
-      {
-        field: 'description',
-        headerName: 'Description',
-        width: 300,
-        sortable: true,
-      },
-      {
-        field: 'encounterId',
-        headerName: 'Encounter ID',
+        field: 'communicationId',
+        headerName: 'Communication ID',
         width: 320,
         sortable: true,
+        disableExport: true,
         renderCell: (params: GridRenderCellParams) => {
-          const encounterId = params.value as string;
-          if (!encounterId) return '-';
-          return <span style={{ fontFamily: 'monospace' }}>{encounterId}</span>;
-        },
-      },
-      {
-        field: 'vendorLetterId',
-        headerName: 'PostGrid Letter ID',
-        width: 260,
-        sortable: true,
-        renderCell: (params: GridRenderCellParams) => {
-          const letterId = params.value as string;
-          if (!letterId) return '-';
-          return <span style={{ fontFamily: 'monospace' }}>{letterId}</span>;
-        },
-      },
-      {
-        field: 'vendorLetterUrl',
-        headerName: 'PDF',
-        width: 80,
-        sortable: false,
-        renderCell: (params: GridRenderCellParams) => {
-          const url = params.value as string;
-          if (!url) return '-';
-          return (
-            <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: '#1976d2' }}>
-              View
-            </a>
-          );
+          const id = params.value as string;
+          if (!id) return '-';
+          return <span style={{ fontFamily: 'monospace' }}>{id}</span>;
         },
       },
     ],
@@ -511,10 +491,6 @@ export default function MailedStatements(): React.ReactElement {
               />
             </>
           )}
-
-          <Button variant="outlined" onClick={handleRefresh} disabled={isLoading} startIcon={<RefreshIcon />}>
-            Refresh
-          </Button>
         </Box>
 
         <Paper
