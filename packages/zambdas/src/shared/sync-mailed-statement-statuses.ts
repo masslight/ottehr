@@ -178,9 +178,9 @@ export async function syncMailedStatementStatuses(
       );
 
       await oystehr.fhir.update<Communication>({
+        ...comm,
         resourceType: 'Communication',
         id: commId,
-        ...comm,
         status: newFhirStatus,
         extension: updatedExtensions,
       });
