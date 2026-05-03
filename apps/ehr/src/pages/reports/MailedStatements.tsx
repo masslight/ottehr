@@ -183,7 +183,7 @@ const MAIL_STATUS_DISPLAY: Record<string, string> = {
   ready: 'Ready',
   printing: 'Printing',
   processed_for_delivery: 'Processed for Delivery',
-  completed: 'Delivered',
+  completed: 'Mailed',
   cancelled: 'Cancelled',
 };
 
