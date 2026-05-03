@@ -323,7 +323,10 @@ export default function MailedStatements(): React.ReactElement {
   const CustomToolbar = (): React.ReactElement => {
     return (
       <GridToolbarContainer>
-        <GridToolbarExport csvOptions={{ fileName: 'mailed-statements-report' }} />
+        <GridToolbarExport
+          csvOptions={{ fileName: 'mailed-statements-report' }}
+          printOptions={{ disableToolbarButton: true }}
+        />
       </GridToolbarContainer>
     );
   };
@@ -360,11 +363,16 @@ export default function MailedStatements(): React.ReactElement {
         headerName: 'Date of Visit',
         width: 160,
         sortable: true,
+        valueFormatter: (params) => {
+          if (!params.value) return '-';
+          const dt = DateTime.fromISO(params.value as string);
+          return dt.isValid ? dt.toFormat('yyyy-MMM-dd') : (params.value as string);
+        },
         renderCell: (params: GridRenderCellParams) => {
           const val = params.value as string;
           if (!val) return '-';
           const dt = DateTime.fromISO(val);
-          const formatted = dt.isValid ? dt.toFormat('MM/dd/yyyy') : val;
+          const formatted = dt.isValid ? dt.toFormat('yyyy-MMM-dd') : val;
           const appointmentId = params.row.appointmentId as string;
           if (!appointmentId) return formatted;
           return (
