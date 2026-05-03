@@ -6,7 +6,6 @@ import { getPostGridLetter } from '../../src/shared/postgrid';
 // ---------------------------------------------------------------------------
 
 const mockFetch = vi.fn<typeof fetch>();
-vi.stubGlobal('fetch', mockFetch);
 
 // ---------------------------------------------------------------------------
 // Mock getSecret — returns a fixed API key
@@ -24,10 +23,12 @@ const secrets = { POSTGRID_API_KEY: 'test-postgrid-api-key' } as any;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal('fetch', mockFetch);
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 // ---------------------------------------------------------------------------

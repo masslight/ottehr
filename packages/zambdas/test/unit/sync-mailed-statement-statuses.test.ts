@@ -1,5 +1,5 @@
 import { Communication, Extension } from 'fhir/r4b';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PostGridLetter, PostGridLetterStatus } from '../../src/shared/postgrid';
 
 // ---------------------------------------------------------------------------
@@ -85,6 +85,10 @@ let mockOystehr: {
 };
 
 const secrets = { POSTGRID_API_KEY: 'test-key' } as any;
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
