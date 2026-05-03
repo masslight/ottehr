@@ -18,10 +18,21 @@ export interface MailedStatementItem {
   vendorLetterStatus: string;
   vendorSendDate: string;
   vendorLetterUrl: string;
+  vendorMailingClass: string;
+  vendorPageCount: string;
+  vendorEnvelopeType: string;
+  vendorStatusSyncedAt: string;
   description: string;
 }
 
 export interface MailedStatementsReportZambdaOutput {
   message: string;
   statements: MailedStatementItem[];
+}
+
+export interface SyncMailedStatementStatusesOutput {
+  total: number;
+  updated: number;
+  alreadyTerminal: number;
+  errors: { communicationId: string; error: string }[];
 }

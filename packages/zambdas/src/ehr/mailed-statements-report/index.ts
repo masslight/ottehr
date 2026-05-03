@@ -156,6 +156,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-letter-status')?.valueString ?? '';
     const vendorSendDate = mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-send-date')?.valueString ?? '';
     const vendorLetterUrl = mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-letter-url')?.valueString ?? '';
+    const vendorMailingClass =
+      mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-mailing-class')?.valueString ?? '';
+    const vendorPageCount = mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-page-count')?.valueString ?? '';
+    const vendorEnvelopeType =
+      mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-envelope-type')?.valueString ?? '';
+    const vendorStatusSyncedAt =
+      mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-status-synced-at')?.valueString ?? '';
 
     return {
       communicationId: comm.id ?? '',
@@ -170,6 +177,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       vendorLetterStatus,
       vendorSendDate,
       vendorLetterUrl,
+      vendorMailingClass,
+      vendorPageCount,
+      vendorEnvelopeType,
+      vendorStatusSyncedAt,
       description,
     };
   });

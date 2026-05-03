@@ -50,6 +50,23 @@
       "src": "src/ehr/mailed-statements-report/index",
       "zip": ".dist/zips/mailed-statements-report.zip"
     },
+    "SYNC-MAILED-STATEMENT-STATUSES": {
+      "name": "sync-mailed-statement-statuses",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/sync-mailed-statement-statuses/index",
+      "zip": ".dist/zips/sync-mailed-statement-statuses.zip"
+    },
+    "SYNC-MAILED-STATEMENT-STATUSES-CRON": {
+      "name": "sync-mailed-statement-statuses-cron",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/cron/sync-mailed-statement-statuses/index",
+      "zip": ".dist/zips/sync-mailed-statement-statuses-cron.zip",
+      "schedule": {
+        "expression": "cron(0 6 * * ? *)"
+      }
+    },
     "AI-ASSISTED-ENCOUNTERS-REPORT": {
       "name": "ai-assisted-encounters-report",
       "type": "http_auth",

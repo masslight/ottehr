@@ -37,6 +37,12 @@ export interface PostGridLetter {
   status: PostGridLetterStatus;
   sendDate?: string;
   mailingClass?: string;
+  pageCount?: number;
+  envelopeType?: string;
+  trackingNumber?: string;
+  imbStatus?: 'entered_mail_stream' | 'out_for_delivery' | 'returned_to_sender';
+  imbDate?: string;
+  imbZIPCode?: string;
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;

@@ -168,6 +168,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         {
           contentString: description,
         },
+        {
+          contentAttachment: {
+            contentType: 'text/html',
+            data: Buffer.from(html).toString('base64'),
+          },
+        },
       ],
       sent: DateTime.now().toUTC().toISO() ?? undefined,
       extension: [

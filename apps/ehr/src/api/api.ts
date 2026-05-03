@@ -167,6 +167,7 @@ import {
   SendReceiptByEmailZambdaOutput,
   SubmitLabOrderInput,
   SubmitLabOrderOutput,
+  SyncMailedStatementStatusesOutput,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
   UpdateAllergyQuickPickResponse,
@@ -206,6 +207,7 @@ const SUBMIT_LAB_ORDER_ZAMBDA_ID = 'submit-lab-order';
 const GET_APPOINTMENTS_ZAMBDA_ID = 'get-appointments';
 const ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
 const MAILED_STATEMENTS_REPORT_ZAMBDA_ID = 'mailed-statements-report';
+const SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID = 'sync-mailed-statement-statuses';
 const AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID = 'ai-assisted-encounters-report';
 const DAILY_PAYMENTS_REPORT_ZAMBDA_ID = 'daily-payments-report';
 const PRACTICE_KPIS_REPORT_ZAMBDA_ID = 'practice-kpis-report';
@@ -452,6 +454,22 @@ export const getMailedStatementsReport = async (
     const response = await oystehr.zambda.execute({
       id: MAILED_STATEMENTS_REPORT_ZAMBDA_ID,
       ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const syncMailedStatementStatuses = async (oystehr: Oystehr): Promise<SyncMailedStatementStatusesOutput> => {
+  try {
+    if (SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID == null) {
+      throw new Error('sync mailed statement statuses environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID,
     });
     return chooseJson(response);
   } catch (error: unknown) {

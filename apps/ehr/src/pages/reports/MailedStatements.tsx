@@ -1,8 +1,12 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
+import SyncIcon from '@mui/icons-material/Sync';
 import {
+  Alert,
   Box,
+  Button,
   Chip,
+  CircularProgress,
   FormControl,
   IconButton,
   InputLabel,
@@ -10,6 +14,7 @@ import {
   Paper,
   Select,
   SelectChangeEvent,
+  Snackbar,
   TextField,
   Typography,
 } from '@mui/material';
@@ -23,12 +28,12 @@ import {
   GridToolbarContainer,
   GridToolbarExport,
 } from '@mui/x-data-grid-pro';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DEFAULT_BATCH_DAYS, MailedStatementItem, splitDateRangeIntoBatches } from 'utils';
-import { getMailedStatementsReport } from '../../api/api';
+import { getMailedStatementsReport, syncMailedStatementStatuses } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
@@ -221,10 +226,18 @@ const useMailedStatements = (
 
 export default function MailedStatements(): React.ReactElement {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { oystehrZambda } = useApiClients();
   const [dateRange, setDateRange] = useState<DateRangeFilter>('today');
   const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [customStartDate, setCustomStartDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncSnackbar, setSyncSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   const getDateRange = useCallback(
     (filter: DateRangeFilter): { start: string; end: string } => {
@@ -318,6 +331,28 @@ export default function MailedStatements(): React.ReactElement {
 
   const handleCustomEndDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     setCustomEndDate(event.target.value);
+  };
+
+  const handleSyncStatuses = async (): Promise<void> => {
+    if (!oystehrZambda) return;
+    setIsSyncing(true);
+    try {
+      const result = await syncMailedStatementStatuses(oystehrZambda);
+      await queryClient.invalidateQueries({ queryKey: ['mailed-statements'] });
+      setSyncSnackbar({
+        open: true,
+        message: `Sync complete: ${result.updated} updated, ${result.alreadyTerminal} already terminal, ${result.errors.length} errors out of ${result.total} total`,
+        severity: result.errors.length > 0 ? 'error' : 'success',
+      });
+    } catch (error: unknown) {
+      setSyncSnackbar({
+        open: true,
+        message: `Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: 'error',
+      });
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const CustomToolbar = (): React.ReactElement => {
@@ -415,6 +450,36 @@ export default function MailedStatements(): React.ReactElement {
         },
       },
       {
+        field: 'vendorMailingClass',
+        headerName: 'Mail Class',
+        width: 130,
+        sortable: true,
+        renderCell: (params: GridRenderCellParams) => {
+          const val = params.value as string;
+          return val || '-';
+        },
+      },
+      {
+        field: 'vendorPageCount',
+        headerName: 'Pages',
+        width: 80,
+        sortable: true,
+        renderCell: (params: GridRenderCellParams) => {
+          const val = params.value as string;
+          return val || '-';
+        },
+      },
+      {
+        field: 'vendorEnvelopeType',
+        headerName: 'Envelope',
+        width: 130,
+        sortable: true,
+        renderCell: (params: GridRenderCellParams) => {
+          const val = params.value as string;
+          return val || '-';
+        },
+      },
+      {
         field: 'communicationId',
         headerName: 'Communication ID',
         width: 320,
@@ -499,6 +564,16 @@ export default function MailedStatements(): React.ReactElement {
               />
             </>
           )}
+
+          <Button
+            variant="outlined"
+            startIcon={isSyncing ? <CircularProgress size={16} /> : <SyncIcon />}
+            onClick={handleSyncStatuses}
+            disabled={isSyncing}
+            size="small"
+          >
+            {isSyncing ? 'Syncing...' : 'Sync Statuses'}
+          </Button>
         </Box>
 
         <Paper
@@ -569,6 +644,21 @@ export default function MailedStatements(): React.ReactElement {
             </Typography>
           </Box>
         )}
+
+        <Snackbar
+          open={syncSnackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSyncSnackbar((prev) => ({ ...prev, open: false }))}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={() => setSyncSnackbar((prev) => ({ ...prev, open: false }))}
+            severity={syncSnackbar.severity}
+            variant="filled"
+          >
+            {syncSnackbar.message}
+          </Alert>
+        </Snackbar>
       </Box>
     </PageContainer>
   );
