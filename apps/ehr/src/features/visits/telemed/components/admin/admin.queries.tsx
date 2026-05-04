@@ -561,14 +561,15 @@ export const useAdminUpdateLabSet = (labSetId: string): UseMutationResult<void, 
       return adminUpdateLabSet(oystehrZambda!, input);
     },
     onSuccess: async () => {
-      // todo sarah do you need both or can it just be one?
-      // invalidate so the list page and get-page re-loads correctly
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ['admin-get-lab-sets'],
         }),
         queryClient.invalidateQueries({
-          queryKey: ['admin-get-lab-sets', labSetId],
+          queryKey: ['external lab resource search'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['inhouse lab resource search'],
         }),
       ]);
     },

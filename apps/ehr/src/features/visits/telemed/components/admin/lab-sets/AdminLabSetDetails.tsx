@@ -28,7 +28,6 @@ export default function AdminLabSetDetails(): ReactElement {
   }, [status]);
 
   const dataToRender = existingData?.labSetDTO ?? undefined;
-  console.log('dataToRender', dataToRender);
 
   const onEdit = useCallback(
     async (labSetData: AdminLabSetFormInput) => {

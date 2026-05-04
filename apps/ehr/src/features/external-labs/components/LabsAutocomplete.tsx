@@ -18,14 +18,21 @@ import { LabSets } from './LabSets';
 
 type LabsAutocompleteProps = {
   selectedLabs: OrderableItemSearchResult[];
-  selectedOrderingLocationId: string;
+  orderingLocation:
+    | {
+        searchingForAll: true;
+      }
+    | {
+        searchingForAll: false;
+        selectedOrderingLocationId: string;
+      };
   labOrgIdsString: string;
   setSelectedLabs: React.Dispatch<React.SetStateAction<OrderableItemSearchResult[]>>;
   labSets: LabSetDTO[] | undefined;
 };
 
 export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
-  const { selectedLabs, setSelectedLabs, labOrgIdsString, labSets, selectedOrderingLocationId } = props;
+  const { selectedLabs, setSelectedLabs, labOrgIdsString, labSets, orderingLocation } = props;
   const [debouncedLabSearchTerm, setDebouncedLabSearchTerm] = useState<string | undefined>(undefined);
   const apiClient = useOystehrAPIClient();
 
@@ -42,9 +49,9 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
   // coming back from the hook, we expect all these locations to have labGuids in their enabledLabs details
   const orderingLocations = data?.orderingLocations || [];
 
-  const labs = expandResultsForGeneric(data?.labs || [], orderingLocations, selectedOrderingLocationId);
-
-  console.log('labs', JSON.stringify(labs));
+  const labs = orderingLocation.searchingForAll
+    ? data?.labs ?? []
+    : expandResultsForGeneric(data?.labs || [], orderingLocations, orderingLocation.selectedOrderingLocationId);
 
   const { debounce } = useDebounce(800);
   const debouncedHandleLabInputChange = (searchValue: string): void => {

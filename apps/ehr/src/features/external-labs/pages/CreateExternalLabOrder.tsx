@@ -571,7 +571,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     Lab
                   </Typography>
                   <LabsAutocomplete
-                    selectedOrderingLocationId={selectedOfficeId}
+                    orderingLocation={{ searchingForAll: false, selectedOrderingLocationId: selectedOfficeId }}
                     labOrgIdsString={labOrgIdsForSelectedOffice}
                     selectedLabs={selectedLabs}
                     setSelectedLabs={setSelectedLabs}

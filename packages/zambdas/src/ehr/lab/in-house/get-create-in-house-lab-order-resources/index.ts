@@ -83,6 +83,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             resourceType: 'List',
             params: [
               { name: 'code', value: `${LAB_LIST_CODE_CODING.inHouse.system}|${LAB_LIST_CODE_CODING.inHouse.code}` },
+              { name: 'status', value: 'current' },
             ],
           })
         ).unbundle();

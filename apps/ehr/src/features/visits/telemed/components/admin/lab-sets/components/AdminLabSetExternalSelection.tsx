@@ -16,8 +16,6 @@ export const AdminLabSetExternalSelection: React.FC<AdminLabSetExternalSelection
   onTestsChange,
   defaultLabs,
 }) => {
-  console.log('defaultLabs', defaultLabs);
-
   const { data } = useGetCreateExternalLabResources({});
   const apiClient = useOystehrAPIClient();
 
@@ -57,7 +55,7 @@ export const AdminLabSetExternalSelection: React.FC<AdminLabSetExternalSelection
   return hasInitializedRef.current ? (
     <Stack spacing={2}>
       <LabsAutocomplete
-        selectedOrderingLocationId={''}
+        orderingLocation={{ searchingForAll: true }}
         labOrgIdsString={orderingLocationIds.join(',')}
         selectedLabs={selectedLabs}
         setSelectedLabs={setSelectedLabs}

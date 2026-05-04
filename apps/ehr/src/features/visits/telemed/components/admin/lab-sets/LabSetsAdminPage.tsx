@@ -82,8 +82,6 @@ export default function LabSetsAdminPage(): ReactElement {
     </TableRow>
   );
 
-  console.log('>>> this is lab set data', data);
-
   return (
     <Paper sx={{ padding: 2, marginTop: 2 }}>
       <TableContainer sx={{ overflowX: 'auto' }}>
