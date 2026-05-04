@@ -1,12 +1,6 @@
 import { DocumentReference, FhirResource } from 'fhir/r4b';
 import { Duration } from 'luxon';
-import {
-  BRANDING_CONFIG,
-  GetTelemedAppointmentsInput,
-  PATIENT_PHOTO_CODE,
-  replaceTemplateVariablesArrows,
-  TEXTING_CONFIG,
-} from 'utils';
+import { BRANDING_CONFIG, PATIENT_PHOTO_CODE, replaceTemplateVariablesArrows, TEXTING_CONFIG } from 'utils';
 import { AppointmentResources } from '../../shared/stores/appointment/appointment.store';
 
 export const formatVideoTimerTime = (difference: Duration): string => {
@@ -33,20 +27,6 @@ export const extractPhotoUrlsFromAppointmentData = (appointment: AppointmentReso
       .filter(Boolean) as string[]) || []
   );
 };
-
-export type GetAppointmentsRequestParams = Pick<
-  GetTelemedAppointmentsInput,
-  | 'appointmentId'
-  | 'usStatesFilter'
-  | 'providersFilter'
-  | 'dateFilter'
-  | 'timeZone'
-  | 'groupsFilter'
-  | 'patientFilter'
-  | 'statusesFilter'
-  | 'locationsIdsFilter'
-  | 'visitTypesFilter'
->;
 
 export const getTelemedQuickTexts = (supportPhone: string): string[] => {
   const vars = {

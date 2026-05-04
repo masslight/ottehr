@@ -9,6 +9,7 @@ import {
   Location,
   Patient,
   Practitioner,
+  Resource,
   Task,
 } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
@@ -21,6 +22,7 @@ import {
   getPatchOperationForNewMetaTag,
   getProviderNotificationSettingsForPractitioner,
   getTelemedVisitStatus,
+  getVideoRoomResourceExtension,
   OTTEHR_MODULE,
   OttehrTaskSystem,
   PROVIDER_NOTIFICATION_TAG_SYSTEM,
@@ -36,7 +38,6 @@ import {
   USER_TIMEZONE_EXTENSION_URL,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
 } from 'utils';
-import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -881,3 +882,12 @@ function getCommunicationStatus(
   }
   return status;
 }
+
+const getTelemedEncounterAppointmentId = (encounterResource: Resource): string | undefined => {
+  if (!(encounterResource.resourceType === 'Encounter' && getVideoRoomResourceExtension(encounterResource)))
+    return undefined;
+  const appointmentReference = (encounterResource as Encounter)?.appointment?.[0].reference || '';
+  const appointmentId = removePrefix('Appointment/', appointmentReference);
+
+  return appointmentId;
+};
