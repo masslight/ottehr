@@ -68,18 +68,20 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
 
   const labs = useMemo(() => {
     if (selectedListType === LabType.inHouse) {
-      return selectedInHouseTests.map((t) => ({
+      const inHouseLabs: InHouseLabSetDTO['labs'] = selectedInHouseTests.map((t) => ({
         display: t.name,
-        activityDefinitionId: t.adId,
+        adUrl: t.adUrl,
       }));
+      return inHouseLabs;
     }
 
     if (selectedListType === LabType.external) {
-      return selectedExternalTests.map((r) => ({
+      const externalLabs: ExternalLabSetDTO['labs'] = selectedExternalTests.map((r) => ({
         display: r.item.uniqueName,
         itemCode: r.item.itemCode,
         labGuid: r.lab.labGuid,
       }));
+      return externalLabs;
     }
 
     return [];

@@ -392,6 +392,8 @@ export const LAB_LIST_CODE_CODING = {
   },
 };
 
+export const LAB_LIST_IN_HOUSE_ITEM_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/Identifier/in-house-ad-url';
+
 export const LAB_LIST_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/Identifier/lab-test-item-set-labGuid-and-test-code';
 export const LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/orderable-item-search-fields';

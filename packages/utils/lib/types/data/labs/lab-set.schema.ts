@@ -9,7 +9,7 @@ export const ExternalLabListItemSchema = z.object({
 
 export const InHouseLabListItemSchema = z.object({
   display: z.string(),
-  activityDefinitionId: z.string(),
+  adUrl: z.string(),
 });
 
 export enum LabSetStatus {

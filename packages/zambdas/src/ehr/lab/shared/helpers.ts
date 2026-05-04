@@ -19,6 +19,7 @@ import {
   getLabListStatus,
   getLabListType,
   LAB_LIST_IDENTIFIER_SYSTEM,
+  LAB_LIST_IN_HOUSE_ITEM_IDENTIFIER_SYSTEM,
   LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
   LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL,
   LabListSearchFieldKey,
@@ -72,6 +73,13 @@ export const makeSoftDeleteStatusPatchRequest = (
   };
 };
 
+const getInHouseAdUrlFromListEntry = (listEntry: ListEntry): string | undefined => {
+  const identifier = listEntry.item.identifier;
+  if (identifier?.system !== LAB_LIST_IN_HOUSE_ITEM_IDENTIFIER_SYSTEM) return;
+
+  return identifier.value;
+};
+
 export const formatLabListDTOs = (labLists: List[]): LabSetDTO[] | undefined => {
   if (labLists.length === 0) return;
   const formattedListDTOs: LabSetDTO[] = [];
@@ -107,8 +115,7 @@ export const formatLabListDTOs = (labLists: List[]): LabSetDTO[] | undefined => 
           list.entry?.map((lab, idx) => {
             const labForList = {
               display: lab.item.display ?? 'lab item display missing',
-              activityDefinitionId:
-                lab.item.reference?.replace('ActivityDefinition/', '') ?? `inhouse-lab-list-item-${idx}-${list.id}`,
+              adUrl: getInHouseAdUrlFromListEntry(lab) ?? `inhouse-lab-list-item-${idx}-${list.id}`,
             };
             return labForList;
           }) ?? [],
@@ -182,8 +189,11 @@ export const formatListEntry = (labSet: LabSetDTO | LabSetNoIdDTO): ListEntry[] 
         date: now,
         item: {
           type: 'ActivityDefinition',
-          reference: `ActivityDefinition/${lab.activityDefinitionId}`,
           display: lab.display,
+          identifier: {
+            system: LAB_LIST_IN_HOUSE_ITEM_IDENTIFIER_SYSTEM,
+            value: lab.adUrl,
+          },
         },
       };
       return labEntry;
