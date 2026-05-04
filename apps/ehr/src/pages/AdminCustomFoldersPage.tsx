@@ -1,5 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import EditIcon from '@mui/icons-material/Edit';
 import {
   Box,
   Button,
@@ -111,8 +111,10 @@ const AdminCustomFoldersPage: FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Folder Name</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Folder Name</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }} align="right">
+                  Actions
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -127,7 +129,7 @@ const AdminCustomFoldersPage: FC = () => {
                   <TableCell>{folder.displayName}</TableCell>
                   <TableCell align="right">
                     <IconButton size="small" onClick={() => setDialogState({ mode: 'rename', folder })}>
-                      <EditOutlinedIcon fontSize="small" />
+                      <EditIcon fontSize="small" />
                     </IconButton>
                   </TableCell>
                 </TableRow>

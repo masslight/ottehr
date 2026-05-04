@@ -1,11 +1,8 @@
-import AddIcon from '@mui/icons-material/Add';
+import CreateNewFolderOutlinedIcon from '@mui/icons-material/CreateNewFolderOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import FolderIcon from '@mui/icons-material/Folder';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import {
-  Box,
-  Button,
   IconButton,
   List,
   ListItemButton,
@@ -49,17 +46,22 @@ export const PatientDocumentFoldersColumn: FC<PatientDocumentFoldersColumnProps>
   return (
     <List>
       {canManageFolders && (
-        <Box sx={{ px: 2, pb: 1 }}>
-          <Button
-            startIcon={<AddIcon />}
-            size="small"
-            variant="text"
-            onClick={onCreateFolderClick}
-            sx={{ textTransform: 'none' }}
-          >
-            New Folder
-          </Button>
-        </Box>
+        <ListItemButton
+          onClick={onCreateFolderClick}
+          sx={{
+            borderRadius: 3,
+            py: 0.5,
+            marginX: 2,
+            '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.05)' },
+          }}
+        >
+          <ListItemIcon sx={{ color: theme.palette.primary.main }}>
+            <CreateNewFolderOutlinedIcon />
+          </ListItemIcon>
+          <ListItemText
+            primary={<Typography sx={{ color: theme.palette.primary.main, fontWeight: '500' }}>New Folder</Typography>}
+          />
+        </ListItemButton>
       )}
 
       {sortedFolders.map((folder, index) => (
@@ -71,8 +73,10 @@ export const PatientDocumentFoldersColumn: FC<PatientDocumentFoldersColumnProps>
             borderRadius: 3,
             py: 0.5,
             marginX: 2,
-            '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.05)' },
-            '&:hover .rename-btn': { visibility: 'visible' },
+            '&:hover': {
+              backgroundColor: 'rgba(0, 0, 0, 0.05)',
+              '& .folder-rename-button': { opacity: 1 },
+            },
           }}
         >
           <ListItemIcon
@@ -80,13 +84,7 @@ export const PatientDocumentFoldersColumn: FC<PatientDocumentFoldersColumnProps>
               color: folder.isCustom ? theme.palette.primary.dark : theme.palette.primary.main,
             }}
           >
-            {folder.isCustom ? (
-              <FolderIcon />
-            ) : selectedIndex === index ? (
-              <FolderOpenOutlinedIcon />
-            ) : (
-              <FolderOutlinedIcon />
-            )}
+            {selectedIndex === index ? <FolderOpenOutlinedIcon /> : <FolderOutlinedIcon />}
           </ListItemIcon>
           <ListItemText
             primary={
@@ -102,15 +100,21 @@ export const PatientDocumentFoldersColumn: FC<PatientDocumentFoldersColumnProps>
           />
           {folder.isCustom && canManageFolders && (
             <IconButton
-              className="rename-btn"
               size="small"
-              sx={{ visibility: 'hidden', ml: 'auto' }}
+              className="folder-rename-button"
+              sx={{
+                ml: 'auto',
+                color: theme.palette.primary.main,
+                opacity: 0,
+                transition: 'opacity 0.15s ease-in-out',
+                '&:focus-visible': { opacity: 1 },
+              }}
               onClick={(e) => {
                 e.stopPropagation();
                 onRenameFolderClick?.(folder);
               }}
             >
-              <EditOutlinedIcon fontSize="small" />
+              <EditOutlinedIcon fontSize="medium" />
             </IconButton>
           )}
         </ListItemButton>

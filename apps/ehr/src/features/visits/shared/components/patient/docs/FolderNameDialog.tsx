@@ -1,5 +1,8 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, FormHelperText, TextField } from '@mui/material';
+import { Box, TextField } from '@mui/material';
 import { ChangeEvent, FC, useEffect, useState } from 'react';
+import { CustomDialog } from 'src/components/dialogs';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { InfoAlert } from 'src/features/visits/in-person/components/InfoAlert';
 
 const FOLDER_NAME_REGEX = /^[a-zA-Z0-9+!\-_'()\\.@$ ]+$/;
 const MAX_NAME_LENGTH = 60;
@@ -25,14 +28,16 @@ export const FolderNameDialog: FC<FolderNameDialogProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [displayMode, setDisplayMode] = useState(mode);
 
   useEffect(() => {
     if (open) {
       setValue(initialName);
       setError(null);
       setServerError(null);
+      setDisplayMode(mode);
     }
-  }, [open, initialName]);
+  }, [open, initialName, mode]);
 
   const validate = (name: string): string | null => {
     const trimmed = name.trim();
@@ -79,37 +84,46 @@ export const FolderNameDialog: FC<FolderNameDialogProps> = ({
   const isValid = !validate(value);
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{mode === 'create' ? 'New Folder' : 'Rename Folder'}</DialogTitle>
-      <DialogContent>
-        {mode === 'rename' && (
-          <FormHelperText sx={{ mb: 1 }}>Renaming applies to every patient with this folder.</FormHelperText>
-        )}
-        <TextField
-          autoFocus
-          fullWidth
-          label="Folder Name"
-          required
-          value={value}
-          onChange={handleChange}
-          error={Boolean(error || serverError)}
-          helperText={error ?? serverError ?? ' '}
-          inputProps={{ maxLength: MAX_NAME_LENGTH + 10 }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && isValid && !isSubmitting) {
-              void handleSubmit();
-            }
-          }}
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={isSubmitting}>
-          Cancel
-        </Button>
-        <Button variant="contained" onClick={() => void handleSubmit()} disabled={!isValid || isSubmitting}>
-          {mode === 'create' ? 'Create' : 'Rename'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <CustomDialog
+      open={open}
+      handleClose={onClose}
+      title={displayMode === 'create' ? 'New Folder' : 'Rename Folder'}
+      description={
+        <Box sx={{ width: '436px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {displayMode === 'create' && <InfoAlert text="New folder will appear for all patients." persistent />}
+          <TextField
+            autoFocus
+            fullWidth
+            label="Folder Name"
+            required
+            value={value}
+            onChange={handleChange}
+            error={Boolean(error || serverError)}
+            helperText={error ?? serverError ?? ' '}
+            inputProps={{ maxLength: MAX_NAME_LENGTH + 10 }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && isValid && !isSubmitting) {
+                void handleSubmit();
+              }
+            }}
+          />
+        </Box>
+      }
+      actions={
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+          <RoundedButton onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </RoundedButton>
+          <RoundedButton
+            variant="contained"
+            onClick={() => void handleSubmit()}
+            loading={isSubmitting}
+            disabled={!isValid}
+          >
+            {displayMode === 'create' ? 'Create' : 'Save'}
+          </RoundedButton>
+        </Box>
+      }
+    />
   );
 };
