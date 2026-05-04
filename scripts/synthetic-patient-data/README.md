@@ -80,6 +80,32 @@ Some catalog data the pipeline depends on is **created by synth on-demand**; som
 
 **Diagnosing a fresh-project failure.** First synth run on a new project, in order: if it dies in Phase 0 with `"template X not found"` or `"Payer Organization not found"`, run the bootstrap scripts in §1.7. If the first signed visit looks fine but specific in-house orders are missing, look for `⚠ … not found … skipping` lines in the output and add the catalog entries via `copy-medications` / `copy-templates` as needed. Charge-master / eligibility data appears automatically once the rest is in place.
 
+### Cross-environment overrides (running scenarios against any project)
+
+The shipped scenarios hardcode `signOff.practitionerName: "Demo Admin"` and `visit.locationName: "New York"`. That works on synth (where `create-demo-user.ts` provisioned a `Demo Admin` Practitioner and the project has a `"New York"` Location) but fails on any other project that lacks those exact names. Two CLI / env overrides let a single scenario JSON run against any Oystehr project without editing the file:
+
+| Override | What it does | When to use |
+| --- | --- | --- |
+| `--practitioner <name>` (or `SYNTH_PRACTITIONER_NAME` env var) | Replaces `scenario.signOff.practitionerName` for the Phase 0 attending lookup | Target project has different practitioners (no "Demo Admin"). Pass an existing role-assigned practitioner's name. |
+| `--practitioner auto` | Skips the named search entirely; auto-picks the first role-assigned employee returned by `get-employees` | Target project's role-assigned employees aren't named consistently — let the script just pick one |
+| `--location <name>` (or `SYNTH_LOCATION_NAME` env var) | Replaces `scenario.visit.locationName` for the Phase 0 Location lookup | Target project doesn't have a Location named `"New York"`. Pass any existing Location name. |
+| `SYNTH_NAMESPACE` env var | Prefixes the Charge Master and Fee Schedule titles with `"<namespace>: "` | Multiple people running synth in the **same** Oystehr project. Default behavior shares one CM and one FS per payer across teams (so team B's `cm-add-procedure-code` overwrites team A's prices). Setting `SYNTH_NAMESPACE=<your-name>` gives each team isolated CM/FS resources. Solo users can leave it unset. |
+
+CLI flags take precedence over their env-var equivalents. Examples:
+
+```bash
+# Run Maya against a non-synth project that has different practitioners and
+# no "New York" Location, with namespaced CM/FS so we don't clash with a
+# co-worker's prices on the same project:
+SYNTH_NAMESPACE=daniel \
+  npx env-cmd -f packages/zambdas/.env/local.json \
+  npx tsx scripts/synthetic-patient-data/synthesize-visit.ts \
+  scripts/synthetic-patient-data/examples/maya-carter-otitis.json \
+  --execute --practitioner auto --location "Main Clinic"
+```
+
+**Per-payer eligibility data note** (a related behavior fix): Phase 10's eligibility synthesis reads the resolved payer Organization's `address` and `telecom` from FHIR and embeds those values in the synthetic `CoverageEligibilityResponse`'s `payerEntity` payload — so an Aetna patient sees Aetna's contact info in the eligibility detail dialog, not whatever fallback we'd hardcode. If a payer Organization lacks an address (some imported payer Orgs only have a name + payer-id), the corresponding fields stay blank. The `backfillPayerTelecomIfMissing` helper still fills in NANPA-reserved 555-01XX phone/fax for payers with no telecom — those are safe to apply universally — but does **not** backfill a website (no URL is wrong-on-its-face for the wrong payer; a blank field is correct).
+
 The synthesizer drives the same backend code paths the EHR and intake apps use, so the resulting record is structurally identical to one a real provider would produce.
 
 A central simplification: most of the visit narrative — Chief Complaint, HPI, Mechanism of Injury, ROS (structured), exam findings, Medical Decision-Making, Diagnoses, CPT, E&M, and patient instructions — comes from a **global template** applied with one zambda call. The script only writes patient-specific data (vitals, allergies, history, etc.) and orchestration around the template.
@@ -90,6 +116,7 @@ A central simplification: most of the visit narrative — Chief Complaint, HPI, 
 
 - [How to use it (quickstart)](#how-to-use-it)
   - [How EHR project preconditions are handled](#how-ehr-project-preconditions-are-handled)
+  - [Cross-environment overrides (running scenarios against any project)](#cross-environment-overrides-running-scenarios-against-any-project)
 
 1. [Setup and conventions](#1-setup-and-conventions)
 2. [The visit lifecycle](#2-the-visit-lifecycle)
@@ -254,6 +281,20 @@ Locations/Schedules) the full set of dependencies the synth pipeline needs.
 External-system integrations (DoseSpot, AdvaPACS, Stripe) are NOT bootstrapped
 by these scripts — the corresponding modules in synth scenarios should be
 omitted unless those integrations are configured. See §8.
+
+> **IAM scope requirements (read this before running bootstrap on a non-synth project).** The bootstrap scripts assume the M2M client in your `packages/zambdas/.env/<env>.json` has IAM scopes wide enough to do everything the script tries:
+>
+> | Script | Required scopes (Oystehr IAM roles) | What you'll see if missing |
+> | --- | --- | --- |
+> | `create-demo-user.ts` | **Application read + write** (lists EHR Application by name, enables email-login on it, invites a user with the Administrator role, sets password) | `Failed to list applications: 403 {"message":"Forbidden","code":"4031"}` at the "Looking up EHR Application..." step. |
+> | `copy-templates.ts`, `copy-medications.ts`, `copy-payer-organizations.ts` | FHIR read on the source project + FHIR write on the destination project (and the source-env M2M needs read across the full FHIR resource surface) | `403 Forbidden` from `oystehr.fhir.search` on the affected resource. |
+> | `patch-medication-erx.ts` | FHIR read + write on `Medication` | Same. |
+> | `synthesize-visit.ts` (the main runner) | FHIR read+write across most clinical resources, **plus** invoke-permission on every zambda the pipeline calls (`create-appointment`, `apply-template`, `save-chart-data`, the in-house lab/med/immunization/radiology zambdas, `change-in-person-visit-status`, `sign-appointment`, the RCM `create-charge-master` / `create-fee-schedule` / `add-procedure-code` / etc., and `get-presigned-file-url`) | Phase-specific `403 Forbidden` from a zambda call. |
+>
+> The synth project's M2M client was provisioned with the wide-open scopes the bootstrap needs. A project's default M2M client (e.g., Ottehr's `local` env) is typically scoped down — most often missing **Application management**, which is the single scope that `create-demo-user.ts` needs and nothing else does. If you can't widen the M2M scopes (e.g., you don't own the project), the workarounds are:
+>
+> 1. Provision the demo user manually via the Oystehr Console UI (one-time per project), then skip step 1 of the bootstrap.
+> 2. Or use `synthesize-visit.ts --practitioner <existing-name|auto>` to attribute work to a Practitioner that already exists on the project (no demo user needed). `auto` picks the first role-assigned employee from the `get-employees` zambda result. Same idea for Locations: `--location <existing-name>`.
 
 ### 1.8 Idempotency
 

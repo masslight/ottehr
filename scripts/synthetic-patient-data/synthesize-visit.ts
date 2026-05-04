@@ -123,12 +123,37 @@ import { type History as ScenarioHistory, type VisitScenario, VisitScenarioSchem
 const args = process.argv.slice(2);
 
 if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
-  console.log('Usage: tsx synthesize-visit.ts <scenario.json> [--execute]');
+  console.log(
+    'Usage: tsx synthesize-visit.ts <scenario.json> [--execute] [--practitioner <name|auto>] [--location <name>]'
+  );
+  console.log('');
+  console.log('  --practitioner <name>   Override scenario.signOff.practitionerName for the');
+  console.log('                          attending lookup. Use when running against a project');
+  console.log("                          that lacks the scenario's named practitioner. Pass");
+  console.log("                          'auto' to skip the named search and auto-pick from");
+  console.log('                          the role-assigned employee list. Also settable via');
+  console.log('                          SYNTH_PRACTITIONER_NAME env var (CLI takes precedence).');
+  console.log('  --location <name>       Override scenario.visit.locationName for the Location');
+  console.log('                          lookup. Use when running against a project where the');
+  console.log('                          scenario\'s location ("New York" in shipped scenarios)');
+  console.log("                          doesn't exist. Also settable via SYNTH_LOCATION_NAME");
+  console.log('                          env var (CLI takes precedence).');
   process.exit(args.length === 0 ? 1 : 0);
 }
 
 const isExecute = args.includes('--execute');
-const positional = args.filter((a) => !a.startsWith('--'));
+function getFlagValue(name: string): string | undefined {
+  const idx = args.indexOf(name);
+  return idx === -1 || idx === args.length - 1 ? undefined : args[idx + 1];
+}
+const practitionerOverride = getFlagValue('--practitioner') ?? process.env.SYNTH_PRACTITIONER_NAME;
+const locationOverride = getFlagValue('--location') ?? process.env.SYNTH_LOCATION_NAME;
+const positional = args.filter((a, i) => {
+  if (a.startsWith('--')) return false;
+  // Skip values consumed by --practitioner / --location (the next arg after each flag).
+  const prev = i > 0 ? args[i - 1] : '';
+  return prev !== '--practitioner' && prev !== '--location';
+});
 if (positional.length !== 1) {
   console.error('Expected exactly one scenario file path.');
   process.exit(1);
@@ -170,6 +195,16 @@ interface SynthesisContext {
   zambdaApi: string | null;
   scenario: VisitScenario;
   scenarioPath: string;
+  // CLI/env override for the attending practitioner lookup (--practitioner
+  // <name|auto> or SYNTH_PRACTITIONER_NAME env var). 'auto' = skip the named
+  // search and pick from role-assigned employees; any other value replaces
+  // scenario.signOff.practitionerName for the Phase 0 lookup.
+  practitionerOverride?: string;
+  // CLI/env override for the Location lookup (--location <name> or
+  // SYNTH_LOCATION_NAME env var). Replaces scenario.visit.locationName for
+  // the Phase 0 lookup. Useful when running a scenario against a project
+  // where the scenario's preferred location doesn't exist.
+  locationOverride?: string;
   // Resolved in Phase 0:
   locationId?: string;
   scheduleId?: string;
@@ -283,14 +318,22 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
   startPhase('Prerequisite lookups (FHIR searches)');
 
   // Location
-  logFhir('search', `Location with name="${s.visit.locationName}"`);
+  // CLI / env override (--location <name> or SYNTH_LOCATION_NAME). Lets a
+  // single scenario JSON run against multiple Oystehr projects without
+  // editing the scenario itself.
+  const locationNameToUse = ctx.locationOverride ?? s.visit.locationName;
+  if (ctx.locationOverride) {
+    logNote(`location override: "${ctx.locationOverride}" (replacing scenario's "${s.visit.locationName}")`);
+  }
+  logFhir('search', `Location with name="${locationNameToUse}"`);
   if (ctx.mode === 'execute' && ctx.oystehr) {
     const result = await ctx.oystehr.fhir.search<Location>({
       resourceType: 'Location',
-      params: [{ name: 'name', value: s.visit.locationName }],
+      params: [{ name: 'name', value: locationNameToUse }],
     });
     const location = result.unbundle()[0];
-    if (!location?.id) throw new Error(`Location not found: "${s.visit.locationName}"`);
+    if (!location?.id)
+      throw new Error(`Location not found: "${locationNameToUse}". Pass --location <existing-name> to override.`);
     ctx.locationId = location.id;
     logNote(`resolved Location → ${ctx.locationId}`);
   }
@@ -345,11 +388,29 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
     }
   }
 
-  if (s.signOff?.practitionerName) {
-    logFhir('search', `Practitioner with name="${s.signOff.practitionerName}" (attending)`);
+  // CLI / env override (--practitioner <name|auto> or SYNTH_PRACTITIONER_NAME).
+  // Lets a single scenario JSON run against multiple Oystehr projects without
+  // editing the scenario itself: pass an existing practitioner's name on the
+  // target project, or 'auto' to skip the named search and pick from the
+  // role-assigned employee list. Useful when running synth against a local-dev
+  // project that doesn't have the scenario's preferred "Demo Admin" user.
+  const practitionerNameToUse =
+    ctx.practitionerOverride === 'auto' ? undefined : ctx.practitionerOverride ?? s.signOff?.practitionerName;
+  if (ctx.practitionerOverride) {
+    logNote(
+      ctx.practitionerOverride === 'auto'
+        ? 'practitioner override: auto-pick (skipping named search)'
+        : `practitioner override: "${ctx.practitionerOverride}" (replacing scenario's "${
+            s.signOff?.practitionerName ?? 'unset'
+          }")`
+    );
+  }
+
+  if (practitionerNameToUse) {
+    logFhir('search', `Practitioner with name="${practitionerNameToUse}" (attending)`);
     if (ctx.mode === 'execute' && ctx.oystehr) {
       // FHIR Practitioner search by `name` doesn't match across given+family; split to given+family.
-      const parts = s.signOff.practitionerName.split(/\s+/).filter(Boolean);
+      const parts = practitionerNameToUse.split(/\s+/).filter(Boolean);
       const family = parts.length > 1 ? parts[parts.length - 1] : parts[0];
       const given = parts.length > 1 ? parts.slice(0, -1).join(' ') : undefined;
       const params: Array<{ name: string; value: string }> = [{ name: 'family', value: family }];
@@ -358,13 +419,14 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
       const practitioner = result.unbundle()[0];
       if (!practitioner?.id) {
         throw new Error(
-          `Practitioner not found: "${s.signOff.practitionerName}" (searched given="${given}" family="${family}")`
+          `Practitioner not found: "${practitionerNameToUse}" (searched given="${given}" family="${family}"). ` +
+            `Pass --practitioner <existing-name> or --practitioner auto to override.`
         );
       }
       if (roleAssignedIds.size && !roleAssignedIds.has(practitioner.id)) {
         const fallback = roleAssignedIds.values().next().value;
         console.warn(
-          `  ⚠ "${s.signOff.practitionerName}" (${practitioner.id}) is not a role-assigned employee — falling back to ${fallback} so EHR Select dropdowns recognize the assignment`
+          `  ⚠ "${practitionerNameToUse}" (${practitioner.id}) is not a role-assigned employee — falling back to ${fallback} so EHR Select dropdowns recognize the assignment`
         );
         ctx.attendingPractitionerId = fallback;
       } else {
@@ -462,12 +524,27 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
       const templates = result.output?.templates ?? result.templates ?? result.list ?? [];
       const found = templates.some((t) => t.title === s.template!.name || t.name === s.template!.name);
       if (!found) {
-        console.warn(
-          `  ⚠ template "${s.template.name}" not found in list-templates response — Phase 4 (apply-template) will fail if enabled`
+        // Hard fail — earlier behavior was a warn that let Phase 4 proceed.
+        // The apply-template zambda silently no-ops for most missing template
+        // names (returning 200 with nothing applied), so a missing template
+        // produced a clinically-empty visit (no CC/HPI/ROS/exam/MDM/dx/CPT/
+        // instructions) instead of the loud failure the user expects. For
+        // a few names like "UTI" the zambda returns 500 instead of no-op,
+        // so the failure mode was inconsistent. Throwing here surfaces the
+        // missing-template prerequisite cleanly.
+        const sample = templates
+          .slice(0, 10)
+          .map((t) => `"${t.title ?? t.name}"`)
+          .join(', ');
+        throw new Error(
+          `Template "${s.template.name}" not found on this project. ` +
+            `list-templates returned ${templates.length} template(s)${
+              sample ? `: ${sample}${templates.length > 10 ? ', …' : ''}` : ''
+            }. ` +
+            `Bootstrap with copy-templates.ts to import templates from a known-good source project.`
         );
-      } else {
-        logNote(`verified template "${s.template.name}" exists`);
       }
+      logNote(`verified template "${s.template.name}" exists`);
     } else {
       logNote(`verify template "${s.template.name}" appears in the list`);
     }
@@ -2237,8 +2314,19 @@ async function phase10_eligibilityAndPricing(ctx: SynthesisContext): Promise<voi
 async function ensureChargeMasterAndFeeSchedule(ctx: SynthesisContext, s: VisitScenario): Promise<void> {
   if (!ctx.oystehr || !s.pricing) return;
 
-  const cmName = 'Ottehr Synth Default Insurance Charge Master';
-  const fsName = s.pricing.feeScheduleName ?? 'Ottehr Synth Fee Schedule';
+  // Optional per-team namespace prefix (SYNTH_NAMESPACE env var). When set,
+  // CM + FS titles get prefixed with "<namespace>: " so multiple users
+  // running synth in the same Oystehr project don't collide on each other's
+  // pricing — write/overwrite of a CPT entry only affects the namespaced
+  // CM/FS, not the default shared one. Default behavior (env var unset) is
+  // unchanged: a single shared CM and FS per project.
+  const namespace = process.env.SYNTH_NAMESPACE?.trim();
+  const titlePrefix = namespace ? `${namespace}: ` : '';
+  const cmName = `${titlePrefix}Ottehr Synth Default Insurance Charge Master`;
+  const fsName = `${titlePrefix}${s.pricing.feeScheduleName ?? 'Ottehr Synth Fee Schedule'}`;
+  if (namespace) {
+    logNote(`SYNTH_NAMESPACE="${namespace}" — using namespaced CM/FS titles`);
+  }
   const effectiveDate = '2024-01-01';
 
   // 1. Find or create the default-insurance Charge Master.
@@ -2356,20 +2444,24 @@ async function enrichCoverageAndSynthesizeEligibility(ctx: SynthesisContext, s: 
       id: ctx.payerOrganizationId,
     });
     if (!payer.telecom?.length) {
+      // Backfill phone + fax only — these are NANPA-reserved 555-01XX
+      // numbers that never reach a real person, so it's safe to apply the
+      // same value to every payer Organization. URL/website is intentionally
+      // NOT backfilled: hardcoding any one payer's website (e.g.,
+      // https://www.bcbst.com) onto every payer Org we touch produces
+      // wrong-on-its-face data in the eligibility detail dialog (Aetna
+      // patient seeing BCBS-TN's URL, etc.). If a payer Org genuinely has
+      // no website, leave it blank — the EHR's carrier panel renders an
+      // empty field rather than a fabricated one.
       const updated: Organization = {
         ...payer,
         telecom: [
-          // ALL phone/fax numbers in synth must use the 555 central exchange
-          // (NANPA's 555-01XX range is reserved for fictitious use) so a
-          // real person can never be called/texted/faxed by accident if
-          // these synthetic numbers ever leak into a sent communication.
           { system: 'phone', value: '1-800-555-0140', use: 'work' },
           { system: 'fax', value: '1-423-555-0109' },
-          { system: 'url', value: 'https://www.bcbst.com' },
         ],
       };
       await ctx.oystehr.fhir.update<Organization>(updated);
-      logNote(`patched payer Organization/${ctx.payerOrganizationId} with synth telecom`);
+      logNote(`patched payer Organization/${ctx.payerOrganizationId} with synth phone/fax (URL left blank)`);
     }
   }
 
@@ -2458,20 +2550,36 @@ async function enrichCoverageAndSynthesizeEligibility(ctx: SynthesisContext, s: 
 
   // Synthetic raw-response payload — the parser pulls copay/deductible/OOP-max
   // from elig.benefit[] entries shaped like pVerify's response.
+  //
+  // Build payerEntity from the resolved payer Organization on FHIR (we already
+  // have ctx.payerOrganizationId from Phase 0). Per-payer values are the
+  // truth: an Aetna patient should see Aetna's address/website in the
+  // eligibility detail dialog, not whatever fallback we'd hardcode. Where
+  // the Organization lacks a field (some imported payer Orgs only have a
+  // name + payer-id), we leave it blank — better than embedding wrong data.
   const carrierName = ins.carrier;
+  const refreshedPayer = ctx.payerOrganizationId
+    ? await ctx.oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: ctx.payerOrganizationId })
+    : undefined;
+  const phoneTelecom = refreshedPayer?.telecom?.find((t) => t.system === 'phone')?.value;
+  const faxTelecom = refreshedPayer?.telecom?.find((t) => t.system === 'fax')?.value;
+  const websiteTelecom = refreshedPayer?.telecom?.find((t) => t.system === 'url')?.value;
+  const payerAddr = refreshedPayer?.address?.[0];
+  const payerXxId = refreshedPayer?.identifier?.find((i) => i.type?.coding?.some((c) => c.code === 'XX'))?.value;
   const payerEntity = {
-    entity_name: [carrierName],
-    entity_id: ['00390'],
-    entity_addr_1: ['1 Cameron Hill Cir'],
-    entity_city: 'Chattanooga',
-    entity_state: 'TN',
-    entity_zip: '37402',
-    entity_website: ['https://www.bcbst.com'],
-    // 555-central-exchange (NANPA-reserved fictitious range, see comment
-    // on the Organization telecom above) — synth must never embed a real
-    // payer phone/fax that could be accidentally dialed or faxed.
-    entity_phone: ['1-800-555-0140'],
-    entity_fax: ['1-423-555-0109'],
+    entity_name: [refreshedPayer?.name ?? carrierName],
+    entity_id: payerXxId ? [payerXxId] : [],
+    entity_addr_1: payerAddr?.line?.[0] ? [payerAddr.line[0]] : [],
+    entity_city: payerAddr?.city ?? '',
+    entity_state: payerAddr?.state ?? '',
+    entity_zip: payerAddr?.postalCode ?? '',
+    entity_website: websiteTelecom ? [websiteTelecom] : [],
+    // Phone/fax come from Organization.telecom which we backfill earlier in
+    // this phase with NANPA-reserved 555-01XX numbers when missing — so a
+    // real payer phone/fax can never end up here even if the source FHIR
+    // resource has none.
+    entity_phone: phoneTelecom ? [phoneTelecom] : [],
+    entity_fax: faxTelecom ? [faxTelecom] : [],
   };
 
   const benefits: unknown[] = [];
@@ -2972,6 +3080,8 @@ async function main(): Promise<void> {
     zambdaApi: null,
     scenario,
     scenarioPath,
+    practitionerOverride,
+    locationOverride,
   };
 
   if (isExecute) {
