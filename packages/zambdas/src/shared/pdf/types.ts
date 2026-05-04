@@ -132,19 +132,6 @@ export interface PdfClient {
   numberPages: (textStyle: TextStyle) => void;
 }
 
-export interface PdfExaminationBlockData {
-  examination: {
-    [group: string]: {
-      items?: Array<{
-        field: string;
-        label: string;
-        abnormal: boolean;
-      }>;
-      comment?: string;
-    };
-  };
-}
-
 // todo might make sense to have a separate interface for the order pdf base
 // and the result pdf base
 interface LabsData {
@@ -225,6 +212,7 @@ export interface InHouseLabResultConfig {
   specimenSource: string;
   results: InHouseLabResult[];
   testName: string;
+  diagnosticReportId: string;
 }
 
 export type ResultSpecimenInfo = {
@@ -520,12 +508,25 @@ export interface Vitals extends PdfData {
 export interface Examination extends PdfData {
   examination: {
     [group: string]: {
+      groupLabel: string;
       items?: Array<{
         field: string;
         label: string;
         abnormal: boolean;
       }>;
       comment?: string;
+    };
+  };
+}
+
+export interface RosObservations extends PdfData {
+  rosObservations: {
+    [group: string]: {
+      items: Array<{
+        field: string;
+        label: string;
+        abnormal: boolean;
+      }>;
     };
   };
 }
@@ -969,6 +970,7 @@ export interface ProgressNoteData extends PdfData {
   screening: AdditionalQuestions;
   intakeNotes: IntakeNotes;
   vitals: Vitals;
+  rosObservations: RosObservations;
   examination: Examination;
   assessment?: Assessment;
   medicalDecision: MedicalDecision;

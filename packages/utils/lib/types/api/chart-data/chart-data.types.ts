@@ -51,6 +51,7 @@ export interface AllChartValues {
   surgicalHistoryNote?: FreeTextNoteDTO;
   observations?: ObservationDTO[];
   examObservations?: ExamObservationDTO[];
+  rosObservations?: ExamObservationDTO[];
   medicalDecision?: ClinicalImpressionDTO;
   cptCodes?: CPTCodeDTO[];
   emCode?: CPTCodeDTO;
@@ -183,6 +184,7 @@ export interface AllergyDTO extends SaveableDTO {
 }
 
 export const EXAM_OBSERVATION_META_SYSTEM = 'exam-observation-field';
+export const ROS_OBSERVATION_META_SYSTEM = 'ros-observation-field';
 export const ADDITIONAL_QUESTIONS_META_SYSTEM = 'additional-questions-field';
 export const AI_OBSERVATION_META_SYSTEM = 'ai-observation';
 export const PATIENT_VITALS_META_SYSTEM = 'patient-vitals-field';
@@ -195,10 +197,21 @@ export const REFUSAL_OF_EMS_TRANSPORT_LABEL = 'Refusal of EMS Transport';
 export const PATIENT_INSTRUCTIONS_TEMPLATE_CODE = 'patient-instruction-template';
 export const IN_PERSON_NOTE_ID = 'css-note';
 
+export interface ExamObservationComponentDTO {
+  code: string;
+  label: string;
+  value: boolean;
+  groupLabel: string;
+  columnLabel?: string;
+  abnormal?: boolean;
+}
+
 export interface ExamObservationDTO extends SaveableDTO {
   field: string;
+  label?: string;
   note?: string;
   value?: boolean;
+  components?: ExamObservationComponentDTO[];
 }
 export interface VitalsBaseObservationDTO extends SaveableDTO {
   field: VitalFieldNames;
@@ -488,6 +501,7 @@ export interface BillingSuggestionInput {
   radiologyOrders: any;
   radiologyReports?: string;
   procedures: any;
+  rosFindings?: string;
   diagnoses: DiagnosisDTO[] | undefined;
   billing: CPTCodeDTO[] | undefined;
 }
@@ -538,4 +552,15 @@ export interface AccidentDTO extends SaveableDTO {
   type: string[];
   date?: string;
   state?: string;
+}
+
+export interface MigrateExamDataInput {
+  encounterId: string;
+  normalExternalGenitalExamSex?: 'male' | 'female';
+}
+
+export interface MigrateExamDataOutput {
+  message: string;
+  migratedCount: number;
+  chartData: GetChartDataResponse;
 }

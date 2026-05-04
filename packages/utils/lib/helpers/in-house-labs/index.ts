@@ -189,6 +189,7 @@ const processObservationDefinition = (
       throw Error(
         'Observation definition is flagged as Numeric or Free Text, currently we are only configured to support Select or Radio for CodeableConcept observation definitions '
       );
+
     const nullOption = extractNullOption(obsDef);
 
     const result = getResult(observation, dataType);
@@ -213,6 +214,9 @@ const processObservationDefinition = (
       throw Error('Quantity type observation definition is misconfigured, should be Numeric');
     }
     const result = getResult(observation, dataType);
+
+    const nullOption = extractNullOption(obsDef);
+
     const component: QuantityDataEntryComponent = {
       componentName,
       observationDefinitionId,
@@ -222,6 +226,7 @@ const processObservationDefinition = (
       normalRange: quantityInfo.normalRange,
       displayType,
       result,
+      nullOption,
     };
     return component;
   } else if (dataType === 'string') {
@@ -467,12 +472,7 @@ const getResult = (
   if (!observation) return;
   let result: TestComponentResult | undefined;
   let entry: string | undefined;
-  if (dataType === 'CodeableConcept' || dataType === 'string') {
-    entry = observation.valueString;
-  } else {
-    const entryValue = observation?.valueQuantity?.value;
-    if (entryValue !== undefined) entry = entryValue.toString();
-  }
+
   const interpretationCoding = observation.interpretation?.find(
     (i) => i?.coding?.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
   )?.coding;
@@ -480,6 +480,18 @@ const getResult = (
   if (interpretationCoding) {
     interpretationCode = interpretationCoding.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
       ?.code as ObservationCode;
+  }
+
+  if (dataType === 'CodeableConcept' || dataType === 'string') {
+    entry = observation.valueString;
+  } else {
+    const entryValue = observation?.valueQuantity?.value;
+    if (entryValue !== undefined) {
+      entry = entryValue.toString();
+    } else if (interpretationCode === 'IND') {
+      // handles indeterminate option
+      entry = observation.valueString;
+    }
   }
   if (entry !== undefined && interpretationCode) {
     result = {

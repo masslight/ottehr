@@ -26,6 +26,7 @@ type EncounterIdMap = Map<
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
+let candidApiClient: CandidApiClient | undefined;
 
 const CANDID_BATCH_SIZE = 3;
 
@@ -39,10 +40,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
-  console.group('creating candid api client');
-  const candidApiClient = createCandidApiClient(secrets);
-  console.groupEnd();
-  console.debug('creating candid api client success');
+  if (!candidApiClient) {
+    console.group('creating candid api client');
+    candidApiClient = createCandidApiClient(secrets);
+    console.groupEnd();
+    console.debug('creating candid api client success');
+  }
 
   const response = await performEffect(validatedInput, oystehr, candidApiClient);
 

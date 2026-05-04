@@ -392,7 +392,13 @@ const getInHouseLabResultResources = async (
 
   const activityDefinitions = activityDefinitionSearch.unbundle();
 
-  if (activityDefinitions.length !== 1) throw new Error('Only one activity definition should be returned');
+  if (activityDefinitions.length !== 1) {
+    throw new Error(
+      `Only one activity definition should be returned: ${activityDefinitions.map(
+        (ad) => `ActivityDefinition/${ad.id}`
+      )}`
+    );
+  }
 
   return {
     serviceRequest,
@@ -580,6 +586,7 @@ const makeObservationPostRequests = (
 
   const nonNormalResultRecorded: NonNormalResult[] = [];
   let reflexTestTriggered: Extension | undefined;
+
   Object.keys(resultsEntryData).forEach((observationDefinitionId) => {
     const entry = resultsEntryData[observationDefinitionId];
     const obsFullUrl = `urn:uuid:${randomUUID()}`;
@@ -644,16 +651,24 @@ const formatObsValueAndInterpretation = (
     console.error('Obs def does not have a permittedDataType');
     throw new Error('No permittedDataType found on ObsDef');
   }
+
   if (obsDef.permittedDataType.includes('Quantity')) {
-    const floatVal = parseFloat(dataEntry);
-    const obsValue = {
-      valueQuantity: {
-        value: floatVal,
-      },
-    };
+    let obsValue: { valueQuantity: Quantity } | { valueString: string };
+
+    if (dataEntry === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode) {
+      obsValue = { valueString: dataEntry };
+    } else {
+      const floatVal = parseFloat(dataEntry);
+      obsValue = {
+        valueQuantity: {
+          value: floatVal,
+        },
+      };
+    }
+
     const range = extractQuantityRange(obsDef).normalRange;
     const { interpretation: interpretationCodeableConcept, nonNormalResult } = determineQuantInterpretation(
-      floatVal,
+      obsValue,
       range
     );
     const obsInterpretation = {
@@ -691,13 +706,13 @@ const formatObsValueAndInterpretation = (
     const obsInterpretation = {
       interpretation: [NORMAL_OBSERVATION_INTERPRETATION],
     };
-    return { obsValue, obsInterpretation, nonNormalResult: undefined };
+    return { obsValue, obsInterpretation, nonNormalResult: NonNormalResult.Neutral };
   }
   throw new Error('Cannot format Obs value and interpretation. Unrecognized obsDef.permittedDataType');
 };
 
 const determineQuantInterpretation = (
-  entry: number,
+  obsValue: { valueQuantity: Quantity } | { valueString: string },
   range: {
     low: number;
     high: number;
@@ -705,10 +720,22 @@ const determineQuantInterpretation = (
     precision?: number;
   }
 ): { interpretation: CodeableConcept; nonNormalResult?: NonNormalResult } => {
-  if (entry > range.high || entry < range.low) {
-    return { interpretation: ABNORMAL_OBSERVATION_INTERPRETATION, nonNormalResult: NonNormalResult.Abnormal };
+  const errorMsg = `Something is malformed with this quantity observation value: ${JSON.stringify(obsValue)}`;
+
+  if ('valueQuantity' in obsValue) {
+    const entry = obsValue.valueQuantity.value;
+    if (entry === undefined) throw new Error(errorMsg);
+    if (entry > range.high || entry < range.low) {
+      return { interpretation: ABNORMAL_OBSERVATION_INTERPRETATION, nonNormalResult: NonNormalResult.Abnormal };
+    } else {
+      return { interpretation: NORMAL_OBSERVATION_INTERPRETATION };
+    }
   } else {
-    return { interpretation: NORMAL_OBSERVATION_INTERPRETATION };
+    const entry = obsValue.valueString;
+    // the only way we should get here is if unknown is given as answer
+    if (entry !== IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode) throw new Error(errorMsg);
+
+    return { interpretation: INDETERMINATE_OBSERVATION_INTERPRETATION, nonNormalResult: NonNormalResult.Inconclusive };
   }
 };
 

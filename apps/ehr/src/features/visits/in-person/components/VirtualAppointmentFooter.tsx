@@ -1,35 +1,58 @@
-import { AppBar, Box, Divider, Link, Stack, Typography, useTheme } from '@mui/material';
-import { DateTime } from 'luxon';
-import { FC, useState } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
+import { LoadingButton } from '@mui/lab';
+import { AppBar, Box, darken, Divider, Link, Stack, styled, Typography, useTheme } from '@mui/material';
+import { DateTime, Duration } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useCallback, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
+import { useApiClients } from 'src/hooks/useAppClients';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
-  getAppointmentWaitingTime,
+  diffInMinutes,
+  getInPersonVisitStatus,
   getQuestionnaireResponseByLinkId,
   getSelectors,
-  getTelemedEncounterStatusHistory,
+  getVisitStatusHistory,
   INTERPRETER_PHONE_NUMBER,
-  TelemedAppointmentStatusEnum,
+  NON_LOS_STATUSES,
+  VisitStatusHistoryEntry,
 } from 'utils';
-import { AppointmentFooterButton } from '../../telemed/components/appointment/AppointmentFooterButton';
-import { AppointmentFooterEndVisitButton } from '../../telemed/components/appointment/AppointmentFooterEndVisitButton';
+import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
+import { useGetMeetingData } from '../../shared/stores/appointment/appointment.queries';
+import { useInitTelemedSessionMutation } from '../../shared/stores/tracking-board/tracking-board.queries';
 import InviteParticipant from '../../telemed/components/appointment/InviteParticipant';
 import { useVideoCallStore } from '../../telemed/state/video-call/video-call.store';
+
+const FooterButton = styled(LoadingButton)(({ theme }) => ({
+  textTransform: 'none',
+  fontSize: '15px',
+  fontWeight: 500,
+  borderRadius: 20,
+  backgroundColor: theme.palette.primary.light,
+  '&:hover': { backgroundColor: darken(theme.palette.primary.light, 0.125) },
+  '&.MuiLoadingButton-loading': {
+    backgroundColor: darken(theme.palette.primary.light, 0.25),
+  },
+  '& .MuiLoadingButton-loadingIndicator': {
+    color: darken(theme.palette.primary.contrastText, 0.25),
+  },
+}));
 
 export const VirtualAppointmentFooter: FC = () => {
   const theme = useTheme();
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
   const appointmentAccessibility = useGetAppointmentAccessibility();
-  const { appointment, encounter, mappedData, questionnaireResponse } = useAppointmentData();
+  const { appointment, encounter, mappedData, questionnaireResponse, appointmentRefetch } = useAppointmentData();
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
-
-  const statuses =
-    encounter.statusHistory && appointment?.status
-      ? getTelemedEncounterStatusHistory(encounter.statusHistory, appointment.status)
-      : undefined;
-  const waitingTime = getAppointmentWaitingTime(statuses);
+  const appointmentStatus = (appointment && getInPersonVisitStatus(appointment, encounter)) ?? 'unknown';
+  const statusHistory = getVisitStatusHistory(encounter);
+  const arrivedStart = statusHistory.find((status) => status.status === 'arrived')?.period?.start;
+  const waitingTime = arrivedStart ? diffInMinutes(DateTime.now(), DateTime.fromISO(arrivedStart)) : 0;
 
   const preferredLanguage = getQuestionnaireResponseByLinkId('preferred-language', questionnaireResponse)?.answer?.[0]
     ?.valueString;
@@ -41,13 +64,78 @@ export const VirtualAppointmentFooter: FC = () => {
     getQuestionnaireResponseByLinkId('patient-number', questionnaireResponse)?.answer?.[0]?.valueString ||
     getQuestionnaireResponseByLinkId('guardian-number', questionnaireResponse)?.answer?.[0]?.valueString;
 
-  const onVideoStatus = statuses?.find((element) => element.status === TelemedAppointmentStatusEnum['on-video']);
-  const onVideoStatusStart = onVideoStatus?.start ? DateTime.fromISO(onVideoStatus.start) : undefined;
-  const onVideoStatusEnd = onVideoStatus?.end ? DateTime.fromISO(onVideoStatus.end) : undefined;
-  const callDuration =
-    onVideoStatusStart && onVideoStatusEnd
-      ? onVideoStatusEnd.diff(onVideoStatusStart, 'seconds').toFormat('mm:ss')
-      : null;
+  const visitDuration = Duration.fromMillis(
+    statusHistory
+      .filter((status) => !NON_LOS_STATUSES.includes(status.status))
+      .reduce((accumulator, statusTemp) => {
+        return accumulator + statusDurationMillis(statusTemp);
+      }, 0)
+  ).toFormat('mm:ss');
+
+  const apiClient = useOystehrAPIClient();
+  const user = useEvolveUser();
+  const { getAccessTokenSilently } = useAuth0();
+  const initTelemedSession = useInitTelemedSessionMutation();
+  const getMeetingData = useGetMeetingData(
+    getAccessTokenSilently,
+    () => {},
+    () => {
+      enqueueSnackbar('Error trying to connect to a patient.', {
+        variant: 'error',
+      });
+    }
+  );
+  const { oystehrZambda } = useApiClients();
+  const onConnect = useCallback(async (): Promise<void> => {
+    if (appointmentStatus === 'provider') {
+      const meetingDataResponse = await getMeetingData.refetch({ throwOnError: true });
+      useVideoCallStore.setState({
+        meetingData: meetingDataResponse.data,
+      });
+    } else {
+      if (!apiClient || !user || !appointment?.id || !encounter.id) {
+        throw new Error('apiClient or user or appointment.id or encounter.id is undefined');
+      }
+      const encounterId = encounter.id;
+      initTelemedSession.mutate(
+        { apiClient, appointmentId: appointment.id, userId: user?.id },
+        {
+          onSuccess: async (response) => {
+            useVideoCallStore.setState({
+              meetingData: response.meetingData,
+            });
+            await handleChangeInPersonVisitStatus(
+              {
+                encounterId: encounterId,
+                updatedStatus: 'provider',
+              },
+              oystehrZambda
+            );
+            await appointmentRefetch();
+          },
+          onError: () => {
+            enqueueSnackbar('Error trying to connect to a patient.', {
+              variant: 'error',
+            });
+          },
+        }
+      );
+    }
+  }, [
+    apiClient,
+    appointment?.id,
+    appointmentRefetch,
+    appointmentStatus,
+    encounter.id,
+    getMeetingData,
+    initTelemedSession,
+    oystehrZambda,
+    user,
+  ]);
+
+  const providerAllowedToConnect =
+    appointmentAccessibility.isPractitionerLicensedInState &&
+    appointmentAccessibility.isEncounterAssignedToCurrentPractitioner;
 
   return (
     <AppBar
@@ -70,9 +158,7 @@ export const VirtualAppointmentFooter: FC = () => {
           spacing={3}
           divider={<Divider variant="middle" orientation="vertical" sx={{ borderColor: '#FFFFFF4D' }} flexItem />}
         >
-          {(appointmentAccessibility.status === TelemedAppointmentStatusEnum['ready'] ||
-            appointmentAccessibility.status === TelemedAppointmentStatusEnum['on-video'] ||
-            appointmentAccessibility.status === TelemedAppointmentStatusEnum['pre-video']) &&
+          {['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(appointmentStatus) &&
             !meetingData && (
               <Box>
                 <Typography variant="body1" style={{ fontWeight: 500 }}>
@@ -101,16 +187,46 @@ export const VirtualAppointmentFooter: FC = () => {
           </Box>
         </Stack>
         <Stack direction="row" spacing={2} alignItems="center">
-          {(appointmentAccessibility.status === TelemedAppointmentStatusEnum['ready'] ||
-            appointmentAccessibility.status === TelemedAppointmentStatusEnum['on-video'] ||
-            appointmentAccessibility.status === TelemedAppointmentStatusEnum['pre-video']) &&
-            !meetingData && <AppointmentFooterButton />}
-          {appointmentAccessibility.isEncounterAssignedToCurrentPractitioner &&
-            appointmentAccessibility.status === TelemedAppointmentStatusEnum['on-video'] && (
-              <AppointmentFooterEndVisitButton />
+          {['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(appointmentStatus) &&
+            providerAllowedToConnect && (
+              <FooterButton
+                onClick={() => setIsInviteParticipantOpen(true)}
+                variant="contained"
+                sx={{ backgroundColor: 'transparent', border: '1px solid white' }}
+              >
+                Invite participant
+              </FooterButton>
             )}
-          {appointmentAccessibility.status === TelemedAppointmentStatusEnum['unsigned'] && (
-            <Typography variant="body1">Visit ended. {callDuration ? `Duration ${callDuration}` : null}</Typography>
+          {['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(appointmentStatus) &&
+            providerAllowedToConnect &&
+            !meetingData && (
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <ConfirmationDialog
+                  title="Do you want to connect to the patient?"
+                  description="This action will start the video call."
+                  response={onConnect}
+                  actionButtons={{
+                    proceed: {
+                      text: 'Connect to Patient',
+                    },
+                    back: { text: 'Cancel' },
+                  }}
+                >
+                  {(showDialog) => (
+                    <FooterButton
+                      loading={initTelemedSession.isPending || getMeetingData.isLoading}
+                      onClick={showDialog}
+                      variant="contained"
+                      data-testid={dataTestIds.telemedEhrFlow.footerButtonConnectToPatient}
+                    >
+                      Connect to Patient
+                    </FooterButton>
+                  )}
+                </ConfirmationDialog>
+              </Box>
+            )}
+          {['discharged', 'awaiting supervisor approval', 'completed'].includes(appointmentStatus) && (
+            <Typography variant="body1">Visit ended. {visitDuration ? `Duration ${visitDuration}` : null}</Typography>
           )}
         </Stack>
       </Stack>
@@ -120,4 +236,16 @@ export const VirtualAppointmentFooter: FC = () => {
 
 function isSpanish(language: string): boolean {
   return language.toLowerCase() === 'Spanish'.toLowerCase();
+}
+
+function statusDurationMillis(statusEntry: VisitStatusHistoryEntry): number {
+  if (statusEntry.period.start && statusEntry.period.end) {
+    return Math.floor(
+      DateTime.fromISO(statusEntry.period.end).diff(DateTime.fromISO(statusEntry.period.start), 'milliseconds')
+        .milliseconds
+    );
+  } else if (statusEntry.period.start) {
+    return Math.floor(DateTime.now().diff(DateTime.fromISO(statusEntry.period.start), 'milliseconds').milliseconds);
+  }
+  return 0;
 }

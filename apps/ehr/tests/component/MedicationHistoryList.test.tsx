@@ -108,8 +108,6 @@ describe('MedicationHistoryList - Display Tests', () => {
       isAppointmentReadOnly: false,
       isPractitionerLicensedInState: true,
       isEncounterAssignedToCurrentPractitioner: true,
-      isStatusEditable: true,
-      isCurrentUserHasAccessToAppointment: true,
       isAppointmentInCheckInStatus: false,
     } as any);
   });
@@ -131,8 +129,6 @@ describe('MedicationHistoryList - Display Tests', () => {
       isAppointmentReadOnly: true,
       isPractitionerLicensedInState: true,
       isEncounterAssignedToCurrentPractitioner: true,
-      isStatusEditable: false,
-      isCurrentUserHasAccessToAppointment: true,
     } as any);
 
     renderComponent();

@@ -14,6 +14,7 @@
 
 import { expect, test } from '@playwright/test';
 import { Location, Schedule } from 'fhir/r4b';
+import { isTelemedEnabled } from 'test-utils';
 import { CanonicalUrl, ServiceMode } from 'utils';
 import { executeBookingScenario, generateBookingTestScenarios } from '../utils/booking/BookingTestFactory';
 import {
@@ -82,11 +83,15 @@ test.describe('Complete booking flows', () => {
     _prebookInPersonSchedule = prebookInPersonResult.schedule;
     console.log(`✓ Created prebook in-person location: ${prebookInPersonLocation.name}`);
 
-    // Create prebook virtual test location (24/7, 8 slots per hour)
-    const prebookVirtualResult = await testLocationManager.ensurePrebookVirtualLocationWithSlots();
-    prebookVirtualLocation = prebookVirtualResult.location;
-    _prebookVirtualSchedule = prebookVirtualResult.schedule;
-    console.log(`✓ Created prebook virtual location: ${prebookVirtualLocation.name}`);
+    // Create prebook virtual test location (24/7, 8 slots per hour) only if telemed is configured
+    if (isTelemedEnabled) {
+      const prebookVirtualResult = await testLocationManager.ensurePrebookVirtualLocationWithSlots();
+      prebookVirtualLocation = prebookVirtualResult.location;
+      _prebookVirtualSchedule = prebookVirtualResult.schedule;
+      console.log(`✓ Created prebook virtual location: ${prebookVirtualLocation.name}`);
+    } else {
+      console.log('⊘ Skipped prebook virtual location - telemed not configured (no virtual locations)');
+    }
 
     // Create prebook in-person group (HealthcareService with Location + Practitioner members)
     // This tests the "group booking" pattern used by the core environment
@@ -116,12 +121,17 @@ test.describe('Complete booking flows', () => {
     testQuestionnaireCanonicals.set('baseline-in-person', baselineInPersonResult.canonical);
     console.log('✓ Deployed baseline in-person questionnaire');
 
-    const baselineVirtualResult = await testQuestionnaireManager.ensureTestQuestionnaire(
-      'baseline',
-      ServiceMode['virtual']
-    );
-    testQuestionnaireCanonicals.set('baseline-virtual', baselineVirtualResult.canonical);
-    console.log('✓ Deployed baseline virtual questionnaire');
+    // Deploy virtual questionnaire only if telemed is configured
+    if (isTelemedEnabled) {
+      const baselineVirtualResult = await testQuestionnaireManager.ensureTestQuestionnaire(
+        'baseline',
+        ServiceMode['virtual']
+      );
+      testQuestionnaireCanonicals.set('baseline-virtual', baselineVirtualResult.canonical);
+      console.log('✓ Deployed baseline virtual questionnaire');
+    } else {
+      console.log('⊘ Skipped baseline virtual questionnaire - telemed not configured');
+    }
   });
 
   // Cleanup: Remove test resources after all tests

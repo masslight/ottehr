@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { GetChartDataResponse, ProcedureDTO, TelemedAppointmentStatusEnum } from 'utils';
+import { GetChartDataResponse, ProcedureDTO } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import Procedures from '../../src/features/visits/in-person/pages/Procedures';
@@ -21,10 +21,6 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
 
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
   useGetAppointmentAccessibility: vi.fn(),
-}));
-
-vi.mock('../../src/features/visits/shared/stores/contexts/useAppFlags', () => ({
-  useAppFlags: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -48,12 +44,10 @@ import {
   useChartData,
   useDeleteChartData,
 } from '../../src/features/visits/shared/stores/appointment/appointment.store';
-import { useAppFlags } from '../../src/features/visits/shared/stores/contexts/useAppFlags';
 
 const mockUseChartData = vi.mocked(useChartData);
 const mockUseDeleteChartData = vi.mocked(useDeleteChartData);
 const mockUseGetAppointmentAccessibility = vi.mocked(useGetAppointmentAccessibility);
-const mockUseAppFlags = vi.mocked(useAppFlags);
 const mockNavigate = vi.mocked(useNavigate);
 const mockUseParams = vi.mocked(useParams);
 const mockEnqueueSnackbar = vi.mocked(enqueueSnackbar);
@@ -128,15 +122,8 @@ describe('Procedures - Delete Procedure Tests', () => {
       isAppointmentReadOnly: false,
       isPractitionerLicensedInState: true,
       isEncounterAssignedToCurrentPractitioner: true,
-      isStatusEditable: true,
-      isCurrentUserHasAccessToAppointment: true,
-      status: TelemedAppointmentStatusEnum.ready,
       isAppointmentLocked: false,
       visitType: 'main',
-    });
-
-    mockUseAppFlags.mockReturnValue({
-      isInPerson: true,
     });
 
     mockNavigate.mockReturnValue(vi.fn());
@@ -185,9 +172,6 @@ describe('Procedures - Delete Procedure Tests', () => {
       isAppointmentReadOnly: true,
       isPractitionerLicensedInState: true,
       isEncounterAssignedToCurrentPractitioner: true,
-      isStatusEditable: false,
-      isCurrentUserHasAccessToAppointment: true,
-      status: undefined,
       isAppointmentLocked: false,
       visitType: 'main',
     });
@@ -402,9 +386,6 @@ describe('Procedures - Delete Procedure Tests', () => {
       isAppointmentReadOnly: true,
       isPractitionerLicensedInState: true,
       isEncounterAssignedToCurrentPractitioner: true,
-      isStatusEditable: false,
-      isCurrentUserHasAccessToAppointment: true,
-      status: undefined,
       isAppointmentLocked: false,
       visitType: 'main',
     });

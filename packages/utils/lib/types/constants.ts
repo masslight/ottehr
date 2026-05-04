@@ -1,5 +1,5 @@
 import { Coding } from 'fhir/r4b';
-import { ottehrExtensionUrl } from '../fhir/systemUrls';
+import { ottehrCodeSystemUrl, ottehrExtensionUrl } from '../fhir/systemUrls';
 
 // NOTE: PROJECT_WEBSITE was moved to ottehr-config/branding to avoid circular dependencies.
 // Import it from 'utils' or 'utils/lib/ottehr-config/branding' directly.
@@ -43,6 +43,9 @@ export const E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM = 'E2E_TEST_RESOURCE_PROCESS_ID
 
 export const MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM =
   'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';
+export const MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM_FOR_INTERACTIONS = ottehrCodeSystemUrl(
+  'medispan-dispensable-drug-id-for-interactions'
+);
 
 export const INSURANCE_REQ_EXTENSION_URL = 'https://extensions.fhir.zapehr.com/insurance-requirements';
 export const ORG_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/organization-type';

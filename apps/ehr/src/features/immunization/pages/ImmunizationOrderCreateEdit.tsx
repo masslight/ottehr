@@ -16,7 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
@@ -29,8 +29,10 @@ import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/hel
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { RoleType } from 'utils';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
+import { ImmunizationQuickPickData, RoleType } from 'utils';
 import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
 import {
   useCancelImmunizationOrder,
@@ -123,6 +125,32 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     }
   }, [methods, defaultProviderId, orderId, currentUser]);
 
+  const onQuickPickSelectRef = useRef(onQuickPickSelect);
+  onQuickPickSelectRef.current = onQuickPickSelect;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      orderId
+        ? []
+        : mergedQuickPicks.map((quickPick) => {
+            const doseAndUnits = quickPick.dose && quickPick.units ? `${quickPick.dose} ${quickPick.units}` : undefined;
+
+            return {
+              id: `immunization-${quickPick.id ?? quickPick.name}`,
+              label: [quickPick.name, doseAndUnits].filter(Boolean).join(', '),
+              category: 'Add Immunization',
+              onSelect: () => onQuickPickSelectRef.current(quickPick),
+            };
+          }),
+    [mergedQuickPicks, orderId]
+  );
+  useCommandPaletteSource('immunization-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback((payload: ImmunizationQuickPickData) => {
+    onQuickPickSelectRef.current(payload);
+  }, []);
+  usePendingQuickPick('immunizations', handlePendingQuickPick, !isOrderLoading);
+
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)}>
@@ -146,6 +174,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
               showAddOption
               isAdmin={isAdmin}
               onAddOrUpdate={() => void openQuickPickDialog()}
+              searchable
             />
           )}
 

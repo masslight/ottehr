@@ -44,6 +44,7 @@ import {
   makeNoteResource,
   makeObservationResource,
   makeProcedureResource,
+  makeRosObservationResource,
   makeSchoolWorkDR,
   makeServiceRequestResource,
   saveOrUpdateResourceRequest,
@@ -94,6 +95,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       observations,
       secrets,
       examObservations,
+      rosObservations,
       medicalDecision,
       cptCodes,
       emCode,
@@ -288,6 +290,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         saveOrUpdateResourceRequest(
           makeExamObservationResource(encounterId, patient.id!, element, code ? { code, bodySite } : undefined, label)
         )
+      );
+    });
+
+    // 8b. convert ROS observations to Observation (FHIR)
+    rosObservations?.forEach((element) => {
+      saveOrUpdateRequests.push(
+        saveOrUpdateResourceRequest(makeRosObservationResource(encounterId, patient.id!, element))
       );
     });
 
@@ -533,7 +542,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       statusCode: 200,
     };
   } catch (error) {
-    console.log(JSON.stringify(error, null, 2));
+    console.log('Save chart data error', error, JSON.stringify(error, null, 2));
     return {
       body: JSON.stringify({ message: 'Error saving encounter data...' }),
       statusCode: 500,

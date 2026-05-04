@@ -1,4 +1,4 @@
-import { Appointment, Encounter } from 'fhir/r4b';
+import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   formatDateTimeToZone,
@@ -8,8 +8,7 @@ import {
   getAttendingPractitionerId,
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
-  getTelemedEncounterStatusHistory,
-  isFollowupEncounter,
+  isAnnotationFollowupEncounter,
   isInPersonAppointment,
   Timezone,
 } from 'utils';
@@ -21,14 +20,12 @@ import { getBookingTypeForPdf, getVisitTypeForPdf } from '../visitInfo';
 
 function getStatusRelatedDates(
   encounter: Encounter,
-  appointment: Appointment,
   timezone: Timezone
 ): { dateOfService?: string; signedOnDate?: string } {
-  const statuses =
-    encounter.statusHistory && appointment?.status
-      ? getTelemedEncounterStatusHistory(encounter.statusHistory, appointment.status)
-      : undefined;
-  const dateOfService = formatDateTimeToZone(statuses?.find((item) => item.status === 'on-video')?.start, timezone);
+  const dateOfService = formatDateTimeToZone(
+    (encounter.statusHistory ?? []).find((item) => item.status === 'in-progress')?.period?.start,
+    timezone
+  );
   const currentTimeISO = DateTime.now().toISO();
   const signedOnDate = formatDateTimeToZone(currentTimeISO, timezone);
 
@@ -42,7 +39,9 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
   const { additionalChartData } = allChartData;
   const { patient, encounter, mainEncounter, appointment, location, questionnaireResponse, practitioners, timezone } =
     appointmentPackage;
-  const isFollowup = encounter ? isFollowupEncounter(encounter) : false;
+  // Only annotation follow-ups render the abbreviated visit-note layout — scheduled
+  // follow-ups are full visits and get the same details as a main appointment.
+  const isFollowup = encounter ? isAnnotationFollowupEncounter(encounter) : false;
   if (!patient) throw new Error('No patient found for this encounter');
   const patientName = getPatientLastFirstName(patient);
   if (isFollowup && encounter) {
@@ -66,7 +65,7 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
       provider,
     };
   } else {
-    const { dateOfService, signedOnDate } = getStatusRelatedDates(mainEncounter ?? encounter, appointment, timezone);
+    const { dateOfService, signedOnDate } = getStatusRelatedDates(mainEncounter ?? encounter, timezone);
     const type = getVisitTypeForPdf(appointment);
     const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
     const bookingType = getBookingTypeForPdf(appointment);

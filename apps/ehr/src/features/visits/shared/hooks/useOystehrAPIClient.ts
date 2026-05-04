@@ -10,12 +10,10 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
       return getOystehrTelemedAPI(
         {
           syncUserZambdaID: 'sync-user',
-          getTelemedAppointmentsZambdaID: 'get-telemed-appointments',
           initTelemedSessionZambdaID: 'init-telemed-session',
           getChartDataZambdaID: 'get-chart-data',
           saveChartDataZambdaID: 'save-chart-data',
           deleteChartDataZambdaID: 'delete-chart-data',
-          changeTelemedAppointmentStatusZambdaID: 'change-telemed-appointment-status',
           changeInPersonVisitStatusZambdaID: 'change-in-person-visit-status',
           assignPractitionerZambdaID: 'assign-practitioner',
           unassignPractitionerZambdaID: 'unassign-practitioner',
@@ -34,6 +32,7 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
           getPatientAccountZambdaID: 'get-patient-account',
           updatePatientAccountZambdaID: 'update-patient-account',
           removePatientCoverageZambdaID: 'remove-patient-coverage',
+          mergePatientsZambdaID: 'merge-patients',
           sendFaxZambdaID: 'send-fax',
           externalLabResourceSearchID: 'get-create-lab-order-resources',
           getUnsolicitedResultsResourcesID: 'get-unsolicited-results-resources',

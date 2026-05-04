@@ -1,6 +1,6 @@
 import { BundleEntry } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
-import { Bundle, FhirResource, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
+import { Bundle, FhirResource, Organization, Patient, Person, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -23,15 +23,19 @@ export const useGetPatient = (
   loading: boolean;
   otherPatientsWithSameName: boolean;
   setOtherPatientsWithSameName: (value: boolean) => void;
+  duplicatePatients: Patient[];
   patient?: Patient;
   setPatient: (patient: Patient) => void;
   relatedPerson?: RelatedPerson;
+  person?: Person;
 } => {
   const { oystehr } = useApiClients();
   const [loading, setLoading] = useState<boolean>(true);
   const [otherPatientsWithSameName, setOtherPatientsWithSameName] = useState<boolean>(false);
+  const [duplicatePatients, setDuplicatePatients] = useState<Patient[]>([]);
   const [patient, setPatient] = useState<Patient>();
   const [relatedPerson, setRelatedPerson] = useState<RelatedPerson>();
+  const [person, setPerson] = useState<Person>();
 
   const { data: patientResources } = useQuery({
     queryKey: ['useGetPatientPatientResources', id],
@@ -45,6 +49,10 @@ export const useGetPatient = (
                 {
                   name: '_revinclude:iterate',
                   value: 'RelatedPerson:patient',
+                },
+                {
+                  name: '_revinclude:iterate',
+                  value: 'Person:link',
                 },
               ],
             })
@@ -60,19 +68,24 @@ export const useGetPatient = (
 
   const { data: otherPatientsWithSameNameResources } = useQuery({
     queryKey: ['otherPatientsWithSameNameResources', id],
-    queryFn: () =>
-      oystehr && patientResource
-        ? oystehr.fhir
-            .search<FhirResource>({
-              resourceType: 'Patient',
-              params: getPatientNameSearchParams({
-                firstLast: { first: getFirstName(patientResource), last: getLastName(patientResource) },
-                narrowByRelatedPersonAndAppointment: false,
-                maxResultOverride: 2,
-              }),
-            })
-            .then((bundle) => bundle.unbundle())
-        : null,
+    queryFn: () => {
+      if (!oystehr || !patientResource) return null;
+      const searchParams = getPatientNameSearchParams({
+        firstLast: { first: getFirstName(patientResource), last: getLastName(patientResource) },
+        narrowByRelatedPersonAndAppointment: false,
+        maxResultOverride: 10,
+      });
+      if (patientResource.birthDate) {
+        searchParams.push({ name: 'birthdate', value: patientResource.birthDate });
+      }
+      searchParams.push({ name: 'active', value: 'true' });
+      return oystehr.fhir
+        .search<FhirResource>({
+          resourceType: 'Patient',
+          params: searchParams,
+        })
+        .then((bundle) => bundle.unbundle());
+    },
     gcTime: 10000,
     enabled: oystehr != null && patientResource != null,
   });
@@ -83,37 +96,46 @@ export const useGetPatient = (
         throw new Error('oystehr is not defined');
       }
 
-      setLoading(true);
-
       if (!patientResources || !otherPatientsWithSameNameResources) {
         return;
       }
+
+      setLoading(true);
 
       const patientTemp: Patient = patientResources.find((resource) => resource.resourceType === 'Patient') as Patient;
       const relatedPersonTemp: RelatedPerson = patientResources.find(
         (resource) => resource.resourceType === 'RelatedPerson'
       ) as RelatedPerson;
+      const personTemp: Person = patientResources.find((resource) => resource.resourceType === 'Person') as Person;
 
-      if (otherPatientsWithSameNameResources.length > 1) {
+      const duplicates = (otherPatientsWithSameNameResources as Patient[]).filter(
+        (r) => r.resourceType === 'Patient' && r.id !== id && r.active !== false
+      );
+      if (duplicates.length > 0) {
         setOtherPatientsWithSameName(true);
+        setDuplicatePatients(duplicates);
       } else {
         setOtherPatientsWithSameName(false);
+        setDuplicatePatients([]);
       }
 
       setPatient(patientTemp);
       setRelatedPerson(relatedPersonTemp);
+      setPerson(personTemp);
       setLoading(false);
     }
 
     getPatient().catch((error) => console.log(error));
-  }, [oystehr, patientResources, otherPatientsWithSameNameResources]);
+  }, [id, oystehr, patientResources, otherPatientsWithSameNameResources]);
 
   return {
     loading,
     otherPatientsWithSameName,
     setOtherPatientsWithSameName,
+    duplicatePatients,
     patient,
     relatedPerson,
+    person,
     setPatient,
   };
 };

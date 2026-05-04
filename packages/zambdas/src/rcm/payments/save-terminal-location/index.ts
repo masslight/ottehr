@@ -1,6 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Extension, Location } from 'fhir/r4b';
-import { SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL } from 'utils';
+import { Device } from 'fhir/r4b';
+import {
+  findTerminalDeviceForLocation,
+  STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE,
+  STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM,
+  STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -13,26 +18,57 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
-  const location = await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId });
-
-  const updatedExtensions = (location.extension ?? []).filter(
-    (ext: Extension) => ext.url !== SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL
-  );
+  const existingDevice = await findTerminalDeviceForLocation(locationId, oystehr);
 
   if (terminalLocationId) {
-    updatedExtensions.push({
-      url: SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL,
-      valueString: terminalLocationId,
-    });
-  }
+    if (existingDevice) {
+      // Update existing Device's identifier
+      const updatedIdentifiers = (existingDevice.identifier ?? []).filter(
+        (id) => id.system !== STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM
+      );
+      updatedIdentifiers.push({
+        system: STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM,
+        value: terminalLocationId,
+      });
 
-  await oystehr.fhir.update<Location>(
-    {
-      ...location,
-      extension: updatedExtensions,
-    },
-    { optimisticLockingVersionId: location.meta?.versionId }
-  );
+      await oystehr.fhir.update<Device>(
+        {
+          ...existingDevice,
+          identifier: updatedIdentifiers,
+          status: 'active',
+        },
+        { optimisticLockingVersionId: existingDevice.meta?.versionId }
+      );
+    } else {
+      // Create new Device
+      const newDevice: Device = {
+        resourceType: 'Device',
+        type: {
+          coding: [
+            {
+              system: STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM,
+              code: STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE,
+            },
+          ],
+        },
+        location: {
+          reference: `Location/${locationId}`,
+        },
+        identifier: [
+          {
+            system: STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM,
+            value: terminalLocationId,
+          },
+        ],
+        status: 'active',
+      };
+
+      await oystehr.fhir.create<Device>(newDevice);
+    }
+  } else if (existingDevice?.id) {
+    // Remove the Device when terminal location is being cleared
+    await oystehr.fhir.delete({ resourceType: 'Device', id: existingDevice.id });
+  }
 
   return {
     statusCode: 200,

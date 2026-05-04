@@ -6,6 +6,7 @@ import {
   CODE_SYSTEM_NDC,
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
+  MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from 'utils';
@@ -126,6 +127,7 @@ describe('create-in-house-medication - performEffect', () => {
       'Ibuprofen 200mg',
       '12345-678-90',
       'DRUG123',
+      'DRUG456',
       [{ code: '99213', display: 'Office visit' }],
       [{ code: 'J0696', display: 'Ceftriaxone injection' }]
     );
@@ -144,6 +146,7 @@ describe('create-in-house-medication - performEffect', () => {
     const codings = callArg.code?.coding ?? [];
     expect(codings).toContainEqual({ system: CODE_SYSTEM_NDC, code: '12345-678-90' });
     expect(codings).toContainEqual({ system: MEDICATION_DISPENSABLE_DRUG_ID, code: 'DRUG123' });
+    expect(codings).toContainEqual({ system: MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS, code: 'DRUG456' });
     expect(codings).toContainEqual({ system: CODE_SYSTEM_CPT, code: '99213', display: 'Office visit' });
     expect(codings).toContainEqual({ system: CODE_SYSTEM_HCPCS, code: 'J0696', display: 'Ceftriaxone injection' });
     expect(result.id).toBe('new-med-id');
@@ -171,7 +174,7 @@ describe('create-in-house-medication - performEffect', () => {
 
   it('creates medication with multiple CPT codes', async () => {
     const oystehr = makeMockOystehr();
-    await createPerformEffect(oystehr, 'Drug', undefined, 'DRUG123', [
+    await createPerformEffect(oystehr, 'Drug', undefined, 'DRUG123', undefined, [
       { code: '99213', display: 'Office visit, est' },
       { code: '99214', display: 'Office visit, est' },
       { code: '99215', display: 'Office visit, est' },

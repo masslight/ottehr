@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.32.5",
+  "version": "1.33.7",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -17,6 +17,8 @@
     "report-past-due-invoices": "tsx src/scripts/report-past-due-invoices.ts",
     "report-provider-visists": "tsx src/scripts/report-provider-visists.ts",
     "get-coverage-eligibility-responses": "tsx src/scripts/get-coverage-eligibility-responses.ts",
+    "export-rendering-providers": "tsx src/scripts/export-rendering-providers.ts",
+    "download-eras": "tsx src/scripts/download-eras.ts",
     "get-rcm-tasks": "tsx src/scripts/get-rcm-tasks.ts",
     "send-invoices-to-patients-by-sms": "tsx src/scripts/send-invoices-to-patients-by-sms.ts",
     "send-past-due-invoices-to-patients-by-sms": "tsx src/scripts/send-past-due-invoices-to-patients-by-sms.ts",

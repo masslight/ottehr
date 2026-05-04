@@ -10,7 +10,9 @@ export function validateRequestParameters(
     throw INVALID_INPUT_ERROR('No request body provided');
   }
 
-  const { medicationID, status, name, ndc, medispanID, cptCodes, hcpcsCodes } = JSON.parse(input.body);
+  const { medicationID, status, name, ndc, medispanID, medispanIDForInteractions, cptCodes, hcpcsCodes } = JSON.parse(
+    input.body
+  );
 
   if (!medicationID) {
     throw MISSING_REQUIRED_PARAMETERS(['medicationID']);
@@ -35,6 +37,7 @@ export function validateRequestParameters(
     name,
     ndc,
     medispanID,
+    medispanIDForInteractions,
     cptCodes,
     hcpcsCodes,
     secrets: input.secrets,

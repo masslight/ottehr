@@ -17,15 +17,18 @@ import {
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { applyTemplate, createTemplate, deleteTemplate } from 'src/api/api';
 import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { ExamType, RoleType } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
+import { resetRosObservationsStore } from '../../stores/appointment/reset-ros-observations';
 import { TemplateOption, useListTemplates } from './useListTemplates';
 
 const ADD_NEW_SENTINEL = '__ADD_NEW__';
@@ -75,6 +78,7 @@ export const ApplyTemplate: React.FC = () => {
     id: ADD_NEW_SENTINEL,
     value: ADD_NEW_SENTINEL,
     label: isAdmin ? ADD_OR_UPDATE_LABEL : 'Add Template Requires Admin Role',
+    isCurrentVersion: true,
   };
   const allOptions: TemplateOption[] = [addNewOption, ...templates];
 
@@ -89,6 +93,14 @@ export const ApplyTemplate: React.FC = () => {
       if (newValue.value === ADD_NEW_SENTINEL) {
         if (!isAdmin) return;
         setCreateDialogOpen(true);
+        return;
+      }
+      if (!newValue.isCurrentVersion) {
+        enqueueSnackbar(
+          'This template is out of date and cannot be applied. A user with admin permissions needs to update it in the Admin section.',
+          { variant: 'warning' }
+        );
+        setSelectedTemplate(null);
         return;
       }
       setPendingTemplate(newValue.value);
@@ -118,6 +130,7 @@ export const ApplyTemplate: React.FC = () => {
         // This is necessary because exam observations are stored in Zustand (not React Query)
         // and need to be cleared before React Query refetch triggers the update
         resetExamObservationsStore();
+        resetRosObservationsStore();
 
         // TODO: use window.location.reload() if there are issues with queryClient.invalidateQueries
         await Promise.all([
@@ -144,6 +157,33 @@ export const ApplyTemplate: React.FC = () => {
   const getTemplateName = (value: string): string => {
     return templates.find((option) => option.value === value)?.label || '';
   };
+
+  const selectTemplateByName = (templateName: string): void => {
+    setPendingTemplate(templateName);
+    setDialogOpen(true);
+  };
+
+  const selectTemplateRef = useRef(selectTemplateByName);
+  selectTemplateRef.current = selectTemplateByName;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      isReadOnly
+        ? []
+        : templates.map((template) => ({
+            id: `template-${template.id}`,
+            label: template.label,
+            category: 'Apply Template',
+            onSelect: () => selectTemplateRef.current(template.value),
+          })),
+    [isReadOnly, templates]
+  );
+  useCommandPaletteSource('templates', commandPaletteItems);
+
+  const handlePendingTemplate = useCallback((payload: TemplateOption) => {
+    selectTemplateRef.current(payload.value);
+  }, []);
+  usePendingQuickPick('templates', handlePendingTemplate);
 
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const [overwriteTemplateName, setOverwriteTemplateName] = useState('');
@@ -288,9 +328,9 @@ export const ApplyTemplate: React.FC = () => {
             Are you sure you want to apply the <strong>{getTemplateName(pendingTemplate)}</strong> template?
             <br />
             <br />
-            <strong>Overwritten:</strong> Exam, MDM, Patient Instructions, E&amp;M Code
+            <strong>Overwritten:</strong> Exam, MDM, Patient Instructions, E&amp;M Code, ROS
             <br />
-            <strong>Appended:</strong> HPI, MOI, ROS, ICD-10 Diagnoses, CPT Codes
+            <strong>Appended:</strong> HPI, MOI, ICD-10 Diagnoses, CPT Codes
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>

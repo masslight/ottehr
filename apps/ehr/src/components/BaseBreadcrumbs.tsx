@@ -11,6 +11,7 @@ interface BaseBreadcrumbsProps {
   sectionName: string;
   baseCrumb: BaseCrumb;
   children?: ReactNode;
+  dataTestId?: string;
 }
 
 /**
@@ -28,7 +29,7 @@ interface BaseBreadcrumbsProps {
  *   <Content />
  * </Page>
  */
-export const BaseBreadcrumbs: FC<BaseBreadcrumbsProps> = ({ sectionName, baseCrumb, children }) => {
+export const BaseBreadcrumbs: FC<BaseBreadcrumbsProps> = ({ sectionName, baseCrumb, children, dataTestId }) => {
   return (
     <>
       <Breadcrumbs
@@ -38,6 +39,7 @@ export const BaseBreadcrumbs: FC<BaseBreadcrumbsProps> = ({ sectionName, baseCru
           </Typography>
         }
         sx={{ display: 'flex' }}
+        data-testid={dataTestId}
       >
         {baseCrumb.path ? (
           <MuiLink component={Link} to={baseCrumb.path} color="text.secondary" style={{ textDecoration: 'none' }}>

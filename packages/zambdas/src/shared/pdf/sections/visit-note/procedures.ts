@@ -1,18 +1,21 @@
 import { DateTime } from 'luxon';
 import { drawBlockHeader, drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
-import { PdfSection, Procedures } from '../../types';
-import { AllChartData } from '../../visit-details-pdf/types';
+import { PdfSection, Procedures, ProgressNoteVisitDataInput } from '../../types';
 
-export const composeProcedures: DataComposer<{ allChartData: AllChartData }, Procedures> = ({ allChartData }) => {
+export const composeProcedures: DataComposer<ProgressNoteVisitDataInput, Procedures> = ({
+  allChartData,
+  appointmentPackage,
+}) => {
   const { chartData } = allChartData;
+  const { timezone } = appointmentPackage;
   const procedures = chartData?.procedures?.map((procedure) => ({
     procedureType: procedure.procedureType,
     cptCodes: procedure?.cptCodes?.map((cptCode) => cptCode.code + ' ' + cptCode.display),
     diagnoses: procedure?.diagnoses?.map((diagnosis) => diagnosis.code + ' ' + diagnosis.display),
     procedureDateTime:
       procedure.procedureDateTime != null
-        ? DateTime.fromISO(procedure.procedureDateTime).toFormat('MM/dd/yyyy, HH:mm a')
+        ? DateTime.fromISO(procedure.procedureDateTime).setZone(timezone).toFormat('MM/dd/yyyy, HH:mm a')
         : undefined,
     performerType: procedure.performerType,
     medicationUsed: procedure.medicationUsed,

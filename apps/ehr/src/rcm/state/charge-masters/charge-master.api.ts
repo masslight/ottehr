@@ -105,6 +105,8 @@ export interface GetChargeMasterEntryInput {
   designation: ChargeMasterDesignation;
   payerOrganizationId?: string;
   dateOfService?: string;
+  locationId?: string;
+  employerOrganizationId?: string;
 }
 
 export interface GetChargeMasterEntryResponse {
@@ -130,7 +132,8 @@ export const getChargeMasterEntry = async (
 
 export interface CmAssociatePayerInput {
   chargeMasterId: string;
-  organizationId: string;
+  organizationId?: string;
+  locationId?: string;
 }
 
 export const cmAssociatePayer = async (

@@ -35,6 +35,8 @@ export interface BookingOption {
   label: string;
 }
 
+export type ServiceCategoryIcons = Record<string, string>;
+
 const PatientDoesntExistTriggerEnableAndRequire: FormFieldTrigger = {
   targetQuestionLinkId: 'existing-patient-id',
   effect: ['enable', 'require'],
@@ -105,150 +107,162 @@ export const SERVICE_CATEGORIES_AVAILABLE: ServiceCategoryConfig[] = [
   },
 ];
 
+const SERVICE_CATEGORY_ICONS: ServiceCategoryIcons = {};
+
 const getFormFields = (
   serviceCategories: ServiceCategoryConfig[] = SERVICE_CATEGORIES_AVAILABLE
-): Record<string, FormFieldSection> => ({
-  patientInfo: {
-    linkId: 'patient-information-page',
-    title: 'About the patient',
-    logicalItems: {
-      shouldDisplaySsnField: {
-        key: 'should-display-ssn-field',
-        type: 'boolean',
-        initialValue: false,
+): Record<string, FormFieldSection> => {
+  const hiddenFields: string[] = [];
+  const requiredFields: string[] = ['patient-birth-sex', 'patient-email'];
+  const { reasonForVisit, isHidden } = buildReasonForVisitFromConfig(serviceCategories);
+  if (isHidden) {
+    hiddenFields.push(reasonForVisit.key);
+  } else {
+    requiredFields.push(reasonForVisit.key);
+  }
+  return {
+    patientInfo: {
+      linkId: 'patient-information-page',
+      title: 'About the patient',
+      logicalItems: {
+        shouldDisplaySsnField: {
+          key: 'should-display-ssn-field',
+          type: 'boolean',
+          initialValue: false,
+        },
+        ssnFieldRequired: {
+          key: 'ssn-field-required',
+          type: 'boolean',
+        },
+        existingPatientId: {
+          key: 'existing-patient-id',
+          type: 'string',
+        },
+        appointmentServiceCategory: {
+          key: 'appointment-service-category',
+          type: 'string',
+        },
+        appointmentServiceMode: {
+          key: 'appointment-service-mode',
+          type: 'string',
+        },
       },
-      ssnFieldRequired: {
-        key: 'ssn-field-required',
-        type: 'boolean',
+      items: {
+        firstName: {
+          key: 'patient-first-name',
+          label: 'First name (legal)',
+          type: 'string',
+          disabledDisplay: 'hidden',
+          triggers: [PatientDoesntExistTriggerEnableAndRequire],
+        },
+        middleName: {
+          key: 'patient-middle-name',
+          label: 'Middle name (legal)',
+          type: 'string',
+          disabledDisplay: 'hidden',
+          triggers: [PatientDoesntExistTriggerEnableOnly],
+        },
+        lastName: {
+          key: 'patient-last-name',
+          label: 'Last name (legal)',
+          type: 'string',
+          disabledDisplay: 'hidden',
+          triggers: [PatientDoesntExistTriggerEnableAndRequire],
+        },
+        preferredName: {
+          key: 'patient-preferred-name',
+          label: 'Chosen or preferred name (optional)',
+          type: 'string',
+        },
+        dateOfBirth: {
+          key: 'patient-birthdate',
+          label: 'Date of birth',
+          type: 'date',
+          dataType: 'DOB',
+          triggers: [PatientDoesntExistTriggerEnableAndRequire],
+        },
+        birthSex: {
+          key: 'patient-birth-sex',
+          label: 'Birth sex',
+          type: 'choice',
+          options: VALUE_SETS.birthSexOptions,
+        },
+        weight: {
+          key: 'patient-weight',
+          label: 'Weight (lbs)',
+          type: 'decimal',
+          triggers: [
+            {
+              targetQuestionLinkId: 'appointment-service-mode',
+              effect: ['enable'],
+              operator: '=',
+              answerString: 'virtual',
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        ssn: {
+          key: 'patient-ssn',
+          label: 'SSN',
+          type: 'string',
+          dataType: 'SSN',
+          disabledDisplay: 'hidden',
+          triggers: [
+            {
+              targetQuestionLinkId: 'should-display-ssn-field',
+              effect: ['enable'],
+              operator: '=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'ssn-field-required',
+              effect: ['require'],
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+        },
+        email: {
+          key: 'patient-email',
+          label: 'Email',
+          type: 'string',
+          dataType: 'Email',
+        },
+        returnPatientCheck: {
+          key: 'return-patient-check',
+          label: `Have you been to ${BRANDING_CONFIG.projectName} in the past 3 years?`,
+          type: 'choice',
+          disabledDisplay: 'hidden',
+          options: VALUE_SETS.yesNoOptions,
+          triggers: [PatientDoesntExistTriggerEnableAndRequire],
+        },
+        // Single RFV field with display filters, auto-generated from service category config
+        reasonForVisit,
+        tellUsMore: {
+          key: 'tell-us-more',
+          label: 'Tell us more',
+          type: 'string',
+          triggers: [
+            {
+              targetQuestionLinkId: 'reason-for-visit',
+              effect: ['require'],
+              operator: '=',
+              answerString: 'Other',
+            },
+          ],
+          enableBehavior: 'any',
+        },
+        authorizedNonLegalGuardians: {
+          key: 'authorized-non-legal-guardian',
+          label: 'Who, besides the parent or legal guardian, is allowed to bring in the patient?',
+          type: 'string',
+        },
       },
-      existingPatientId: {
-        key: 'existing-patient-id',
-        type: 'string',
-      },
-      appointmentServiceCategory: {
-        key: 'appointment-service-category',
-        type: 'string',
-      },
-      appointmentServiceMode: {
-        key: 'appointment-service-mode',
-        type: 'string',
-      },
+      hiddenFields,
+      requiredFields,
     },
-    items: {
-      firstName: {
-        key: 'patient-first-name',
-        label: 'First name (legal)',
-        type: 'string',
-        disabledDisplay: 'hidden',
-        triggers: [PatientDoesntExistTriggerEnableAndRequire],
-      },
-      middleName: {
-        key: 'patient-middle-name',
-        label: 'Middle name (legal)',
-        type: 'string',
-        disabledDisplay: 'hidden',
-        triggers: [PatientDoesntExistTriggerEnableOnly],
-      },
-      lastName: {
-        key: 'patient-last-name',
-        label: 'Last name (legal)',
-        type: 'string',
-        disabledDisplay: 'hidden',
-        triggers: [PatientDoesntExistTriggerEnableAndRequire],
-      },
-      preferredName: {
-        key: 'patient-preferred-name',
-        label: 'Chosen or preferred name (optional)',
-        type: 'string',
-      },
-      dateOfBirth: {
-        key: 'patient-birthdate',
-        label: 'Date of birth',
-        type: 'date',
-        dataType: 'DOB',
-        triggers: [PatientDoesntExistTriggerEnableAndRequire],
-      },
-      birthSex: {
-        key: 'patient-birth-sex',
-        label: 'Birth sex',
-        type: 'choice',
-        options: VALUE_SETS.birthSexOptions,
-      },
-      weight: {
-        key: 'patient-weight',
-        label: 'Weight (lbs)',
-        type: 'decimal',
-        triggers: [
-          {
-            targetQuestionLinkId: 'appointment-service-mode',
-            effect: ['enable'],
-            operator: '=',
-            answerString: 'virtual',
-          },
-        ],
-        disabledDisplay: 'hidden',
-      },
-      ssn: {
-        key: 'patient-ssn',
-        label: 'SSN',
-        type: 'string',
-        dataType: 'SSN',
-        disabledDisplay: 'hidden',
-        triggers: [
-          {
-            targetQuestionLinkId: 'should-display-ssn-field',
-            effect: ['enable'],
-            operator: '=',
-            answerBoolean: true,
-          },
-          {
-            targetQuestionLinkId: 'ssn-field-required',
-            effect: ['require'],
-            operator: '=',
-            answerBoolean: true,
-          },
-        ],
-      },
-      email: {
-        key: 'patient-email',
-        label: 'Email',
-        type: 'string',
-        dataType: 'Email',
-      },
-      returnPatientCheck: {
-        key: 'return-patient-check',
-        label: `Have you been to ${BRANDING_CONFIG.projectName} in the past 3 years?`,
-        type: 'choice',
-        disabledDisplay: 'hidden',
-        options: VALUE_SETS.yesNoOptions,
-        triggers: [PatientDoesntExistTriggerEnableAndRequire],
-      },
-      // Single RFV field with display filters, auto-generated from service category config
-      ...buildReasonForVisitFromConfig(serviceCategories),
-      tellUsMore: {
-        key: 'tell-us-more',
-        label: 'Tell us more',
-        type: 'string',
-        triggers: [
-          {
-            targetQuestionLinkId: 'reason-for-visit',
-            effect: ['require'],
-            operator: '=',
-            answerString: 'Other',
-          },
-        ],
-        enableBehavior: 'any',
-      },
-      authorizedNonLegalGuardians: {
-        key: 'authorized-non-legal-guardian',
-        label: 'Who, besides the parent or legal guardian, is allowed to bring in the patient?',
-        type: 'string',
-      },
-    },
-    hiddenFields: [],
-    requiredFields: ['patient-birth-sex', 'patient-email'],
-  },
-});
+  };
+};
 
 const hiddenFormSections: string[] = [];
 
@@ -311,6 +325,7 @@ const BOOKING_DEFAULTS_DATA = {
     },
   ] as BookingOption[],
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
+  serviceCategoryIcons: SERVICE_CATEGORY_ICONS,
   inPersonPrebookRoutingParams,
 };
 
@@ -337,6 +352,7 @@ export interface BookingConfig {
   homepageOptions: BookingOption[];
   ehrBookingOptions: BookingOption[];
   serviceCategories: ServiceCategoryConfig[];
+  serviceCategoryIcons?: ServiceCategoryIcons;
   formConfig: QuestionnaireConfigType;
   inPersonPrebookRoutingParams: { key: string; value: string }[];
   defaultWalkinLocationName?: string;

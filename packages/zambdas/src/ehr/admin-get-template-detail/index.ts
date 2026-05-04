@@ -1,24 +1,28 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ClinicalImpression, Communication, Condition, List, Observation, Procedure, Resource } from 'fhir/r4b';
+import { ClinicalImpression, Communication, Condition, List, Procedure, Resource } from 'fhir/r4b';
 import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
   AdminGetTemplateDetailInput,
   AdminGetTemplateDetailOutput,
   chartDataTagSystem,
+  collectKnownExamFields,
+  collectKnownRosFields,
   examConfig,
+  getRosFindingStateFromKey,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
   ICD_10_CODE_SYSTEM,
   SecretsKeys,
   TemplateAccidentInfo,
   TemplateCodeInfo,
   TemplateExamFinding,
+  TemplateRosFinding,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { analyzeTemplateVersionData, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -59,31 +63,29 @@ function getTagCode(resource: Resource, tagSystem: string): string | undefined {
 function buildAbnormalFieldCodes(config: Record<string, any>): Set<string> {
   const abnormalCodes = new Set<string>();
 
-  function collectAbnormalCodes(obj: Record<string, any>): void {
-    for (const [key, value] of Object.entries(obj)) {
-      if (key === 'abnormal' && typeof value === 'object') {
-        collectFieldCodes(value, abnormalCodes);
-      } else if (typeof value === 'object' && value !== null && 'components' in value) {
-        collectAbnormalCodes(value.components);
+  function collectFromComponents(components: Record<string, any>, codes: Set<string>): void {
+    for (const [key, value] of Object.entries(components)) {
+      if (typeof value !== 'object' || value === null) continue;
+      const type = value.type;
+      if (type === 'checkbox' || type === 'modal-exam' || type === 'text') {
+        codes.add(key);
+      } else if (type === 'dropdown' && value.components) {
+        Object.keys(value.components).forEach((k: string) => codes.add(k));
+      } else if (type === 'multi-select' && value.options) {
+        Object.keys(value.options).forEach((k: string) => codes.add(k));
+      } else if (type === 'form' && value.components) {
+        Object.keys(value.components).forEach((k: string) => codes.add(k));
+      } else if (type === 'column' && value.components) {
+        collectFromComponents(value.components, codes);
       }
     }
   }
 
-  function collectFieldCodes(obj: Record<string, any>, codes: Set<string>): void {
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === 'object' && value !== null) {
-        if ('type' in value && value.type === 'checkbox') {
-          codes.add(key);
-        } else if ('components' in value) {
-          collectFieldCodes(value.components, codes);
-        } else if ('type' in value && value.type === 'column') {
-          collectFieldCodes(value.components, codes);
-        }
-      }
+  Object.values(config).forEach((section: any) => {
+    if (section?.components?.abnormal) {
+      collectFromComponents(section.components.abnormal, abnormalCodes);
     }
-  }
-
-  collectAbnormalCodes(config);
+  });
   return abnormalCodes;
 }
 
@@ -91,20 +93,37 @@ function buildAbnormalFieldCodes(config: Record<string, any>): Set<string> {
 function buildFieldLabels(config: Record<string, any>): Map<string, string> {
   const labels = new Map<string, string>();
 
-  function collect(obj: Record<string, any>): void {
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === 'object' && value !== null) {
-        if ('label' in value && 'type' in value && (value.type === 'checkbox' || value.type === 'text')) {
-          labels.set(key, value.label as string);
+  function collectFromComponents(components: Record<string, any>): void {
+    for (const [key, value] of Object.entries(components)) {
+      if (typeof value !== 'object' || value === null) continue;
+      const type = value.type;
+      if ((type === 'checkbox' || type === 'modal-exam' || type === 'text') && 'label' in value) {
+        labels.set(key, value.label as string);
+      } else if (type === 'dropdown' && value.components) {
+        if ('label' in value) labels.set(key, value.label as string);
+        for (const [optKey, opt] of Object.entries(value.components as Record<string, any>)) {
+          if (opt && 'label' in opt) labels.set(optKey, `${value.label}: ${opt.label}`);
         }
-        if ('components' in value) {
-          collect(value.components);
+      } else if (type === 'multi-select' && value.options) {
+        if ('label' in value) labels.set(key, value.label as string);
+        for (const [optKey, opt] of Object.entries(value.options as Record<string, any>)) {
+          if (opt && 'label' in opt) labels.set(optKey, `${value.label}: ${opt.label}`);
         }
+      } else if (type === 'form' && value.components) {
+        for (const [elemKey, elem] of Object.entries(value.components as Record<string, any>)) {
+          if (elem && 'label' in elem) labels.set(elemKey, `${value.label}: ${elem.label}`);
+          else labels.set(elemKey, `${value.label}: ${elemKey}`);
+        }
+      } else if (type === 'column' && value.components) {
+        collectFromComponents(value.components);
       }
     }
   }
 
-  collect(config);
+  Object.values(config).forEach((section: any) => {
+    if (section?.components?.normal) collectFromComponents(section.components.normal);
+    if (section?.components?.abnormal) collectFromComponents(section.components.abnormal);
+  });
   return labels;
 }
 
@@ -119,13 +138,7 @@ const performEffect = async (
     id: templateId,
   });
 
-  // Verify this is a template List (has exam type coding)
-  const isTemplate = templateList.code?.coding?.some(
-    (c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM || c.system === GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM
-  );
-  if (!isTemplate) {
-    throw new Error(`List ${templateId} is not a global template`);
-  }
+  verifyIsTemplate(templateList, templateId);
 
   if (!templateList.contained || templateList.contained.length === 0) {
     throw new Error(`Template ${templateId} has no contained resources`);
@@ -139,8 +152,6 @@ const performEffect = async (
   // Determine exam type from template coding and select appropriate config
   const isInPerson = templateList.code?.coding?.some((c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM);
   const examTypeConfig = isInPerson ? examConfig.inPerson.default : examConfig.telemed.default;
-  const currentVersion = examTypeConfig.version;
-  const isCurrentVersion = examVersion === currentVersion;
 
   // Parse HPI note
   const hpiCondition = contained.find(
@@ -154,22 +165,41 @@ const performEffect = async (
   ) as Condition | undefined;
   const moiNote = moiCondition?.note?.[0]?.text ?? null;
 
-  // Parse ROS note
-  const rosCondition = contained.find((r) => r.resourceType === 'Condition' && hasTag(r, chartDataTagSystem('ros'))) as
-    | Condition
-    | undefined;
-  const rosNote = rosCondition?.note?.[0]?.text ?? null;
+  // get details on ros findings, exam findings and legacy ros
+  // these all feed into whether or not the template version is current so they are handled together
+  const examTagSystem = chartDataTagSystem('exam-observation-field');
+  const rosTagSystem = chartDataTagSystem('ros-observation-field');
+  const legacyRosTagSystem = chartDataTagSystem('ros');
 
-  // Parse exam findings
-  const examObservations = contained.filter(
-    (r) => r.resourceType === 'Observation' && hasTag(r, chartDataTagSystem('exam-observation-field'))
-  ) as Observation[];
+  const knownExamFields = collectKnownExamFields(examTypeConfig.components);
+  const knownRosFields = collectKnownRosFields();
+
+  const { isCurrentVersion, unmatchedRosFields, examObservations, rosObservations, rosNote } =
+    analyzeTemplateVersionData({
+      contained,
+      examTagSystem,
+      rosTagSystem,
+      legacyRosTagSystem,
+      knownExamFields,
+      knownRosFields,
+    });
+
+  const unmatchedRosFieldSet: Set<string> = new Set(unmatchedRosFields);
+
+  // Config exam and row into template DTOs
+  const rosFindings: TemplateRosFinding[] = rosObservations.map((obs) => {
+    const fieldCode = getTagCode(obs, rosTagSystem) ?? 'unknown';
+    const findingState = getRosFindingStateFromKey(fieldCode);
+    const label = obs.code.text ?? 'unknown';
+    const stale = unmatchedRosFieldSet.has(fieldCode);
+    return { fieldName: fieldCode, label, findingState, stale };
+  });
 
   const abnormalFieldCodes = buildAbnormalFieldCodes(examTypeConfig.components);
   const fieldLabels = buildFieldLabels(examTypeConfig.components);
 
   const examFindings: TemplateExamFinding[] = examObservations.map((obs) => {
-    const fieldCode = getTagCode(obs, chartDataTagSystem('exam-observation-field')) ?? 'unknown';
+    const fieldCode = getTagCode(obs, examTagSystem) ?? 'unknown';
     const isAbnormal = abnormalFieldCodes.has(fieldCode);
     const note = obs.note?.[0]?.text ?? '';
     const label = fieldLabels.get(fieldCode) ?? obs.code?.text ?? fieldCode;
@@ -258,6 +288,7 @@ const performEffect = async (
       hpiNote,
       moiNote,
       rosNote,
+      rosFindings,
       examFindings,
       mdm,
       diagnoses,

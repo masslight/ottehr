@@ -77,6 +77,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       episodeOfCare,
       secrets,
       examObservations,
+      rosObservations,
       medicalDecision,
       cptCodes,
       emCode,
@@ -154,6 +155,11 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
 
     // 8. delete ExamObservations
     examObservations?.forEach((element: ExamObservationDTO) => {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
+    });
+
+    // 8b. delete ROS Observations
+    rosObservations?.forEach((element: ExamObservationDTO) => {
       deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
     });
 

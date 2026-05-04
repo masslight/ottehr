@@ -3,6 +3,7 @@ export * from './locations';
 export * from './intake-paperwork';
 export * from './booking';
 export * from './examination';
+export * from './exam-observations';
 export * from './patient-record';
 export * from './vitals';
 export * from './shared-questionnaire';

@@ -10,6 +10,7 @@ import {
   SaveChartDataResponse,
   SchoolWorkNoteExcuseDocDTO,
 } from 'utils';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   InsertFullAppointmentDataBaseResult,
   insertInPersonAppointmentBase,
@@ -69,7 +70,7 @@ describe('chart-data integration tests', () => {
       expect(typedGetChartDataOutput.surgicalHistory?.length).toEqual(0);
       expect(typedGetChartDataOutput).toHaveProperty('examObservations');
       expect(typedGetChartDataOutput.examObservations).toBeInstanceOf(Array);
-      expect(typedGetChartDataOutput.examObservations?.length).toBeGreaterThan(1);
+      expect(typedGetChartDataOutput.examObservations?.length).toEqual(0);
       expect(typedGetChartDataOutput).toHaveProperty('cptCodes');
       expect(typedGetChartDataOutput.cptCodes).toBeInstanceOf(Array);
       expect(typedGetChartDataOutput.cptCodes?.length).toEqual(0);
@@ -96,34 +97,7 @@ describe('chart-data integration tests', () => {
       expect(typedGetChartDataOutput.aiChat?.providers?.length).toEqual(0);
       expect(typedGetChartDataOutput).toHaveProperty('patientInfoConfirmed');
       expect(typedGetChartDataOutput.patientInfoConfirmed).toEqual({
-        value: true,
-      });
-    });
-
-    it('should validate shape of examObservations -- success', async () => {
-      const getChartDataInput: GetChartDataRequest = {
-        encounterId: baseResources.encounter.id!,
-      };
-      let getChartDataOutput: any;
-      try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            ...getChartDataInput,
-          })
-        ).output as GetChartDataResponse;
-      } catch (error) {
-        console.error('Error executing zambda:', error);
-        getChartDataOutput = error as Error;
-      }
-      expect(getChartDataOutput instanceof Error).toBe(false);
-      const typedGetChartDataOutput = getChartDataOutput as GetChartDataResponse;
-      expect(typedGetChartDataOutput).toHaveProperty('examObservations');
-      expect(typedGetChartDataOutput.examObservations).toBeInstanceOf(Array);
-      expect(typedGetChartDataOutput.examObservations?.[0]).toMatchObject({
-        resourceId: expect.any(String),
-        field: expect.any(String),
-        value: expect.any(Boolean),
+        value: false,
       });
     });
   });
@@ -551,6 +525,368 @@ describe('chart-data integration tests', () => {
       expect(typedGetChartDataOutput).toHaveProperty('cptCodes');
       expect(typedGetChartDataOutput.cptCodes).toBeInstanceOf(Array);
       expect(typedGetChartDataOutput.cptCodes?.[0]).toEqual(newCptCode);
+    });
+  });
+
+  describe('exam observation components (checkbox-with-modal) save / get cycle', () => {
+    it('should save + get exam observation with components -- success', async () => {
+      // shoulder uses LR_COLUMNS; codes follow {partKey}-{columnKey}-{suffix}
+      // columnLabel comes from LR_COLUMNS headerAbbreviation ('L' / 'R')
+      const examObservationDTO = {
+        field: 'shoulder',
+        value: true,
+        label: 'Shoulder',
+        components: [
+          {
+            code: 'shoulder-left-active-rom-full',
+            label: 'Full',
+            groupLabel: 'Active ROM',
+            columnLabel: 'L',
+            value: true,
+            abnormal: false,
+          },
+          {
+            code: 'shoulder-left-tenderness-bony',
+            label: 'Bony',
+            groupLabel: 'Tenderness',
+            columnLabel: 'L',
+            value: true,
+            abnormal: true,
+          },
+        ],
+      };
+      const saveChartInput: SaveChartDataRequest = {
+        encounterId: baseResources.encounter.id!,
+        examObservations: [examObservationDTO],
+      };
+      let saveChartOutput: any;
+      try {
+        saveChartOutput = (
+          await oystehrLocalZambdas.zambda.execute({
+            id: 'SAVE-CHART-DATA',
+            ...saveChartInput,
+          })
+        ).output as SaveChartDataResponse;
+      } catch (error) {
+        console.error('Error executing zambda:', error);
+        saveChartOutput = error as Error;
+      }
+      expect(saveChartOutput instanceof Error).toBe(false);
+      const typedSaveChartOutput = saveChartOutput as SaveChartDataResponse;
+      const savedObs = typedSaveChartOutput.chartData.examObservations?.find((obs) => obs.field === 'shoulder');
+      expect(savedObs).toBeDefined();
+      expect(savedObs).toMatchObject({
+        resourceId: expect.any(String),
+        field: 'shoulder',
+        value: true,
+      });
+      expect(savedObs?.components).toBeDefined();
+      expect(savedObs?.components?.length).toBe(2);
+      expect(savedObs?.components).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'shoulder-left-active-rom-full',
+            label: 'Full',
+            groupLabel: 'Active ROM',
+            columnLabel: 'L',
+            value: true,
+            abnormal: false,
+          }),
+          expect.objectContaining({
+            code: 'shoulder-left-tenderness-bony',
+            label: 'Bony',
+            groupLabel: 'Tenderness',
+            columnLabel: 'L',
+            value: true,
+            abnormal: true,
+          }),
+        ])
+      );
+
+      // Now get chart data and verify round-trip
+      let getChartDataOutput: any;
+      try {
+        getChartDataOutput = (
+          await oystehrLocalZambdas.zambda.execute({
+            id: 'GET-CHART-DATA',
+            encounterId: baseResources.encounter.id!,
+          })
+        ).output as GetChartDataResponse;
+      } catch (error) {
+        console.error('Error executing zambda:', error);
+        getChartDataOutput = error as Error;
+      }
+      expect(getChartDataOutput instanceof Error).toBe(false);
+      const typedGetChartDataOutput = getChartDataOutput as GetChartDataResponse;
+      const retrievedObs = typedGetChartDataOutput.examObservations?.find((obs) => obs.field === 'shoulder');
+      expect(retrievedObs).toBeDefined();
+      expect(retrievedObs?.value).toBe(true);
+      expect(retrievedObs?.components).toBeDefined();
+      expect(retrievedObs?.components?.length).toBe(2);
+      expect(retrievedObs?.components).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'shoulder-left-active-rom-full',
+            label: 'Full',
+            groupLabel: 'Active ROM',
+            columnLabel: 'L',
+            value: true,
+            abnormal: false,
+          }),
+          expect.objectContaining({
+            code: 'shoulder-left-tenderness-bony',
+            label: 'Bony',
+            groupLabel: 'Tenderness',
+            columnLabel: 'L',
+            value: true,
+            abnormal: true,
+          }),
+        ])
+      );
+    });
+
+    it('should save exam observation with components then clear them -- success', async () => {
+      // First, save with a component
+      const examObservationDTO = {
+        field: 'knee',
+        value: true,
+        label: 'Knee',
+        components: [
+          {
+            code: 'knee-left-active-rom-full',
+            label: 'Full',
+            groupLabel: 'Active ROM',
+            columnLabel: 'L',
+            value: true,
+            abnormal: false,
+          },
+        ],
+      };
+      const saveChartInput: SaveChartDataRequest = {
+        encounterId: baseResources.encounter.id!,
+        examObservations: [examObservationDTO],
+      };
+      let saveChartOutput: any;
+      try {
+        saveChartOutput = (
+          await oystehrLocalZambdas.zambda.execute({
+            id: 'SAVE-CHART-DATA',
+            ...saveChartInput,
+          })
+        ).output as SaveChartDataResponse;
+      } catch (error) {
+        console.error('Error executing zambda:', error);
+        saveChartOutput = error as Error;
+      }
+      expect(saveChartOutput instanceof Error).toBe(false);
+      const typedSaveOutput = saveChartOutput as SaveChartDataResponse;
+      const savedObs = typedSaveOutput.chartData.examObservations?.find((obs) => obs.field === 'knee');
+      expect(savedObs).toBeDefined();
+
+      // Now save again with value: false and empty components, using the resourceId from the first save
+      const clearDTO = {
+        field: 'knee',
+        value: false,
+        label: 'Knee',
+        resourceId: savedObs!.resourceId,
+        components: [] as { code: string; label: string; groupLabel: string; value: boolean; abnormal?: boolean }[],
+      };
+      const clearChartInput: SaveChartDataRequest = {
+        encounterId: baseResources.encounter.id!,
+        examObservations: [clearDTO],
+      };
+      let clearChartOutput: any;
+      try {
+        clearChartOutput = (
+          await oystehrLocalZambdas.zambda.execute({
+            id: 'SAVE-CHART-DATA',
+            ...clearChartInput,
+          })
+        ).output as SaveChartDataResponse;
+      } catch (error) {
+        console.error('Error executing zambda:', error);
+        clearChartOutput = error as Error;
+      }
+      expect(clearChartOutput instanceof Error).toBe(false);
+
+      // Get chart data and verify cleared
+      let getChartDataOutput: any;
+      try {
+        getChartDataOutput = (
+          await oystehrLocalZambdas.zambda.execute({
+            id: 'GET-CHART-DATA',
+            encounterId: baseResources.encounter.id!,
+          })
+        ).output as GetChartDataResponse;
+      } catch (error) {
+        console.error('Error executing zambda:', error);
+        getChartDataOutput = error as Error;
+      }
+      expect(getChartDataOutput instanceof Error).toBe(false);
+      const typedGetChartDataOutput = getChartDataOutput as GetChartDataResponse;
+      const clearedObs = typedGetChartDataOutput.examObservations?.find((obs) => obs.field === 'knee');
+      expect(clearedObs).toBeDefined();
+      expect(clearedObs?.value).toBe(false);
+      expect(clearedObs?.components ?? []).toEqual([]);
+    });
+
+    it('should save L and R column components together in one observation -- success', async () => {
+      // A single checkbox-with-modal observation holds components from both columns.
+      // Left codes: ankle-left-*; right codes: ankle-right-*
+      const examObservationDTO = {
+        field: 'ankle',
+        value: true,
+        label: 'Ankle',
+        components: [
+          {
+            code: 'ankle-left-active-rom-full',
+            label: 'Full',
+            groupLabel: 'Active ROM',
+            columnLabel: 'L',
+            value: true,
+            abnormal: false,
+          },
+          {
+            code: 'ankle-right-tenderness-bony',
+            label: 'Bony',
+            groupLabel: 'Tenderness',
+            columnLabel: 'R',
+            value: true,
+            abnormal: true,
+          },
+          {
+            code: 'ankle-right-anterior-drawer-pos',
+            label: 'Pos',
+            groupLabel: 'Anterior drawer',
+            columnLabel: 'R',
+            value: true,
+            abnormal: true,
+          },
+        ],
+      };
+      const saveChartInput: SaveChartDataRequest = {
+        encounterId: baseResources.encounter.id!,
+        examObservations: [examObservationDTO],
+      };
+      let saveChartOutput: any;
+      try {
+        saveChartOutput = (
+          await oystehrLocalZambdas.zambda.execute({
+            id: 'SAVE-CHART-DATA',
+            ...saveChartInput,
+          })
+        ).output as SaveChartDataResponse;
+      } catch (error) {
+        console.error('Error executing zambda:', error);
+        saveChartOutput = error as Error;
+      }
+      expect(saveChartOutput instanceof Error).toBe(false);
+
+      // Get chart data and verify all three components are present in one observation
+      let getChartDataOutput: any;
+      try {
+        getChartDataOutput = (
+          await oystehrLocalZambdas.zambda.execute({
+            id: 'GET-CHART-DATA',
+            encounterId: baseResources.encounter.id!,
+          })
+        ).output as GetChartDataResponse;
+      } catch (error) {
+        console.error('Error executing zambda:', error);
+        getChartDataOutput = error as Error;
+      }
+      expect(getChartDataOutput instanceof Error).toBe(false);
+      const typedGetChartDataOutput = getChartDataOutput as GetChartDataResponse;
+
+      const ankleObs = typedGetChartDataOutput.examObservations?.find((obs) => obs.field === 'ankle');
+      expect(ankleObs).toBeDefined();
+      expect(ankleObs?.value).toBe(true);
+      expect(ankleObs?.components?.length).toBe(3);
+      expect(ankleObs?.components).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'ankle-left-active-rom-full',
+            label: 'Full',
+            columnLabel: 'L',
+            value: true,
+            abnormal: false,
+          }),
+          expect.objectContaining({
+            code: 'ankle-right-tenderness-bony',
+            label: 'Bony',
+            columnLabel: 'R',
+            value: true,
+            abnormal: true,
+          }),
+          expect.objectContaining({
+            code: 'ankle-right-anterior-drawer-pos',
+            label: 'Pos',
+            columnLabel: 'R',
+            value: true,
+            abnormal: true,
+          }),
+        ])
+      );
+    });
+
+    it('should persist component label and groupLabel through save + get cycle -- success', async () => {
+      const examObservationDTO = {
+        field: 'elbow',
+        value: true,
+        label: 'Elbow',
+        components: [
+          {
+            code: 'elbow-left-lat-epicondyle-present',
+            label: 'Present',
+            groupLabel: 'Lateral epicondyle tenderness',
+            columnLabel: 'L',
+            value: true,
+            abnormal: true,
+          },
+        ],
+      };
+      const saveChartInput: SaveChartDataRequest = {
+        encounterId: baseResources.encounter.id!,
+        examObservations: [examObservationDTO],
+      };
+      let saveChartOutput: any;
+      try {
+        saveChartOutput = (
+          await oystehrLocalZambdas.zambda.execute({
+            id: 'SAVE-CHART-DATA',
+            ...saveChartInput,
+          })
+        ).output as SaveChartDataResponse;
+      } catch (error) {
+        console.error('Error executing zambda:', error);
+        saveChartOutput = error as Error;
+      }
+      expect(saveChartOutput instanceof Error).toBe(false);
+
+      // Get chart data and verify label, groupLabel, and columnLabel all persisted
+      let getChartDataOutput: any;
+      try {
+        getChartDataOutput = (
+          await oystehrLocalZambdas.zambda.execute({
+            id: 'GET-CHART-DATA',
+            encounterId: baseResources.encounter.id!,
+          })
+        ).output as GetChartDataResponse;
+      } catch (error) {
+        console.error('Error executing zambda:', error);
+        getChartDataOutput = error as Error;
+      }
+      expect(getChartDataOutput instanceof Error).toBe(false);
+      const typedGetChartDataOutput = getChartDataOutput as GetChartDataResponse;
+      const retrievedObs = typedGetChartDataOutput.examObservations?.find((obs) => obs.field === 'elbow');
+      expect(retrievedObs).toBeDefined();
+      expect(retrievedObs?.label).toBe('Elbow');
+      const component = retrievedObs?.components?.[0];
+      expect(component?.code).toBe('elbow-left-lat-epicondyle-present');
+      expect(component?.label).toBe('Present');
+      expect(component?.groupLabel).toBe('Lateral epicondyle tenderness');
+      expect(component?.columnLabel).toBe('L');
+      expect(component?.abnormal).toBe(true);
     });
   });
 

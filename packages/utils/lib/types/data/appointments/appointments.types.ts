@@ -13,14 +13,7 @@ import {
 } from 'fhir/r4b';
 import { z } from 'zod';
 import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
-import {
-  FhirAppointmentType,
-  ProviderTypeCode,
-  Secrets,
-  TelemedAppointmentStatusEnum,
-  TelemedCallStatuses,
-  TelemedStatusHistoryElement,
-} from '../../../main';
+import { FhirAppointmentType, ProviderTypeCode, Secrets } from '../../../main';
 import {
   AppointmentAttendanceType,
   AppointmentMessaging,
@@ -44,21 +37,16 @@ export interface AppointmentInformationIntake {
     dateOfBirth?: string;
   };
   appointmentStatus: string;
-  status: AppointmentStatus;
+  status: VisitStatusLabel;
   state?: { code?: string; id?: string };
   timezone?: string;
   type?: string;
 }
 
-export type AppointmentStatus = TelemedAppointmentStatusEnum | VisitStatusLabel;
-
-export type CallStatuses = `${AppointmentStatus}`;
-export const CallStatusesArr = ['ready', 'pre-video', 'on-video', 'unsigned', 'complete', 'cancelled'];
-
 export interface StatusHistoryElement {
   start?: string;
   end?: string;
-  status?: CallStatuses;
+  status?: VisitStatusLabel;
 }
 
 export interface AppointmentsResponse<T> {
@@ -87,7 +75,7 @@ export interface AppointmentInformation extends AppointmentMessaging {
   locationVirtual: AppointmentLocation;
   paperwork?: QuestionnaireResponse;
   encounter: Encounter;
-  status: CallStatuses;
+  status: VisitStatusLabel;
   statusHistory: StatusHistoryElement[];
   cancellationReason?: string;
   next: boolean;
@@ -136,9 +124,7 @@ export interface InPersonAppointmentInformation
   parentAppointmentId?: string;
 }
 
-export interface TelemedAppointmentInformation extends Omit<AppointmentInformation, 'status' | 'statusHistory'> {
-  telemedStatus: TelemedCallStatuses;
-  telemedStatusHistory: TelemedStatusHistoryElement[];
+export interface TelemedAppointmentInformation extends AppointmentInformation {
   provider?: string[];
   group?: string[];
   serviceCategory?: string;
@@ -170,7 +156,7 @@ export interface GetTelemedAppointmentsInput {
   providersFilter?: string[];
   groupsFilter?: string[];
   patientFilter: PatientFilterType;
-  statusesFilter: TelemedCallStatuses[];
+  statusesFilter: VisitStatusLabel[];
   visitTypesFilter?: string[];
   userToken: string;
 }

@@ -5,7 +5,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 export const index = wrapHandler('cm-associate-payer', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { chargeMasterId, organizationId, secrets } = validateRequestParameters(input);
+  const { chargeMasterId, organizationId, locationId, secrets } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
@@ -15,33 +15,55 @@ export const index = wrapHandler('cm-associate-payer', async (input: ZambdaInput
     id: chargeMasterId,
   });
 
-  // Check if this organization is already associated
-  const alreadyAssociated = existing.useContext?.some(
-    (uc) => uc.valueReference?.reference === `Organization/${organizationId}`
-  );
+  const newContextEntries: UsageContext[] = [];
 
-  if (alreadyAssociated) {
+  if (organizationId) {
+    const alreadyAssociated = existing.useContext?.some(
+      (uc) => uc.valueReference?.reference === `Organization/${organizationId}`
+    );
+    if (!alreadyAssociated) {
+      newContextEntries.push({
+        code: {
+          system: 'http://terminology.hl7.org/CodeSystem/usage-context-type',
+          code: 'payer',
+          display: 'Payer',
+        },
+        valueReference: {
+          reference: `Organization/${organizationId}`,
+        },
+      });
+    }
+  }
+
+  if (locationId) {
+    const alreadyAssociated = existing.useContext?.some(
+      (uc) => uc.code?.code === 'venue' && uc.valueReference?.reference === `Location/${locationId}`
+    );
+    if (!alreadyAssociated) {
+      newContextEntries.push({
+        code: {
+          system: 'http://terminology.hl7.org/CodeSystem/usage-context-type',
+          code: 'venue',
+          display: 'Clinical Venue',
+        },
+        valueReference: {
+          reference: `Location/${locationId}`,
+        },
+      });
+    }
+  }
+
+  if (newContextEntries.length === 0) {
     return {
       statusCode: 200,
       body: JSON.stringify(existing),
     };
   }
 
-  const newUseContext: UsageContext = {
-    code: {
-      system: 'http://terminology.hl7.org/CodeSystem/usage-context-type',
-      code: 'payer',
-      display: 'Payer',
-    },
-    valueReference: {
-      reference: `Organization/${organizationId}`,
-    },
-  };
-
   const updated = await oystehr.fhir.update<ChargeItemDefinition>(
     {
       ...existing,
-      useContext: [...(existing.useContext || []), newUseContext],
+      useContext: [...(existing.useContext || []), ...newContextEntries],
     },
     { optimisticLockingVersionId: existing.meta?.versionId }
   );

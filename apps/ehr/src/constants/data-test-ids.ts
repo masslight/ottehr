@@ -1,10 +1,4 @@
-import {
-  ApptTelemedTab,
-  DispositionType,
-  PractitionerQualificationCode,
-  RoleType,
-  TelemedAppointmentVisitTabs,
-} from 'utils';
+import { DispositionType, PractitionerQualificationCode, RoleType } from 'utils';
 
 export const dataTestIds = {
   closeIcon: 'CloseIcon',
@@ -23,6 +17,7 @@ export const dataTestIds = {
     providerPractitionerInput: 'provider-practitioner-input',
     changeStatusDropdown: 'change-status-dropdown-in-header',
     allergies: 'header-allergies',
+    weight: 'header-weight',
   },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
@@ -182,11 +177,16 @@ export const dataTestIds = {
     addQualificationButton: 'add-qualification-button',
     deactivateUserButton: 'deactivate-user-button',
     statusChip: 'employee-status-chip',
+    needsReviewChip: 'employee-needs-review-chip',
+    assignRoleButton: 'employee-assign-role-button',
+    assignRoleDialog: 'employee-assign-role-dialog',
+    assignRoleSelect: 'employee-assign-role-select',
+    assignRoleSave: 'employee-assign-role-save',
+    quickDeleteButton: 'employee-quick-delete-button',
   },
   telemedEhrFlow: {
     trackingBoardLocationsSelect: 'telemed-tracking-board-location-select',
     trackingBoardLocationsSelectOption: (id: string) => `telemed-tracking-board-location-select-option-${id}`,
-    telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
     trackingBoardTableGroupRow: `telemed-tracking-board-table-group-row`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
     myPatientsButton: 'telemed-my-patients-button',
@@ -230,7 +230,6 @@ export const dataTestIds = {
     endVideoCallButton: 'telemed-end-video-call-button',
     pinVideoCallButton: 'telemed-pin-video-call-button',
     finishVisitButton: 'telemed-finish-visit-button',
-    appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
     closeChartButton: 'telemed-chart-close-icon',
@@ -280,6 +279,7 @@ export const dataTestIds = {
     dischargeSummaryButton: 'discharge-summary-button',
     missingCard: 'missing-card',
     missingCardText: 'missing-card-text',
+    patientVerificationLink: 'patient-verification-link',
     primaryDiagnosisLink: 'primary-diagnosis-link',
     secondaryDiagnosisLink: 'secondary-diagnosis-link',
     medicalDecisionLink: 'medical-decision-link',
@@ -303,6 +303,7 @@ export const dataTestIds = {
     hospitalizationContainer: 'hospitalization-container',
     alertIcon: 'WarningAmberOutlinedIcon',
     cptCodes: 'cpt-codes-container',
+    rosReviewContainer: 'in-person-progress-note-ros-review-container',
   },
   hpiAndTemplatesPage: {
     hpiTitle: 'hpi-title',
@@ -318,6 +319,7 @@ export const dataTestIds = {
     diagnosisDropdown: 'diagnosis-dropdown',
     allDiagnosesContainer: 'diagnosis-container-all-diagnoses',
     primaryDiagnosis: 'diagnosis-container-primary-diagnosis',
+    secondaryDiagnosisContainer: 'diagnosis-container-secondary-diagnosis-container',
     secondaryDiagnosis: 'diagnosis-container-secondary-diagnosis',
     primaryDiagnosisDeleteButton: 'diagnosis-container-primary-diagnosis-delete-button',
     secondaryDiagnosisDeleteButton: 'diagnosis-container-secondary-diagnosis-delete-button',
@@ -716,5 +718,70 @@ export const dataTestIds = {
     codeRow: (code: string) => `procedure-code-row-${code}`,
     editButton: (code: string) => `procedure-code-edit-${code}`,
     deleteButton: (code: string) => `procedure-code-delete-${code}`,
+  },
+
+  globalTemplates: {
+    admin: {
+      scanForStaleBtn: 'global-template-scan-staleness-btn',
+    },
+  },
+
+  reviewOfSystemsPage: {
+    rosTableContainer: 'review-of-systems-table-container',
+    rosTable: 'review-of-systems-table',
+    deniesCheckboxCell: 'ros-denies-checkbox-cell',
+    reportsCheckboxCell: 'ros-reports-checkbox-cell',
+  },
+
+  externalLabs: {
+    labsStatusChip: 'labs-status-chip',
+    labsBreadCrumbs: 'labs-bread-crumbs',
+    patientRecordLabsTab: 'patient-record-labs-tab',
+    labsTable: {
+      patientChartExternalLabsPage: 'patient-chart-external-labs',
+      patientRecordExternalLabsPage: 'patient-record-external-labs',
+      addExternalLabBtn: 'add-external-lab-btn',
+      bundleContainerPrefix: 'tables-table-bundle-container-',
+      bundleHeaderRowTitlePrefix: 'labs-table-bundle-header-row-title-',
+      bundleRowPrefix: 'labs-table-bundle-row-',
+      bundleRowCellTestType: 'bundle-row-test-type',
+      bundleRowDeleteBtn: 'bundle-row-delete-btn',
+      bundleRowSubmitBtn: 'bundle-row-submit-btn',
+    },
+    createPg: {
+      createExternalLabForm: 'create-external-lab-form',
+      orderingOffice: 'external-lab-order-office-select',
+      additionalDxSelect: 'external-lab-additional-dx-select',
+      selectedDxContainer: 'selected-dx-container',
+      paymentMethod: 'external-lab-payment-method',
+      labsSearchAutoComplete: 'external-lab-search-autocomplete',
+      selectedLabContainer: 'selected-external-labs-container',
+      addClinicalInfoNote: 'add-clinical-info-note-btn',
+      clinicalInfoNote: 'clinical-info-note',
+      createExternalLabOrderBtn: 'create-external-lab-order-btn',
+    },
+    detailsPg: {
+      pageContainer: 'externals-lab-detail-pg',
+      aoeAnswers: 'external-lab-aoe-answers',
+      requisitionNumber: 'external-lab-requisition-number',
+      orderingOffice: 'external-lab-ordering-office',
+      clinicalNote: 'external-lab-clinical-note',
+      aoeTextEntryPrefix: 'external-lab-aoe-text-entry-',
+      aoeRadioEntryPrefix: 'external-lab-radio-entry-',
+      aoeSingleChoicePrefix: 'external-lab-single-choice-',
+      aoeChoiceOptionPrefix: 'external-lab-choice-option-',
+      aoeDecimalEntryPrefix: 'external-lab-decimal-entry-',
+      samples: {
+        card: 'external-lab-sample-collection-card',
+        container: 'external-lab-sample-collection-card-container',
+        volume: 'external-lab-sample-collection-card-volume',
+        minVolume: 'external-lab-sample-collection-card-min-volume',
+        storage: 'external-lab-sample-collection-card-storage',
+        instructions: 'external-lab-sample-collection-card-instructions',
+        collectionDate: 'external-lab-sample-collection-card-collection-date',
+        collectionTime: 'external-lab-sample-collection-card-collection-time',
+      },
+      markReadyBtn: 'external-lab-mark-ready-btn',
+    },
   },
 };
