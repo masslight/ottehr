@@ -1,33 +1,30 @@
 import { Grid, Paper } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
-import { ReactElement, useCallback, useState } from 'react';
+import { ReactElement, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
-import { AdminAddLabSetInput, AdminLabSet, APIError, LabType } from 'utils';
+import { AdminLabSetFormInput, LabType } from 'utils';
 import { useAdminAddLabSet } from '../admin.queries';
 import AdminLabSetForm from './AdminLabSetForm';
 
 export default function AdminAddLabSet(): ReactElement {
-  const { mutateAsync: addLabSetMutateAsync, isPending: isSubmitting } = useAdminAddLabSet();
+  const { mutateAsync: addLabSetMutateAsync, isPending: isSubmitting, error: submitError } = useAdminAddLabSet();
   const navigate = useNavigate();
 
-  const [submitError, setSubmitError] = useState<OystehrSdkError | APIError | undefined>(undefined);
-
   const onSubmit = useCallback(
-    async (labSetData: AdminLabSet) => {
+    async (labSetData: AdminLabSetFormInput) => {
       console.log('submitted labSet data', labSetData);
 
-      let labSet: AdminAddLabSetInput['labSet'];
+      let labSetFormInput: AdminLabSetFormInput;
 
       if (labSetData.listType === LabType.inHouse) {
-        labSet = {
+        labSetFormInput = {
           listType: LabType.inHouse,
           listName: labSetData.listName,
           labs: labSetData.labs,
         };
       } else {
-        labSet = {
+        labSetFormInput = {
           listType: LabType.external,
           listName: labSetData.listName,
           labs: labSetData.labs,
@@ -35,14 +32,12 @@ export default function AdminAddLabSet(): ReactElement {
       }
 
       try {
-        const result = await addLabSetMutateAsync({ labSet });
+        const result = await addLabSetMutateAsync({ labSetFormInput });
 
         console.log('this is the result after adding this lab set', result);
-        setSubmitError(undefined);
         navigate(`/admin/lab-sets/${result.labSetId}`);
       } catch (err: unknown) {
         console.error('add lab set failed', err);
-        setSubmitError(err as OystehrSdkError | APIError);
       }
     },
     [addLabSetMutateAsync, navigate]

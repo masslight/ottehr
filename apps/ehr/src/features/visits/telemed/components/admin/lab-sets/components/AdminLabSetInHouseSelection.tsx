@@ -1,21 +1,41 @@
 import { Stack } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
+import { useEffect, useRef, useState } from 'react';
 import { InHouseLabSelect } from 'src/features/in-house-labs/components/create/InHouseLabSelect';
 import { InHouseSelectedTestTable } from 'src/features/in-house-labs/components/create/InHouseSelectedTestTable';
 import { useGetCreateInHouseLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import { DataEntryTestItem } from 'utils';
+import { DataEntryTestItem, InHouseLabSetDTO } from 'utils';
 
 interface AdminLabSetInHouseSelectionProps {
-  selectedTests: DataEntryTestItem[];
-  setSelectedTests: (value: React.SetStateAction<DataEntryTestItem[]>) => void;
+  onTestsChange: (tests: DataEntryTestItem[]) => void;
+  defaultLabs?: InHouseLabSetDTO['labs'];
 }
 
 export const AdminLabSetInHouseSelection: React.FC<AdminLabSetInHouseSelectionProps> = ({
-  selectedTests,
-  setSelectedTests,
+  onTestsChange,
+  defaultLabs,
 }) => {
   const { data: createInHouseLabResources } = useGetCreateInHouseLabResources({});
   const availableTests = Object.values(createInHouseLabResources?.labs || {});
+
+  const [selectedTests, setSelectedTests] = useState<DataEntryTestItem[]>([]);
+  const hasInitializedRef = useRef(false);
+
+  useEffect(() => {
+    if (hasInitializedRef.current) return;
+    if (!defaultLabs?.length || !availableTests?.length) return;
+
+    const preSelected = defaultLabs
+      .map((lab) => availableTests.find((t) => t.name === lab.display))
+      .filter(Boolean) as DataEntryTestItem[];
+
+    setSelectedTests(preSelected);
+    hasInitializedRef.current = true;
+  }, [defaultLabs, availableTests]);
+
+  useEffect(() => {
+    onTestsChange(selectedTests);
+  }, [selectedTests, onTestsChange]);
 
   const handleTestSelection = (selectedTest: string): void => {
     if (!availableTests?.length) {

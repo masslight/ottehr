@@ -38,7 +38,7 @@ const InHouseLabSetNoItSchema = InHouseLabSetSchema.omit({
 export const LabSetNoIsSchema = z.discriminatedUnion('listType', [ExternalLabSetNoIdSchema, InHouseLabSetNoItSchema]);
 
 // for the admin lab set form
-export const AdminLabSetSchema = z
+export const AdminLabSetFormInputSchema = z
   .object({
     listId: z.string().optional(),
 
@@ -68,35 +68,14 @@ export const AdminGetLabSetListOutputSchema = z.object({
   labSetDTO: z.array(LabSetSchema),
 });
 
-export const AdminGetLabSetDetailInputSchema = z.object({
-  labSetId: z.string(),
-});
-
 export const AdminGetLabSetDetailOutputSchema = z.object({
   labSetDTO: LabSetSchema,
-});
-
-export const AdminAddLabSetInputSchema = z.object({
-  labSet: AdminLabSetSchema,
-});
-
-export const AdminAddLabSetOutputSchema = z.object({
-  labSetId: z.string(),
 });
 
 // LAB SET DTO types
 export type ExternalLabSetDTO = z.infer<typeof ExternalLabSetSchema>;
 export type InHouseLabSetDTO = z.infer<typeof InHouseLabSetSchema>;
 export type LabSetDTO = z.infer<typeof LabSetSchema>;
-
-// ADMIN LAB SET API TYPES
-export type AdminGetLabSetListOutput = z.infer<typeof AdminGetLabSetListOutputSchema>;
-
-export type AdminGetLabSetDetailInput = z.infer<typeof AdminGetLabSetDetailInputSchema>;
-export type AdminGetLabSetDetailOutput = z.infer<typeof AdminGetLabSetDetailOutputSchema>;
-
-export type AdminAddLabSetInput = z.infer<typeof AdminAddLabSetInputSchema>;
-export type AdminAddLabSetOutput = z.infer<typeof AdminAddLabSetOutputSchema>;
 export type LabSetNoIdDTO = z.infer<typeof LabSetNoIsSchema>;
 
-export type AdminLabSet = z.infer<typeof AdminLabSetSchema>;
+export type AdminLabSetFormInput = z.infer<typeof AdminLabSetFormInputSchema>;

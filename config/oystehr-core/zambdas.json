@@ -1872,6 +1872,13 @@
       "src": "src/ehr/lab/lab-sets/admin-add-lab-set/index",
       "zip": ".dist/zips/admin-add-lab-set.zip"
     },
+    "ADMIN_UPDATE_LAB_SET": {
+      "name": "admin-update-lab-set",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-update-lab-set/index",
+      "zip": ".dist/zips/admin-update-lab-set.zip"
+    },
     "ERX_NOTIFICATION": {
       "name": "erx-notification-subscription",
       "type": "subscription",

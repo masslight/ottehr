@@ -9,6 +9,7 @@ import {
   adminGetLabSets,
   adminListInHouseLabs,
   adminUpdateInHouseLab,
+  adminUpdateLabSet,
   bulkUpdateInsuranceStatus,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
@@ -36,6 +37,8 @@ import {
   AdminInHouseLabConfigOutput,
   AdminListInHouseLabsOutput,
   AdminUpdateInHouseLabInput,
+  AdminUpdateLabSetInput,
+  // AdminUpdateLabSetOutput,
   APIError,
   BulkUpdateInsuranceStatusInput,
   FHIR_EXTENSION,
@@ -498,6 +501,21 @@ export const useAdminGetLabSetsList = (): UseQueryResult<AdminGetLabSetListOutpu
   });
 };
 
+export const useAdminGetLabSetDetail = (
+  input: AdminGetLabSetDetailInput
+): UseQueryResult<AdminGetLabSetDetailOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-get-lab-sets', input.labSetId],
+    queryFn: async () => {
+      return adminGetLabSets(oystehrZambda!, input);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
+  });
+};
+
 export const useAdminAddLabSet = (): UseMutationResult<AdminAddLabSetOutput, Error, AdminAddLabSetInput> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
@@ -529,17 +547,39 @@ export const useAdminAddLabSet = (): UseMutationResult<AdminAddLabSetOutput, Err
   });
 };
 
-export const useAdminGetLabSetDetail = (
-  input: AdminGetLabSetDetailInput
-): UseQueryResult<AdminGetLabSetDetailOutput, Error> => {
+export const useAdminUpdateLabSet = (labSetId: string): UseMutationResult<void, Error, AdminUpdateLabSetInput> => {
   const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
 
-  return useQuery({
-    queryKey: ['admin-get-lab-sets'],
-    queryFn: async () => {
-      return adminGetLabSets(oystehrZambda!, input);
+  return useMutation({
+    mutationKey: ['admin-update-lab-set', labSetId],
+    mutationFn: async (input: AdminUpdateLabSetInput) => {
+      console.log('mutation for update in house lab called');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return adminUpdateLabSet(oystehrZambda!, input);
     },
-    enabled: !!oystehrZambda,
-    staleTime: 30_000, // 30 sec staletime
+    onSuccess: async () => {
+      // todo sarah do you need both or can it just be one?
+      // invalidate so the list page and get-page re-loads correctly
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['admin-get-lab-sets'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['admin-get-lab-sets', labSetId],
+        }),
+      ]);
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! The lab set update could not be made.';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
   });
 };

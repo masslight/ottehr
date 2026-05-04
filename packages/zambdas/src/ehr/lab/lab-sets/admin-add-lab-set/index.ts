@@ -1,18 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { List, ListEntry } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import {
-  AdminAddLabSetOutput,
-  getSecret,
-  LAB_LIST_CODE_CODING,
-  LAB_LIST_IDENTIFIER_SYSTEM,
-  LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
-  LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL,
-  LabSetNoIdDTO,
-  LabType,
-  SecretsKeys,
-} from 'utils';
+import { List } from 'fhir/r4b';
+import { AdminAddLabSetOutput, getSecret, LAB_LIST_CODE_CODING, LabSetNoIdDTO, LabType, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -20,6 +9,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
+import { formatListEntry } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -51,59 +41,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-export async function createLabSet(labSet: LabSetNoIdDTO, oystehr: Oystehr): Promise<AdminAddLabSetOutput> {
+async function createLabSet(labSet: LabSetNoIdDTO, oystehr: Oystehr): Promise<AdminAddLabSetOutput> {
   console.log('configuring the list resource for the new lab set');
-  const now = DateTime.now().toISO();
-  let entry: ListEntry[] | undefined;
 
-  if (labSet.listType === LabType.inHouse) {
-    entry = labSet.labs.map((lab) => {
-      const labEntry: ListEntry = {
-        date: now,
-        item: {
-          type: 'ActivityDefinition',
-          reference: `ActivityDefinition/${lab.activityDefinitionId}`,
-          display: lab.display,
-        },
-      };
-      return labEntry;
-    });
-  } else if (labSet.listType === LabType.external) {
-    entry = labSet.labs.map((lab) => {
-      const labEntry: ListEntry = {
-        date: now,
-        item: {
-          identifier: {
-            system: LAB_LIST_IDENTIFIER_SYSTEM,
-            value: `${lab.labGuid}|${lab.itemCode}`,
-          },
-          display: lab.display,
-          extension: [
-            {
-              url: LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
-              extension: [
-                {
-                  url: LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL.labGuid,
-                  valueString: lab.labGuid,
-                },
-                {
-                  url: LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL.itemCode,
-                  valueString: lab.itemCode,
-                },
-              ],
-            },
-          ],
-        },
-      };
-      return labEntry;
-    });
-  }
-
-  if (!entry) {
-    throw Error(
-      `Issue configuring the entry for this lab set, most likely due to an issue with the type: ${labSet.listType}`
-    );
-  }
+  const entry = formatListEntry(labSet);
 
   const labSetList: List = {
     resourceType: 'List',

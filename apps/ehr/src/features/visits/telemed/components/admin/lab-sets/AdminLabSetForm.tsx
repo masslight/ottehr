@@ -14,14 +14,13 @@ import {
   Theme,
   useTheme,
 } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { PropsWithChildren, ReactElement, ReactNode, useEffect, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import {
-  AdminLabSet,
-  AdminLabSetSchema,
-  APIError,
+  AdminLabSetFormInput,
+  AdminLabSetFormInputSchema,
   DataEntryTestItem,
+  InHouseLabSetDTO,
   LabType,
   LabTypeDisplay,
   OrderableItemSearchResult,
@@ -30,11 +29,11 @@ import { AdminLabSetExternalSelection } from './components/AdminLabSetExternalSe
 import { AdminLabSetInHouseSelection } from './components/AdminLabSetInHouseSelection';
 
 export interface AdminLabSetFormProps {
-  defaultValues?: AdminLabSet;
+  defaultValues?: AdminLabSetFormInput;
   formMode: 'add' | 'edit';
-  onSubmit: (data: AdminLabSet) => void;
+  onSubmit: (data: AdminLabSetFormInput) => void;
   isSubmitting: boolean;
-  submitError?: OystehrSdkError | APIError;
+  submitError?: Error | null;
 }
 
 export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactElement {
@@ -49,10 +48,14 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
     labs: [],
   };
 
+  const defaultInHouseLabs =
+    defaultValues?.listType === LabType.inHouse ? (defaultValues as InHouseLabSetDTO).labs : undefined;
+  // const defaultExternalLabs = defaultValues?.listType === LabType.external ? defaultValues.labs : undefined;
+
   const theme = useTheme();
-  const methods = useForm<AdminLabSet>({
+  const methods = useForm<AdminLabSetFormInput>({
     defaultValues: valuesForForm,
-    resolver: zodResolver(AdminLabSetSchema),
+    resolver: zodResolver(AdminLabSetFormInputSchema),
     mode: 'onChange',
     reValidateMode: 'onSubmit',
   });
@@ -168,10 +171,7 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
           <FormControl error={!!labsErrorMessage} fullWidth>
             <SubSection label={'Select Labs to Include in the Set '} theme={theme}>
               {selectedListType === LabType.inHouse ? (
-                <AdminLabSetInHouseSelection
-                  selectedTests={selectedInHouseTests}
-                  setSelectedTests={setSelectedInHouseTests}
-                />
+                <AdminLabSetInHouseSelection onTestsChange={setSelectedInHouseTests} defaultLabs={defaultInHouseLabs} />
               ) : (
                 <AdminLabSetExternalSelection
                   selectedLabs={selectedExternalTests}

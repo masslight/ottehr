@@ -4,6 +4,7 @@ import {
   DiagnosticReport,
   DocumentReference,
   List,
+  ListEntry,
   Observation,
   Patient,
   QuestionnaireResponse,
@@ -12,13 +13,16 @@ import {
   Specimen,
   Task,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   DR_UNSOLICITED_PATIENT_REF,
   getLabListType,
+  LAB_LIST_IDENTIFIER_SYSTEM,
   LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
   LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL,
   LabListSearchFieldKey,
   LabSetDTO,
+  LabSetNoIdDTO,
   LabType,
 } from 'utils';
 
@@ -163,4 +167,60 @@ const getLabListEntryFieldFromExtension = (
   }
 
   return fieldValue;
+};
+
+export const formatListEntry = (labSet: LabSetDTO | LabSetNoIdDTO): ListEntry[] => {
+  const now = DateTime.now().toISO();
+  let entry: ListEntry[] | undefined;
+
+  if (labSet.listType === LabType.inHouse) {
+    entry = labSet.labs.map((lab) => {
+      const labEntry: ListEntry = {
+        date: now,
+        item: {
+          type: 'ActivityDefinition',
+          reference: `ActivityDefinition/${lab.activityDefinitionId}`,
+          display: lab.display,
+        },
+      };
+      return labEntry;
+    });
+  } else if (labSet.listType === LabType.external) {
+    entry = labSet.labs.map((lab) => {
+      const labEntry: ListEntry = {
+        date: now,
+        item: {
+          identifier: {
+            system: LAB_LIST_IDENTIFIER_SYSTEM,
+            value: `${lab.labGuid}|${lab.itemCode}`,
+          },
+          display: lab.display,
+          extension: [
+            {
+              url: LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
+              extension: [
+                {
+                  url: LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL.labGuid,
+                  valueString: lab.labGuid,
+                },
+                {
+                  url: LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL.itemCode,
+                  valueString: lab.itemCode,
+                },
+              ],
+            },
+          ],
+        },
+      };
+      return labEntry;
+    });
+  }
+
+  if (!entry) {
+    throw Error(
+      `Issue configuring the entry for this lab set, most likely due to an issue with the type: ${labSet.listType}`
+    );
+  }
+
+  return entry;
 };

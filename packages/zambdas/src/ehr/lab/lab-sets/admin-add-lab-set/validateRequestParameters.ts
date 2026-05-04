@@ -31,13 +31,13 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
     throw INVALID_INPUT_ERROR('Unable to parse request body. Invalid JSON.');
   }
 
-  const { labSet } = params;
+  const { labSetFormInput } = params;
 
-  if (!labSet) {
-    throw MISSING_REQUIRED_PARAMETERS(['labSet']);
+  if (!labSetFormInput) {
+    throw MISSING_REQUIRED_PARAMETERS(['labSetFormInput']);
   }
 
-  const labSetValidated = LabSetNoIsSchema.parse(labSet);
+  const labSetValidated = LabSetNoIsSchema.parse(labSetFormInput);
 
   return {
     labSet: labSetValidated,

@@ -31,6 +31,7 @@ import AdminAddInHouseLab from './features/visits/telemed/components/admin/in-ho
 import AdminInHouseLabDetails from './features/visits/telemed/components/admin/in-house-labs/AdminInHouseLabDetails';
 import InHouseMedicationQuickPickDetailPage from './features/visits/telemed/components/admin/InHouseMedicationQuickPickDetailPage';
 import AdminAddLabSet from './features/visits/telemed/components/admin/lab-sets/AdminAddLabSet';
+import AdminLabSetDetails from './features/visits/telemed/components/admin/lab-sets/AdminLabSetDetails';
 import ProcedureQuickPickDetailPage from './features/visits/telemed/components/admin/ProcedureQuickPickDetailPage';
 import RadiologyQuickPickDetailPage from './features/visits/telemed/components/admin/RadiologyQuickPickDetailPage';
 import { useApiClients } from './hooks/useAppClients';
@@ -253,9 +254,8 @@ function App(): ReactElement {
                 <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                 <Route path="/admin/in-house-labs/add" element={<AdminAddInHouseLab />} />
                 <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
-                {/* todo sarah update elements */}
                 <Route path="/admin/lab-sets/add" element={<AdminAddLabSet />} />
-                <Route path="/admin/lab-sets/:listId" element={<AdminInHouseLabDetails />} />
+                <Route path="/admin/lab-sets/:listId" element={<AdminLabSetDetails />} />
                 {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                 <Route path="/tasks" element={<Tasks />} />
                 <Route path="*" element={<Navigate to={'/'} />} />

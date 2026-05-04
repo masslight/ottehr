@@ -12,7 +12,7 @@ import {
   Reference,
 } from 'fhir/r4b';
 import { CPTCodeOption, DiagnosisDTO, LAB_DR_TYPE_TAG, Pagination } from '../..';
-import { ExternalLabSetDTO, LabSetDTO } from './labs.schema';
+import { AdminLabSetFormInput, ExternalLabSetDTO, LabSetDTO } from './lab-set.schema';
 
 // todo labs team - we should do some assessing of all our type files, our types feel a bit unorganized and as a result i think we have some redundancy
 export interface OrderableItemSearchResult {
@@ -624,20 +624,38 @@ export type LabsTableColumn =
   | 'status'
   | 'detail'
   | 'actions';
-// export interface AdminGetLabSetListOutput {
-//   labSetDTO: LabSetDTO[];
-// }
-// export interface AdminGetLabSetDetailInput {
-//   labSetId: string;
-// }
-// export interface AdminGetLabSetDetailOutput {
-//   labSetDTO: LabSetDTO;
-// }
 
-// export interface AdminAddLabSetInput {
-//   labSet: Exclude<LabSetDTO, 'listId'>;
-// }
+// ADMIN GET LAB SET API TYPES
+export type AdminGetLabSetListOutput = {
+  labSetDTO: LabSetDTO[];
+};
 
-// export interface AdminAddLabSetOutput {
-//   labSetId: string;
-// }
+export type AdminGetLabSetDetailInput = {
+  labSetId: string;
+};
+export type AdminGetLabSetDetailOutput = {
+  labSetDTO: LabSetDTO;
+};
+
+// ADMIN ADD LAB SET API TYPES
+export type AdminAddLabSetInput = {
+  labSetFormInput: AdminLabSetFormInput;
+};
+export type AdminAddLabSetOutput = {
+  labSetId: string;
+};
+
+// ADMIN UPDATE LAB SET API TYPES
+export type AdminUpdateLabSetStatus = {
+  updateType: 'toggle-status';
+  data: {
+    labSetId: string;
+  };
+};
+
+export type AdminEditLabSet = {
+  updateType: 'edit';
+  data: AdminLabSetFormInput;
+};
+
+export type AdminUpdateLabSetInput = AdminEditLabSet | AdminUpdateLabSetStatus;
