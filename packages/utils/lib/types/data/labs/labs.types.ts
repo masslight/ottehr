@@ -12,6 +12,7 @@ import {
   Reference,
 } from 'fhir/r4b';
 import { CPTCodeOption, DiagnosisDTO, LAB_DR_TYPE_TAG, Pagination } from '../..';
+import { ExternalLabSetDTO, LabSetDTO } from './labs.schema';
 
 // todo labs team - we should do some assessing of all our type files, our types feel a bit unorganized and as a result i think we have some redundancy
 export interface OrderableItemSearchResult {
@@ -30,21 +31,21 @@ export interface InHouseLabListItem {
   activityDefinitionId: string;
 }
 
-export interface ExternalLabSetDTO {
-  listId: string;
-  listName: string;
-  listType: LabType.external;
-  labs: ExternalLabListItem[];
-}
+// export interface ExternalLabSetDTO {
+//   listId: string;
+//   listName: string;
+//   listType: LabType.external;
+//   labs: ExternalLabListItem[];
+// }
 
-export interface InHouseLabSetDTO {
-  listId: string;
-  listName: string;
-  listType: LabType.inHouse;
-  labs: InHouseLabListItem[];
-}
+// export interface InHouseLabSetDTO {
+//   listId: string;
+//   listName: string;
+//   listType: LabType.inHouse;
+//   labs: InHouseLabListItem[];
+// }
 
-export type LabSetDTO = ExternalLabSetDTO | InHouseLabSetDTO;
+// export type LabSetDTO = ExternalLabSetDTO | InHouseLabSetDTO;
 
 export interface sampleDTO {
   specimen: { id: string; collectionDate?: string }; // collectionDate exists after order is submitted
@@ -623,12 +624,20 @@ export type LabsTableColumn =
   | 'status'
   | 'detail'
   | 'actions';
-export interface AdminGetLabSetListOutput {
-  labSetDTO: LabSetDTO[];
-}
-export interface AdminGetLabSetDetailInput {
-  labSetId: string;
-}
-export interface AdminGetLabSetDetailOutput {
-  labSetDTO: LabSetDTO;
-}
+// export interface AdminGetLabSetListOutput {
+//   labSetDTO: LabSetDTO[];
+// }
+// export interface AdminGetLabSetDetailInput {
+//   labSetId: string;
+// }
+// export interface AdminGetLabSetDetailOutput {
+//   labSetDTO: LabSetDTO;
+// }
+
+// export interface AdminAddLabSetInput {
+//   labSet: Exclude<LabSetDTO, 'listId'>;
+// }
+
+// export interface AdminAddLabSetOutput {
+//   labSetId: string;
+// }

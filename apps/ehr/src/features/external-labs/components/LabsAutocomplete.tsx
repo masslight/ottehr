@@ -1,8 +1,6 @@
-import { Autocomplete, Grid, TextField, Typography } from '@mui/material';
+import { Autocomplete, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { ActionsList } from 'src/components/ActionsList';
-import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetCreateExternalLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
@@ -118,31 +116,6 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
       />
 
       {labSets && <LabSets labSets={labSets} setSelectedLabs={handleSetSelectedLabsViaLabSets} />}
-
-      {selectedLabs.length > 0 && (
-        <Grid container>
-          <Grid item xs={12} data-testid={dataTestIds.externalLabs.createPg.selectedLabContainer}>
-            <ActionsList
-              data={selectedLabs}
-              getKey={(value, index) => `selected-lab-${index}-${value.item.itemCode}`}
-              renderItem={(value) => (
-                <Typography>{nameLabTest(value.item.itemName, value.lab.labName, false)}</Typography>
-              )}
-              renderActions={(lab) => (
-                <DeleteIconButton
-                  onClick={() =>
-                    setSelectedLabs((prev) =>
-                      prev.filter((tempLab) => {
-                        return tempLab.item.uniqueName !== lab.item.uniqueName;
-                      })
-                    )
-                  }
-                />
-              )}
-            />
-          </Grid>
-        </Grid>
-      )}
     </>
   );
 };

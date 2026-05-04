@@ -51,10 +51,13 @@ export default function LabSetsAdminPage(): ReactElement {
   const loadingEffectRow = (key: string): JSX.Element => (
     <TableRow key={key}>
       <TableCell>
-        <Skeleton width={200} height="100%" />
+        <Skeleton width="40%" height="100%" />
       </TableCell>
       <TableCell>
-        <Skeleton width={30} height="100%" />
+        <Skeleton width="20%" height="100%" />
+      </TableCell>
+      <TableCell>
+        <Skeleton height="100%" />
       </TableCell>
     </TableRow>
   );
@@ -103,7 +106,7 @@ export default function LabSetsAdminPage(): ReactElement {
           <Grid item xs={12} sm={2} display="flex">
             <Button
               component={Link}
-              to="/admin/lab-set/add"
+              to="/admin/lab-sets/add"
               sx={{ marginLeft: 1 }}
               color="primary"
               variant="contained"

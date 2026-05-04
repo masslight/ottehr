@@ -50,6 +50,7 @@ import {
 } from 'utils';
 import { createExternalLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
+import { ExternalSelectedTests } from '../components/create/ExternalSelectedTests';
 import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
@@ -576,6 +577,9 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     setSelectedLabs={setSelectedLabs}
                     labSets={labSets}
                   ></LabsAutocomplete>
+                  {selectedLabs.length > 0 && (
+                    <ExternalSelectedTests selectedLabs={selectedLabs} setSelectedLabs={setSelectedLabs} />
+                  )}
                 </Grid>
                 {showNotesFields && (
                   <Grid item xs={12}>

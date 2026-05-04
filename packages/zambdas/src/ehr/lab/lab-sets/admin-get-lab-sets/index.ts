@@ -57,11 +57,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-export function getLabSets(oystehr: Oystehr): Promise<AdminGetLabSetListOutput>;
+function getLabSets(oystehr: Oystehr): Promise<AdminGetLabSetListOutput>;
 
-export function getLabSets(oystehr: Oystehr, labSetId: string): Promise<AdminGetLabSetDetailOutput>;
+function getLabSets(oystehr: Oystehr, labSetId: string): Promise<AdminGetLabSetDetailOutput>;
 
-export async function getLabSets(
+async function getLabSets(
   oystehr: Oystehr,
   labSetId?: string
 ): Promise<AdminGetLabSetListOutput | AdminGetLabSetDetailOutput> {

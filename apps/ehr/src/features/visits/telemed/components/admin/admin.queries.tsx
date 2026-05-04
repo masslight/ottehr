@@ -4,6 +4,7 @@ import { Extension, Location, Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import {
   adminAddInHouseLab,
+  adminAddLabSet,
   adminGetInHouseLabConfig,
   adminGetLabSets,
   adminListInHouseLabs,
@@ -26,6 +27,8 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
+  AdminAddLabSetInput,
+  AdminAddLabSetOutput,
   AdminGetInHouseLabConfigInput,
   AdminGetLabSetDetailInput,
   AdminGetLabSetDetailOutput,
@@ -492,6 +495,37 @@ export const useAdminGetLabSetsList = (): UseQueryResult<AdminGetLabSetListOutpu
     },
     enabled: !!oystehrZambda,
     staleTime: 30_000, // 30 sec staletime
+  });
+};
+
+export const useAdminAddLabSet = (): UseMutationResult<AdminAddLabSetOutput, Error, AdminAddLabSetInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-add-lab-set'],
+    mutationFn: async (input: AdminAddLabSetInput) => {
+      console.log('mutation for add in house lab called');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return adminAddLabSet(oystehrZambda!, input);
+    },
+    onSuccess: async (_data, _variables) => {
+      // invalidate so the list page re-loads correctly
+      await queryClient.invalidateQueries({
+        queryKey: ['admin-get-lab-sets'],
+      });
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! Lab set could not be created :(';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
   });
 };
 
