@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { retryWithBackoff } from './candidApi';
 
 const okResponse = (body: unknown = { value: 'ok' }): any => ({
@@ -18,6 +18,16 @@ const tooManyRequestsResponse = (retryAfterSeconds?: number): any => {
 };
 
 describe('candidApi shared helpers', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
   describe('retryWithBackoff', () => {
     it('returns immediately on a successful response without retrying', async () => {
       const fn = vi.fn().mockResolvedValueOnce(okResponse({ value: 1 }));
@@ -31,14 +41,18 @@ describe('candidApi shared helpers', () => {
         .fn()
         .mockResolvedValueOnce(tooManyRequestsResponse())
         .mockResolvedValueOnce(okResponse({ value: 'recovered' }));
-      const result = await retryWithBackoff(fn, 4, 1);
+      const promise = retryWithBackoff(fn, 4, 1);
+      await vi.runAllTimersAsync();
+      const result = await promise;
       expect(result.ok).toBe(true);
       expect(fn).toHaveBeenCalledTimes(2);
     });
 
     it('returns the last 429 response after exhausting retries', async () => {
       const fn = vi.fn().mockResolvedValue(tooManyRequestsResponse());
-      const result = await retryWithBackoff(fn, 2, 1);
+      const promise = retryWithBackoff(fn, 2, 1);
+      await vi.runAllTimersAsync();
+      const result = await promise;
       expect(result.ok).toBe(false);
       expect(fn).toHaveBeenCalledTimes(3);
     });
@@ -46,12 +60,13 @@ describe('candidApi shared helpers', () => {
     it('honors Retry-After header when present', async () => {
       const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
       const fn = vi.fn().mockResolvedValueOnce(tooManyRequestsResponse(1)).mockResolvedValueOnce(okResponse());
-      await retryWithBackoff(fn, 4, 50);
+      const promise = retryWithBackoff(fn, 4, 50);
+      await vi.runAllTimersAsync();
+      await promise;
       // The first scheduled delay should be ~1000ms (from Retry-After: 1), not the
       // computed baseDelayMs * 2^0 ≈ 50ms.
       const firstDelay = setTimeoutSpy.mock.calls[0]?.[1] as number;
       expect(firstDelay).toBe(1000);
-      setTimeoutSpy.mockRestore();
     });
 
     it('honors Retry-After when headers are a plain object with mixed case', async () => {
@@ -62,10 +77,11 @@ describe('candidApi shared helpers', () => {
         rawResponse: { status: 429, headers: { 'Retry-After': '2' } },
       };
       const fn = vi.fn().mockResolvedValueOnce(plainHeaderResponse).mockResolvedValueOnce(okResponse());
-      await retryWithBackoff(fn, 4, 50);
+      const promise = retryWithBackoff(fn, 4, 50);
+      await vi.runAllTimersAsync();
+      await promise;
       const firstDelay = setTimeoutSpy.mock.calls[0]?.[1] as number;
       expect(firstDelay).toBe(2000);
-      setTimeoutSpy.mockRestore();
     });
 
     it('does not retry on non-429 error responses', async () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockOystehrClient = {
   fhir: {
@@ -75,6 +75,16 @@ const tooManyRequestsResponse = (): any => ({
 });
 
 describe('sub-refresh-invoice-task', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
   it('retries a 429 itemize response and completes the task update', async () => {
     vi.mocked(validateRequestParameters).mockReturnValue({
       task: {
@@ -121,11 +131,13 @@ describe('sub-refresh-invoice-task', () => {
       .mockResolvedValueOnce(tooManyRequestsResponse())
       .mockResolvedValueOnce(okItemization('claim-abc', 7777));
 
-    const result = await index({
+    const promise = index({
       secrets: {},
       headers: null,
       body: null,
     } as any);
+    await vi.runAllTimersAsync();
+    const result = await promise;
 
     expect(result.statusCode).toBe(200);
     expect(mockItemize).toHaveBeenCalledTimes(2);

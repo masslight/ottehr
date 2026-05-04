@@ -1,5 +1,5 @@
 import { CANDID_BATCH_SIZE } from 'utils';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@sentry/aws-serverless', () => ({
   captureException: vi.fn(),
@@ -33,6 +33,16 @@ const mkPackage = (claimId: string): any => ({
 });
 
 describe('populateAmountInPackages', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
   it('caps in-flight itemize calls at CANDID_BATCH_SIZE', async () => {
     let inFlight = 0;
     let maxInFlight = 0;
@@ -46,7 +56,9 @@ describe('populateAmountInPackages', () => {
     const candid: any = { patientAr: { v1: { itemize } } };
 
     const packages = Array.from({ length: 9 }, (_, i) => mkPackage(`claim-${i}`));
-    const result = await populateAmountInPackages(candid, packages);
+    const promise = populateAmountInPackages(candid, packages);
+    await vi.runAllTimersAsync();
+    const result = await promise;
 
     expect(result).toHaveLength(9);
     expect(itemize).toHaveBeenCalledTimes(9);
@@ -60,7 +72,9 @@ describe('populateAmountInPackages', () => {
       .mockResolvedValueOnce(okItemization('claim-0', 5000));
     const candid: any = { patientAr: { v1: { itemize } } };
 
-    const result = await populateAmountInPackages(candid, [mkPackage('claim-0')]);
+    const promise = populateAmountInPackages(candid, [mkPackage('claim-0')]);
+    await vi.runAllTimersAsync();
+    const result = await promise;
 
     expect(itemize).toHaveBeenCalledTimes(2);
     expect(result).toHaveLength(1);
