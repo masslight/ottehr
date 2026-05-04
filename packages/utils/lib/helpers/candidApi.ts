@@ -79,11 +79,13 @@ export async function findClaimsBy(input: {
   do {
     console.log(`📄 Fetching page ${pageCount}`);
 
-    const inventoryResponse = await candid.patientAr.v1.listInventory({
-      limit: limitPerPage,
-      since: since?.toJSDate(),
-      pageToken: pageToken ? CandidApi.PageToken(pageToken) : undefined,
-    });
+    const inventoryResponse = await retryWithBackoff(() =>
+      candid.patientAr.v1.listInventory({
+        limit: limitPerPage,
+        since: since?.toJSDate(),
+        pageToken: pageToken ? CandidApi.PageToken(pageToken) : undefined,
+      })
+    );
 
     if (inventoryResponse && inventoryResponse.ok && inventoryResponse.body) {
       const records = inventoryResponse.body.records as InventoryRecord[];

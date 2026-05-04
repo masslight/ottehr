@@ -12,6 +12,7 @@ import {
   getLatestTaskOutput,
   getStartTimeFromEncounterStatusHistory,
   mapDisplayToInvoiceTaskStatus,
+  retryWithBackoff,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import {
@@ -165,7 +166,7 @@ async function getItemizationForClaim(
   candid: CandidApiClient,
   claimId: string
 ): Promise<InvoiceItemizationResponse | undefined> {
-  const itemizationResponse = await candid.patientAr.v1.itemize(CandidApi.ClaimId(claimId));
+  const itemizationResponse = await retryWithBackoff(() => candid.patientAr.v1.itemize(CandidApi.ClaimId(claimId)));
   if (itemizationResponse && itemizationResponse.ok && itemizationResponse.body) {
     return itemizationResponse.body as InvoiceItemizationResponse;
   }
