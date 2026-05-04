@@ -269,6 +269,7 @@ export interface VitalsVisionObservationDTO extends VitalsBaseObservationDTO {
   value?: never;
   leftEyeVisionText: string;
   rightEyeVisionText: string;
+  bothEyesVisionText?: string;
   extraVisionOptions?: VitalsVisionOption[];
 }
 

@@ -51,6 +51,7 @@ export const VITAL_OXY_SATURATION_OBS_METHOD_CODE_SUPPLEMENTAL_O2 = '250591006';
 
 export const VITAL_LEFT_EYE_SNOMED_CODE = '8976008';
 export const VITAL_RIGHT_EYE_SNOMED_CODE = '8977004';
+export const VITAL_BOTH_EYES_SNOMED_CODE = '51440002';
 
 export const VITAL_VISION_CHILD_TOO_YOUNG_OPTION_SNOMED_CODE = '9876543';
 export const VITAL_VISION_WITH_GLASSES_OPTION_SNOMED_CODE = '1234567';
@@ -495,6 +496,24 @@ export const getVisionObservationComponents = (visionDTO: VitalsVisionObservatio
     result.push(rightEyeVisionComponent);
   }
 
+  if (visionDTO.bothEyesVisionText) {
+    const bothEyesCode: CodeableConcept = {
+      coding: [
+        {
+          system: SNOMED_SYSTEM,
+          code: VITAL_BOTH_EYES_SNOMED_CODE,
+          display: 'Both eyes observation',
+        },
+      ],
+    };
+    const bothEyesVisionComponent: ObservationComponent = {
+      code: bothEyesCode,
+      valueString: visionDTO.bothEyesVisionText,
+    };
+
+    result.push(bothEyesVisionComponent);
+  }
+
   const makeExtraVisionOptionComponent = (option: VitalsVisionOption, optionValue: boolean): ObservationComponent => {
     let optionCode = '';
     if (option === 'child_too_young') {
@@ -544,6 +563,7 @@ export const extractVisionValues = (
 ): {
   leftEyeVisText?: string;
   rightEyeVisText?: string;
+  bothEyesVisText?: string;
   visionOptions?: VitalsVisionOption[];
 } => {
   const leftEyeComponent = components.find((cmp) => {
@@ -557,6 +577,12 @@ export const extractVisionValues = (
   });
 
   const rightEyeVisionText = rightEyeComponent?.valueString || rightEyeComponent?.valueQuantity?.value?.toString();
+
+  const bothEyesComponent = components.find((cmp) => {
+    return cmp.code?.coding?.find((coding) => coding?.code === VITAL_BOTH_EYES_SNOMED_CODE);
+  });
+
+  const bothEyesVisionText = bothEyesComponent?.valueString || bothEyesComponent?.valueQuantity?.value?.toString();
 
   const getVisionExtraOptionValue = (option: VitalsVisionOption): boolean | undefined => {
     let optionCode = '';
@@ -580,6 +606,7 @@ export const extractVisionValues = (
   return {
     leftEyeVisText: leftEyeVisionText,
     rightEyeVisText: rightEyeVisionText,
+    bothEyesVisText: bothEyesVisionText,
     visionOptions: storedExtraVisionOptions,
   };
 };
@@ -910,6 +937,7 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
       field: VitalFieldNames.VitalVision,
       leftEyeVisionText: visionValues.leftEyeVisText ?? '',
       rightEyeVisionText: visionValues.rightEyeVisText ?? '',
+      bothEyesVisionText: visionValues.bothEyesVisText,
       extraVisionOptions: visionValues.visionOptions,
     };
     return result;
