@@ -62,7 +62,6 @@
             "Z3:#{var/PROJECT_ID}-labs/*",
             "Z3:#{var/PROJECT_ID}-statements/*",
             "Z3:#{var/PROJECT_ID}-patient-education-admin/*",
-            "Z3:#{var/PROJECT_ID}-legacy-data/*"
             "Z3:#{var/PROJECT_ID}-legacy-data/*",
             "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*"
           ],
