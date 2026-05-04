@@ -20,6 +20,7 @@ import {
   AdminLabSetFormInput,
   AdminLabSetFormInputSchema,
   DataEntryTestItem,
+  ExternalLabSetDTO,
   InHouseLabSetDTO,
   LabType,
   LabTypeDisplay,
@@ -50,7 +51,8 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
 
   const defaultInHouseLabs =
     defaultValues?.listType === LabType.inHouse ? (defaultValues as InHouseLabSetDTO).labs : undefined;
-  // const defaultExternalLabs = defaultValues?.listType === LabType.external ? defaultValues.labs : undefined;
+  const defaultExternalLabSetDTO =
+    defaultValues?.listType === LabType.external ? (defaultValues as ExternalLabSetDTO) : undefined;
 
   const theme = useTheme();
   const methods = useForm<AdminLabSetFormInput>({
@@ -174,8 +176,8 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
                 <AdminLabSetInHouseSelection onTestsChange={setSelectedInHouseTests} defaultLabs={defaultInHouseLabs} />
               ) : (
                 <AdminLabSetExternalSelection
-                  selectedLabs={selectedExternalTests}
-                  setSelectedLabs={setSelectedExternalTests}
+                  onTestsChange={setSelectedExternalTests}
+                  defaultLabs={defaultExternalLabSetDTO}
                 />
               )}
 
