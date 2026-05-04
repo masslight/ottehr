@@ -6,6 +6,8 @@ import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/re
 import { Encounter, Resource, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  CANDID_BATCH_SIZE,
+  chunkThings,
   createCandidApiClient,
   createReference,
   getCandidInventoryPages,
@@ -13,6 +15,7 @@ import {
   InvoiceTaskInput,
   mapDisplayToInvoiceTaskStatus,
   RcmTaskCodings,
+  retryWithBackoff,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
@@ -240,8 +243,13 @@ export async function populateAmountInPackages(
   candid: CandidApiClient,
   packages: Omit<EncounterPackage, 'amountCents'>[]
 ): Promise<EncounterPackage[]> {
-  const itemizationPromises = packages.map((pkg) => candid.patientAr.v1.itemize(CandidApi.ClaimId(pkg.claim.claimId)));
-  const itemizationResponse = await Promise.all(itemizationPromises);
+  const itemizationResponse: Awaited<ReturnType<typeof candid.patientAr.v1.itemize>>[] = [];
+  for (const batch of chunkThings(packages, CANDID_BATCH_SIZE)) {
+    const batchResults = await Promise.all(
+      batch.map((pkg) => retryWithBackoff(() => candid.patientAr.v1.itemize(CandidApi.ClaimId(pkg.claim.claimId))))
+    );
+    itemizationResponse.push(...batchResults);
+  }
 
   const resultPackages: EncounterPackage[] = [];
   itemizationResponse.forEach((res, idx) => {
