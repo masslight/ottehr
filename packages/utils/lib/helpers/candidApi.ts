@@ -39,10 +39,13 @@ export async function retryWithBackoff<T, E>(
 
 function parseRetryAfterHeader(headers: Headers | Record<string, any> | undefined): number | undefined {
   if (!headers) return undefined;
-  const raw =
-    typeof (headers as Headers).get === 'function'
-      ? (headers as Headers).get('retry-after')
-      : (headers as Record<string, any>)['retry-after'];
+  let raw: string | null | undefined;
+  if (typeof (headers as Headers).get === 'function') {
+    raw = (headers as Headers).get('retry-after');
+  } else {
+    const entry = Object.entries(headers as Record<string, any>).find(([key]) => key.toLowerCase() === 'retry-after');
+    raw = entry?.[1];
+  }
   if (raw == null) return undefined;
   const seconds = Number(raw);
   if (!Number.isFinite(seconds) || seconds < 0) return undefined;

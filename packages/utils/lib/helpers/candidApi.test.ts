@@ -54,6 +54,20 @@ describe('candidApi shared helpers', () => {
       setTimeoutSpy.mockRestore();
     });
 
+    it('honors Retry-After when headers are a plain object with mixed case', async () => {
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+      const plainHeaderResponse: any = {
+        ok: false,
+        error: { errorName: 'TooManyRequestsError' },
+        rawResponse: { status: 429, headers: { 'Retry-After': '2' } },
+      };
+      const fn = vi.fn().mockResolvedValueOnce(plainHeaderResponse).mockResolvedValueOnce(okResponse());
+      await retryWithBackoff(fn, 4, 50);
+      const firstDelay = setTimeoutSpy.mock.calls[0]?.[1] as number;
+      expect(firstDelay).toBe(2000);
+      setTimeoutSpy.mockRestore();
+    });
+
     it('does not retry on non-429 error responses', async () => {
       const fn = vi.fn().mockResolvedValueOnce({
         ok: false,
