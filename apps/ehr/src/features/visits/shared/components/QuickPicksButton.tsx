@@ -9,6 +9,7 @@ interface QuickPicksButtonProps<T> {
   getLabel: (item: T) => string;
   onSelect: (item: T) => void;
   disabled?: boolean;
+  loading?: boolean;
   showAddOption?: boolean;
   isAdmin?: boolean;
   onAddOrUpdate?: () => void;
@@ -20,6 +21,7 @@ export const QuickPicksButton = <T,>({
   getLabel,
   onSelect,
   disabled = false,
+  loading = false,
   showAddOption = false,
   isAdmin = false,
   onAddOrUpdate,
@@ -31,7 +33,7 @@ export const QuickPicksButton = <T,>({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const open = Boolean(anchorEl);
 
-  if (quickPicks.length === 0 && !showAddOption) {
+  if (quickPicks.length === 0 && !showAddOption && !loading) {
     return null;
   }
 
@@ -154,7 +156,12 @@ export const QuickPicksButton = <T,>({
             />
           </MenuItem>
         )}
-        {(showAddOption || searchable) && filteredQuickPicks.length > 0 && <Divider />}
+        {(showAddOption || searchable) && (filteredQuickPicks.length > 0 || loading) && <Divider />}
+        {loading && quickPicks.length === 0 && (
+          <MenuItem disabled sx={{ fontStyle: 'italic', color: 'text.disabled' }}>
+            Loading…
+          </MenuItem>
+        )}
         {filteredQuickPicks.map((item, index) => (
           <MenuItem
             key={getLabel(item)}
@@ -164,7 +171,7 @@ export const QuickPicksButton = <T,>({
             {getLabel(item)}
           </MenuItem>
         ))}
-        {searchable && searchText && filteredQuickPicks.length === 0 && (
+        {searchable && searchText && filteredQuickPicks.length === 0 && !loading && (
           <MenuItem disabled sx={{ fontStyle: 'italic' }}>
             No matches
           </MenuItem>
