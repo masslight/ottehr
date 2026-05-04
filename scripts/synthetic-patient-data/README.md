@@ -296,6 +296,15 @@ omitted unless those integrations are configured. See §8.
 > 1. Provision the demo user manually via the Oystehr Console UI (one-time per project), then skip step 1 of the bootstrap.
 > 2. Or use `synthesize-visit.ts --practitioner <existing-name|auto>` to attribute work to a Practitioner that already exists on the project (no demo user needed). `auto` picks the first role-assigned employee from the `get-employees` zambda result. Same idea for Locations: `--location <existing-name>`.
 
+> **M2M client must have a Practitioner profile (read this if you see a 500 from `save-chart-data` with `"Failed to get Practitioner: ... 404"`).** The pipeline calls `save-chart-data` (and a few other EHR zambdas) which use Oystehr IAM's `m2m.me()` to look up the M2M client's `profile` field, then load that resource as a `Practitioner` on the project. The profile must be `Practitioner/<existing-id>` on the same project — `Device/...` (the default for newly-created M2M clients) will fail with a 404 because the zambda blindly treats the id as a Practitioner id. The synth and local Ottehr environments are wired correctly: their `Zambdas Admin` M2M client points at a real role-assigned Practitioner. On any other project — including a freshly-deployed Ottehr environment — verify before running:
+>
+> ```ts
+> const me = await oystehr.m2m.me();
+> // expect: profile === 'Practitioner/<id>' where the Practitioner exists and is role-assigned
+> ```
+>
+> If the M2M's profile is wrong, fix it via the Oystehr Console (edit the M2M client → set Profile to a Practitioner) **or** via API (`oystehr.m2m.update({ id, profile: 'Practitioner/<existing-id>' })`). On a shared environment the safer path is to create a *new* M2M client for the synth pipeline (with a Practitioner profile pointing at a synth-pipeline-owned Practitioner) and put its credentials in `packages/zambdas/.env/zambda-secrets-<env>.json`, rather than mutating the profile of an existing M2M that other automation may depend on.
+
 ### 1.8 Idempotency
 
 **Zambdas are not idempotent.** Calling `save-chart-data` twice with the same input creates duplicates unless you pass each chart-data row's prior `resourceId`. `apply-template` *does* delete and rewrite the modules it owns each time it's called (so re-applying a template is non-destructive to other chart-data and produces a clean state for the templated modules).

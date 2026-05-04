@@ -376,7 +376,15 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
         const list = j.output?.employees ?? j.employees ?? [];
         for (const e of list) {
           if (e.status && e.status !== 'Active') continue;
-          const id = e.profile?.replace('Practitioner/', '') ?? e.id;
+          // Only collect employees whose profile is a Practitioner. Some
+          // projects (e.g., demo) have role-assigned users whose profile is
+          // Patient/<id> or Device/<id> — assigning those as intake-staff or
+          // attending would later produce "Practitioner/Patient/<id>" (the
+          // assign-practitioner zambda blindly prepends "Practitioner/").
+          // e.id is a user id, not a Practitioner id, so we can't fall back
+          // to it — just skip the employee entirely.
+          if (!e.profile?.startsWith('Practitioner/')) continue;
+          const id = e.profile.replace('Practitioner/', '');
           if (id) roleAssignedIds.add(id);
         }
         logNote(`role-assigned practitioners: ${roleAssignedIds.size}`);
