@@ -74,7 +74,7 @@ const WaitingRoom = (): JSX.Element => {
       }
       setAppointmentType(data.appointmentType);
       useWaitingRoomStore.setState(data);
-      if (data.status == 'on-video') {
+      if (data.status == 'provider') {
         if (isIOSApp && currentAppointmentId) {
           try {
             sendIOSAppMessage(createIOSMessageCallStarted({ appointmentID: currentAppointmentId }));
@@ -91,7 +91,7 @@ const WaitingRoom = (): JSX.Element => {
         }
       }
       if (!isAppointmentJustCanceled && !isCancelVisitDialogOpen) {
-        if (data.status == 'complete') {
+        if (data.status == 'completed') {
           useIntakeCommonStore.setState({ error: 'The call has ended. Please, request another visit' });
           navigate(intakeFlowPageRoute.Homepage.path);
         }

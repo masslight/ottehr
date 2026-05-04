@@ -16,7 +16,6 @@ import {
   PATIENT_NOT_FOUND_ERROR,
   PatientInfo,
   removeTimeFromDate,
-  TelemedCallStatuses,
   User,
 } from 'utils';
 import { checkIsEHRUser } from '../auth';
@@ -62,23 +61,6 @@ export async function patchEncounterResource(
     throw new Error(`Failed to patch Encounter: ${JSON.stringify(error)}`);
   }
 }
-
-export const telemedStatusToEncounter = (telemedStatus: TelemedCallStatuses): Encounter['status'] => {
-  switch (telemedStatus) {
-    case 'ready':
-      return 'planned';
-    case 'pre-video':
-      return 'arrived';
-    case 'on-video':
-      return 'in-progress';
-    case 'unsigned':
-      return 'finished';
-    case 'complete':
-      return 'finished';
-    case 'cancelled':
-      return 'cancelled';
-  }
-};
 
 export { removePrefix } from 'utils';
 
