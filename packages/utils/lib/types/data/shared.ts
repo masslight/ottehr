@@ -1,4 +1,5 @@
 import { DocumentReference } from 'fhir/r4b';
+import { z } from 'zod';
 
 export enum LabelType {
   label = 'label',
@@ -15,3 +16,57 @@ export interface LabelPdf {
 export interface LabelXml extends Omit<LabelPdf, 'type'> {
   type: 'xml-label';
 }
+
+// ---------- enums (schema + inferred type, together) ----------
+//  exported for reuse for dropdown options, etc.)
+export const LabelOrientationSchema = z.enum(['landscape', 'portrait']);
+export type LabelOrientation = z.infer<typeof LabelOrientationSchema>;
+
+export const SupportedPrinterManufacturerSchema = z.enum(['DYMO']);
+export type SupportedPrinterManufacturer = z.infer<typeof SupportedPrinterManufacturerSchema>;
+
+export const SupportedDymoLabelTypeSchema = z.enum(['30334']);
+
+export const PrintModeSchema = z.enum(['manual', 'integrated']);
+export type PrintMode = z.infer<typeof PrintModeSchema>;
+
+// ---------- per-manufacturer metadata for the form ----------
+// should add new manufacturers and specific label orientation defaults here
+export type LabelTypeMetadata = { defaultOrientation: LabelOrientation };
+
+export const MANUFACTURER_TO_LABEL_MAPPING = {
+  DYMO: {
+    labelTypeSchema: SupportedDymoLabelTypeSchema,
+    labelTypes: {
+      '30334': { defaultOrientation: 'portrait' },
+    },
+  },
+  // future: Brother: { labelTypeSchema: ..., labelTypes: { ... } },
+} as const satisfies Record<
+  SupportedPrinterManufacturer,
+  {
+    labelTypeSchema: z.ZodEnum<[string, ...string[]]>;
+    labelTypes: Record<string, LabelTypeMetadata>;
+  }
+>;
+
+// ---------- printer + label discriminated union ----------
+const PrinterAndLabelConfigSchema = z.discriminatedUnion('printerManufacturer', [
+  z.object({
+    printerManufacturer: z.literal('DYMO'),
+    labelType: SupportedDymoLabelTypeSchema,
+    orientation: LabelOrientationSchema,
+  }),
+  // future: z.object({ printerManufacturer: z.literal('Brother'), ... }),
+]);
+
+// ---------- top-level config ----------
+export const AdminPrintingConfigSchema = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('manual') }),
+  z.object({
+    mode: z.literal('integrated'),
+    openPdfOnPrint: z.boolean(),
+    printerAndLabelConfig: PrinterAndLabelConfigSchema,
+  }),
+]);
+export type AdminPrintingConfig = z.infer<typeof AdminPrintingConfigSchema>;
