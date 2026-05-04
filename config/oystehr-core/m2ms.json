@@ -73,6 +73,16 @@
           "effect": "Allow"
         },
         {
+          "resource": ["Z3:*"],
+          "action": ["Z3:CreateBucket"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Z3:*"],
+          "action": ["Z3:PutObject", "Z3:GetObject", "Z3:DeleteObject", "Z3:ListObjects"],
+          "effect": "Allow"
+        },
+        {
           "action": ["Messaging:SendTransactionalSMS"],
           "effect": "Allow",
           "resource": ["*"]

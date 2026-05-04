@@ -4,9 +4,9 @@ import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query'
 import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
-import { deletePatientDocument } from 'src/api/api';
-import { getMimeType, useSuccessQuery } from 'utils';
-import { chooseJson, getPresignedURL } from 'utils';
+import { createCustomFolder, deletePatientDocument, renameCustomFolder } from 'src/api/api';
+import { CustomFolderDefinition, getMimeType, useSuccessQuery } from 'utils';
+import { chooseJson, CUSTOM_FOLDER_KIND_SYSTEM, getPresignedURL } from 'utils';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
 
@@ -17,8 +17,16 @@ const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = 'create-upload-document-url
 export type PatientDocumentsFolder = {
   id: string;
   folderName: string;
+  internalName?: string;
   documentsCount: number;
   documentsRefs?: DocRef[];
+  isCustom: boolean;
+};
+
+export type FolderActionsReturn = {
+  createFolder: (name: string) => Promise<CustomFolderDefinition>;
+  renameFolder: (internalName: string, newName: string) => Promise<void>;
+  isMutating: boolean;
 };
 
 export type DocRef = {
@@ -87,9 +95,10 @@ export type UseGetPatientDocsReturn = {
   downloadDocument: (documentId: string) => Promise<void>;
   renameDocument: (documentId: string, newName: string) => Promise<void>;
   documentActions: UsePatientDocsActionsReturn;
+  folderActions: FolderActionsReturn;
 };
 
-const QUERY_KEYS = {
+export const QUERY_KEYS = {
   GET_PATIENT_DOCS_FOLDERS: 'get-patient-docs-folders',
   GET_SEARCH_PATIENT_DOCUMENTS: 'get-search-patient-documents',
 };
@@ -116,6 +125,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   );
 
   const documentActions = usePatientDocsActions({ patientId });
+  const folderActions = useFolderActions({ patientId });
 
   const searchDocuments = useCallback((filters: PatientDocumentsFilters): void => {
     console.log(`[useGetPatientDocs] searchDocuments, filters => `);
@@ -299,6 +309,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
     downloadDocument: downloadDocument,
     renameDocument,
     documentActions: documentActions,
+    folderActions,
   };
 };
 
@@ -359,12 +370,17 @@ const useGetPatientDocsFolders = (
             reference: entry.item,
           }) as DocRef
       );
+      const isCustom = Boolean(
+        listRes.code?.coding?.some((c) => c.system === CUSTOM_FOLDER_KIND_SYSTEM && c.code === 'custom')
+      );
 
       return {
         id: listRes.id!,
         folderName: folderName,
+        internalName: listRes.title,
         documentsCount: docRefs.length,
         documentsRefs: docRefs,
+        isCustom,
       } as PatientDocumentsFolder;
     });
 
@@ -608,6 +624,49 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
     isUploading,
     deleteDocumentAction,
   };
+};
+
+const useFolderActions = ({ patientId }: { patientId: string }): FolderActionsReturn => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  const [isMutating, setIsMutating] = useState(false);
+
+  const createFolder = useCallback(
+    async (name: string): Promise<CustomFolderDefinition> => {
+      if (!oystehrZambda) throw new Error('Could not initialize oystehrZambda client.');
+      setIsMutating(true);
+      try {
+        const result = await createCustomFolder(oystehrZambda, { folderName: name });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['custom-folders-catalog'] }),
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }] }),
+        ]);
+        return result;
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [oystehrZambda, patientId, queryClient]
+  );
+
+  const renameFolder = useCallback(
+    async (internalName: string, newName: string): Promise<void> => {
+      if (!oystehrZambda) throw new Error('Could not initialize oystehrZambda client.');
+      setIsMutating(true);
+      try {
+        await renameCustomFolder(oystehrZambda, { internalName, newName });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['custom-folders-catalog'] }),
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }] }),
+        ]);
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [oystehrZambda, patientId, queryClient]
+  );
+
+  return { createFolder, renameFolder, isMutating };
 };
 
 export interface UploadPatientDocumentParameters {

@@ -8,6 +8,7 @@ import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admi
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
+import AdminCustomFoldersPage from './AdminCustomFoldersPage';
 import MedicationsConfigurationPage from './configuration/MedicationsConfiguration';
 import EmployeesPage, { EmployeeTypes } from './Employees';
 import SchedulesPage from './Schedules';
@@ -22,6 +23,7 @@ enum PageTab {
   billing = 'billing',
   'quick-picks' = 'quick-picks',
   'in-house-labs' = 'in-house-labs',
+  'custom-folders' = 'custom-folders',
 }
 
 export function AdminPage(): JSX.Element {
@@ -91,6 +93,12 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['in-house-labs']}`)}
                 />
+                <Tab
+                  label="Custom Folders"
+                  value={PageTab['custom-folders']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['custom-folders']}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -129,6 +137,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['in-house-labs']} sx={{ padding: 0 }}>
             <InHouseLabAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['custom-folders']} sx={{ padding: 0 }}>
+            <AdminCustomFoldersPage />
           </TabPanel>
         </TabContext>
       </Box>

@@ -552,7 +552,7 @@ export async function generatePatientRelatedRequests(
     createPatientRequest = creatingPatientCreateRequest(patient, isEHRUser);
 
     if (createPatientRequest?.fullUrl) {
-      const patientLists = createPatientDocumentLists(createPatientRequest.fullUrl);
+      const patientLists = await createPatientDocumentLists(createPatientRequest.fullUrl, oystehr);
       listRequests.push(
         ...patientLists.map(
           (list): BatchInputPostRequest<List> => ({

@@ -40,6 +40,8 @@ import {
   CreateAllergyQuickPickResponse,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
+  CreateCustomFolderInput,
+  CreateCustomFolderOutput,
   CreateDischargeSummaryInput,
   CreateDischargeSummaryResponse,
   CreateImmunizationQuickPickInput,
@@ -154,6 +156,8 @@ import {
   RemoveMedicationHistoryQuickPickResponse,
   RemoveProcedureQuickPickResponse,
   RemoveRadiologyQuickPickResponse,
+  RenameCustomFolderInput,
+  RenameCustomFolderOutput,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
   SavePreliminaryReportZambdaInput,
@@ -290,6 +294,8 @@ const ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID = 'admin-list-in-house-labs';
 const ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-add-in-house-lab';
 const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
 const ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-update-in-house-lab';
+const CREATE_CUSTOM_FOLDER_ZAMBDA_ID = 'create-custom-folder';
+const RENAME_CUSTOM_FOLDER_ZAMBDA_ID = 'rename-custom-folder';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -2371,6 +2377,38 @@ export const removeInHouseMedicationQuickPick = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const createCustomFolder = async (
+  oystehr: Oystehr,
+  parameters: CreateCustomFolderInput
+): Promise<CreateCustomFolderOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_CUSTOM_FOLDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as CreateCustomFolderOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const renameCustomFolder = async (
+  oystehr: Oystehr,
+  parameters: RenameCustomFolderInput
+): Promise<RenameCustomFolderOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: RENAME_CUSTOM_FOLDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as RenameCustomFolderOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };
 
