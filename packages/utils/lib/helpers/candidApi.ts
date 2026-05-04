@@ -1,7 +1,53 @@
 import { CandidApi, CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import { InventoryRecord } from 'candidhealth/api/resources/patientAr/resources/v1';
+import { APIResponse } from 'candidhealth/core';
 import { DateTime } from 'luxon';
 import { getSecret, Secrets, SecretsKeys } from '../secrets';
+
+export const CANDID_BATCH_SIZE = 3;
+
+export async function retryWithBackoff<T, E>(
+  fn: () => Promise<APIResponse<T, E>>,
+  maxRetries = 4,
+  baseDelayMs = 200
+): Promise<APIResponse<T, E>> {
+  let lastResponse: APIResponse<T, E> | undefined;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    let retryAfterMs: number | undefined;
+    try {
+      const response = await fn();
+      if (response.ok || (response.error && response.rawResponse.status !== 429) || attempt === maxRetries)
+        return response;
+      lastResponse = response;
+      retryAfterMs = parseRetryAfterHeader(response.rawResponse.headers);
+    } catch (error: any) {
+      if (attempt === maxRetries) throw error;
+      const isTooManyRequests =
+        error?.body?.errorName === 'TooManyRequestsError' ||
+        error?.message?.includes('Too many requests') ||
+        error?.statusCode === 429;
+      if (!isTooManyRequests) throw error;
+    }
+    const delay = retryAfterMs ?? baseDelayMs * Math.pow(2, attempt) + Math.random() * 100;
+    console.warn(
+      `Candid API request rate limited, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`
+    );
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  return lastResponse ?? fn();
+}
+
+function parseRetryAfterHeader(headers: Headers | Record<string, any> | undefined): number | undefined {
+  if (!headers) return undefined;
+  const raw =
+    typeof (headers as Headers).get === 'function'
+      ? (headers as Headers).get('retry-after')
+      : (headers as Record<string, any>)['retry-after'];
+  if (raw == null) return undefined;
+  const seconds = Number(raw);
+  if (!Number.isFinite(seconds) || seconds < 0) return undefined;
+  return seconds * 1000;
+}
 
 export function createCandidApiClient(secrets: Secrets | null): CandidApiClient {
   const candidApiClient: CandidApiClient = new CandidApiClient({

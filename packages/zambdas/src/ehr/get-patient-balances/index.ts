@@ -3,7 +3,13 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { chunkThings, createCandidApiClient, GetPatientBalancesZambdaOutput } from 'utils';
+import {
+  CANDID_BATCH_SIZE,
+  chunkThings,
+  createCandidApiClient,
+  GetPatientBalancesZambdaOutput,
+  retryWithBackoff,
+} from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
@@ -27,8 +33,6 @@ type EncounterIdMap = Map<
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 let candidApiClient: CandidApiClient | undefined;
-
-const CANDID_BATCH_SIZE = 3;
 
 const ZAMBDA_NAME = 'get-patient-balances';
 
@@ -289,31 +293,4 @@ async function getPendingPatientPayments(candidApiClient: CandidApiClient, patie
   });
 
   return pendingPayments.reduce((acc, amount) => acc + amount, 0);
-}
-
-async function retryWithBackoff<T, E>(
-  fn: () => Promise<APIResponse<T, E>>,
-  maxRetries = 4,
-  baseDelayMs = 200
-): Promise<APIResponse<T, E>> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await fn();
-      if (response.ok || (response.error && response.rawResponse.status !== 429) || attempt === maxRetries)
-        return response;
-    } catch (error: any) {
-      if (attempt === maxRetries) throw error;
-      const isTooManyRequests =
-        error?.body?.errorName === 'TooManyRequestsError' ||
-        error?.message?.includes('Too many requests') ||
-        error?.statusCode === 429;
-      if (!isTooManyRequests) throw error;
-    }
-    const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 100;
-    console.warn(
-      `Candid API request rate limited, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`
-    );
-    await new Promise((resolve) => setTimeout(resolve, delay));
-  }
-  return fn();
 }
