@@ -8,14 +8,6 @@ export type AppointmentType = (typeof AppointmentTypeOptions)[number];
 export const AppointmentTypeSchema = z.array(z.enum(AppointmentTypeOptions));
 export type AppointmentAttendanceType = 'in-person' | 'virtual';
 
-export type ReviewAndSignData = {
-  signedOnDate?: string;
-};
-
-export type RefreshableAppointmentData = {
-  patientConditionPhotoUrls: string[];
-};
-
 export const getTelemedVisitStatus = (
   encounterStatus: string,
   appointmentStatus: string | undefined

@@ -10,6 +10,8 @@ const SAVE_TERMINAL_LOCATION_ZAMBDA_ID = 'save-terminal-location';
 export interface PaymentLocation {
   location: Location;
   supportsVirtualVisits: boolean;
+  stripeTerminalLocationId: string | undefined;
+  terminalDeviceId: string | undefined;
 }
 
 export interface GetPaymentLocationsResponse {
