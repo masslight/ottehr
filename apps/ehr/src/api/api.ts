@@ -21,7 +21,6 @@ import {
   AdminRenameTemplateOutput,
   AdminUpdateInHouseLabInput,
   AdminUpdateLabSetInput,
-  // AdminUpdateLabSetOutput,
   AiAssistedEncountersReportZambdaInput,
   AiAssistedEncountersReportZambdaOutput,
   AllergyQuickPickData,

@@ -72,15 +72,6 @@ export const AdminLabSetFormInputSchema = z
     }
   });
 
-// ADMIN LAB SET API SCHEMAS
-export const AdminGetLabSetListOutputSchema = z.object({
-  labSetDTO: z.array(LabSetSchema),
-});
-
-export const AdminGetLabSetDetailOutputSchema = z.object({
-  labSetDTO: LabSetSchema,
-});
-
 // LAB SET DTO types
 export type ExternalLabSetDTO = z.infer<typeof ExternalLabSetSchema>;
 export type InHouseLabSetDTO = z.infer<typeof InHouseLabSetSchema>;
