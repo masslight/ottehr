@@ -162,11 +162,22 @@ export const getObservationValueElements = (
     case 'vital-vision':
       return [
         <>
+          {historyEntry.leftEyeVisionText && (
+            <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
+              Left eye: {historyEntry.leftEyeVisionText};&nbsp;
+            </Typography>
+          )}
+          {historyEntry.rightEyeVisionText && (
+            <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
+              Right eye: {historyEntry.rightEyeVisionText};&nbsp;
+            </Typography>
+          )}
+          {historyEntry.bothEyesVisionText && (
+            <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
+              Both eyes: {historyEntry.bothEyesVisionText};&nbsp;
+            </Typography>
+          )}
           <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
-            Left eye: {historyEntry.leftEyeVisionText ?? '-'};&nbsp;
-          </Typography>
-          <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
-            Right eye: {historyEntry.rightEyeVisionText ?? '-'};&nbsp;{' '}
             {`${getVisionExtraOptionsFormattedString(historyEntry.extraVisionOptions) ?? ''}`}
           </Typography>
         </>,
