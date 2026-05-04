@@ -1,0 +1,9 @@
+{
+  "name": "Acetaminophen 120 mg suppository (peds)",
+  "medicationId": "40c6b8ba-c2cb-42fd-98f8-0bf5ff6927f7",
+  "medicationName": "Acetaminophen (120mg Suppository)",
+  "dose": 120,
+  "units": "mg",
+  "route": "Rectal",
+  "instructions": "Pediatric: 120 mg PR if vomiting / unable to tolerate PO."
+}

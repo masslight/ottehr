@@ -1,0 +1,17 @@
+{
+  "name": "Eye Irrigation — Chemical Exposure",
+  "procedureType": "eye-irrigation",
+  "cptCodes": [{ "code": "65205", "display": "Removal of foreign body, external eye; conjunctival superficial" }],
+  "diagnoses": [{ "code": "T26.51XA", "display": "Burn of right eyelid and periocular area, initial encounter" }],
+  "bodySite": "eye",
+  "bodySide": "left",
+  "technique": ["sterile"],
+  "medicationUsed": "topical",
+  "suppliesUsed": ["irrigation-syringe", "other"],
+  "otherSuppliesUsed": "Morgan lens, LR via tubing, proparacaine drops, pH paper",
+  "complications": "none",
+  "patientResponse": "improved",
+  "postInstructions": ["fu-with-pcp", "return-if-worsening", "other"],
+  "otherPostInstructions": "Ophtho referral; recheck pH q15min until 7.0–7.4",
+  "timeSpent": "20-30-min"
+}

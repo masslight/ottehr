@@ -1,0 +1,18 @@
+{
+  "name": "DTaP (pediatric, <7 yo)",
+  "vaccine": {
+    "id": "014ea623-7be2-49b4-ab77-68c00bbd75c3",
+    "name": "Dtap (Diptheria, Tetanus, Pertussis)"
+  },
+  "dose": "0.5",
+  "units": "mL",
+  "route": "IM",
+  "cvx": "20",
+  "cptCodes": [
+    {
+      "code": "90700",
+      "display": "DTaP vaccine, IM, <7 yo"
+    }
+  ],
+  "instructions": "Single 0.5 mL IM dose. Series: 2, 4, 6, 15-18 mo, 4-6 yr."
+}

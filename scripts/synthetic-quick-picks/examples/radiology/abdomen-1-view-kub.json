@@ -1,0 +1,8 @@
+{
+  "name": "Abdomen X-Ray, 1 View (KUB)",
+  "cptCode": "74018",
+  "cptDisplay": "Radiologic examination, abdomen; 1 view",
+  "studyName": "X-Ray Abdomen 1 View (KUB / Supine)",
+  "clinicalHistory": "Abdominal pain, suspected obstruction or constipation, stone evaluation",
+  "stat": false
+}

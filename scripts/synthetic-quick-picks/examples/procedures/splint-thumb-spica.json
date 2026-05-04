@@ -1,0 +1,17 @@
+{
+  "name": "Splint — Thumb Spica",
+  "procedureType": "splint-application",
+  "cptCodes": [{ "code": "29125", "display": "Application of short arm splint (forearm to hand); static" }],
+  "diagnoses": [{ "code": "S62.001A", "display": "Unspecified fracture of navicular [scaphoid] bone of right wrist, initial encounter for closed fracture" }],
+  "bodySite": "arm",
+  "bodySide": "left",
+  "technique": ["clean"],
+  "medicationUsed": "none",
+  "suppliesUsed": ["splint", "other"],
+  "otherSuppliesUsed": "Fiberglass, cotton padding",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": ["fu-with-pcp", "other"],
+  "otherPostInstructions": "Ortho F/U at 10–14 days for repeat imaging — scaphoid concern",
+  "timeSpent": "10-20-min"
+}

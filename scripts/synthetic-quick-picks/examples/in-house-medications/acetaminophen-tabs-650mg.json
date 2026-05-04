@@ -1,0 +1,9 @@
+{
+  "name": "Acetaminophen 650 mg PO (tabs)",
+  "medicationId": "34c42098-eb4d-4f82-867f-59e5cdfada90",
+  "medicationName": "Acetaminophen (Tabs)",
+  "dose": 650,
+  "units": "mg",
+  "route": "Oral",
+  "instructions": "650 mg PO once for pain or fever."
+}

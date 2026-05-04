@@ -1,0 +1,17 @@
+{
+  "name": "Reduction — Nursemaid's Elbow",
+  "procedureType": "elbow-reduction",
+  "cptCodes": [{ "code": "24640", "display": "Closed treatment of radial head subluxation in child, nursemaid elbow, with manipulation" }],
+  "diagnoses": [{ "code": "S53.032A", "display": "Nursemaid's elbow, left elbow, initial encounter" }],
+  "bodySite": "arm",
+  "bodySide": "left",
+  "technique": ["clean"],
+  "medicationUsed": "none",
+  "suppliesUsed": ["other"],
+  "otherSuppliesUsed": "None — manual maneuver only",
+  "complications": "none",
+  "patientResponse": "improved",
+  "postInstructions": ["return-if-worsening", "other"],
+  "otherPostInstructions": "Reassess use of arm in 15 min; F/U if not using arm normally within 24h",
+  "timeSpent": "less-5-min"
+}

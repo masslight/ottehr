@@ -1,0 +1,17 @@
+{
+  "name": "Splint — Short Leg",
+  "procedureType": "splint-application",
+  "cptCodes": [{ "code": "29515", "display": "Application of short leg splint (calf to foot)" }],
+  "diagnoses": [{ "code": "S82.66XA", "display": "Nondisplaced fracture of medial malleolus of left tibia, initial encounter for closed fracture" }],
+  "bodySite": "leg",
+  "bodySide": "left",
+  "technique": ["clean"],
+  "medicationUsed": "none",
+  "suppliesUsed": ["splint", "other"],
+  "otherSuppliesUsed": "Plaster or fiberglass, cotton padding, ace wrap; posterior + stirrup",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": ["fu-with-pcp", "return-if-worsening", "other"],
+  "otherPostInstructions": "Non-weight-bearing; crutches; ortho F/U in 5–7 days",
+  "timeSpent": "10-20-min"
+}

@@ -1,0 +1,17 @@
+{
+  "name": "Urinary Catheter — Foley Placement",
+  "procedureType": "urinary-catheterization",
+  "cptCodes": [{ "code": "51702", "display": "Insertion of temporary indwelling bladder catheter; simple" }],
+  "diagnoses": [{ "code": "R33.9", "display": "Retention of urine, unspecified" }],
+  "bodySite": "genital",
+  "bodySide": "not-applicable",
+  "technique": ["sterile"],
+  "medicationUsed": "topical",
+  "suppliesUsed": ["other"],
+  "otherSuppliesUsed": "16Fr Foley kit, lidocaine jelly, leg bag",
+  "complications": "none",
+  "patientResponse": "improved",
+  "postInstructions": ["fu-with-pcp", "other"],
+  "otherPostInstructions": "Urology F/U for outpatient management; trial of void plan",
+  "timeSpent": "10-20-min"
+}

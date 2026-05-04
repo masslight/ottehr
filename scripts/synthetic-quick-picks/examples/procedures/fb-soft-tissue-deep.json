@@ -1,0 +1,17 @@
+{
+  "name": "Foreign Body Removal — Soft Tissue (Deep)",
+  "procedureType": "foreign-body-removal",
+  "cptCodes": [{ "code": "10121", "display": "Incision and removal of foreign body, subcutaneous tissues; complicated" }],
+  "diagnoses": [{ "code": "L92.3", "display": "Foreign body granuloma of skin and subcutaneous tissue" }],
+  "bodySite": "arm",
+  "bodySide": "left",
+  "technique": ["sterile"],
+  "medicationUsed": "local",
+  "suppliesUsed": ["forceps", "other"],
+  "otherSuppliesUsed": "Lidocaine 1% w/ epi, #11 blade, consider bedside US",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": ["wound-care", "fu-with-pcp", "other"],
+  "otherPostInstructions": "F/U if signs of retained FB or infection",
+  "timeSpent": "20-30-min"
+}

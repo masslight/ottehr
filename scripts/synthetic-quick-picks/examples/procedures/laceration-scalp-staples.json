@@ -1,0 +1,19 @@
+{
+  "name": "Laceration Repair — Scalp, Staples",
+  "procedureType": "laceration-repair",
+  "cptCodes": [
+    { "code": "12001", "display": "Simple repair of superficial wounds of scalp/neck/axillae/external genitalia/trunk/extremities, ≤2.5 cm" }
+  ],
+  "diagnoses": [{ "code": "S01.01XA", "display": "Laceration without foreign body of scalp, initial encounter" }],
+  "bodySite": "head",
+  "bodySide": "not-applicable",
+  "technique": ["clean"],
+  "medicationUsed": "local",
+  "suppliesUsed": ["other"],
+  "otherSuppliesUsed": "Skin staples, lidocaine 1% w/ epi, saline irrigation",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": ["wound-care", "other"],
+  "otherPostInstructions": "No shampoo for 24h; staple removal in 7–10 days at PCP",
+  "timeSpent": "5-10-min"
+}

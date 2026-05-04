@@ -1,0 +1,9 @@
+{
+  "name": "Lidocaine 1% local infiltration",
+  "medicationId": "3d4993ff-9b25-4f4a-bca7-c5fec1723342",
+  "medicationName": "Lidocaine HCl (Local Anesth.) Injection Kit (1 %)",
+  "dose": 1,
+  "units": "%",
+  "route": "Subcutaneous",
+  "instructions": "Local infiltration for procedural anesthesia (lac repair, I&D, FB removal). Max 4.5 mg/kg without epi."
+}

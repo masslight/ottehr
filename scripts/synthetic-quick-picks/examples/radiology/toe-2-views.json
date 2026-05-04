@@ -1,0 +1,8 @@
+{
+  "name": "Toe X-Ray, 2 Views",
+  "cptCode": "73660",
+  "cptDisplay": "Radiologic examination, toe(s); minimum of 2 views",
+  "studyName": "X-Ray Toe 2 Views (AP and Lateral)",
+  "clinicalHistory": "Toe injury — evaluate for fracture",
+  "stat": false
+}

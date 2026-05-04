@@ -1,0 +1,18 @@
+{
+  "name": "Tdap (adult / adolescent ≥7 yo)",
+  "vaccine": {
+    "id": "0aea8ebf-525d-44b3-95ed-e1c664a446d8",
+    "name": "Tdap (Tetanus, Diphtheria, Pertussis)"
+  },
+  "dose": "0.5",
+  "units": "mL",
+  "route": "IM",
+  "cvx": "115",
+  "cptCodes": [
+    {
+      "code": "90715",
+      "display": "Tdap vaccine, IM, ≥7 yo"
+    }
+  ],
+  "instructions": "Single 0.5 mL IM dose to deltoid. Standard adult Tdap booster."
+}

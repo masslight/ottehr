@@ -1,0 +1,18 @@
+{
+  "name": "Splint — Finger (Buddy Tape / Aluminum)",
+  "procedureType": "splint-application",
+  "cptCodes": [{ "code": "29130", "display": "Application of finger splint; static" }],
+  "diagnoses": [{ "code": "S63.255A", "display": "Subluxation of distal interphalangeal joint of left little finger, initial encounter" }],
+  "bodySite": "arm",
+  "otherBodySite": "Finger",
+  "bodySide": "left",
+  "technique": ["clean"],
+  "medicationUsed": "none",
+  "suppliesUsed": ["splint", "other"],
+  "otherSuppliesUsed": "Aluminum splint, tape",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": ["fu-with-pcp", "other"],
+  "otherPostInstructions": "PCP or hand specialist if not improving in 1–2 weeks",
+  "timeSpent": "5-10-min"
+}

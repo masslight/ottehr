@@ -1,0 +1,17 @@
+{
+  "name": "Foreign Body Removal — Cornea",
+  "procedureType": "eye-irrigation",
+  "cptCodes": [{ "code": "65222", "display": "Removal of foreign body, external eye; corneal, with slit lamp" }],
+  "diagnoses": [{ "code": "T15.01XA", "display": "Foreign body in cornea, right eye, initial encounter" }],
+  "bodySite": "eye",
+  "bodySide": "left",
+  "technique": ["sterile"],
+  "medicationUsed": "topical",
+  "suppliesUsed": ["other"],
+  "otherSuppliesUsed": "Proparacaine drops, 27g needle or eye spud, fluorescein strips",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": ["fu-with-pcp", "other"],
+  "otherPostInstructions": "Erythromycin ophthalmic ointment; ophthalmology F/U next day; do not drive",
+  "timeSpent": "5-10-min"
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Ventolin HFA 2 puffs",
+  "medicationId": "20c1d245-bfcc-4c5b-9937-fb9b37c7f9bf",
+  "medicationName": "Ventolin HFA",
+  "dose": 90,
+  "units": "mcg",
+  "route": "Inhalation",
+  "cptCodes": [
+    {
+      "code": "94664",
+      "display": "Demonstration and/or evaluation of patient utilization of an aerosol generator"
+    }
+  ],
+  "instructions": "2 puffs (90 mcg/puff) inhaled with spacer, repeat in 4–6 h PRN."
+}
