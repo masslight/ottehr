@@ -12,16 +12,23 @@ export const InHouseLabListItemSchema = z.object({
   activityDefinitionId: z.string(),
 });
 
-export const ExternalLabSetSchema = z.object({
+export enum LabSetStatus {
+  active = 'Active',
+  inactive = 'Inactive',
+}
+
+export const BaseLabSetSchema = z.object({
   listId: z.string(),
   listName: z.string(),
+  listStatus: z.nativeEnum(LabSetStatus),
+});
+
+export const ExternalLabSetSchema = BaseLabSetSchema.extend({
   listType: z.literal(LabType.external),
   labs: z.array(ExternalLabListItemSchema),
 });
 
-export const InHouseLabSetSchema = z.object({
-  listId: z.string(),
-  listName: z.string(),
+export const InHouseLabSetSchema = BaseLabSetSchema.extend({
   listType: z.literal(LabType.inHouse),
   labs: z.array(InHouseLabListItemSchema),
 });
@@ -43,6 +50,8 @@ export const AdminLabSetFormInputSchema = z
     listId: z.string().optional(),
 
     listName: z.string().trim().min(1, 'Set name is required'),
+
+    listStatus: z.nativeEnum(LabSetStatus),
 
     listType: z.enum([LabType.external, LabType.inHouse], {
       errorMap: () => ({ message: 'Lab type is required' }),

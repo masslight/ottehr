@@ -3,7 +3,7 @@ import { ReactElement, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
-import { AdminLabSetFormInput, LabType } from 'utils';
+import { AdminLabSetFormInput, LabSetStatus, LabType } from 'utils';
 import { useAdminAddLabSet } from '../admin.queries';
 import AdminLabSetForm from './AdminLabSetForm';
 
@@ -21,12 +21,14 @@ export default function AdminAddLabSet(): ReactElement {
         labSetFormInput = {
           listType: LabType.inHouse,
           listName: labSetData.listName,
+          listStatus: LabSetStatus.active,
           labs: labSetData.labs,
         };
       } else {
         labSetFormInput = {
           listType: LabType.external,
           listName: labSetData.listName,
+          listStatus: LabSetStatus.active,
           labs: labSetData.labs,
         };
       }

@@ -31,22 +31,6 @@ export interface InHouseLabListItem {
   activityDefinitionId: string;
 }
 
-// export interface ExternalLabSetDTO {
-//   listId: string;
-//   listName: string;
-//   listType: LabType.external;
-//   labs: ExternalLabListItem[];
-// }
-
-// export interface InHouseLabSetDTO {
-//   listId: string;
-//   listName: string;
-//   listType: LabType.inHouse;
-//   labs: InHouseLabListItem[];
-// }
-
-// export type LabSetDTO = ExternalLabSetDTO | InHouseLabSetDTO;
-
 export interface sampleDTO {
   specimen: { id: string; collectionDate?: string }; // collectionDate exists after order is submitted
   definition: OrderableItemSpecimen;

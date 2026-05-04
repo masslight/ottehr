@@ -1,10 +1,11 @@
-import { Box, CircularProgress, Grid, Paper, Typography } from '@mui/material';
+import { LoadingButton } from '@mui/lab';
+import { Box, CircularProgress, FormHelperText, FormLabel, Grid, Paper, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
-import { AdminLabSetFormInput } from 'utils';
+import { AdminLabSetFormInput, LabSetStatus } from 'utils';
 import { useAdminGetLabSetDetail, useAdminUpdateLabSet } from '../admin.queries';
 import AdminLabSetForm from './AdminLabSetForm';
 
@@ -47,30 +48,22 @@ export default function AdminLabSetDetails(): ReactElement {
     [updateLabSet]
   );
 
-  // const onUpdateStatusSubmit = useCallback(async () => {
-  //   if (!existingData) return;
-  //   setStatusButtonLoading(true);
+  const onToggleStatus = useCallback(async () => {
+    if (!dataToRender) return;
 
-  //   try {
-  //     const result = await updateInHouseLabMutateAsync({
-  //       data: {
-  //         updateType: 'toggle-status',
-  //         data: {
-  //           activityDefinitionId: existingData.activityDefinitionId,
-  //         },
-  //       },
-  //       userId: currentUserId,
-  //     });
+    try {
+      const result = await updateLabSet({
+        updateType: 'toggle-status',
+        data: {
+          labSetId: dataToRender.listId,
+        },
+      });
 
-  //     console.log('this is the result after toggling status in house lab', result);
-  //     setSubmitError(undefined);
-  //   } catch (err: unknown) {
-  //     console.error('toggle status in house lab failed', err);
-  //     setSubmitError(err as OystehrSdkError | APIError);
-  //   } finally {
-  //     setStatusButtonLoading(false);
-  //   }
-  // }, [updateInHouseLabMutateAsync, existingData, currentUserId]);
+      console.log('this is the result after toggling status for the lab set', result);
+    } catch (err: unknown) {
+      console.error('toggle status in house lab failed', err);
+    }
+  }, [updateLabSet, dataToRender]);
 
   return (
     <PageContainer tabTitle={'Lab Set Details'}>
@@ -106,89 +99,80 @@ export default function AdminLabSetDetails(): ReactElement {
             </Paper>
           </Grid>
         </Grid>
-        {/* <Grid container direction="row" alignItems="center" justifyContent="center">
+        <Grid container direction="row" alignItems="center" justifyContent="center">
           <Grid item maxWidth={'584px'} width={'100%'}>
-            {!isPending && existingData && (
+            {!isUpdating && dataToRender && (
               <ToggleStatusSection
-                testItemStatus={existingData?.activityDefinitionStatus}
-                onSubmit={onUpdateStatusSubmit}
-                isSubmitting={statusButtonLoading}
-                submitError={submitError}
-                disableEdits={disableEdits}
-                disableEditsMessage={disableEditsMessage}
+                labSetStatus={dataToRender.listStatus}
+                onSubmit={onToggleStatus}
+                isSubmitting={isUpdating}
+                submitError={updateError}
               />
             )}
           </Grid>
-        </Grid> */}
+        </Grid>
       </>
     </PageContainer>
   );
 }
 
-// interface ToggleStatusSectionProps {
-//   testItemStatus: InHouseLabAdminItemStatus;
-//   onSubmit: () => Promise<void>;
-//   isSubmitting?: boolean;
-//   submitError?: OystehrSdkError | APIError;
-//   disableEdits: boolean;
-//   disableEditsMessage?: string;
-// }
-// function ToggleStatusSection(props: ToggleStatusSectionProps): ReactElement {
-//   const theme = useTheme();
-//   const { testItemStatus, onSubmit, isSubmitting, submitError, disableEdits, disableEditsMessage } = props;
-//   const isActive = testItemStatus === 'active';
-//   const formVerb = isActive ? 'Deactivate' : 'Activate';
-//   const formLabel = `${formVerb} In-House Test`;
-//   const formBodyText = isActive
-//     ? 'When you deactivate this in-house lab, providers will not be able to order it. Historical results are unaffected.'
-//     : 'Activating this in-house labs will allow providers to order it';
+interface ToggleStatusSectionProps {
+  labSetStatus: LabSetStatus;
+  onSubmit: () => Promise<void>;
+  isSubmitting?: boolean;
+  submitError?: Error | null;
+}
 
-//   return (
-//     <Paper sx={{ padding: 3, marginTop: 2, marginBottom: 2 }}>
-//       <form
-//         onSubmit={async (event) => {
-//           event.preventDefault();
-//           await onSubmit();
-//         }}
-//       >
-//         <Box sx={{ marginBottom: 3 }}>
-//           <FormLabel
-//             sx={{
-//               ...theme.typography.h4,
-//               color: theme.palette.primary.dark,
-//               mb: 2,
-//               display: 'block',
-//             }}
-//           >
-//             {formLabel}
-//           </FormLabel>
-//           <Typography
-//             sx={{
-//               ...theme.typography.body1,
-//               marginBottom: 3,
-//             }}
-//           >
-//             {formBodyText}
-//           </Typography>
-//           <LoadingButton
-//             type="submit"
-//             variant="contained"
-//             loading={isSubmitting}
-//             color={isActive ? 'error' : 'primary'}
-//             disabled={disableEdits}
-//           >
-//             {formVerb}
-//           </LoadingButton>
-//           {submitError && (
-//             <FormHelperText sx={{ color: theme.palette.error.main }}>{submitError.message}</FormHelperText>
-//           )}
-//           {disableEdits && (
-//             <FormHelperText sx={{ color: theme.palette.error.main }}>
-//               {disableEditsMessage ? disableEditsMessage : 'Edits are disabled'}
-//             </FormHelperText>
-//           )}
-//         </Box>
-//       </form>
-//     </Paper>
-//   );
-// }
+function ToggleStatusSection(props: ToggleStatusSectionProps): ReactElement {
+  const theme = useTheme();
+  const { labSetStatus, onSubmit, isSubmitting, submitError } = props;
+  const isActive = labSetStatus === LabSetStatus.active;
+  const formVerb = isActive ? 'Deactivate' : 'Activate';
+  const formLabel = `${formVerb} Lab Set`;
+  const formBodyText = isActive
+    ? 'Deactivating this lab set will make it unavailable from the order page. You can continue to edit it.'
+    : 'Activating this lab set will allow providers to use it to populate the order page.';
+
+  return (
+    <Paper sx={{ padding: 3, marginTop: 2, marginBottom: 2 }}>
+      <form
+        onSubmit={async (event) => {
+          event.preventDefault();
+          await onSubmit();
+        }}
+      >
+        <Box sx={{ marginBottom: 3 }}>
+          <FormLabel
+            sx={{
+              ...theme.typography.h4,
+              color: theme.palette.primary.dark,
+              mb: 2,
+              display: 'block',
+            }}
+          >
+            {formLabel}
+          </FormLabel>
+          <Typography
+            sx={{
+              ...theme.typography.body1,
+              marginBottom: 3,
+            }}
+          >
+            {formBodyText}
+          </Typography>
+          <LoadingButton
+            type="submit"
+            variant="contained"
+            loading={isSubmitting}
+            color={isActive ? 'error' : 'primary'}
+          >
+            {formVerb}
+          </LoadingButton>
+          {submitError && (
+            <FormHelperText sx={{ color: theme.palette.error.main }}>{submitError.message}</FormHelperText>
+          )}
+        </Box>
+      </form>
+    </Paper>
+  );
+}

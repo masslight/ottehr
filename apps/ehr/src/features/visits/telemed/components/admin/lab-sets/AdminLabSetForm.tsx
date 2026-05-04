@@ -22,6 +22,7 @@ import {
   DataEntryTestItem,
   ExternalLabSetDTO,
   InHouseLabSetDTO,
+  LabSetStatus,
   LabType,
   LabTypeDisplay,
   OrderableItemSearchResult,
@@ -46,6 +47,7 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
   const valuesForForm = defaultValues ?? {
     listName: '',
     listType: undefined,
+    listStatus: LabSetStatus.active,
     labs: [],
   };
 
@@ -196,12 +198,6 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
             <FormHelperText sx={{ color: theme.palette.error.main }}>{submitError.message}</FormHelperText>
           )}
         </SubSection>
-
-        {/* {disableEdits && (
-          <FormHelperText sx={{ color: theme.palette.error.main }}>
-            {disableEditsMessage ? disableEditsMessage : 'Edits are disabled'}
-          </FormHelperText>
-        )} */}
       </form>
     </FormProvider>
   );

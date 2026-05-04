@@ -21,7 +21,7 @@ import { Link } from 'react-router-dom';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useAdminGetLabSetsList } from 'src/features/visits/telemed/components/admin/admin.queries';
-import { LabSetDTO, LabTypeDisplay } from 'utils';
+import { LabSetDTO, LabSetStatus, LabTypeDisplay } from 'utils';
 
 const DEFAULT_ROWS_PER_PAGE = 10;
 
@@ -77,9 +77,7 @@ export default function LabSetsAdminPage(): ReactElement {
       </TableCell>
       <TableCell>{LabTypeDisplay[set.listType]}</TableCell>
       <TableCell>
-        {/* todo sarah */}
-        {/* <BooleanStateChip label={item.status === 'active' ? 'Active' : 'Inactive'} state={item.status === 'active'} /> */}
-        <BooleanStateChip label={'Active'} state={true} />
+        <BooleanStateChip label={set.listStatus} state={set.listStatus === LabSetStatus.active} />
       </TableCell>
     </TableRow>
   );

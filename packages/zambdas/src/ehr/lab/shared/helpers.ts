@@ -16,6 +16,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   DR_UNSOLICITED_PATIENT_REF,
+  getLabListStatus,
   getLabListType,
   LAB_LIST_IDENTIFIER_SYSTEM,
   LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
@@ -76,10 +77,12 @@ export const formatLabListDTOs = (labLists: List[]): LabSetDTO[] | undefined => 
   const formattedListDTOs: LabSetDTO[] = [];
   labLists.forEach((list, idx) => {
     const listType = getLabListType(list);
+    const listStatus = getLabListStatus(list);
     if (!listType) return;
     const formattedBase = {
       listId: list.id ?? `missing-${idx}`,
       listName: list.title ?? 'Lab List (title missing)',
+      listStatus,
     };
     if (listType === LabType.external) {
       const formatted: LabSetDTO = {
