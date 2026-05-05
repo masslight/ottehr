@@ -24,7 +24,6 @@ import {
   getProceduresUrl,
   getRadiologyOrderEditUrl,
   getRadiologyUrl,
-  withFollowUpEncounterId,
 } from 'src/features/visits/in-person/routing/helpers';
 import { sidebarMenuIcons } from 'src/features/visits/shared/components/Sidebar';
 import { hasAtLeastOneOrder } from 'src/helpers';
@@ -73,7 +72,11 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
 
   const orderConfigs: OrderToolTipConfig[] = [];
 
-  const withEncounter = (url: string): string => withFollowUpEncounterId(url, appointment);
+  const withEncounter = (url: string): string => {
+    if (!appointment.encounterId) return url;
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}encounterId=${appointment.encounterId}`;
+  };
 
   if (externalLabOrders?.length) {
     const externalLabOrderConfig: OrderToolTipConfig = {
