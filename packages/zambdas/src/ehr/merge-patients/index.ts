@@ -351,35 +351,72 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
 
     if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
       console.log(`  Patching patient with ${patientPatchOps.patient.patchOpsForDirectUpdate.length} operations`);
-      patientResource = await oystehr.fhir.patch({
-        resourceType: 'Patient',
-        id: patientResource.id!,
-        operations: patientPatchOps.patient.patchOpsForDirectUpdate,
-      });
+      try {
+        patientResource = await oystehr.fhir.patch({
+          resourceType: 'Patient',
+          id: patientResource.id!,
+          operations: patientPatchOps.patient.patchOpsForDirectUpdate,
+        });
+      } catch (error: any) {
+        console.error(
+          `Error: Step 1 patient patch failed for Patient/${mainPatientId}.`,
+          'message:',
+          error?.message,
+          'cause:',
+          JSON.stringify(error?.cause ?? null),
+          'operations:',
+          JSON.stringify(patientPatchOps.patient.patchOpsForDirectUpdate)
+        );
+        throw new Error(`Step 1: failed to patch main patient: ${error?.message ?? 'unknown error'}.`);
+      }
     }
 
     const pharmacyPatchOps = createUpdatePharmacyPatchOps(patientResource, flattenQuestionnaireAnswers(items));
     if (pharmacyPatchOps.length > 0) {
-      await oystehr.fhir.patch<Patient>({
-        resourceType: 'Patient',
-        id: patientResource.id!,
-        operations: pharmacyPatchOps,
-      });
+      try {
+        await oystehr.fhir.patch<Patient>({
+          resourceType: 'Patient',
+          id: patientResource.id!,
+          operations: pharmacyPatchOps,
+        });
+      } catch (error: any) {
+        console.error(
+          `Error: Step 1 pharmacy patch failed for Patient/${mainPatientId}.`,
+          'message:',
+          error?.message,
+          'operations:',
+          JSON.stringify(pharmacyPatchOps)
+        );
+        throw new Error(`Step 1: failed to apply pharmacy patch: ${error?.message ?? 'unknown error'}.`);
+      }
     }
 
     // Update Account, Coverage, RelatedPerson (guarantor/emergency), Organization (employer).
     // Pass the post-patch Patient so same-as-patient address resolution sees the
     // address changes applied above without depending on read-after-write.
-    await updatePatientAccountFromQuestionnaire(
-      {
-        questionnaireResponseItem: items,
-        patientId: mainPatientId,
-        patient: patientResource,
-        preserveOmittedCoverages: true,
-        questionnaireForEnableWhenFiltering,
-      },
-      oystehr
-    );
+    try {
+      await updatePatientAccountFromQuestionnaire(
+        {
+          questionnaireResponseItem: items,
+          patientId: mainPatientId,
+          patient: patientResource,
+          preserveOmittedCoverages: true,
+          questionnaireForEnableWhenFiltering,
+        },
+        oystehr
+      );
+    } catch (error: any) {
+      console.error(
+        `Error: Step 1 updatePatientAccountFromQuestionnaire failed for Patient/${mainPatientId}.`,
+        'message:',
+        error?.message,
+        'cause:',
+        JSON.stringify(error?.cause ?? null)
+      );
+      throw new Error(
+        `Step 1: failed to update patient account/coverage from questionnaire: ${error?.message ?? 'unknown error'}.`
+      );
+    }
 
     // Update Stripe customer
     try {
@@ -897,7 +934,23 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   // Execute single atomic transaction (Steps 2–5)
   // ════════════════════════════════════════════════════════════════════════
   console.log(`Executing transaction with ${requests.length} operations`);
-  await oystehr.fhir.transaction({ requests });
+  try {
+    await oystehr.fhir.transaction({ requests });
+  } catch (error: any) {
+    const requestSummary = requests.map((r) => `${r.method} ${r.url}`);
+    console.error(
+      `Error: FHIR transaction failed (${requests.length} operations).`,
+      'message:',
+      error?.message,
+      'cause:',
+      JSON.stringify(error?.cause ?? null),
+      'requests:',
+      JSON.stringify(requestSummary)
+    );
+    throw new Error(
+      `Merge transaction failed: ${error?.message ?? 'unknown error'}. See logs for the failing operation list.`
+    );
+  }
   console.log(`Merge complete: ${requests.length} resources updated in a single transaction`);
 
   // ════════════════════════════════════════════════════════════════════════
@@ -958,20 +1011,43 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
       },
     ],
   };
-  const ae = await oystehr.fhir.create(auditEvent);
-  console.log(`  Wrote audit event: AuditEvent/${ae.id}`);
+  try {
+    const ae = await oystehr.fhir.create(auditEvent);
+    console.log(`  Wrote audit event: AuditEvent/${ae.id}`);
+  } catch (error: any) {
+    // Non-fatal: merge already succeeded transactionally; we just lose the audit trail entry.
+    console.error(
+      `Error: Step 6 failed to write audit event (non-fatal).`,
+      'message:',
+      error?.message,
+      'cause:',
+      JSON.stringify(error?.cause ?? null)
+    );
+  }
 
   // ════════════════════════════════════════════════════════════════════════
   // Step 7: Transfer login phone numbers (after transaction to avoid partial state)
   // ════════════════════════════════════════════════════════════════════════
   console.log('Step 7: Transferring login phone numbers');
 
-  const oldPatientPhones = await getLoginPhoneNumbers(oystehr, otherPatientId);
-  const newPatientPhones = await getLoginPhoneNumbers(oystehr, mainPatientId);
-  const phonesToAdd = oldPatientPhones.filter((p) => !newPatientPhones.includes(p));
+  try {
+    const oldPatientPhones = await getLoginPhoneNumbers(oystehr, otherPatientId);
+    const newPatientPhones = await getLoginPhoneNumbers(oystehr, mainPatientId);
+    const phonesToAdd = oldPatientPhones.filter((p) => !newPatientPhones.includes(p));
 
-  for (const phone of phonesToAdd) {
-    await createUserResourcesForPatient(oystehr, mainPatientId, phone);
-    console.log(`  Added phone ${phone} to main patient`);
+    for (const phone of phonesToAdd) {
+      try {
+        await createUserResourcesForPatient(oystehr, mainPatientId, phone);
+        console.log(`  Added phone ${phone} to main patient`);
+      } catch (error: any) {
+        console.error(
+          `Error: Step 7 failed to add phone ${phone} to Patient/${mainPatientId} (non-fatal).`,
+          'message:',
+          error?.message
+        );
+      }
+    }
+  } catch (error: any) {
+    console.error(`Error: Step 7 failed to enumerate login phone numbers (non-fatal).`, 'message:', error?.message);
   }
 };
