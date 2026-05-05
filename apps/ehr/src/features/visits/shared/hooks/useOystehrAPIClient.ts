@@ -10,7 +10,6 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
       return getOystehrTelemedAPI(
         {
           syncUserZambdaID: 'sync-user',
-          getTelemedAppointmentsZambdaID: 'get-telemed-appointments',
           initTelemedSessionZambdaID: 'init-telemed-session',
           getChartDataZambdaID: 'get-chart-data',
           saveChartDataZambdaID: 'save-chart-data',

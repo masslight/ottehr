@@ -1,3 +1,4 @@
+import { VisitStatusLabel } from '../../../api';
 import { FileURLInfo, FileURLs } from '../../../common';
 import { AnswerOptionSource } from '../../paperwork';
 import { PatientInfo } from './create-appointment.types';
@@ -78,25 +79,6 @@ export interface TelemedAppointmentInformationIntake {
     dateOfBirth?: string;
   };
   appointmentStatus: string;
-  telemedStatus: TelemedAppointmentStatus;
+  status: VisitStatusLabel;
   state?: { code?: string; id?: string };
-}
-
-export enum TelemedAppointmentStatusEnum {
-  'ready' = 'ready',
-  'pre-video' = 'pre-video',
-  'on-video' = 'on-video',
-  'unsigned' = 'unsigned',
-  'complete' = 'complete',
-  'cancelled' = 'cancelled',
-}
-
-export type TelemedAppointmentStatus = `${TelemedAppointmentStatusEnum}`;
-
-export type TelemedCallStatuses = `${TelemedAppointmentStatus}`;
-
-export interface TelemedStatusHistoryElement {
-  start?: string;
-  end?: string;
-  status?: TelemedCallStatuses;
 }

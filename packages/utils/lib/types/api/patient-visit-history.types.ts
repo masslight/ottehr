@@ -1,7 +1,6 @@
 import { Encounter, Task } from 'fhir/r4b';
 import { FollowupSubtype } from '../../fhir';
 import { ServiceMode } from '../common';
-import { TelemedAppointmentStatusEnum } from '../data';
 import { AppointmentType, VisitStatusLabel } from './appointment.types';
 
 export interface GetPatientVisitListInput {
@@ -60,7 +59,7 @@ type InPersonAppointmentHistoryRow = BaseAppointmentHistoryRow & {
 };
 type VirtualAppointmentHistoryRow = BaseAppointmentHistoryRow & {
   serviceMode: ServiceMode.virtual;
-  status: TelemedAppointmentStatusEnum | undefined;
+  status: VisitStatusLabel | undefined;
   followUps: FollowUpVisitHistoryRow[] | undefined;
 };
 

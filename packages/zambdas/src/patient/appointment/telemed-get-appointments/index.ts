@@ -2,11 +2,11 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient } from 'fhir/r4b';
 import {
   createOystehrClient,
+  getInPersonVisitStatus,
   getParticipantIdFromAppointment,
   getPatientsForUser,
   getSecret,
   GetTelemedAppointmentsResponse,
-  getTelemedVisitStatus,
   SecretsKeys,
   TelemedAppointmentInformationIntake,
 } from 'utils';
@@ -70,9 +70,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         return;
       }
 
-      const telemedStatus = getTelemedVisitStatus(encounter.status, fhirAppointment.status);
+      const status = getInPersonVisitStatus(fhirAppointment, encounter);
 
-      if (!telemedStatus) {
+      if (!status) {
         console.log('No telemed status for appointment');
         return;
       }
@@ -91,7 +91,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           lastName: patient?.name?.[0].family,
         },
         appointmentStatus: fhirAppointment.status,
-        telemedStatus: telemedStatus,
+        status: status,
         state: { code: stateCode, id: stateId },
       };
       appointments.push(appointment);

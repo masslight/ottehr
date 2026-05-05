@@ -1,4 +1,4 @@
-import { Appointment, Encounter } from 'fhir/r4b';
+import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   formatDateTimeToZone,
@@ -8,7 +8,6 @@ import {
   getAttendingPractitionerId,
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
-  getTelemedEncounterStatusHistory,
   isAnnotationFollowupEncounter,
   isInPersonAppointment,
   Timezone,
@@ -21,14 +20,12 @@ import { getBookingTypeForPdf, getVisitTypeForPdf } from '../visitInfo';
 
 function getStatusRelatedDates(
   encounter: Encounter,
-  appointment: Appointment,
   timezone: Timezone
 ): { dateOfService?: string; signedOnDate?: string } {
-  const statuses =
-    encounter.statusHistory && appointment?.status
-      ? getTelemedEncounterStatusHistory(encounter.statusHistory, appointment.status)
-      : undefined;
-  const dateOfService = formatDateTimeToZone(statuses?.find((item) => item.status === 'on-video')?.start, timezone);
+  const dateOfService = formatDateTimeToZone(
+    (encounter.statusHistory ?? []).find((item) => item.status === 'in-progress')?.period?.start,
+    timezone
+  );
   const currentTimeISO = DateTime.now().toISO();
   const signedOnDate = formatDateTimeToZone(currentTimeISO, timezone);
 
@@ -68,7 +65,7 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
       provider,
     };
   } else {
-    const { dateOfService, signedOnDate } = getStatusRelatedDates(mainEncounter ?? encounter, appointment, timezone);
+    const { dateOfService, signedOnDate } = getStatusRelatedDates(mainEncounter ?? encounter, timezone);
     const type = getVisitTypeForPdf(appointment);
     const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
     const bookingType = getBookingTypeForPdf(appointment);
