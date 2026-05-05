@@ -70,6 +70,10 @@ jobs:
         with:
           app-id: ${{ env.GITHUB_APP_ID }}
           private-key: ${{ env.GITHUB_APP_PRIVATE_KEY }}
+          owner: masslight
+          repositories: |
+            ottehr-secrets
+            ottehr-prod-secrets
 
       - name: If environment is demo, ensure keys are coming in through input parameters.
         if: ${{ env.ENVIRONMENT == 'demo' && !(github.event.inputs.confirmProduction == 'Yes') }}
