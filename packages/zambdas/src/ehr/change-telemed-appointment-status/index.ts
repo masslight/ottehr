@@ -7,12 +7,12 @@ import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
   createCandidApiClient,
+  FEATURE_FLAGS_CONFIG,
   getOptionalSecret,
   getPatientContactEmail,
   getQuestionnaireResponseByLinkId,
   getSecret,
   getTelemedVisitStatus,
-  isFeatureFlagEnabled,
   SecretsKeys,
   TelemedAppointmentStatusEnum,
   TelemedCompletionTemplateData,
@@ -273,10 +273,7 @@ export const performEffect = async (
       }
     }
 
-    const skipVisitNoteInPatientPortal = isFeatureFlagEnabled(
-      'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG',
-      secrets
-    );
+    const skipVisitNoteInPatientPortal = FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled;
 
     // Send email notification only if visit note was created successfully and not suppressed
     if (visitNoteCreatedSuccessfully && !skipVisitNoteInPatientPortal) {

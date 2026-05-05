@@ -841,7 +841,10 @@ export interface ErxMedicationsData extends PdfData {
 }
 
 export interface PatientInstructionsData extends PdfData {
-  instructions: string[];
+  instructions: {
+    title?: string;
+    text?: string;
+  }[];
 }
 
 export interface EducationDocumentsData extends PdfData {
