@@ -377,6 +377,15 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
       }
     }
 
+    // Copy hidden logical fields (e.g. should-display-ssn-field) from main so the
+    // server-side enableWhen filter doesn't strip dependent answers like patient-ssn.
+    for (const linkId of HIDDEN_LINK_IDS) {
+      const value = mainFormVals[linkId] ?? otherFormVals[linkId];
+      if (value !== undefined) {
+        mergedFormValues[linkId] = value;
+      }
+    }
+
     const dirtyFields: Record<string, boolean> = {};
     for (const { linkId } of questionnaireFields) {
       const selectedPatientId = values[linkId] || mainPid;

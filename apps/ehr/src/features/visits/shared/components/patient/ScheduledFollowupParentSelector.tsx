@@ -1,18 +1,21 @@
 import { LoadingButton } from '@mui/lab';
 import { Autocomplete, Box, Button, Grid, TextField } from '@mui/material';
-import { Patient } from 'fhir/r4b';
+import { Patient, Person } from 'fhir/r4b';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
+import { getFirstName, getLastName } from 'utils';
 import { useParentEncounters } from './useParentEncounters';
 
 interface ScheduledFollowupParentSelectorProps {
   patient: Patient;
+  person?: Person;
   initialEncounterId?: string;
 }
 
 export default function ScheduledFollowupParentSelector({
   patient,
+  person,
   initialEncounterId,
 }: ScheduledFollowupParentSelectorProps): JSX.Element {
   const navigate = useNavigate();
@@ -40,11 +43,13 @@ export default function ScheduledFollowupParentSelector({
         patientInfo: {
           id: patient.id,
           newPatient: false,
-          firstName: patient.name?.[0]?.given?.[0] || '',
-          lastName: patient.name?.[0]?.family || '',
-          dateOfBirth: patient.birthDate || '',
+          firstName: getFirstName(patient),
+          lastName: getLastName(patient),
+          dateOfBirth: patient.birthDate,
           sex: patient.gender,
-          phoneNumber: patient.telecom?.find((t) => t.system === 'phone')?.value?.replace('+1', '') || '',
+          phoneNumber:
+            patient?.telecom?.find((t) => t.system === 'phone')?.value?.replace('+1', '') ||
+            person?.telecom?.find((t) => t.system === 'phone')?.value?.replace('+1', ''),
         },
       },
     });

@@ -5,6 +5,7 @@ import { examConfig, isInPersonAppointment } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { useExamObservationsInitializationStore } from '../../stores/appointment/exam-observations.store';
+import { PageTitle } from '../PageTitle';
 import { ExaminationContainer } from '../review-tab/components/ExaminationContainer';
 import { ExamMigrationWarning } from './ExamMigrationWarning';
 import { ExamTable } from './ExamTable';
@@ -24,6 +25,7 @@ export const ExamTab: FC = () => {
 
   return (
     <Stack direction="column" gap={1}>
+      <PageTitle label="Exam" showIntakeNotesButton={false} />
       {!hasInitialData ? (
         <Stack direction="row" justifyContent="center">
           <CircularProgress />

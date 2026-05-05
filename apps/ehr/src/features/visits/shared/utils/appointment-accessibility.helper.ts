@@ -5,11 +5,9 @@ import {
   checkEncounterHasPractitioner,
   EncounterVisitType,
   getEncounterVisitType,
-  getTelemedVisitStatus,
   isAppointmentLocked,
   PractitionerLicense,
   StateType,
-  TelemedAppointmentStatusEnum,
 } from 'utils';
 
 export type GetAppointmentAccessibilityDataProps = {
@@ -24,11 +22,8 @@ export type GetAppointmentAccessibilityDataResult = {
   licensedPractitionerStates?: string[];
   state?: StateType;
   isPractitionerLicensedInState: boolean;
-  status?: TelemedAppointmentStatusEnum;
   isEncounterAssignedToCurrentPractitioner: boolean;
-  isStatusEditable: boolean;
   isAppointmentReadOnly: boolean;
-  isCurrentUserHasAccessToAppointment: boolean;
   isAppointmentLocked: boolean;
   visitType: EncounterVisitType;
 };
@@ -46,17 +41,8 @@ export const getAppointmentAccessibilityData = ({
   const isPractitionerLicensedInState =
     !!state && !!licensedPractitionerStates && licensedPractitionerStates.includes(state as StateType);
 
-  const status = encounter ? getTelemedVisitStatus(encounter.status, appointment?.status) : undefined;
-
   const isEncounterAssignedToCurrentPractitioner =
     !!user?.profileResource && !!encounter && checkEncounterHasPractitioner(encounter, user.profileResource);
-
-  const isStatusEditable =
-    !!status && ![TelemedAppointmentStatusEnum.complete, TelemedAppointmentStatusEnum.ready].includes(status);
-
-  const isCurrentUserHasAccessToAppointment =
-    isPractitionerLicensedInState &&
-    (status === TelemedAppointmentStatusEnum.ready || isEncounterAssignedToCurrentPractitioner);
 
   // Check if appointment is locked via meta tag
   const isAppointmentLockedByMetaTag = appointment ? isAppointmentLocked(appointment) : false;
@@ -72,11 +58,8 @@ export const getAppointmentAccessibilityData = ({
     licensedPractitionerStates,
     state,
     isPractitionerLicensedInState,
-    status,
     isEncounterAssignedToCurrentPractitioner,
-    isStatusEditable,
     isAppointmentReadOnly,
-    isCurrentUserHasAccessToAppointment,
     isAppointmentLocked: isAppointmentLockedByMetaTag,
     visitType,
   };

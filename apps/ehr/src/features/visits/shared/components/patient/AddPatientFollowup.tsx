@@ -10,7 +10,7 @@ import ScheduledFollowupParentSelector from './ScheduledFollowupParentSelector';
 
 export default function AddPatientFollowup(): JSX.Element {
   const { id } = useParams();
-  const { patient } = useGetPatient(id);
+  const { patient, person } = useGetPatient(id);
   const [followupSubtype, setFollowupSubtype] = useState<FollowupSubtype>('annotation');
   const location = useLocation();
   const routerState = location.state as { initialEncounterId?: string } | undefined;
@@ -56,7 +56,11 @@ export default function AddPatientFollowup(): JSX.Element {
               {followupSubtype === 'annotation' ? (
                 <PatientFollowupForm patient={patient} initialEncounterId={initialEncounterId} />
               ) : (
-                <ScheduledFollowupParentSelector patient={patient} initialEncounterId={initialEncounterId} />
+                <ScheduledFollowupParentSelector
+                  patient={patient}
+                  person={person}
+                  initialEncounterId={initialEncounterId}
+                />
               )}
             </Paper>
           </Grid>
