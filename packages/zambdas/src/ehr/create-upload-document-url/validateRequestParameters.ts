@@ -6,7 +6,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateUploadPatie
     throw new Error('No request body provided');
   }
 
-  const { patientId, fileFolderId, fileName } = JSON.parse(input.body);
+  const { patientId, fileFolderId, fileName, internalName } = JSON.parse(input.body);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
@@ -16,5 +16,6 @@ export function validateRequestParameters(input: ZambdaInput): CreateUploadPatie
     fileFolderId: fileFolderId,
     fileName: fileName,
     userToken: userToken,
+    internalName: internalName,
   };
 }

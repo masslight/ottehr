@@ -7,14 +7,10 @@ export const CUSTOM_FOLDERS_CATALOG_IDENTIFIER = 'ottehr-custom-folders-catalog'
 export const CUSTOM_FOLDER_KIND_SYSTEM = 'https://fhir.ottehr.com/r4/CodeSystem/folder-kind';
 export const CUSTOM_FOLDER_INTERNAL_NAME_PREFIX = 'custom-folder-';
 
-export const createPatientDocumentLists = async (patientReference: string, oystehr: Oystehr): Promise<List[]> => {
-  const systemLists = FOLDERS_CONFIG.map((c) => createPatientDocumentList(patientReference, c));
-  const catalog = await fetchCustomFoldersCatalog(oystehr);
-  const customLists = catalog.map(({ internalName, displayName }) =>
-    createCustomPatientDocumentList(patientReference, { internalName, displayName })
-  );
-  return [...systemLists, ...customLists];
-};
+// Custom-folder per-patient Lists are created lazily on first upload (see
+// create-upload-document-url zambda). On patient creation we only seed system folders.
+export const createPatientDocumentLists = (patientReference: string): List[] =>
+  FOLDERS_CONFIG.map((c) => createPatientDocumentList(patientReference, c));
 
 export const createPatientDocumentList = (patientReference: string, listConfig: ListConfig): List => ({
   resourceType: 'List',

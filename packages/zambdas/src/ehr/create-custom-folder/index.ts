@@ -1,11 +1,9 @@
 import Oystehr from '@oystehr/sdk';
-import { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
 import {
   BUCKET_NAMES,
   CreateCustomFolderOutput,
-  createCustomPatientDocumentList,
   CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
   deriveInternalFolderName,
   FOLDERS_CONFIG,
@@ -85,26 +83,16 @@ const performEffect = async (
 
   const existingDefs = parseCustomFoldersCatalog(catalog);
 
-  // Derive internal name first so we can detect a retry-to-completion of the same folder.
   const internalName = deriveInternalFolderName(folderName);
   if (!internalName) {
     throw INVALID_INPUT_ERROR('Could not derive a valid internal name from the provided folder name');
   }
 
-  // A retry is a re-invocation with the same display name AND the same derived internal name
-  // as an existing catalog entry. Bucket creation, catalog append, and per-patient fan-out below
-  // are all idempotent; allowing this path lets an admin re-run after a partial failure
-  // (e.g. zambda timeout mid-fan-out) and finish provisioning without manual intervention.
   const lowerName = folderName.toLowerCase().trim();
-  const matchedByDisplay = existingDefs.find((d) => d.displayName.toLowerCase().trim() === lowerName);
-  const matchedByInternal = existingDefs.find((d) => d.internalName === internalName);
-  const isRetry = !!matchedByDisplay && matchedByDisplay.internalName === internalName;
-
-  if (matchedByDisplay && !isRetry) {
+  if (existingDefs.some((d) => d.displayName.toLowerCase().trim() === lowerName)) {
     throw { ...INVALID_INPUT_ERROR(`A folder named "${folderName}" already exists`), statusCode: 409 };
   }
-
-  if (matchedByInternal && !isRetry) {
+  if (existingDefs.some((d) => d.internalName === internalName)) {
     throw {
       ...INVALID_INPUT_ERROR(`A folder with internal name "${internalName}" already exists`),
       statusCode: 409,
@@ -119,10 +107,6 @@ const performEffect = async (
       ...INVALID_INPUT_ERROR(`The folder name "${folderName}" conflicts with a system folder`),
       statusCode: 409,
     };
-  }
-
-  if (isRetry) {
-    console.log(`create-custom-folder: retry detected for "${folderName}" (${internalName}) — resuming provisioning`);
   }
 
   // Create Z3 bucket — must use the full {projectId}-{internalName} name to match
@@ -142,7 +126,6 @@ const performEffect = async (
     }
   }
 
-  // Append to catalog with optimistic locking
   const newEntry = {
     item: {
       display: folderName,
@@ -158,7 +141,6 @@ const performEffect = async (
     attempt++;
     try {
       if (!currentCatalog) {
-        // Create catalog
         currentCatalog = await oystehr.fhir.create<List>({
           resourceType: 'List',
           status: 'current',
@@ -171,27 +153,19 @@ const performEffect = async (
         });
         console.log(`create-custom-folder: catalog List created with first entry "${internalName}"`);
         break;
-      } else {
-        // Check if entry already present (idempotency)
-        const alreadyPresent = (currentCatalog.entry ?? []).some((e) => e.item?.identifier?.value === internalName);
-        if (alreadyPresent) {
-          console.log(`create-custom-folder: catalog already contains entry for "${internalName}" — skipping append`);
-          break;
-        }
-
-        const updatedCatalog: List = {
-          ...currentCatalog,
-          entry: [...(currentCatalog.entry ?? []), newEntry],
-        };
-        await oystehr.fhir.update(updatedCatalog, {
-          optimisticLockingVersionId: currentCatalog.meta?.versionId,
-        });
-        console.log(`create-custom-folder: appended "${internalName}" to catalog (attempt ${attempt})`);
-        break;
       }
+
+      const updatedCatalog: List = {
+        ...currentCatalog,
+        entry: [...(currentCatalog.entry ?? []), newEntry],
+      };
+      await oystehr.fhir.update(updatedCatalog, {
+        optimisticLockingVersionId: currentCatalog.meta?.versionId,
+      });
+      console.log(`create-custom-folder: appended "${internalName}" to catalog (attempt ${attempt})`);
+      break;
     } catch (err: any) {
       if (err?.statusCode === 412 && attempt < MAX_RETRIES) {
-        // Conflict — refetch and retry
         console.warn(
           `create-custom-folder: catalog optimistic-lock conflict on attempt ${attempt} — refetching and retrying`
         );
@@ -211,78 +185,8 @@ const performEffect = async (
     }
   }
 
-  // Fan-out: create per-patient instance Lists.
-  // A FHIR transaction is atomic: if a batch throws, none of the 100 patients in that batch
-  // got their List. We catch per-batch and continue so a single bad batch doesn't strand the
-  // remaining patients; the failed patient IDs are logged and the admin can retry the whole
-  // create-custom-folder call (idempotent — see retry detection above) to fill the gaps.
-  const PAGE_SIZE = 100;
-  let pageOffset = 0;
-  let fanOutProcessed = 0;
-  const failedPatientIds: string[] = [];
-
-  console.log(`create-custom-folder: starting per-patient fan-out for "${internalName}" (page size ${PAGE_SIZE})`);
-
-  let hasMorePages = true;
-  let pageNumber = 0;
-  while (hasMorePages) {
-    pageNumber++;
-    const pageBundle = await oystehr.fhir.search<any>({
-      resourceType: 'Patient',
-      params: [
-        { name: '_elements', value: 'id' },
-        { name: '_count', value: String(PAGE_SIZE) },
-        { name: '_offset', value: String(pageOffset) },
-      ],
-    });
-
-    const patients = pageBundle.unbundle();
-    if (patients.length === 0) break;
-
-    const patientIds: string[] = patients.map((p: any) => p.id);
-    const batchEntries: BatchInputPostRequest<List>[] = patients.map((patient: any) => ({
-      method: 'POST',
-      url: '/List',
-      resource: createCustomPatientDocumentList(`Patient/${patient.id}`, { internalName, displayName: folderName }),
-      ifNoneExist: `subject=Patient/${patient.id}&title=${internalName}`,
-    }));
-
-    if (batchEntries.length > 0) {
-      try {
-        await oystehr.fhir.transaction({ requests: batchEntries });
-        console.log(
-          `create-custom-folder: page ${pageNumber} OK — provisioned ${batchEntries.length} patients (offset ${pageOffset})`
-        );
-      } catch (err: any) {
-        console.error(
-          `create-custom-folder: page ${pageNumber} FAILED — ${batchEntries.length} patients NOT provisioned (offset ${pageOffset}). Error:`,
-          err?.statusCode,
-          err?.message ?? err
-        );
-        console.error(`create-custom-folder: failed patient IDs (page ${pageNumber}):`, patientIds);
-        failedPatientIds.push(...patientIds);
-      }
-    }
-
-    fanOutProcessed += patients.length;
-    if (patients.length < PAGE_SIZE) {
-      hasMorePages = false;
-    } else {
-      pageOffset += PAGE_SIZE;
-    }
-  }
-
-  if (failedPatientIds.length > 0) {
-    console.error(
-      `create-custom-folder: completed with ${failedPatientIds.length} of ${fanOutProcessed} patients NOT provisioned for "${internalName}". ` +
-        `Re-run create-custom-folder with the same folder name to retry (idempotent).`
-    );
-    console.error(`create-custom-folder: full list of failed patient IDs for "${internalName}":`, failedPatientIds);
-  } else {
-    console.log(
-      `create-custom-folder: fan-out complete — ${fanOutProcessed} patients processed for "${internalName}" with no batch errors`
-    );
-  }
-
+  // Per-patient List instances are no longer created up front — they're created lazily
+  // by create-upload-document-url on first upload to this folder. The catalog is the
+  // source of truth; the patient docs UI synthesizes folder entries from it.
   return { internalName, displayName: folderName };
 };

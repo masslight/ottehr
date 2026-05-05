@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
 import {
@@ -150,94 +149,8 @@ const performEffect = async (
     }
   }
 
-  // Patch all per-patient instance Lists: update code.coding[0].display.
-  // A FHIR transaction is atomic: if a batch throws, none of the patients in that batch were
-  // updated. We catch per-batch and continue so a single bad batch doesn't strand the rest;
-  // failed instance IDs are logged so the admin can re-run the rename to retry.
-  const PATIENT_FOLDERS_CODE = 'patient-docs-folder';
-  let processed = 0;
-  let pageOffset = 0;
-  const PAGE_SIZE = 100;
-  const failedInstanceIds: string[] = [];
-
-  console.log(`rename-custom-folder: starting per-patient instance update (page size ${PAGE_SIZE})`);
-
-  let hasMorePages = true;
-  let pageNumber = 0;
-  while (hasMorePages) {
-    pageNumber++;
-    console.log(`rename-custom-folder: searching page ${pageNumber} (offset ${pageOffset})`);
-    const instanceResults = await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [
-        { name: 'code', value: PATIENT_FOLDERS_CODE },
-        { name: 'title', value: internalName },
-        { name: '_count', value: String(PAGE_SIZE) },
-        { name: '_offset', value: String(pageOffset) },
-      ],
-    });
-
-    const instances = instanceResults.unbundle() as List[];
-    console.log(`rename-custom-folder: page ${pageNumber} returned ${instances.length} instance(s)`);
-    if (instances.length === 0) break;
-
-    const instanceIds: string[] = instances.map((i) => i.id ?? '');
-    const patchRequests: BatchInputRequest<List>[] = instances.map((instance) => {
-      const updatedCoding = (instance.code?.coding ?? []).map((c) => {
-        if (c.system === 'https://fhir.zapehr.com/r4/StructureDefinitions' && c.code === PATIENT_FOLDERS_CODE) {
-          return { ...c, display: newName };
-        }
-        return c;
-      });
-
-      const updatedInstance: List = {
-        ...instance,
-        code: { ...instance.code, coding: updatedCoding },
-      };
-
-      return {
-        method: 'PUT' as const,
-        url: `/List/${instance.id}`,
-        resource: updatedInstance,
-      };
-    });
-
-    if (patchRequests.length > 0) {
-      try {
-        await oystehr.fhir.transaction({ requests: patchRequests });
-        console.log(
-          `rename-custom-folder: page ${pageNumber} OK — updated ${patchRequests.length} instance(s) (offset ${pageOffset})`
-        );
-      } catch (err: any) {
-        console.error(
-          `rename-custom-folder: page ${pageNumber} FAILED — ${patchRequests.length} instance(s) NOT updated (offset ${pageOffset}). Error:`,
-          err?.statusCode,
-          err?.message ?? err
-        );
-        console.error(`rename-custom-folder: failed instance IDs (page ${pageNumber}):`, instanceIds);
-        failedInstanceIds.push(...instanceIds);
-      }
-    }
-
-    processed += instances.length;
-    if (instances.length < PAGE_SIZE) {
-      hasMorePages = false;
-    } else {
-      pageOffset += PAGE_SIZE;
-    }
-  }
-
-  if (failedInstanceIds.length > 0) {
-    console.error(
-      `rename-custom-folder: completed with ${failedInstanceIds.length} of ${processed} instance(s) NOT updated for "${internalName}". ` +
-        `Re-run rename-custom-folder with the same parameters to retry.`
-    );
-    console.error(`rename-custom-folder: full list of failed instance IDs:`, failedInstanceIds);
-  } else {
-    console.log(
-      `rename-custom-folder: complete — ${processed} per-patient List(s) updated for "${internalName}" → "${newName}"`
-    );
-  }
-
+  // Per-patient List instances no longer carry the display name — the patient docs UI
+  // resolves it from the catalog. So a rename is just a single catalog update; nothing
+  // else needs to change.
   return { internalName, displayName: newName };
 };

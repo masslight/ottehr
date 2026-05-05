@@ -5,8 +5,16 @@ import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
 import { createCustomFolder, deletePatientDocument, renameCustomFolder } from 'src/api/api';
-import { CustomFolderDefinition, getMimeType, useSuccessQuery } from 'utils';
-import { chooseJson, CUSTOM_FOLDER_KIND_SYSTEM, getPresignedURL } from 'utils';
+import {
+  chooseJson,
+  CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
+  CustomFolderDefinition,
+  getMimeType,
+  getPresignedURL,
+  isCustomFolderList,
+  parseCustomFoldersCatalog,
+  useSuccessQuery,
+} from 'utils';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
 
@@ -69,6 +77,9 @@ export type UploadDocumentActionResult = {
 };
 export type UploadDocumentActionParams = {
   fileFolderId: string;
+  // Sent so the upload zambda can lazily create the per-patient List when the folder
+  // is a synthetic catalog-only folder (fileFolderId starts with SYNTHETIC_FOLDER_ID_PREFIX).
+  internalName?: string;
   fileName: string;
   docFile: File;
 };
@@ -313,6 +324,13 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   };
 };
 
+type PatientDocsFoldersQueryData = {
+  lists: List[];
+  catalogDefs: CustomFolderDefinition[];
+};
+
+export const SYNTHETIC_FOLDER_ID_PREFIX = 'synthetic:';
+
 const useGetPatientDocsFolders = (
   {
     patientId,
@@ -320,12 +338,12 @@ const useGetPatientDocsFolders = (
     patientId: string;
   },
   onSuccess: (data: PatientDocumentsFolder[]) => void
-): UseQueryResult<FhirResource[], Error> => {
+): UseQueryResult<PatientDocsFoldersQueryData, Error> => {
   const { oystehr } = useApiClients();
   const queryResult = useQuery({
     queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
 
-    queryFn: async () => {
+    queryFn: async (): Promise<PatientDocsFoldersQueryData> => {
       if (!oystehr) {
         throw new Error('useGetDocsFolders() oystehr client not defined');
       }
@@ -335,15 +353,24 @@ const useGetPatientDocsFolders = (
 
       console.log(`useGetPatientDocsFolders() query triggered`);
 
-      return (
-        await oystehr.fhir.search<FhirResource>({
+      const [listsBundle, catalogBundle] = await Promise.all([
+        oystehr.fhir.search<List>({
           resourceType: 'List',
           params: [
             { name: 'subject', value: `Patient/${patientId}` },
             { name: 'code', value: PATIENT_FOLDERS_CODE },
           ],
-        })
-      ).unbundle();
+        }),
+        oystehr.fhir.search<List>({
+          resourceType: 'List',
+          params: [{ name: 'identifier', value: CUSTOM_FOLDERS_CATALOG_IDENTIFIER }],
+        }),
+      ]);
+
+      return {
+        lists: listsBundle.unbundle() as List[],
+        catalogDefs: parseCustomFoldersCatalog(catalogBundle.unbundle()[0]),
+      };
     },
   });
 
@@ -351,40 +378,56 @@ const useGetPatientDocsFolders = (
     if (!data) {
       return;
     }
-    const searchResultsResources: FhirResource[] = data;
-    const listResources =
-      searchResultsResources
-        ?.filter((resource: FhirResource) => resource.resourceType === 'List' && resource.status === 'current')
-        ?.map((listResource: FhirResource) => listResource as List) ?? [];
+    const { lists, catalogDefs } = data;
 
-    const patientFoldersResources = listResources.filter((listResource: List) =>
-      Boolean(listResource.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE))
+    const patientFolderLists = lists.filter(
+      (list) => list.status === 'current' && list.code?.coding?.some((c) => c.code === PATIENT_FOLDERS_CODE)
     );
 
-    const docsFolders = patientFoldersResources.map((listRes) => {
-      const folderName = listRes.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE)
-        ?.display;
-      const docRefs: DocRef[] = (listRes.entry ?? []).map(
-        (entry) =>
-          ({
-            reference: entry.item,
-          }) as DocRef
-      );
-      const isCustom = Boolean(
-        listRes.code?.coding?.some((c) => c.system === CUSTOM_FOLDER_KIND_SYSTEM && c.code === 'custom')
-      );
+    const byInternalName = new Map<string, PatientDocumentsFolder>();
 
-      return {
-        id: listRes.id!,
-        folderName: folderName,
-        internalName: listRes.title,
+    for (const list of patientFolderLists) {
+      const internalName = list.title;
+      if (!internalName) continue;
+      const isCustom = isCustomFolderList(list);
+      // Custom folder displayName is owned by the catalog. System folders keep
+      // their display on the per-patient List itself.
+      const catalogDef = isCustom ? catalogDefs.find((d) => d.internalName === internalName) : undefined;
+      if (isCustom && !catalogDef) {
+        // Orphaned: catalog entry was removed but per-patient List still exists. Hide it.
+        continue;
+      }
+      const folderName = isCustom
+        ? catalogDef!.displayName
+        : list.code?.coding?.find((c) => c.code === PATIENT_FOLDERS_CODE)?.display ?? '';
+
+      const docRefs: DocRef[] = (list.entry ?? []).map((entry) => ({ reference: entry.item }) as DocRef);
+
+      byInternalName.set(internalName, {
+        id: list.id!,
+        folderName,
+        internalName,
         documentsCount: docRefs.length,
         documentsRefs: docRefs,
         isCustom,
-      } as PatientDocumentsFolder;
-    });
+      });
+    }
 
-    onSuccess?.(docsFolders);
+    // Synthesize folders for catalog entries that don't have a per-patient List yet.
+    // The List is created lazily on first upload.
+    for (const def of catalogDefs) {
+      if (byInternalName.has(def.internalName)) continue;
+      byInternalName.set(def.internalName, {
+        id: `${SYNTHETIC_FOLDER_ID_PREFIX}${def.internalName}`,
+        folderName: def.displayName,
+        internalName: def.internalName,
+        documentsCount: 0,
+        documentsRefs: [],
+        isCustom: true,
+      });
+    }
+
+    onSuccess?.(Array.from(byInternalName.values()));
   });
 
   return queryResult;
@@ -422,8 +465,14 @@ const useSearchPatientDocuments = (
 
       console.log(`useSearchPatientDocuments() query triggered`);
 
-      const searchParams: SearchParam[] = [{ name: 'subject', value: `Patient/${patientId}` }];
       const docsFolder = filters?.documentsFolder;
+      // Synthetic folders (catalog entries without a per-patient List yet) have no documents
+      // by construction; no need to query the server.
+      if (docsFolder?.id?.startsWith(SYNTHETIC_FOLDER_ID_PREFIX)) {
+        return [];
+      }
+
+      const searchParams: SearchParam[] = [{ name: 'subject', value: `Patient/${patientId}` }];
       if (docsFolder && docsFolder.id) {
         searchParams.push({ name: '_has:List:item:_id', value: docsFolder.id });
       }

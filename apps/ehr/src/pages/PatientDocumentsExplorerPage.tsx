@@ -194,6 +194,7 @@ const PatientDocumentsExplorerPage: FC = () => {
           docFile: file,
           fileName: finalFileName,
           fileFolderId: folderId,
+          internalName: selectedFolder?.internalName,
         });
 
         enqueueSnackbar('Successfully uploaded scanned document', { variant: 'success' });
@@ -202,7 +203,7 @@ const PatientDocumentsExplorerPage: FC = () => {
         enqueueSnackbar('Failed to upload scanned document', { variant: 'error' });
       }
     },
-    [documentActions, selectedFolder?.id]
+    [documentActions, selectedFolder?.id, selectedFolder?.internalName]
   );
 
   const handleDocumentUploadInputChange = useCallback(
