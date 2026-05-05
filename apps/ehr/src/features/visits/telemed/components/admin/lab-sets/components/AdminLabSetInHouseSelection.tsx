@@ -26,7 +26,10 @@ export const AdminLabSetInHouseSelection: React.FC<AdminLabSetInHouseSelectionPr
     if (!defaultLabs?.length || !availableTests?.length) return;
 
     const preSelected = defaultLabs
-      .map((lab) => availableTests.find((t) => t.name === lab.display))
+      .map((lab) => {
+        const matchByAdUrl = lab.adUrl ? availableTests.find((t) => t.adUrl === lab.adUrl) : undefined;
+        return matchByAdUrl ?? availableTests.find((t) => t.name === lab.display);
+      })
       .filter(Boolean) as DataEntryTestItem[];
 
     setSelectedTests(preSelected);

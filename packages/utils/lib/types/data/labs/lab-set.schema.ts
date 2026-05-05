@@ -39,10 +39,10 @@ export const LabSetSchema = z.discriminatedUnion('listType', [ExternalLabSetSche
 const ExternalLabSetNoIdSchema = ExternalLabSetSchema.omit({
   listId: true,
 });
-const InHouseLabSetNoItSchema = InHouseLabSetSchema.omit({
+const InHouseLabSetNoIdSchema = InHouseLabSetSchema.omit({
   listId: true,
 });
-export const LabSetNoIsSchema = z.discriminatedUnion('listType', [ExternalLabSetNoIdSchema, InHouseLabSetNoItSchema]);
+export const LabSetNoIdSchema = z.discriminatedUnion('listType', [ExternalLabSetNoIdSchema, InHouseLabSetNoIdSchema]);
 
 // for the admin lab set form
 export const AdminLabSetFormInputSchema = z
@@ -76,6 +76,6 @@ export const AdminLabSetFormInputSchema = z
 export type ExternalLabSetDTO = z.infer<typeof ExternalLabSetSchema>;
 export type InHouseLabSetDTO = z.infer<typeof InHouseLabSetSchema>;
 export type LabSetDTO = z.infer<typeof LabSetSchema>;
-export type LabSetNoIdDTO = z.infer<typeof LabSetNoIsSchema>;
+export type LabSetNoIdDTO = z.infer<typeof LabSetNoIdSchema>;
 
 export type AdminLabSetFormInput = z.infer<typeof AdminLabSetFormInputSchema>;

@@ -153,6 +153,7 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
                   id="list-type-select"
                   value={value ?? ''}
                   label="Lab Type"
+                  inputProps={{ readOnly: formMode === 'edit' }}
                   onChange={(e) => {
                     const val = e.target.value;
                     onChange(val);
@@ -161,6 +162,14 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
                       setSelectedInHouseTests([]);
                       setSelectedExternalTests([]);
                     }
+                  }}
+                  sx={{
+                    ...(formMode === 'edit' && {
+                      pointerEvents: 'none',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(0, 0, 0, 0.23)',
+                      },
+                    }),
                   }}
                 >
                   <MenuItem value={LabType.inHouse}>{LabTypeDisplay[LabType.inHouse]}</MenuItem>

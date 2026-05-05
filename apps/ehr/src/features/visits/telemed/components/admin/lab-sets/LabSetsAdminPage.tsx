@@ -27,7 +27,7 @@ const DEFAULT_ROWS_PER_PAGE = 10;
 
 export default function LabSetsAdminPage(): ReactElement {
   const theme = useTheme();
-  const { data, isPending, isError } = useAdminGetLabSetsList();
+  const { data, isPending, isError, error } = useAdminGetLabSetsList();
   const [labSetFilter, setLabSetFilter] = useState('');
   const [pageNumber, setPageNumber] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_ROWS_PER_PAGE);
@@ -113,24 +113,34 @@ export default function LabSetsAdminPage(): ReactElement {
           </Grid>
         </Grid>
 
-        <Table sx={{ minWidth: 650 }}>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold', width: '40%' }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Type</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }} align="left">
-                Status
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {/* load fake rows for nice effect */}
-            {isPending &&
-              [...Array(NUM_LOADING_EFFECT_ROWS).keys()].map((id) => loadingEffectRow(`loading-effect-row-${id}`))}
-            {currentPageLabSets && currentPageLabSets.map((lab) => populatedDataRow(lab, lab.listId))}
-            {isError && <Typography>An error occurred</Typography>}
-          </TableBody>
-        </Table>
+        {isError ? (
+          <>
+            <Typography sx={{ py: 1 }} color="error">
+              An error occurred getting the lab sets:
+            </Typography>
+            <Typography sx={{ py: 1 }} color="error">
+              {error.message}
+            </Typography>
+          </>
+        ) : (
+          <Table sx={{ minWidth: 650 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', width: '40%' }}>Name</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Type</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }} align="left">
+                  Status
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {/* load fake rows for nice effect */}
+              {isPending &&
+                [...Array(NUM_LOADING_EFFECT_ROWS).keys()].map((id) => loadingEffectRow(`loading-effect-row-${id}`))}
+              {currentPageLabSets && currentPageLabSets.map((lab) => populatedDataRow(lab, lab.listId))}
+            </TableBody>
+          </Table>
+        )}
 
         <TablePagination
           rowsPerPageOptions={[10, 25, 50, 100]}

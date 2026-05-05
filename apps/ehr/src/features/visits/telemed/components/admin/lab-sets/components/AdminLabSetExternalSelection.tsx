@@ -1,4 +1,4 @@
-import { CircularProgress } from '@mui/material';
+import { CircularProgress, Typography } from '@mui/material';
 import { Stack } from '@mui/system';
 import { useEffect, useRef, useState } from 'react';
 import { ExternalSelectedTests } from 'src/features/external-labs/components/create/ExternalSelectedTests';
@@ -16,6 +16,7 @@ export const AdminLabSetExternalSelection: React.FC<AdminLabSetExternalSelection
   onTestsChange,
   defaultLabs,
 }) => {
+  const [fetchLabsError, setFetchLabsError] = useState<boolean>(false);
   const { data } = useGetCreateExternalLabResources({});
   const apiClient = useOystehrAPIClient();
 
@@ -45,12 +46,23 @@ export const AdminLabSetExternalSelection: React.FC<AdminLabSetExternalSelection
       }
     };
 
-    void fetchLabs();
+    fetchLabs().catch((e) => {
+      console.log('error fetching labs:', e);
+      setFetchLabsError(true);
+    });
   }, [defaultLabs, apiClient]);
 
   useEffect(() => {
     onTestsChange(selectedLabs);
   }, [selectedLabs, onTestsChange]);
+
+  if (fetchLabsError) {
+    return (
+      <Typography sx={{ py: 1 }} color="error">
+        An error occurred getting resources
+      </Typography>
+    );
+  }
 
   return hasInitializedRef.current ? (
     <Stack spacing={2}>

@@ -42,11 +42,19 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
   if (missingParams.length > 0) throw MISSING_REQUIRED_PARAMETERS(missingParams);
 
   if (updateType === 'edit') {
-    const dataValidated = LabSetSchema.parse(data);
+    const dataValidated = LabSetSchema.safeParse(data);
+    if (!dataValidated.success) {
+      console.error(
+        'Hit validation error during zod parsing. Tried to parse this json:',
+        JSON.stringify(dataValidated.error.errors),
+        JSON.stringify(dataValidated)
+      );
+      throw INVALID_INPUT_ERROR(`Validation failed for labSetFormInput: ${JSON.stringify(dataValidated.error.errors)}`);
+    }
 
     return {
       updateType,
-      data: dataValidated,
+      data: dataValidated.data,
       secrets,
       userToken,
     };
@@ -56,7 +64,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
     const validatedLabSetId = data.labSetId;
 
     if (!isValidUUID(validatedLabSetId)) {
-      INVALID_INPUT_ERROR(`labSetId must be a valid uuid, id passed: ${validatedLabSetId}`);
+      throw INVALID_INPUT_ERROR(`labSetId must be a valid uuid, id passed: ${validatedLabSetId}`);
     }
     return {
       updateType,

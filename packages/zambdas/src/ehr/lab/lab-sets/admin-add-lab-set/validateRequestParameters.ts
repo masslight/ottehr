@@ -2,7 +2,7 @@ import {
   AdminAddLabSetInput,
   INVALID_INPUT_ERROR,
   LabSetNoIdDTO,
-  LabSetNoIsSchema,
+  LabSetNoIdSchema,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
@@ -37,10 +37,18 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
     throw MISSING_REQUIRED_PARAMETERS(['labSetFormInput']);
   }
 
-  const labSetValidated = LabSetNoIsSchema.parse(labSetFormInput);
+  const labSetValidated = LabSetNoIdSchema.safeParse(labSetFormInput);
+  if (!labSetValidated.success) {
+    console.error(
+      'Hit validation error during zod parsing. Tried to parse this json:',
+      JSON.stringify(labSetValidated.error.errors),
+      JSON.stringify(labSetValidated)
+    );
+    throw INVALID_INPUT_ERROR(`Validation failed for labSetFormInput: ${JSON.stringify(labSetValidated.error.errors)}`);
+  }
 
   return {
-    labSet: labSetValidated,
+    labSet: labSetValidated.data,
     secrets,
     userToken,
   };
