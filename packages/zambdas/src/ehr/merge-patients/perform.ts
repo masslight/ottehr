@@ -784,27 +784,43 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
   requests.push({ method: 'PUT', url: `/Patient/${otherPatientId}`, resource: otherPatient });
 
   // ════════════════════════════════════════════════════════════════════════
-  // Execute Steps 2–5 as a single atomic transaction.
-  // ════════════════════════════════════════════════════════════════════════
-  console.log(`Executing FHIR transaction with ${requests.length} operations`);
-  try {
-    await oystehr.fhir.transaction({ requests });
-  } catch (error: any) {
-    const requestSummary = requests.map((r) => `${r.method} ${r.url}`);
-    console.error(
-      `Error: FHIR transaction failed (${requests.length} operations).`,
-      'message:',
-      error?.message,
-      'cause:',
-      JSON.stringify(error?.cause ?? null),
-      'requests:',
-      JSON.stringify(requestSummary)
-    );
-    throw new Error(
-      `Merge transaction failed: ${error?.message ?? 'unknown error'}. See logs for the failing operation list.`
-    );
+  // Execute Steps 2–5 as chunked transactions. Each chunk is atomic; the whole
+  // merge is not. All operations are idempotent (subject re-points are guarded
+  // against the old reference, account consolidation dedupes by reference,
+  // replaced-by link checks for prior existence), so re-running after a partial
+  // failure safely completes the remaining work.
+  const TRANSACTION_CHUNK_SIZE = 150;
+  const chunks: BatchInputPutRequest<FhirResource>[][] = [];
+  for (let i = 0; i < requests.length; i += TRANSACTION_CHUNK_SIZE) {
+    chunks.push(requests.slice(i, i + TRANSACTION_CHUNK_SIZE));
   }
-  console.log(`Merge complete: ${requests.length} resources updated`);
+  console.log(
+    `Executing ${requests.length} operations across ${chunks.length} transaction(s) of up to ${TRANSACTION_CHUNK_SIZE} ops`
+  );
+  for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+    const chunk = chunks[chunkIdx];
+    try {
+      await oystehr.fhir.transaction({ requests: chunk });
+      console.log(`  Chunk ${chunkIdx + 1}/${chunks.length} (${chunk.length} ops) committed`);
+    } catch (error: any) {
+      const requestSummary = chunk.map((r) => `${r.method} ${r.url}`);
+      console.error(
+        `Error: FHIR transaction chunk ${chunkIdx + 1}/${chunks.length} failed (${chunk.length} operations).`,
+        'message:',
+        error?.message,
+        'cause:',
+        JSON.stringify(error?.cause ?? null),
+        'requests:',
+        JSON.stringify(requestSummary)
+      );
+      throw new Error(
+        `Merge transaction failed at chunk ${chunkIdx + 1}/${chunks.length}: ${
+          error?.message ?? 'unknown error'
+        }. Earlier chunks already committed; re-running the merge will safely complete the remaining work.`
+      );
+    }
+  }
+  console.log(`Merge complete: ${requests.length} resources updated across ${chunks.length} transaction(s)`);
 
   // ════════════════════════════════════════════════════════════════════════
   // Step 6: Write audit event
