@@ -112,14 +112,16 @@ export default function PatientPage(): JSX.Element {
               <Summary patient={patient} loading={loading} />
               <Contacts patient={patient} loading={loading} />
 
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <RoundedButton
-                  to={`/patient/${id}/info`}
-                  data-testid={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
-                >
-                  View Patient Profile
-                </RoundedButton>
-              </Box>
+              {!isMergedPatient && (
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <RoundedButton
+                    to={`/patient/${id}/info`}
+                    data-testid={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
+                  >
+                    View Patient Profile
+                  </RoundedButton>
+                </Box>
+              )}
             </Box>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -132,12 +134,16 @@ export default function PatientPage(): JSX.Element {
                   Recent Progress Note
                 </RoundedButton>
               )}
-              <RoundedButton sx={{ width: '100%' }} to={`/patient/${id}/docs`}>
-                Review Docs
-              </RoundedButton>
-              <RoundedButton sx={{ width: '100%' }} onClick={() => setShowAccountSettingsDialog(true)}>
-                Account Settings
-              </RoundedButton>
+              {!isMergedPatient && (
+                <>
+                  <RoundedButton sx={{ width: '100%' }} to={`/patient/${id}/docs`}>
+                    Review Docs
+                  </RoundedButton>
+                  <RoundedButton sx={{ width: '100%' }} onClick={() => setShowAccountSettingsDialog(true)}>
+                    Account Settings
+                  </RoundedButton>
+                </>
+              )}
             </Box>
           </Paper>
 
