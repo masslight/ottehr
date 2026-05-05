@@ -487,6 +487,11 @@ export const followUpInOptions = [
   },
 ];
 
+export interface BillingScreeningAnswer {
+  question: string;
+  answer: string;
+}
+
 export interface BillingSuggestionInput {
   newPatient: boolean | undefined;
   patientAge?: string;
@@ -500,6 +505,12 @@ export interface BillingSuggestionInput {
   procedures: any;
   diagnoses: DiagnosisDTO[] | undefined;
   billing: CPTCodeDTO[] | undefined;
+  /**
+   * Pre-formatted screening answers (one per `ScreeningField` flagged with
+   * `includeInBillingRecommendations`). Both ASK THE PATIENT and prefill
+   * answers reach this list once they land as Observations after harvest.
+   */
+  screeningAnswers?: BillingScreeningAnswer[];
 }
 
 export interface BillingSuggestionOutput {

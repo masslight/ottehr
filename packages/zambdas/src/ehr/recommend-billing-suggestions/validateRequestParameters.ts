@@ -19,6 +19,7 @@ export function validateRequestParameters(input: ZambdaInput): BillingSuggestion
     procedures,
     diagnoses,
     billing,
+    screeningAnswers,
   } = JSON.parse(input.body);
 
   return {
@@ -34,6 +35,7 @@ export function validateRequestParameters(input: ZambdaInput): BillingSuggestion
     procedures,
     diagnoses,
     billing,
+    screeningAnswers: Array.isArray(screeningAnswers) ? screeningAnswers : undefined,
     secrets: input.secrets,
   };
 }

@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
 import {
+  BillingScreeningAnswer,
   CPTCodeDTO,
   DiagnosisDTO,
+  formatScreeningQuestionValue,
   PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
   PATIENT_INFO_META_DATA_SYSTEM,
   PROVIDER_CONFIG,
+  screeningFieldsForBillingRecommendations,
+  shouldDisplayScreeningQuestion,
 } from 'utils';
 import { useRecommendBillingSuggestions } from '../stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
@@ -185,6 +189,18 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
       }
       const patientSex = patient?.gender;
 
+      // Collect screening answers flagged for billing-recommendation input.
+      // Both ASK THE PATIENT and prefill-block fields land here once they
+      // appear as Observations in chart data — the source flow doesn't matter.
+      const screeningAnswers: BillingScreeningAnswer[] = [];
+      for (const field of screeningFieldsForBillingRecommendations()) {
+        const observation = chartData?.observations?.find((obs) => obs.field === field.observationField);
+        if (!observation || !shouldDisplayScreeningQuestion(observation.value)) continue;
+        const answer = formatScreeningQuestionValue(field.observationField, observation.value);
+        if (!answer) continue;
+        screeningAnswers.push({ question: field.question, answer });
+      }
+
       const billingInput = {
         newPatient,
         patientAge,
@@ -198,6 +214,7 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
         radiologyOrders: radiologyOrdersString,
         radiologyReports: radiologyReportsString,
         procedures: proceduresString,
+        screeningAnswers: screeningAnswers.length > 0 ? screeningAnswers : undefined,
       };
       const billingSuggestionTemp = await recommendBillingSuggestions(billingInput);
       setIcdCodes(billingSuggestionTemp.icdCodes);

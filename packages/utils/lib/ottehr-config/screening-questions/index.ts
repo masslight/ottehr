@@ -31,6 +31,10 @@ export const askThePatientFields = (): ScreeningField[] =>
     (field) => !field.flowConfig || (field.flowConfig.virtual === undefined && field.flowConfig.inPerson === undefined)
   );
 
+/** Fields whose answers should be fed to the E&M billing recommendation prompt. */
+export const screeningFieldsForBillingRecommendations = (): ScreeningField[] =>
+  patientScreeningQuestionsConfig.fields.filter((field) => field.includeInBillingRecommendations === true);
+
 const screeningFieldToVisibleItem = (field: ScreeningField, flow: ScreeningFlow): unknown => {
   const fhirField = field.flowConfig![flow]!.fhirField;
   return {

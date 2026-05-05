@@ -89,6 +89,14 @@ export interface ScreeningField {
     virtual?: ScreeningFlowEntry;
     inPerson?: ScreeningFlowEntry;
   };
+  /**
+   * If true, the field's chart Observation is fed into the E&M billing
+   * recommendation prompt as `{ question, answer }`. Off by default — set
+   * per-field for screening answers that genuinely inform billing complexity.
+   * Bespoke channels (e.g. the legacy `seen-in-last-three-years` lookup that
+   * sets `newPatient`) keep their own special-case handling.
+   */
+  includeInBillingRecommendations?: boolean;
 }
 
 /**

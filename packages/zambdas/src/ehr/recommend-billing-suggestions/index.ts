@@ -26,6 +26,7 @@ export const index = wrapHandler(
       procedures,
       diagnoses,
       billing,
+      screeningAnswers,
       secrets,
     } = validatedParameters;
     console.groupEnd();
@@ -130,6 +131,15 @@ export const index = wrapHandler(
 
     if (billing && billing.length > 0) {
       prompt += `\n CPT: ${billing.map((code) => code.code).join(', ')}`;
+    }
+
+    // Patient-reported screening answers (e.g. COVID symptoms, vaccination
+    // status). Surfaced to the model as Q/A pairs so it can fold them into
+    // E&M complexity / risk reasoning when relevant.
+    if (screeningAnswers && screeningAnswers.length > 0) {
+      prompt += `\n Patient-reported screening answers:\n${screeningAnswers
+        .map((sa) => `  - ${sa.question} ${sa.answer}`)
+        .join('\n')}`;
     }
 
     console.log(prompt);
