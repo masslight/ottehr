@@ -462,7 +462,10 @@ export const getMailedStatementsReport = async (
   }
 };
 
-export const syncMailedStatementStatuses = async (oystehr: Oystehr): Promise<SyncMailedStatementStatusesOutput> => {
+export const syncMailedStatementStatuses = async (
+  oystehr: Oystehr,
+  batchSize?: number
+): Promise<SyncMailedStatementStatusesOutput> => {
   try {
     if (SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID == null) {
       throw new Error('sync mailed statement statuses environment variable could not be loaded');
@@ -470,6 +473,7 @@ export const syncMailedStatementStatuses = async (oystehr: Oystehr): Promise<Syn
 
     const response = await oystehr.zambda.execute({
       id: SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID,
+      ...(batchSize != null && { batchSize }),
     });
     return chooseJson(response);
   } catch (error: unknown) {

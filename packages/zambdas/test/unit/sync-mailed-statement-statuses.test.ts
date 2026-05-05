@@ -10,6 +10,7 @@ const mockGetPostGridLetter = vi.fn<(id: string, secrets: unknown) => Promise<Po
 
 vi.mock('../../src/shared/postgrid', () => ({
   getPostGridLetter: (...args: unknown[]) => mockGetPostGridLetter(args[0] as string, args[1]),
+  MAIL_VENDOR_EXTENSION_URL: 'https://extensions.fhir.ottehr.com/mail-vendor',
 }));
 
 // We also need to mock luxon DateTime.now() for deterministic timestamps
@@ -45,6 +46,7 @@ function makeCommunication(id: string, vendorLetterId: string, vendorLetterStatu
       {
         url: MAIL_VENDOR_EXTENSION_URL,
         extension: [
+          { url: 'vendor', valueString: 'postgrid' },
           { url: 'vendor-letter-id', valueString: vendorLetterId },
           { url: 'vendor-letter-status', valueString: vendorLetterStatus },
         ],
@@ -118,8 +120,9 @@ describe('syncMailedStatementStatuses', () => {
     expect(result).toEqual({
       total: 0,
       updated: 0,
-      unchanged: 0,
       alreadyTerminal: 0,
+      remaining: 0,
+      done: true,
       errors: [],
     });
     expect(mockGetPostGridLetter).not.toHaveBeenCalled();
@@ -204,18 +207,20 @@ describe('syncMailedStatementStatuses', () => {
     expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
   });
 
-  it('skips FHIR update when PostGrid returns the same status', async () => {
+  it('still updates FHIR when PostGrid returns the same status (syncs other fields)', async () => {
     const comm = makeCommunication('comm-unchanged', 'letter_same', 'ready');
     mockOystehr.fhir.search.mockResolvedValueOnce(makeSearchBundle([comm]));
-    mockGetPostGridLetter.mockResolvedValueOnce(makePostGridLetter({ status: 'ready' as PostGridLetterStatus }));
+    mockGetPostGridLetter.mockResolvedValueOnce(
+      makePostGridLetter({ status: 'ready' as PostGridLetterStatus, url: 'https://new-url.pdf', pageCount: 3 })
+    );
+    mockOystehr.fhir.update.mockResolvedValueOnce({});
 
     const result = await syncMailedStatementStatuses(mockOystehr as any, secrets);
 
     expect(result.total).toBe(1);
-    expect(result.unchanged).toBe(1);
-    expect(result.updated).toBe(0);
+    expect(result.updated).toBe(1);
     expect(mockGetPostGridLetter).toHaveBeenCalledOnce();
-    expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.update).toHaveBeenCalledOnce();
   });
 
   it('records an error when Communication has no mail-vendor extension', async () => {
@@ -244,7 +249,10 @@ describe('syncMailedStatementStatuses', () => {
       extension: [
         {
           url: MAIL_VENDOR_EXTENSION_URL,
-          extension: [{ url: 'vendor-letter-status', valueString: 'ready' }],
+          extension: [
+            { url: 'vendor', valueString: 'postgrid' },
+            { url: 'vendor-letter-status', valueString: 'ready' },
+          ],
         },
       ],
     };
@@ -257,6 +265,34 @@ describe('syncMailedStatementStatuses', () => {
       communicationId: 'comm-6',
       error: 'No vendor-letter-id found',
     });
+  });
+
+  it('records an error when vendor is not postgrid', async () => {
+    const comm: Communication = {
+      resourceType: 'Communication',
+      id: 'comm-other-vendor',
+      status: 'in-progress',
+      extension: [
+        {
+          url: MAIL_VENDOR_EXTENSION_URL,
+          extension: [
+            { url: 'vendor', valueString: 'other-vendor' },
+            { url: 'vendor-letter-id', valueString: 'letter_xyz' },
+            { url: 'vendor-letter-status', valueString: 'ready' },
+          ],
+        },
+      ],
+    };
+    mockOystehr.fhir.search.mockResolvedValueOnce(makeSearchBundle([comm]));
+
+    const result = await syncMailedStatementStatuses(mockOystehr as any, secrets);
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toEqual({
+      communicationId: 'comm-other-vendor',
+      error: 'Unsupported mail vendor: other-vendor',
+    });
+    expect(mockGetPostGridLetter).not.toHaveBeenCalled();
   });
 
   it('records an error when PostGrid API call fails', async () => {
@@ -290,6 +326,8 @@ describe('syncMailedStatementStatuses', () => {
 
     expect(result.total).toBe(2);
     expect(result.updated).toBe(2);
+    expect(result.done).toBe(true);
+    expect(result.remaining).toBe(0);
     expect(mockOystehr.fhir.search).toHaveBeenCalledTimes(2);
   });
 
@@ -313,5 +351,46 @@ describe('syncMailedStatementStatuses', () => {
     expect(result.alreadyTerminal).toBe(1);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].communicationId).toBe('comm-e');
+    expect(result.remaining).toBe(0);
+    expect(result.done).toBe(true);
+  });
+
+  it('respects batchSize and stops after processing the specified number of PostGrid calls', async () => {
+    const comms = [
+      makeCommunication('comm-b1', 'letter_b1', 'ready'),
+      makeCommunication('comm-b2', 'letter_b2', 'ready'),
+      makeCommunication('comm-b3', 'letter_b3', 'ready'),
+      makeCommunication('comm-b4', 'letter_b4', 'ready'),
+    ];
+
+    mockOystehr.fhir.search.mockResolvedValueOnce(makeSearchBundle(comms));
+    mockGetPostGridLetter
+      .mockResolvedValueOnce(makePostGridLetter({ status: 'completed' }))
+      .mockResolvedValueOnce(makePostGridLetter({ status: 'completed' }));
+
+    mockOystehr.fhir.update.mockResolvedValue({});
+
+    const result = await syncMailedStatementStatuses(mockOystehr as any, secrets, 2);
+
+    expect(result.total).toBe(4);
+    expect(result.updated).toBe(2);
+    expect(result.remaining).toBe(2);
+    expect(result.done).toBe(false);
+    expect(mockGetPostGridLetter).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns done=true when batchSize is larger than available items', async () => {
+    const comms = [makeCommunication('comm-c1', 'letter_c1', 'ready')];
+
+    mockOystehr.fhir.search.mockResolvedValueOnce(makeSearchBundle(comms));
+    mockGetPostGridLetter.mockResolvedValueOnce(makePostGridLetter({ status: 'completed' }));
+    mockOystehr.fhir.update.mockResolvedValue({});
+
+    const result = await syncMailedStatementStatuses(mockOystehr as any, secrets, 10);
+
+    expect(result.total).toBe(1);
+    expect(result.updated).toBe(1);
+    expect(result.remaining).toBe(0);
+    expect(result.done).toBe(true);
   });
 });

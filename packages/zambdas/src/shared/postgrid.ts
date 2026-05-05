@@ -5,6 +5,8 @@ import { getSecret, Secrets, SecretsKeys } from 'utils';
 
 const POSTGRID_BASE_URL = 'https://api.postgrid.com/print-mail/v1';
 
+export const MAIL_VENDOR_EXTENSION_URL = 'https://extensions.fhir.ottehr.com/mail-vendor';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------

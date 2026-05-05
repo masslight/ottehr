@@ -2,16 +2,15 @@ import Oystehr from '@oystehr/sdk';
 import { Communication, Extension } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Secrets } from 'utils';
-import { getPostGridLetter, PostGridLetterStatus } from './postgrid';
-
-const MAIL_VENDOR_EXTENSION_URL = 'https://extensions.fhir.ottehr.com/mail-vendor';
+import { getPostGridLetter, MAIL_VENDOR_EXTENSION_URL, PostGridLetterStatus } from './postgrid';
 const POSTGRID_GET_RATE_LIMIT_DELAY_MS = 1_250; // ~48 req/min, safely under 50/min limit
 
 export interface SyncMailedStatementStatusesResult {
   total: number;
   updated: number;
-  unchanged: number;
   alreadyTerminal: number;
+  remaining: number;
+  done: boolean;
   errors: { communicationId: string; error: string }[];
 }
 
@@ -72,13 +71,16 @@ function delay(ms: number): Promise<void> {
 
 export async function syncMailedStatementStatuses(
   oystehr: Oystehr,
-  secrets: Secrets
+  secrets: Secrets,
+  batchSize?: number
 ): Promise<SyncMailedStatementStatusesResult> {
+  const maxToProcess = batchSize ?? Infinity;
   const result: SyncMailedStatementStatusesResult = {
     total: 0,
     updated: 0,
-    unchanged: 0,
     alreadyTerminal: 0,
+    remaining: 0,
+    done: false,
     errors: [],
   };
 
@@ -127,7 +129,16 @@ export async function syncMailedStatementStatuses(
   result.total = allCommunications.length;
   console.log(`Found ${result.total} in-progress mailed statement Communications to sync`);
 
+  let processed = 0;
+  let visited = 0;
+
   for (const comm of allCommunications) {
+    // Stop if we've hit the batch limit for PostGrid API calls
+    if (processed >= maxToProcess) {
+      break;
+    }
+
+    visited++;
     const commId = comm.id;
     if (!commId) continue;
 
@@ -135,6 +146,12 @@ export async function syncMailedStatementStatuses(
       const mailVendorExt = comm.extension?.find((ext) => ext.url === MAIL_VENDOR_EXTENSION_URL);
       if (!mailVendorExt) {
         result.errors.push({ communicationId: commId, error: 'No mail-vendor extension found' });
+        continue;
+      }
+
+      const vendorName = getExtensionValue(mailVendorExt.extension, 'vendor');
+      if (vendorName !== 'postgrid') {
+        result.errors.push({ communicationId: commId, error: `Unsupported mail vendor: ${vendorName ?? 'unknown'}` });
         continue;
       }
 
@@ -154,12 +171,7 @@ export async function syncMailedStatementStatuses(
       await delay(POSTGRID_GET_RATE_LIMIT_DELAY_MS);
 
       const postGridLetter = await getPostGridLetter(letterId, secrets);
-
-      // Skip update if status hasn't changed
-      if (postGridLetter.status === currentStatus) {
-        result.unchanged++;
-        continue;
-      }
+      processed++;
 
       const updatedMailVendorExt = buildUpdatedMailVendorExtension(mailVendorExt, {
         status: postGridLetter.status,
@@ -177,13 +189,16 @@ export async function syncMailedStatementStatuses(
         ext.url === MAIL_VENDOR_EXTENSION_URL ? updatedMailVendorExt : ext
       );
 
-      await oystehr.fhir.update<Communication>({
-        ...comm,
-        resourceType: 'Communication',
-        id: commId,
-        status: newFhirStatus,
-        extension: updatedExtensions,
-      });
+      await oystehr.fhir.update<Communication>(
+        {
+          ...comm,
+          resourceType: 'Communication',
+          id: commId,
+          status: newFhirStatus,
+          extension: updatedExtensions,
+        },
+        { optimisticLockingVersionId: comm.meta?.versionId }
+      );
 
       result.updated++;
       console.log(
@@ -198,8 +213,11 @@ export async function syncMailedStatementStatuses(
     }
   }
 
+  result.remaining = result.total - visited;
+  result.done = processed < maxToProcess;
+
   console.log(
-    `Sync complete: ${result.updated} updated, ${result.unchanged} unchanged, ${result.alreadyTerminal} already terminal, ${result.errors.length} errors out of ${result.total} total`
+    `Sync complete: ${result.updated} updated, ${result.alreadyTerminal} already terminal, ${result.errors.length} errors, ${result.remaining} remaining out of ${result.total} total`
   );
 
   return result;

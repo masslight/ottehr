@@ -35,5 +35,7 @@ export interface SyncMailedStatementStatusesOutput {
   total: number;
   updated: number;
   alreadyTerminal: number;
+  remaining: number;
+  done: boolean;
   errors: { communicationId: string; error: string }[];
 }

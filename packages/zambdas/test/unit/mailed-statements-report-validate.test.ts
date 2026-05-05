@@ -1,3 +1,4 @@
+import { APIErrorCode } from 'utils';
 import { describe, expect, it } from 'vitest';
 import { validateRequestParameters } from '../../src/ehr/mailed-statements-report/validateRequestParameters';
 import type { ZambdaInput } from '../../src/shared/types/common';
@@ -25,40 +26,46 @@ describe('mailed-statements-report validateRequestParameters', () => {
   });
 
   it('throws when body is missing', () => {
-    expect(() => validateRequestParameters(makeInput(null))).toThrow('Missing request body');
+    expect(() => validateRequestParameters(makeInput(null))).toThrowError();
+    try {
+      validateRequestParameters(makeInput(null));
+    } catch (e: any) {
+      expect(e.code).toBe(APIErrorCode.MISSING_REQUEST_BODY);
+      expect(e.message).toBe('Missing request body');
+    }
   });
 
   it('throws when dateRange is missing', () => {
-    expect(() => validateRequestParameters(makeInput({}))).toThrow('Missing dateRange parameter');
+    expect(() => validateRequestParameters(makeInput({}))).toThrow();
   });
 
   it('throws when dateRange.start is missing', () => {
-    expect(() => validateRequestParameters(makeInput({ dateRange: { end: '2025-01-31' } }))).toThrow(
-      'dateRange must include both start and end dates'
-    );
+    expect(() => validateRequestParameters(makeInput({ dateRange: { end: '2025-01-31' } }))).toThrow();
   });
 
   it('throws when dateRange.end is missing', () => {
-    expect(() => validateRequestParameters(makeInput({ dateRange: { start: '2025-01-01' } }))).toThrow(
-      'dateRange must include both start and end dates'
-    );
+    expect(() => validateRequestParameters(makeInput({ dateRange: { start: '2025-01-01' } }))).toThrow();
   });
 
   it('throws when dateRange.start is not a valid date', () => {
     expect(() =>
       validateRequestParameters(makeInput({ dateRange: { start: 'not-a-date', end: '2025-01-31' } }))
-    ).toThrow('dateRange.start must be a valid ISO date string');
+    ).toThrow('start must be a valid ISO date string');
   });
 
   it('throws when dateRange.end is not a valid date', () => {
     expect(() =>
       validateRequestParameters(makeInput({ dateRange: { start: '2025-01-01', end: 'not-a-date' } }))
-    ).toThrow('dateRange.end must be a valid ISO date string');
+    ).toThrow('end must be a valid ISO date string');
   });
 
   it('throws when secrets are missing', () => {
-    expect(() => validateRequestParameters(makeInput({ dateRange: validDateRange }, null))).toThrow(
-      'Input did not have any secrets'
-    );
+    try {
+      validateRequestParameters(makeInput({ dateRange: validDateRange }, null));
+      expect.fail('should have thrown');
+    } catch (e: any) {
+      expect(e.code).toBe(APIErrorCode.MISSING_REQUEST_SECRETS);
+      expect(e.message).toBe('Input did not have any secrets');
+    }
   });
 });

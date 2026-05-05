@@ -8,14 +8,14 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'sync-mailed-statement-statuses';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { secrets } = validateRequestParameters(input);
+  const { secrets, batchSize } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
   console.log('Starting on-demand sync of mailed statement statuses');
 
-  const result = await syncMailedStatementStatuses(oystehr, secrets);
+  const result = await syncMailedStatementStatuses(oystehr, secrets, batchSize);
 
   return {
     statusCode: 200,

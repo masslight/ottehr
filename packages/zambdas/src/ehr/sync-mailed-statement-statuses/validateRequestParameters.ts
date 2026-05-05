@@ -3,6 +3,7 @@ import { ZambdaInput } from '../../shared';
 
 export interface SyncMailedStatementStatusesInput {
   secrets: Secrets;
+  batchSize?: number;
 }
 
 export function validateRequestParameters(input: ZambdaInput): SyncMailedStatementStatusesInput {
@@ -10,7 +11,11 @@ export function validateRequestParameters(input: ZambdaInput): SyncMailedStateme
     throw new Error('Input did not have any secrets');
   }
 
+  const body = typeof input.body === 'string' ? JSON.parse(input.body) : input.body;
+  const batchSize = body?.batchSize != null ? Number(body.batchSize) : undefined;
+
   return {
     secrets: input.secrets,
+    batchSize,
   };
 }

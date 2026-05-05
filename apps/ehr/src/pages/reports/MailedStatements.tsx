@@ -410,6 +410,7 @@ export default function MailedStatements(): React.ReactElement {
   const [customStartDate, setCustomStartDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<string>('');
   const [syncSnackbar, setSyncSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -513,13 +514,32 @@ export default function MailedStatements(): React.ReactElement {
   const handleSyncStatuses = async (): Promise<void> => {
     if (!oystehrZambda) return;
     setIsSyncing(true);
+    setSyncProgress('Starting sync...');
+
+    const BATCH_SIZE = 10;
+    let totalUpdated = 0;
+    let totalAlreadyTerminal = 0;
+    let totalErrors: { communicationId: string; error: string }[] = [];
+
     try {
-      const result = await syncMailedStatementStatuses(oystehrZambda);
+      let done = false;
+      while (!done) {
+        const result = await syncMailedStatementStatuses(oystehrZambda, BATCH_SIZE);
+        totalUpdated += result.updated;
+        totalAlreadyTerminal += result.alreadyTerminal;
+        totalErrors = totalErrors.concat(result.errors);
+        done = result.done ?? true; // fallback for older zambda versions without batch support
+
+        if (!done) {
+          setSyncProgress(`Syncing... ${result.remaining} remaining`);
+        }
+      }
+
       await queryClient.invalidateQueries({ queryKey: ['mailed-statements'] });
       setSyncSnackbar({
         open: true,
-        message: `Sync complete: ${result.updated} updated, ${result.alreadyTerminal} already terminal, ${result.errors.length} errors out of ${result.total} total`,
-        severity: result.errors.length > 0 ? 'error' : 'success',
+        message: `Sync complete: ${totalUpdated} updated, ${totalAlreadyTerminal} already terminal, ${totalErrors.length} errors`,
+        severity: totalErrors.length > 0 ? 'error' : 'success',
       });
     } catch (error: unknown) {
       setSyncSnackbar({
@@ -529,6 +549,7 @@ export default function MailedStatements(): React.ReactElement {
       });
     } finally {
       setIsSyncing(false);
+      setSyncProgress('');
     }
   };
 
@@ -764,12 +785,12 @@ export default function MailedStatements(): React.ReactElement {
 
           <Button
             variant="outlined"
-            startIcon={isSyncing ? <CircularProgress size={16} /> : <SyncIcon />}
+            startIcon={isSyncing ? <CircularProgress size={20} /> : <SyncIcon />}
             onClick={handleSyncStatuses}
             disabled={isSyncing}
-            size="small"
+            sx={{ borderRadius: 20 }}
           >
-            {isSyncing ? 'Syncing...' : 'Sync Statuses'}
+            {isSyncing ? syncProgress || 'Syncing...' : 'Sync Statuses'}
           </Button>
         </Box>
 

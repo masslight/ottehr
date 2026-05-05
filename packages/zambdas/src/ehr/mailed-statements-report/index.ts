@@ -1,13 +1,18 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Encounter, Patient } from 'fhir/r4b';
 import { getPatientFirstName, getPatientLastName, MailedStatementItem, Secrets } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  MAIL_VENDOR_EXTENSION_URL,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'mailed-statements-report';
-const MAIL_VENDOR_EXTENSION_URL = 'https://extensions.fhir.ottehr.com/mail-vendor';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedParameters = validateRequestParameters(input);
