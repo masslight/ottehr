@@ -5,7 +5,9 @@ import { Appointment, Encounter, Patient, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BRANDING_CONFIG,
+  getEncounterStatusHistoryUpdateOp,
   getFullestAvailableName,
+  getPatchBinary,
   getPatchOperationForNewMetaTag,
   OttehrTaskSystem,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
@@ -114,19 +116,38 @@ export async function performEffect(
   }
 
   const appointmentPatchOperations: Operation[] = [getPatchOperationForNewMetaTag(appointment, notificationSentTag)];
+  const encounterPatchOperations: Operation[] = [];
 
   if (appointment.status === 'booked') {
-    appointmentPatchOperations.push({
+    const statusUpdateOperation: Operation = {
       op: 'replace',
-      path: `/status`,
+      path: '/status',
       value: 'arrived',
-    });
+    };
+    appointmentPatchOperations.push(statusUpdateOperation);
+    encounterPatchOperations.push(statusUpdateOperation);
+    encounterPatchOperations.push(getEncounterStatusHistoryUpdateOp(encounter, 'arrived', 'arrived'));
   }
 
   await oystehr.fhir.patch({
     resourceType: 'Appointment',
     id: appointment.id,
     operations: appointmentPatchOperations,
+  });
+
+  await oystehr.fhir.transaction({
+    requests: [
+      getPatchBinary({
+        resourceId: appointment.id,
+        resourceType: 'Appointment',
+        patchOperations: appointmentPatchOperations,
+      }),
+      getPatchBinary({
+        resourceId: encounter.id,
+        resourceType: 'Encounter',
+        patchOperations: encounterPatchOperations,
+      }),
+    ],
   });
 
   return { taskCreated: true };
