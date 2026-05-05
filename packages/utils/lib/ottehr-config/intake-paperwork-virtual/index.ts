@@ -13,7 +13,7 @@ import { createQuestionnaireFromConfig } from '../../config-helpers/shared-quest
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
-import { patientScreeningQuestionsConfig } from '../screening-questions';
+import { buildVirtualPaperworkScreeningItems } from '../screening-questions';
 import {
   ALLERGIES_YES_OPTION,
   HAS_ATTORNEY_OPTION,
@@ -666,23 +666,10 @@ function buildFormFields(
     additional: {
       linkId: 'additional-page',
       title: 'Additional questions',
-      items: Object.assign(
-        {},
-        ...patientScreeningQuestionsConfig.fields
-          .filter((field) => Boolean(field.existsInQuestionnaire))
-          .map((field) => ({
-            [field.fhirField.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())]: {
-              key: field.fhirField,
-              label: field.question,
-              type: field.type === 'radio' ? 'choice' : field.type,
-              element: field.type === 'radio' ? 'Radio List' : undefined,
-              options: field.options?.map((option) => ({
-                value: option.fhirValue,
-                label: option.label,
-              })),
-            },
-          }))
-      ),
+      // Items auto-generated from patientScreeningQuestionsConfig for fields
+      // with flowConfig.virtual. There are no manual virtual-side placements,
+      // so this is a direct splice (no merge-overlay).
+      items: buildVirtualPaperworkScreeningItems(),
       hiddenFields: [],
       requiredFields: [],
     },

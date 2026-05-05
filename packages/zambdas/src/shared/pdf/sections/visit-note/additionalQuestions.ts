@@ -18,9 +18,9 @@ export const composeAdditionalQuestions: DataComposer<{ allChartData: AllChartDa
   const additionalQuestions: Record<string, any> = {};
   // Add ALL fields from config (if they have values)
   patientScreeningQuestionsConfig.fields.forEach((field) => {
-    const observation = chartData.observations?.find((obs) => obs.field === field.fhirField);
+    const observation = chartData.observations?.find((obs) => obs.field === field.observationField);
     if (observation?.value !== undefined) {
-      additionalQuestions[field.fhirField] = observation;
+      additionalQuestions[field.observationField] = observation;
     }
   });
 

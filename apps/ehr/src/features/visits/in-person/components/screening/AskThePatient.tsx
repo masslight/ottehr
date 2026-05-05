@@ -116,7 +116,7 @@ const AskThePatient = (): React.ReactElement => {
   const getUiData = useCallback(
     (fhirField: string): ObservationDTO | undefined => {
       const baseObservation = getObservation(fhirField);
-      const field = patientScreeningQuestionsConfig.fields.find((f) => f.fhirField === fhirField);
+      const field = patientScreeningQuestionsConfig.fields.find((f) => f.observationField === fhirField);
 
       if (!baseObservation) return undefined;
 
@@ -548,7 +548,9 @@ const AskThePatient = (): React.ReactElement => {
                     };
 
                     const handleClear = (): void => {
-                      const existingObservation = chartData?.observations?.find((obs) => obs.field === field.fhirField);
+                      const existingObservation = chartData?.observations?.find(
+                        (obs) => obs.field === field.observationField
+                      );
                       if (existingObservation?.resourceId) {
                         const clearedValue: [DateTime | null, DateTime | null] = [null, null];
                         formField.onChange(clearedValue);
@@ -806,7 +808,8 @@ const AskThePatient = (): React.ReactElement => {
     }
   };
 
-  const fieldsToRender = patientScreeningQuestionsConfig.fields.filter((field) => !field.existsInQuestionnaire);
+  // ASK THE PATIENT shows fields without flow membership — staff fills these.
+  const fieldsToRender = patientScreeningQuestionsConfig.fields.filter((field) => !field.flowConfig);
 
   if (fieldsToRender.length === 0) {
     return <></>;

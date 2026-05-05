@@ -10,21 +10,28 @@ import {
 } from 'utils';
 
 export const createAdditionalQuestions = (questionnaireResponse: QuestionnaireResponse): ObservationDTO[] => {
-  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+  // All fields participating in any flow. Each is looked up in the QR by its
+  // per-flow `fhirField` (only the flow that produced this QR will have a
+  // matching linkId; others are silently absent).
+  const flowFields = patientScreeningQuestionsConfig.fields.filter((field) => field.flowConfig);
 
-  return questionnaireFields
-    .filter((field) => {
-      const response = getQuestionnaireResponseByLinkId(field.fhirField, questionnaireResponse);
-      const valueString = response?.answer?.[0]?.valueString;
-      return valueString !== undefined;
-    })
-    .map((field) => {
-      if (field.type !== 'radio') {
-        throw Error('Only radio fields are supported. No options found for field: ' + field.fhirField);
+  return flowFields
+    .map((field): ObservationDTO | undefined => {
+      const flowFhirFields = [field.flowConfig?.virtual?.fhirField, field.flowConfig?.inPerson?.fhirField].filter(
+        (v): v is string => typeof v === 'string'
+      );
+
+      let valueString: string | undefined;
+      for (const linkId of flowFhirFields) {
+        const response = getQuestionnaireResponseByLinkId(linkId, questionnaireResponse);
+        valueString = response?.answer?.[0]?.valueString;
+        if (valueString !== undefined) break;
       }
+      if (valueString === undefined) return undefined;
 
-      const response = getQuestionnaireResponseByLinkId(field.fhirField, questionnaireResponse);
-      const valueString = response?.answer?.[0]?.valueString;
+      if (field.type !== 'radio') {
+        throw Error('Only radio fields are supported. No options found for field: ' + field.observationField);
+      }
 
       const hasOnlyYesNoOptions =
         field.options &&
@@ -36,21 +43,19 @@ export const createAdditionalQuestions = (questionnaireResponse: QuestionnaireRe
 
       if (!hasOnlyYesNoOptions) {
         throw Error(
-          'Only radio fields with Yes/No options are supported. No options found for field: ' + field.fhirField
+          'Only radio fields with Yes/No options are supported. No options found for field: ' + field.observationField
         );
       }
 
       const value = convertToBoolean(valueString);
-
       if (typeof value !== 'boolean') {
-        throw Error('Invalid value for field: ' + field.fhirField);
+        throw Error('Invalid value for field: ' + field.observationField);
       }
 
-      return {
-        field: field.fhirField,
-        value,
-      };
-    });
+      const dto: ObservationDTO = { field: field.observationField, value };
+      return dto;
+    })
+    .filter((entry: ObservationDTO | undefined): entry is ObservationDTO => entry !== undefined);
 };
 
 export function getAllExamFieldsMetadata(isInPersonAppointment?: boolean): (ExamObservationDTO & {

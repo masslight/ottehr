@@ -97,14 +97,14 @@ export const PatientGuarantorFields = [
   FormFields.patientContactInformation.items.phone.key,
 ];
 
-// Generate additional questions from configuration
-// Only include fields that exist in questionnaire (for now, assuming all are boolean)
+// Generate additional questions from configuration. Only fields participating
+// in any flow (virtual or in-person) — ASK THE PATIENT fields are excluded.
 // TODO: only boolean fields are supported for now, add support for other field types when needed
-const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.flowConfig);
 
 export const ADDITIONAL_QUESTIONS = questionnaireFields.map((field) => ({
   label: field.question,
-  field: field.fhirField,
+  field: field.observationField,
 }));
 
 export const PREFERRED_COMMUNICATION_METHOD_OPTIONS = [

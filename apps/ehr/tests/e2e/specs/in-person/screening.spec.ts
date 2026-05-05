@@ -68,7 +68,7 @@ interface ScreeningInfo {
 // Helper function to generate test answers from screening questions config
 function generateAnswersFromConfig(variant: 'first' | 'second'): Record<string, any> {
   const fieldValues: Record<string, any> = {};
-  const askPatientFields = patientScreeningQuestionsConfig.fields.filter((field) => !field.existsInQuestionnaire);
+  const askPatientFields = patientScreeningQuestionsConfig.fields.filter((field) => !field.flowConfig);
   const suffix = variant === 'first' ? '' : ' edited';
 
   for (const field of askPatientFields) {
@@ -146,8 +146,8 @@ async function setupPractitioners(page: Page): Promise<void> {
 
 async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: ScreeningPage): Promise<void> {
   // Only fill questions that are NOT in the questionnaire (shown in "ASK THE PATIENT" section)
-  // Questions with existsInQuestionnaire: true are shown in "CONFIRMED BY STAFF" section
-  const askPatientFields = patientScreeningQuestionsConfig.fields.filter((field) => !field.existsInQuestionnaire);
+  // Questions with flowConfig set are shown in "CONFIRMED BY STAFF" section
+  const askPatientFields = patientScreeningQuestionsConfig.fields.filter((field) => !field.flowConfig);
 
   for (const field of askPatientFields) {
     // Check if the question exists on the page before filling
@@ -216,9 +216,9 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
 }
 
 function createProgressNoteLines(screeningInfo: ScreeningInfo): string[] {
-  // Only include questions from "ASK THE PATIENT" section (without existsInQuestionnaire)
+  // Only include questions from "ASK THE PATIENT" section (without flowConfig)
   return patientScreeningQuestionsConfig.fields
-    .filter((field) => !field.existsInQuestionnaire)
+    .filter((field) => !field.flowConfig)
     .map((field) => {
       const fieldValue = screeningInfo.fieldValues[field.id];
 

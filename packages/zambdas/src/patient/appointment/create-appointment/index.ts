@@ -278,6 +278,7 @@ export async function createAppointment(
     createdBy,
     slot,
     appointmentMetadata,
+    screeningAnswers: patient.screeningAnswers,
   });
 
   let relatedPersonId = '';
@@ -369,6 +370,8 @@ interface TransactionInput {
   formUser?: string;
   slot?: Slot;
   appointmentMetadata?: Appointment['meta'];
+  // Screening answers harvested from the booking form for the in-person flow.
+  screeningAnswers?: Record<string, string>;
 }
 interface TransactionOutput {
   appointment: Appointment;
@@ -402,6 +405,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     serviceMode,
     slot,
     appointmentMetadata,
+    screeningAnswers,
   } = input;
 
   if (!patient && !createPatientRequest?.fullUrl) {
@@ -578,6 +582,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     questionnaire,
     documents,
     accountInfo,
+    screeningAnswers,
   });
 
   console.log(

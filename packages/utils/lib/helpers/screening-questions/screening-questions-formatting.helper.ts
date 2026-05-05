@@ -9,7 +9,7 @@ import { Field } from '../../types/data/screening-questions';
 export function formatScreeningQuestionValue(fieldId: string, rawValue: any): string {
   if (rawValue === null || rawValue === undefined) return '';
 
-  const field = patientScreeningQuestionsConfig.fields.find((f) => f.fhirField === fieldId);
+  const field = patientScreeningQuestionsConfig.fields.find((f) => f.observationField === fieldId);
 
   if (!field) {
     // Fallback for fields not in config
@@ -74,7 +74,7 @@ export function formatScreeningQuestionValue(fieldId: string, rawValue: any): st
  * Get question text from screening questions configuration by fhir field ID
  */
 export function getScreeningQuestionText(fieldId: string): string | null {
-  const field = patientScreeningQuestionsConfig.fields.find((f) => f.fhirField === fieldId);
+  const field = patientScreeningQuestionsConfig.fields.find((f) => f.observationField === fieldId);
   if (field) {
     return field.question;
   }
@@ -85,7 +85,7 @@ export function getScreeningQuestionText(fieldId: string): string | null {
  * Get field configuration by fhir field ID
  */
 export function getScreeningQuestionField(fieldId: string): Field | undefined {
-  return patientScreeningQuestionsConfig.fields.find((f) => f.fhirField === fieldId);
+  return patientScreeningQuestionsConfig.fields.find((f) => f.observationField === fieldId);
 }
 
 /**
@@ -95,7 +95,7 @@ export function formatScreeningQuestionWithNote(fieldId: string, observation: an
   let formattedValue = formatScreeningQuestionValue(fieldId, observation.value);
 
   if (observation.note) {
-    const field = patientScreeningQuestionsConfig.fields.find((f) => f.fhirField === fieldId);
+    const field = patientScreeningQuestionsConfig.fields.find((f) => f.observationField === fieldId);
     if (field?.noteField) {
       if (!field.noteField.conditionalValue || observation.value === field.noteField.conditionalValue) {
         formattedValue = `${formattedValue}: ${observation.note}`;

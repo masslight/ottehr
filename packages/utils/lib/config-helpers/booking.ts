@@ -9,6 +9,7 @@ import {
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName } from '../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../helpers';
 import { BOOKING_CONFIG, type StrongCoding } from '../ottehr-config/booking';
+import { screeningFieldsForFlow } from '../ottehr-config/screening-questions';
 import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../types';
 
 // Questionnaire fields that distinguish between "not provided" (undefined) vs "cleared" ('')
@@ -118,7 +119,25 @@ export const normalizeFormDataToQRItems = (data: Record<string, unknown>): Quest
 export const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): PatientInfo => {
   const items = flattenQuestionnaireAnswers(qrItem);
   const patientInfo: PatientInfo = {};
+  // Generic capture for screening fields participating in the in-person flow.
+  // Their answers are routed through PatientInfo to create-appointment, which
+  // seeds the in-person paperwork QR's hidden logical items keyed by the
+  // per-flow `fhirField` so harvest picks them up.
+  const inPersonScreeningFhirFields = new Set(
+    screeningFieldsForFlow('inPerson')
+      .map((f) => f.flowConfig?.inPerson?.fhirField)
+      .filter((v): v is string => typeof v === 'string')
+  );
   items.forEach((item) => {
+    if (item.linkId && inPersonScreeningFhirFields.has(item.linkId)) {
+      const value = pickFirstValueFromAnswerItem(item, 'string');
+      if (value !== undefined) {
+        patientInfo.screeningAnswers = {
+          ...(patientInfo.screeningAnswers ?? {}),
+          [item.linkId]: value,
+        };
+      }
+    }
     switch (item.linkId) {
       case 'existing-patient-id':
         patientInfo.id = pickFirstValueFromAnswerItem(item, 'string');

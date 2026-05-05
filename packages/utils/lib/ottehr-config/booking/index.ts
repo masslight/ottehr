@@ -20,6 +20,7 @@ import {
 import { SERVICE_CATEGORY_SYSTEM } from '../../fhir';
 import { CanonicalUrl } from '../../types';
 import { BRANDING_CONFIG } from '../branding';
+import { buildBookingScreeningItemsAvoiding } from '../screening-questions';
 import { VALUE_SETS } from '../value-sets';
 
 // --- Data inlined from defaults.ts ---
@@ -361,6 +362,29 @@ export interface BookingConfig {
   inPersonQuestionnaireCanonical?: CanonicalUrl;
 }
 
+// Apply the screening overlay to a freshly-built formConfig. Auto-generated
+// screening questions for the in-person flow are merged in here (rather than
+// spliced into the booking form's source config) so customer config branches
+// that override `formConfig` don't have to mirror the screening logic.
+// Idempotent: a manual entry already present in `patientInfo.items` (matched
+// by `key`) is left untouched.
+const applyScreeningOverlayToFormConfig = (formConfig: QuestionnaireConfigType): QuestionnaireConfigType => {
+  const existingItems = (formConfig.FormFields as Record<string, any>).patientInfo?.items ?? {};
+  const additions = buildBookingScreeningItemsAvoiding(existingItems);
+  if (Object.keys(additions).length === 0) return formConfig;
+
+  return {
+    ...formConfig,
+    FormFields: {
+      ...formConfig.FormFields,
+      patientInfo: {
+        ...(formConfig.FormFields as Record<string, any>).patientInfo,
+        items: { ...existingItems, ...additions },
+      },
+    },
+  };
+};
+
 // Cached defaults — built lazily on first access, then reused for all subsequent
 // proxy reads. This preserves referential stability and avoids rebuilding
 // FormFields/formConfig on every BOOKING_CONFIG property access.
@@ -369,7 +393,7 @@ const getBookingDefaults = (): BookingConfig => {
   if (!_bookingDefaults) {
     _bookingDefaults = Object.freeze({
       ...BOOKING_DEFAULTS_DATA,
-      formConfig: getFormDefaults(),
+      formConfig: applyScreeningOverlayToFormConfig(getFormDefaults()),
     }) as BookingConfig;
   }
   return _bookingDefaults;
@@ -386,11 +410,13 @@ export function getBookingConfig(testOverrides?: Partial<BookingConfig>): Bookin
     return getBookingDefaults();
   }
   // If overrides include serviceCategories, rebuild formConfig to match
-  // so the RFV field's options and display filters stay consistent.
+  // so the RFV field's options and display filters stay consistent. The
+  // screening overlay is re-applied on the rebuilt formConfig — otherwise
+  // the auto-injected in-person screening items would be lost.
   const merged = mergeAndFreezeConfigObjects(getBookingDefaults(), testOverrides) as BookingConfig;
   if (testOverrides.serviceCategories) {
     return mergeAndFreezeConfigObjects(merged, {
-      formConfig: getFormDefaults(merged.serviceCategories),
+      formConfig: applyScreeningOverlayToFormConfig(getFormDefaults(merged.serviceCategories)),
     }) as BookingConfig;
   }
   return merged;

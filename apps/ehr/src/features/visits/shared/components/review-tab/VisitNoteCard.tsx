@@ -68,7 +68,7 @@ export const VisitNoteCard: FC = () => {
   const vitalsNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
 
   const showAdditionalQuestions = patientScreeningQuestionsConfig.fields.some((field) => {
-    const observation = chartData?.observations?.find((obs) => obs.field === field.fhirField);
+    const observation = chartData?.observations?.find((obs) => obs.field === field.observationField);
     return observation?.value !== undefined && observation?.value !== null;
   });
 

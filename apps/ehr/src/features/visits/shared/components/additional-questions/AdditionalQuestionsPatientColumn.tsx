@@ -16,21 +16,33 @@ export const AdditionalQuestionsPatientColumn: FC = () => {
 
   const { chartData, isLoading: chartDataLoading } = useChartData();
 
-  // Filter fields that exist in questionnaire
-  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+  // Fields participating in any flow (virtual or in-person).
+  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.flowConfig);
 
-  const isSeenInLastThreeYearsField = (fhirField: string): boolean =>
-    fhirField === 'seen-in-last-three-years' || fhirField === 'seen-in-last-3-years';
+  const isSeenInLastThreeYearsField = (observationField: string): boolean =>
+    observationField === 'seen-in-last-three-years' || observationField === 'seen-in-last-3-years';
 
-  const getQuestionnaireAnswer = (fhirField: string): string | null => {
-    const response = getQuestionnaireResponseByLinkId(fhirField, questionnaireResponse);
-    const stringAnswer = response?.answer?.[0]?.valueString;
+  /**
+   * Look up the patient's answer in the QR. The linkId differs per flow, so
+   * we try both `flowConfig.<flow>.fhirField` values; only the flow that
+   * produced this QR will match.
+   */
+  const getQuestionnaireAnswer = (field: { observationField: string; flowConfig?: any }): string | null => {
+    const flowFhirFields = [field.flowConfig?.virtual?.fhirField, field.flowConfig?.inPerson?.fhirField].filter(
+      (v): v is string => typeof v === 'string'
+    );
+    let stringAnswer: string | undefined;
+    for (const linkId of flowFhirFields) {
+      const response = getQuestionnaireResponseByLinkId(linkId, questionnaireResponse);
+      stringAnswer = response?.answer?.[0]?.valueString;
+      if (stringAnswer !== undefined) break;
+    }
 
-    // special case for "Have you been seen" question: use booking form answer if present,
-    // otherwise derive from returning-patient tag or previous visits
-    if (isSeenInLastThreeYearsField(fhirField)) {
+    // special case for "Have you been seen" question: use booking-form answer if
+    // present, otherwise derive from returning-patient tag or previous visits.
+    if (isSeenInLastThreeYearsField(field.observationField)) {
       if (shouldDisplayScreeningQuestion(stringAnswer)) {
-        return formatScreeningQuestionValue(fhirField, stringAnswer);
+        return formatScreeningQuestionValue(field.observationField, stringAnswer);
       }
       const returningPatientFromAppointmentCreation = appointment?.meta?.tag?.some(
         (tag) =>
@@ -38,17 +50,17 @@ export const AdditionalQuestionsPatientColumn: FC = () => {
       );
       const patientHasPreviousVisits = chartData?.patientHasPreviousVisits;
       const answer = returningPatientFromAppointmentCreation || patientHasPreviousVisits || false;
-      return formatScreeningQuestionValue(fhirField, answer);
+      return formatScreeningQuestionValue(field.observationField, answer);
     }
 
     if (!shouldDisplayScreeningQuestion(stringAnswer)) return null;
-
-    return formatScreeningQuestionValue(fhirField, stringAnswer);
+    return formatScreeningQuestionValue(field.observationField, stringAnswer);
   };
 
   const renderQuestionAnswer = (field: any): React.ReactElement => {
-    const answer = getQuestionnaireAnswer(field.fhirField);
-    const isLoading = isAppointmentLoading || (isSeenInLastThreeYearsField(field.fhirField) ? chartDataLoading : false);
+    const answer = getQuestionnaireAnswer(field);
+    const isLoading =
+      isAppointmentLoading || (isSeenInLastThreeYearsField(field.observationField) ? chartDataLoading : false);
 
     return (
       <AdditionalQuestionView
@@ -56,7 +68,7 @@ export const AdditionalQuestionsPatientColumn: FC = () => {
         label={field.question}
         value={answer}
         isLoading={isLoading}
-        field={field.fhirField as any}
+        field={field.observationField as any}
       />
     );
   };

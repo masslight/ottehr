@@ -1141,20 +1141,25 @@ export function getCardPaymentStepAnswers(): PatchPaperworkParameters['answers']
 
 export function getAdditionalQuestionsAnswers({
   useRandomAnswers = false,
+  flow = 'virtual',
 }: {
   useRandomAnswers?: boolean;
+  // Which flow's answers to fabricate. The QR linkId comes from
+  // `field.flowConfig.<flow>.fhirField`.
+  flow?: 'virtual' | 'inPerson';
 } = {}): PatchPaperworkParameters['answers'] {
-  // Only generate answers for fields that exist in questionnaire
-  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+  // All fields participating in this flow (regardless of `addedManuallyToConfig`).
+  const flowFields = patientScreeningQuestionsConfig.fields.filter((field) => field.flowConfig?.[flow]);
 
   return {
     linkId: 'additional-page',
-    item: questionnaireFields.map((field, index) => {
+    item: flowFields.map((field, index) => {
+      const flowFhirField = field.flowConfig![flow]!.fhirField;
       switch (field.type) {
         case 'radio': {
           if (field.options && field.options.length !== 2) {
             throw new Error(
-              'Only radio fields with 2 options are supported. No options found for field: ' + field.fhirField
+              'Only radio fields with 2 options are supported. No options found for field: ' + field.observationField
             );
           }
 
@@ -1169,16 +1174,16 @@ export function getAdditionalQuestionsAnswers({
           })();
 
           if (!selectedOption?.fhirValue) {
-            throw new Error('No options found for field: ' + field.fhirField);
+            throw new Error('No options found for field: ' + field.observationField);
           }
 
           return {
-            linkId: field.fhirField,
+            linkId: flowFhirField,
             answer: [{ valueString: selectedOption.fhirValue }],
           };
         }
         default:
-          throw Error('Only radio fields are supported. No options found for field: ' + field.fhirField);
+          throw Error('Only radio fields are supported. No options found for field: ' + field.observationField);
       }
     }),
   };

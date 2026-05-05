@@ -464,7 +464,7 @@ function isObservationBooleanFieldDTO(data: ObservationDTO): data is Observation
 
 function isObservationDateFieldDTO(data: ObservationDTO): data is ObservationDateFieldDTO {
   if (typeof (data as ObservationDateFieldDTO).value !== 'string') return false;
-  const field = patientScreeningQuestionsConfig.fields.find((f) => f.fhirField === data.field);
+  const field = patientScreeningQuestionsConfig.fields.find((f) => f.observationField === data.field);
   return field?.type === 'date';
 }
 

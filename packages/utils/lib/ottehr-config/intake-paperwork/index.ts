@@ -14,6 +14,7 @@ import { createQuestionnaireFromConfig } from '../../config-helpers/shared-quest
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
+import { buildHiddenScreeningLogicalItemsAvoiding } from '../screening-questions';
 import {
   HAS_ATTORNEY_OPTION,
   INSURANCE_PAY_OPTION,
@@ -2016,7 +2017,23 @@ export function getIntakePaperworkConfig(consentFormsConfig?: ResolvedConsentFor
   };
 
   // Merge: defaults -> consent forms
-  const mergedConfig = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, consentFormsOverride);
+  const baseMerged = mergeAndFreezeConfigObjects(INTAKE_PAPERWORK_DEFAULTS, consentFormsOverride);
+
+  // Hidden, read-only carriers for in-person screening answers. Pre-populated
+  // server-side at create-appointment time from the booking form so harvest
+  // picks them up by linkId. Merged on top so customer config branches that
+  // customise contact-information-page don't have to mirror this logic.
+  // Idempotent: a key already present in the merged base is left untouched.
+  const existingLogicalItems = (baseMerged.FormFields as Record<string, any>).contactInformation?.logicalItems ?? {};
+  const screeningOverride = {
+    FormFields: {
+      contactInformation: {
+        logicalItems: buildHiddenScreeningLogicalItemsAvoiding(existingLogicalItems),
+      },
+    },
+  };
+
+  const mergedConfig = mergeAndFreezeConfigObjects(baseMerged, screeningOverride);
 
   return PaperworkConfigSchema.parse(mergedConfig);
 }

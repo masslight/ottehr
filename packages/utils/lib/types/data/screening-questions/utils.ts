@@ -21,9 +21,16 @@ export const getUiValueOrFallback = (field: Field, fhirValue: string): string =>
   return option?.value || fhirValue;
 };
 
-export const getFieldByFhirField = (fhirField: string): Field | undefined => {
+/**
+ * Resolve a screening field by its canonical FHIR Observation field name
+ * (`field.observationField`) or by an attached note field's `fhirField`. The
+ * per-flow `flowConfig.<flow>.fhirField` (QR linkId) is intentionally NOT
+ * matched here: this function is for chart/Observation lookups, not QR
+ * lookups.
+ */
+export const getFieldByObservationField = (observationField: string): Field | undefined => {
   return patientScreeningQuestionsConfig.fields.find(
-    (field: Field) => field.fhirField === fhirField || field.noteField?.fhirField === fhirField
+    (field: Field) => field.observationField === observationField || field.noteField?.fhirField === observationField
   );
 };
 

@@ -64,6 +64,10 @@ interface PrePopulationInput {
   rp?: RelatedPerson;
   documents?: DocumentReference[];
   accountInfo?: PatientAccountResponse | undefined;
+  // Screening answers captured on the booking form for the in-person flow.
+  // Seeded into the in-person paperwork QR's hidden logical items so the
+  // existing harvest pipeline picks them up by linkId.
+  screeningAnswers?: Record<string, string>;
 }
 
 export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): QuestionnaireResponseItem[] => {
@@ -80,6 +84,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
     questionnaire,
     documents,
     accountInfo,
+    screeningAnswers,
   } = input;
 
   let formattedVerifiedPhoneNumber: string | undefined;
@@ -242,6 +247,12 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           }
           if (linkId === 'reason-for-visit' && normalizedReasonForVisit) {
             answer = makeAnswer(normalizedReasonForVisit);
+          }
+          // Generic seed for in-person screening answers captured at booking time.
+          // The questionnaire defines these as hidden, read-only logical items;
+          // their answers ride along into harvest via deep linkId search.
+          if (!answer && screeningAnswers && linkId && screeningAnswers[linkId] !== undefined) {
+            answer = makeAnswer(screeningAnswers[linkId]);
           }
 
           return {

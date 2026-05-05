@@ -26,14 +26,14 @@ export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps>
   };
 
   const renderFieldValue = (field: Field): React.ReactElement | null => {
-    const observation = getObservationByField(field.fhirField);
+    const observation = getObservationByField(field.observationField);
     if (!shouldDisplayScreeningQuestion(observation?.value)) return null;
 
-    const formattedValue = formatScreeningQuestionWithNote(field.fhirField, observation);
+    const formattedValue = formatScreeningQuestionWithNote(field.observationField, observation);
     if (!formattedValue) return null;
 
     return (
-      <Box key={field.id} data-testid={dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(field.fhirField)}>
+      <Box key={field.id} data-testid={dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(field.observationField)}>
         <Typography>{`${field.question} - ${formattedValue}`}</Typography>
       </Box>
     );

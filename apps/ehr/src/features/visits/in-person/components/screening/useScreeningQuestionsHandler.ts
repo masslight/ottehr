@@ -51,7 +51,7 @@ export const useScreeningQuestionsHandler = (
 
   const handleMainFieldChange = useCallback(
     async (field: Field, value: FieldValue): Promise<undefined> => {
-      if (!field.fhirField) {
+      if (!field.observationField) {
         console.warn(`No backend field specified for: ${field.id}`);
         return;
       }
@@ -63,13 +63,13 @@ export const useScreeningQuestionsHandler = (
         return;
       }
 
-      const currentObs = getUiData(field.fhirField);
+      const currentObs = getUiData(field.observationField);
 
       // current observation keep resource Id, in that case the resource will be updated.
       // for the new observation, we send only field and value.
       const baseObservation = currentObs
         ? { ...currentObs, value: fhirValue }
-        : { field: field.fhirField, value: fhirValue };
+        : { field: field.observationField, value: fhirValue };
 
       const observation = baseObservation as ObservationPayload;
 
@@ -175,8 +175,8 @@ export const useScreeningQuestionsHandler = (
     const values: Record<string, FieldValue> = {};
 
     patientScreeningQuestionsConfig.fields.forEach((field) => {
-      if (field.fhirField) {
-        const observation = getCurrentObservation(field.fhirField);
+      if (field.observationField) {
+        const observation = getCurrentObservation(field.observationField);
 
         // Main field
         if (observation?.value) {

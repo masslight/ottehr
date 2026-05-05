@@ -7,10 +7,10 @@ import { AdditionalQuestionEdit } from '../medical-history-tab/components/Additi
 // todo: support only boolean values, update when new question types will be required
 export const AdditionalQuestionsProviderColumn: FC = () => {
   const { chartData, isChartDataLoading } = useChartData();
-  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.flowConfig);
 
-  const getObservationValue = (fhirField: string): boolean | undefined => {
-    const observation = chartData?.observations?.find((obs) => obs.field === fhirField);
+  const getObservationValue = (observationField: string): boolean | undefined => {
+    const observation = chartData?.observations?.find((obs) => obs.field === observationField);
     return typeof observation?.value === 'boolean' ? observation.value : undefined;
   };
 
@@ -27,8 +27,8 @@ export const AdditionalQuestionsProviderColumn: FC = () => {
           <AdditionalQuestionEdit
             key={field.id}
             label={field.question}
-            field={field.fhirField}
-            value={getObservationValue(field.fhirField)}
+            field={field.observationField}
+            value={getObservationValue(field.observationField)}
             isChartDataLoading={isChartDataLoading}
           />
         ))

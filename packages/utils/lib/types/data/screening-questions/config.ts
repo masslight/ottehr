@@ -15,8 +15,10 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
       id: 'covid_symptoms',
       type: 'radio',
       question: 'Do you have any COVID symptoms?',
-      fhirField: 'covid-symptoms',
-      existsInQuestionnaire: true,
+      observationField: 'covid-symptoms',
+      flowConfig: {
+        virtual: { addedManuallyToConfig: false, fhirField: 'covid-symptoms' },
+      },
       options: [
         { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
         { value: 'no', label: 'No', fhirValue: 'No' },
@@ -26,8 +28,10 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
       id: 'tested_positive_covid',
       type: 'radio',
       question: 'Have you tested positive for COVID?',
-      fhirField: 'tested-positive-covid',
-      existsInQuestionnaire: true,
+      observationField: 'tested-positive-covid',
+      flowConfig: {
+        virtual: { addedManuallyToConfig: false, fhirField: 'tested-positive-covid' },
+      },
       options: [
         { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
         { value: 'no', label: 'No', fhirValue: 'No' },
@@ -37,8 +41,10 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
       id: 'travel_usa',
       type: 'radio',
       question: 'Have you traveled out of the USA in the last 2 weeks?',
-      fhirField: 'travel-usa',
-      existsInQuestionnaire: true,
+      observationField: 'travel-usa',
+      flowConfig: {
+        virtual: { addedManuallyToConfig: false, fhirField: 'travel-usa' },
+      },
       options: [
         { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
         { value: 'no', label: 'No', fhirValue: 'No' },
@@ -48,7 +54,9 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
       id: 'office_visit',
       type: 'radio',
       question: 'Has the patient been seen in one of our offices / telemed in last 3 years?',
-      fhirField: SEEN_IN_LAST_THREE_YEARS_FIELD,
+      // ASK THE PATIENT today; booking-form's `return-patient-check` is plumbed
+      // independently via appointment meta-tag (RETURNING_PATIENT_META_TAG).
+      observationField: SEEN_IN_LAST_THREE_YEARS_FIELD,
       options: [
         { value: 'yes', label: 'Yes', fhirValue: RecentVisitKeys.Yes },
         { value: 'no', label: 'No', fhirValue: RecentVisitKeys.No },
@@ -61,7 +69,7 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
       type: 'radio',
       question: 'Has the patient received vaccinations?',
       required: true,
-      fhirField: PATIENT_VACCINATION_STATUS,
+      observationField: PATIENT_VACCINATION_STATUS,
       options: [
         { value: 'up_to_date', label: 'Yes, up to date', fhirValue: PatientVaccinationKeys.yes },
         { value: 'partially', label: 'Partially vaccinated', fhirValue: PatientVaccinationKeys.partially },
@@ -78,7 +86,7 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
       id: 'history_source',
       type: 'select',
       question: 'History obtained from',
-      fhirField: HISTORY_OBTAINED_FROM_FIELD,
+      observationField: HISTORY_OBTAINED_FROM_FIELD,
       canDelete: true,
       conditionalSave: {
         waitForNote: HistorySourceKeys.NotObtainedOther,
