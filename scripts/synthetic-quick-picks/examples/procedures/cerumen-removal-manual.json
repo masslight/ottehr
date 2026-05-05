@@ -1,17 +1,34 @@
 {
   "name": "Cerumen Removal — Impacted (Manual)",
   "procedureType": "ear-lavage",
-  "cptCodes": [{ "code": "69210", "display": "Removal impacted cerumen requiring instrumentation, unilateral" }],
-  "diagnoses": [{ "code": "H61.21", "display": "Impacted cerumen, right ear" }],
+  "cptCodes": [
+    {
+      "code": "69210",
+      "display": "Removal impacted cerumen requiring instrumentation, unilateral"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "H61.21",
+      "display": "Impacted cerumen, right ear"
+    }
+  ],
   "bodySite": "ear",
   "bodySide": "left",
-  "technique": ["clean"],
+  "technique": [
+    "clean"
+  ],
   "medicationUsed": "topical",
-  "suppliesUsed": ["other"],
+  "suppliesUsed": [
+    "other"
+  ],
   "otherSuppliesUsed": "Curette, otoscope; cerumenolytic if pretreated",
   "complications": "none",
   "patientResponse": "tolerated-well",
-  "postInstructions": ["return-if-worsening", "other"],
+  "postInstructions": [
+    "return-if-worsening",
+    "other"
+  ],
   "otherPostInstructions": "If symptoms persist, F/U with PCP",
   "timeSpent": "5-10-min"
 }

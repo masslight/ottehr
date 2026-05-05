@@ -1,17 +1,34 @@
 {
   "name": "Laceration Repair — Face, Dermabond",
   "procedureType": "laceration-repair",
-  "cptCodes": [{ "code": "G0168", "display": "Wound closure utilizing tissue adhesive(s) only" }],
-  "diagnoses": [{ "code": "S01.81XA", "display": "Laceration without foreign body of other part of head, initial encounter" }],
+  "cptCodes": [
+    {
+      "code": "G0168",
+      "display": "Wound closure utilizing tissue adhesive(s) only"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "S01.81XA",
+      "display": "Laceration without foreign body of other part of head, initial encounter"
+    }
+  ],
   "bodySite": "face",
   "bodySide": "not-applicable",
-  "technique": ["clean"],
+  "technique": [
+    "clean"
+  ],
   "medicationUsed": "none",
-  "suppliesUsed": ["other"],
+  "suppliesUsed": [
+    "other"
+  ],
   "otherSuppliesUsed": "Dermabond skin adhesive",
   "complications": "none",
   "patientResponse": "tolerated-well",
-  "postInstructions": ["wound-care", "other"],
+  "postInstructions": [
+    "wound-care",
+    "other"
+  ],
   "otherPostInstructions": "Keep dry 24h; will slough off in 5–10 days; do not pick",
   "timeSpent": "5-10-min"
 }

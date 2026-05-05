@@ -1,18 +1,37 @@
 {
   "name": "Incision & Drainage — Simple Abscess",
   "procedureType": "abscess-drainage",
-  "cptCodes": [{ "code": "10060", "display": "Incision and drainage of abscess (simple or single)" }],
-  "diagnoses": [{ "code": "L02.91", "display": "Cutaneous abscess, unspecified" }],
+  "cptCodes": [
+    {
+      "code": "10060",
+      "display": "Incision and drainage of abscess (simple or single)"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "L02.91",
+      "display": "Cutaneous abscess, unspecified"
+    }
+  ],
   "bodySite": "torso",
   "bodySide": "not-applicable",
-  "technique": ["sterile"],
+  "technique": [
+    "sterile"
+  ],
   "medicationUsed": "local",
-  "suppliesUsed": ["irrigation-syringe", "other"],
+  "suppliesUsed": [
+    "irrigation-syringe",
+    "other"
+  ],
   "otherSuppliesUsed": "#11 blade, lidocaine 1% w/ epi, gauze",
   "specimenSent": false,
   "complications": "none",
   "patientResponse": "tolerated-well",
-  "postInstructions": ["wound-care", "fu-with-pcp", "other"],
+  "postInstructions": [
+    "wound-care",
+    "fu-with-pcp",
+    "other"
+  ],
   "otherPostInstructions": "Warm soaks QID; F/U in 2–3 days for re-evaluation",
   "timeSpent": "10-20-min"
 }

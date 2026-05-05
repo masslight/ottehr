@@ -4,7 +4,7 @@
   "medicationName": "Albuterol",
   "dose": 2.5,
   "units": "mg",
-  "route": "Inhalation",
+  "route": "447694001",
   "cptCodes": [
     {
       "code": "94640",

@@ -43,7 +43,7 @@ const MEDS: IHMSpec[] = [
     matchMedName: 'Albuterol',
     dose: 2.5,
     units: 'mg',
-    route: 'Inhalation',
+    route: '447694001',
     cptCode: '94640',
     cptDisplay: 'Pressurized or nonpressurized inhalation treatment for acute airway obstruction',
     instructions: '2.5 mg in 3 mL NS via nebulizer over 10–15 min. May repeat per symptoms.',
@@ -52,9 +52,9 @@ const MEDS: IHMSpec[] = [
     slug: 'ventolin-hfa-90mcg',
     displayName: 'Ventolin HFA 2 puffs',
     matchMedName: 'Ventolin HFA',
-    dose: 90,
-    units: 'mcg',
-    route: 'Inhalation',
+    dose: 2,
+    units: 'application',
+    route: '447694001',
     cptCode: '94664',
     cptDisplay: 'Demonstration and/or evaluation of patient utilization of an aerosol generator',
     instructions: '2 puffs (90 mcg/puff) inhaled with spacer, repeat in 4–6 h PRN.',
@@ -65,7 +65,7 @@ const MEDS: IHMSpec[] = [
     matchMedName: 'Acetaminophen (Tabs)',
     dose: 650,
     units: 'mg',
-    route: 'Oral',
+    route: '26643006',
     instructions: '650 mg PO once for pain or fever.',
   },
   {
@@ -74,7 +74,7 @@ const MEDS: IHMSpec[] = [
     matchMedName: 'Acetaminophen (Liquid)',
     dose: 160,
     units: 'mg',
-    route: 'Oral',
+    route: '26643006',
     instructions: 'Pediatric weight-based dose, 10–15 mg/kg PO. 160 mg = 5 mL of 32 mg/mL.',
   },
   {
@@ -83,7 +83,7 @@ const MEDS: IHMSpec[] = [
     matchMedName: 'Acetaminophen (80mg Suppository)',
     dose: 80,
     units: 'mg',
-    route: 'Rectal',
+    route: '37161004',
     instructions: 'Pediatric: 80 mg PR if vomiting / unable to tolerate PO.',
   },
   {
@@ -92,7 +92,7 @@ const MEDS: IHMSpec[] = [
     matchMedName: 'Acetaminophen (120mg Suppository)',
     dose: 120,
     units: 'mg',
-    route: 'Rectal',
+    route: '37161004',
     instructions: 'Pediatric: 120 mg PR if vomiting / unable to tolerate PO.',
   },
   {
@@ -101,7 +101,7 @@ const MEDS: IHMSpec[] = [
     matchMedName: 'Acetaminophen (325mg Suppository)',
     dose: 325,
     units: 'mg',
-    route: 'Rectal',
+    route: '37161004',
     instructions: 'Adult: 325 mg PR if vomiting / unable to tolerate PO.',
   },
   {
@@ -110,7 +110,7 @@ const MEDS: IHMSpec[] = [
     matchMedName: 'Ibuprofen 400mg Tablet PO',
     dose: 400,
     units: 'mg',
-    route: 'Oral',
+    route: '26643006',
     instructions: '400 mg PO once for pain or fever. Avoid in CKD, peptic ulcer, pregnancy.',
   },
   {
@@ -118,8 +118,8 @@ const MEDS: IHMSpec[] = [
     displayName: 'Lidocaine 1% local infiltration',
     matchMedName: 'Lidocaine HCl (Local Anesth.)',
     dose: 1,
-    units: '%',
-    route: 'Subcutaneous',
+    units: 'unit',
+    route: '34206005',
     instructions:
       'Local infiltration for procedural anesthesia (lac repair, I&D, FB removal). Max 4.5 mg/kg without epi.',
   },
@@ -129,7 +129,7 @@ const MEDS: IHMSpec[] = [
     matchMedName: 'Amoxicillin',
     dose: 500,
     units: 'mg',
-    route: 'Oral',
+    route: '26643006',
     instructions:
       'In-office observed dose for first-line coverage (otitis, strep, sinusitis). Outpatient course follows.',
   },
@@ -139,7 +139,7 @@ const MEDS: IHMSpec[] = [
     matchMedName: 'Amoxicillin Clavulanate',
     dose: 875,
     units: 'mg',
-    route: 'Oral',
+    route: '26643006',
     instructions: 'In-office observed dose for animal/human bite, sinusitis with risk factors, complicated otitis.',
   },
   {
@@ -148,7 +148,7 @@ const MEDS: IHMSpec[] = [
     matchMedName: 'Activated Charcoal',
     dose: 50,
     units: 'g',
-    route: 'Oral',
+    route: '26643006',
     instructions:
       'Adult: 50 g PO mixed in water for select acute oral toxic ingestions presenting <1 h. Confirm indication with toxicology.',
   },

@@ -1,17 +1,34 @@
 {
   "name": "Cryotherapy — Wart",
   "procedureType": "wart-treatment",
-  "cptCodes": [{ "code": "17110", "display": "Destruction of benign lesions other than skin tags or vascular proliferative lesions; up to 14 lesions" }],
-  "diagnoses": [{ "code": "B07.9", "display": "Viral wart, unspecified" }],
+  "cptCodes": [
+    {
+      "code": "17110",
+      "display": "Destruction of benign lesions other than skin tags or vascular proliferative lesions; up to 14 lesions"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "B07.9",
+      "display": "Viral wart, unspecified"
+    }
+  ],
   "bodySite": "arm",
   "bodySide": "left",
-  "technique": ["clean"],
+  "technique": [
+    "clean"
+  ],
   "medicationUsed": "none",
-  "suppliesUsed": ["other"],
+  "suppliesUsed": [
+    "other"
+  ],
   "otherSuppliesUsed": "Liquid nitrogen, cotton-tipped applicator or cryospray",
   "complications": "none",
   "patientResponse": "tolerated-well",
-  "postInstructions": ["return-if-worsening", "other"],
+  "postInstructions": [
+    "return-if-worsening",
+    "other"
+  ],
   "otherPostInstructions": "Expect blister; will resolve in 7–14 days; F/U in 2–3 weeks if persistent",
   "timeSpent": "less-5-min"
 }

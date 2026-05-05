@@ -5,8 +5,8 @@
     "name": "Dtap (Diptheria, Tetanus, Pertussis)"
   },
   "dose": "0.5",
-  "units": "mL",
-  "route": "IM",
+  "units": "ml",
+  "route": "78421000",
   "cvx": "20",
   "cptCodes": [
     {

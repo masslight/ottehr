@@ -1,17 +1,36 @@
 {
   "name": "Tick Removal",
   "procedureType": "tick-removal",
-  "cptCodes": [{ "code": "10120", "display": "Incision and removal of foreign body, subcutaneous tissues; simple" }],
-  "diagnoses": [{ "code": "W57.XXXA", "display": "Bitten or stung by nonvenomous insect and other nonvenomous arthropods, initial encounter" }],
+  "cptCodes": [
+    {
+      "code": "10120",
+      "display": "Incision and removal of foreign body, subcutaneous tissues; simple"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "W57.XXXA",
+      "display": "Bitten or stung by nonvenomous insect and other nonvenomous arthropods, initial encounter"
+    }
+  ],
   "bodySite": "arm",
   "bodySide": "left",
-  "technique": ["clean"],
+  "technique": [
+    "clean"
+  ],
   "medicationUsed": "none",
-  "suppliesUsed": ["forceps", "other"],
+  "suppliesUsed": [
+    "forceps",
+    "other"
+  ],
   "otherSuppliesUsed": "Fine-tip forceps, alcohol pad",
   "complications": "none",
   "patientResponse": "tolerated-well",
-  "postInstructions": ["wound-care", "return-if-worsening", "other"],
+  "postInstructions": [
+    "wound-care",
+    "return-if-worsening",
+    "other"
+  ],
   "otherPostInstructions": "Review Lyme prophylaxis criteria; watch for rash or fever 3–30 days",
   "timeSpent": "less-5-min"
 }

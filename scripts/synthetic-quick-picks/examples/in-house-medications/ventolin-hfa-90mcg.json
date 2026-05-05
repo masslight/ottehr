@@ -2,9 +2,9 @@
   "name": "Ventolin HFA 2 puffs",
   "medicationId": "20c1d245-bfcc-4c5b-9937-fb9b37c7f9bf",
   "medicationName": "Ventolin HFA",
-  "dose": 90,
-  "units": "mcg",
-  "route": "Inhalation",
+  "dose": 2,
+  "units": "application",
+  "route": "447694001",
   "cptCodes": [
     {
       "code": "94664",

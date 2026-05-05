@@ -4,6 +4,6 @@
   "medicationName": "Activated Charcoal",
   "dose": 50,
   "units": "g",
-  "route": "Oral",
+  "route": "26643006",
   "instructions": "Adult: 50 g PO mixed in water for select acute oral toxic ingestions presenting <1 h. Confirm indication with toxicology."
 }

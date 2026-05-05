@@ -1,17 +1,36 @@
 {
   "name": "Splint — Short Arm (Volar)",
   "procedureType": "splint-application",
-  "cptCodes": [{ "code": "29125", "display": "Application of short arm splint (forearm to hand); static" }],
-  "diagnoses": [{ "code": "S52.501A", "display": "Unspecified fracture of the lower end of right radius, initial encounter for closed fracture" }],
+  "cptCodes": [
+    {
+      "code": "29125",
+      "display": "Application of short arm splint (forearm to hand); static"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "S52.501A",
+      "display": "Unspecified fracture of the lower end of right radius, initial encounter for closed fracture"
+    }
+  ],
   "bodySite": "arm",
   "bodySide": "left",
-  "technique": ["clean"],
+  "technique": [
+    "clean"
+  ],
   "medicationUsed": "none",
-  "suppliesUsed": ["splint", "other"],
+  "suppliesUsed": [
+    "splint",
+    "other"
+  ],
   "otherSuppliesUsed": "Plaster or fiberglass, cotton padding, ace wrap",
   "complications": "none",
   "patientResponse": "tolerated-well",
-  "postInstructions": ["fu-with-pcp", "return-if-worsening", "other"],
+  "postInstructions": [
+    "fu-with-pcp",
+    "return-if-worsening",
+    "other"
+  ],
   "otherPostInstructions": "Ortho F/U in 5–7 days; ice and elevate; return for numbness or color change",
   "timeSpent": "10-20-min"
 }

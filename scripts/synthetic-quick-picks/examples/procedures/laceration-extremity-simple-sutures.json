@@ -2,19 +2,38 @@
   "name": "Laceration Repair — Extremity, Sutures (Simple)",
   "procedureType": "laceration-repair",
   "cptCodes": [
-    { "code": "12001", "display": "Simple repair of superficial wounds of scalp/neck/axillae/external genitalia/trunk/extremities, ≤2.5 cm" },
-    { "code": "12002", "display": "Simple repair, 2.6–7.5 cm" }
+    {
+      "code": "12001",
+      "display": "Simple repair of superficial wounds of scalp/neck/axillae/external genitalia/trunk/extremities, ≤2.5 cm"
+    },
+    {
+      "code": "12002",
+      "display": "Simple repair, 2.6–7.5 cm"
+    }
   ],
-  "diagnoses": [{ "code": "S51.811A", "display": "Laceration without foreign body of right forearm, initial encounter" }],
+  "diagnoses": [
+    {
+      "code": "S51.811A",
+      "display": "Laceration without foreign body of right forearm, initial encounter"
+    }
+  ],
   "bodySite": "arm",
   "bodySide": "left",
-  "technique": ["sterile"],
+  "technique": [
+    "sterile"
+  ],
   "medicationUsed": "local",
-  "suppliesUsed": ["suture-kit", "other"],
+  "suppliesUsed": [
+    "suture-kit",
+    "other"
+  ],
   "otherSuppliesUsed": "4-0 or 5-0 nylon, lidocaine 1% w/ epi",
   "complications": "none",
   "patientResponse": "tolerated-well",
-  "postInstructions": ["wound-care", "other"],
+  "postInstructions": [
+    "wound-care",
+    "other"
+  ],
   "otherPostInstructions": "Suture removal in 7–14 days depending on site",
   "timeSpent": "10-20-min"
 }

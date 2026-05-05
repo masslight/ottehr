@@ -5,8 +5,8 @@
     "name": "Tdap (Tetanus, Diphtheria, Pertussis)"
   },
   "dose": "0.5",
-  "units": "mL",
-  "route": "IM",
+  "units": "ml",
+  "route": "78421000",
   "cvx": "115",
   "cptCodes": [
     {

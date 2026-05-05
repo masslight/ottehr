@@ -5,8 +5,8 @@
     "name": "Td (Tetanus, Diphtheria)"
   },
   "dose": "0.5",
-  "units": "mL",
-  "route": "IM",
+  "units": "ml",
+  "route": "78421000",
   "cvx": "138",
   "cptCodes": [
     {

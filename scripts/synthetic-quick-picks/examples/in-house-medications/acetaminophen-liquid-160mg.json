@@ -4,6 +4,6 @@
   "medicationName": "Acetaminophen (Liquid)",
   "dose": 160,
   "units": "mg",
-  "route": "Oral",
+  "route": "26643006",
   "instructions": "Pediatric weight-based dose, 10–15 mg/kg PO. 160 mg = 5 mL of 32 mg/mL."
 }

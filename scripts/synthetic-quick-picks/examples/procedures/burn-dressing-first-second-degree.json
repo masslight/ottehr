@@ -1,17 +1,35 @@
 {
   "name": "Burn Dressing — First/Second Degree",
   "procedureType": "burn-treatment",
-  "cptCodes": [{ "code": "16020", "display": "Dressings and/or debridement of partial-thickness burns, initial or subsequent; small" }],
-  "diagnoses": [{ "code": "T22.221A", "display": "Burn of second degree of right forearm, initial encounter" }],
+  "cptCodes": [
+    {
+      "code": "16020",
+      "display": "Dressings and/or debridement of partial-thickness burns, initial or subsequent; small"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "T22.221A",
+      "display": "Burn of second degree of right forearm, initial encounter"
+    }
+  ],
   "bodySite": "arm",
   "bodySide": "left",
-  "technique": ["clean"],
+  "technique": [
+    "clean"
+  ],
   "medicationUsed": "topical",
-  "suppliesUsed": ["other"],
+  "suppliesUsed": [
+    "other"
+  ],
   "otherSuppliesUsed": "Bacitracin or silver sulfadiazine, non-adherent dressing, gauze",
   "complications": "none",
   "patientResponse": "tolerated-well",
-  "postInstructions": ["wound-care", "fu-with-pcp", "other"],
+  "postInstructions": [
+    "wound-care",
+    "fu-with-pcp",
+    "other"
+  ],
   "otherPostInstructions": "Daily dressing change; F/U in 2–3 days; cool water rinse for pain at home",
   "timeSpent": "10-20-min"
 }

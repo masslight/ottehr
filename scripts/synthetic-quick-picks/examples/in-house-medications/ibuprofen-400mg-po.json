@@ -4,6 +4,6 @@
   "medicationName": "Ibuprofen 400mg Tablet PO",
   "dose": 400,
   "units": "mg",
-  "route": "Oral",
+  "route": "26643006",
   "instructions": "400 mg PO once for pain or fever. Avoid in CKD, peptic ulcer, pregnancy."
 }

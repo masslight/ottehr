@@ -4,6 +4,6 @@
   "medicationName": "Acetaminophen (Tabs)",
   "dose": 650,
   "units": "mg",
-  "route": "Oral",
+  "route": "26643006",
   "instructions": "650 mg PO once for pain or fever."
 }

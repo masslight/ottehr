@@ -4,6 +4,6 @@
   "medicationName": "Acetaminophen (120mg Suppository)",
   "dose": 120,
   "units": "mg",
-  "route": "Rectal",
+  "route": "37161004",
   "instructions": "Pediatric: 120 mg PR if vomiting / unable to tolerate PO."
 }

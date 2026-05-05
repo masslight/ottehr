@@ -1,17 +1,35 @@
 {
   "name": "Foreign Body Removal — Nose",
   "procedureType": "foreign-body-removal",
-  "cptCodes": [{ "code": "30300", "display": "Removal foreign body, intranasal; office-type procedure" }],
-  "diagnoses": [{ "code": "T17.1XXA", "display": "Foreign body in nostril, initial encounter" }],
+  "cptCodes": [
+    {
+      "code": "30300",
+      "display": "Removal foreign body, intranasal; office-type procedure"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "T17.1XXA",
+      "display": "Foreign body in nostril, initial encounter"
+    }
+  ],
   "bodySite": "nose",
   "bodySide": "not-applicable",
-  "technique": ["clean"],
+  "technique": [
+    "clean"
+  ],
   "medicationUsed": "topical",
-  "suppliesUsed": ["forceps", "other"],
+  "suppliesUsed": [
+    "forceps",
+    "other"
+  ],
   "otherSuppliesUsed": "Alligator forceps; consider positive-pressure (parent's kiss) first",
   "complications": "none",
   "patientResponse": "tolerated-well",
-  "postInstructions": ["return-if-worsening", "other"],
+  "postInstructions": [
+    "return-if-worsening",
+    "other"
+  ],
   "otherPostInstructions": "ENT referral if posterior FB or unable to remove",
   "timeSpent": "5-10-min"
 }
