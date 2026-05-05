@@ -26,6 +26,7 @@ export * from './icd-10-search';
 export * from './icd-search';
 export * from './incomplete-encounters-report.types';
 export * from './init-telemed-session';
+export * from './em-codes.constants';
 export * from './insurances.constants';
 export * from './lab';
 export * from './medication-administration.constants';

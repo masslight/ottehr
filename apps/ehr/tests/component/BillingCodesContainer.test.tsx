@@ -67,12 +67,18 @@ vi.mock('utils', async (importOriginal) => {
   return {
     ...actual,
     APIErrorCode: { MISSING_NLM_API_KEY_ERROR: 'MISSING_NLM_API_KEY' },
-    emCodeOptions: [
+  };
+});
+
+vi.mock('../../src/features/visits/shared/hooks/useEMCodes', () => ({
+  useEMCodes: () => ({
+    emCodes: [
       { display: '99213 Established Patient - E/M Level 3', code: '99213' },
       { display: '99214 Established Patient - E/M Level 4', code: '99214' },
     ],
-  };
-});
+    isLoading: false,
+  }),
+}));
 
 vi.mock('src/constants/data-test-ids', () => ({
   dataTestIds: {

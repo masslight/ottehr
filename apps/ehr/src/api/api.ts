@@ -42,6 +42,7 @@ import {
   CreateAppointmentResponse,
   CreateDischargeSummaryInput,
   CreateDischargeSummaryResponse,
+  CreateEmCodeInput,
   CreateImmunizationQuickPickInput,
   CreateImmunizationQuickPickResponse,
   CreateInHouseLabOrderParameters,
@@ -72,6 +73,7 @@ import {
   CreateUserParams,
   DailyPaymentsReportZambdaInput,
   DailyPaymentsReportZambdaOutput,
+  DeleteEmCodeInput,
   DeleteInHouseLabOrderParameters,
   DeleteInHouseLabOrderZambdaOutput,
   DeleteLabOrderZambdaInput,
@@ -83,6 +85,7 @@ import {
   DeleteVisitFilesInput,
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
+  EmCodeOutput,
   GetAllergyQuickPicksResponse,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
@@ -168,6 +171,7 @@ import {
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
   UpdateAllergyQuickPickResponse,
+  UpdateEmCodeInput,
   UpdateImmunizationQuickPickResponse,
   UpdateInHouseMedicationInput,
   UpdateInHouseMedicationQuickPickResponse,
@@ -242,6 +246,10 @@ const DELETE_IN_HOUSE_LAB_ORDER = 'delete-in-house-lab-order';
 const CREATE_IN_HOUSE_MEDICATION = 'create-in-house-medication';
 const UPDATE_IN_HOUSE_MEDICATION = 'update-in-house-medication';
 const GET_IN_HOUSE_MEDICATIONS = 'get-in-house-medications';
+const GET_EM_CODES = 'get-em-codes';
+const CREATE_EM_CODE = 'create-em-code';
+const UPDATE_EM_CODE = 'update-em-code';
+const DELETE_EM_CODE = 'delete-em-code';
 const UNLOCK_APPOINTMENT_ZAMBDA_ID = 'unlock-appointment';
 const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
 const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
@@ -1315,6 +1323,55 @@ export const getInHouseMedications = async (oystehr: Oystehr): Promise<Medicatio
     }
     const response = await oystehr.zambda.execute({
       id: GET_IN_HOUSE_MEDICATIONS,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getEmCodes = async (oystehr: Oystehr): Promise<EmCodeOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: GET_EM_CODES });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createEmCode = async (oystehr: Oystehr, parameters: CreateEmCodeInput): Promise<EmCodeOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_EM_CODE,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateEmCode = async (oystehr: Oystehr, parameters: UpdateEmCodeInput): Promise<EmCodeOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: UPDATE_EM_CODE,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteEmCode = async (oystehr: Oystehr, parameters: DeleteEmCodeInput): Promise<EmCodeOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: DELETE_EM_CODE,
+      ...parameters,
     });
     return chooseJson(response);
   } catch (error: unknown) {
