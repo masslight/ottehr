@@ -1,5 +1,5 @@
 import { enqueueSnackbar } from 'notistack';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { ExamObservationDTO } from 'utils';
 import { useDeleteChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import {
@@ -38,16 +38,23 @@ export function useRosObservations(field?: string): {
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
 
+  // Serialize saves so that rapid clicks never run two concurrent saveChartData
+  // calls on the same mutation instance. React Query only fires onSuccess/onError
+  // callbacks for the *last* mutate call, so a second call before the first
+  // returns would silently drop the first callback (and the paired delete inside it).
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
+
   const update = useCallback(
     (observations: ExamObservationDTO[], noFetch?: boolean) => {
-      // Capture previous values for the fields being changed (for rollback)
       const prevState = useRosObservationsStore.getState();
+
+      // Rollback snapshot
       const prevValues = observations.reduce((acc, obs) => {
         acc[obs.field] = prevState[obs.field];
         return acc;
       }, {} as RosRecord);
 
-      // Merge into store (same pattern as useExamObservations)
+      // Optimistic update
       useRosObservationsStore.setState(arrayToObject(observations));
 
       if (noFetch) {
@@ -59,40 +66,49 @@ export function useRosObservations(field?: string): {
       const toDelete = observations.filter((o) => !o.value && o.resourceId);
 
       if (toSave.length > 0) {
-        saveChartData(
-          { rosObservations: toSave },
-          {
-            onSuccess: (data) => {
-              if (data.chartData.rosObservations) {
-                // If the user toggled back to false while the save was in-flight, the
-                // resourceId was unknown at uncheck time so no delete was sent. Now that
-                // we have the resourceId from the server, send the delete and skip the
-                // overwrite; otherwise merge the server response (with resourceIds).
-                const currentState = useRosObservationsStore.getState();
-                const stillTrue = data.chartData.rosObservations.filter(
-                  (obs) => currentState[obs.field]?.value === true
-                );
-                const needsDelete = data.chartData.rosObservations.filter(
-                  (obs) => currentState[obs.field]?.value !== true && obs.resourceId
-                );
-                if (stillTrue.length > 0) {
-                  useRosObservationsStore.setState(arrayToObject(stillTrue));
-                }
-                if (needsDelete.length > 0) {
-                  deleteChartData({ rosObservations: needsDelete });
-                }
-              }
-            },
-            onError: () => {
-              enqueueSnackbar('An error occurred while saving ROS data. Please try again.', { variant: 'error' });
-              // Restore only the changed fields (merge, not replace)
-              useRosObservationsStore.setState(prevValues);
-            },
-          }
-        );
-      }
+        saveQueue.current = saveQueue.current.then(
+          () =>
+            new Promise<void>((resolve) => {
+              saveChartData(
+                { rosObservations: toSave },
+                {
+                  onSuccess: (data) => {
+                    const returned = data.chartData.rosObservations ?? [];
+                    const currentState = useRosObservationsStore.getState();
 
-      if (toDelete.length > 0) {
+                    // Merge server truth for fields still active in the UI
+                    const stillActive = returned.filter((obs) => currentState[obs.field]?.value === true);
+                    if (stillActive.length > 0) {
+                      useRosObservationsStore.setState(arrayToObject(stillActive));
+                    }
+
+                    // Sequence all deletes after the save to prevent FHIR races.
+                    // fromFlip catches fields toggled to false while the save was in-flight:
+                    // their resourceId was unknown at click time but the server just returned it.
+                    const fromFlip = returned.filter(
+                      (obs) => currentState[obs.field]?.value !== true && obs.resourceId
+                    );
+                    const allToDelete = [
+                      ...toDelete,
+                      ...fromFlip.filter((f) => !toDelete.some((d) => d.field === f.field)),
+                    ];
+                    if (allToDelete.length > 0) {
+                      deleteChartData({ rosObservations: allToDelete });
+                    }
+
+                    resolve();
+                  },
+                  onError: () => {
+                    enqueueSnackbar('An error occurred while saving ROS data. Please try again.', { variant: 'error' });
+                    useRosObservationsStore.setState(prevValues);
+                    resolve();
+                  },
+                }
+              );
+            })
+        );
+      } else if (toDelete.length > 0) {
+        // No save in this batch — safe to delete immediately (no in-flight save for these fields)
         deleteChartData({ rosObservations: toDelete });
       }
     },

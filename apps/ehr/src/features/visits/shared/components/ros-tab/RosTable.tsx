@@ -15,6 +15,7 @@ import { FC, useCallback } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ExamObservationDTO, getRosFindingFieldKeys, RosCard, RosItemConfig } from 'utils';
 import { useRosObservations } from '../../hooks/useRosObservations';
+import { useRosObservationsStore } from '../../stores/appointment/ros-observations.store';
 
 interface RosTableProps {
   config: RosItemConfig;
@@ -42,14 +43,16 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
   const theme = useTheme();
 
   const handleCheck = useCallback(
-    (field: string, label: string, pairedField: string, resourceId?: string, pairedResourceId?: string) => {
+    (field: string, label: string, pairedField: string, resourceId?: string) => {
+      const storeState = useRosObservationsStore.getState();
+      const pairedObs = storeState[pairedField];
       const updates: ExamObservationDTO[] = [{ field, label, value: true, resourceId }];
-      if (observationMap[pairedField]?.value) {
-        updates.push({ field: pairedField, label, value: false, resourceId: pairedResourceId });
+      if (pairedObs?.value) {
+        updates.push({ field: pairedField, label, value: false, resourceId: pairedObs.resourceId });
       }
       update(updates);
     },
-    [update, observationMap]
+    [update]
   );
 
   const handleUncheck = useCallback(
@@ -124,7 +127,7 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
                     onChange={() =>
                       isDenied
                         ? handleUncheck(deniesKey, item.label, deniesObs?.resourceId)
-                        : handleCheck(deniesKey, item.label, reportsKey, deniesObs?.resourceId, reportsObs?.resourceId)
+                        : handleCheck(deniesKey, item.label, reportsKey, deniesObs?.resourceId)
                     }
                     size="small"
                     sx={{ p: 0.25, color: 'success.light', '&.Mui-checked': { color: 'success.main' } }}
@@ -140,7 +143,7 @@ export const RosTable: FC<RosTableProps> = ({ config }) => {
                     onChange={() =>
                       isReported
                         ? handleUncheck(reportsKey, item.label, reportsObs?.resourceId)
-                        : handleCheck(reportsKey, item.label, deniesKey, reportsObs?.resourceId, deniesObs?.resourceId)
+                        : handleCheck(reportsKey, item.label, deniesKey, reportsObs?.resourceId)
                     }
                     size="small"
                     sx={{ p: 0.25, color: 'error.light', '&.Mui-checked': { color: 'error.main' } }}
