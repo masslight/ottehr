@@ -115,13 +115,16 @@ async function main(): Promise<void> {
   type Picked = { id: string; name: string };
   const findVaccine = (matchName: string): Picked | undefined => {
     const target = matchName.toLowerCase();
-    for (const m of allVaccines as any[]) {
-      const nameId = (m.identifier ?? []).find((i: any) => i.system?.includes('identifier-name-system'));
-      if (nameId?.value?.toLowerCase().includes(target)) {
-        return { id: m.id, name: nameId.value };
-      }
-    }
-    return undefined;
+    const named = (allVaccines as any[])
+      .map((m) => {
+        const nameId = (m.identifier ?? []).find((i: any) => i.system?.includes('identifier-name-system'));
+        return nameId?.value ? { id: m.id as string, name: nameId.value as string } : undefined;
+      })
+      .filter((x): x is Picked => !!x);
+    // Exact match wins; substring fallback for partial matchVaccineName entries.
+    const exact = named.find((m) => m.name.toLowerCase() === target);
+    if (exact) return exact;
+    return named.find((m) => m.name.toLowerCase().includes(target));
   };
 
   type Resolved = { spec: VaccineSpec; pick: Picked | undefined };
@@ -144,6 +147,10 @@ async function main(): Promise<void> {
   }
 
   mkdirSync(OUT_DIR, { recursive: true });
+  // Clear stale JSONs from prior runs so the output dir reflects exactly what
+  // this bootstrap resolved against the current project.
+  const { readdirSync, unlinkSync } = await import('fs');
+  for (const f of readdirSync(OUT_DIR)) if (f.endsWith('.json')) unlinkSync(`${OUT_DIR}/${f}`);
   let written = 0;
   for (const { spec, pick } of resolved) {
     if (!pick) continue;

@@ -193,13 +193,19 @@ async function main(): Promise<void> {
   type Picked = { id: string; name: string };
   const findMed = (matchName: string): Picked | undefined => {
     const target = matchName.toLowerCase();
-    for (const m of allMeds as any[]) {
-      const nameId = (m.identifier ?? []).find((i: any) => i.system?.includes('identifier-name-system'));
-      if (nameId?.value?.toLowerCase().includes(target)) {
-        return { id: m.id, name: nameId.value };
-      }
-    }
-    return undefined;
+    const named = (allMeds as any[])
+      .map((m) => {
+        const nameId = (m.identifier ?? []).find((i: any) => i.system?.includes('identifier-name-system'));
+        return nameId?.value ? { id: m.id as string, name: nameId.value as string } : undefined;
+      })
+      .filter((x): x is Picked => !!x);
+    // 1. Exact match wins (so "Amoxicillin" matches "Amoxicillin", not "Amoxicillin Clavulanate")
+    const exact = named.find((m) => m.name.toLowerCase() === target);
+    if (exact) return exact;
+    // 2. Substring fallback for cases where matchMedName is intentionally a fragment
+    //    of the canonical name (e.g., "Lidocaine HCl (Local Anesth.)" matches the
+    //    longer "Lidocaine HCl (Local Anesth.) Injection Kit (1 %)").
+    return named.find((m) => m.name.toLowerCase().includes(target));
   };
 
   type Resolved = { spec: IHMSpec; pick: Picked | undefined };
@@ -222,6 +228,12 @@ async function main(): Promise<void> {
   }
 
   mkdirSync(OUT_DIR, { recursive: true });
+  // Clear stale JSONs from prior runs so the output dir reflects exactly what
+  // this bootstrap resolved. Without this, applying the populator to a project
+  // that lacks a med (e.g. ibuprofen on demo) would re-apply the previous
+  // project's JSON with the wrong medicationId.
+  const { readdirSync, unlinkSync } = await import('fs');
+  for (const f of readdirSync(OUT_DIR)) if (f.endsWith('.json')) unlinkSync(`${OUT_DIR}/${f}`);
   let written = 0;
   for (const { spec, pick } of resolved) {
     if (!pick) continue;
