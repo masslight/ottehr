@@ -146,12 +146,11 @@ jobs:
         if: env.ENVIRONMENT == 'demo' || env.ENVIRONMENT == 'production'
         shell: bash
         run: |
-          REPO="${{ inputs.repo }}"
           for src_file in \
             "config/.env/${{ env.ENVIRONMENT }}.json" \
             "terraform/${{ env.ENVIRONMENT }}.tfvars"; do
-            src="prod-secrets/$REPO/$src_file"
-            dst="secrets/$REPO/$src_file"
+            src="prod-secrets/ottehr/$src_file"
+            dst="secrets/ottehr/$src_file"
             if [[ -f "$src" ]]; then
               mkdir -p "$(dirname "$dst")"
               cp "$src" "$dst"
