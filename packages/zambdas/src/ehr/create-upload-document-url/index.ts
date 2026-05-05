@@ -59,14 +59,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   logIt('fetching list .......');
   let documentsFolder: List | undefined;
   // A "real" fileFolderId is a FHIR resource id; the client sends a sentinel
-  // (SYNTHETIC_FOLDER_ID_PREFIX) when the per-patient List doesn't exist yet.
-  const isSyntheticFolderId = !fileFolderId || fileFolderId.startsWith('synthetic:');
+  // (`synthetic:${internalName}`) when the per-patient List doesn't exist yet.
+  const SYNTHETIC_PREFIX = 'synthetic:';
+  const isSyntheticFolderId = !fileFolderId || fileFolderId.startsWith(SYNTHETIC_PREFIX);
   if (!isSyntheticFolderId) {
     documentsFolder = (await getListAndPatientResource(fileFolderId, oystehr)).list;
   }
-  if (!documentsFolder && internalName) {
-    logIt(`per-patient List missing for "${internalName}" — looking up / creating lazily`);
-    documentsFolder = await findOrCreatePatientCustomFolderList({ patientId, internalName, oystehr });
+  // Fall back to the embedded internalName if the client omitted the explicit field.
+  const resolvedInternalName =
+    internalName ??
+    (fileFolderId?.startsWith(SYNTHETIC_PREFIX) ? fileFolderId.slice(SYNTHETIC_PREFIX.length) : undefined);
+  if (!documentsFolder && resolvedInternalName) {
+    logIt(`per-patient List missing for "${resolvedInternalName}" — looking up / creating lazily`);
+    documentsFolder = await findOrCreatePatientCustomFolderList({
+      patientId,
+      internalName: resolvedInternalName,
+      oystehr,
+    });
   }
   logIt('Got list resource');
 
@@ -74,7 +83,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: `Can't fetch or create List resource (fileFolderId=${fileFolderId}, internalName=${internalName})`,
+        error: `Can't fetch or create List resource (fileFolderId=${fileFolderId}, internalName=${resolvedInternalName})`,
       }),
     };
   }

@@ -25,7 +25,12 @@ import { RoundedButton } from '../components/RoundedButton';
 import { ScannerModal } from '../components/ScannerModal';
 import useEvolveUser from '../hooks/useEvolveUser';
 import { useGetPatient } from '../hooks/useGetPatient';
-import { PatientDocumentsFilters, PatientDocumentsFolder, useGetPatientDocs } from '../hooks/useGetPatientDocs';
+import {
+  PatientDocumentsFilters,
+  PatientDocumentsFolder,
+  SYNTHETIC_FOLDER_ID_PREFIX,
+  useGetPatientDocs,
+} from '../hooks/useGetPatientDocs';
 import { usePatientStore } from '../state/patient.store';
 
 const FileAttachmentHiddenInput = styled('input')({
@@ -190,12 +195,19 @@ const PatientDocumentsExplorerPage: FC = () => {
         const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
         const file = new File([fileBlob], finalFileName, { type: 'application/pdf' });
 
+        const wasSynthetic = folderId.startsWith(SYNTHETIC_FOLDER_ID_PREFIX);
         await documentActions.uploadDocumentAction({
           docFile: file,
           fileName: finalFileName,
           fileFolderId: folderId,
           internalName: selectedFolder?.internalName,
         });
+        // First upload to a synthetic folder creates the real per-patient List; re-select
+        // by internalName so the doc search re-keys off the real id (the synthetic id
+        // short-circuits to an empty result set).
+        if (wasSynthetic && selectedFolder?.internalName) {
+          setPendingSelectInternalName(selectedFolder.internalName);
+        }
 
         enqueueSnackbar('Successfully uploaded scanned document', { variant: 'success' });
       } catch (error) {
@@ -238,15 +250,20 @@ const PatientDocumentsExplorerPage: FC = () => {
         return;
       }
 
+      const wasSynthetic = folderId.startsWith(SYNTHETIC_FOLDER_ID_PREFIX);
       await documentActions.uploadDocumentAction({
         docFile: selectedFile,
         fileName: fileName,
         fileFolderId: folderId,
+        internalName: selectedFolder?.internalName,
       });
+      if (wasSynthetic && selectedFolder?.internalName) {
+        setPendingSelectInternalName(selectedFolder.internalName);
+      }
 
       event.target.value = '';
     },
-    [documentActions, selectedFolder?.id]
+    [documentActions, selectedFolder?.id, selectedFolder?.internalName]
   );
 
   const documentTableActions: DocumentTableActions = useMemo(() => {
