@@ -729,8 +729,8 @@ export default function MailedStatements(): React.ReactElement {
         </Box>
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          This report shows patient statements sent by mail via PostGrid. Click a patient name to navigate to their
-          chart. Click the preview icon to view the mailed statement.
+          This report shows patient statements sent by mail. Click a patient name to navigate to their chart. Click the
+          preview icon to view the mailed statement.
         </Typography>
 
         {/* Date Filter */}

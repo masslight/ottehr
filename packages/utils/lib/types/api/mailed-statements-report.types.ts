@@ -19,7 +19,7 @@ export interface MailedStatementItem {
   vendorSendDate: string;
   vendorLetterUrl: string;
   vendorMailingClass: string;
-  vendorPageCount: string;
+  vendorPageCount: number;
   vendorEnvelopeType: string;
   vendorStatusSyncedAt: string;
   description: string;

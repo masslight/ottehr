@@ -172,7 +172,7 @@ describe('mailed-statements-report handler', () => {
     expect(stmt.vendorSendDate).toBe('2025-01-16');
     expect(stmt.vendorLetterUrl).toBe('https://pdf.url');
     expect(stmt.vendorMailingClass).toBe('first_class');
-    expect(stmt.vendorPageCount).toBe('2');
+    expect(stmt.vendorPageCount).toBe(2);
     expect(stmt.vendorEnvelopeType).toBe('standard');
     expect(stmt.vendorStatusSyncedAt).toBe('2025-01-17T00:00:00Z');
     expect(stmt.description).toBe('Statement for visit');

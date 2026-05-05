@@ -171,7 +171,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const vendorLetterUrl = mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-letter-url')?.valueString ?? '';
     const vendorMailingClass =
       mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-mailing-class')?.valueString ?? '';
-    const vendorPageCount = mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-page-count')?.valueString ?? '';
+    const vendorPageCount =
+      Number(mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-page-count')?.valueString) || 0;
     const vendorEnvelopeType =
       mailVendorExt?.extension?.find((ext) => ext.url === 'vendor-envelope-type')?.valueString ?? '';
     const vendorStatusSyncedAt =
