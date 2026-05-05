@@ -1830,6 +1830,13 @@
         "criteria": "Communication?category=https://terminology.fhir.oystehr.com/CodeSystem/notification|erx-notification",
         "reason": "Create Task for eRX notification"
       }
+    },
+    "GET-PRINTING-CONFIG": {
+      "name": "get-printing-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/printing-config/get-printing-config/index",
+      "zip": ".dist/zips/get-printing-config.zip"
     }
   },
   "fhirResources": {

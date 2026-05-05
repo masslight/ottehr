@@ -1,13 +1,21 @@
-import { Grid, Paper } from '@mui/material';
+import { Box, CircularProgress, Grid, Paper, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 import PageContainer from 'src/layout/PageContainer';
-import { AdminPrintingConfig } from 'utils';
+import { PrintingConfig } from 'utils';
+import { useAdminGetPrintingConfig } from '../admin.queries';
 import AdminPrintingConfigForm from './AdminPrintingConfigForm';
 
 export default function AdminPrintingConfigPage(): ReactElement {
-  // for the moment we're just going to return the single form since we aren't supporting multiple printing configs for the moment
+  // for the moment we're just going to return the single form since we aren't supporting multiple printing configs currently
 
-  const handleSubmit = (data: AdminPrintingConfig): void => {
+  const {
+    data: existingConfig,
+    isPending,
+    isError: isFetchDataError,
+  } = useAdminGetPrintingConfig({ deviceId: undefined });
+  const configToRender = existingConfig ?? { mode: 'manual' };
+
+  const handleSubmit = (data: PrintingConfig): void => {
     console.log('>>>data from handleSubmit', data);
     return;
   };
@@ -17,7 +25,15 @@ export default function AdminPrintingConfigPage(): ReactElement {
       <Grid container direction="row" alignItems="center" justifyContent="center">
         <Grid item maxWidth={'584px'} width={'100%'}>
           <Paper sx={{ padding: 3, marginTop: 2, marginBottom: 2 }}>
-            <AdminPrintingConfigForm formMode="edit" defaultValues={{ mode: 'manual' }} onSubmit={handleSubmit} />
+            {isPending ? (
+              <Box display="flex" justifyContent="center" alignItems="center" py={3}>
+                <CircularProgress />
+              </Box>
+            ) : isFetchDataError ? (
+              <Typography>An error has occurred</Typography>
+            ) : (
+              <AdminPrintingConfigForm formMode="edit" defaultValues={configToRender} onSubmit={handleSubmit} />
+            )}
           </Paper>
         </Grid>
       </Grid>

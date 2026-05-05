@@ -11,7 +11,7 @@ import {
   Reference,
 } from 'fhir/r4b';
 import { CPTCodeOption, DiagnosisDTO, LAB_DR_TYPE_TAG, Pagination } from '../..';
-import { LabelPdf, LabelType, LabelXml } from '../shared';
+import { LabelPdf, LabelType, LabelXml } from '../printing';
 
 // todo labs team - we should do some assessing of all our type files, our types feel a bit unorganized and as a result i think we have some redundancy
 export interface OrderableItemSearchResult {

@@ -100,6 +100,7 @@ import {
   GetPatientLoginPhoneNumbersInput,
   GetPatientLoginPhoneNumbersOutput,
   GetPresignedFileURLInput,
+  GetPrintingConfigInput,
   GetProcedureQuickPicksResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
@@ -139,6 +140,7 @@ import {
   PracticeKpisReportZambdaInput,
   PracticeKpisReportZambdaOutput,
   PresignUploadUrlResponse,
+  PrintingConfig,
   ProcedureQuickPickData,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
@@ -286,6 +288,7 @@ const ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID = 'admin-list-in-house-labs';
 const ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-add-in-house-lab';
 const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
 const ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-update-in-house-lab';
+const GET_PRINTING_CONFIG_ZAMBDA_ID = 'get-printing-config';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1785,6 +1788,25 @@ export const adminUpdateInHouseLab = async (
     }
     const response = await oystehr.zambda.execute({
       id: ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getPrintingConfig = async (
+  oystehr: Oystehr,
+  parameters: GetPrintingConfigInput
+): Promise<PrintingConfig> => {
+  try {
+    if (GET_PRINTING_CONFIG_ZAMBDA_ID == null) {
+      throw new Error('get printing config environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: GET_PRINTING_CONFIG_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

@@ -10,6 +10,7 @@ import {
   bulkUpdateInsuranceStatus,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
+  getPrintingConfig,
   getProcedureQuickPicks,
   getRadiologyQuickPicks,
   removeImmunizationQuickPick,
@@ -32,6 +33,7 @@ import {
   APIError,
   BulkUpdateInsuranceStatusInput,
   FHIR_EXTENSION,
+  GetPrintingConfigInput,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
   INSURANCE_SETTINGS_MAP,
@@ -39,6 +41,7 @@ import {
   isLocationVirtual,
   ORG_TYPE_CODE_SYSTEM,
   ORG_TYPE_PAYER_CODE,
+  PrintingConfig,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
 } from 'utils';
@@ -475,5 +478,21 @@ export const useAdminUpdateInHouseLab = (
       }
       enqueueSnackbar(message, { variant: 'error' });
     },
+  });
+};
+
+export const useAdminGetPrintingConfig = (input: GetPrintingConfigInput): UseQueryResult<PrintingConfig, Error> => {
+  const { oystehrZambda } = useApiClients();
+  const { deviceId } = input;
+
+  return useQuery({
+    queryKey: ['admin-get-printing-config', deviceId],
+    queryFn: async () => {
+      return getPrintingConfig(oystehrZambda!, input);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
+    refetchOnMount: 'always', // refetch every mount
+    refetchOnWindowFocus: true, // refetch when you tab back
   });
 };

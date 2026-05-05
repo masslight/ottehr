@@ -61,7 +61,7 @@ const PrinterAndLabelConfigSchema = z.discriminatedUnion('printerManufacturer', 
 ]);
 
 // ---------- top-level config ----------
-export const AdminPrintingConfigSchema = z.discriminatedUnion('mode', [
+export const PrintingConfigSchema = z.discriminatedUnion('mode', [
   z.object({ mode: z.literal('manual') }),
   z.object({
     mode: z.literal('integrated'),
@@ -69,4 +69,8 @@ export const AdminPrintingConfigSchema = z.discriminatedUnion('mode', [
     printerAndLabelConfig: PrinterAndLabelConfigSchema,
   }),
 ]);
-export type AdminPrintingConfig = z.infer<typeof AdminPrintingConfigSchema>;
+export type PrintingConfig = z.infer<typeof PrintingConfigSchema>;
+
+export interface GetPrintingConfigInput {
+  deviceId?: string;
+}

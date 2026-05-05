@@ -21,4 +21,4 @@ export * from './visit-details.types';
 export * from './tasks';
 export * from './search-places';
 export * from './delete-patient-document.types';
-export * from './shared';
+export * from './printing';

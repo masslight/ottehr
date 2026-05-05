@@ -16,28 +16,28 @@ import {
 import { ReactElement } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import {
-  AdminPrintingConfig,
-  AdminPrintingConfigSchema,
   getLabelTypeMetadata,
   LabelOrientationSchema,
   MANUFACTURER_TO_LABEL_MAPPING,
+  PrintingConfig,
+  PrintingConfigSchema,
   PrintModeSchema,
   SupportedPrinterManufacturerSchema,
 } from 'utils';
 
 export interface AdminPrintingConfigFormProps {
-  defaultValues: AdminPrintingConfig;
+  defaultValues: PrintingConfig;
   formMode: 'add' | 'edit';
-  onSubmit: (data: AdminPrintingConfig) => void;
+  onSubmit: (data: PrintingConfig) => void;
 }
 
 export default function AdminPrintingConfigForm(props: AdminPrintingConfigFormProps): ReactElement {
   const { defaultValues, onSubmit } = props;
   const theme = useTheme();
 
-  const methods = useForm<AdminPrintingConfig>({
+  const methods = useForm<PrintingConfig>({
     defaultValues,
-    resolver: zodResolver(AdminPrintingConfigSchema),
+    resolver: zodResolver(PrintingConfigSchema),
   });
 
   const selectedMode = methods.watch('mode');
