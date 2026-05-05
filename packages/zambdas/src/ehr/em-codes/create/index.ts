@@ -27,13 +27,13 @@ export const index = wrapHandler('create-em-code', async (input: ZambdaInput): P
       throw ALREADY_EXISTS_WITH_MESSAGE(`E&M code '${code}' already exists`);
     }
 
-    return [
-      {
-        op: 'add',
-        path: '/expansion/contains/-',
-        value: { system: CPT_CODE_SYSTEM, code, display },
-      },
-    ];
+    const newEntry = { system: CPT_CODE_SYSTEM, code, display };
+
+    if (!freshValueSet.expansion?.contains) {
+      return [{ op: 'add', path: '/expansion/contains', value: [newEntry] }];
+    }
+
+    return [{ op: 'add', path: '/expansion/contains/-', value: newEntry }];
   });
 
   const updatedCodes = await getEmCodes(oystehr);
