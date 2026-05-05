@@ -26,7 +26,11 @@ import { ReactElement, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
-import { getInHouseLabOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
+import {
+  FollowUpAppointmentLookup,
+  getInHouseLabOrderDetailsUrl,
+  resolveOrderRoutingFromFollowUpLookup,
+} from 'src/features/visits/in-person/routing/helpers';
 import { useGetCreateInHouseLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { InHouseOrderListPageItemDTO, InHouseOrdersSearchBy } from 'utils';
 import { LabOrdersSearchBy } from 'utils/lib/types/data/labs';
@@ -50,6 +54,7 @@ type InHouseLabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   allowDelete?: boolean;
   titleText?: string;
   onCreateOrder?: () => void;
+  followUpAppointmentLookup?: FollowUpAppointmentLookup;
 };
 
 export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
@@ -59,6 +64,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   allowDelete = false,
   titleText,
   onCreateOrder,
+  followUpAppointmentLookup,
 }: InHouseLabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
   const { id: appointmentIdFromUrl } = useParams();
@@ -96,6 +102,15 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   };
 
   const onRowClick = (labOrderData: InHouseOrderListPageItemDTO): void => {
+    if (followUpAppointmentLookup) {
+      const { appointmentId, encounterIdQuery } = resolveOrderRoutingFromFollowUpLookup(
+        labOrderData.appointmentId,
+        followUpAppointmentLookup
+      );
+      const url = getInHouseLabOrderDetailsUrl(appointmentId, labOrderData.serviceRequestId);
+      navigateTo(encounterIdQuery ? `${url}?encounterId=${encounterIdQuery}` : url);
+      return;
+    }
     const appointmentId = appointmentIdFromUrl || labOrderData.appointmentId;
     const url = getInHouseLabOrderDetailsUrl(appointmentId, labOrderData.serviceRequestId);
     navigateTo(encounterIdParam ? `${url}?encounterId=${encounterIdParam}` : url);

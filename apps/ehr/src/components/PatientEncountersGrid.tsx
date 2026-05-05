@@ -274,8 +274,11 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         );
       }
       case 'note': {
-        const { encounterId, originalAppointmentId, followupSubtype } = encounter;
+        const { encounterId, originalAppointmentId, followupSubtype, status } = encounter;
         if (!originalAppointmentId) return '-';
+        if (typeof status === 'string' && ['planned', 'arrived'].includes(status)) {
+          return null;
+        }
         const pathSegment = getFollowUpProgressNotePathSegment(followupSubtype);
         const to = getInPersonUrlByAppointmentType(
           { id: originalAppointmentId, encounterId, isFollowUp: true },

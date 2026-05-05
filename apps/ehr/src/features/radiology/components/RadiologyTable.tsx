@@ -14,7 +14,11 @@ import {
 import { ReactElement } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { GetRadiologyOrderListZambdaOrder } from 'utils';
-import { getRadiologyOrderEditUrl } from '../../visits/in-person/routing/helpers';
+import {
+  FollowUpAppointmentLookup,
+  getRadiologyOrderEditUrl,
+  resolveOrderRoutingFromFollowUpLookup,
+} from '../../visits/in-person/routing/helpers';
 import { RadiologyOrderLoading } from './RadiologyOrderLoading';
 import { RadiologyTableRow } from './RadiologyTableRow';
 import { usePatientRadiologyOrders } from './usePatientRadiologyOrders';
@@ -29,6 +33,7 @@ type RadiologyTableProps = {
   allowDelete?: boolean;
   titleText?: string;
   onCreateOrder?: () => void;
+  followUpAppointmentLookup?: FollowUpAppointmentLookup;
 };
 
 export const RadiologyTable = ({
@@ -38,6 +43,7 @@ export const RadiologyTable = ({
   allowDelete = false,
   titleText,
   onCreateOrder,
+  followUpAppointmentLookup,
 }: RadiologyTableProps): ReactElement => {
   const navigateTo = useNavigate();
   const { id: appointmentIdFromUrl } = useParams();
@@ -60,6 +66,15 @@ export const RadiologyTable = ({
   });
 
   const onRowClick = (order: GetRadiologyOrderListZambdaOrder): void => {
+    if (followUpAppointmentLookup) {
+      const { appointmentId, encounterIdQuery } = resolveOrderRoutingFromFollowUpLookup(
+        order.appointmentId,
+        followUpAppointmentLookup
+      );
+      const url = getRadiologyOrderEditUrl(appointmentId, order.serviceRequestId);
+      navigateTo(encounterIdQuery ? `${url}?encounterId=${encounterIdQuery}` : url);
+      return;
+    }
     const appointmentId = appointmentIdFromUrl || order.appointmentId;
     const url = getRadiologyOrderEditUrl(appointmentId, order.serviceRequestId);
     navigateTo(encounterIdParam ? `${url}?encounterId=${encounterIdParam}` : url);

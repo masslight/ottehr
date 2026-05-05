@@ -1,7 +1,12 @@
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { getDrExternalLabEditUrl, getExternalLabOrderEditUrl } from 'src/features/visits/in-person/routing/helpers';
+import {
+  FollowUpAppointmentLookup,
+  getDrExternalLabEditUrl,
+  getExternalLabOrderEditUrl,
+  resolveOrderRoutingFromFollowUpLookup,
+} from 'src/features/visits/in-person/routing/helpers';
 import {
   ExternalLabsStatus,
   getColumnHeader,
@@ -30,6 +35,7 @@ interface LabsTableProps {
   allowDelete?: boolean;
   bundleRow?: ReactElement;
   handleRejectedAbn?: (serviceRequestId: string) => Promise<void>;
+  followUpAppointmentLookup?: FollowUpAppointmentLookup;
 }
 
 export const LabsTable = ({
@@ -40,17 +46,33 @@ export const LabsTable = ({
   showDeleteLabOrderDialog,
   bundleRow,
   handleRejectedAbn,
+  followUpAppointmentLookup,
 }: LabsTableProps): ReactElement => {
   const navigateTo = useNavigate();
   const { id: appointmentIdFromUrl } = useParams();
   const [searchParams] = useSearchParams();
   const encounterIdParam = searchParams.get('encounterId');
-  const appendEncounterId = (url: string): string =>
-    encounterIdParam ? `${url}${url.includes('?') ? '&' : '?'}encounterId=${encounterIdParam}` : url;
+
+  const buildOrderUrl = (orderAppointmentId: string, urlBuilder: (appointmentId: string) => string): string => {
+    if (followUpAppointmentLookup) {
+      const { appointmentId, encounterIdQuery } = resolveOrderRoutingFromFollowUpLookup(
+        orderAppointmentId,
+        followUpAppointmentLookup
+      );
+      const baseUrl = urlBuilder(appointmentId);
+      return encounterIdQuery ? `${baseUrl}?encounterId=${encounterIdQuery}` : baseUrl;
+    }
+    const appointmentId = appointmentIdFromUrl || orderAppointmentId;
+    const baseUrl = urlBuilder(appointmentId);
+    return encounterIdParam ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}encounterId=${encounterIdParam}` : baseUrl;
+  };
 
   const onRowClick = (labOrderData: LabOrderListPageDTO): void => {
-    const appointmentId = appointmentIdFromUrl || labOrderData.appointmentId;
-    navigateTo(appendEncounterId(getExternalLabOrderEditUrl(appointmentId, labOrderData.serviceRequestId)));
+    navigateTo(
+      buildOrderUrl(labOrderData.appointmentId, (apptId) =>
+        getExternalLabOrderEditUrl(apptId, labOrderData.serviceRequestId)
+      )
+    );
   };
 
   const onRowClickForDrDrivenResult = (result: ReflexLabDTO): void => {
@@ -59,9 +81,10 @@ export const LabsTable = ({
       throw new Error('Unable to navigate to dr result row, missing appointmentId or dr id');
     }
     // todo labs future resultsDetails maybe does not need to be an array anymore
-    const appointmentId = appointmentIdFromUrl || result.appointmentId;
     navigateTo(
-      appendEncounterId(getDrExternalLabEditUrl(appointmentId, result.resultsDetails?.[0].diagnosticReportId))
+      buildOrderUrl(result.appointmentId, (apptId) =>
+        getDrExternalLabEditUrl(apptId, result.resultsDetails?.[0].diagnosticReportId ?? '')
+      )
     );
   };
 
