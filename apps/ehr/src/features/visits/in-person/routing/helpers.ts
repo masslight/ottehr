@@ -88,10 +88,16 @@ export const getInPersonUrlByAppointmentType = (
   if (targetUrl) {
     baseVisitUrl = `${baseVisitUrl}/${targetUrl}`;
   }
-  if (appointment.isFollowUp && appointment.encounterId) {
-    baseVisitUrl = `${baseVisitUrl}?encounterId=${appointment.encounterId}`;
-  }
-  return baseVisitUrl;
+  return withFollowUpEncounterId(baseVisitUrl, appointment);
+};
+
+export const withFollowUpEncounterId = (
+  url: string,
+  appointment: Pick<InPersonAppointmentInformation, 'isFollowUp' | 'encounterId'>
+): string => {
+  if (!appointment.isFollowUp || !appointment.encounterId) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}encounterId=${appointment.encounterId}`;
 };
 
 export const getChiefComplaintUrl = (appointmentId: string): string => {

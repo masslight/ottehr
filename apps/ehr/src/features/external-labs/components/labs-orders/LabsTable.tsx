@@ -1,6 +1,6 @@
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { ReactElement } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getDrExternalLabEditUrl, getExternalLabOrderEditUrl } from 'src/features/visits/in-person/routing/helpers';
 import {
   ExternalLabsStatus,
@@ -42,9 +42,15 @@ export const LabsTable = ({
   handleRejectedAbn,
 }: LabsTableProps): ReactElement => {
   const navigateTo = useNavigate();
+  const { id: appointmentIdFromUrl } = useParams();
+  const [searchParams] = useSearchParams();
+  const encounterIdParam = searchParams.get('encounterId');
+  const appendEncounterId = (url: string): string =>
+    encounterIdParam ? `${url}${url.includes('?') ? '&' : '?'}encounterId=${encounterIdParam}` : url;
 
   const onRowClick = (labOrderData: LabOrderListPageDTO): void => {
-    navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
+    const appointmentId = appointmentIdFromUrl || labOrderData.appointmentId;
+    navigateTo(appendEncounterId(getExternalLabOrderEditUrl(appointmentId, labOrderData.serviceRequestId)));
   };
 
   const onRowClickForDrDrivenResult = (result: ReflexLabDTO): void => {
@@ -53,7 +59,10 @@ export const LabsTable = ({
       throw new Error('Unable to navigate to dr result row, missing appointmentId or dr id');
     }
     // todo labs future resultsDetails maybe does not need to be an array anymore
-    navigateTo(getDrExternalLabEditUrl(result.appointmentId, result.resultsDetails?.[0].diagnosticReportId));
+    const appointmentId = appointmentIdFromUrl || result.appointmentId;
+    navigateTo(
+      appendEncounterId(getDrExternalLabEditUrl(appointmentId, result.resultsDetails?.[0].diagnosticReportId))
+    );
   };
 
   return (

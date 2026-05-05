@@ -104,7 +104,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
 
       const sortedFollowups = allEncounters
-        .filter((e) => isFollowupEncounter(e))
+        .filter((e) => isFollowupEncounter(e) && e.id !== encounter.id)
         .sort((a, b) => getEncounterSortValue(a) - getEncounterSortValue(b));
 
       followUps = await Promise.all(

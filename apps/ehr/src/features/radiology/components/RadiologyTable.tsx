@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { GetRadiologyOrderListZambdaOrder } from 'utils';
 import { getRadiologyOrderEditUrl } from '../../visits/in-person/routing/helpers';
 import { RadiologyOrderLoading } from './RadiologyOrderLoading';
@@ -40,6 +40,9 @@ export const RadiologyTable = ({
   onCreateOrder,
 }: RadiologyTableProps): ReactElement => {
   const navigateTo = useNavigate();
+  const { id: appointmentIdFromUrl } = useParams();
+  const [searchParams] = useSearchParams();
+  const encounterIdParam = searchParams.get('encounterId');
 
   const {
     orders,
@@ -57,7 +60,9 @@ export const RadiologyTable = ({
   });
 
   const onRowClick = (order: GetRadiologyOrderListZambdaOrder): void => {
-    navigateTo(getRadiologyOrderEditUrl(order.appointmentId, order.serviceRequestId));
+    const appointmentId = appointmentIdFromUrl || order.appointmentId;
+    const url = getRadiologyOrderEditUrl(appointmentId, order.serviceRequestId);
+    navigateTo(encounterIdParam ? `${url}?encounterId=${encounterIdParam}` : url);
   };
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {

@@ -23,7 +23,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
 import { getInHouseLabOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
@@ -61,6 +61,9 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   onCreateOrder,
 }: InHouseLabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
+  const { id: appointmentIdFromUrl } = useParams();
+  const [urlSearchParams] = useSearchParams();
+  const encounterIdParam = urlSearchParams.get('encounterId');
 
   const {
     labOrders,
@@ -93,7 +96,9 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   };
 
   const onRowClick = (labOrderData: InHouseOrderListPageItemDTO): void => {
-    navigateTo(getInHouseLabOrderDetailsUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
+    const appointmentId = appointmentIdFromUrl || labOrderData.appointmentId;
+    const url = getInHouseLabOrderDetailsUrl(appointmentId, labOrderData.serviceRequestId);
+    navigateTo(encounterIdParam ? `${url}?encounterId=${encounterIdParam}` : url);
   };
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
