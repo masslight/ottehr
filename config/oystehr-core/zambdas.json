@@ -969,6 +969,7 @@
     "SUB-MERGE-PATIENTS": {
       "name": "sub-merge-patients",
       "type": "subscription",
+      "timeout": "300",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-merge-patients/index",
       "zip": ".dist/zips/sub-merge-patients.zip"
