@@ -24,6 +24,7 @@ import PatientDunning from 'src/rcm/features/patient-dunning/PatientDunning';
 import { PaymentLocation } from 'src/rcm/state/payments/payments.api';
 import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
 import FeeSchedule from './ChargeItemList';
+import EMCodesAdminPage from './EMCodesAdminPage';
 import EmployersTab from './employers/EmployersTab';
 import Insurances from './Insurance';
 
@@ -34,7 +35,8 @@ type BillingSubTab =
   | 'employers'
   | 'payment-locations'
   | 'invoicing'
-  | 'patient-ar';
+  | 'patient-ar'
+  | 'em-codes';
 
 function PaymentLocationsList(): ReactElement {
   const navigate = useNavigate();
@@ -148,7 +150,7 @@ function PaymentLocationsList(): ReactElement {
 
 export default function BillingConfiguration({ billingTab }: { billingTab?: string }): ReactElement {
   const navigate = useNavigate();
-  const subTab: BillingSubTab = (billingTab as BillingSubTab) || 'insurance';
+  const subTab: BillingSubTab = (billingTab as BillingSubTab) || 'em-codes';
 
   const handleSubTabChange = (_: unknown, newValue: BillingSubTab): void => {
     navigate(`${BILLING_URL}/${newValue}`);
@@ -159,6 +161,7 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
       <TabContext value={subTab}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList onChange={handleSubTabChange} aria-label="Billing configuration tabs">
+            <Tab label="E&M Codes" value="em-codes" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Insurance" value="insurance" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Fee Schedules" value="fee-schedules" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Charge Masters" value="charge-masters" sx={{ textTransform: 'none', fontWeight: 500 }} />
@@ -168,6 +171,9 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
             <Tab label="Patient Outreach" value="patient-ar" sx={{ textTransform: 'none', fontWeight: 500 }} />
           </TabList>
         </Box>
+        <TabPanel value="em-codes" sx={{ padding: 0 }}>
+          <EMCodesAdminPage />
+        </TabPanel>
         <TabPanel value="insurance" sx={{ padding: 0 }}>
           <Insurances />
         </TabPanel>

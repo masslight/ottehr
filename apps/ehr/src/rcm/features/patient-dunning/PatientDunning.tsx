@@ -2,19 +2,24 @@ import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/Check';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
+import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
   Chip,
   CircularProgress,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -674,6 +679,12 @@ export default function PatientDunning(): ReactElement {
   const [newDirection, setNewDirection] = React.useState<TriggerDirection>('after');
   const [deleteConfirmAction, setDeleteConfirmAction] = React.useState<DunningAction | null>(null);
   const [settingsDialogOpen, setSettingsDialogOpen] = React.useState(false);
+  const [expandedBlocks, setExpandedBlocks] = React.useState<Set<TriggerEvent>>(
+    new Set(Object.keys(TRIGGER_EVENT_LABELS) as TriggerEvent[])
+  );
+  const [visibleEventTypes, setVisibleEventTypes] = React.useState<TriggerEvent[]>(
+    Object.keys(TRIGGER_EVENT_LABELS) as TriggerEvent[]
+  );
   const [smsTimeRestrictionEnabled, setSmsTimeRestrictionEnabled] = React.useState(false);
   const [smsAllowedAfter, setSmsAllowedAfter] = React.useState('09:00');
   const [smsAllowedBefore, setSmsAllowedBefore] = React.useState('21:00');
@@ -822,6 +833,52 @@ export default function PatientDunning(): ReactElement {
         </Stack>
       </Stack>
 
+      {/* ── Event Type Filter & Controls ──────────────────────────────── */}
+      {sortedActions.length > 0 && (
+        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+          <Autocomplete
+            multiple
+            size="small"
+            limitTags={3}
+            options={Object.keys(TRIGGER_EVENT_LABELS) as TriggerEvent[]}
+            getOptionLabel={(opt) => TRIGGER_EVENT_LABELS[opt]}
+            value={visibleEventTypes}
+            onChange={(_, newValue) => setVisibleEventTypes(newValue)}
+            disableCloseOnSelect
+            renderInput={(params) => <TextField {...params} label="Filter by event type" placeholder="Event types" />}
+            renderOption={(props, option, { selected }) => (
+              <li {...props}>
+                <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
+                {TRIGGER_EVENT_LABELS[option]}
+              </li>
+            )}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip {...getTagProps({ index })} key={option} label={TRIGGER_EVENT_LABELS[option]} size="small" />
+              ))
+            }
+            getLimitTagsText={(more) => `+${more} more`}
+            sx={{ minWidth: 350, maxWidth: 600 }}
+          />
+          <Button
+            size="small"
+            startIcon={<UnfoldMoreIcon />}
+            onClick={() => setExpandedBlocks(new Set(Object.keys(TRIGGER_EVENT_LABELS) as TriggerEvent[]))}
+            sx={{ textTransform: 'none', color: 'primary.main', whiteSpace: 'nowrap' }}
+          >
+            Expand All
+          </Button>
+          <Button
+            size="small"
+            startIcon={<UnfoldLessIcon />}
+            onClick={() => setExpandedBlocks(new Set())}
+            sx={{ textTransform: 'none', color: 'primary.main', whiteSpace: 'nowrap' }}
+          >
+            Collapse All
+          </Button>
+        </Stack>
+      )}
+
       {sortedActions.length === 0 && (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">
@@ -833,289 +890,320 @@ export default function PatientDunning(): ReactElement {
       {(Object.keys(TRIGGER_EVENT_LABELS) as TriggerEvent[]).map((eventType) => {
         const groupActions = sortedActions.filter((a) => a.trigger.event === eventType);
         if (groupActions.length === 0) return null;
+        if (!visibleEventTypes.includes(eventType)) return null;
+        const isBlockExpanded = expandedBlocks.has(eventType);
         return (
-          <Paper key={eventType} variant="outlined" sx={{ mb: 3, p: 2, borderColor: 'divider', borderRadius: 2 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5, color: 'primary.dark' }}>
-              Triggered by {TRIGGER_EVENT_LABELS[eventType]}
-            </Typography>
-            {groupActions.map((action) => {
-              const ms = getActionMediumsSummary(action);
-              const timing = formatTriggerTiming(action.trigger);
-              return (
-                <Accordion key={action.id} defaultExpanded={false} sx={{ mb: 1 }}>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Stack
-                      direction="row"
-                      alignItems="center"
-                      spacing={1}
-                      sx={{ width: '100%', pr: 2, flexWrap: 'wrap', rowGap: 0.5 }}
-                    >
-                      <Chip
-                        label={timing.chipLabel}
-                        size="small"
-                        sx={{
-                          fontWeight: 600,
-                          minWidth: 65,
-                          justifyContent: 'center',
-                          bgcolor: dayChipBackground(action.trigger),
-                          color: dayChipTextColor(action.trigger),
-                          border: 'none',
-                        }}
-                      />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {timing.afterLabel}
-                      </Typography>
-                      <Chip
-                        label={ACTION_TYPE_LABELS[action.actionType]}
-                        size="small"
-                        variant="outlined"
-                        sx={{
-                          bgcolor: '#fff',
-                          color: ACTION_CHIP_COLORS[action.actionType],
-                          borderColor: ACTION_CHIP_COLORS[action.actionType],
-                          fontWeight: 500,
-                        }}
-                      />
-                      {ms.isChargeCard ? (
-                        <>
-                          {ms.successMediums.length > 0 && (
-                            <>
-                              <Typography variant="body2" color="text.secondary">
-                                · on success send
-                              </Typography>
-                              {ms.successMediums.map((m) => (
-                                <Chip
-                                  key={`s-${m}`}
-                                  label={MEDIUM_LABELS[m]}
-                                  size="small"
-                                  variant="outlined"
-                                  sx={{
-                                    bgcolor: '#fff',
-                                    color: MEDIUM_CHIP_COLORS[m],
-                                    borderColor: MEDIUM_CHIP_COLORS[m],
-                                    fontWeight: 500,
-                                    fontSize: '0.75rem',
-                                  }}
-                                />
-                              ))}
-                            </>
-                          )}
-                          {ms.failureMediums.length > 0 && (
-                            <>
-                              <Typography variant="body2" color="text.secondary">
-                                · on failure send
-                              </Typography>
-                              {ms.failureMediums.map((m) => (
-                                <Chip
-                                  key={`f-${m}`}
-                                  label={MEDIUM_LABELS[m]}
-                                  size="small"
-                                  variant="outlined"
-                                  sx={{
-                                    bgcolor: '#fff',
-                                    color: MEDIUM_CHIP_COLORS[m],
-                                    borderColor: MEDIUM_CHIP_COLORS[m],
-                                    fontWeight: 500,
-                                    fontSize: '0.75rem',
-                                  }}
-                                />
-                              ))}
-                            </>
-                          )}
-                        </>
-                      ) : action.actionType === 'refer-to-collections' && action.referToCollectionsConfig ? (
-                        <Typography variant="body2" color="text.secondary">
-                          {action.referToCollectionsConfig.minimumBalance > 0 &&
-                            `when balance is greater than $${action.referToCollectionsConfig.minimumBalance}`}
-                          {action.referToCollectionsConfig.minimumBalance > 0 &&
-                            action.referToCollectionsConfig.agency &&
-                            '\u00a0\u00a0'}
-                          {action.referToCollectionsConfig.agency && `via ${action.referToCollectionsConfig.agency}`}
-                        </Typography>
-                      ) : (
-                        ms.combined.length > 0 && (
-                          <>
-                            <Typography variant="body2" color="text.secondary">
-                              via
-                            </Typography>
-                            {ms.combined.map((m) => (
-                              <Chip
-                                key={m}
-                                label={MEDIUM_LABELS[m]}
-                                size="small"
-                                variant="outlined"
-                                sx={{
-                                  bgcolor: '#fff',
-                                  color: MEDIUM_CHIP_COLORS[m],
-                                  borderColor: MEDIUM_CHIP_COLORS[m],
-                                  fontWeight: 500,
-                                  fontSize: '0.75rem',
-                                }}
-                              />
-                            ))}
-                          </>
-                        )
-                      )}
-                      <Box sx={{ flexGrow: 1 }} />
-                      <Tooltip title="Delete action">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteConfirmAction(action);
-                          }}
-                          sx={{ color: 'error.main' }}
+          <Paper
+            key={eventType}
+            variant="outlined"
+            sx={{ mb: 3, borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}
+          >
+            <Stack
+              direction="row"
+              alignItems="center"
+              onClick={() => {
+                setExpandedBlocks((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(eventType)) next.delete(eventType);
+                  else next.add(eventType);
+                  return next;
+                });
+              }}
+              sx={{ p: 2, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+            >
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.dark', flexGrow: 1 }}>
+                Triggered by {TRIGGER_EVENT_LABELS[eventType]}
+              </Typography>
+              <Chip
+                label={`${groupActions.length} action${groupActions.length > 1 ? 's' : ''}`}
+                size="small"
+                sx={{ mr: 1 }}
+              />
+              {isBlockExpanded ? <ExpandLessIcon color="action" /> : <ExpandMoreIcon color="action" />}
+            </Stack>
+            <Collapse in={isBlockExpanded}>
+              <Box sx={{ px: 2, pb: 2 }}>
+                {groupActions.map((action) => {
+                  const ms = getActionMediumsSummary(action);
+                  const timing = formatTriggerTiming(action.trigger);
+                  return (
+                    <Accordion key={action.id} defaultExpanded={false} sx={{ mb: 1 }}>
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          spacing={1}
+                          sx={{ width: '100%', pr: 2, flexWrap: 'wrap', rowGap: 0.5 }}
                         >
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Stack spacing={2}>
-                      <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-                        <FormControl size="small" sx={{ minWidth: 200 }}>
-                          <InputLabel>Trigger Event</InputLabel>
-                          <Select
-                            value={action.trigger.event}
-                            label="Trigger Event"
-                            onChange={(e: SelectChangeEvent) => {
-                              const newEvent = e.target.value as TriggerEvent;
-                              const allowed = ALLOWED_ACTIONS[newEvent];
-                              const newActionType = allowed.includes(action.actionType)
-                                ? action.actionType
-                                : allowed[0];
-                              const timeUnits = ALLOWED_TIME_UNITS[newEvent];
-                              const newTimeUnit = timeUnits.includes(action.trigger.timeUnit || 'days')
-                                ? action.trigger.timeUnit || 'days'
-                                : timeUnits[0];
-                              updateAction({
-                                ...action,
-                                trigger: {
-                                  ...action.trigger,
-                                  event: newEvent,
-                                  timeUnit: newTimeUnit,
-                                  direction: SUPPORTS_DIRECTION[newEvent]
-                                    ? action.trigger.direction || 'after'
-                                    : undefined,
-                                },
-                                actionType: newActionType,
-                                ...(newActionType !== action.actionType
-                                  ? {
-                                      chargeCardConfig: undefined,
-                                      sendNotificationConfig: undefined,
-                                      referToCollectionsConfig: undefined,
-                                      ...buildDefaultConfig(newActionType),
-                                    }
-                                  : {}),
-                              });
+                          <Chip
+                            label={timing.chipLabel}
+                            size="small"
+                            sx={{
+                              fontWeight: 600,
+                              minWidth: 65,
+                              justifyContent: 'center',
+                              bgcolor: dayChipBackground(action.trigger),
+                              color: dayChipTextColor(action.trigger),
+                              border: 'none',
                             }}
-                          >
-                            {(Object.keys(TRIGGER_EVENT_LABELS) as TriggerEvent[]).map((ev) => (
-                              <MenuItem key={ev} value={ev}>
-                                {TRIGGER_EVENT_LABELS[ev]}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                        {SUPPORTS_DIRECTION[action.trigger.event] && (
-                          <FormControl size="small" sx={{ minWidth: 120 }}>
-                            <InputLabel>Direction</InputLabel>
-                            <Select
-                              value={action.trigger.direction || 'after'}
-                              label="Direction"
-                              onChange={(e: SelectChangeEvent) =>
+                          />
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {timing.afterLabel}
+                          </Typography>
+                          <Chip
+                            label={ACTION_TYPE_LABELS[action.actionType]}
+                            size="small"
+                            variant="outlined"
+                            sx={{
+                              bgcolor: '#fff',
+                              color: ACTION_CHIP_COLORS[action.actionType],
+                              borderColor: ACTION_CHIP_COLORS[action.actionType],
+                              fontWeight: 500,
+                            }}
+                          />
+                          {ms.isChargeCard ? (
+                            <>
+                              {ms.successMediums.length > 0 && (
+                                <>
+                                  <Typography variant="body2" color="text.secondary">
+                                    · on success send
+                                  </Typography>
+                                  {ms.successMediums.map((m) => (
+                                    <Chip
+                                      key={`s-${m}`}
+                                      label={MEDIUM_LABELS[m]}
+                                      size="small"
+                                      variant="outlined"
+                                      sx={{
+                                        bgcolor: '#fff',
+                                        color: MEDIUM_CHIP_COLORS[m],
+                                        borderColor: MEDIUM_CHIP_COLORS[m],
+                                        fontWeight: 500,
+                                        fontSize: '0.75rem',
+                                      }}
+                                    />
+                                  ))}
+                                </>
+                              )}
+                              {ms.failureMediums.length > 0 && (
+                                <>
+                                  <Typography variant="body2" color="text.secondary">
+                                    · on failure send
+                                  </Typography>
+                                  {ms.failureMediums.map((m) => (
+                                    <Chip
+                                      key={`f-${m}`}
+                                      label={MEDIUM_LABELS[m]}
+                                      size="small"
+                                      variant="outlined"
+                                      sx={{
+                                        bgcolor: '#fff',
+                                        color: MEDIUM_CHIP_COLORS[m],
+                                        borderColor: MEDIUM_CHIP_COLORS[m],
+                                        fontWeight: 500,
+                                        fontSize: '0.75rem',
+                                      }}
+                                    />
+                                  ))}
+                                </>
+                              )}
+                            </>
+                          ) : action.actionType === 'refer-to-collections' && action.referToCollectionsConfig ? (
+                            <Typography variant="body2" color="text.secondary">
+                              {action.referToCollectionsConfig.minimumBalance > 0 &&
+                                `when balance is greater than $${action.referToCollectionsConfig.minimumBalance}`}
+                              {action.referToCollectionsConfig.minimumBalance > 0 &&
+                                action.referToCollectionsConfig.agency &&
+                                '\u00a0\u00a0'}
+                              {action.referToCollectionsConfig.agency &&
+                                `via ${action.referToCollectionsConfig.agency}`}
+                            </Typography>
+                          ) : (
+                            ms.combined.length > 0 && (
+                              <>
+                                <Typography variant="body2" color="text.secondary">
+                                  via
+                                </Typography>
+                                {ms.combined.map((m) => (
+                                  <Chip
+                                    key={m}
+                                    label={MEDIUM_LABELS[m]}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={{
+                                      bgcolor: '#fff',
+                                      color: MEDIUM_CHIP_COLORS[m],
+                                      borderColor: MEDIUM_CHIP_COLORS[m],
+                                      fontWeight: 500,
+                                      fontSize: '0.75rem',
+                                    }}
+                                  />
+                                ))}
+                              </>
+                            )
+                          )}
+                          <Box sx={{ flexGrow: 1 }} />
+                          <Tooltip title="Delete action">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteConfirmAction(action);
+                              }}
+                              sx={{ color: 'error.main' }}
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        <Stack spacing={2}>
+                          <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 1 }}>
+                            <FormControl size="small" sx={{ minWidth: 200 }}>
+                              <InputLabel>Trigger Event</InputLabel>
+                              <Select
+                                value={action.trigger.event}
+                                label="Trigger Event"
+                                onChange={(e: SelectChangeEvent) => {
+                                  const newEvent = e.target.value as TriggerEvent;
+                                  const allowed = ALLOWED_ACTIONS[newEvent];
+                                  const newActionType = allowed.includes(action.actionType)
+                                    ? action.actionType
+                                    : allowed[0];
+                                  const timeUnits = ALLOWED_TIME_UNITS[newEvent];
+                                  const newTimeUnit = timeUnits.includes(action.trigger.timeUnit || 'days')
+                                    ? action.trigger.timeUnit || 'days'
+                                    : timeUnits[0];
+                                  updateAction({
+                                    ...action,
+                                    trigger: {
+                                      ...action.trigger,
+                                      event: newEvent,
+                                      timeUnit: newTimeUnit,
+                                      direction: SUPPORTS_DIRECTION[newEvent]
+                                        ? action.trigger.direction || 'after'
+                                        : undefined,
+                                    },
+                                    actionType: newActionType,
+                                    ...(newActionType !== action.actionType
+                                      ? {
+                                          chargeCardConfig: undefined,
+                                          sendNotificationConfig: undefined,
+                                          referToCollectionsConfig: undefined,
+                                          ...buildDefaultConfig(newActionType),
+                                        }
+                                      : {}),
+                                  });
+                                }}
+                              >
+                                {(Object.keys(TRIGGER_EVENT_LABELS) as TriggerEvent[]).map((ev) => (
+                                  <MenuItem key={ev} value={ev}>
+                                    {TRIGGER_EVENT_LABELS[ev]}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                            {SUPPORTS_DIRECTION[action.trigger.event] && (
+                              <FormControl size="small" sx={{ minWidth: 120 }}>
+                                <InputLabel>Direction</InputLabel>
+                                <Select
+                                  value={action.trigger.direction || 'after'}
+                                  label="Direction"
+                                  onChange={(e: SelectChangeEvent) =>
+                                    updateAction({
+                                      ...action,
+                                      trigger: { ...action.trigger, direction: e.target.value as TriggerDirection },
+                                    })
+                                  }
+                                >
+                                  <MenuItem value="before">Before</MenuItem>
+                                  <MenuItem value="after">After</MenuItem>
+                                </Select>
+                              </FormControl>
+                            )}
+                            <TextField
+                              label={
+                                SUPPORTS_DIRECTION[action.trigger.event]
+                                  ? `${TIME_UNIT_LABELS[action.trigger.timeUnit || 'days']} ${
+                                      DIRECTION_LABELS[action.trigger.direction || 'after']
+                                    }`
+                                  : `${TIME_UNIT_LABELS[action.trigger.timeUnit || 'days']} After Event`
+                              }
+                              type="number"
+                              size="small"
+                              value={action.trigger.daysAfter}
+                              onChange={(e) =>
                                 updateAction({
                                   ...action,
-                                  trigger: { ...action.trigger, direction: e.target.value as TriggerDirection },
+                                  trigger: {
+                                    ...action.trigger,
+                                    daysAfter: e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0),
+                                  },
                                 })
                               }
-                            >
-                              <MenuItem value="before">Before</MenuItem>
-                              <MenuItem value="after">After</MenuItem>
-                            </Select>
-                          </FormControl>
-                        )}
-                        <TextField
-                          label={
-                            SUPPORTS_DIRECTION[action.trigger.event]
-                              ? `${TIME_UNIT_LABELS[action.trigger.timeUnit || 'days']} ${
-                                  DIRECTION_LABELS[action.trigger.direction || 'after']
-                                }`
-                              : `${TIME_UNIT_LABELS[action.trigger.timeUnit || 'days']} After Event`
-                          }
-                          type="number"
-                          size="small"
-                          value={action.trigger.daysAfter}
-                          onChange={(e) =>
-                            updateAction({
-                              ...action,
-                              trigger: {
-                                ...action.trigger,
-                                daysAfter: e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0),
-                              },
-                            })
-                          }
-                          sx={{ width: 180 }}
-                          inputProps={{ min: 0, ...numericFieldProps }}
-                        />
-                        {ALLOWED_TIME_UNITS[action.trigger.event].length > 1 && (
-                          <FormControl size="small" sx={{ minWidth: 160 }}>
-                            <InputLabel>Time Unit</InputLabel>
-                            <Select
-                              value={action.trigger.timeUnit || 'days'}
-                              label="Time Unit"
-                              onChange={(e: SelectChangeEvent) =>
-                                updateAction({
-                                  ...action,
-                                  trigger: { ...action.trigger, timeUnit: e.target.value as TimeUnit },
-                                })
-                              }
-                            >
-                              {ALLOWED_TIME_UNITS[action.trigger.event].map((u) => (
-                                <MenuItem key={u} value={u}>
-                                  {TIME_UNIT_LABELS[u]}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                        )}
-                        <FormControl size="small" sx={{ minWidth: 240 }}>
-                          <InputLabel>Action Type</InputLabel>
-                          <Select
-                            value={action.actionType}
-                            label="Action Type"
-                            sx={{ color: ACTION_CHIP_COLORS[action.actionType], fontWeight: 500 }}
-                            onChange={(e: SelectChangeEvent) => {
-                              const newType = e.target.value as ActionType;
-                              updateAction({
-                                ...action,
-                                actionType: newType,
-                                chargeCardConfig: undefined,
-                                sendNotificationConfig: undefined,
-                                referToCollectionsConfig: undefined,
-                                ...buildDefaultConfig(newType),
-                              });
-                            }}
-                          >
-                            {ALLOWED_ACTIONS[action.trigger.event].map((at) => (
-                              <MenuItem key={at} value={at} sx={{ color: ACTION_CHIP_COLORS[at], fontWeight: 500 }}>
-                                {ACTION_TYPE_LABELS[at]}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      </Stack>
-                      <Divider />
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Action Configuration
-                      </Typography>
-                      <ActionConfigEditor action={action} onChange={updateAction} />
-                    </Stack>
-                  </AccordionDetails>
-                </Accordion>
-              );
-            })}
+                              sx={{ width: 180 }}
+                              inputProps={{ min: 0, ...numericFieldProps }}
+                            />
+                            {ALLOWED_TIME_UNITS[action.trigger.event].length > 1 && (
+                              <FormControl size="small" sx={{ minWidth: 160 }}>
+                                <InputLabel>Time Unit</InputLabel>
+                                <Select
+                                  value={action.trigger.timeUnit || 'days'}
+                                  label="Time Unit"
+                                  onChange={(e: SelectChangeEvent) =>
+                                    updateAction({
+                                      ...action,
+                                      trigger: { ...action.trigger, timeUnit: e.target.value as TimeUnit },
+                                    })
+                                  }
+                                >
+                                  {ALLOWED_TIME_UNITS[action.trigger.event].map((u) => (
+                                    <MenuItem key={u} value={u}>
+                                      {TIME_UNIT_LABELS[u]}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            )}
+                            <FormControl size="small" sx={{ minWidth: 240 }}>
+                              <InputLabel>Action Type</InputLabel>
+                              <Select
+                                value={action.actionType}
+                                label="Action Type"
+                                sx={{ color: ACTION_CHIP_COLORS[action.actionType], fontWeight: 500 }}
+                                onChange={(e: SelectChangeEvent) => {
+                                  const newType = e.target.value as ActionType;
+                                  updateAction({
+                                    ...action,
+                                    actionType: newType,
+                                    chargeCardConfig: undefined,
+                                    sendNotificationConfig: undefined,
+                                    referToCollectionsConfig: undefined,
+                                    ...buildDefaultConfig(newType),
+                                  });
+                                }}
+                              >
+                                {ALLOWED_ACTIONS[action.trigger.event].map((at) => (
+                                  <MenuItem key={at} value={at} sx={{ color: ACTION_CHIP_COLORS[at], fontWeight: 500 }}>
+                                    {ACTION_TYPE_LABELS[at]}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                          </Stack>
+                          <Divider />
+                          <Typography variant="subtitle2" color="text.secondary">
+                            Action Configuration
+                          </Typography>
+                          <ActionConfigEditor action={action} onChange={updateAction} />
+                        </Stack>
+                      </AccordionDetails>
+                    </Accordion>
+                  );
+                })}
+              </Box>
+            </Collapse>
           </Paper>
         );
       })}
