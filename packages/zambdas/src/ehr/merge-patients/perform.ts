@@ -789,7 +789,7 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
   // against the old reference, account consolidation dedupes by reference,
   // replaced-by link checks for prior existence), so re-running after a partial
   // failure safely completes the remaining work.
-  const TRANSACTION_CHUNK_SIZE = 150;
+  const TRANSACTION_CHUNK_SIZE = 35;
   const chunks: BatchInputPutRequest<FhirResource>[][] = [];
   for (let i = 0; i < requests.length; i += TRANSACTION_CHUNK_SIZE) {
     chunks.push(requests.slice(i, i + TRANSACTION_CHUNK_SIZE));
