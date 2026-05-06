@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, RelatedPerson } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { getRelatedPersonsForPatient, getSecret, Secrets, SecretsKeys } from 'utils';
 import { getAuth0Token } from '../../shared';
 import { getPatientFromAppointment } from '../../shared/appointment/helpers';
@@ -44,31 +43,7 @@ const execCreateVideoRoomRequest = async (
   return responseData.encounter;
 };
 
-const updateVideoRoomEncounter = (
-  encounter: Encounter,
-  relatedPersons: RelatedPerson[],
-  startTime: DateTime = DateTime.now()
-): Encounter => {
-  encounter.status = 'in-progress';
-  const startTimeIso = startTime.toUTC().toISO()!;
-
-  encounter.statusHistory ??= [];
-
-  const previousStatus = encounter.statusHistory?.[encounter.statusHistory?.length - 1];
-  if (previousStatus) {
-    previousStatus.period = {
-      ...previousStatus.period,
-      end: startTimeIso!,
-    };
-  }
-
-  encounter.statusHistory?.push({
-    status: encounter.status,
-    period: {
-      start: startTimeIso!,
-    },
-  });
-
+const updateVideoRoomEncounter = (encounter: Encounter, relatedPersons: RelatedPerson[]): Encounter => {
   encounter.participant ??= [];
 
   const existingRefs = new Set(

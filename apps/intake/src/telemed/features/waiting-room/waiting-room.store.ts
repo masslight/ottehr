@@ -1,9 +1,9 @@
-import { InvitedParticipantInfo, TelemedAppointmentStatus } from 'utils';
+import { InvitedParticipantInfo, VisitStatusLabel } from 'utils';
 import { create } from 'zustand';
 import { zustandDevtools } from '../../utils';
 
 export interface WaitingRoomState {
-  status: TelemedAppointmentStatus;
+  status: VisitStatusLabel;
   estimatedTime?: number;
   numberInLine?: number;
   encounterId?: string;
