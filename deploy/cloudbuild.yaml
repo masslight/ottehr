@@ -40,14 +40,14 @@ substitutions:
   _CLOUD_RUN_SA: sa-juna-deploy@juna-dev-1.iam.gserviceaccount.com
   _SECRET_OTTEHR_CONFIG: sec-juna-ottehr-config
   _SECRET_ZAMBDA: sec-juna-ottehr-zambda-secrets
-  # Vite `--mode` / `.env.<mode>` suffix — must NOT be `local` (Vite reserved). Default: production.
-  _VITE_MODE: production
+  # Vite `--mode` / `.env.<mode>` suffix — must NOT be `local` (Vite reserved).
+  _VITE_MODE: staging
   _SECRET_EHR_APP_ENV: sec-juna-ottehr-app-ehr-env
   _SECRET_INTAKE_APP_ENV: sec-juna-ottehr-app-intake-env
   # Intake build-skeleton robots.txt copy (see apps/intake/package.json build:production)
   _INTAKE_ROBOTS_FILE: production
   # GCS bucket names for static hosting; use "-" to skip syncing that app
-  _GCS_BUCKET_EHR: '-'
+  _GCS_BUCKET_EHR: bkt-juna-ottehr-ehr-dev
   _GCS_BUCKET_INTAKE: '-'
 
 steps:
@@ -141,6 +141,6 @@ steps:
       - --service-account=${_CLOUD_RUN_SA}
       - --port=8080
       - --set-secrets=OTTEHR_CONFIG=${_SECRET_OTTEHR_CONFIG}:latest,ZAMBDA_SECRETS=${_SECRET_ZAMBDA}:latest
-      - --set-env-vars=ENV=local
+      - --set-env-vars=ENV=staging
       - --quiet
       - --allow-unauthenticated
