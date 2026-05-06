@@ -6,12 +6,11 @@ import {
   allLicensesForPractitioner,
   FHIR_IDENTIFIER_NPI,
   getPractitionerNPIIdentifier,
-  getSecret,
   makeQualificationForPractitioner,
   PractitionerLicense,
   Secrets,
-  SecretsKeys,
   SyncUserResponse,
+  userMe,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
@@ -30,9 +29,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const m2mOystehrClient = createOystehrClient(m2mToken, secrets);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const userOystehrClient = createOystehrClient(userToken, secrets);
 
-  const response = await performEffect(m2mOystehrClient, userOystehrClient, secrets);
+  const response = await performEffect(m2mOystehrClient, userToken, secrets);
 
   return {
     statusCode: 200,
@@ -42,12 +40,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function performEffect(
   m2mOystehrClient: Oystehr,
-  userOystehrClient: Oystehr,
+  token: string,
   secrets: Secrets | null
 ): Promise<SyncUserResponse> {
   const [remotePractitioner, localPractitioner] = await Promise.all([
-    getRemotePractitionerAndCredentials(userOystehrClient, secrets),
-    getLocalEHRPractitioner(userOystehrClient),
+    getRemotePractitionerAndCredentials(token, secrets),
+    getLocalEHRPractitioner(token, secrets),
   ]);
   if (!remotePractitioner) {
     return {
@@ -100,11 +98,11 @@ interface RemotePractitionerData {
 }
 
 async function getRemotePractitionerAndCredentials(
-  oystehr: Oystehr,
+  token: string,
   secrets: Secrets | null
 ): Promise<RemotePractitionerData | undefined> {
   console.log('Preparing search parameters for remote practitioner');
-  const myEhrUser = await oystehr.user.me();
+  const myEhrUser = await userMe(token, secrets);
   const myEmail = myEhrUser.email?.toLocaleLowerCase();
   console.log(`Preparing search for local practitioner email: ${myEmail}`);
 
@@ -149,8 +147,9 @@ async function getRemotePractitionerAndCredentials(
   return undefined;
 }
 
-async function getLocalEHRPractitioner(oystehr: Oystehr): Promise<Practitioner> {
-  const practitionerId = (await oystehr.user.me()).profile.replace('Practitioner/', '');
+async function getLocalEHRPractitioner(token: string, secrets: Secrets | null): Promise<Practitioner> {
+  const practitionerId = (await userMe(token, secrets)).profile.replace('Practitioner/', '');
+  const oystehr = createOystehrClient(token, secrets);
   return await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
     id: practitionerId,

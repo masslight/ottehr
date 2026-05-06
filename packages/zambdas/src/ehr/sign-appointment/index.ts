@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { FhirResource, Provenance, Task } from 'fhir/r4b';
@@ -16,6 +16,7 @@ import {
   SignAppointmentInput,
   SignAppointmentResponse,
   TaskIndicator,
+  userMe,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
@@ -37,10 +38,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
   console.log('Created Oystehr client');
 
-  const response = await performEffect(oystehr, oystehrCurrentUser, validatedParameters);
+  const response = await performEffect(oystehr, validatedParameters);
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -49,10 +49,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export const performEffect = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
-  params: SignAppointmentInput
+  params: SignAppointmentInput & {
+    userToken: string;
+  }
 ): Promise<SignAppointmentResponse> => {
-  const { appointmentId, encounterId, timezone, supervisorApprovalEnabled } = params;
+  const { appointmentId, encounterId, timezone, supervisorApprovalEnabled, userToken, secrets } = params;
 
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true, encounterId);
   if (!visitResources) {
@@ -77,16 +78,12 @@ export const performEffect = async (
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getInPersonVisitStatus(appointment, encounter);
+  const user = await userMe(userToken, secrets);
 
   if (isFollowup) {
     // For follow-up encounters: only update encounter status and create PDF (no appointment updates, no email)
     if (currentStatus) {
-      await changeFollowupEncounterStatusToCompleted(
-        oystehr,
-        oystehrCurrentUser,
-        visitResources,
-        supervisorApprovalEnabled
-      );
+      await changeFollowupEncounterStatusToCompleted(oystehr, user, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Follow-up encounter status has been changed.`);
 
@@ -108,7 +105,7 @@ export const performEffect = async (
   } else {
     // For regular encounters: keep existing behavior
     if (currentStatus) {
-      await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, supervisorApprovalEnabled);
+      await changeStatusToCompleted(oystehr, user, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Status has been changed.`);
 
@@ -162,7 +159,7 @@ export const performEffect = async (
 
 const changeFollowupEncounterStatusToCompleted = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
+  user: User,
   resourcesToUpdate: FullAppointmentResourcePackage,
   supervisorApprovalEnabled?: boolean
 ): Promise<void> => {
@@ -179,8 +176,6 @@ const changeFollowupEncounterStatusToCompleted = async (
       value: encounterStatus,
     },
   ];
-
-  const user = await oystehrCurrentUser.user.me();
 
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
     resourcesToUpdate.encounter,
@@ -237,7 +232,7 @@ const changeFollowupEncounterStatusToCompleted = async (
 
 const changeStatusToCompleted = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
+  user: User,
   resourcesToUpdate: FullAppointmentResourcePackage,
   supervisorApprovalEnabled?: boolean
 ): Promise<void> => {
@@ -258,8 +253,6 @@ const changeStatusToCompleted = async (
       value: appointmentStatus,
     },
   ];
-
-  const user = await oystehrCurrentUser.user.me();
 
   patchOps.push(...getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'completed', { user }));
 

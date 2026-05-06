@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
+import { userMe } from 'utils/lib/auth/user-me.helper';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { makeCommunicationDTO } from '../../shared/chart-data';
 import { createOystehrClient } from '../../shared/helpers';
@@ -13,8 +14,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { instructionId, text, title, secrets, userToken } = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
-  const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-  const myUserProfile = (await oystehrCurrentUser.user.me()).profile;
+  const myUserProfile = (await userMe(userToken, secrets)).profile;
   let communication: Communication;
 
   if (instructionId) {
