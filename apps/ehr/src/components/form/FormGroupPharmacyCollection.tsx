@@ -30,16 +30,16 @@ export const FormGroupPharmacyCollection: FC = () => {
   };
 
   const clearPharmacyData = (): void => {
-    setValue(PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId, undefined, { shouldDirty: true });
-    setValue(PHARMACY_COLLECTION_LINK_IDS.placesAddress, undefined, { shouldDirty: true });
-    setValue(PHARMACY_COLLECTION_LINK_IDS.placesId, undefined, { shouldDirty: true });
-    setValue(PHARMACY_COLLECTION_LINK_IDS.placesName, undefined, { shouldDirty: true });
+    setValue(PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId, '', { shouldDirty: true });
+    setValue(PHARMACY_COLLECTION_LINK_IDS.placesAddress, '', { shouldDirty: true });
+    setValue(PHARMACY_COLLECTION_LINK_IDS.placesId, '', { shouldDirty: true });
+    setValue(PHARMACY_COLLECTION_LINK_IDS.placesName, '', { shouldDirty: true });
     setValue(PHARMACY_COLLECTION_LINK_IDS.placesDataSaved, false, { shouldDirty: true });
   };
 
   const handlePlacesPharmacySelection = (input: PharmacyCollectionAnswerSetInput): void => {
-    setValue(PHARMACY_COLLECTION_LINK_IDS.manualPharmacyName, undefined, { shouldDirty: true });
-    setValue(PHARMACY_COLLECTION_LINK_IDS.manualPharmacyAddress, undefined, { shouldDirty: true });
+    setValue(PHARMACY_COLLECTION_LINK_IDS.manualPharmacyName, '', { shouldDirty: true });
+    setValue(PHARMACY_COLLECTION_LINK_IDS.manualPharmacyAddress, '', { shouldDirty: true });
     setValue(PHARMACY_COLLECTION_LINK_IDS.erxPharmacyId, input.erxPharmacyId, { shouldDirty: true });
     setValue(PHARMACY_COLLECTION_LINK_IDS.placesAddress, input.placesAddress, { shouldDirty: true });
     setValue(PHARMACY_COLLECTION_LINK_IDS.placesId, input.placesId, { shouldDirty: true });
