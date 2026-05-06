@@ -1,6 +1,5 @@
-import { RcmListPayersResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
-import { FhirResource, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
+import { FhirResource, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -233,37 +232,4 @@ export const useUpdatePatientAccount = (
       });
     },
   });
-};
-
-export const useGetInsurancePlans = (
-  onSuccess: (data: Organization[] | null) => void
-): UseQueryResult<Organization[], Error> => {
-  const { oystehr } = useApiClients();
-
-  const fetchAllInsurancePlans = async (): Promise<Organization[]> => {
-    if (!oystehr) {
-      throw new Error('FHIR client not defined');
-    }
-
-    const payers = [];
-    let hasMore = true;
-    let nextCursor: string | null = null;
-    while (hasMore) {
-      const result: RcmListPayersResponse = await oystehr.rcm.listPayers({ cursor: nextCursor ?? undefined });
-      payers.push(...result.data);
-      nextCursor = result.metadata.nextCursor;
-      hasMore = !!nextCursor;
-    }
-
-    return payers;
-  };
-
-  const queryResult = useQuery({
-    queryKey: ['insurance-plans'],
-    queryFn: fetchAllInsurancePlans,
-  });
-
-  useSuccessQuery(queryResult.data, onSuccess);
-
-  return queryResult;
 };

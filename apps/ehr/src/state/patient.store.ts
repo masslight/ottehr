@@ -21,11 +21,9 @@ type PatientState = {
   policyHolders: RelatedPerson[];
   patchOperations: ResourcePatches;
   tempInsurances: Insurance[];
-  insurancePlans: InsurancePlanDTO[];
 };
 interface PatientStoreActions {
   setPatient: (patient: Patient | null) => void;
-  setInsurancePlans: (insurancePlans: InsurancePlanDTO[]) => void;
   reset: () => void;
 }
 
@@ -34,7 +32,6 @@ const PATIENT_INITIAL: PatientState = {
   insurances: [],
   policyHolders: [],
   tempInsurances: [],
-  insurancePlans: [],
   patchOperations: {
     patient: [],
     coverages: {},
@@ -45,7 +42,6 @@ const PATIENT_INITIAL: PatientState = {
 export const usePatientStore = create<PatientState & PatientStoreActions>()((set) => ({
   ...PATIENT_INITIAL,
   setPatient: (patient) => set({ patient }),
-  setInsurancePlans: (insurancePlans) => set({ insurancePlans }),
   reset: () => {
     set({
       patchOperations: PATIENT_INITIAL.patchOperations,

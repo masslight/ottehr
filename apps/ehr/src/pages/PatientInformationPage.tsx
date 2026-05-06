@@ -28,7 +28,6 @@ import {
   CoverageWithPriority,
   extractFirstValueFromAnswer,
   flattenItems,
-  InsurancePlanDTO,
   OrderedCoveragesWithSubscribers,
   PATIENT_RECORD_CONFIG,
   PATIENT_RECORD_QUESTIONNAIRE,
@@ -40,14 +39,12 @@ import { CustomDialog } from '../components/dialogs';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import {
-  useGetInsurancePlans,
   useGetPatient,
   useGetPatientAccount,
   useGetPatientCoverages,
   useRemovePatientCoverage,
   useUpdatePatientAccount,
 } from '../hooks/useGetPatient';
-import { createInsurancePlanDto, usePatientStore } from '../state/patient.store';
 
 const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2'];
 const ANSWER_TYPES: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = [
@@ -111,28 +108,6 @@ const makePrepopulatedCoveragesFormDefaults = ({
   });
 
   return makeFormDefaults(prepopulatedItems);
-};
-
-const transformInsurancePlans = (organizations: Organization[]): InsurancePlanDTO[] => {
-  const transformedPlans = organizations
-    .map((organization) => {
-      try {
-        return createInsurancePlanDto(organization);
-      } catch (err) {
-        console.error(err);
-        console.error('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
-        return {} as InsurancePlanDTO;
-      }
-    })
-    .filter((insurancePlan) => insurancePlan.id !== undefined)
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const insurancePlanMap: Record<string, InsurancePlanDTO> = {};
-  transformedPlans.forEach((plan) => {
-    insurancePlanMap[plan.name ?? ''] = plan;
-  });
-
-  return Object.values(insurancePlanMap);
 };
 
 const usePatientData = (
@@ -344,7 +319,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   appointmentContext,
 }) => {
   const navigate = useNavigate();
-  const { setInsurancePlans } = usePatientStore();
 
   const { accountData, insuranceData, coverages, patient, isFetching, defaultFormVals, coveragesFetching } =
     usePatientData(id, appointmentContext);
@@ -368,15 +342,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   const { otherPatientsWithSameName, setOtherPatientsWithSameName } = useGetPatient(id);
 
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
-  // CW TODO: this throws 403
-  useGetInsurancePlans((data) => {
-    if (!data) return;
-
-    if (data) {
-      const uniquePlans = transformInsurancePlans(data);
-      setInsurancePlans(uniquePlans);
-    }
-  });
 
   const { handleSubmit, formState } = methods;
   const { dirtyFields } = formState;
