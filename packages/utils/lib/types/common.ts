@@ -625,6 +625,7 @@ export const TaskIndicator: TaskIndicator = {
 export const TASK_INPUT_TYPE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/task-input-type';
 export enum TASK_INPUT_TYPE_CODES {
   PAGE_INDEX = 'page-index',
+  SKIP_EMAIL = 'skip-email',
 }
 
 export enum ServiceMode {

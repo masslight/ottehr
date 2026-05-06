@@ -37,6 +37,7 @@ import {
   deleteEncounterDiagnosis,
   updateEncounterDischargeDisposition,
 } from '../../shared/chart-data';
+import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
 import { createOystehrClient } from '../../shared/helpers';
 import { deleteZ3Object } from '../../shared/z3Utils';
 import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
@@ -325,6 +326,9 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       specialRulesDeletions,
     ]);
     console.log('Updated chart data as a transaction');
+
+    const appointment = allResources.find((res) => res.resourceType === 'Appointment');
+    await runChartDataPostChangeTasks(oystehr, addendumNote, encounter, appointment?.id);
 
     // perform deleting z3 pdf objects after deleting all fhir resources
     if (schoolWorkNotes) {
