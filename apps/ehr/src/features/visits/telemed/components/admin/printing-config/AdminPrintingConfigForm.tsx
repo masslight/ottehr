@@ -13,9 +13,11 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { ReactElement } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import {
+  APIError,
   getLabelTypeMetadata,
   LabelOrientationSchema,
   MANUFACTURER_TO_LABEL_MAPPING,
@@ -29,10 +31,12 @@ export interface AdminPrintingConfigFormProps {
   defaultValues: PrintingConfig;
   formMode: 'add' | 'edit';
   onSubmit: (data: PrintingConfig) => void;
+  isSubmitting?: boolean;
+  submitError?: OystehrSdkError | APIError;
 }
 
 export default function AdminPrintingConfigForm(props: AdminPrintingConfigFormProps): ReactElement {
-  const { defaultValues, onSubmit } = props;
+  const { defaultValues, onSubmit, isSubmitting, submitError } = props;
   const theme = useTheme();
 
   const methods = useForm<PrintingConfig>({
@@ -73,19 +77,21 @@ export default function AdminPrintingConfigForm(props: AdminPrintingConfigFormPr
               >
                 Update label printing preferences. Select "manual" mode to print exclusively from the browser by
                 default.
+                <br />
+                <br />
+                If you do not see your printer manufacturer and/or label type, please select "manual" mode.
               </Typography>
               <Grid item width="100%">
                 <Controller
                   name="mode"
                   control={methods.control}
                   render={({ field, fieldState }) => (
-                    <FormControl fullWidth required>
+                    <FormControl fullWidth required size="small">
                       <InputLabel id="printing-mode-dropdown-label">Mode</InputLabel>
                       <Select
                         {...field}
                         label="Mode"
                         value={field.value ?? 'manual'}
-                        size="small"
                         fullWidth
                         onChange={(e) => field.onChange(e)}
                         error={!!fieldState.error}
@@ -109,13 +115,12 @@ export default function AdminPrintingConfigForm(props: AdminPrintingConfigFormPr
                       name="printerAndLabelConfig.printerManufacturer"
                       control={methods.control}
                       render={({ field, fieldState }) => (
-                        <FormControl fullWidth required>
+                        <FormControl fullWidth required size="small">
                           <InputLabel id="manufacturer-dropdown-label">Printer Manufacturer</InputLabel>
                           <Select
                             {...field}
                             label="Printer Manufacturer"
                             value={field.value ?? ''}
-                            size="small"
                             fullWidth
                             onChange={(e) => {
                               field.onChange(e);
@@ -140,13 +145,12 @@ export default function AdminPrintingConfigForm(props: AdminPrintingConfigFormPr
                       name="printerAndLabelConfig.labelType"
                       control={methods.control}
                       render={({ field, fieldState }) => (
-                        <FormControl fullWidth required>
+                        <FormControl fullWidth required size="small">
                           <InputLabel id="labelType-dropdown-label">Label Type</InputLabel>
                           <Select
                             {...field}
                             label="Label Type"
                             value={field.value ?? ''}
-                            size="small"
                             fullWidth
                             onChange={(e) => {
                               const labelType = e.target.value;
@@ -179,14 +183,12 @@ export default function AdminPrintingConfigForm(props: AdminPrintingConfigFormPr
                       name="printerAndLabelConfig.orientation"
                       control={methods.control}
                       render={({ field, fieldState }) => (
-                        <FormControl fullWidth required>
+                        <FormControl fullWidth required size="small">
                           <InputLabel id="orientation-dropdown-label">Label Orientation</InputLabel>
                           <Select
                             {...field}
                             label="Label Orientation"
                             value={field.value ?? ''}
-                            // todo: figure out how to set a default value based on the selected label type
-                            size="small"
                             fullWidth
                             onChange={field.onChange}
                             error={!!fieldState.error}
@@ -206,6 +208,7 @@ export default function AdminPrintingConfigForm(props: AdminPrintingConfigFormPr
                     <Controller
                       name="openPdfOnPrint"
                       control={methods.control}
+                      defaultValue={false}
                       render={({ field }) => (
                         <FormControlLabel
                           label={<Typography>Open pdf on print?</Typography>}
@@ -220,7 +223,6 @@ export default function AdminPrintingConfigForm(props: AdminPrintingConfigFormPr
                                 },
                               }}
                               checked={!!field.value}
-                              value={field.value ?? false}
                             />
                           }
                         />
@@ -230,10 +232,11 @@ export default function AdminPrintingConfigForm(props: AdminPrintingConfigFormPr
                 </>
               )}
               <Grid item>
-                <LoadingButton type="submit" variant="contained">
+                <LoadingButton type="submit" variant="contained" loading={isSubmitting} disabled={isSubmitting}>
                   Submit
                 </LoadingButton>
                 {hasFormErrors && <FormHelperText error={true}>Please fix errors: </FormHelperText>}
+                {submitError && <FormHelperText error={true}>{submitError.message}</FormHelperText>}
               </Grid>
             </Grid>
           </Grid>

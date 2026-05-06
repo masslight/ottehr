@@ -75,11 +75,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`Found printing config Device/${device.id}`);
 
   try {
-    const response = parsePrintingConfig(device);
+    const parsedConfig = parsePrintingConfig(device);
 
     return {
       statusCode: 200,
-      body: JSON.stringify(response),
+      body: JSON.stringify({
+        deviceId: device?.id,
+        config: parsedConfig,
+      }),
     };
   } catch (e) {
     console.warn(`Hit an error when trying to parse the config on Device/${device.id}. Returning manual mode`, e);

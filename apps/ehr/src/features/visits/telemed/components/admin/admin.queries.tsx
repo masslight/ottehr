@@ -7,6 +7,7 @@ import {
   adminGetInHouseLabConfig,
   adminListInHouseLabs,
   adminUpdateInHouseLab,
+  adminUpdatePrintingConfig,
   bulkUpdateInsuranceStatus,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
@@ -30,10 +31,12 @@ import {
   AdminInHouseLabConfigOutput,
   AdminListInHouseLabsOutput,
   AdminUpdateInHouseLabInput,
+  AdminUpdatePrintingConfigInput,
   APIError,
   BulkUpdateInsuranceStatusInput,
   FHIR_EXTENSION,
   GetPrintingConfigInput,
+  GetPrintingConfigOutput,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
   INSURANCE_SETTINGS_MAP,
@@ -41,7 +44,6 @@ import {
   isLocationVirtual,
   ORG_TYPE_CODE_SYSTEM,
   ORG_TYPE_PAYER_CODE,
-  PrintingConfig,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
 } from 'utils';
@@ -481,7 +483,9 @@ export const useAdminUpdateInHouseLab = (
   });
 };
 
-export const useAdminGetPrintingConfig = (input: GetPrintingConfigInput): UseQueryResult<PrintingConfig, Error> => {
+export const useAdminGetPrintingConfig = (
+  input: GetPrintingConfigInput
+): UseQueryResult<GetPrintingConfigOutput, Error> => {
   const { oystehrZambda } = useApiClients();
   const { deviceId } = input;
 
@@ -494,5 +498,40 @@ export const useAdminGetPrintingConfig = (input: GetPrintingConfigInput): UseQue
     staleTime: 30_000, // 30 sec staletime
     refetchOnMount: 'always', // refetch every mount
     refetchOnWindowFocus: true, // refetch when you tab back
+  });
+};
+
+export const useAdminUpdatePrintingConfig = (
+  mutatingDeviceId: string
+): UseMutationResult<void, Error, AdminUpdatePrintingConfigInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  console.log('in hook query for update printing config');
+
+  return useMutation({
+    mutationKey: ['admin-update-in-house-lab', mutatingDeviceId],
+    mutationFn: async (input: AdminUpdatePrintingConfigInput) => {
+      console.log('mutation for update printing config');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      await adminUpdatePrintingConfig(oystehrZambda!, input);
+      console.log('finished call to update printing config in hook');
+    },
+    onSuccess: async (_data, variables) => {
+      await queryClient.invalidateQueries({
+        queryKey: ['admin-get-printing-config', variables.deviceId],
+      });
+      enqueueSnackbar('Successfully updated printing config', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! Printing config update could not be made.';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
   });
 };

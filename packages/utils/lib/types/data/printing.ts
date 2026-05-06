@@ -74,3 +74,13 @@ export type PrintingConfig = z.infer<typeof PrintingConfigSchema>;
 export interface GetPrintingConfigInput {
   deviceId?: string;
 }
+
+export interface GetPrintingConfigOutput {
+  deviceId?: string;
+  config: PrintingConfig;
+}
+
+export interface AdminUpdatePrintingConfigInput {
+  deviceId?: string; // will be defined unless it is the very first update
+  config: PrintingConfig;
+}

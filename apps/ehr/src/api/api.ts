@@ -15,6 +15,7 @@ import {
   AdminRenameTemplateInput,
   AdminRenameTemplateOutput,
   AdminUpdateInHouseLabInput,
+  AdminUpdatePrintingConfigInput,
   AiAssistedEncountersReportZambdaInput,
   AiAssistedEncountersReportZambdaOutput,
   AllergyQuickPickData,
@@ -101,6 +102,7 @@ import {
   GetPatientLoginPhoneNumbersOutput,
   GetPresignedFileURLInput,
   GetPrintingConfigInput,
+  GetPrintingConfigOutput,
   GetProcedureQuickPicksResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
@@ -140,7 +142,6 @@ import {
   PracticeKpisReportZambdaInput,
   PracticeKpisReportZambdaOutput,
   PresignUploadUrlResponse,
-  PrintingConfig,
   ProcedureQuickPickData,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
@@ -289,6 +290,7 @@ const ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-add-in-house-lab';
 const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
 const ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-update-in-house-lab';
 const GET_PRINTING_CONFIG_ZAMBDA_ID = 'get-printing-config';
+const ADMIN_UPDATE_PRINTING_CONFIG_ZAMBDA_ID = 'admin-update-printing-config';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1800,7 +1802,7 @@ export const adminUpdateInHouseLab = async (
 export const getPrintingConfig = async (
   oystehr: Oystehr,
   parameters: GetPrintingConfigInput
-): Promise<PrintingConfig> => {
+): Promise<GetPrintingConfigOutput> => {
   try {
     if (GET_PRINTING_CONFIG_ZAMBDA_ID == null) {
       throw new Error('get printing config environment variable could not be loaded');
@@ -1810,6 +1812,25 @@ export const getPrintingConfig = async (
       ...parameters,
     });
     return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdatePrintingConfig = async (
+  oystehr: Oystehr,
+  parameters: AdminUpdatePrintingConfigInput
+): Promise<void> => {
+  try {
+    if (ADMIN_UPDATE_PRINTING_CONFIG_ZAMBDA_ID == null) {
+      throw new Error('admin update printing config environment variable could not be loaded');
+    }
+    await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_PRINTING_CONFIG_ZAMBDA_ID,
+      ...parameters,
+    });
+    return;
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);

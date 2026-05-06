@@ -1,14 +1,21 @@
-import { GetPrintingConfigInput, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, Secrets } from 'utils';
+import {
+  AdminUpdatePrintingConfigInput,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  PrintingConfigSchema,
+  Secrets,
+} from 'utils';
 import { z } from 'zod';
 import { ZambdaInput } from '../../../shared';
 
 const validationSchema = z.object({
   deviceId: z.string().optional(),
+  config: PrintingConfigSchema,
 });
 
 export function validateRequestParameters(
   input: ZambdaInput
-): GetPrintingConfigInput & { secrets: Secrets | null; userToken: string } {
+): AdminUpdatePrintingConfigInput & { secrets: Secrets | null; userToken: string } {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
@@ -16,7 +23,7 @@ export function validateRequestParameters(
   const userToken = input.headers.Authorization.replace('Bearer ', '');
   const secrets = input.secrets;
 
-  let params: GetPrintingConfigInput;
+  let params: AdminUpdatePrintingConfigInput;
   try {
     params = JSON.parse(input.body);
   } catch {
@@ -35,6 +42,7 @@ export function validateRequestParameters(
 
   return {
     deviceId: validatedParsed.data.deviceId,
+    config: validatedParsed.data.config,
     secrets,
     userToken,
   };
