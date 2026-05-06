@@ -66,7 +66,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
-    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
     const { encounterId, testItems, diagnosesAll, diagnosesNew, notes } = validatedParameters;
     console.log('This is testItems in create-in-house-lab-order', JSON.stringify(testItems, undefined, 2));
@@ -324,11 +323,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (!attendingPractitionerId) throw Error('Attending practitioner not found');
 
     const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
-      oystehrCurrentUser.fhir.get<Practitioner>({
+      oystehr.fhir.get<Practitioner>({
         resourceType: 'Practitioner',
         id: userPractitionerId,
       }),
-      oystehrCurrentUser.fhir.get<Practitioner>({
+      oystehr.fhir.get<Practitioner>({
         resourceType: 'Practitioner',
         id: attendingPractitionerId,
       }),
@@ -373,7 +372,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const saveChartDataResponse = diagnosesNew.length
-      ? await oystehrCurrentUser.zambda.execute({
+      ? await oystehr.zambda.execute({
           id: 'save-chart-data',
           encounterId,
           diagnosis: diagnosesNew,

@@ -94,8 +94,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       'Resource configuration error - user creating this external lab order must have a Practitioner resource linked'
     );
   }
-  const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-  const currentUserPractitioner = await oystehrCurrentUser.fhir.get<Practitioner>({
+  const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
     id: curUserPractitionerId,
   });

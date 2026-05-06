@@ -129,7 +129,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
     // const [allResources, currentPractitioner, chartDataBeforeUpdate] = await Promise.all([
     //   getEncounterAndRelatedResources(oystehr, encounterId),
-    //   getUserPractitioner(oystehr, oystehrCurrentUser),
+    //   getUserPractitioner(oystehr, userToken, secrets),
     //   getChartData(oystehr, encounterId),
     // ]);
 
