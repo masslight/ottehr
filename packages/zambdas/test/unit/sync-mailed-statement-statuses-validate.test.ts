@@ -18,6 +18,8 @@ describe('sync-mailed-statement-statuses validateRequestParameters', () => {
   });
 
   it('throws when secrets are missing', () => {
-    expect(() => validateRequestParameters(makeInput(null))).toThrow('Input did not have any secrets');
+    expect(() => validateRequestParameters(makeInput(null))).toThrow(
+      'The request was missing secrets required to process it'
+    );
   });
 });

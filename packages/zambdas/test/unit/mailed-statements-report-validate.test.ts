@@ -31,7 +31,7 @@ describe('mailed-statements-report validateRequestParameters', () => {
       validateRequestParameters(makeInput(null));
     } catch (e: any) {
       expect(e.code).toBe(APIErrorCode.MISSING_REQUEST_BODY);
-      expect(e.message).toBe('Missing request body');
+      expect(e.message).toBe('The request was missing a required request body');
     }
   });
 
@@ -65,7 +65,7 @@ describe('mailed-statements-report validateRequestParameters', () => {
       expect.fail('should have thrown');
     } catch (e: any) {
       expect(e.code).toBe(APIErrorCode.MISSING_REQUEST_SECRETS);
-      expect(e.message).toBe('Input did not have any secrets');
+      expect(e.message).toBe('The request was missing secrets required to process it');
     }
   });
 });
