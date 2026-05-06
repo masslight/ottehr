@@ -5,7 +5,7 @@ import { EmployeeDetails } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';
 
 export const PROVIDERS_FILTER = (employee: EmployeeDetails): boolean => {
-  return employee.isProvider;
+  return employee.isProvider && !employee.isCustomerSupport;
 };
 
 type Props = {

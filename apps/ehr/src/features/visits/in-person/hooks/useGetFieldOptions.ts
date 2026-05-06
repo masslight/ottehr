@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
 import { useEffect, useMemo, useState } from 'react';
+import { PROVIDERS_FILTER } from 'src/components/input/EmployeeSelectInput';
 import {
   DiagnosisDTO,
   isLocationVirtual,
@@ -165,7 +166,7 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
 
         if (data.employees) {
           const activeProviders = data.employees.filter(
-            (employee: any) => employee.status === 'Active' && employee.isProvider
+            (employee: any) => employee.status === 'Active' && PROVIDERS_FILTER(employee)
           );
 
           const providerOptions = activeProviders.map((employee: any) => ({
