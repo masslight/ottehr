@@ -78,11 +78,11 @@ export const performEffect = async (
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getInPersonVisitStatus(appointment, encounter);
-  const user = await userMe(userToken, secrets);
 
   if (isFollowup) {
     // For follow-up encounters: only update encounter status and create PDF (no appointment updates, no email)
     if (currentStatus) {
+      const user = await userMe(userToken, secrets);
       await changeFollowupEncounterStatusToCompleted(oystehr, user, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Follow-up encounter status has been changed.`);
@@ -105,6 +105,7 @@ export const performEffect = async (
   } else {
     // For regular encounters: keep existing behavior
     if (currentStatus) {
+      const user = await userMe(userToken, secrets);
       await changeStatusToCompleted(oystehr, user, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Status has been changed.`);
