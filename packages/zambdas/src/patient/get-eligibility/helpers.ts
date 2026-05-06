@@ -25,28 +25,13 @@ export const getInsurancePlansAndOrgs = async (
   planIds: InsuranceIds,
   oystehrClient: Oystehr
 ): Promise<Organization[]> => {
-  const orgs = (
-    await oystehrClient.fhir.search<Organization>({
-      resourceType: 'Organization',
-      params: [
-        {
-          name: '_id',
-          value: `${planIds.primary}${planIds.secondary ? `,${planIds.secondary}` : ''}`,
-        },
-      ],
-    })
-  ).unbundle();
+  const orgs = [
+    await oystehrClient.rcm.getPayer({ id: planIds.primary }),
+    ...(planIds.secondary ? [await oystehrClient.rcm.getPayer({ id: planIds.secondary })] : []),
+  ];
 
-  const sorted = orgs.sort((r1, r2) => {
-    if (r1.id === planIds.primary) {
-      return -1;
-    } else if (r2.id === planIds.secondary) {
-      return 1;
-    }
-    return 0;
-  });
-  console.log('sorted', JSON.stringify(sorted, null, 2));
-  return sorted;
+  console.log('colin getInsurancePlansAndOrgs', orgs);
+  return orgs;
 };
 
 export interface MakeCoverageEligibilityRequestInput {
@@ -124,10 +109,12 @@ export const parseEligibilityCheckResponsePromiseResult = async (
   }
 };
 
-export const getPayorRef = (coverage: Coverage, orgs: Organization[]): string | undefined => {
+export const getPayorRef = (oystehr: Oystehr, coverage: Coverage, orgs: Organization[]): string | undefined => {
   const payor = orgs.find((org) => {
     return coverage.payor.some((res) => {
-      return res.reference === `Organization/${org.id}`;
+      return (
+        res.reference === `Organization/${org.id}` || oystehr.rcm.constructPayerUrl({ id: org.id! }) === res.reference
+      );
     });
   });
   return payor ? `Organization/${payor.id}` : undefined;

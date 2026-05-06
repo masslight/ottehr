@@ -1527,6 +1527,7 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
     priority2
   );
 
+  console.log('colin primary', JSON.stringify(primaryInsurance));
   if (primaryInsurance) {
     const primaryCoverage = createCoverageResource({
       patientId,
@@ -1604,7 +1605,6 @@ function resolveInsurancePriorities(
     }
   }
 
-  console.log('colin', primaryInsurance, secondaryInsurance);
   return { primaryInsurance, secondaryInsurance };
 }
 
@@ -1913,7 +1913,12 @@ function getInsuranceDetailsFromAnswers(
     ?.valueReference;
   if (!insuranceOrgReference) return undefined;
 
-  const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insuranceOrgReference.reference);
+  const oystehr = new Oystehr({}); // get access to static helper
+  const org = organizations.find(
+    (org) =>
+      `${org.resourceType}/${org.id}` === insuranceOrgReference.reference ||
+      oystehr.rcm.constructPayerUrl({ id: org.id! }) === insuranceOrgReference.reference
+  );
   if (!org) return undefined;
 
   const qType = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]?.valueString;
@@ -2331,10 +2336,10 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   const memberId = policyHolder.memberId;
 
   const payerId = getPayerId(org);
-
   if (!payerId) {
     throw new Error('payerId unexpectedly missing from insuranceOrg');
   }
+  const payerUrl = new Oystehr({}).rcm.constructPayerUrl({ id: payerId });
 
   const policyHolderId = 'coverageSubscriber';
   const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
@@ -2382,7 +2387,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       reference: `Patient/${patientId}`,
     },
     type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
-    payor: [{ reference: `Organization/${org.id}` }],
+    payor: [{ reference: payerUrl }],
     subscriberId: policyHolder.memberId,
     relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
     class: [
@@ -2822,8 +2827,11 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       let workersCompCoverage: Coverage | undefined = undefined;
       const workersCompInsurance = employerInformation.workersCompInsurance;
       const workersCompMemberId = employerInformation.workersCompMemberId;
+      const oystehr = new Oystehr({}); // get access to static helper
       const workersCompInsuranceOrg = organizationResources.find(
-        (org) => `${org.resourceType}/${org.id}` === workersCompInsurance
+        (org) =>
+          `${org.resourceType}/${org.id}` === workersCompInsurance ||
+          oystehr.rcm.constructPayerUrl({ id: org.id! }) === workersCompInsurance
       );
       const payerId = getPayerId(workersCompInsuranceOrg);
       if (existingCoverages.workersComp) {
@@ -3923,6 +3931,7 @@ export const getAccountAndCoverageResourcesForPatient = async (
   }
 
   const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
+  console.log('colin get coverages', JSON.stringify(coverageResources));
 
   // Get payer info for coverages
   const insuranceRefUrls = coverageResources

@@ -142,8 +142,13 @@ function getInsuranceDetails(
   }
 
   const payorReference = coverage.payor?.[0]?.reference;
+  const oystehr = new Oystehr({}); // get access to static helper
   const payerOrgByReference = payorReference
-    ? insuranceOrgs.find((org) => `Organization/${org.id}` === payorReference)
+    ? insuranceOrgs.find(
+        (org) =>
+          `Organization/${org.id}` === payorReference ||
+          oystehr.rcm.constructPayerUrl({ id: org.id! }) === payorReference
+      )
     : undefined;
   const payerOrgByPayerId = coverage.class?.[0]?.value
     ? insuranceOrgs.find((org) => getPayerId(org) === coverage.class?.[0]?.value)

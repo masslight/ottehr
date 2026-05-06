@@ -1547,7 +1547,6 @@ export const checkResourceHasSlug = (resource: ScheduleOwnerFhirResource, slug: 
 };
 
 export const getPayerId = (org: Organization | undefined): string | undefined => {
-  console.log('colin', JSON.stringify(org?.identifier));
   // First look for Oystehr payer ID by system
   let payerId = org?.identifier?.find(
     (identifier) => identifier.system === 'https://identifiers.fhir.oystehr.com/rcm-payer-id'

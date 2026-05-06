@@ -67,7 +67,10 @@ export async function getAllInsurancePayers(
   let hasMore = true;
   let nextCursor: string | null = null;
   while (hasMore) {
-    const result: RcmListPayersResponse = await oystehr.rcm.listPayers({ cursor: nextCursor ?? undefined });
+    const result: RcmListPayersResponse = await oystehr.rcm.listPayers({
+      limit: 200,
+      cursor: nextCursor ?? undefined,
+    });
     payers.push(...result.data);
     nextCursor = result.metadata.nextCursor;
     hasMore = !!nextCursor;

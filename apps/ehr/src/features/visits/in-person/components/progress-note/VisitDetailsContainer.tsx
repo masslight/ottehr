@@ -25,6 +25,7 @@ export const VisitDetailsContainer: FC = () => {
     },
   });
 
+  // CW TODO: this is wrong, it's a valueReference
   const insuranceCompanyID = getQuestionnaireResponseByLinkId('insurance-carrier', questionnaireResponse)?.answer?.[0]
     .valueString;
   const subscriberID = getQuestionnaireResponseByLinkId('insurance-member-id', questionnaireResponse)?.answer?.[0]
