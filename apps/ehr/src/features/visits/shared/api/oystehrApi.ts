@@ -22,6 +22,8 @@ import {
   GetCreateLabOrderResources,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
+  GetMergePatientsTaskInput,
+  GetMergePatientsTaskResponse,
   getOystehrApiHelpers,
   GetPatientAccountZambdaInput,
   GetPatientInstructionsInput,
@@ -167,6 +169,7 @@ export const getOystehrTelemedAPI = (
   getPatientCoverages: typeof getPatientCoverages;
   removePatientCoverage: typeof removePatientCoverage;
   mergePatients: typeof mergePatients;
+  getMergePatientsTask: typeof getMergePatientsTask;
   sendFax: typeof sendFax;
   getCreateExternalLabResources: typeof getCreateExternalLabResources;
   getUnsolicitedResultsResources: typeof getUnsolicitedResultsResources;
@@ -391,6 +394,10 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('merge patients', parameters);
   };
 
+  const getMergePatientsTask = async (parameters: GetMergePatientsTaskInput): Promise<GetMergePatientsTaskResponse> => {
+    return await makeZapRequest('merge patients', { ...parameters, mode: 'status' });
+  };
+
   const sendFax = async (parameters: SendFaxZambdaInput): Promise<void> => {
     return await makeZapRequest('send fax', parameters);
   };
@@ -454,6 +461,7 @@ export const getOystehrTelemedAPI = (
     getPatientCoverages,
     removePatientCoverage,
     mergePatients,
+    getMergePatientsTask,
     sendFax,
     getCreateExternalLabResources,
     getUnsolicitedResultsResources,
