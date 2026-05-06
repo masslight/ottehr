@@ -11,7 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { getNursingOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
 import { NursingOrdersSearchBy } from 'utils';
@@ -36,11 +36,14 @@ export const NursingOrdersTable = ({
   onCreateOrder,
 }: NursingOrdersTableProps): ReactElement => {
   const navigateTo = useNavigate();
+  const [searchParams] = useSearchParams();
+  const encounterIdParam = searchParams.get('encounterId');
 
   const { nursingOrders, loading, error, fetchNursingOrders: refetch } = useGetNursingOrders({ searchBy });
 
   const onRowClick = (nursingOrderData: { serviceRequestId: string }): void => {
-    navigateTo(getNursingOrderDetailsUrl(appointmentId, nursingOrderData.serviceRequestId));
+    const url = getNursingOrderDetailsUrl(appointmentId, nursingOrderData.serviceRequestId);
+    navigateTo(encounterIdParam ? `${url}?encounterId=${encounterIdParam}` : url);
   };
 
   if (loading) {

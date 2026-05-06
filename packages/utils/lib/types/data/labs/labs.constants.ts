@@ -1,7 +1,7 @@
 // cSpell:ignore RCRT, RFRT, RPRT
 import { Coding } from 'fhir/r4b';
 import { Pagination } from '..';
-import { LabelConfig, LabType } from './labs.types';
+import { LabelConfig, LabPaymentMethod, LabType } from './labs.types';
 
 // for order form pdf (we might not want this idk)
 export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
@@ -399,3 +399,18 @@ export const LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL = {
   itemCode: 'https://fhir.ottehr.com/Extension/search-field-itemCode',
 } as const;
 export type LabListSearchFieldKey = keyof typeof LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL;
+
+export const STATIC_COMPENDIUM_LAB_GUID = 'oystehr-static-compendium';
+export const STATIC_COMPENDIUM_ACCOUNT_NUMBER = 'oystehr-generic-account';
+
+export const GENERIC_LAB_ORDER_TAG: Coding = {
+  system: 'order-type',
+  code: 'generic-lab-order',
+};
+
+export const LAB_PAYMENT_METHOD_DISPLAY: Record<LabPaymentMethod, string> = {
+  [LabPaymentMethod.Insurance]: 'Insurance',
+  [LabPaymentMethod.SelfPay]: 'Self Pay',
+  [LabPaymentMethod.ClientBill]: 'Client Bill',
+  [LabPaymentMethod.WorkersComp]: 'Workers Comp',
+};

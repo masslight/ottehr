@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   getAllergyQuickPicks,
   getImmunizationQuickPicks,
+  getInHouseMedicationQuickPicks,
   getMedicalConditionQuickPicks,
   getMedicationHistoryQuickPicks,
   getProcedureQuickPicks,
@@ -11,6 +12,7 @@ import {
 import {
   AllergyQuickPickData,
   ImmunizationQuickPickData,
+  InHouseMedicationQuickPickData,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   ProcedureQuickPickData,
@@ -28,14 +30,17 @@ interface UseFhirQuickPicksResult<T> {
  * Generic hook that fetches FHIR-based quick picks from a zambda endpoint.
  */
 export function useFhirQuickPicks<T>(
-  fetchFn: (oystehr: any) => Promise<{ quickPicks: T[] }>
+  fetchFn: (oystehr: any) => Promise<{ quickPicks: T[] }>,
+  options?: { enabled?: boolean }
 ): UseFhirQuickPicksResult<T> {
   const { oystehrZambda } = useApiClients();
   const [quickPicks, setQuickPicks] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
+  const enabled = options?.enabled ?? true;
 
   const doFetch = useCallback(async () => {
-    if (!oystehrZambda) {
+    if (!enabled || !oystehrZambda?.config.accessToken) {
+      setQuickPicks([]);
       setLoading(false);
       return;
     }
@@ -49,7 +54,7 @@ export function useFhirQuickPicks<T>(
     } finally {
       setLoading(false);
     }
-  }, [oystehrZambda, fetchFn]);
+  }, [enabled, oystehrZambda, fetchFn]);
 
   useEffect(() => {
     void doFetch();
@@ -58,26 +63,44 @@ export function useFhirQuickPicks<T>(
   return { quickPicks, loading, refetch: doFetch };
 }
 
-export function useMergedProcedureQuickPicks(): UseFhirQuickPicksResult<ProcedureQuickPickData> {
-  return useFhirQuickPicks(getProcedureQuickPicks);
+export function useMergedProcedureQuickPicks(options?: {
+  enabled?: boolean;
+}): UseFhirQuickPicksResult<ProcedureQuickPickData> {
+  return useFhirQuickPicks(getProcedureQuickPicks, options);
 }
 
-export function useMergedAllergyQuickPicks(): UseFhirQuickPicksResult<AllergyQuickPickData> {
-  return useFhirQuickPicks(getAllergyQuickPicks);
+export function useMergedAllergyQuickPicks(options?: {
+  enabled?: boolean;
+}): UseFhirQuickPicksResult<AllergyQuickPickData> {
+  return useFhirQuickPicks(getAllergyQuickPicks, options);
 }
 
-export function useMergedMedicalConditionQuickPicks(): UseFhirQuickPicksResult<MedicalConditionQuickPickData> {
-  return useFhirQuickPicks(getMedicalConditionQuickPicks);
+export function useMergedMedicalConditionQuickPicks(options?: {
+  enabled?: boolean;
+}): UseFhirQuickPicksResult<MedicalConditionQuickPickData> {
+  return useFhirQuickPicks(getMedicalConditionQuickPicks, options);
 }
 
-export function useMergedMedicationHistoryQuickPicks(): UseFhirQuickPicksResult<MedicationHistoryQuickPickData> {
-  return useFhirQuickPicks(getMedicationHistoryQuickPicks);
+export function useMergedMedicationHistoryQuickPicks(options?: {
+  enabled?: boolean;
+}): UseFhirQuickPicksResult<MedicationHistoryQuickPickData> {
+  return useFhirQuickPicks(getMedicationHistoryQuickPicks, options);
 }
 
-export function useMergedRadiologyQuickPicks(): UseFhirQuickPicksResult<RadiologyQuickPickData> {
-  return useFhirQuickPicks(getRadiologyQuickPicks);
+export function useMergedRadiologyQuickPicks(options?: {
+  enabled?: boolean;
+}): UseFhirQuickPicksResult<RadiologyQuickPickData> {
+  return useFhirQuickPicks(getRadiologyQuickPicks, options);
 }
 
-export function useMergedImmunizationQuickPicks(): UseFhirQuickPicksResult<ImmunizationQuickPickData> {
-  return useFhirQuickPicks(getImmunizationQuickPicks);
+export function useMergedImmunizationQuickPicks(options?: {
+  enabled?: boolean;
+}): UseFhirQuickPicksResult<ImmunizationQuickPickData> {
+  return useFhirQuickPicks(getImmunizationQuickPicks, options);
+}
+
+export function useMergedInHouseMedicationQuickPicks(options?: {
+  enabled?: boolean;
+}): UseFhirQuickPicksResult<InHouseMedicationQuickPickData> {
+  return useFhirQuickPicks(getInHouseMedicationQuickPicks, options);
 }

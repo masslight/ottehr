@@ -36,6 +36,18 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
 
   let suggestions;
   console.log(prompt);
+
+  const suggestionSchema = {
+    type: 'object',
+    properties: {
+      suggestions: {
+        type: 'array',
+        items: { type: 'string' },
+      },
+    },
+    required: ['suggestions'],
+  };
+
   if (type === 'procedure' && !procedureDetails) {
     suggestions = {
       suggestions: [
@@ -43,7 +55,7 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
       ],
     };
   } else if (type === 'procedure' || type === 'missing-hpi') {
-    const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets);
+    const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets, suggestionSchema);
     console.log(aiResponseString);
 
     try {

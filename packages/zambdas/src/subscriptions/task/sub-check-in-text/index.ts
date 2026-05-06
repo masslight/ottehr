@@ -2,7 +2,13 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, RelatedPerson, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR, getPatientContactEmail, getPatientFirstName, Secrets, TaskStatus } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  createOystehrClient,
+  getAuth0Token,
+  reportMissingUserRelatedPerson,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { sendText } from '../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
@@ -40,10 +46,8 @@ export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput)
   console.log('appointment ID parsed: ', appointmentID);
 
   console.log('searching for appointment, location and patient resources related to this task');
-  let fhirAppointment: Appointment | undefined,
-    fhirLocation: Location | undefined,
-    fhirPatient: Patient | undefined,
-    fhirRelatedPerson: RelatedPerson | undefined;
+  let fhirAppointment: Appointment | undefined, fhirLocation: Location | undefined, fhirPatient: Patient | undefined;
+  const fhirRelatedPersons: RelatedPerson[] = [];
   const allResources = (
     await oystehr.fhir.search<Appointment | Location | Patient | RelatedPerson>({
       resourceType: 'Appointment',
@@ -85,7 +89,7 @@ export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput)
         (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
       );
       if (isUserRelatedPerson) {
-        fhirRelatedPerson = relatedPerson;
+        fhirRelatedPersons.push(relatedPerson);
       }
     }
   });
@@ -110,17 +114,18 @@ export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput)
   const visitType = fhirAppointment.appointmentType?.text ?? 'Unknown';
   console.log('info', email, timezone, startTime, visitType);
 
-  if (fhirRelatedPerson) {
+  if (fhirRelatedPersons.length) {
     const message = `Welcome, and thanks for checking in! Our care team will see ${getPatientFirstName(
       fhirPatient
     )} soon. We appreciate your patience!`;
-    const { taskStatus, statusReason } = await sendText(message, fhirRelatedPerson, oystehrToken, secrets);
+    const { taskStatus, statusReason } = await sendText(message, fhirRelatedPersons, oystehrToken, secrets);
     taskStatusToUpdate = taskStatus;
     statusReasonToUpdate = statusReason;
   } else {
     taskStatusToUpdate = 'failed';
     statusReasonToUpdate = 'could not retrieve related person to get sms number';
     console.log('No related person found. Skipping sending text');
+    reportMissingUserRelatedPerson('sub-check-in-text', fhirPatient.id);
   }
 
   if (!taskStatusToUpdate) {

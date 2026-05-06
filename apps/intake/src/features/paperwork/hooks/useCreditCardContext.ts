@@ -36,5 +36,15 @@ export const useCreditCardContext = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fieldId, required, value, hasSavedCards]);
 
+  // Reset the module-scoped credit card store when the credit card field unmounts.
+  // Without this, stale state (isCreditCardRequired/creditCardFieldValue/setFieldError)
+  // leaks into subsequent forms in the same SPA session and silently blocks submit
+  // in PagedQuestionnaire's submitHandler -> useCreditCardSave.handleCardSave.
+  useEffect(() => {
+    return () => {
+      useCreditCardStore.getState().reset();
+    };
+  }, []);
+
   return cardFormRef;
 };

@@ -805,6 +805,16 @@ export class BookingFlowHelpers {
       // Wait for and verify the confirmation page elements
       console.log('Waiting for confirmation page to load...');
 
+      // Wait for navigation to the visit/confirmation page first
+      await page.waitForURL(/\/visit\//, { timeout: 30000 });
+      console.log('Navigated to confirmation page URL:', page.url());
+
+      // Wait for the loading spinner to disappear before checking for the button.
+      // The ThankYou page makes a getPaperwork API call before rendering the button,
+      // which can be slow in CI environments with remote APIs and parallel workers.
+      const spinner = page.locator('role=progressbar');
+      await spinner.waitFor({ state: 'hidden', timeout: 60000 });
+
       // Check for either "You are checked in!" (walk-in) or thank you heading (prebook)
       // Both should have "Proceed to paperwork" button
       const proceedButton = page.getByRole('button', { name: 'Proceed to paperwork' });
