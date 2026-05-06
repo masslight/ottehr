@@ -1,6 +1,5 @@
 export type GetOystehrTelemedAPIParams = {
   isAppLocal?: 'true' | 'false';
-  getTelemedAppointmentsZambdaID?: string;
   initTelemedSessionZambdaID?: string;
   getChartDataZambdaID?: string;
   saveChartDataZambdaID?: string;

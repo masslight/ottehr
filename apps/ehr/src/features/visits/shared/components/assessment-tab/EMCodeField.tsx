@@ -2,10 +2,12 @@ import { Autocomplete, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { CPTCodeOption, PROVIDER_CONFIG } from 'utils';
+import { CPTCodeOption } from 'utils';
+import { useEMCodes } from '../../hooks/useEMCodes';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 
 export const EMCodeField: FC = () => {
+  const { emCodes, isLoading: emCodesLoading } = useEMCodes();
   const { chartData, setPartialChartData } = useChartData();
   const emCode = chartData?.emCode;
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
@@ -53,8 +55,8 @@ export const EMCodeField: FC = () => {
 
   return (
     <Autocomplete
-      disabled={isSaveLoading || isDeleteLoading}
-      options={PROVIDER_CONFIG.assessment.emCodeOptions}
+      disabled={isSaveLoading || isDeleteLoading || emCodesLoading}
+      options={emCodes}
       data-testid={dataTestIds.assessmentCard.emCodeDropdown}
       isOptionEqualToValue={(option, value) => option.code === value.code}
       value={emCode ? { display: emCode.display, code: emCode.code } : null}

@@ -198,8 +198,8 @@ const usePatientData = (
     if (accountData && questionnaire) {
       const prepopulatedForm = prepopulatePatientRecordItems({
         ...accountData,
-        coverages: {},
-        insuranceOrgs: [],
+        coverages: insuranceData?.coverages ?? {},
+        insuranceOrgs: insuranceData?.insuranceOrgs ?? [],
         questionnaire,
         appointmentContext,
       });
@@ -207,7 +207,7 @@ const usePatientData = (
     }
 
     return { patient, isFetching, defaultFormVals };
-  }, [accountData, accountFetching, appointmentContext]);
+  }, [accountData, accountFetching, appointmentContext, insuranceData?.coverages, insuranceData?.insuranceOrgs]);
 
   return {
     accountData,
@@ -271,15 +271,15 @@ const useFormData = (
     resolver: createDynamicValidationResolver({ renderedSectionCounts }),
   });
 
-  // Populate form when data first loads (defaultValues only applies at mount time,
-  // and the form mounts before data is available)
-  const initializedRef = useRef(false);
+  // Populate form when data loads, and re-populate when navigating to a different
+  // patient on the same mounted component (defaultValues only applies at mount time).
+  const initializedForPatientRef = useRef<string | null>(null);
   useEffect(() => {
-    if (defaultFormVals && !initializedRef.current) {
+    if (defaultFormVals && initializedForPatientRef.current !== (patientId ?? null)) {
       methods.reset(defaultFormVals);
-      initializedRef.current = true;
+      initializedForPatientRef.current = patientId ?? null;
     }
-  }, [defaultFormVals, methods]);
+  }, [defaultFormVals, methods, patientId]);
 
   const { coveragesFormValues } = useMemo(() => {
     let coveragesFormValues: any;

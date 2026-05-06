@@ -148,18 +148,36 @@ export default function ({
   const creditCard = watch('creditCard');
   const [isTerminalConfigured, setIsTerminalConfigured] = useState(false);
   const [isTerminalReaderConnected, setIsTerminalReaderConnected] = useState(false);
+  const [isTerminalConfigLoading, setIsTerminalConfigLoading] = useState(paymentMethod === 'card-reader');
   const [isTerminalPaymentSubmitting, setIsTerminalPaymentSubmitting] = useState(false);
   const cardReaderTerminalRef = useRef<CardReaderTerminalHandle | null>(null);
+
+  // When switching to card-reader, assume loading until the terminal component confirms otherwise.
+  useEffect(() => {
+    if (paymentMethod === 'card-reader') {
+      setIsTerminalConfigLoading(true);
+    }
+  }, [paymentMethod]);
 
   const isConfiguredReaderPayment = paymentMethod === 'card-reader' && isTerminalConfigured;
   const submitButtonLabel =
     paymentMethod === 'card' || isConfiguredReaderPayment ? 'Process Payment' : 'Record Payment';
-  const shouldDisableSubmit = isConfiguredReaderPayment && !isTerminalReaderConnected;
+  const shouldDisableSubmit =
+    (isConfiguredReaderPayment && !isTerminalReaderConnected) ||
+    (paymentMethod === 'card-reader' && isTerminalConfigLoading);
 
   const structureDataAndSubmit = async (data: any): Promise<void> => {
     const amount = parseFloat(data.amount);
     const selectedPaymentMethod = data.paymentMethod;
     const creditCard = data.creditCard;
+
+    // Guard: don't allow submission while terminal config is still loading or a terminal
+    // payment is already in progress. Without this, a premature submit could silently
+    // record an "external-card-reader" payment when the terminal is actually configured
+    // but hasn't finished loading yet, or trigger a duplicate terminal payment.
+    if (selectedPaymentMethod === 'card-reader' && (isTerminalConfigLoading || isTerminalPaymentSubmitting)) {
+      return;
+    }
 
     if (selectedPaymentMethod === 'card-reader' && isTerminalConfigured) {
       if (!isTerminalReaderConnected || !cardReaderTerminalRef.current) {
@@ -298,6 +316,7 @@ export default function ({
                   encounterId={encounterId}
                   onTerminalConfiguredChange={setIsTerminalConfigured}
                   onReaderConnectionChange={setIsTerminalReaderConnected}
+                  onConfigLoadingChange={setIsTerminalConfigLoading}
                 />
               </Box>
             )}

@@ -51,7 +51,7 @@ export const ConfirmEndCallDialog: FC<ConfirmEndCallDialogProps> = ({ openModal,
     if (isInvitedParticipant) {
       navigate(intakeFlowPageRoute.InvitedCallEnded.path);
     } else {
-      if (status === 'complete') {
+      if (status === 'completed') {
         navigate(intakeFlowPageRoute.CallEnded.path);
       } else {
         navigate(intakeFlowPageRoute.Homepage.path);
