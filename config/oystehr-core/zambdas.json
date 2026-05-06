@@ -543,7 +543,7 @@
     "VISIT-DETAILS-TO-PDF": {
       "name": "visit-details-to-pdf",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/visit-details-to-pdf/index",
       "zip": ".dist/zips/visit-details-to-pdf.zip"
     },
@@ -1151,7 +1151,7 @@
     "RECOMMEND-BILLING-SUGGESTIONS": {
       "name": "recommend-billing-suggestions",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/recommend-billing-suggestions/index",
       "zip": ".dist/zips/recommend-billing-suggestions.zip"
     },
