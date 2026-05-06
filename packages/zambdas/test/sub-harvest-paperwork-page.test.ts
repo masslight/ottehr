@@ -193,6 +193,71 @@ describe('executePageHarvest', () => {
   });
 });
 
+// ── paymentVariantStrategy ────────────────────────────────────────────────
+
+describe('paymentVariantStrategy', () => {
+  const mockOystehr = {
+    fhir: {
+      patch: vi.fn(async () => ({})),
+      search: vi.fn(async () => ({ unbundle: () => [] })),
+    },
+  } as any;
+
+  const buildContext = (pageLinkId: string, qrItem: any[]): HarvestContext => ({
+    qr: { resourceType: 'QuestionnaireResponse', status: 'completed', item: qrItem },
+    pageLinkId,
+    patchIndex: 0,
+    taskId: 'test-task-id',
+    patient: { resourceType: 'Patient', id: 'pat-1' },
+    encounter: { resourceType: 'Encounter', id: 'enc-1', status: 'in-progress', class: { code: 'AMB' } },
+    appointment: { resourceType: 'Appointment', id: 'apt-1', status: 'booked', participant: [] },
+    location: undefined,
+    questionnaire: undefined,
+    oystehr: mockOystehr,
+    secrets: {} as any,
+  });
+
+  // Regression: pre-population can seed `payment-option = 'I have insurance'` on an OM visit
+  // (the regular page is enableWhen-disabled but pre-pop still fills the answer). The strategy
+  // must use the answer from the page whose task is firing, not blindly fall back across pages.
+  it('uses the OM page answer when harvesting the OM page, even if the regular page has a stale answer', async () => {
+    const ctx = buildContext('payment-option-occ-med-page', [
+      {
+        linkId: 'payment-option-page',
+        item: [{ linkId: 'payment-option', answer: [{ valueString: 'I have insurance' }] }],
+      },
+      {
+        linkId: 'payment-option-occ-med-page',
+        item: [{ linkId: 'payment-option-occupational', answer: [{ valueString: 'Self' }] }],
+      },
+    ]);
+    const result = await strategyHandlers['payment-variant'](ctx);
+    expect(result).toBe('payment-variant set to selfPay');
+  });
+
+  it('uses the regular page answer when harvesting the regular page', async () => {
+    const ctx = buildContext('payment-option-page', [
+      {
+        linkId: 'payment-option-page',
+        item: [{ linkId: 'payment-option', answer: [{ valueString: 'I have insurance' }] }],
+      },
+    ]);
+    const result = await strategyHandlers['payment-variant'](ctx);
+    expect(result).toBe('payment-variant set to insurance');
+  });
+
+  it('skips when the page being harvested has no payment-option answer', async () => {
+    const ctx = buildContext('payment-option-occ-med-page', [
+      {
+        linkId: 'payment-option-page',
+        item: [{ linkId: 'payment-option', answer: [{ valueString: 'I have insurance' }] }],
+      },
+    ]);
+    const result = await strategyHandlers['payment-variant'](ctx);
+    expect(result).toBe('payment-variant skipped (no payment option selected)');
+  });
+});
+
 // ── Strategy completeness ─────────────────────────────────────────────────
 
 describe('pageHarvestStrategy completeness', () => {
