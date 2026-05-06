@@ -3760,11 +3760,12 @@ const organizations1: Organization[] = [
         type: {
           coding: [
             {
-              code: 'XX',
+              code: 'PAYERID',
               system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
             },
           ],
         },
+        system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id',
         value: 'J1859',
       },
     ],
@@ -3808,11 +3809,12 @@ const organizations1: Organization[] = [
         type: {
           coding: [
             {
-              code: 'XX',
+              code: 'PAYERID',
               system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
             },
           ],
         },
+        system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id',
         value: '60054',
       },
     ],

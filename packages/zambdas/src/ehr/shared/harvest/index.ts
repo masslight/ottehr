@@ -1604,6 +1604,7 @@ function resolveInsurancePriorities(
     }
   }
 
+  console.log('colin', primaryInsurance, secondaryInsurance);
   return { primaryInsurance, secondaryInsurance };
 }
 
