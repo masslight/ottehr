@@ -553,6 +553,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/answer-loading-options`,
     strategy: `${PRIVATE_EXTENSION_BASE_URL}/strategy`,
     source: `${PRIVATE_EXTENSION_BASE_URL}/source`,
+    expression: `${PRIVATE_EXTENSION_BASE_URL}/expression`,
   },
   complexValidation: {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/complex-validation`,

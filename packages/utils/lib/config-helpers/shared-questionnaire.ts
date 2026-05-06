@@ -11,6 +11,7 @@ import {
   FormSectionArraySchema,
   FormSectionSimpleSchema,
   type QuestionnaireConfigType,
+  ReferenceDataSource,
   type ServiceCategoryConfig,
 } from 'config-types';
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
@@ -109,26 +110,33 @@ const createRequireWhenExtension = (
 });
 
 const createAnswerLoadingOptionsExtension = (
-  dataSource: any
+  dataSource: ReferenceDataSource
 ): NonNullable<QuestionnaireItem['extension']>[number] | undefined => {
   const { answerSource } = dataSource;
   if (!answerSource) return undefined;
 
   return {
-    url: 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options',
+    url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.extension,
     extension: [
-      // CW TODO: need an extension to control zambda used
       {
-        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/strategy',
+        url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy,
         valueString: 'dynamic',
       },
       {
-        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/source',
-        valueExpression: {
-          language: 'application/x-fhir-query',
-          expression: `${answerSource.resourceType}?${answerSource.query}`,
-        },
+        url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source,
+        valueString: answerSource.zambdaId,
       },
+      ...(answerSource.zambdaId === 'get-answer-options'
+        ? [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.expression,
+              valueExpression: {
+                language: 'application/x-fhir-query',
+                expression: `${answerSource.resourceType}?${answerSource.query}`,
+              },
+            },
+          ]
+        : []),
     ],
   };
 };

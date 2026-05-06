@@ -37,7 +37,7 @@ import {
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
 } from '../../types';
-import { prepareQuestionnaireResponseForHarvest } from '../../types/data/paperwork';
+import { AnswerOptionSource, prepareQuestionnaireResponseForHarvest } from '../../types/data/paperwork';
 import { DOB_DATE_FORMAT } from '../../utils';
 
 export const PAPERWORK_PDF_ATTACHMENT_TITLE = 'Paperwork';
@@ -257,29 +257,63 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy;
   })?.valueString;
 
-  const source = answerLoadingExtensionRoot?.find((ext) => {
+  const sourceExtension = answerLoadingExtensionRoot?.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source;
+  });
+
+  const sourceExpression = sourceExtension?.valueExpression;
+  const sourceString = sourceExtension?.valueString;
+
+  const expressionExtension = answerLoadingExtensionRoot?.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.expression;
   })?.valueExpression;
+
+  let zambdaId: AnswerOptionSource['zambdaId'] | undefined;
+  let resourceType: FhirResource['resourceType'] | undefined;
+  let query: string | undefined;
+  if (sourceExpression) {
+    // This is an old-style source declaration that assumes the `get-answer-options` zambda
+    zambdaId = 'get-answer-options';
+    const { expression, language } = sourceExpression;
+    if (language === 'application/x-fhir-query' && expression) {
+      const [expResourceType, expQuery] = expression.split('?');
+      resourceType = expResourceType as FhirResource['resourceType'];
+      query = expQuery;
+    }
+  }
+
+  if (!zambdaId) {
+    zambdaId = sourceString as AnswerOptionSource['zambdaId'] | undefined;
+  }
+
+  if (expressionExtension) {
+    const { expression, language } = expressionExtension;
+    if (language === 'application/x-fhir-query' && expression) {
+      const [expResourceType, expQuery] = expression.split('?');
+      resourceType = expResourceType as FhirResource['resourceType'];
+      query = expQuery;
+    }
+  }
 
   let answerLoadingOptions: AnswerLoadingOptions | undefined;
 
-  // CW TODO: need an extension to control zambda used
   if (answerLoadingStrategy && (answerLoadingStrategy === 'prefetch' || answerLoadingStrategy === 'dynamic')) {
     const option: AnswerLoadingOptions = {
       strategy: answerLoadingStrategy,
     };
-    if (source) {
-      const { expression, language } = source;
-      if (language === 'application/x-fhir-query' && expression) {
-        const [resourceType, query] = expression.split('?');
+    if (zambdaId) {
+      if (zambdaId === 'get-answer-options') {
         if (resourceType && query) {
           option.answerSource = {
-            // CW TODO: make this config driven
-            zambdaId: 'get-answer-options',
-            resourceType: resourceType as FhirResource['resourceType'],
+            zambdaId,
+            resourceType,
             query,
           };
         }
+      } else {
+        option.answerSource = {
+          zambdaId,
+        };
       }
     }
     if (option.answerSource || item.answerValueSet) {

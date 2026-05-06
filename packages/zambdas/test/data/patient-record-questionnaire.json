@@ -756,10 +756,7 @@
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
-                "valueExpression": {
-                  "language": "application/x-fhir-query",
-                  "expression": "Organization?type=http://terminology.hl7.org/CodeSystem/organization-type|pay"
-                }
+                "valueString": "get-all-insurance-payers"
               }
             ]
           }
@@ -1379,10 +1376,7 @@
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
-                "valueExpression": {
-                  "language": "application/x-fhir-query",
-                  "expression": "Organization?type=http://terminology.hl7.org/CodeSystem/organization-type|pay"
-                }
+                "valueString": "get-all-insurance-payers"
               }
             ]
           }
@@ -3053,10 +3047,7 @@
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
-                "valueExpression": {
-                  "language": "application/x-fhir-query",
-                  "expression": "Organization?type=http://terminology.hl7.org/CodeSystem/organization-type|pay"
-                }
+                "valueString": "get-all-insurance-payers"
               }
             ]
           },
@@ -3393,6 +3384,10 @@
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
+                "valueString": "get-answer-options"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/expression",
                 "valueExpression": {
                   "language": "application/x-fhir-query",
                   "expression": "Organization?active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer"
