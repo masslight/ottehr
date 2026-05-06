@@ -1,5 +1,5 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
-import { FhirResource, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
+import { FhirResource, Patient, Person, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -18,6 +18,7 @@ export const useGetPatient = (
   patient?: Patient;
   setPatient: (patient: Patient) => void;
   relatedPerson?: RelatedPerson;
+  person?: Person;
 } => {
   const { oystehr } = useApiClients();
   const [loading, setLoading] = useState<boolean>(true);
@@ -25,6 +26,7 @@ export const useGetPatient = (
   const [duplicatePatients, setDuplicatePatients] = useState<Patient[]>([]);
   const [patient, setPatient] = useState<Patient>();
   const [relatedPerson, setRelatedPerson] = useState<RelatedPerson>();
+  const [person, setPerson] = useState<Person>();
 
   const { data: patientResources } = useQuery({
     queryKey: ['useGetPatientPatientResources', id],
@@ -38,6 +40,10 @@ export const useGetPatient = (
                 {
                   name: '_revinclude:iterate',
                   value: 'RelatedPerson:patient',
+                },
+                {
+                  name: '_revinclude:iterate',
+                  value: 'Person:link',
                 },
               ],
             })
@@ -91,6 +97,7 @@ export const useGetPatient = (
       const relatedPersonTemp: RelatedPerson = patientResources.find(
         (resource) => resource.resourceType === 'RelatedPerson'
       ) as RelatedPerson;
+      const personTemp: Person = patientResources.find((resource) => resource.resourceType === 'Person') as Person;
 
       const duplicates = (otherPatientsWithSameNameResources as Patient[]).filter(
         (r) => r.resourceType === 'Patient' && r.id !== id && r.active !== false
@@ -105,6 +112,7 @@ export const useGetPatient = (
 
       setPatient(patientTemp);
       setRelatedPerson(relatedPersonTemp);
+      setPerson(personTemp);
       setLoading(false);
     }
 
@@ -118,6 +126,7 @@ export const useGetPatient = (
     duplicatePatients,
     patient,
     relatedPerson,
+    person,
     setPatient,
   };
 };

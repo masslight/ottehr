@@ -42,6 +42,7 @@ import {
   CreateAppointmentResponse,
   CreateDischargeSummaryInput,
   CreateDischargeSummaryResponse,
+  CreateEmCodeInput,
   CreateImmunizationQuickPickInput,
   CreateImmunizationQuickPickResponse,
   CreateInHouseLabOrderParameters,
@@ -72,15 +73,19 @@ import {
   CreateUserParams,
   DailyPaymentsReportZambdaInput,
   DailyPaymentsReportZambdaOutput,
+  DeleteEmCodeInput,
   DeleteInHouseLabOrderParameters,
   DeleteInHouseLabOrderZambdaOutput,
   DeleteLabOrderZambdaInput,
   DeleteLabOrderZambdaOutput,
   DeletePatientDocumentInput,
   DeletePatientDocumentOutput,
+  DeleteUserZambdaInput,
+  DeleteUserZambdaOutput,
   DeleteVisitFilesInput,
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
+  EmCodeOutput,
   GetAllergyQuickPicksResponse,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
@@ -129,6 +134,8 @@ import {
   ListScheduleOwnersResponse,
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
+  MailedStatementsReportZambdaInput,
+  MailedStatementsReportZambdaOutput,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   MigrateExamDataInput,
@@ -163,9 +170,11 @@ import {
   SendReceiptByEmailZambdaOutput,
   SubmitLabOrderInput,
   SubmitLabOrderOutput,
+  SyncMailedStatementStatusesOutput,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
   UpdateAllergyQuickPickResponse,
+  UpdateEmCodeInput,
   UpdateImmunizationQuickPickResponse,
   UpdateInHouseMedicationInput,
   UpdateInHouseMedicationQuickPickResponse,
@@ -201,6 +210,8 @@ const VITE_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
 const SUBMIT_LAB_ORDER_ZAMBDA_ID = 'submit-lab-order';
 const GET_APPOINTMENTS_ZAMBDA_ID = 'get-appointments';
 const ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
+const MAILED_STATEMENTS_REPORT_ZAMBDA_ID = 'mailed-statements-report';
+const SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID = 'sync-mailed-statement-statuses';
 const AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID = 'ai-assisted-encounters-report';
 const DAILY_PAYMENTS_REPORT_ZAMBDA_ID = 'daily-payments-report';
 const PRACTICE_KPIS_REPORT_ZAMBDA_ID = 'practice-kpis-report';
@@ -210,6 +221,7 @@ const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
 const CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID = 'telemed-cancel-appointment';
 const INVITE_PARTICIPANT_ZAMBDA_ID = 'video-chat-invites-create';
 const CREATE_USER_ZAMBDA_ID = 'create-user';
+const DELETE_USER_ZAMBDA_ID = 'delete-user';
 const UPDATE_USER_ZAMBDA_ID = 'update-user';
 const ASSIGN_PRACTITIONER_ZAMBDA_ID = 'assign-practitioner';
 const UNASSIGN_PRACTITIONER_ZAMBDA_ID = 'unassign-practitioner';
@@ -239,6 +251,10 @@ const DELETE_IN_HOUSE_LAB_ORDER = 'delete-in-house-lab-order';
 const CREATE_IN_HOUSE_MEDICATION = 'create-in-house-medication';
 const UPDATE_IN_HOUSE_MEDICATION = 'update-in-house-medication';
 const GET_IN_HOUSE_MEDICATIONS = 'get-in-house-medications';
+const GET_EM_CODES = 'get-em-codes';
+const CREATE_EM_CODE = 'create-em-code';
+const UPDATE_EM_CODE = 'update-em-code';
+const DELETE_EM_CODE = 'delete-em-code';
 const UNLOCK_APPOINTMENT_ZAMBDA_ID = 'unlock-appointment';
 const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
 const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
@@ -431,6 +447,44 @@ export const getEncountersReport = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const getMailedStatementsReport = async (
+  oystehr: Oystehr,
+  parameters: MailedStatementsReportZambdaInput
+): Promise<MailedStatementsReportZambdaOutput> => {
+  try {
+    if (MAILED_STATEMENTS_REPORT_ZAMBDA_ID == null) {
+      throw new Error('mailed statements report environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: MAILED_STATEMENTS_REPORT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const syncMailedStatementStatuses = async (
+  oystehr: Oystehr,
+  batchSize?: number
+): Promise<SyncMailedStatementStatusesOutput> => {
+  try {
+    if (SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID == null) {
+      throw new Error('sync mailed statement statuses environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: SYNC_MAILED_STATEMENT_STATUSES_ZAMBDA_ID,
+      ...(batchSize != null && { batchSize }),
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -627,6 +681,25 @@ export const createUser = async (oystehr: Oystehr, parameters: CreateUserParams)
     return chooseJson(response);
   } catch (error: unknown) {
     throw new Error(JSON.stringify(error));
+  }
+};
+
+export const deleteUser = async (
+  oystehr: Oystehr,
+  parameters: DeleteUserZambdaInput
+): Promise<DeleteUserZambdaOutput> => {
+  try {
+    if (DELETE_USER_ZAMBDA_ID == null) {
+      throw new Error('delete-user environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: DELETE_USER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -1293,6 +1366,55 @@ export const getInHouseMedications = async (oystehr: Oystehr): Promise<Medicatio
     }
     const response = await oystehr.zambda.execute({
       id: GET_IN_HOUSE_MEDICATIONS,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getEmCodes = async (oystehr: Oystehr): Promise<EmCodeOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: GET_EM_CODES });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createEmCode = async (oystehr: Oystehr, parameters: CreateEmCodeInput): Promise<EmCodeOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_EM_CODE,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateEmCode = async (oystehr: Oystehr, parameters: UpdateEmCodeInput): Promise<EmCodeOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: UPDATE_EM_CODE,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteEmCode = async (oystehr: Oystehr, parameters: DeleteEmCodeInput): Promise<EmCodeOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: DELETE_EM_CODE,
+      ...parameters,
     });
     return chooseJson(response);
   } catch (error: unknown) {

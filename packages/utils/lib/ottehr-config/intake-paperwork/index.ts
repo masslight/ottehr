@@ -23,12 +23,25 @@ import {
   VALUE_SETS,
 } from '../value-sets';
 
+// Canonical identifiers — exported so callers that only need the {url,
+// version} pair can avoid pulling them off the heavier INTAKE_PAPERWORK_CONFIG
+// object. Lives in this file (rather than a sibling module) because strict
+// ESM resolution into utils doesn't probe extensions or directory indexes for
+// bare-specifier subpaths, so the only reliably-importable surface is utils's
+// main barrel — which already loads this module.
+export const IN_PERSON_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson';
+export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.1.7';
+export const IN_PERSON_INTAKE_PAPERWORK_CANONICAL = {
+  url: IN_PERSON_INTAKE_PAPERWORK_URL,
+  version: IN_PERSON_INTAKE_PAPERWORK_VERSION,
+} as const;
+
 const hiddenFormSections: string[] = [];
 
 const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
-  url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson',
-  version: '1.1.7',
+  url: IN_PERSON_INTAKE_PAPERWORK_URL,
+  version: IN_PERSON_INTAKE_PAPERWORK_VERSION,
   name: 'in-person_pre-visit_paperwork',
   title: 'in-person pre-visit paperwork',
   status: 'active',

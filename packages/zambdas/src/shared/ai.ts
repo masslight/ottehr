@@ -120,7 +120,11 @@ const AI_RESPONSE_KEY_TO_FIELD = {
   procedures: AiObservationField.Procedures,
 };
 
-export async function invokeChatbotVertexAI(input: MessageContentComplex[], secrets: Secrets | null): Promise<string> {
+export async function invokeChatbotVertexAI(
+  input: MessageContentComplex[],
+  secrets: Secrets | null,
+  responseSchema?: object
+): Promise<string> {
   // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
@@ -155,6 +159,10 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
             contents: [{ role: 'user', parts: [input] }],
             generationConfig: {
               temperature: 0,
+              ...(responseSchema && {
+                responseMimeType: 'application/json',
+                responseSchema,
+              }),
             },
           }),
         }

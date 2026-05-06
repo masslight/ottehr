@@ -2,6 +2,7 @@ import { LoadingButton } from '@mui/lab';
 import {
   Button,
   FormControl,
+  FormHelperText,
   Grid,
   InputLabel,
   MenuItem,
@@ -87,6 +88,10 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
       throw new Error('oystehr client not available');
     }
     const params = [
+      {
+        name: 'active',
+        value: 'true',
+      },
       {
         name: '_revinclude:iterate',
         value: 'RelatedPerson:patient',
@@ -261,12 +266,14 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                     displayPlaceholder: true,
                     required: false,
                     value: searchFilters.lastName,
+                    error: !!errors.lastName,
                     onChange: (e) => setSearchField({ field: 'lastName', value: e.target.value }),
                   }}
                   firstName={{
                     displayPlaceholder: true,
                     required: false,
                     value: searchFilters.givenNames,
+                    error: !!errors.firstName,
                     onChange: (e) => setSearchField({ field: 'givenNames', value: e.target.value }),
                   }}
                   phoneNumber={{
@@ -289,6 +296,8 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                     required: false,
                     value: '',
                     birthDate,
+                    error: !!errors.dateOfBirth,
+                    errorMessage: 'Date of birth is required',
                     setBirthDate: (date) => {
                       setBirthDate(date);
                       setSearchField({ field: 'dateOfBirth', value: date?.toISODate() || '' });
@@ -323,6 +332,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                         displayPlaceholder: false,
                         required: false,
                         value: patientInfo.lastName,
+                        error: !!errors.lastName,
                         additionalProps: readOnlyTextFieldProps,
                         // dataTestId: dataTestIds.addPatientPage.prefilledPatientName, // maybe fix?
                       }}
@@ -330,6 +340,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                         displayPlaceholder: false,
                         required: false,
                         value: patientInfo.firstName,
+                        error: !!errors.firstName,
                         additionalProps: readOnlyTextFieldProps,
                         // dataTestId: dataTestIds.addPatientPage.prefilledPatientName, // maybe fix?
                       }}
@@ -344,6 +355,8 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                         displayPlaceholder: false,
                         required: false,
                         value: formattedDOB,
+                        error: !!errors.dateOfBirth,
+                        errorMessage: 'Date of birth is required',
                         additionalProps: readOnlyTextFieldProps,
                         dataTestId: dataTestIds.addPatientPage.prefilledPatientBirthday,
                         readOnly: true,
@@ -358,6 +371,8 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                             ? `${patientInfo.sex.charAt(0).toUpperCase() + patientInfo.sex.slice(1)}`
                             : undefined
                         }
+                        error={!!errors.sexAtBirth}
+                        helperText={errors.sexAtBirth ? 'Sex at birth is required' : undefined}
                         {...readOnlyTextFieldProps}
                         data-testid={dataTestIds.addPatientPage.prefilledPatientBirthSex}
                       />
@@ -371,6 +386,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                         displayPlaceholder: true,
                         required: true,
                         value: patientInfo.lastName,
+                        error: !!errors.lastName,
                         onChange: (e) => setPatientInfo({ ...patientInfo, lastName: e.target.value }),
                         additionalProps: { required: true },
                         dataTestId: dataTestIds.addPatientPage.lastNameInput,
@@ -379,6 +395,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                         displayPlaceholder: true,
                         required: true,
                         value: patientInfo.firstName,
+                        error: !!errors.firstName,
                         onChange: (e) => setPatientInfo({ ...patientInfo, firstName: e.target.value }),
                         additionalProps: { required: true },
                         dataTestId: dataTestIds.addPatientPage.firstNameInput,
@@ -404,11 +421,13 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                         birthDate,
                         setBirthDate,
                         setValidDate,
+                        error: !!errors.dateOfBirth,
+                        errorMessage: 'Date of birth is required',
                         readOnly: false,
                       }}
                     />
                     <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth>
+                      <FormControl fullWidth error={!!errors.sexAtBirth}>
                         <InputLabel id="sex-at-birth-label">Sex at birth *</InputLabel>
                         <Select
                           data-testid={dataTestIds.addPatientPage.sexAtBirthDropdown}
@@ -426,6 +445,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                           <MenuItem value={PersonSex.Female}>Female</MenuItem>
                           <MenuItem value={PersonSex.Intersex}>Intersex</MenuItem>
                         </Select>
+                        {errors.sexAtBirth && <FormHelperText>Sex at birth is required</FormHelperText>}
                       </FormControl>
                     </Grid>
                   </>

@@ -4,6 +4,9 @@ import {
   Box,
   CircularProgress,
   Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
   IconButton,
   Radio,
@@ -25,7 +28,6 @@ import { Organization, Patient, Questionnaire, QuestionnaireItem, QuestionnaireR
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
@@ -134,8 +136,8 @@ const formatDisplayValue = (value: any): string => {
   if (value === undefined || value === null) return '-';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (typeof value === 'object') {
-    if (value.reference) return value.reference;
     if (value.display) return value.display;
+    if (value.reference) return value.reference;
     return JSON.stringify(value);
   }
   const str = String(value).trim();
@@ -190,6 +192,7 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
   const otherPatientId = patientIds.find((id) => id !== mainPatientId)!;
 
   const [showVariant, setShowVariant] = useState<'different' | 'all'>('different');
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const apiClient = useOystehrAPIClient();
   const queryClient = useQueryClient();
@@ -314,7 +317,7 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
   }, [questionnaireFields, mainPatientId]);
 
   const methods = useForm<FormValues>({ defaultValues: defaultFormValues });
-  const { control, handleSubmit, reset } = methods;
+  const { control, getValues, reset } = methods;
 
   // ── Mutations ──
 
@@ -339,6 +342,7 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
       await queryClient.invalidateQueries({ queryKey: ['otherPatientsWithSameNameResources'] });
       enqueueSnackbar('Patients merged successfully', { variant: 'success' });
       onSuccess?.();
+      close();
     },
     onError: (error) => {
       const message = error instanceof Error && error.message ? error.message : 'Failed to merge patients';
@@ -358,13 +362,12 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
     reset(newValues);
   };
 
-  const onSave = async (values: FormValues): Promise<void> => {
+  const onSave = (): void => {
     if (!mainFormVals || !otherFormVals) return;
 
+    const values = getValues();
     const mainPid = mainPatientId;
 
-    // Build merged form values: for each questionnaire field, take the value
-    // from whichever patient was selected in the radio
     const mergedFormValues: Record<string, any> = {};
     for (const { linkId } of questionnaireFields) {
       const selectedPatientId = values[linkId] || mainPid;
@@ -374,9 +377,15 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
       }
     }
 
-    // Build a dirtyFields map: mark as dirty any field where a non-main
-    // patient's value was selected (i.e. field value differs from what main
-    // patient already has)
+    // Copy hidden logical fields (e.g. should-display-ssn-field) from main so the
+    // server-side enableWhen filter doesn't strip dependent answers like patient-ssn.
+    for (const linkId of HIDDEN_LINK_IDS) {
+      const value = mainFormVals[linkId] ?? otherFormVals[linkId];
+      if (value !== undefined) {
+        mergedFormValues[linkId] = value;
+      }
+    }
+
     const dirtyFields: Record<string, boolean> = {};
     for (const { linkId } of questionnaireFields) {
       const selectedPatientId = values[linkId] || mainPid;
@@ -385,21 +394,17 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
       }
     }
 
-    // Build the QuestionnaireResponse the same way PatientInformationPage does
     const qr = pruneEmptySections(
       structureQuestionnaireResponse(questionnaire, mergedFormValues, mainPid, dirtyFields)
     );
 
-    try {
-      await mergeMutation.mutateAsync({
-        mainPatientId: mainPid,
-        otherPatientId,
-        questionnaireResponse: qr,
-      });
-      close();
-    } catch {
-      // Error handled by the mutation hook (snackbar)
-    }
+    setConfirmOpen(false);
+
+    mergeMutation.mutate({
+      mainPatientId: mainPid,
+      otherPatientId,
+      questionnaireResponse: qr,
+    });
   };
 
   // ── Render ──
@@ -543,40 +548,51 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
 
               <Stack direction="row" spacing={2} justifyContent="space-between">
                 <RoundedButton onClick={close}>Cancel</RoundedButton>
-                <ConfirmationDialog
-                  title="Merge Patients"
-                  description={
-                    <Stack spacing={2}>
-                      <Typography>
-                        Are you sure you want to merge? The selected values will be saved to the main patient record
-                        (PID: {mainPatientId}).
-                      </Typography>
-                      <Stack>
-                        <Typography fontWeight={600}>Other patient record PID: {otherPatientId}</Typography>
-                      </Stack>
-                    </Stack>
-                  }
-                  response={handleSubmit(onSave)}
-                  actionButtons={{
-                    proceed: { text: 'Confirm Merge' },
-                    back: { text: 'Back' },
-                    reverse: true,
-                  }}
+                <RoundedButton
+                  variant="contained"
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={isLoading || mergeMutation.isPending}
                 >
-                  {(showDialog) => (
-                    <RoundedButton
-                      variant="contained"
-                      onClick={showDialog}
-                      disabled={isLoading || mergeMutation.isPending}
-                    >
-                      {mergeMutation.isPending ? 'Merging...' : 'Merge Patients'}
-                    </RoundedButton>
-                  )}
-                </ConfirmationDialog>
+                  {mergeMutation.isPending ? 'Merging...' : 'Merge Patients'}
+                </RoundedButton>
               </Stack>
             </>
           )}
         </Stack>
+      </Dialog>
+
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth>
+        <IconButton
+          size="small"
+          onClick={() => setConfirmOpen(false)}
+          sx={{ position: 'absolute', right: 16, top: 16 }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+        <DialogTitle component={Typography} variant="h5" color="primary.dark" sx={{ pb: 1 }}>
+          Merge Patient
+        </DialogTitle>
+        <DialogContent sx={{ pb: 2 }}>
+          <Stack spacing={2}>
+            <Typography>Are you sure you want to merge patient records? Merged records will be deactivated.</Typography>
+            <Stack>
+              <Typography fontWeight={600}>Merged patient record PID:</Typography>
+              <Typography sx={{ wordBreak: 'break-all' }}>{otherPatientId}</Typography>
+            </Stack>
+            <Stack>
+              <Typography fontWeight={600}>Main patient record PID:</Typography>
+              <Typography sx={{ wordBreak: 'break-all' }}>{mainPatientId}</Typography>
+            </Stack>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Stack direction="row" spacing={2}>
+            <RoundedButton onClick={() => setConfirmOpen(false)}>Cancel</RoundedButton>
+            <RoundedButton variant="contained" onClick={onSave}>
+              Confirm merge
+            </RoundedButton>
+          </Stack>
+        </DialogActions>
       </Dialog>
     </FormProvider>
   );

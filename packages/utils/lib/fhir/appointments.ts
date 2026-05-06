@@ -1,10 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, CodeableConcept, Consent, DocumentReference, Encounter } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import {
   AppointmentAttendanceType,
   AppointmentType,
-  diffInMinutes,
   EncounterVirtualServiceExtension,
   FHIR_APPOINTMENT_TYPE_MAP,
   FHIR_ZAPEHR_URL,
@@ -15,8 +13,6 @@ import {
   REASON_FOR_VISIT_SEPARATOR,
   SERVICE_CATEGORY_SYSTEM,
   TELEMED_VIDEO_ROOM_CODE,
-  TelemedAppointmentStatusEnum,
-  TelemedStatusHistoryElement,
 } from 'utils';
 
 export async function cancelAppointmentResource(
@@ -52,27 +48,6 @@ export async function cancelAppointmentResource(
     throw new Error(`Failed to cancel Appointment: ${JSON.stringify(error)}`);
   }
 }
-
-export const getAppointmentWaitingTime = (statuses?: TelemedStatusHistoryElement[]): number | undefined => {
-  if (!statuses) {
-    return undefined;
-  }
-
-  const onVideoIndex = statuses?.findIndex((status) => status.status === TelemedAppointmentStatusEnum['on-video']);
-
-  const statusesToWait = onVideoIndex === -1 ? statuses : statuses.slice(0, onVideoIndex);
-
-  const start = statusesToWait.at(0)?.start;
-  const end = statusesToWait.at(-1)?.end;
-
-  if (!start)
-    throw new Error(
-      `Can't getAppointmentWaitingTime because start time of ${JSON.stringify(statusesToWait.at(0))} status is empty`
-    );
-  return end
-    ? diffInMinutes(DateTime.fromISO(end), DateTime.fromISO(start))
-    : diffInMinutes(DateTime.now(), DateTime.fromISO(start));
-};
 
 export async function getAppointmentResourceById(
   appointmentID: string,
@@ -236,6 +211,12 @@ export const isAppointmentOccupationalMedicine = (appointment: Appointment): boo
 export const isAppointmentUrgentCare = (appointment: Appointment): boolean => {
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
   return serviceCategory === 'urgent-care';
+};
+
+export const isAppointmentAutoAccident = (appointment: Appointment): boolean => {
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  const { reasonForVisit } = getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+  return serviceCategory === 'urgent-care' && reasonForVisit === 'Auto accident';
 };
 
 export const getCancellationReasonDisplay = (appointment?: Appointment): string | undefined => {

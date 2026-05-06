@@ -37,6 +37,7 @@ import {
   FHIR_IDENTIFIER_SYSTEM,
   filterResources,
   getAllPractitionerCredentials,
+  getCoding,
   getCommunicationsAndSenders,
   getUniquePhonesNumbers,
   PRIVATE_EXTENSION_BASE_URL,
@@ -244,7 +245,6 @@ export async function getPatientResourceWithVerifiedPhoneNumber(
 ): Promise<{
   patient: Patient | undefined;
   verifiedPhoneNumber: string | undefined;
-  relatedPerson: RelatedPerson | undefined;
 }> {
   const response = (
     await oystehr.fhir.search<Patient | Person | RelatedPerson>({
@@ -266,28 +266,45 @@ export async function getPatientResourceWithVerifiedPhoneNumber(
     })
   ).unbundle();
 
-  const patient = response.find((res) => {
-    return res.resourceType === 'Patient';
-  }) as Patient;
+  const patient = response.find((res): res is Patient => res.resourceType === 'Patient');
 
-  const person = response.find((res) => {
-    return res.resourceType === 'Person';
-  }) as Person;
+  const loginRelatedPersons = response.filter(
+    (res): res is RelatedPerson =>
+      res.resourceType === 'RelatedPerson' &&
+      getCoding(res.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson'
+  );
 
-  const relatedPerson = response.find((res) => {
-    return res.resourceType === 'RelatedPerson';
-  }) as RelatedPerson;
+  if (!loginRelatedPersons.length) {
+    return { patient, verifiedPhoneNumber: undefined };
+  }
 
-  const contacts = person?.telecom ?? [];
+  const loginRpRefs = new Set(loginRelatedPersons.map((rp) => `RelatedPerson/${rp.id}`));
+  const loginPersons = response.filter(
+    (res): res is Person =>
+      res.resourceType === 'Person' && (res.link ?? []).some((link) => loginRpRefs.has(link.target?.reference ?? ''))
+  );
 
-  const verifiedPhoneNumber = contacts.find((contact) => {
-    if (contact.system === 'phone' && contact.value) {
-      return contact.period?.end == undefined;
-    }
-    return false;
-  })?.value;
+  const verifiedPhoneNumbers = Array.from(
+    new Set(
+      loginPersons.flatMap((person) =>
+        (person.telecom ?? [])
+          .filter((tc) => tc.system === 'phone' && tc.value && tc.period?.end == undefined)
+          .map((tc) => tc.value as string)
+      )
+    )
+  );
 
-  return { patient, verifiedPhoneNumber, relatedPerson };
+  if (verifiedPhoneNumbers.length === 1) {
+    return { patient, verifiedPhoneNumber: verifiedPhoneNumbers[0] };
+  }
+
+  if (verifiedPhoneNumbers.length > 1) {
+    console.log(
+      `getPatientResourceWithVerifiedPhoneNumber: patient ${patientID} has ${verifiedPhoneNumbers.length} verified login phones; returning undefined so the caller resolves deliberately`
+    );
+  }
+
+  return { patient, verifiedPhoneNumber: undefined };
 }
 
 export function getPatientFirstName(patient: Patient): string | undefined {
@@ -422,15 +439,6 @@ export const findPatientForEncounter = (encounter: Encounter, patients: Patient[
   const patientId = removePrefix('Patient/', patientRef ?? '');
   if (patientId) return patients.find((patient) => patient.id === patientId);
   return undefined;
-};
-
-export const findRelatedPersonForPatient = (
-  patient: Patient,
-  relatedPersons: RelatedPerson[]
-): RelatedPerson | undefined => {
-  return relatedPersons.find(
-    (relatedPerson) => removePrefix('Patient/', relatedPerson.patient.reference ?? '') === patient.id
-  );
 };
 
 export function getPatientContactEmail(patient: Patient): string | undefined {

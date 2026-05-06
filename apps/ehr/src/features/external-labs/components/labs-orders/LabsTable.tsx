@@ -26,6 +26,7 @@ interface LabsTableProps {
     testItemName: string;
     testItemStatus: ExternalLabsStatus;
   }) => void;
+  dataTestId: string;
   allowDelete?: boolean;
   bundleRow?: ReactElement;
   handleRejectedAbn?: (serviceRequestId: string) => Promise<void>;
@@ -34,6 +35,7 @@ interface LabsTableProps {
 export const LabsTable = ({
   columns,
   labOrders,
+  dataTestId,
   allowDelete,
   showDeleteLabOrderDialog,
   bundleRow,
@@ -55,7 +57,7 @@ export const LabsTable = ({
   };
 
   return (
-    <TableContainer sx={{ border: '1px solid #e0e0e0' }}>
+    <TableContainer data-testid={dataTestId} sx={{ border: '1px solid #e0e0e0' }}>
       <Table>
         <TableHead>
           {bundleRow ? bundleRow : null}

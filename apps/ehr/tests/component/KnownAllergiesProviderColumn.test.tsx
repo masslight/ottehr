@@ -30,6 +30,9 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
   }),
   useSaveChartData: vi.fn(),
   useDeleteChartData: vi.fn(),
+  useAppointmentData: () => ({
+    appointment: {},
+  }),
 }));
 
 const mockAllergySearchData = [

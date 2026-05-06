@@ -1,11 +1,12 @@
 import { Box, FormControl, FormGroup, FormLabel, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { FC } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FC, useEffect, useRef } from 'react';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPatientName } from 'src/shared/utils';
 import { getAllPractitionerCredentials, getQuestionnaireResponseByLinkId } from 'utils';
 import {
+  buildHeaderNote,
   ExcuseFormValues,
   getDefaultExcuseFormValues,
   mapExcuseFieldsToLabels,
@@ -15,6 +16,7 @@ import {
 import { useAppointmentData, useChartData, useSaveChartData } from '../../../stores/appointment/appointment.store';
 import { ControlledExcuseCheckbox } from './ControlledExcuseCheckbox';
 import { ControlledExcuseDatePicker } from './ControlledExcuseDatePicker';
+import { ControlledExcuseDropdown } from './ControlledExcuseDropdown';
 import { ControlledExcuseTextField } from './ControlledExcuseTextField';
 import { GenerateExcuseDialogContainer } from './GenerateExcuseDialogContainer';
 
@@ -49,18 +51,40 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
     ['Parent', 'Legal Guardian'].includes(responsibleParty.relationship ?? '')
       ? `${responsibleParty.firstName} ${responsibleParty.lastName}`
       : '';
+  const patientName = getPatientName(patient?.name).firstLastName;
   const methods = useForm<ExcuseFormValues>({
     defaultValues: getDefaultExcuseFormValues({
       isSchool,
       isTemplate,
-      patientName: getPatientName(patient?.name).firstLastName,
+      patientName,
       parentName: fullParentName,
       providerName: user?.userName,
       suffix: user?.profileResource?.name?.[0]?.suffix?.join(' '),
       phoneNumber: supportPhoneNumber,
+      patientOrRelatedPerson: 'patient',
     }),
   });
-  const { handleSubmit, getValues, setValue } = methods;
+  const { handleSubmit, getValues, setValue, control } = methods;
+
+  const patientOrRelatedPerson = useWatch({ control, name: 'patientOrRelatedPerson' });
+  const isFirstRun = useRef(true);
+  useEffect(() => {
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
+    setValue(
+      'headerNote',
+      buildHeaderNote({
+        patientName,
+        parentName: fullParentName,
+        patientOrRelatedPerson,
+        isSchool,
+        isTemplate,
+        phoneNumber: supportPhoneNumber,
+      })
+    );
+  }, [patientOrRelatedPerson, patientName, fullParentName, isSchool, isTemplate, supportPhoneNumber, setValue]);
 
   const onSubmit = (values: ExcuseFormValues): void => {
     const excuse = mapValuesToExcuse(values, {
@@ -119,6 +143,11 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
               <FormGroup>
                 {fields.includes('workFields') && (
                   <>
+                    <ControlledExcuseDropdown
+                      name="patientOrRelatedPerson"
+                      label={mapExcuseFieldsToLabels['patientOrRelatedPerson']}
+                      sx={{ alignSelf: 'flex-start', mx: 0, mb: 1, gap: 1 }}
+                    />
                     <ControlledExcuseCheckbox
                       name="wereWithThePatientAtTheTimeOfTheVisit"
                       label={mapExcuseFieldsToLabels['wereWithThePatientAtTheTimeOfTheVisit']}
@@ -176,6 +205,11 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
 
                 {fields.includes('schoolFields') && (
                   <>
+                    <ControlledExcuseDropdown
+                      name="patientOrRelatedPerson"
+                      label={mapExcuseFieldsToLabels['patientOrRelatedPerson']}
+                      sx={{ alignSelf: 'flex-start', mx: 0, mb: 1, gap: 1 }}
+                    />
                     <Box sx={{ display: 'flex' }}>
                       <ControlledExcuseCheckbox
                         name="excusedFromSchoolFromTo"

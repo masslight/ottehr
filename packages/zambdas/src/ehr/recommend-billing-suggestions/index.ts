@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, PROVIDER_CONFIG } from 'utils';
+import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, getEmCodes } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { loadAndParseIcd10Data } from '../../shared/icd-10-search';
@@ -24,6 +24,7 @@ export const index = wrapHandler(
       radiologyOrders,
       radiologyReports,
       procedures,
+      rosFindings,
       diagnoses,
       billing,
       secrets,
@@ -32,6 +33,9 @@ export const index = wrapHandler(
     console.debug('validateRequestParameters success');
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+
+    const oystehr = createOystehrClient(m2mToken, secrets);
+    const emCodeOptions = await getEmCodes(oystehr);
 
     let prompt = `You are an expert medical coder for an urgent care clinic. Suggest appropriate ICD-10 and CPT codes for this visit.
 
@@ -75,7 +79,7 @@ export const index = wrapHandler(
 
       Here are the E&M codes:
 
-      ${PROVIDER_CONFIG.assessment.emCodeOptions.map((option) => `${option.code}: ${option.display}`).join('\n')}
+      ${emCodeOptions.map((option) => `${option.code}: ${option.display}`).join('\n')}
 
       Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level, identifying exactly which progress note data were the bottlenecks preventing a higher level and a sample MDM paragraph that would satisfy that level.
 
@@ -149,6 +153,9 @@ export const index = wrapHandler(
     if (procedures) {
       prompt += `\n Procedures: ${procedures}`;
     }
+    if (rosFindings) {
+      prompt += `\n Review of Systems (positive findings): ${rosFindings}`;
+    }
 
     if (diagnoses && diagnoses.length > 0) {
       prompt += `\n ICD: ${diagnoses
@@ -162,7 +169,49 @@ export const index = wrapHandler(
 
     console.log(prompt);
 
-    const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets);
+    const billingSuggestionsSchema = {
+      type: 'object',
+      properties: {
+        icdCodes: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              code: { type: 'string' },
+              reason: { type: 'string' },
+            },
+            required: ['code', 'reason'],
+          },
+        },
+        cptCodes: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              code: { type: 'string' },
+              reason: { type: 'string' },
+            },
+            required: ['code', 'reason'],
+          },
+        },
+        emCode: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              code: { type: 'string' },
+              description: { type: 'string' },
+              upcodingSuggestion: { type: 'string' },
+            },
+            required: ['code', 'description', 'upcodingSuggestion'],
+          },
+        },
+        codingSuggestions: { type: 'string' },
+      },
+      required: ['icdCodes', 'cptCodes', 'emCode', 'codingSuggestions'],
+    };
+
+    const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets, billingSuggestionsSchema);
     // const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
 
     let suggestions: BillingSuggestionOutput | undefined;
@@ -196,7 +245,6 @@ export const index = wrapHandler(
 
     // Validate CPT codes and get the descriptions for the codes
     if (suggestions?.cptCodes) {
-      const oystehr = createOystehrClient(m2mToken, secrets);
       await Promise.all(
         suggestions.cptCodes.map(async (code) => {
           const terminologyResponse = await oystehr?.terminology.searchCpt({
@@ -239,7 +287,7 @@ export const index = wrapHandler(
         const codeParts = code.code.split(/\s*\/\s*/);
         for (const codePart of codeParts) {
           const trimmedCode = codePart.trim();
-          const emCodeOption = PROVIDER_CONFIG.assessment.emCodeOptions.find((option) => option.code === trimmedCode);
+          const emCodeOption = emCodeOptions.find((option) => option.code === trimmedCode);
           if (emCodeOption) {
             emCodeSuggestions.push({
               code: trimmedCode,

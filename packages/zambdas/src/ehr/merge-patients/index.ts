@@ -10,6 +10,7 @@ import {
   DocumentReference,
   Encounter,
   FhirResource,
+  List,
   MedicationAdministration,
   Patient,
   QuestionnaireResponse,
@@ -32,20 +33,22 @@ import {
   PATIENT_RECORD_QUESTIONNAIRE,
   PRIVATE_EXTENSION_BASE_URL,
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
+  RoleType,
   Secrets,
   SecretsKeys,
-  userMe,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getStripeClient,
+  getUser,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { getChartData } from '../get-chart-data';
 import {
+  accountMatchesType,
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
@@ -232,8 +235,13 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
 
 const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
   const { secrets, userToken } = input;
-  const user = await userMe(userToken, secrets);
+  const user = await getUser(userToken, secrets);
   if (!user) {
+    throw NOT_AUTHORIZED;
+  }
+  const userRoles = (user as any).roles as { name?: string }[] | undefined;
+  const isAdmin = userRoles?.some((role) => role.name === RoleType.Administrator) ?? false;
+  if (!isAdmin) {
     throw NOT_AUTHORIZED;
   }
   const providerProfileReference = user.profile;
@@ -359,11 +367,14 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
       });
     }
 
-    // Update Account, Coverage, RelatedPerson (guarantor/emergency), Organization (employer)
+    // Update Account, Coverage, RelatedPerson (guarantor/emergency), Organization (employer).
+    // Pass the post-patch Patient so same-as-patient address resolution sees the
+    // address changes applied above without depending on read-after-write.
     await updatePatientAccountFromQuestionnaire(
       {
         questionnaireResponseItem: items,
         patientId: mainPatientId,
+        patient: patientResource,
         preserveOmittedCoverages: true,
         questionnaireForEnableWhenFiltering,
       },
@@ -522,6 +533,68 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     requests.push({ method: 'PUT', url: `/DocumentReference/${docRef.id}`, resource: docRef as FhirResource });
   }
 
+  // Document folders (List with code 'patient-docs-folder') — move entries
+  // from old patient's folders into main patient's matching folders so
+  // transferred DocumentReferences appear in the correct folders on the UI.
+  const [oldPatientLists, mainPatientLists] = await Promise.all([
+    oystehr.fhir
+      .search<List>({
+        resourceType: 'List',
+        params: [
+          { name: 'subject', value: oldPatientRef },
+          { name: 'code', value: 'patient-docs-folder' },
+          { name: '_count', value: '100' },
+        ],
+      })
+      .then((r) => r.unbundle()),
+    oystehr.fhir
+      .search<List>({
+        resourceType: 'List',
+        params: [
+          { name: 'subject', value: newPatientRef },
+          { name: 'code', value: 'patient-docs-folder' },
+          { name: '_count', value: '100' },
+        ],
+      })
+      .then((r) => r.unbundle()),
+  ]);
+
+  const mainListsToPatch = new Map<string, List>();
+  for (const oldList of oldPatientLists) {
+    if (!oldList.id || processedIds.has(`List/${oldList.id}`)) continue;
+    const entries = (oldList.entry ?? []).filter((e) => e.item?.reference);
+    if (entries.length === 0) {
+      processedIds.add(`List/${oldList.id}`);
+      continue;
+    }
+
+    const mainList = mainPatientLists.find((l) => l.title && l.title === oldList.title);
+    if (mainList?.id) {
+      const working = mainListsToPatch.get(mainList.id) ?? { ...mainList, entry: [...(mainList.entry ?? [])] };
+      const existingRefs = new Set((working.entry ?? []).map((e) => e.item?.reference).filter(Boolean));
+      for (const entry of entries) {
+        if (!existingRefs.has(entry.item.reference)) {
+          working.entry = [...(working.entry ?? []), entry];
+          existingRefs.add(entry.item.reference);
+        }
+      }
+      mainListsToPatch.set(mainList.id, working);
+
+      processedIds.add(`List/${oldList.id}`);
+      oldList.entry = [];
+      requests.push({ method: 'PUT', url: `/List/${oldList.id}`, resource: oldList as FhirResource });
+    } else {
+      processedIds.add(`List/${oldList.id}`);
+      oldList.subject = { reference: newPatientRef };
+      requests.push({ method: 'PUT', url: `/List/${oldList.id}`, resource: oldList as FhirResource });
+    }
+  }
+
+  for (const [listId, list] of mainListsToPatch) {
+    processedIds.add(`List/${listId}`);
+    requests.push({ method: 'PUT', url: `/List/${listId}`, resource: list as FhirResource });
+  }
+
   // RelatedPerson (non-user — guarantor, emergency contact, etc.)
   const relatedPersons = (
     await oystehr.fhir.search<RelatedPerson>({
@@ -589,38 +662,155 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
   // ════════════════════════════════════════════════════════════════════════
   console.log('Step 4: Collecting billing resources');
 
-  // Account
-  const accounts = (
-    await oystehr.fhir.search<Account>({
-      resourceType: 'Account',
-      params: [
-        { name: 'patient', value: oldPatientRef },
-        { name: '_count', value: '1000' },
-      ],
-    })
-  ).unbundle();
-  for (const account of accounts) {
-    if (!account.id || processedIds.has(`Account/${account.id}`)) continue;
-    processedIds.add(`Account/${account.id}`);
-    let changed = false;
-    if (account.subject) {
-      for (const subj of account.subject) {
-        if (subj.reference === oldPatientRef) {
-          subj.reference = newPatientRef;
-          changed = true;
-        }
+  // Account — consolidate by type. If main patient already has an active account
+  // of the same type, merge old account's coverage[]/guarantor[] into it and
+  // deactivate the old account; otherwise re-point the old account's subject
+  // and guarantor.party references to the main patient.
+  const [oldPatientAccountsRaw, mainPatientAccountsRaw] = await Promise.all([
+    oystehr.fhir
+      .search<Account>({
+        resourceType: 'Account',
+        params: [
+          { name: 'patient', value: oldPatientRef },
+          { name: '_count', value: '100' },
+        ],
+      })
+      .then((r) => r.unbundle()),
+    oystehr.fhir
+      .search<Account>({
+        resourceType: 'Account',
+        params: [
+          { name: 'patient', value: newPatientRef },
+          { name: '_count', value: '100' },
+        ],
+      })
+      .then((r) => r.unbundle()),
+  ]);
+
+  const isActive = (a: Account): boolean => a.status === 'active';
+  const mainActiveAccounts = mainPatientAccountsRaw.filter(isActive);
+
+  const accountIdRedirects = new Map<string, string>();
+  const mainAccountUpdates = new Map<string, Account>();
+
+  const dedupedRefs = <T extends { reference?: string } | undefined>(items: T[] | undefined): Set<string> =>
+    new Set((items ?? []).map((i) => (i as any)?.reference).filter((s): s is string => !!s));
+
+  const consolidateCoverages = (
+    main: Account['coverage'] = [],
+    other: Account['coverage'] = []
+  ): Account['coverage'] => {
+    const seen = dedupedRefs((main ?? []).map((c) => c.coverage));
+    const merged = [...(main ?? [])];
+    for (const c of other ?? []) {
+      if (c.coverage?.reference && !seen.has(c.coverage.reference)) {
+        merged.push(c);
+        seen.add(c.coverage.reference);
       }
     }
-    if (account.guarantor) {
-      for (const g of account.guarantor) {
-        if (g.party?.reference === oldPatientRef) {
-          g.party.reference = newPatientRef;
-          changed = true;
+    return merged;
+  };
+
+  // Merge old account's guarantor entries into main. If main already has a
+  // guarantor, that's authoritative — keep it. Otherwise adopt old's guarantor,
+  // copying any contained resources (`#xxx` references) into main's contained
+  // array with unique ids to satisfy the FHIR ref-1 constraint.
+  const consolidateGuarantors = (
+    mainAccount: Account,
+    other: Account
+  ): { guarantor: Account['guarantor']; contained: Account['contained'] } => {
+    const mainGuarantor = mainAccount.guarantor ?? [];
+    const mainContained = mainAccount.contained ?? [];
+
+    if (mainGuarantor.length > 0) {
+      return { guarantor: mainGuarantor, contained: mainContained };
+    }
+
+    const containedIds = new Set((mainContained ?? []).map((c) => c.id).filter((id): id is string => !!id));
+    const newGuarantor: NonNullable<Account['guarantor']> = [];
+    const newContained = [...(mainContained ?? [])];
+
+    for (const g of other.guarantor ?? []) {
+      const ref = g.party?.reference;
+      if (!ref) continue;
+      if (ref.startsWith('#')) {
+        const sourceId = ref.substring(1);
+        const source = (other.contained ?? []).find((c) => c.id === sourceId);
+        if (!source) continue;
+        let uniqueId = sourceId;
+        let suffix = 1;
+        while (containedIds.has(uniqueId)) {
+          uniqueId = `${sourceId}-${suffix++}`;
         }
+        containedIds.add(uniqueId);
+        newContained.push({ ...source, id: uniqueId });
+        newGuarantor.push({ ...g, party: { ...g.party!, reference: `#${uniqueId}` } });
+      } else {
+        const repointed = ref === oldPatientRef ? { ...g, party: { ...g.party!, reference: newPatientRef } } : g;
+        newGuarantor.push(repointed);
       }
     }
-    if (!changed) continue;
-    requests.push({ method: 'PUT', url: `/Account/${account.id}`, resource: account as FhirResource });
+    return { guarantor: newGuarantor, contained: newContained };
+  };
+
+  for (const oldAccount of oldPatientAccountsRaw) {
+    if (!oldAccount.id || processedIds.has(`Account/${oldAccount.id}`)) continue;
+    processedIds.add(`Account/${oldAccount.id}`);
+
+    const mainMatch = isActive(oldAccount)
+      ? mainActiveAccounts.find(
+          (m) => m.id !== oldAccount.id && oldAccount.type && accountMatchesType(m, oldAccount.type)
+        )
+      : undefined;
+
+    if (mainMatch?.id) {
+      const working = mainAccountUpdates.get(mainMatch.id) ?? { ...mainMatch };
+      working.coverage = consolidateCoverages(working.coverage, oldAccount.coverage);
+      const { guarantor, contained } = consolidateGuarantors(working, oldAccount);
+      working.guarantor = guarantor;
+      working.contained = contained;
+      mainAccountUpdates.set(mainMatch.id, working);
+
+      if (oldAccount.subject) {
+        for (const subj of oldAccount.subject) {
+          if (subj.reference === oldPatientRef) subj.reference = newPatientRef;
+        }
+      }
+      if (oldAccount.guarantor) {
+        for (const g of oldAccount.guarantor) {
+          if (g.party?.reference === oldPatientRef) g.party.reference = newPatientRef;
+        }
+      }
+      oldAccount.status = 'inactive';
+      accountIdRedirects.set(oldAccount.id, mainMatch.id);
+      requests.push({ method: 'PUT', url: `/Account/${oldAccount.id}`, resource: oldAccount as FhirResource });
+      console.log(`  Consolidated Account/${oldAccount.id} into Account/${mainMatch.id}`);
+    } else {
+      let changed = false;
+      if (oldAccount.subject) {
+        for (const subj of oldAccount.subject) {
+          if (subj.reference === oldPatientRef) {
+            subj.reference = newPatientRef;
+            changed = true;
+          }
+        }
+      }
+      if (oldAccount.guarantor) {
+        for (const g of oldAccount.guarantor) {
+          if (g.party?.reference === oldPatientRef) {
+            g.party.reference = newPatientRef;
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        requests.push({ method: 'PUT', url: `/Account/${oldAccount.id}`, resource: oldAccount as FhirResource });
+      }
+    }
+  }
+
+  for (const [id, acct] of mainAccountUpdates) {
+    requests.push({ method: 'PUT', url: `/Account/${id}`, resource: acct as FhirResource });
   }
 
   // Coverage
@@ -665,6 +855,24 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     const fieldsUpdated = patchPatientRef(ci, otherPatientId, newPatientRef);
     if (fieldsUpdated.length === 0) continue;
     requests.push({ method: 'PUT', url: `/ChargeItem/${ci.id}`, resource: ci as FhirResource });
+  }
+
+  // Redirect Encounter.account[] / ChargeItem.account[] references that point
+  // to a consolidated (now-inactive) old Account so they reach the surviving
+  // main Account.
+  if (accountIdRedirects.size > 0) {
+    for (const req of requests) {
+      const r = req.resource as { resourceType?: string; account?: { reference?: string }[] } | undefined;
+      if (!r || (r.resourceType !== 'Encounter' && r.resourceType !== 'ChargeItem')) continue;
+      if (!Array.isArray(r.account)) continue;
+      for (const ref of r.account) {
+        const match = ref?.reference?.match(/^Account\/(.+)$/);
+        const oldId = match?.[1];
+        if (oldId && accountIdRedirects.has(oldId)) {
+          ref.reference = `Account/${accountIdRedirects.get(oldId)}`;
+        }
+      }
+    }
   }
 
   // ════════════════════════════════════════════════════════════════════════

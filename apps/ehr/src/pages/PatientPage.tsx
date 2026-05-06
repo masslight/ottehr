@@ -1,6 +1,7 @@
 import MergeIcon from '@mui/icons-material/MergeType';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Alert, Box, Button, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
@@ -13,7 +14,8 @@ import { FullNameDisplay } from 'src/features/visits/shared/components/patient/i
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import Summary from 'src/features/visits/shared/components/patient/info/Summary';
 import { PatientFollowupEncountersGrid } from 'src/features/visits/shared/components/patient/PatientFollowupEncountersGrid';
-import { getFirstName, getLastName, ServiceMode } from 'utils';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { getFirstName, getLastName, RoleType } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
 import { PatientLabsTab } from '../components/PatientLabsTab';
@@ -37,7 +39,22 @@ export default function PatientPage(): JSX.Element {
   const [showAccountSettingsDialog, setShowAccountSettingsDialog] = useState(false);
   const [mergePatientIds, setMergePatientIds] = useState<[string, string] | null>(null);
 
+  const currentUser = useEvolveUser();
+  const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
+
   const { loading, patient, duplicatePatients } = useGetPatient(id);
+
+  const handleMergeClick = (): void => {
+    if (!isAdmin) {
+      enqueueSnackbar('You are not authorized to make this action. Please contact the administrator.', {
+        variant: 'error',
+      });
+      return;
+    }
+    if (id && duplicatePatients[0]?.id) {
+      setMergePatientIds([id, duplicatePatients[0].id]);
+    }
+  };
 
   const isMergedPatient = patient?.active === false && patient?.link?.some((l) => l.type === 'replaced-by');
 
@@ -110,11 +127,7 @@ export default function PatientPage(): JSX.Element {
                 <RoundedButton
                   target="_blank"
                   sx={{ width: '100%' }}
-                  to={
-                    latestAppointment.serviceMode === ServiceMode.virtual
-                      ? `/telemed/appointments/${latestAppointment.appointmentId}?tab=sign`
-                      : `/in-person/${latestAppointment.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`
-                  }
+                  to={`/in-person/${latestAppointment.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`}
                 >
                   Recent Progress Note
                 </RoundedButton>
@@ -136,12 +149,7 @@ export default function PatientPage(): JSX.Element {
                 <Alert
                   severity="warning"
                   action={
-                    <Button
-                      color="warning"
-                      size="small"
-                      startIcon={<MergeIcon />}
-                      onClick={() => setMergePatientIds([id, duplicatePatients[0].id!])}
-                    >
+                    <Button color="warning" size="small" startIcon={<MergeIcon />} onClick={handleMergeClick}>
                       Merge Patients
                     </Button>
                   }
@@ -182,6 +190,7 @@ export default function PatientPage(): JSX.Element {
                     )}
                     {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
                       <Tab
+                        data-testid={dataTestIds.externalLabs.patientRecordLabsTab}
                         value="labs"
                         label={
                           <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>

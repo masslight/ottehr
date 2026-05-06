@@ -70,9 +70,12 @@ export type ExcuseFormValues = { [key in WorkExcuseFields]: boolean } & { [key i
   [key in DateExcuseFields]: DateTime | null;
 } & {
   [key in NoteExcuseFields]: string;
+} & {
+  patientOrRelatedPerson: 'patient' | 'related-person';
 };
 
 export const mapExcuseFieldsToLabels = {
+  patientOrRelatedPerson: 'this note is for the',
   wereWithThePatientAtTheTimeOfTheVisit: 'were with the patient at the time of the visit',
   areNeededAtHomeToCareForChildDuringThisIllness: 'are needed at home to care for child during this illness',
   schoolExcusedFromWorkFromTo: 'excused from work from - to',
@@ -130,9 +133,31 @@ const mapCompositeExcuseFieldsToLabels: {
   other: (values: ExcuseFormValues) => values.otherNote,
 };
 
+export const buildHeaderNote = (params: {
+  patientName?: string;
+  parentName?: string;
+  patientOrRelatedPerson: 'patient' | 'related-person';
+  isSchool: boolean;
+  isTemplate: boolean;
+  phoneNumber?: string;
+}): string => {
+  const currentDate = DateTime.now().toFormat('MM/dd/yyyy');
+  const headerNoteName =
+    params.patientOrRelatedPerson === 'related-person'
+      ? `${params.patientName || '{Patient name}'}, the child of ${params.parentName || '{Parent/Guardian name}'},`
+      : `${params.patientName || '{Patient name}'},`;
+  const headerNoteEnding = params.isSchool ? 'They are:' : 'They:';
+  let headerNote = `To whom it may concern:\n${headerNoteName} was treated by ${BRANDING_CONFIG.projectName} on ${currentDate}. ${headerNoteEnding}`;
+  if (!params.isTemplate && params.phoneNumber) {
+    headerNote += `\n\n\nFor any questions, please do not hesitate to call ${params.phoneNumber}.`;
+  }
+  return headerNote;
+};
+
 export const getDefaultExcuseFormValues = (params: {
   patientName?: string;
   parentName?: string;
+  patientOrRelatedPerson: 'patient' | 'related-person';
   isSchool: boolean;
   isTemplate: boolean;
   providerName?: string;
@@ -153,22 +178,20 @@ export const getDefaultExcuseFormValues = (params: {
     excusedFromGymActivitiesFromDate: DateTime.now(),
   } as ExcuseFormValues;
 
-  const currentDate = DateTime.now().toFormat('MM/dd/yyyy');
-
   if (params.parentName) {
     defaultFormValues.parentName = params.parentName;
   }
 
-  const headerNoteName = params.isSchool
-    ? `${params.patientName || '{Patient name}'}, the child of ${params.parentName || '{Parent/Guardian name}'},`
-    : `${params.patientName || '{Patient name}'},`;
+  defaultFormValues.patientOrRelatedPerson = params.patientOrRelatedPerson;
 
-  const headerNoteEnding = params.isSchool ? 'They are:' : 'They:';
-  defaultFormValues.headerNote = `To whom it may concern:\n${headerNoteName} was treated by ${BRANDING_CONFIG.projectName} on ${currentDate}. ${headerNoteEnding}`;
-
-  if (!params.isTemplate && params.phoneNumber) {
-    defaultFormValues.headerNote += `\n\n\nFor any questions, please do not hesitate to call ${params.phoneNumber}.`;
-  }
+  defaultFormValues.headerNote = buildHeaderNote({
+    patientName: params.patientName,
+    parentName: params.parentName,
+    patientOrRelatedPerson: params.patientOrRelatedPerson,
+    isSchool: params.isSchool,
+    isTemplate: params.isTemplate,
+    phoneNumber: params.phoneNumber,
+  });
 
   if (params.isTemplate) {
     if (params.phoneNumber) {
@@ -193,12 +216,15 @@ export const mapValuesToExcuse = (
     suffix?: string;
   }
 ): SchoolWorkNoteExcuseDocDTO => {
+  const patientName = params.patientName || 'Unknown';
+  const parentName = values.parentName || 'Unknown';
+
+  const noteRecipient = values.patientOrRelatedPerson === 'patient' ? patientName : parentName;
+
   const excuse: SchoolWorkNoteExcuseDocDTO = {
     type: params.isSchool ? 'school' : 'work',
-    documentHeader: params.isSchool
-      ? `School note for ${params.patientName || 'Unknown'}`
-      : `Work note for ${values.parentName}`,
-    parentGuardianName: values.parentName || 'Unknown',
+    documentHeader: params.isSchool ? `School note for ${noteRecipient}` : `Work note for ${noteRecipient}`,
+    parentGuardianName: parentName,
     headerNote: values.headerNote,
     footerNote: values.footerNote,
     providerDetails: {

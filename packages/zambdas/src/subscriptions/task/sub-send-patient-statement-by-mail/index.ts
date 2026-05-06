@@ -1,14 +1,24 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { CandidApiClient } from 'candidhealth';
 import { Operation } from 'fast-json-patch';
 import { Communication, Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { generateStatement, getSecret, RCM_TASK_SYSTEM, Secrets, SecretsKeys, TaskIndicator } from 'utils';
+import {
+  createCandidApiClient,
+  generateStatement,
+  getSecret,
+  RCM_TASK_SYSTEM,
+  Secrets,
+  SecretsKeys,
+  TaskIndicator,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getHTMLStatementTemplate,
   getStatementDetails,
+  MAIL_VENDOR_EXTENSION_URL,
   sendPostGridLetter,
   StatementType,
   wrapHandler,
@@ -21,6 +31,7 @@ const MAIL_STATEMENT_TASK_INPUT_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/pat
 const validStatementTypes = new Set<StatementType>(['standard', 'past-due', 'final-notice']);
 
 let m2mToken: string;
+let candidApiClient: CandidApiClient | undefined;
 
 interface ParsedTaskInput {
   encounterId: string;
@@ -41,6 +52,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     oystehr = createOystehrClient(m2mToken, secrets);
+    if (!candidApiClient) {
+      candidApiClient = createCandidApiClient(secrets);
+    }
 
     await patchTaskStatus(oystehr, task.id!, 'in-progress');
 
@@ -50,6 +64,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       statementType,
       secrets,
       oystehr,
+      candidApiClient,
     });
     const encounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',
@@ -98,6 +113,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         },
         html,
         addressPlacement: 'top_first_page',
+        mailingClass: 'first_class',
         color,
         doubleSided: true,
         metadata: {
@@ -153,11 +169,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         {
           contentString: description,
         },
+        {
+          contentAttachment: {
+            contentType: 'text/html',
+            data: Buffer.from(html).toString('base64'),
+          },
+        },
       ],
       sent: DateTime.now().toUTC().toISO() ?? undefined,
       extension: [
         {
-          url: 'https://extensions.fhir.ottehr.com/mail-vendor',
+          url: MAIL_VENDOR_EXTENSION_URL,
           extension: [
             {
               url: 'vendor',

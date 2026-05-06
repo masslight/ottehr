@@ -24,18 +24,14 @@ export async function getPatientsForUser(user: User, oystehr: Oystehr): Promise<
       ],
     })
   ).unbundle();
-  const resourcesTemp = resources.filter((resourceTemp) => resourceTemp.resourceType === 'Patient');
+  const patients = resources.filter((r): r is Patient => r.resourceType === 'Patient' && r.active !== false);
   console.timeEnd(`Getting patients for user: ${user.name}`);
-  // console.log(`Get patients for user resources: ${JSON.stringify(resourcesTemp)}`);
-  return resourcesTemp as Patient[];
+  return patients;
 }
 
-export async function getRelatedPersonForPatient(
-  patientID: string,
-  oystehr: Oystehr
-): Promise<RelatedPerson | undefined> {
-  console.log(`getting user-relatedperson for patient with id ${patientID}`);
-  const resources = (
+export async function getRelatedPersonsForPatient(patientID: string, oystehr: Oystehr): Promise<RelatedPerson[]> {
+  console.log(`getting user-relatedpersons for patient with id ${patientID}`);
+  return (
     await oystehr.fhir.search<RelatedPerson>({
       resourceType: 'RelatedPerson',
       params: [
@@ -50,9 +46,17 @@ export async function getRelatedPersonForPatient(
       ],
     })
   ).unbundle();
+}
 
-  if (resources.length === 0) {
-    return undefined;
-  }
-  return resources[0] as RelatedPerson;
+/**
+ * @deprecated A Patient may have zero-to-many `user-relatedperson` RelatedPersons.
+ * Use {@link getRelatedPersonsForPatient} and handle the array explicitly
+ * (`if (!rps.length) …`), rather than relying on an arbitrary first pick.
+ */
+export async function getRelatedPersonForPatient(
+  patientID: string,
+  oystehr: Oystehr
+): Promise<RelatedPerson | undefined> {
+  const resources = await getRelatedPersonsForPatient(patientID, oystehr);
+  return resources[0];
 }

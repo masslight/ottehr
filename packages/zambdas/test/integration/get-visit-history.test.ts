@@ -22,9 +22,9 @@ import {
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotServiceCategory,
   SLUG_SYSTEM,
-  TelemedCallStatuses,
   Timezone,
   TIMEZONES,
+  VisitStatusLabel,
   VisitStatusWithoutUnknown,
 } from 'utils';
 import { assert, inject } from 'vitest';
@@ -98,7 +98,7 @@ const validateCreateAppointmentResponse = (
   assert(encounter.id);
   // todo: should encounter status be 'arrived' for walkin virtual appointments to match the appointment status?
   // i think this is intended and helps with some intake logic particular to the virtual walkin flow
-  if (isWalkin && !isVirtual) {
+  if (isWalkin) {
     expect(encounter.status).toEqual('arrived');
   } else {
     expect(encounter.status).toEqual('planned');
@@ -406,7 +406,7 @@ describe('tests for getting the visit history for a patient', () => {
     });
   };
 
-  const changeVirtualAppointmentStatus = async (appointmentId: string, status: TelemedCallStatuses): Promise<void> => {
+  const changeVirtualAppointmentStatus = async (appointmentId: string, status: VisitStatusLabel): Promise<void> => {
     await oystehr.zambda.execute({
       id: 'change-telemed-appointment-status',
       appointmentId,
@@ -736,7 +736,7 @@ describe('tests for getting the visit history for a patient', () => {
     expect(allVisits.visits.length).toBeGreaterThan(0);
     let index = 0;
     for (const visit of allVisits.visits) {
-      const newStatus = index === 0 ? 'on-video' : 'complete';
+      const newStatus = index === 0 ? 'arrived' : 'completed';
       expect(visit.encounterId).toBeDefined();
       await changeVirtualAppointmentStatus(visit.appointmentId, newStatus);
       index++;

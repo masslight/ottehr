@@ -14,13 +14,8 @@ vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
   useOystehrAPIClient: vi.fn(),
 }));
 
-vi.mock('../../src/features/visits/shared/stores/contexts/useAppFlags', () => ({
-  useAppFlags: vi.fn(),
-}));
-
 vi.mock('../../src/features/visits/shared/stores/tracking-board/tracking-board.queries', () => ({
   useSignAppointmentMutation: vi.fn(),
-  useChangeTelemedAppointmentStatusMutation: vi.fn(),
 }));
 
 vi.mock('../../src/hooks/useEvolveUser', () => ({
@@ -127,11 +122,7 @@ import {
   useAppointmentData,
   useChartData,
 } from '../../src/features/visits/shared/stores/appointment/appointment.store';
-import { useAppFlags } from '../../src/features/visits/shared/stores/contexts/useAppFlags';
-import {
-  useChangeTelemedAppointmentStatusMutation,
-  useSignAppointmentMutation,
-} from '../../src/features/visits/shared/stores/tracking-board/tracking-board.queries';
+import { useSignAppointmentMutation } from '../../src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import useEvolveUser from '../../src/hooks/useEvolveUser';
 
 const mockUseAppointmentData = vi.mocked(useAppointmentData);
@@ -139,13 +130,11 @@ const mockUseChartData = vi.mocked(useChartData);
 const mockUseChartFields = vi.mocked(useChartFields);
 const mockUseMedicationAPI = vi.mocked(useMedicationAPI);
 const mockUseGetImmunizationOrders = vi.mocked(useGetImmunizationOrders);
-const mockUseAppFlags = vi.mocked(useAppFlags);
 const mockUseOystehrAPIClient = vi.mocked(useOystehrAPIClient);
 const mockUsePatientInstructionsVisibility = vi.mocked(usePatientInstructionsVisibility);
 const mockUseNavigate = vi.mocked(useNavigate);
 const mockUseEvolveUser = vi.mocked(useEvolveUser);
 const mockUseSignAppointmentMutation = vi.mocked(useSignAppointmentMutation);
-const mockUseChangeTelemedAppointmentStatusMutation = vi.mocked(useChangeTelemedAppointmentStatusMutation);
 const mockProceduresContainer = vi.mocked(ProceduresContainer);
 const mockPatientInstructionsContainer = vi.mocked(PatientInstructionsContainer);
 
@@ -185,11 +174,6 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
       isLoading: false,
     } as any);
 
-    mockUseAppFlags.mockReturnValue({
-      isInPerson: true,
-      isVideoCallEnabled: false,
-    } as any);
-
     mockUseOystehrAPIClient.mockReturnValue({
       apiClient: {} as any,
     } as any);
@@ -207,13 +191,6 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
     } as any);
 
     mockUseSignAppointmentMutation.mockReturnValue({
-      mutateAsync: vi.fn(),
-      isPending: false,
-      isError: false,
-      isSuccess: false,
-    } as any);
-
-    mockUseChangeTelemedAppointmentStatusMutation.mockReturnValue({
       mutateAsync: vi.fn(),
       isPending: false,
       isError: false,

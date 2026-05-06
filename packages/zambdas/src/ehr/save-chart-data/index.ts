@@ -44,6 +44,7 @@ import {
   makeNoteResource,
   makeObservationResource,
   makeProcedureResource,
+  makeRosObservationResource,
   makeSchoolWorkDR,
   makeServiceRequestResource,
   saveOrUpdateResourceRequest,
@@ -56,6 +57,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import {
@@ -94,6 +96,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       observations,
       secrets,
       examObservations,
+      rosObservations,
       medicalDecision,
       cptCodes,
       emCode,
@@ -288,6 +291,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         saveOrUpdateResourceRequest(
           makeExamObservationResource(encounterId, patient.id!, element, code ? { code, bodySite } : undefined, label)
         )
+      );
+    });
+
+    // 8b. convert ROS observations to Observation (FHIR)
+    rosObservations?.forEach((element) => {
+      saveOrUpdateRequests.push(
+        saveOrUpdateResourceRequest(makeRosObservationResource(encounterId, patient.id!, element))
       );
     });
 
@@ -511,6 +521,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.timeLog('time', 'after saving resources');
 
     console.log('Updated chart data as a transaction');
+
+    await runChartDataPostChangeTasks(oystehr, addendumNote, encounter, appointment?.id);
 
     console.timeLog('time', 'before sorting resources');
     const output = validateBundleAndExtractSavedChartData(

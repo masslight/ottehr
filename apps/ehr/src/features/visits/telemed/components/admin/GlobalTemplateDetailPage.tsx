@@ -25,7 +25,13 @@ import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
-import { AdminGetTemplateDetailOutput } from 'utils';
+import {
+  AdminGetTemplateDetailOutput,
+  RosFindingState,
+  RosFindingStateLabel,
+  TemplateExamFinding,
+  TemplateRosFinding,
+} from 'utils';
 
 function renderMarkdown(text: string): ReactElement {
   // Convert markdown task lists and basic formatting to HTML-like rendering
@@ -103,6 +109,81 @@ function NotIncluded(): ReactElement {
     <Typography variant="body2" color="text.secondary" fontStyle="italic">
       Not included in this template
     </Typography>
+  );
+}
+
+type FindingsTableProps =
+  | { type: 'ros'; findings: TemplateRosFinding[] }
+  | { type: 'exam'; findings: TemplateExamFinding[] };
+
+function FindingsTable({ type, findings }: FindingsTableProps): ReactElement {
+  return (
+    <TableContainer>
+      <Table size="small" sx={{ tableLayout: 'fixed' }}>
+        <TableHead>
+          <TableRow>
+            <TableCell sx={{ fontWeight: 'bold', width: '60%' }}>Field</TableCell>
+            <TableCell sx={{ fontWeight: 'bold', width: '10%' }}>Status</TableCell>
+            <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>{type === 'exam' ? 'Notes' : ''}</TableCell>
+          </TableRow>
+        </TableHead>
+
+        <TableBody>
+          {findings.map((finding, index) => {
+            if (type === 'ros') {
+              const rosFinding = finding as TemplateRosFinding;
+              const { label, findingState, stale } = rosFinding;
+              const statusLabel = findingState ? RosFindingStateLabel[findingState] : 'unknown';
+
+              return (
+                <TableRow key={index}>
+                  <TableCell>{label}</TableCell>
+                  <TableCell sx={{ display: 'flex' }}>
+                    <Chip
+                      label={statusLabel}
+                      size="small"
+                      color={
+                        findingState === RosFindingState.Reports
+                          ? 'error'
+                          : findingState === RosFindingState.Denies
+                          ? 'success'
+                          : 'warning'
+                      }
+                      variant="outlined"
+                    />
+                    {stale ? <Chip label="Stale" size="small" color="warning" sx={{ ml: 1 }} /> : null}
+                  </TableCell>
+                  <TableCell />
+                </TableRow>
+              );
+            }
+
+            const examFinding = finding as TemplateExamFinding;
+
+            return (
+              <TableRow key={index}>
+                <TableCell>{examFinding.label}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={examFinding.isAbnormal ? 'Abnormal' : 'Normal'}
+                    size="small"
+                    color={examFinding.isAbnormal ? 'error' : 'success'}
+                    variant="outlined"
+                  />
+                </TableCell>
+                <TableCell sx={{ whiteSpace: 'pre-wrap' }}>
+                  {examFinding.note || (
+                    <Typography variant="body2" color="text.disabled">
+                      —
+                    </Typography>
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
@@ -199,47 +280,24 @@ export default function GlobalTemplateDetailPage(): ReactElement {
             )}
           </SectionCard>
 
+          {/* Review of Systems - Legacy */}
+          {sections.rosNote ? (
+            <SectionCard title="Review of Systems (ROS) (Legacy)">{renderMarkdown(sections.rosNote)}</SectionCard>
+          ) : null}
+
           {/* Review of Systems */}
           <SectionCard title="Review of Systems (ROS)">
-            {sections.rosNote ? renderMarkdown(sections.rosNote) : <NotIncluded />}
+            {sections.rosFindings.length ? (
+              <FindingsTable type="ros" findings={sections.rosFindings} />
+            ) : (
+              <NotIncluded />
+            )}
           </SectionCard>
 
           {/* Exam Findings */}
           <SectionCard title="Exam Findings">
             {sections.examFindings.length > 0 ? (
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Field</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Notes</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {sections.examFindings.map((finding, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{finding.label}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={finding.isAbnormal ? 'Abnormal' : 'Normal'}
-                            size="small"
-                            color={finding.isAbnormal ? 'error' : 'success'}
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell sx={{ whiteSpace: 'pre-wrap' }}>
-                          {finding.note || (
-                            <Typography variant="body2" color="text.disabled">
-                              —
-                            </Typography>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <FindingsTable type="exam" findings={sections.examFindings} />
             ) : (
               <NotIncluded />
             )}

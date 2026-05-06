@@ -12,38 +12,21 @@ export function useVisionLocalState(): VisionLocalState {
   const [isWithoutGlassesOptionSelected, setWithoutGlassesOptionSelected] = useState<boolean>(false);
   const [validationError, setValidationError] = useState<boolean>(false);
 
-  const handleLeftEyeChange = useCallback(
-    (event: { target: { value: string } }): void => {
-      const eventValue = event.target.value;
-      const selectedLeftEye = eventValue ?? '';
-      setLeftEyeSelection(selectedLeftEye);
-      setValidationError(false);
-      if (selectedLeftEye !== rightEyeSelection) {
-        setBothEyesSelection('');
-      }
-    },
-    [rightEyeSelection]
-  );
+  const handleLeftEyeChange = useCallback((event: { target: { value: string } }): void => {
+    const eventValue = event.target.value;
+    setLeftEyeSelection(eventValue ?? '');
+    setValidationError(false);
+  }, []);
 
-  const handleRightEyeChange = useCallback(
-    (event: { target: { value: string } }): void => {
-      const eventValue = event.target.value;
-      const selectedRightEye = eventValue ?? '';
-      setRightEyeSelection(selectedRightEye);
-      setValidationError(false);
-      if (selectedRightEye !== leftEyeSelection) {
-        setBothEyesSelection('');
-      }
-    },
-    [leftEyeSelection]
-  );
+  const handleRightEyeChange = useCallback((event: { target: { value: string } }): void => {
+    const eventValue = event.target.value;
+    setRightEyeSelection(eventValue ?? '');
+    setValidationError(false);
+  }, []);
 
   const handleBothEyesChange = useCallback((event: { target: { value: string } }): void => {
     const eventValue = event.target.value;
-    const selectedBothEyes = eventValue ?? '';
-    setBothEyesSelection(selectedBothEyes);
-    setLeftEyeSelection(selectedBothEyes);
-    setRightEyeSelection(selectedBothEyes);
+    setBothEyesSelection(eventValue ?? '');
     setValidationError(false);
   }, []);
 

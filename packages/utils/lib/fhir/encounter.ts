@@ -3,14 +3,7 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, EncounterStatusHistory, Extension, Location, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
-import {
-  FhirEncounterStatus,
-  getTelemedVisitStatus,
-  PatientFollowupDetails,
-  ProviderDetails,
-  TelemedStatusHistoryElement,
-  VisitStatusWithoutUnknown,
-} from '../types';
+import { FhirEncounterStatus, PatientFollowupDetails, ProviderDetails, VisitStatusWithoutUnknown } from '../types';
 import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL, FHIR_EXTENSION } from './constants';
 
 // follow up encounter consts
@@ -158,30 +151,6 @@ export const getEncounterForAppointment = async (appointmentID: string, oystehr:
   return encounter;
 };
 
-export const getTelemedEncounterStatusHistory = (
-  statusHistory: EncounterStatusHistory[],
-  appointmentStatus: string
-): TelemedStatusHistoryElement[] => {
-  const result: TelemedStatusHistoryElement[] = [];
-
-  statusHistory.forEach((statusElement) => {
-    result.push({
-      start: statusElement.period.start,
-      end: statusElement.period.end,
-      status: getTelemedVisitStatus(statusElement.status, undefined),
-    });
-  });
-
-  if (appointmentStatus === 'fulfilled' && result.at(-1)?.status === 'unsigned') {
-    result.push({
-      start: result.at(-1)?.end,
-      status: 'complete',
-    });
-  }
-
-  return result;
-};
-
 export const getSpentTime = (history?: EncounterStatusHistory[]): string | undefined => {
   const value = history?.find((item) => item.status === 'in-progress');
   if (!value || !value.period.start) {
@@ -316,8 +285,12 @@ export const getEncounterDateTime = (
   encounter: Encounter,
   appointmentStartMap: Record<string, string>
 ): string | undefined => {
-  const apptId = encounter.appointment?.[0]?.reference?.replace('Appointment/', '');
-  if (apptId && appointmentStartMap[apptId]) return appointmentStartMap[apptId];
+  // Annotation follow-ups share the parent appointment reference rather than having their own,
+  // so the appointment start would give the main visit time — use period.start instead.
+  if (!isAnnotationFollowupEncounter(encounter)) {
+    const apptId = encounter.appointment?.[0]?.reference?.replace('Appointment/', '');
+    if (apptId && appointmentStartMap[apptId]) return appointmentStartMap[apptId];
+  }
   if (encounter.period?.start) return encounter.period.start;
   return encounter.statusHistory?.[0]?.period?.start;
 };
