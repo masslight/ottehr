@@ -628,9 +628,10 @@ export default function PatientPaymentList({
   const insurance = insuranceCoverages?.coverages?.primary?.identifier?.find(
     (temp) => temp.type?.coding?.find((temp) => temp.code === 'MB')
   )?.assigner;
-  // CW TODO: nope, need to use id / url
   const insuranceOrganization = insuranceCoverages?.insuranceOrgs?.find(
-    (organization) => organization.id === insurance?.reference?.replace('Organization/', '')
+    (organization) =>
+      organization.id === insurance?.reference?.replace('Organization/', '') ||
+      oystehr?.rcm.constructPayerUrl({ id: organization.id! }) === insurance?.reference
   );
   const insuranceName = insuranceOrganization?.name;
   const insuranceNotes = insuranceOrganization?.extension?.find(
