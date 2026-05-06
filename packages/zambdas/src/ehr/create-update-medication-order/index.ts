@@ -1,4 +1,5 @@
 import Oystehr, { BatchInput, BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
@@ -464,8 +465,9 @@ async function manageAdditionalCptCodesForOrder(
         if (cptExt?.valueString) {
           try {
             orderCptCodes = JSON.parse(cptExt.valueString) as { code: string; display: string }[];
-          } catch {
-            console.log('Failed to parse CPT codes extension');
+          } catch (e) {
+            console.log('Failed to parse CPT codes extension', e, JSON.stringify(e));
+            captureException(e);
           }
         }
       }
