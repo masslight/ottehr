@@ -1573,6 +1573,10 @@ export function getPayerUrl(payerId: string): string {
   return oystehr.rcm.constructPayerUrl({ id: payerId });
 }
 
+export function isPayerUrl(maybeUrl?: string): boolean {
+  return !!maybeUrl && maybeUrl.startsWith('https://rcm-api.zapehr.com/v1/payer/');
+}
+
 export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirResource): string | undefined => {
   let location: string | undefined;
   if (scheduleResource.resourceType === 'Location') {
