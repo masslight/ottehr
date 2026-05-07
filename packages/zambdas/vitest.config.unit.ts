@@ -13,5 +13,18 @@ export default defineConfig({
         inline: [/@sentry/, /utils/],
       },
     },
+    coverage: {
+      provider: 'v8',
+      reporter: ['lcov', 'text-summary', 'json'],
+      reportsDirectory: './coverage/unit',
+      include: ['src/**/*.ts'],
+      exclude: [
+        'src/**/*.test.ts',
+        'src/**/*.spec.ts',
+        'src/**/*.d.ts',
+        'src/scripts/**',
+        'src/local-server/**',
+      ],
+    },
   },
 });
