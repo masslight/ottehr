@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Organization, Resource } from 'fhir/r4b';
+import { HumanName, Organization, Resource } from 'fhir/r4b';
 import { getNPI, Secrets } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
@@ -13,26 +13,45 @@ export const BILLING_WORKING_COPY_TAG = {
   code: 'billing-working-copy',
 };
 
+export const CURRENT_STATUS_TAG_SYSTEM = 'current-status';
+
 // Provider role tags
 export const RENDERS_TAG = 'https://fhir.ottehr.com/billing/renders-services';
 export const BILLS_TAG = 'https://fhir.ottehr.com/billing/bills-services';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
+
+export const SOURCE_EXT_URL = 'https://ottehr.com/billing/source-resource';
+
+export const ALLOWED_BILLING_RESOURCE_TYPES = [
+  'Patient',
+  'Coverage',
+  'Practitioner',
+  'Organization',
+  'Location',
+] as const;
+
+export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
+
+const PROTECTED_OVERRIDE_KEYS = new Set(['id', 'meta', 'resourceType', 'extension']);
+
+export function sanitizeOverrides(overrides?: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (!overrides) return undefined;
+  const clean: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(overrides)) {
+    if (!PROTECTED_OVERRIDE_KEYS.has(key)) clean[key] = value;
+  }
+  return Object.keys(clean).length > 0 ? clean : undefined;
+}
 
 export const EXCLUDE_WORKING_COPIES_PARAM = {
   name: '_tag:not',
   value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}`,
 };
 
-/**
- * Standard billing client. All billing zambdas use this.
- * workspaceTag ensures we work with only billing resources.
- * Add EXCLUDE_WORKING_COPIES_PARAM to search params when listing originals only.
- */
 export function createBillingClient(token: string, secrets: Secrets | null): Oystehr {
   return createOystehrClient(token, secrets, { workspaceTag: BILLING_RESOURCE_TAG });
 }
 
-// Payer identifier lookup (ETIN or NIIP)
 export function getPayerId(org: Organization): string {
   return (
     org.identifier?.find((id) => id.type?.coding?.some((c) => c.code === 'ETIN' || c.code === 'NIIP'))?.value ?? ''
@@ -43,13 +62,37 @@ export function hasNpiIdentifier(org: Organization): boolean {
   return getNPI(org) != null;
 }
 
-// Read a meta tag value by system
 export function getTag(resource: Resource, system: string): string | undefined {
   return resource.meta?.tag?.find((t) => t.system === system)?.code;
 }
 
-// Format a FHIR address into a single string
 export function formatAddress(addr?: { line?: string[]; city?: string; state?: string; postalCode?: string }): string {
   if (!addr) return '';
   return [...(addr.line ?? []), addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ');
+}
+
+// Clone a billing resource into a working copy: strips id, tags it, adds source reference.
+export function prepareWorkingCopy<T extends Resource>(resource: T, originalId: string): T {
+  const copy: any = structuredClone(resource);
+  delete copy.id;
+  copy.meta = { tag: [BILLING_WORKING_COPY_TAG] };
+  const existing = (copy.extension ?? []).filter((e: any) => e.url !== SOURCE_EXT_URL);
+  copy.extension = [
+    ...existing,
+    { url: SOURCE_EXT_URL, valueReference: { reference: `${resource.resourceType}/${originalId}` } },
+  ];
+  return copy;
+}
+
+// Apply first/last name overrides to a Patient or Practitioner.
+export function applyNameOverrides<T extends { name?: HumanName[] }>(
+  resource: T,
+  overrides?: { firstName?: string; lastName?: string }
+): T {
+  if (!overrides) return resource;
+  const copy: any = structuredClone(resource);
+  if (!copy.name) copy.name = [{}];
+  if (overrides.firstName !== undefined) copy.name[0].given = [overrides.firstName];
+  if (overrides.lastName !== undefined) copy.name[0].family = overrides.lastName;
+  return copy;
 }
