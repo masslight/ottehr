@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Coverage, Location, Organization, Patient, Practitioner } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, getResourcesFromBatchInlineRequests, getSecret, SecretsKeys } from 'utils';
+import { Bundle, Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { convertFhirNameToDisplayName, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, findRef, getClaimStatus, getPayerId } from '../shared';
 import { GetBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
@@ -49,24 +49,35 @@ async function fetchClaims(
   const pageSize = params.pageSize ?? 25;
   const offset = params.offset ?? 0;
 
-  let query = `/Claim?_include=Claim:patient&_include=Claim:insurer&_include=Claim:provider&_include=Claim:facility`;
-  query += `&_sort=-_lastUpdated&_count=${pageSize}&_offset=${offset}`;
-  if (params.status) query += `&_tag=${params.status}`;
-  if (params.dosFrom) query += `&created=ge${params.dosFrom}`;
-  if (params.dosTo) query += `&created=le${params.dosTo}`;
-  if (params.patientId) query += `&patient=Patient/${params.patientId}`;
-  if (params.payerName) query += `&insurer.name=${encodeURIComponent(params.payerName)}`;
-  if (params.payerId) query += `&insurer.identifier=${encodeURIComponent(params.payerId)}`;
+  const searchParams: { name: string; value: string }[] = [
+    { name: '_include', value: 'Claim:patient' },
+    { name: '_include', value: 'Claim:insurer' },
+    { name: '_include', value: 'Claim:provider' },
+    { name: '_include', value: 'Claim:facility' },
+    { name: '_sort', value: '-_lastUpdated' },
+    { name: '_count', value: String(pageSize) },
+    { name: '_offset', value: String(offset) },
+  ];
 
-  const resources = await getResourcesFromBatchInlineRequests(oystehr, [query]);
+  if (params.status) searchParams.push({ name: '_tag', value: params.status });
+  if (params.dosFrom) searchParams.push({ name: 'created', value: `ge${params.dosFrom}` });
+  if (params.dosTo) searchParams.push({ name: 'created', value: `le${params.dosTo}` });
+  if (params.patientId) searchParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
+  if (params.payerName) searchParams.push({ name: 'insurer.name', value: params.payerName });
+  if (params.payerId) searchParams.push({ name: 'insurer.identifier', value: params.payerId });
 
+  // Use fhir.search directly to access Bundle.total for real pagination
+  const bundle = await oystehr.fhir.search<Claim>({ resourceType: 'Claim', params: searchParams });
+  const total = (bundle as unknown as Bundle).total ?? 0;
+
+  const resources = (bundle.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
   const claims = resources.filter((r) => r.resourceType === 'Claim') as Claim[];
   const patients = resources.filter((r) => r.resourceType === 'Patient') as Patient[];
   const orgs = resources.filter((r) => r.resourceType === 'Organization') as Organization[];
   const locations = resources.filter((r) => r.resourceType === 'Location') as Location[];
   const practitioners = resources.filter((r) => r.resourceType === 'Practitioner') as Practitioner[];
 
-  // Note: large coverage ID lists may hit URI length limits; chunking deferred until pageSize grows
+  // Batch-fetch coverages for the current page
   const coverageIds = claims
     .map((c) => {
       const sorted = [...(c.insurance ?? [])].sort((a, b) => a.sequence - b.sequence);
@@ -77,15 +88,17 @@ async function fetchClaims(
 
   let coverages: Coverage[] = [];
   if (uniqueCoverageIds.length > 0) {
-    const covResources = await getResourcesFromBatchInlineRequests(oystehr, [
-      `/Coverage?_id=${uniqueCoverageIds.join(',')}`,
-    ]);
-    coverages = covResources.filter((r) => r.resourceType === 'Coverage') as Coverage[];
+    const covResult = await oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: '_id', value: uniqueCoverageIds.join(',') }],
+    });
+    coverages = covResult.unbundle();
   }
 
   const lookups = { patients, orgs, locations, practitioners, coverages };
   let items = claims.map((claim) => mapClaimToItem(claim, lookups));
 
+  // In-memory text search on the current page only
   if (params.searchText) {
     const q = params.searchText.toLowerCase();
     items = items.filter(
@@ -99,7 +112,7 @@ async function fetchClaims(
     );
   }
 
-  return { claims: items, total: items.length, offset, pageSize };
+  return { claims: items, total, offset, pageSize };
 }
 
 interface ClaimLookups {
@@ -124,11 +137,10 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
   const patientName = patient?.name?.[0] ? convertFhirNameToDisplayName(patient.name[0]) : '';
 
   const serviceDate = claim.item?.[0]?.servicedPeriod?.start ?? claim.item?.[0]?.servicedDate ?? claim.created ?? '';
-  const status = getClaimStatus(claim);
 
   return {
     id: claim.id ?? '',
-    status,
+    status: getClaimStatus(claim),
     patientName,
     patientDob: patient?.birthDate ?? '',
     payerName: insurer?.name ?? '',

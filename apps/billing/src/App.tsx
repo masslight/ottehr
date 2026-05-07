@@ -6,6 +6,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useApiClients } from './hooks/useAppClients';
+import ClaimsList from './pages/ClaimsList';
 import Dashboard from './pages/Dashboard';
 import { theme } from './themes/ottehr';
 
@@ -32,6 +33,7 @@ export default function App(): ReactElement {
             }
           >
             <Route path="/" element={<Dashboard />} />
+            <Route path="/claims" element={<ClaimsList />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Route>
         </Routes>
