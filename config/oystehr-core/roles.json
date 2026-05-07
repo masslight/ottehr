@@ -167,6 +167,11 @@
           "resource": ["Terminology:Code:*"],
           "action": ["Terminology:SearchCodes"],
           "effect": "Allow"
+        },
+        {
+          "action": ["RCM:SearchPayer", "RCM:GetPayer"],
+          "effect": "Allow",
+          "resource": ["RCM:Payer"]
         }
       ]
     },
@@ -333,6 +338,11 @@
           "resource": ["Terminology:Code:*"],
           "action": ["Terminology:SearchCodes"],
           "effect": "Allow"
+        },
+        {
+          "action": ["RCM:SearchPayer", "RCM:GetPayer"],
+          "effect": "Allow",
+          "resource": ["RCM:Payer"]
         }
       ]
     },
@@ -444,6 +454,11 @@
           "resource": ["Terminology:Code:*"],
           "action": ["Terminology:SearchCodes"],
           "effect": "Allow"
+        },
+        {
+          "action": ["RCM:SearchPayer", "RCM:GetPayer"],
+          "effect": "Allow",
+          "resource": ["RCM:Payer"]
         }
       ]
     },
@@ -512,6 +527,11 @@
           "resource": ["Terminology:Code:*"],
           "action": ["Terminology:SearchCodes"],
           "effect": "Allow"
+        },
+        {
+          "action": ["RCM:SearchPayer", "RCM:GetPayer"],
+          "effect": "Allow",
+          "resource": ["RCM:Payer"]
         }
       ]
     },
@@ -621,6 +641,11 @@
           "resource": ["Terminology:Code:*"],
           "action": ["Terminology:SearchCodes"],
           "effect": "Allow"
+        },
+        {
+          "action": ["RCM:SearchPayer", "RCM:GetPayer"],
+          "effect": "Allow",
+          "resource": ["RCM:Payer"]
         }
       ]
     },
