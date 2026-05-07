@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
-import { NotificationMedium } from '../../../dunning-config/helpers';
+import { NotificationMedium } from '../../../scheduled-outreach-config/helpers';
 
 let m2mToken: string;
 

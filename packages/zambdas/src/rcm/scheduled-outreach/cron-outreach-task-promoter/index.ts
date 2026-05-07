@@ -3,7 +3,11 @@ import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { getOrCreateDunningConfig, parseSmsTimeRestriction, SmsTimeRestriction } from '../../dunning-config/helpers';
+import {
+  getOrCreateOutreachConfig,
+  parseSmsTimeRestriction,
+  SmsTimeRestriction,
+} from '../../scheduled-outreach-config/helpers';
 
 const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
 
@@ -18,7 +22,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createOystehrClient(m2mToken, input.secrets);
 
   // Load SMS time restriction from PlanDefinition
-  const planDefinition = await getOrCreateDunningConfig(oystehr);
+  const planDefinition = await getOrCreateOutreachConfig(oystehr);
   const smsRestriction = parseSmsTimeRestriction(planDefinition);
 
   // Find all draft tasks that are now due

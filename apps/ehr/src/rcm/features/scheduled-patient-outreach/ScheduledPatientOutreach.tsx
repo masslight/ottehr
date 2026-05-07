@@ -47,9 +47,9 @@ import { useEditor } from '@tiptap/react';
 import React, { ReactElement, useRef, useState } from 'react';
 import { TemplateEditorField } from 'src/rcm/features/invoicing/InvoiceTemplateEditor';
 import {
-  useGetDunningConfigQuery,
-  useSaveDunningConfigMutation,
-} from 'src/rcm/state/dunning-config/dunning-config.queries';
+  useGetOutreachConfigQuery,
+  useSaveOutreachConfigMutation,
+} from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.queries';
 import { buildInvoicePlaceholders, InvoicePlaceholderInput } from 'utils';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ interface ReferToCollectionsConfig {
   includePaymentHistory: boolean;
 }
 
-interface DunningAction {
+interface OutreachAction {
   id: string;
   trigger: {
     event: TriggerEvent;
@@ -177,7 +177,7 @@ const MEDIUM_CHIP_COLORS: Record<NotificationMedium, string> = {
 };
 
 /** Normalise a trigger offset to a day-equivalent value for colour selection. */
-function triggerToDayEquivalent(trigger: DunningAction['trigger']): number {
+function triggerToDayEquivalent(trigger: OutreachAction['trigger']): number {
   const unit = trigger.timeUnit || 'days';
   if (unit === 'hours') return trigger.daysAfter / 24;
   if (unit === 'minutes') return trigger.daysAfter / 1440;
@@ -185,21 +185,21 @@ function triggerToDayEquivalent(trigger: DunningAction['trigger']): number {
 }
 
 /** Returns a gradient background from light green (day 0) to light purple (day 90+). */
-function dayChipBackground(trigger: DunningAction['trigger']): string {
+function dayChipBackground(trigger: OutreachAction['trigger']): string {
   const t = Math.min(triggerToDayEquivalent(trigger) / 90, 1);
   // Interpolate HSL: green (140°) → purple (280°)
   const h = Math.round(140 + t * 140);
   return `hsl(${h}, 60%, 90%)`;
 }
 
-function dayChipTextColor(trigger: DunningAction['trigger']): string {
+function dayChipTextColor(trigger: OutreachAction['trigger']): string {
   const t = Math.min(triggerToDayEquivalent(trigger) / 90, 1);
   const h = Math.round(140 + t * 140);
   return `hsl(${h}, 50%, 30%)`;
 }
 
 /** Formats the trigger timing for display in chips and summaries. */
-function formatTriggerTiming(trigger: DunningAction['trigger']): { chipLabel: string; afterLabel: string } {
+function formatTriggerTiming(trigger: OutreachAction['trigger']): { chipLabel: string; afterLabel: string } {
   const unit = trigger.timeUnit || 'days';
   const direction = trigger.direction || 'after';
   const value = trigger.daysAfter;
@@ -229,7 +229,7 @@ interface ActionMediumsSummary {
   isChargeCard: boolean;
 }
 
-function getActionMediumsSummary(action: DunningAction): ActionMediumsSummary {
+function getActionMediumsSummary(action: OutreachAction): ActionMediumsSummary {
   if (action.actionType === 'charge-card' && action.chargeCardConfig) {
     const c = action.chargeCardConfig;
     const successMediums = c.onSuccess.enabled ? c.onSuccess.mediums : [];
@@ -286,7 +286,7 @@ function genId(): string {
   return crypto.randomUUID();
 }
 
-function buildDefaultConfig(actionType: ActionType): Partial<DunningAction> {
+function buildDefaultConfig(actionType: ActionType): Partial<OutreachAction> {
   switch (actionType) {
     case 'charge-card':
       return {
@@ -319,7 +319,7 @@ function buildDefaultConfig(actionType: ActionType): Partial<DunningAction> {
 // ── Sub-components ─────────────────────────────────────────────────────────
 
 /** Wrapper around TemplateEditorField that manages its own editor ref. */
-function DunningTemplateField({
+function OutreachTemplateField({
   label,
   value,
   onChange,
@@ -381,10 +381,10 @@ function MediumTemplateEditors({
   return (
     <Stack spacing={2} sx={{ mt: 1 }}>
       {mediums.includes('sms') && (
-        <DunningTemplateField label="SMS Template" value={smsTemplate} onChange={onSmsChange} />
+        <OutreachTemplateField label="SMS Template" value={smsTemplate} onChange={onSmsChange} />
       )}
       {mediums.includes('email') && (
-        <DunningTemplateField label="Email Template" value={emailTemplate} onChange={onEmailChange} />
+        <OutreachTemplateField label="Email Template" value={emailTemplate} onChange={onEmailChange} />
       )}
     </Stack>
   );
@@ -451,14 +451,14 @@ function ChannelTabs({
                 }
               />
               {isMediumEnabled(m) && m === 'sms' && (
-                <DunningTemplateField
+                <OutreachTemplateField
                   label="SMS Template"
                   value={config.smsTemplate}
                   onChange={(smsTemplate) => onChange({ ...config, smsTemplate })}
                 />
               )}
               {isMediumEnabled(m) && m === 'email' && (
-                <DunningTemplateField
+                <OutreachTemplateField
                   label="Email Template"
                   value={config.emailTemplate}
                   onChange={(emailTemplate) => onChange({ ...config, emailTemplate })}
@@ -636,8 +636,8 @@ function ActionConfigEditor({
   action,
   onChange,
 }: {
-  action: DunningAction;
-  onChange: (a: DunningAction) => void;
+  action: OutreachAction;
+  onChange: (a: OutreachAction) => void;
 }): ReactElement {
   switch (action.actionType) {
     case 'charge-card':
@@ -666,10 +666,10 @@ function ActionConfigEditor({
 
 // ── Main Component ─────────────────────────────────────────────────────────
 
-export default function PatientDunning(): ReactElement {
-  const { data: dunningConfigData, isLoading, error: loadError } = useGetDunningConfigQuery();
-  const saveMutation = useSaveDunningConfigMutation();
-  const [actions, setActions] = React.useState<DunningAction[]>([]);
+export default function ScheduledPatientOutreach(): ReactElement {
+  const { data: outreachConfigData, isLoading, error: loadError } = useGetOutreachConfigQuery();
+  const saveMutation = useSaveOutreachConfigMutation();
+  const [actions, setActions] = React.useState<OutreachAction[]>([]);
   const [hasLoadedFromServer, setHasLoadedFromServer] = React.useState(false);
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [newActionType, setNewActionType] = React.useState<ActionType>('send-notification');
@@ -677,7 +677,7 @@ export default function PatientDunning(): ReactElement {
   const [newDaysAfter, setNewDaysAfter] = React.useState(0);
   const [newTimeUnit, setNewTimeUnit] = React.useState<TimeUnit>('days');
   const [newDirection, setNewDirection] = React.useState<TriggerDirection>('after');
-  const [deleteConfirmAction, setDeleteConfirmAction] = React.useState<DunningAction | null>(null);
+  const [deleteConfirmAction, setDeleteConfirmAction] = React.useState<OutreachAction | null>(null);
   const [settingsDialogOpen, setSettingsDialogOpen] = React.useState(false);
   const [expandedBlocks, setExpandedBlocks] = React.useState<Set<TriggerEvent>>(
     new Set(Object.keys(TRIGGER_EVENT_LABELS) as TriggerEvent[])
@@ -697,12 +697,12 @@ export default function PatientDunning(): ReactElement {
 
   // Load actions and settings from server when data arrives
   React.useEffect(() => {
-    if (dunningConfigData && !hasLoadedFromServer) {
-      if (dunningConfigData.actions && dunningConfigData.actions.length > 0) {
-        setActions(dunningConfigData.actions as DunningAction[]);
+    if (outreachConfigData && !hasLoadedFromServer) {
+      if (outreachConfigData.actions && outreachConfigData.actions.length > 0) {
+        setActions(outreachConfigData.actions as OutreachAction[]);
       }
-      if (dunningConfigData.smsTimeRestriction) {
-        const r = dunningConfigData.smsTimeRestriction;
+      if (outreachConfigData.smsTimeRestriction) {
+        const r = outreachConfigData.smsTimeRestriction;
         setSmsTimeRestrictionEnabled(r.enabled);
         setSmsAllowedAfter(r.windowStart);
         setSmsAllowedBefore(r.windowEnd);
@@ -710,7 +710,7 @@ export default function PatientDunning(): ReactElement {
       }
       setHasLoadedFromServer(true);
     }
-  }, [dunningConfigData, hasLoadedFromServer]);
+  }, [outreachConfigData, hasLoadedFromServer]);
 
   const sortedActions = React.useMemo(() => {
     const eventOrder: Record<TriggerEvent, number> = {
@@ -725,7 +725,7 @@ export default function PatientDunning(): ReactElement {
     );
   }, [actions]);
 
-  const updateAction = (updated: DunningAction): void => {
+  const updateAction = (updated: OutreachAction): void => {
     setActions((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
   };
 
@@ -736,7 +736,7 @@ export default function PatientDunning(): ReactElement {
   };
 
   const handleAddAction = (): void => {
-    const action: DunningAction = {
+    const action: OutreachAction = {
       id: genId(),
       trigger: {
         event: newTriggerEvent,
@@ -768,11 +768,11 @@ export default function PatientDunning(): ReactElement {
     timezone: smsTimezone,
   });
 
-  const saveActions = (actionsToSave: DunningAction[]): void => {
+  const saveActions = (actionsToSave: OutreachAction[]): void => {
     saveMutation.mutate(
       { actions: actionsToSave, smsTimeRestriction: buildSmsTimeRestriction() },
       {
-        onSuccess: () => setSnackbar({ open: true, message: 'Dunning configuration saved', severity: 'success' }),
+        onSuccess: () => setSnackbar({ open: true, message: 'Outreach configuration saved', severity: 'success' }),
         onError: (err) => setSnackbar({ open: true, message: `Failed to save: ${err.message}`, severity: 'error' }),
       }
     );
@@ -793,7 +793,7 @@ export default function PatientDunning(): ReactElement {
   if (loadError) {
     return (
       <Box sx={{ mt: 2 }}>
-        <Alert severity="error">Failed to load dunning configuration: {loadError.message}</Alert>
+        <Alert severity="error">Failed to load outreach configuration: {loadError.message}</Alert>
       </Box>
     );
   }
@@ -882,7 +882,7 @@ export default function PatientDunning(): ReactElement {
       {sortedActions.length === 0 && (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">
-            No dunning actions configured. Click "Add Action" to get started.
+            No outreach actions configured. Click "Add Action" to get started.
           </Typography>
         </Paper>
       )}
@@ -1210,7 +1210,7 @@ export default function PatientDunning(): ReactElement {
 
       {/* ── Delete Confirmation Dialog ─────────────────────────────────── */}
       <Dialog open={deleteConfirmAction !== null} onClose={() => setDeleteConfirmAction(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete Dunning Action</DialogTitle>
+        <DialogTitle>Delete Outreach Action</DialogTitle>
         <DialogContent>
           {deleteConfirmAction &&
             (() => {
@@ -1362,7 +1362,7 @@ export default function PatientDunning(): ReactElement {
 
       {/* ── Add Action Dialog ──────────────────────────────────────────── */}
       <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Add Dunning Action</DialogTitle>
+        <DialogTitle>Add Outreach Action</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <FormControl size="small" fullWidth>
@@ -1557,16 +1557,16 @@ export default function PatientDunning(): ReactElement {
         </Alert>
       </Snackbar>
 
-      {dunningConfigData?.planDefinition?.id && <DunningConfigId value={dunningConfigData.planDefinition.id} />}
+      {outreachConfigData?.planDefinition?.id && <OutreachConfigId value={outreachConfigData.planDefinition.id} />}
     </Box>
   );
 }
 
 // ---------------------------------------------------------------------------
-// DunningConfigId — copyable FHIR resource ID footer
+// OutreachConfigId — copyable FHIR resource ID footer
 // ---------------------------------------------------------------------------
 
-function DunningConfigId({ value }: { value: string }): ReactElement {
+function OutreachConfigId({ value }: { value: string }): ReactElement {
   const [copied, setCopied] = React.useState(false);
 
   const handleCopy = (): void => {
@@ -1591,7 +1591,7 @@ function DunningConfigId({ value }: { value: string }): ReactElement {
           fontFamily: 'monospace',
         }}
       >
-        Dunning Configuration ID: {value}
+        Outreach Configuration ID: {value}
         {copied ? (
           <CheckIcon sx={{ fontSize: 13, color: 'success.main' }} />
         ) : (

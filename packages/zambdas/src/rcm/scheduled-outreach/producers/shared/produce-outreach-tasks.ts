@@ -4,11 +4,11 @@ import { DateTime } from 'luxon';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import {
   ActionType,
-  DunningAction,
-  getOrCreateDunningConfig,
+  getOrCreateOutreachConfig,
+  OutreachAction,
   parsePlanDefinitionToActions,
   TriggerEvent,
-} from '../../../dunning-config/helpers';
+} from '../../../scheduled-outreach-config/helpers';
 
 const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 export const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
@@ -35,7 +35,7 @@ export interface OutreachTaskResult {
 export async function produceOutreachTasks(params: ProduceOutreachTasksParams): Promise<OutreachTaskResult> {
   const { triggerEvent, patient, focus, eventTimestamp, oystehr } = params;
 
-  const planDefinition = await getOrCreateDunningConfig(oystehr);
+  const planDefinition = await getOrCreateOutreachConfig(oystehr);
   const actions = parsePlanDefinitionToActions(planDefinition);
 
   const matchingActions = actions.filter((a) => a.trigger.event === triggerEvent);
@@ -74,7 +74,7 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
 /**
  * Calculate the absolute due datetime from event timestamp + action offset.
  */
-function calculateDueDateTime(eventTimestamp: string, action: DunningAction): string {
+function calculateDueDateTime(eventTimestamp: string, action: OutreachAction): string {
   const eventDt = DateTime.fromISO(eventTimestamp);
   const timeUnit = action.trigger.timeUnit || 'days';
   const direction = action.trigger.direction || 'after';
@@ -116,7 +116,7 @@ function extractActionIdFromTask(task: Task): string | undefined {
  * Build a draft FHIR Task for a single outreach action.
  */
 function buildOutreachTask(
-  action: DunningAction,
+  action: OutreachAction,
   planDefinition: PlanDefinition,
   patient: Reference,
   focus: Reference,
@@ -158,7 +158,7 @@ function buildOutreachTask(
  * Encode the action details into Task.input so the executor has everything
  * it needs without re-reading the PlanDefinition.
  */
-function buildTaskInput(action: DunningAction): Task['input'] {
+function buildTaskInput(action: OutreachAction): Task['input'] {
   const inputs: Task['input'] = [
     {
       type: { text: 'action-id' },

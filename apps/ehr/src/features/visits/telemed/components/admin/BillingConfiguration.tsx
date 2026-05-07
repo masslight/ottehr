@@ -20,7 +20,7 @@ import React, { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BILLING_URL, PAYMENT_LOCATIONS_URL } from 'src/App';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
-import PatientDunning from 'src/rcm/features/patient-dunning/PatientDunning';
+import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
 import { PaymentLocation } from 'src/rcm/state/payments/payments.api';
 import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
 import FeeSchedule from './ChargeItemList';
@@ -193,7 +193,7 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
           <Invoicing />
         </TabPanel>
         <TabPanel value="patient-ar" sx={{ padding: 0 }}>
-          <PatientDunning />
+          <ScheduledPatientOutreach />
         </TabPanel>
       </TabContext>
     </Box>

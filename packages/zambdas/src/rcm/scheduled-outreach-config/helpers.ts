@@ -5,9 +5,9 @@ import { rcmMeta } from '../../shared';
 
 const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 
-export const DUNNING_PLAN_DEFINITION_URL = 'https://ottehr.com/r4/PlanDefinition/patient-dunning-workflow';
+export const OUTREACH_PLAN_DEFINITION_URL = 'https://ottehr.com/r4/PlanDefinition/scheduled-patient-outreach-workflow';
 
-// ── UI types (mirrored from PatientDunning.tsx) ────────────────────────────
+// ── UI types (mirrored from ScheduledPatientOutreach.tsx) ────────────────────────────
 
 export type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due' | 'discharge-time' | 'patient-birthday';
 export type NotificationMedium = 'sms' | 'email' | 'paper-mail';
@@ -48,7 +48,7 @@ export interface SmsTimeRestriction {
   timezone: string;
 }
 
-export interface DunningAction {
+export interface OutreachAction {
   id: string;
   trigger: {
     event: TriggerEvent;
@@ -95,7 +95,7 @@ export function parseSmsTimeRestriction(planDef: PlanDefinition): SmsTimeRestric
 
 // ── FHIR code systems ──────────────────────────────────────────────────────
 
-const ACTION_TYPE_SYSTEM = 'https://ottehr.com/CodeSystem/dunning-action-type';
+const ACTION_TYPE_SYSTEM = 'https://ottehr.com/CodeSystem/outreach-action-type';
 const MEDIUM_SYSTEM = 'https://ottehr.com/CodeSystem/notification-medium';
 const COLLECTIONS_AGENCY_SYSTEM = 'https://ottehr.com/CodeSystem/collections-agency';
 
@@ -119,7 +119,7 @@ const TIME_UNIT_TO_FHIR: Record<TimeUnit, { unit: string; code: string }> = {
   minutes: { unit: 'minutes', code: 'min' },
 };
 
-function buildOffsetDuration(trigger: DunningAction['trigger']): any {
+function buildOffsetDuration(trigger: OutreachAction['trigger']): any {
   const timeUnit = trigger.timeUnit || 'days';
   const fhirUnit = TIME_UNIT_TO_FHIR[timeUnit];
   return {
@@ -130,7 +130,7 @@ function buildOffsetDuration(trigger: DunningAction['trigger']): any {
   };
 }
 
-function buildRelatedAction(trigger: DunningAction['trigger']): any[] | undefined {
+function buildRelatedAction(trigger: OutreachAction['trigger']): any[] | undefined {
   if (trigger.daysAfter <= 0 && (!trigger.direction || trigger.direction === 'after')) return undefined;
   return [
     {
@@ -199,7 +199,7 @@ function buildNotificationSubActions(
   });
 }
 
-function buildChargeCardFhirAction(uiAction: DunningAction): any {
+function buildChargeCardFhirAction(uiAction: OutreachAction): any {
   const cfg = uiAction.chargeCardConfig!;
   const subActions: any[] = [];
 
@@ -286,7 +286,7 @@ function buildChargeCardFhirAction(uiAction: DunningAction): any {
   };
 }
 
-function buildSendNotificationFhirAction(uiAction: DunningAction): any {
+function buildSendNotificationFhirAction(uiAction: OutreachAction): any {
   const cfg = uiAction.sendNotificationConfig!;
   return {
     id: uiAction.id,
@@ -312,7 +312,7 @@ function buildSendNotificationFhirAction(uiAction: DunningAction): any {
   };
 }
 
-function buildReferToCollectionsFhirAction(uiAction: DunningAction): any {
+function buildReferToCollectionsFhirAction(uiAction: OutreachAction): any {
   const cfg = uiAction.referToCollectionsConfig!;
   return {
     id: uiAction.id,
@@ -377,7 +377,7 @@ function buildReferToCollectionsFhirAction(uiAction: DunningAction): any {
   };
 }
 
-function uiActionToFhirAction(uiAction: DunningAction): any {
+function uiActionToFhirAction(uiAction: OutreachAction): any {
   switch (uiAction.actionType) {
     case 'charge-card':
       return buildChargeCardFhirAction(uiAction);
@@ -389,17 +389,17 @@ function uiActionToFhirAction(uiAction: DunningAction): any {
 }
 
 export function buildPlanDefinitionFromActions(
-  actions: DunningAction[],
+  actions: OutreachAction[],
   smsTimeRestriction?: SmsTimeRestriction
 ): Omit<PlanDefinition, 'id'> {
   return {
     resourceType: 'PlanDefinition',
-    url: DUNNING_PLAN_DEFINITION_URL,
+    url: OUTREACH_PLAN_DEFINITION_URL,
     version: '1.0.0',
-    name: 'PatientDunningWorkflow',
-    title: 'Patient AR Dunning Workflow',
+    name: 'ScheduledPatientOutreachWorkflow',
+    title: 'Scheduled Patient Outreach Workflow',
     status: 'active',
-    meta: rcmMeta('dunning-config'),
+    meta: rcmMeta('scheduled-outreach-config'),
     ...(smsTimeRestriction ? { extension: buildSmsTimeRestrictionExtension(smsTimeRestriction) } : {}),
     type: {
       coding: [
@@ -411,7 +411,7 @@ export function buildPlanDefinitionFromActions(
       ],
     },
     description:
-      'Automated patient accounts receivable dunning workflow. Actions are triggered relative to billing events and executed in sequence by offset days.',
+      'Automated patient outreach workflow. Actions are triggered relative to billing events and executed in sequence by offset days.',
     purpose:
       'To automate patient balance collection through a series of escalating actions including card charges, notifications, and collections referral.',
     useContext: [
@@ -436,7 +436,7 @@ export function buildPlanDefinitionFromActions(
       {
         coding: [
           {
-            system: 'https://ottehr.com/CodeSystem/dunning-topic',
+            system: 'https://ottehr.com/CodeSystem/outreach-topic',
             code: 'patient-collections',
             display: 'Patient Collections',
           },
@@ -481,7 +481,7 @@ function extractDirection(fhirAction: any): TriggerDirection | undefined {
   return undefined;
 }
 
-function extractTrigger(fhirAction: any): DunningAction['trigger'] {
+function extractTrigger(fhirAction: any): OutreachAction['trigger'] {
   const event = extractTriggerEvent(fhirAction);
   const daysAfter = extractDaysAfter(fhirAction);
   const timeUnit = extractTimeUnit(fhirAction);
@@ -524,7 +524,7 @@ function parseNotificationConfig(outcomeAction: any): NotificationConfig {
   return { enabled: true, mediums, smsTemplate, emailTemplate };
 }
 
-function parseChargeCardAction(fhirAction: any): DunningAction {
+function parseChargeCardAction(fhirAction: any): OutreachAction {
   const successAction = fhirAction.action?.find(
     (a: any) => a.condition?.some((c: any) => c.expression?.expression?.includes("'success'"))
   );
@@ -545,7 +545,7 @@ function parseChargeCardAction(fhirAction: any): DunningAction {
   };
 }
 
-function parseSendNotificationAction(fhirAction: any): DunningAction {
+function parseSendNotificationAction(fhirAction: any): OutreachAction {
   const { mediums, smsTemplate, emailTemplate } = extractMediumsAndTemplates(fhirAction.action);
   return {
     id: fhirAction.id || String(Date.now()),
@@ -555,7 +555,7 @@ function parseSendNotificationAction(fhirAction: any): DunningAction {
   };
 }
 
-function parseReferToCollectionsAction(fhirAction: any): DunningAction {
+function parseReferToCollectionsAction(fhirAction: any): OutreachAction {
   const agency = fhirAction.participant?.[0]?.role?.coding?.[0]?.display ?? '';
   const balanceExpr = fhirAction.condition?.find((c: any) => c.kind === 'applicability')?.expression?.expression ?? '';
   const balanceMatch = balanceExpr.match(/%balance\s*>=\s*(\d+)/);
@@ -570,7 +570,7 @@ function parseReferToCollectionsAction(fhirAction: any): DunningAction {
   };
 }
 
-export function parsePlanDefinitionToActions(planDef: PlanDefinition): DunningAction[] {
+export function parsePlanDefinitionToActions(planDef: PlanDefinition): OutreachAction[] {
   if (!planDef.action) return [];
   return planDef.action.map((fhirAction: any) => {
     const actionType = extractActionType(fhirAction);
@@ -594,15 +594,15 @@ function buildDefaultPlanDefinition(): Omit<PlanDefinition, 'id'> {
 }
 
 /**
- * Finds the existing dunning config PlanDefinition.
+ * Finds the existing outreach config PlanDefinition.
  * If it doesn't exist, creates one with defaults.
  * Guarantees at most one PlanDefinition exists; logs a warning if duplicates are detected.
  */
-export async function getOrCreateDunningConfig(oystehr: Oystehr): Promise<PlanDefinition> {
+export async function getOrCreateOutreachConfig(oystehr: Oystehr): Promise<PlanDefinition> {
   const bundle = await oystehr.fhir.search<PlanDefinition>({
     resourceType: 'PlanDefinition',
     params: [
-      { name: '_tag', value: `${RCM_TAG_SYSTEM}|dunning-config` },
+      { name: '_tag', value: `${RCM_TAG_SYSTEM}|scheduled-outreach-config` },
       { name: '_tag', value: `${RCM_TAG_SYSTEM}|rcm` },
     ],
   });
@@ -610,13 +610,13 @@ export async function getOrCreateDunningConfig(oystehr: Oystehr): Promise<PlanDe
 
   if (results.length > 1) {
     const ids = results.map((r) => r.id).join(', ');
-    console.warn(`Found ${results.length} dunning config PlanDefinitions (expected 1). Using the first. IDs: ${ids}`);
+    console.warn(`Found ${results.length} outreach config PlanDefinitions (expected 1). Using the first. IDs: ${ids}`);
   }
 
   if (results.length > 0) {
     return results[0];
   }
 
-  console.log('No dunning config PlanDefinition found, creating one with defaults');
+  console.log('No outreach config PlanDefinition found, creating one with defaults');
   return await oystehr.fhir.create<PlanDefinition>(buildDefaultPlanDefinition());
 }

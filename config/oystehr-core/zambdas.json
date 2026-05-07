@@ -1868,19 +1868,19 @@
       "src": "src/rcm/invoice-config/save-invoice-config/index",
       "zip": ".dist/zips/save-invoice-config.zip"
     },
-    "GET-DUNNING-CONFIG": {
-      "name": "get-dunning-config",
+    "GET-SCHEDULED-OUTREACH-CONFIG": {
+      "name": "get-scheduled-outreach-config",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/rcm/dunning-config/get-dunning-config/index",
-      "zip": ".dist/zips/get-dunning-config.zip"
+      "src": "src/rcm/scheduled-outreach-config/get-scheduled-outreach-config/index",
+      "zip": ".dist/zips/get-scheduled-outreach-config.zip"
     },
-    "SAVE-DUNNING-CONFIG": {
-      "name": "save-dunning-config",
+    "SAVE-SCHEDULED-OUTREACH-CONFIG": {
+      "name": "save-scheduled-outreach-config",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/rcm/dunning-config/save-dunning-config/index",
-      "zip": ".dist/zips/save-dunning-config.zip"
+      "src": "src/rcm/scheduled-outreach-config/save-scheduled-outreach-config/index",
+      "zip": ".dist/zips/save-scheduled-outreach-config.zip"
     },
     "PRODUCE-OUTREACH-DISCHARGE-TASKS": {
       "name": "produce-outreach-discharge-tasks",

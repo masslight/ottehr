@@ -2,8 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { PlanDefinition } from 'fhir/r4b';
 import { chooseJson } from 'utils';
 
-const GET_DUNNING_CONFIG_ZAMBDA_ID = 'get-dunning-config';
-const SAVE_DUNNING_CONFIG_ZAMBDA_ID = 'save-dunning-config';
+const GET_OUTREACH_CONFIG_ZAMBDA_ID = 'get-scheduled-outreach-config';
+const SAVE_OUTREACH_CONFIG_ZAMBDA_ID = 'save-scheduled-outreach-config';
 
 export interface SmsTimeRestrictionDTO {
   enabled: boolean;
@@ -12,9 +12,9 @@ export interface SmsTimeRestrictionDTO {
   timezone: string;
 }
 
-export interface DunningConfigResponse {
+export interface OutreachConfigResponse {
   planDefinition: PlanDefinition;
-  actions: DunningActionDTO[];
+  actions: OutreachActionDTO[];
   smsTimeRestriction?: SmsTimeRestrictionDTO;
 }
 
@@ -50,7 +50,7 @@ export interface ReferToCollectionsConfigDTO {
   includePaymentHistory: boolean;
 }
 
-export interface DunningActionDTO {
+export interface OutreachActionDTO {
   id: string;
   trigger: {
     event: TriggerEvent;
@@ -64,15 +64,15 @@ export interface DunningActionDTO {
   referToCollectionsConfig?: ReferToCollectionsConfigDTO;
 }
 
-export interface SaveDunningConfigInput {
-  actions: DunningActionDTO[];
+export interface SaveOutreachConfigInput {
+  actions: OutreachActionDTO[];
   smsTimeRestriction?: SmsTimeRestrictionDTO;
 }
 
-export const getDunningConfig = async (oystehr: Oystehr): Promise<DunningConfigResponse> => {
+export const getOutreachConfig = async (oystehr: Oystehr): Promise<OutreachConfigResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: GET_DUNNING_CONFIG_ZAMBDA_ID,
+      id: GET_OUTREACH_CONFIG_ZAMBDA_ID,
     });
     return chooseJson(response);
   } catch (error: unknown) {
@@ -81,13 +81,13 @@ export const getDunningConfig = async (oystehr: Oystehr): Promise<DunningConfigR
   }
 };
 
-export const saveDunningConfig = async (
+export const saveOutreachConfig = async (
   oystehr: Oystehr,
-  parameters: SaveDunningConfigInput
-): Promise<DunningConfigResponse> => {
+  parameters: SaveOutreachConfigInput
+): Promise<OutreachConfigResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: SAVE_DUNNING_CONFIG_ZAMBDA_ID,
+      id: SAVE_OUTREACH_CONFIG_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

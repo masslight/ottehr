@@ -2,16 +2,16 @@ import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, MIS
 import { ZambdaInput } from '../../../shared';
 import {
   ActionType,
-  DunningAction,
   NotificationMedium,
+  OutreachAction,
   SmsTimeRestriction,
   TimeUnit,
   TriggerDirection,
   TriggerEvent,
 } from '../helpers';
 
-export interface SaveDunningConfigInput {
-  actions: DunningAction[];
+export interface SaveOutreachConfigInput {
+  actions: OutreachAction[];
   smsTimeRestriction?: SmsTimeRestriction;
   secrets: Record<string, string>;
 }
@@ -31,7 +31,7 @@ const VALID_DIRECTIONS: TriggerDirection[] = ['after', 'before'];
 /** Events that only allow send-notification. */
 const NOTIFICATION_ONLY_EVENTS: TriggerEvent[] = ['discharge-time', 'patient-birthday'];
 
-function validateAction(action: unknown, index: number): DunningAction {
+function validateAction(action: unknown, index: number): OutreachAction {
   if (!action || typeof action !== 'object') {
     throw INVALID_INPUT_ERROR(`actions[${index}] must be an object`);
   }
@@ -110,10 +110,10 @@ function validateAction(action: unknown, index: number): DunningAction {
     }
   }
 
-  return a as unknown as DunningAction;
+  return a as unknown as OutreachAction;
 }
 
-export function validateRequestParameters(input: ZambdaInput): SaveDunningConfigInput {
+export function validateRequestParameters(input: ZambdaInput): SaveOutreachConfigInput {
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
