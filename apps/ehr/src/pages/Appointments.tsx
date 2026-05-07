@@ -28,12 +28,31 @@ import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { LocationWithWalkinSchedule } from './AddPatient';
 
-export const visitTypeToLabel: Record<string, string> = {
+const ALL_VISIT_TYPE_LABELS: Record<string, string> = {
   'in-person-walk-in': 'Walk-in In Person Visit',
   'in-person-pre-booked': 'Pre-booked In Person Visit',
   'in-person-post-telemed': 'Post Telemed Lab Only',
   'virtual-walk-in': 'On-demand Telemed',
   'virtual-pre-booked': 'Pre-booked Telemed',
+};
+
+// get-appointments uses `[in-person|virtual]-[AppointmentTypeOptions]` to filter keys
+// this map bridges that with ALL_VISIT_TYPE_LABELS so we can filter only the options configured for the project
+const FILTER_KEY_TO_BOOKING_OPTION_ID: Record<string, string> = {
+  'in-person-walk-in': 'in-person-walk-in',
+  'in-person-pre-booked': 'in-person-pre-booked',
+  'in-person-post-telemed': 'in-person-post-telemed',
+  'virtual-walk-in': 'virtual-on-demand',
+  'virtual-pre-booked': 'virtual-scheduled',
+};
+
+const getVisitTypeToLabel = (): Record<string, string> => {
+  const enabledBookingOptionIds = new Set(BOOKING_CONFIG.ehrBookingOptions.map((opt) => opt.id));
+  return Object.fromEntries(
+    Object.entries(ALL_VISIT_TYPE_LABELS).filter(([key]) =>
+      enabledBookingOptionIds.has(FILTER_KEY_TO_BOOKING_OPTION_ID[key])
+    )
+  );
 };
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
@@ -123,6 +142,8 @@ export default function Appointments(): ReactElement {
     encounterIds: [...inOfficeEncounterIds, ...completedEncounterIds],
   });
 
+  const visitTypeToLabel = useMemo(() => getVisitTypeToLabel(), []);
+
   useEffect(() => {
     const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');
     if (selectedVisitTypes) {
@@ -131,7 +152,7 @@ export default function Appointments(): ReactElement {
     } else {
       queryParams?.set('visitType', Object.keys(visitTypeToLabel).join(','));
     }
-  }, [navigate, queryParams]);
+  }, [navigate, queryParams, visitTypeToLabel]);
 
   useEffect(() => {
     if (localStorage.getItem('selectedProviders')) {
@@ -284,6 +305,7 @@ export default function Appointments(): ReactElement {
       queryParams={queryParams}
       handleSubmit={handleSubmit}
       visitType={visitType}
+      visitTypeToLabel={visitTypeToLabel}
       providers={providers}
       serviceCategories={serviceCategories}
       preBookedAppointments={preBookedAppointments}
@@ -315,6 +337,7 @@ interface AppointmentsBodyProps {
   handleSubmit: CustomFormEventHandler;
   queryParams?: URLSearchParams;
   visitType: string[];
+  visitTypeToLabel: Record<string, string>;
   providers: string[];
   serviceCategories: string[];
   setLocationSelected: (location: LocationWithWalkinSchedule | undefined) => void;
@@ -337,6 +360,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     setLocationSelected,
     appointmentDate,
     visitType,
+    visitTypeToLabel,
     providers,
     serviceCategories,
     practitioners,
