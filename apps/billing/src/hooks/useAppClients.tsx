@@ -20,8 +20,9 @@ export function useApiClients(): ApiClientsState {
     if (!oystehrZambda || oystehrZambda.config.accessToken !== token) {
       const config: ConstructorParameters<typeof Oystehr>[0] = {
         accessToken: token,
-        projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
+        projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL,
         projectId: import.meta.env.VITE_APP_PROJECT_ID,
+        retry: { retries: 0 },
       };
       if (import.meta.env.VITE_APP_IS_LOCAL === 'true') {
         config.services = {
