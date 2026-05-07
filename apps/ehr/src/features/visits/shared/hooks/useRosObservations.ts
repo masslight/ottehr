@@ -64,17 +64,15 @@ export function useRosObservations(field?: string): {
           {
             onSuccess: (data) => {
               if (data.chartData.rosObservations) {
+                const returned = data.chartData.rosObservations;
                 // If the user toggled back to false while the save was in-flight, the
                 // resourceId was unknown at uncheck time so no delete was sent. Now that
                 // we have the resourceId from the server, send the delete and skip the
                 // overwrite; otherwise merge the server response (with resourceIds).
                 const currentState = useRosObservationsStore.getState();
-                const stillTrue = data.chartData.rosObservations.filter(
-                  (obs) => currentState[obs.field]?.value === true
-                );
-                const needsDelete = data.chartData.rosObservations.filter(
-                  (obs) => currentState[obs.field]?.value !== true && obs.resourceId
-                );
+                const stillTrue = returned.filter((obs) => currentState[obs.field]?.value === true);
+                const needsDelete = returned.filter((obs) => currentState[obs.field]?.value !== true && obs.resourceId);
+
                 if (stillTrue.length > 0) {
                   useRosObservationsStore.setState(arrayToObject(stillTrue));
                 }

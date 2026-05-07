@@ -11,6 +11,7 @@ import {
   FormControlLabel,
   Grid,
   InputLabel,
+  ListItemText,
   MenuItem,
   Paper,
   Select,
@@ -506,20 +507,20 @@ function PendingReviewActions({ employee }: PendingReviewActionsProps): ReactEle
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   const [assignOpen, setAssignOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<RoleType | ''>('');
+  const [selectedRoles, setSelectedRoles] = useState<RoleType[]>([]);
 
   const assignMutation = useMutation({
-    mutationFn: async (role: RoleType) => {
+    mutationFn: async (roles: RoleType[]) => {
       if (!oystehrZambda) throw new Error('Zambda Client not found');
       return updateUser(oystehrZambda, {
         userId: employee.id,
-        selectedRoles: [role],
+        selectedRoles: roles,
       });
     },
     onSuccess: async () => {
       enqueueSnackbar('Role assigned successfully.', { variant: 'success' });
       setAssignOpen(false);
-      setSelectedRole('');
+      setSelectedRoles([]);
       await queryClient.invalidateQueries({ queryKey: ['get-employees'] });
     },
     onError: () => {
@@ -584,7 +585,7 @@ function PendingReviewActions({ employee }: PendingReviewActionsProps): ReactEle
         open={assignOpen}
         handleClose={() => {
           setAssignOpen(false);
-          setSelectedRole('');
+          setSelectedRoles([]);
         }}
         dataTestId={dataTestIds.employeesPage.assignRoleDialog}
         title="Assign role"
@@ -595,13 +596,25 @@ function PendingReviewActions({ employee }: PendingReviewActionsProps): ReactEle
               <Select
                 labelId="assign-role-label"
                 label="Role"
-                value={selectedRole}
+                multiple
+                value={selectedRoles}
                 inputProps={{ 'data-testid': dataTestIds.employeesPage.assignRoleSelect }}
-                onChange={(e) => setSelectedRole(e.target.value as RoleType)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedRoles(
+                    typeof value === 'string' ? (value.split(',') as RoleType[]) : (value as RoleType[])
+                  );
+                }}
+                renderValue={(selected) =>
+                  AVAILABLE_EMPLOYEE_ROLES.filter((role) => (selected as RoleType[]).includes(role.value))
+                    .map((role) => role.label)
+                    .join(', ')
+                }
               >
                 {AVAILABLE_EMPLOYEE_ROLES.map((role) => (
                   <MenuItem key={role.value} value={role.value}>
-                    {role.label}
+                    <Checkbox checked={selectedRoles.includes(role.value)} />
+                    <ListItemText primary={role.label} />
                   </MenuItem>
                 ))}
               </Select>
@@ -610,11 +623,11 @@ function PendingReviewActions({ employee }: PendingReviewActionsProps): ReactEle
         }
         closeButtonText="Cancel"
         confirmText="Save"
-        disabled={!selectedRole}
+        disabled={selectedRoles.length === 0}
         confirmLoading={assignMutation.isPending}
         handleConfirm={() => {
-          if (selectedRole) {
-            assignMutation.mutate(selectedRole);
+          if (selectedRoles.length > 0) {
+            assignMutation.mutate(selectedRoles);
           }
         }}
       />
