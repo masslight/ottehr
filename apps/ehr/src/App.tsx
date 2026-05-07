@@ -228,6 +228,7 @@ function App(): ReactElement {
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
                 <Route path="/admin/:adminTab" element={<AdminPage />} />
+                <Route path="/admin/:adminTab/:subTab" element={<AdminPage />} />
                 <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
                 <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
                 <Route
