@@ -4,8 +4,10 @@ import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useMemo, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { buildFollowUpAppointmentLookup } from 'src/features/visits/in-person/routing/helpers';
+import { useGetPatientVisitHistory } from 'src/hooks/useGetPatientVisitHistory';
 import { getColumnHeader, getColumnWidth, LabOrdersSearchBy, LabsTableColumn, OrderableItemSearchResult } from 'utils';
 import { LabsAutocompleteForPatient } from '../LabsAutocompleteForPatient';
 import { LabOrderLoading } from './LabOrderLoading';
@@ -41,6 +43,12 @@ export const LabsTablePatientRecord = ({
 
   const [selectedOrderedItem, setSelectedOrderedItem] = useState<OrderableItemSearchResult | null>(null);
   const [tempDateFilter, setTempDateFilter] = useState(visitDateFilter);
+
+  const { data: visitHistory } = useGetPatientVisitHistory(patientId);
+  const followUpAppointmentLookup = useMemo(
+    () => buildFollowUpAppointmentLookup(visitHistory?.visits),
+    [visitHistory?.visits]
+  );
 
   const submitFilterByDate = (date?: DateTime | null): void => {
     const dateToSet = date || tempDateFilter;
@@ -142,6 +150,7 @@ export const LabsTablePatientRecord = ({
                   allowDelete={false}
                   showDeleteLabOrderDialog={showDeleteLabOrderDialog}
                   dataTestId={dataTestIds.externalLabs.labsTable.patientRecordExternalLabsPage}
+                  followUpAppointmentLookup={followUpAppointmentLookup}
                 />
               )}
 

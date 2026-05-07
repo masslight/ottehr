@@ -3,14 +3,7 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, EncounterStatusHistory, Extension, Location, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
-import {
-  FhirEncounterStatus,
-  getTelemedVisitStatus,
-  PatientFollowupDetails,
-  ProviderDetails,
-  TelemedStatusHistoryElement,
-  VisitStatusWithoutUnknown,
-} from '../types';
+import { FhirEncounterStatus, PatientFollowupDetails, ProviderDetails, VisitStatusWithoutUnknown } from '../types';
 import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL, FHIR_EXTENSION } from './constants';
 
 // follow up encounter consts
@@ -156,30 +149,6 @@ export const getEncounterForAppointment = async (appointmentID: string, oystehr:
     throw new Error('Error getting appointment encounter');
   }
   return encounter;
-};
-
-export const getTelemedEncounterStatusHistory = (
-  statusHistory: EncounterStatusHistory[],
-  appointmentStatus: string
-): TelemedStatusHistoryElement[] => {
-  const result: TelemedStatusHistoryElement[] = [];
-
-  statusHistory.forEach((statusElement) => {
-    result.push({
-      start: statusElement.period.start,
-      end: statusElement.period.end,
-      status: getTelemedVisitStatus(statusElement.status, undefined),
-    });
-  });
-
-  if (appointmentStatus === 'fulfilled' && result.at(-1)?.status === 'unsigned') {
-    result.push({
-      start: result.at(-1)?.end,
-      status: 'complete',
-    });
-  }
-
-  return result;
 };
 
 export const getSpentTime = (history?: EncounterStatusHistory[]): string | undefined => {
@@ -358,11 +327,9 @@ export const getInitialEncounterIdForFollowUp = (
 };
 
 export const getFollowUpProgressNotePathSegment = (
-  followupSubtype: FollowupSubtype | undefined,
-  encounterStatus: string | undefined
-): 'review-and-sign' | 'follow-up-note' | null => {
+  followupSubtype: FollowupSubtype | undefined
+): 'review-and-sign' | 'follow-up-note' => {
   if (followupSubtype === 'scheduled') {
-    if (encounterStatus === 'planned' || encounterStatus === 'arrived') return null;
     return 'review-and-sign';
   }
   return 'follow-up-note';

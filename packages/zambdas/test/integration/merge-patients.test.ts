@@ -163,8 +163,30 @@ describe('merge-patients integration tests', () => {
     questionnaireResponse: QuestionnaireResponse;
   }): Promise<{ output: any; error?: Error }> => {
     try {
-      const result = await oystehrZambdas.zambda.execute({ id: 'MERGE-PATIENTS', ...input });
-      return { output: result.output };
+      const kickoff = await oystehrZambdas.zambda.execute({ id: 'MERGE-PATIENTS', ...input });
+      const kickoffOutput = kickoff.output as MergePatientsResponse;
+      if (!kickoffOutput?.taskId) {
+        return { output: kickoffOutput };
+      }
+
+      // Poll the Task resource until it reaches a terminal state. The actual merge
+      // work happens in the sub-merge-patients subscription zambda.
+      const TIMEOUT_MS = 180_000;
+      const POLL_INTERVAL_MS = 2_000;
+      const start = Date.now();
+      while (Date.now() - start < TIMEOUT_MS) {
+        const task = await oystehrAdmin.fhir.get({ resourceType: 'Task', id: kickoffOutput.taskId });
+        const status = (task as { status: string }).status;
+        if (status === 'completed') {
+          return { output: { taskId: kickoffOutput.taskId, status: 'completed' } as MergePatientsResponse };
+        }
+        if (status === 'failed' || status === 'cancelled' || status === 'rejected') {
+          const reason = (task as { statusReason?: { text?: string } }).statusReason?.text ?? 'unknown';
+          return { output: undefined, error: new Error(`Merge task ${status}: ${reason}`) };
+        }
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+      }
+      return { output: undefined, error: new Error('Merge task timed out') };
     } catch (error) {
       console.error('Error executing merge-patients zambda:', error);
       return { output: undefined, error: error as Error };
@@ -356,7 +378,7 @@ describe('merge-patients integration tests', () => {
 
     it('should return success', () => {
       expect(mergeOutput).toBeDefined();
-      expect(mergeOutput.result).toEqual('success');
+      expect(mergeOutput.status).toEqual('completed');
     });
 
     it('should update the main patient name from the questionnaire response', async () => {
@@ -758,13 +780,13 @@ describe('merge-patients integration tests', () => {
       });
 
       expect(error).toBeUndefined();
-      expect((output as MergePatientsResponse).result).toEqual('success');
+      expect((output as MergePatientsResponse).status).toEqual('completed');
 
       const updatedOther = await oystehrAdmin.fhir.get<Patient>({
         resourceType: 'Patient',
         id: otherResources.patient.id!,
       });
       expect(updatedOther.active).toBe(false);
-    }, 120_000);
+    }, 240_000);
   });
 });

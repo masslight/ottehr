@@ -4,14 +4,16 @@ import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DATETIME_FULL_NO_YEAR,
+  FEATURE_FLAGS_CONFIG,
   getAddressStringForScheduleResource,
   getPatientContactEmail,
   InPersonCompletionTemplateData,
-  isFeatureFlagEnabled,
   isFollowupEncounter,
   OTTEHR_MODULE,
   progressNoteChartDataRequestedFields,
   Secrets,
+  TASK_INPUT_TYPE_CODES,
+  TASK_INPUT_TYPE_SYSTEM,
   TelemedCompletionTemplateData,
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
@@ -67,6 +69,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw new Error('Task ID is required');
     }
     taskId = task.id;
+
+    const skipEmail = resolveSkipEmail(task);
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -145,10 +149,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Chart data received');
     try {
       // Check if we should skip making visit note visible in patient portal
-      const skipVisitNoteInPatientPortal = isFeatureFlagEnabled(
-        'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG',
-        secrets
-      );
+      const skipVisitNoteInPatientPortal = FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled;
 
       // Always create the PDF
       const { pdfInfo } = await createProgressNotePdf(
@@ -178,11 +179,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         listResources
       );
 
-      // Send email unless skipped by feature flag
+      // Send completion email only when: email is enabled, this is not a follow-up (isPDFOnlyTask),
+      // the task does not carry a SKIP_EMAIL input (addendum re-generation), and the feature flag
+      // for skipping patient-portal delivery is not set.
       const emailClient = getEmailClient(secrets);
       const emailEnabled = emailClient.getFeatureFlag();
+      let emailSent = false;
 
-      if (emailEnabled && !isPDFOnlyTask) {
+      if (emailEnabled && !isPDFOnlyTask && !skipEmail) {
         if (skipVisitNoteInPatientPortal) {
           console.log('Skipping completion email to patient - visit note patient portal feature flag is enabled');
         } else {
@@ -220,6 +224,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
                 'visit-note-url': visitNoteUrl,
               };
               await emailClient.sendInPersonCompletionEmail(patientEmail, templateData);
+              emailSent = true;
             } else {
               console.error(
                 `Not sending in-person completion email, missing the following data: ${missingData.join(', ')}`
@@ -237,6 +242,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
                 'visit-note-url': visitNoteUrl,
               };
               await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
+              emailSent = true;
             } else {
               console.error(
                 `Not sending virtual completion email, missing the following data: ${missingData.join(', ')}`
@@ -246,10 +252,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
       }
 
-      const statusMessage =
-        isPDFOnlyTask || skipVisitNoteInPatientPortal
-          ? 'PDF created successfully'
-          : 'PDF created and emailed successfully';
+      const statusMessage = emailSent ? 'PDF created and emailed successfully' : 'PDF created successfully';
 
       // update task status and status reason
       console.log('making patch request to update task status');
@@ -281,6 +284,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw error;
   }
 });
+
+export function resolveSkipEmail(task: Task): boolean {
+  return (
+    task.input?.some(
+      (taskInput) =>
+        taskInput.type.coding?.some(
+          (c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.SKIP_EMAIL
+        ) && taskInput.valueString === 'true'
+    ) ?? false
+  );
+}
 
 const patchTaskStatus = async (
   oystehr: Oystehr,

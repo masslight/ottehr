@@ -37,3 +37,5 @@ config/sendgrid/*
 terraform.json
 .test-appointment-id
 .playwright-mcp
+
+.claude

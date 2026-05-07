@@ -63,6 +63,7 @@ export const AdditionalQuestionEdit = ({
       sx={{
         display: 'flex',
         justifyContent: 'space-between',
+        gap: 2,
       }}
       data-testid={dataTestIds.telemedEhrFlow.hpiAdditionalQuestions(field)}
     >
@@ -101,6 +102,7 @@ export const AdditionalQuestionView: FC<{
     sx={{
       display: 'flex',
       justifyContent: 'space-between',
+      gap: 2,
     }}
     data-testid={dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(field)}
   >
