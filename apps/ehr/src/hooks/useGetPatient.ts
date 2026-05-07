@@ -187,6 +187,32 @@ export const useGetPatientCoverages = (
   return queryResult;
 };
 
+/**
+ * Polls the merge-patients zambda for the active merge Task targeting the given
+ * patient. Returns `null` if no active merge is in progress.
+ */
+export const useGetActiveMergeTask = (
+  patientId: string | undefined,
+  options?: { enabled?: boolean; refetchIntervalMs?: number }
+): UseQueryResult<PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getMergePatientsTask']>>, Error> => {
+  const apiClient = useOystehrAPIClient();
+  const refetchIntervalMs = options?.refetchIntervalMs ?? 3000;
+
+  return useQuery({
+    queryKey: ['active-merge-task', { patientId }],
+    queryFn: () => apiClient!.getMergePatientsTask({ patientId: patientId! }),
+    enabled: (options?.enabled ?? true) && apiClient != null && !!patientId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data?.task) return false;
+      // Stop polling on terminal states — user must dismiss/retry.
+      if (data.task.status === 'failed') return false;
+      return refetchIntervalMs;
+    },
+    refetchOnWindowFocus: true,
+  });
+};
+
 export const useRemovePatientCoverage = (): UseMutationResult<void, Error, RemoveCoverageZambdaInput> => {
   const apiClient = useOystehrAPIClient();
 

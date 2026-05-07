@@ -43,5 +43,19 @@ export interface MergePatientsInput {
 }
 
 export interface MergePatientsResponse {
-  result: 'success';
+  taskId: string;
+  status: 'requested' | 'in-progress' | 'completed' | 'failed';
+}
+
+export interface GetMergePatientsTaskInput {
+  patientId: string;
+}
+
+export interface GetMergePatientsTaskResponse {
+  task: {
+    id: string;
+    status: 'requested' | 'in-progress' | 'completed' | 'failed' | 'rejected' | 'cancelled' | 'received' | 'ready';
+    otherPatientId: string;
+    statusReason?: string;
+  } | null;
 }

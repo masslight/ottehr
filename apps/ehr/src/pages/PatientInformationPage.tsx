@@ -1,6 +1,6 @@
 import { Box, SxProps, Typography, useTheme } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Organization, Patient, Questionnaire, QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -66,12 +66,45 @@ const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   return undefined;
 };
 
+// Build a linkId -> form item type lookup so empty form fields can default to a
+// type-appropriate value. Without this, undefined defaults make RHF treat
+// "type then clear" as dirty, since MUI inputs emit '' (or false/null for
+// checkboxes/references) and that never strict-equals undefined.
+//
+// Reference fields are emitted as FHIR type 'choice' but tagged with the
+// answer-loading-options extension; surface them as 'reference' so they get a
+// null default that matches what the Autocomplete clears to.
+const ANSWER_LOADING_OPTIONS_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options';
+const isReferenceItem = (item: QuestionnaireItem): boolean =>
+  item.type === 'choice' && (item.extension?.some((ext) => ext.url === ANSWER_LOADING_OPTIONS_URL) ?? false);
+
+const buildLinkIdTypeMap = (q: Questionnaire): Map<string, string> => {
+  const map = new Map<string, string>();
+  const walk = (items?: QuestionnaireItem[]): void => {
+    if (!items) return;
+    for (const item of items) {
+      if (item.linkId && item.type) {
+        map.set(item.linkId, isReferenceItem(item) ? 'reference' : item.type);
+      }
+      walk(item.item);
+    }
+  };
+  walk(q.item);
+  return map;
+};
+const linkIdTypes = buildLinkIdTypeMap(questionnaire);
+
+const emptyDefaultForType = (type: string | undefined): any => {
+  if (type === 'boolean') return false;
+  if (type === 'reference' || type === 'attachment') return null;
+  return '';
+};
+
 const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): Record<string, any> => {
   const flattened = flattenItems(currentItemValues);
-  // console.log('Flattened items for form defaults:', flattened);
   return flattened.reduce((acc: Record<string, any>, item: QuestionnaireResponseItem) => {
     const value = getAnyAnswer(item);
-    acc[item.linkId] = value;
+    acc[item.linkId] = value === undefined ? emptyDefaultForType(linkIdTypes.get(item.linkId)) : value;
     return acc;
   }, {});
 };

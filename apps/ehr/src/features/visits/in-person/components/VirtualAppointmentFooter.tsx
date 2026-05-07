@@ -19,7 +19,6 @@ import {
   getSelectors,
   getVisitStatusHistory,
   INTERPRETER_PHONE_NUMBER,
-  NON_LOS_STATUSES,
   VisitStatusHistoryEntry,
 } from 'utils';
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
@@ -66,7 +65,7 @@ export const VirtualAppointmentFooter: FC = () => {
 
   const visitDuration = Duration.fromMillis(
     statusHistory
-      .filter((status) => !NON_LOS_STATUSES.includes(status.status))
+      .filter((status) => status.status === 'provider')
       .reduce((accumulator, statusTemp) => {
         return accumulator + statusDurationMillis(statusTemp);
       }, 0)
