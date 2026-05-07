@@ -1,72 +1,43 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, getSecret, isValidUUID, SecretsKeys } from 'utils';
+import { convertFhirNameToDisplayName, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, formatAddress } from '../shared';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-patients';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-    const oystehr = createBillingClient(m2mToken, input.secrets);
+    const params = validateRequestParameters(input);
 
-    let searchName: string | undefined;
-    let searchDob: string | undefined;
-    let searchIdentifier: string | undefined;
-    let searchUuid: string | undefined;
-    if (input.body) {
-      const body = JSON.parse(input.body);
-      searchName = body.name;
-      searchDob = body.dob;
-      searchIdentifier = body.identifier;
-      searchUuid = body.uuid;
-    }
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
+    const oystehr = createBillingClient(m2mToken, params.secrets);
 
-    const hasSearch = searchName || searchDob || searchIdentifier || searchUuid;
+    const hasSearch = params.name || params.dob || params.identifier || params.uuid;
 
-    const params: { name: string; value: string }[] = [
+    const searchParams: { name: string; value: string }[] = [
       { name: '_count', value: '50' },
       { name: '_sort', value: 'family' },
     ];
 
+    // Default view excludes working copies; search includes them
     if (!hasSearch) {
-      params.push(EXCLUDE_WORKING_COPIES_PARAM);
+      searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
     }
-    if (searchUuid) {
-      if (!isValidUUID(searchUuid)) {
-        return {
-          statusCode: 200,
-          body: JSON.stringify({ patients: [], message: 'UUID must be a complete valid UUID' }),
-        };
-      }
-      params.push({ name: '_id', value: searchUuid });
-    }
-    if (searchName) {
-      params.push({ name: 'name', value: searchName });
-    }
-    if (searchDob) {
-      params.push({ name: 'birthdate', value: searchDob });
-    }
-    if (searchIdentifier) {
-      params.push({ name: 'identifier', value: searchIdentifier });
-    }
+    if (params.uuid) searchParams.push({ name: '_id', value: params.uuid });
+    if (params.name) searchParams.push({ name: 'name', value: params.name });
+    if (params.dob) searchParams.push({ name: 'birthdate', value: params.dob });
+    if (params.identifier) searchParams.push({ name: 'identifier', value: params.identifier });
 
-    const response = await oystehr.fhir.search<Patient>({
-      resourceType: 'Patient',
-      params,
-    });
+    const response = await oystehr.fhir.search<Patient>({ resourceType: 'Patient', params: searchParams });
 
     const patients = response.unbundle().map((p) => {
-      const identifiers = p.identifier ?? [];
-      const friendlyId =
-        identifiers.find((id) => id.system === 'https://fhir.zapehr.com/r4/namingsystems/friendly-id')?.value ?? '';
-      const externalId =
-        identifiers.find((id) => id.system !== 'https://fhir.zapehr.com/r4/namingsystems/friendly-id')?.value ??
-        identifiers[0]?.value ??
-        '';
       const name = p.name?.[0];
+      const identifiers = p.identifier ?? [];
+      const mrn = identifiers.find((id) => id.type?.coding?.some((c) => c.code === 'MR'))?.value ?? '';
+
       return {
         id: p.id,
         name: name ? convertFhirNameToDisplayName(name) : '',
@@ -75,8 +46,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         dob: p.birthDate ?? '',
         gender: p.gender ?? '',
         address: formatAddress(p.address?.[0]),
-        externalId,
-        friendlyId,
+        mrn,
+        identifiers: identifiers.map((id) => ({ system: id.system, value: id.value })),
       };
     });
 
@@ -84,7 +55,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       statusCode: 200,
       body: JSON.stringify({ patients }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });

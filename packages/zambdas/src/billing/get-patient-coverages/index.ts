@@ -3,21 +3,14 @@ import { Coverage, Organization } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, getPayerId } from '../shared';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-patient-coverages';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    // TODO: not sure what is correct validation error throw? helper/shared maybe?
-    if (!input.body) {
-      return { statusCode: 400, body: JSON.stringify({ message: 'patientId is required' }) };
-    }
-    const body = JSON.parse(input.body);
-    const { patientId } = body;
-    if (!patientId) {
-      return { statusCode: 400, body: JSON.stringify({ message: 'patientId is required' }) };
-    }
+    const { patientId } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
     const oystehr = createBillingClient(m2mToken, input.secrets);
@@ -39,14 +32,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const payorRef = cov.payor?.[0]?.reference;
       const payorId = payorRef?.replace('Organization/', '');
       const payorOrg = orgs.find((o) => o.id === payorId);
-      const payerIdentifier = payorOrg ? getPayerId(payorOrg) : '';
 
       return {
         id: cov.id,
         status: cov.status,
         subscriberId: cov.subscriberId ?? '',
         payorName: payorOrg?.name ?? '',
-        payorId: payerIdentifier,
+        payorId: payorOrg ? getPayerId(payorOrg) : '',
         payorFhirId: payorOrg?.id ?? '',
       };
     });
@@ -55,7 +47,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       statusCode: 200,
       body: JSON.stringify({ coverages: result }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });

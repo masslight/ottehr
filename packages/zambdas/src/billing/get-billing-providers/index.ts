@@ -11,6 +11,7 @@ import {
   LICENSE_TAG,
   RENDERS_TAG,
 } from '../shared';
+import { validateRequestParameters } from './validateRequestParameters';
 
 interface ProviderItem {
   id: string;
@@ -32,17 +33,13 @@ const ZAMBDA_NAME = 'get-billing-providers';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-    const oystehr = createBillingClient(m2mToken, input.secrets);
+    const params = validateRequestParameters(input);
 
-    let providerType: string | undefined;
-    if (input.body) {
-      const body = JSON.parse(input.body);
-      providerType = body.providerType;
-    }
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
+    const oystehr = createBillingClient(m2mToken, params.secrets);
 
-    const fetchRendering = providerType !== 'billing';
-    const fetchBilling = providerType !== 'rendering';
+    const fetchRendering = params.providerType !== 'billing';
+    const fetchBilling = params.providerType !== 'rendering';
     const searchParams = [
       { name: '_sort', value: 'name' },
       { name: '_count', value: '200' },
@@ -65,7 +62,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       statusCode: 200,
       body: JSON.stringify({ providers }),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
