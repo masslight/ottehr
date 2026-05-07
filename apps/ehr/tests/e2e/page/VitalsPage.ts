@@ -1,6 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
+import { PROVIDER_CONFIG, VitalFieldNames } from 'utils';
 import { EditNoteDialog, expectEditNoteDialog } from './in-person/EditNoteDialog';
 import { Dialog, expectDialog } from './patient-information/Dialog';
 
@@ -226,9 +227,24 @@ export class VitalsPage {
     const rightInput = this.#page.getByTestId(dataTestIds.vitalsPage.visionRightInput).locator('input');
     await rightInput.fill(rightEye);
 
+    // Saving a numeric vision observation triggers two /save-chart-data calls: the vision
+    // observation itself, then an auto-add of any configured vision CPT codes. We must wait
+    // for both before returning, otherwise the auto CPT save can race with subsequent steps
+    // and fail to land before VIT-2 navigates to Assessment.
+    const visionAutoCptCodes = PROVIDER_CONFIG.assessment.visionAutoCptCodes ?? [];
+    const visionSavePromise = waitForSaveChartDataResponse(this.#page, (json) =>
+      Boolean(json.chartData?.vitalsObservations?.some((o) => o.field === VitalFieldNames.VitalVision))
+    );
+    const cptSavePromise =
+      visionAutoCptCodes.length > 0
+        ? waitForSaveChartDataResponse(this.#page, (json) =>
+            Boolean(json.chartData?.cptCodes?.some((c) => visionAutoCptCodes.includes(c.code)))
+          )
+        : Promise.resolve();
+
     const addButton = this.#page.getByTestId(dataTestIds.vitalsPage.visionAddButton);
     await addButton.click();
-    await waitForSaveChartDataResponse(this.#page);
+    await Promise.all([visionSavePromise, cptSavePromise]);
 
     const item = this.#page.getByTestId(dataTestIds.vitalsPage.visionItem).first();
     await expect(item).toContainText(leftEye);

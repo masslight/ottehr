@@ -35,8 +35,7 @@ export class InPersonAssessmentPage extends BaseAssessmentPage {
   }
 
   async verifyCptCode(code: string): Promise<void> {
-    const value = await this.#page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(code)).textContent();
-    expect(value).toContain(code);
+    await expect(this.#page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(code))).toContainText(code);
   }
 
   async verifyExactCptCodeDisplayIsShown(cptCodeDisplay: string): Promise<void> {
