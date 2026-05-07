@@ -371,8 +371,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw Error('Error creating in-house lab order in transaction');
     }
 
+    // save chart data requires user token
+    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     const saveChartDataResponse = diagnosesNew.length
-      ? await oystehr.zambda.execute({
+      ? await oystehrCurrentUser.zambda.execute({
           id: 'save-chart-data',
           encounterId,
           diagnosis: diagnosesNew,
