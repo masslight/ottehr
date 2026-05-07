@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
 import { useEffect, useMemo, useState } from 'react';
-import { PROVIDERS_FILTER } from 'src/components/input/EmployeeSelectInput';
+import { PROVIDERS_FILTER } from 'src/shared/utils';
 import {
   DiagnosisDTO,
   isLocationVirtual,

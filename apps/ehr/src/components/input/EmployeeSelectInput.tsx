@@ -4,10 +4,6 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { EmployeeDetails } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';
 
-export const PROVIDERS_FILTER = (employee: EmployeeDetails): boolean => {
-  return employee.isProvider && !employee.isCustomerSupport;
-};
-
 type Props = {
   name: string;
   label: string;
