@@ -1882,6 +1882,61 @@
       "src": "src/rcm/dunning-config/save-dunning-config/index",
       "zip": ".dist/zips/save-dunning-config.zip"
     },
+    "PRODUCE-OUTREACH-DISCHARGE-TASKS": {
+      "name": "produce-outreach-discharge-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/produce-discharge-tasks/index",
+      "zip": ".dist/zips/produce-outreach-discharge-tasks.zip"
+    },
+    "PRODUCE-OUTREACH-INVOICE-ISSUED-TASKS": {
+      "name": "produce-outreach-invoice-issued-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/produce-invoice-issued-tasks/index",
+      "zip": ".dist/zips/produce-outreach-invoice-issued-tasks.zip"
+    },
+    "CRON-OUTREACH-INVOICE-DUE": {
+      "name": "cron-outreach-invoice-due",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/cron-outreach-invoice-due/index",
+      "zip": ".dist/zips/cron-outreach-invoice-due.zip",
+      "schedule": {
+        "expression": "cron(0 6 * * ? *)"
+      }
+    },
+    "CRON-OUTREACH-TASK-PROMOTER": {
+      "name": "cron-outreach-task-promoter",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/cron-outreach-task-promoter/index",
+      "zip": ".dist/zips/cron-outreach-task-promoter.zip",
+      "schedule": {
+        "expression": "cron(0,15,30,45 * * * ? *)"
+      }
+    },
+    "SUB-OUTREACH-SEND-NOTIFICATION": {
+      "name": "sub-outreach-send-notification",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/executors/sub-outreach-send-notification/index",
+      "zip": ".dist/zips/sub-outreach-send-notification.zip"
+    },
+    "SUB-OUTREACH-CHARGE-CARD": {
+      "name": "sub-outreach-charge-card",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/executors/sub-outreach-charge-card/index",
+      "zip": ".dist/zips/sub-outreach-charge-card.zip"
+    },
+    "SUB-OUTREACH-REFER-TO-COLLECTIONS": {
+      "name": "sub-outreach-refer-to-collections",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/executors/sub-outreach-refer-to-collections/index",
+      "zip": ".dist/zips/sub-outreach-refer-to-collections.zip"
+    },
     "ADMIN_LIST_IN_HOUSE_LABS": {
       "name": "admin-list-in-house-labs",
       "type": "http_auth",
