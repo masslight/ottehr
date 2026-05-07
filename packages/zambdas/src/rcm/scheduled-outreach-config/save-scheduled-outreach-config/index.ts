@@ -4,8 +4,8 @@ import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaIn
 import {
   buildPlanDefinitionFromActions,
   getOrCreateOutreachConfig,
+  parseNotificationsTimeRestriction,
   parsePlanDefinitionToActions,
-  parseSmsTimeRestriction,
 } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -23,17 +23,17 @@ export const index = wrapHandler(
 
     // Build and update the PlanDefinition from the submitted actions
     const updated: PlanDefinition = {
-      ...buildPlanDefinitionFromActions(validated.actions, validated.smsTimeRestriction),
+      ...buildPlanDefinitionFromActions(validated.actions, validated.notificationsTimeRestriction),
       id: existing.id,
     };
 
     const saved = await oystehr.fhir.update<PlanDefinition>(updated);
     const actions = parsePlanDefinitionToActions(saved);
-    const smsTimeRestriction = parseSmsTimeRestriction(saved);
+    const notificationsTimeRestriction = parseNotificationsTimeRestriction(saved);
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ planDefinition: saved, actions, smsTimeRestriction }),
+      body: JSON.stringify({ planDefinition: saved, actions, notificationsTimeRestriction }),
     };
   }
 );

@@ -5,8 +5,8 @@ import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   getOrCreateOutreachConfig,
-  parseSmsTimeRestriction,
-  SmsTimeRestriction,
+  NotificationsTimeRestriction,
+  parseNotificationsTimeRestriction,
 } from '../../scheduled-outreach-config/helpers';
 
 const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
@@ -23,7 +23,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // Load SMS time restriction from PlanDefinition
   const planDefinition = await getOrCreateOutreachConfig(oystehr);
-  const smsRestriction = parseSmsTimeRestriction(planDefinition);
+  const notificationsRestriction = parseNotificationsTimeRestriction(planDefinition);
 
   // Find all draft tasks that are now due
   const now = DateTime.now().toISO()!;
@@ -45,7 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   for (const task of tasks) {
     // Check if the task involves SMS and the window is currently closed
-    if (taskUsesSms(task) && !isWithinSmsWindow(smsRestriction)) {
+    if (taskUsesSms(task) && !isWithinNotificationsWindow(notificationsRestriction)) {
       console.log(`Task ${task.id} blocked by SMS time window`);
       blocked++;
       continue;
@@ -92,7 +92,7 @@ function taskUsesSms(task: Task): boolean {
 /**
  * Check if the current time falls within the allowed SMS sending window.
  */
-function isWithinSmsWindow(restriction: SmsTimeRestriction): boolean {
+function isWithinNotificationsWindow(restriction: NotificationsTimeRestriction): boolean {
   if (!restriction.enabled) return true;
 
   const now = DateTime.now().setZone(restriction.timezone);

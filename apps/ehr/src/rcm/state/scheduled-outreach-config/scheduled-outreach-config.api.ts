@@ -5,7 +5,7 @@ import { chooseJson } from 'utils';
 const GET_OUTREACH_CONFIG_ZAMBDA_ID = 'get-scheduled-outreach-config';
 const SAVE_OUTREACH_CONFIG_ZAMBDA_ID = 'save-scheduled-outreach-config';
 
-export interface SmsTimeRestrictionDTO {
+export interface NotificationsTimeRestrictionDTO {
   enabled: boolean;
   windowStart: string;
   windowEnd: string;
@@ -15,7 +15,7 @@ export interface SmsTimeRestrictionDTO {
 export interface OutreachConfigResponse {
   planDefinition: PlanDefinition;
   actions: OutreachActionDTO[];
-  smsTimeRestriction?: SmsTimeRestrictionDTO;
+  notificationsTimeRestriction?: NotificationsTimeRestrictionDTO;
 }
 
 export type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due' | 'discharge-time' | 'patient-birthday';
@@ -66,7 +66,7 @@ export interface OutreachActionDTO {
 
 export interface SaveOutreachConfigInput {
   actions: OutreachActionDTO[];
-  smsTimeRestriction?: SmsTimeRestrictionDTO;
+  notificationsTimeRestriction?: NotificationsTimeRestrictionDTO;
 }
 
 export const getOutreachConfig = async (oystehr: Oystehr): Promise<OutreachConfigResponse> => {

@@ -685,7 +685,7 @@ export default function ScheduledPatientOutreach(): ReactElement {
   const [visibleEventTypes, setVisibleEventTypes] = React.useState<TriggerEvent[]>(
     Object.keys(TRIGGER_EVENT_LABELS) as TriggerEvent[]
   );
-  const [smsTimeRestrictionEnabled, setSmsTimeRestrictionEnabled] = React.useState(false);
+  const [notificationsTimeRestrictionEnabled, setNotificationsTimeRestrictionEnabled] = React.useState(false);
   const [smsAllowedAfter, setSmsAllowedAfter] = React.useState('09:00');
   const [smsAllowedBefore, setSmsAllowedBefore] = React.useState('21:00');
   const [smsTimezone, setSmsTimezone] = React.useState('America/New_York');
@@ -701,9 +701,9 @@ export default function ScheduledPatientOutreach(): ReactElement {
       if (outreachConfigData.actions && outreachConfigData.actions.length > 0) {
         setActions(outreachConfigData.actions as OutreachAction[]);
       }
-      if (outreachConfigData.smsTimeRestriction) {
-        const r = outreachConfigData.smsTimeRestriction;
-        setSmsTimeRestrictionEnabled(r.enabled);
+      if (outreachConfigData.notificationsTimeRestriction) {
+        const r = outreachConfigData.notificationsTimeRestriction;
+        setNotificationsTimeRestrictionEnabled(r.enabled);
         setSmsAllowedAfter(r.windowStart);
         setSmsAllowedBefore(r.windowEnd);
         setSmsTimezone(r.timezone);
@@ -756,13 +756,13 @@ export default function ScheduledPatientOutreach(): ReactElement {
     saveActions(updated);
   };
 
-  const buildSmsTimeRestriction = (): {
+  const buildNotificationsTimeRestriction = (): {
     enabled: boolean;
     windowStart: string;
     windowEnd: string;
     timezone: string;
   } => ({
-    enabled: smsTimeRestrictionEnabled,
+    enabled: notificationsTimeRestrictionEnabled,
     windowStart: smsAllowedAfter,
     windowEnd: smsAllowedBefore,
     timezone: smsTimezone,
@@ -770,7 +770,7 @@ export default function ScheduledPatientOutreach(): ReactElement {
 
   const saveActions = (actionsToSave: OutreachAction[]): void => {
     saveMutation.mutate(
-      { actions: actionsToSave, smsTimeRestriction: buildSmsTimeRestriction() },
+      { actions: actionsToSave, notificationsTimeRestriction: buildNotificationsTimeRestriction() },
       {
         onSuccess: () => setSnackbar({ open: true, message: 'Outreach configuration saved', severity: 'success' }),
         onError: (err) => setSnackbar({ open: true, message: `Failed to save: ${err.message}`, severity: 'error' }),
@@ -1472,11 +1472,11 @@ export default function ScheduledPatientOutreach(): ReactElement {
             <FormControlLabel
               control={
                 <Checkbox
-                  checked={smsTimeRestrictionEnabled}
-                  onChange={(e) => setSmsTimeRestrictionEnabled(e.target.checked)}
+                  checked={notificationsTimeRestrictionEnabled}
+                  onChange={(e) => setNotificationsTimeRestrictionEnabled(e.target.checked)}
                 />
               }
-              label="Restrict SMS notifications to specific hours"
+              label="Restrict notifications to specific hours"
             />
             <Stack spacing={2} sx={{ ml: 4 }}>
               <Stack direction="row" spacing={2} alignItems="center">
@@ -1484,7 +1484,7 @@ export default function ScheduledPatientOutreach(): ReactElement {
                   label="Send after"
                   type="time"
                   size="small"
-                  disabled={!smsTimeRestrictionEnabled}
+                  disabled={!notificationsTimeRestrictionEnabled}
                   value={smsAllowedAfter}
                   onChange={(e) => setSmsAllowedAfter(e.target.value)}
                   sx={{ width: 160 }}
@@ -1494,14 +1494,14 @@ export default function ScheduledPatientOutreach(): ReactElement {
                   label="Send before"
                   type="time"
                   size="small"
-                  disabled={!smsTimeRestrictionEnabled}
+                  disabled={!notificationsTimeRestrictionEnabled}
                   value={smsAllowedBefore}
                   onChange={(e) => setSmsAllowedBefore(e.target.value)}
                   sx={{ width: 160 }}
                   inputProps={{ step: 900 }}
                 />
               </Stack>
-              <FormControl size="small" sx={{ maxWidth: 300 }} disabled={!smsTimeRestrictionEnabled}>
+              <FormControl size="small" sx={{ maxWidth: 300 }} disabled={!notificationsTimeRestrictionEnabled}>
                 <InputLabel>Timezone</InputLabel>
                 <Select
                   value={smsTimezone}
@@ -1518,7 +1518,7 @@ export default function ScheduledPatientOutreach(): ReactElement {
                 </Select>
               </FormControl>
               <Typography variant="caption" color="text.secondary">
-                SMS messages will only be sent between {smsAllowedAfter} and {smsAllowedBefore} in the selected
+                Notifications will only be sent between {smsAllowedAfter} and {smsAllowedBefore} in the selected
                 timezone. Messages outside this window will be queued until the next allowed time.
               </Typography>
             </Stack>

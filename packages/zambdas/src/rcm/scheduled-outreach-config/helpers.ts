@@ -41,7 +41,7 @@ export interface ReferToCollectionsConfig {
   includePaymentHistory: boolean;
 }
 
-export interface SmsTimeRestriction {
+export interface NotificationsTimeRestriction {
   enabled: boolean;
   windowStart: string; // HH:mm
   windowEnd: string; // HH:mm
@@ -62,14 +62,16 @@ export interface OutreachAction {
   referToCollectionsConfig?: ReferToCollectionsConfig;
 }
 
-// ── SMS time restriction extension ─────────────────────────────────────────
+// ── Notifications time restriction extension ───────────────────────────────
 
-const SMS_TIME_RESTRICTION_URL = `${PRIVATE_EXTENSION_BASE_URL}/sms-time-restriction`;
+const NOTIFICATIONS_TIME_RESTRICTION_URL = `${PRIVATE_EXTENSION_BASE_URL}/notifications-time-restriction`;
 
-function buildSmsTimeRestrictionExtension(restriction: SmsTimeRestriction): PlanDefinition['extension'] {
+function buildNotificationsTimeRestrictionExtension(
+  restriction: NotificationsTimeRestriction
+): PlanDefinition['extension'] {
   return [
     {
-      url: SMS_TIME_RESTRICTION_URL,
+      url: NOTIFICATIONS_TIME_RESTRICTION_URL,
       extension: [
         { url: 'enabled', valueBoolean: restriction.enabled },
         { url: 'window-start', valueTime: restriction.windowStart + ':00' },
@@ -80,8 +82,8 @@ function buildSmsTimeRestrictionExtension(restriction: SmsTimeRestriction): Plan
   ];
 }
 
-export function parseSmsTimeRestriction(planDef: PlanDefinition): SmsTimeRestriction {
-  const ext = planDef.extension?.find((e) => e.url === SMS_TIME_RESTRICTION_URL);
+export function parseNotificationsTimeRestriction(planDef: PlanDefinition): NotificationsTimeRestriction {
+  const ext = planDef.extension?.find((e) => e.url === NOTIFICATIONS_TIME_RESTRICTION_URL);
   if (!ext || !ext.extension) {
     return { enabled: false, windowStart: '09:00', windowEnd: '21:00', timezone: 'America/New_York' };
   }
@@ -390,7 +392,7 @@ function uiActionToFhirAction(uiAction: OutreachAction): any {
 
 export function buildPlanDefinitionFromActions(
   actions: OutreachAction[],
-  smsTimeRestriction?: SmsTimeRestriction
+  notificationsTimeRestriction?: NotificationsTimeRestriction
 ): Omit<PlanDefinition, 'id'> {
   return {
     resourceType: 'PlanDefinition',
@@ -400,7 +402,9 @@ export function buildPlanDefinitionFromActions(
     title: 'Scheduled Patient Outreach Workflow',
     status: 'active',
     meta: rcmMeta('scheduled-outreach-config'),
-    ...(smsTimeRestriction ? { extension: buildSmsTimeRestrictionExtension(smsTimeRestriction) } : {}),
+    ...(notificationsTimeRestriction
+      ? { extension: buildNotificationsTimeRestrictionExtension(notificationsTimeRestriction) }
+      : {}),
     type: {
       coding: [
         {

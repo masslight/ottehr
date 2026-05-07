@@ -3,8 +3,8 @@ import { ZambdaInput } from '../../../shared';
 import {
   ActionType,
   NotificationMedium,
+  NotificationsTimeRestriction,
   OutreachAction,
-  SmsTimeRestriction,
   TimeUnit,
   TriggerDirection,
   TriggerEvent,
@@ -12,7 +12,7 @@ import {
 
 export interface SaveOutreachConfigInput {
   actions: OutreachAction[];
-  smsTimeRestriction?: SmsTimeRestriction;
+  notificationsTimeRestriction?: NotificationsTimeRestriction;
   secrets: Record<string, string>;
 }
 
@@ -118,7 +118,7 @@ export function validateRequestParameters(input: ZambdaInput): SaveOutreachConfi
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
   const parsed = JSON.parse(input.body);
-  const { actions, smsTimeRestriction } = parsed;
+  const { actions, notificationsTimeRestriction } = parsed;
 
   if (!Array.isArray(actions)) {
     throw INVALID_INPUT_ERROR('actions must be an array');
@@ -126,30 +126,30 @@ export function validateRequestParameters(input: ZambdaInput): SaveOutreachConfi
 
   const validatedActions = actions.map((action: unknown, index: number) => validateAction(action, index));
 
-  let validatedSmsTimeRestriction: SmsTimeRestriction | undefined;
-  if (smsTimeRestriction !== undefined) {
-    if (typeof smsTimeRestriction !== 'object' || smsTimeRestriction === null) {
-      throw INVALID_INPUT_ERROR('smsTimeRestriction must be an object');
+  let validatedNotificationsTimeRestriction: NotificationsTimeRestriction | undefined;
+  if (notificationsTimeRestriction !== undefined) {
+    if (typeof notificationsTimeRestriction !== 'object' || notificationsTimeRestriction === null) {
+      throw INVALID_INPUT_ERROR('notificationsTimeRestriction must be an object');
     }
-    const r = smsTimeRestriction as Record<string, unknown>;
+    const r = notificationsTimeRestriction as Record<string, unknown>;
     if (typeof r.enabled !== 'boolean') {
-      throw INVALID_INPUT_ERROR('smsTimeRestriction.enabled must be a boolean');
+      throw INVALID_INPUT_ERROR('notificationsTimeRestriction.enabled must be a boolean');
     }
     if (typeof r.windowStart !== 'string' || !/^\d{2}:\d{2}$/.test(r.windowStart)) {
-      throw INVALID_INPUT_ERROR('smsTimeRestriction.windowStart must be a time string (HH:mm)');
+      throw INVALID_INPUT_ERROR('notificationsTimeRestriction.windowStart must be a time string (HH:mm)');
     }
     if (typeof r.windowEnd !== 'string' || !/^\d{2}:\d{2}$/.test(r.windowEnd)) {
-      throw INVALID_INPUT_ERROR('smsTimeRestriction.windowEnd must be a time string (HH:mm)');
+      throw INVALID_INPUT_ERROR('notificationsTimeRestriction.windowEnd must be a time string (HH:mm)');
     }
     if (typeof r.timezone !== 'string' || r.timezone.trim().length === 0) {
-      throw INVALID_INPUT_ERROR('smsTimeRestriction.timezone must be a non-empty string');
+      throw INVALID_INPUT_ERROR('notificationsTimeRestriction.timezone must be a non-empty string');
     }
-    validatedSmsTimeRestriction = r as unknown as SmsTimeRestriction;
+    validatedNotificationsTimeRestriction = r as unknown as NotificationsTimeRestriction;
   }
 
   return {
     actions: validatedActions,
-    smsTimeRestriction: validatedSmsTimeRestriction,
+    notificationsTimeRestriction: validatedNotificationsTimeRestriction,
     secrets: input.secrets,
   };
 }

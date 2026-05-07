@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { getOrCreateOutreachConfig, parsePlanDefinitionToActions, parseSmsTimeRestriction } from '../helpers';
+import { getOrCreateOutreachConfig, parseNotificationsTimeRestriction, parsePlanDefinitionToActions } from '../helpers';
 
 let m2mToken: string;
 export const index = wrapHandler(
@@ -13,11 +13,11 @@ export const index = wrapHandler(
 
     const planDefinition = await getOrCreateOutreachConfig(oystehr);
     const actions = parsePlanDefinitionToActions(planDefinition);
-    const smsTimeRestriction = parseSmsTimeRestriction(planDefinition);
+    const notificationsTimeRestriction = parseNotificationsTimeRestriction(planDefinition);
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ planDefinition, actions, smsTimeRestriction }),
+      body: JSON.stringify({ planDefinition, actions, notificationsTimeRestriction }),
     };
   }
 );
