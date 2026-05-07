@@ -6,8 +6,10 @@ import { CodeableConcept, DocumentReference, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   addOperation,
+  BUCKET_NAMES,
   createCustomPatientDocumentList,
   fetchCustomFoldersCatalog,
+  isCustomFolderList,
   OTTEHR_MODULE,
   replaceOperation,
   Secrets,
@@ -104,7 +106,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   logIt(`Folder name => [${folderName}]`);
 
   const sanitizedFileName = sanitizeFileNameForZ3(fileName);
-  const fileZ3Url = makeZ3Url({ secrets, patientID: patientId, bucketName: folderName, fileName: sanitizedFileName });
+  // Custom folders all share a single Z3 bucket and are namespaced by an
+  // {internalName}/ path segment. System folders keep one-bucket-per-folder.
+  const isCustomFolder = isCustomFolderList(documentsFolder);
+  const fileZ3Url = isCustomFolder
+    ? makeZ3Url({
+        secrets,
+        patientID: patientId,
+        bucketName: BUCKET_NAMES.CUSTOM_FOLDERS,
+        folderName,
+        fileName: sanitizedFileName,
+      })
+    : makeZ3Url({ secrets, patientID: patientId, bucketName: folderName, fileName: sanitizedFileName });
   const presignedFileUploadUrl = await createPresignedUrl(m2mToken, fileZ3Url, 'upload');
 
   logIt(`created fileZ3Url: [${fileZ3Url}] :: presignedFileUploadUrl: [${presignedFileUploadUrl}]`);

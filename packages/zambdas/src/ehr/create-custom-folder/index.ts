@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
 import {
-  BUCKET_NAMES,
   CreateCustomFolderOutput,
   CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
   deriveInternalFolderName,
@@ -12,7 +11,6 @@ import {
   NOT_AUTHORIZED,
   parseCustomFoldersCatalog,
   RoleType,
-  Secrets,
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getUser, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
@@ -51,7 +49,7 @@ export const index = wrapHandler('create-custom-folder', async (input: ZambdaInp
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const result = await performEffect(folderName, oystehr, secrets);
+    const result = await performEffect(folderName, oystehr);
 
     return {
       statusCode: 200,
@@ -63,11 +61,7 @@ export const index = wrapHandler('create-custom-folder', async (input: ZambdaInp
   }
 });
 
-const performEffect = async (
-  folderName: string,
-  oystehr: Oystehr,
-  secrets: Secrets | null
-): Promise<CreateCustomFolderOutput> => {
+const performEffect = async (folderName: string, oystehr: Oystehr): Promise<CreateCustomFolderOutput> => {
   // Check for duplicate display name against system folders
   const systemDisplayNames = FOLDERS_CONFIG.map((f) => f.display.toLowerCase().trim());
   if (systemDisplayNames.includes(folderName.toLowerCase().trim())) {
@@ -97,33 +91,6 @@ const performEffect = async (
       ...INVALID_INPUT_ERROR(`A folder with internal name "${internalName}" already exists`),
       statusCode: 409,
     };
-  }
-
-  // Defensive: structurally impossible since custom internal names always begin with
-  // "custom-folder-" and no system bucket name does.
-  const systemBucketNames = Object.values(BUCKET_NAMES) as string[];
-  if (systemBucketNames.includes(internalName)) {
-    throw {
-      ...INVALID_INPUT_ERROR(`The folder name "${folderName}" conflicts with a system folder`),
-      statusCode: 409,
-    };
-  }
-
-  // Create Z3 bucket — must use the full {projectId}-{internalName} name to match
-  // what makeZ3Url constructs when building presigned URLs for uploads/downloads.
-  const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
-  const fullBucketName = `${projectId}-${internalName}`;
-  try {
-    await (oystehr as any).z3.createBucket({ bucketName: fullBucketName });
-    console.log(`create-custom-folder: created Z3 bucket "${fullBucketName}"`);
-  } catch (err: any) {
-    const msg = err?.message ?? '';
-    if (msg.toLowerCase().includes('already exist') || err?.statusCode === 409) {
-      console.log(`create-custom-folder: Z3 bucket "${fullBucketName}" already exists — continuing`);
-    } else {
-      console.error(`create-custom-folder: failed to create Z3 bucket "${fullBucketName}":`, err?.message ?? err);
-      throw err;
-    }
   }
 
   const newEntry = {

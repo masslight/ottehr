@@ -14,12 +14,14 @@ type Z3UrlInput =
       patientID: string;
       fileType: string;
       fileFormat: string;
+      folderName?: string;
     }
   | {
       secrets: Secrets | null;
       bucketName: string;
       patientID: string;
       fileName: string;
+      folderName?: string;
     };
 
 export const makeZ3FileUrl = (input: Z3UrlAudioInput): string => {
@@ -34,7 +36,7 @@ export const makeZ3FileUrl = (input: Z3UrlAudioInput): string => {
 };
 
 export const makeZ3Url = (input: Z3UrlInput): string => {
-  const { secrets, bucketName, patientID } = input;
+  const { secrets, bucketName, patientID, folderName } = input;
   const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const dateTimeNow = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
   let resolvedFileName: string;
@@ -43,10 +45,11 @@ export const makeZ3Url = (input: Z3UrlInput): string => {
   } else {
     resolvedFileName = `${input.fileType}.${input.fileFormat}`;
   }
+  const folderSegment = folderName ? `${folderName}/` : '';
   const fileURL = `${getSecret(
     SecretsKeys.PROJECT_API,
     secrets
-  )}/z3/${projectId}-${bucketName}/${patientID}/${dateTimeNow}-${resolvedFileName}`;
+  )}/z3/${projectId}-${bucketName}/${folderSegment}${patientID}/${dateTimeNow}-${resolvedFileName}`;
   console.log('created z3 url: ', fileURL);
   return fileURL;
 };
