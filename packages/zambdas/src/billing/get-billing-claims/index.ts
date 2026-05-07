@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, getSecret, SecretsKeys } from 'utils';
+import { getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, findRef, getClaimStatus, getPayerId } from '../shared';
+import { createBillingClient, fhirName, findRef, getClaimStatus, getPayerId, sortClaimInsurance } from '../shared';
 import { GetBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
 interface BillingClaimItem {
@@ -80,10 +80,7 @@ async function fetchClaims(
 
   // Batch-fetch coverages for the current page
   const coverageIds = claims
-    .map((c) => {
-      const sorted = [...(c.insurance ?? [])].sort((a, b) => a.sequence - b.sequence);
-      return sorted[0]?.coverage?.reference?.replace('Coverage/', '');
-    })
+    .map((c) => sortClaimInsurance(c)[0]?.coverage?.reference?.replace('Coverage/', ''))
     .filter(Boolean) as string[];
   const uniqueCoverageIds = [...new Set(coverageIds)];
 
@@ -114,14 +111,14 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
   const patient = findRef<Patient>(lookups.patients, claim.patient?.reference);
   const insurer = findRef<Organization>(lookups.orgs, claim.insurer?.reference);
   const facility = findRef<Location>(lookups.locations, claim.facility?.reference);
-  const sortedInsurance = [...(claim.insurance ?? [])].sort((a, b) => a.sequence - b.sequence);
+  const sortedInsurance = sortClaimInsurance(claim);
   const coverage = findRef<Coverage>(lookups.coverages, sortedInsurance[0]?.coverage?.reference);
   const billed = claim.total?.value ?? 0;
 
   const practRef = claim.careTeam?.[0]?.provider?.reference;
   const pract = findRef<Practitioner>(lookups.practitioners, practRef);
-  const practName = pract?.name?.[0] ? convertFhirNameToDisplayName(pract.name[0]) : '';
-  const patientName = patient?.name?.[0] ? convertFhirNameToDisplayName(patient.name[0]) : '';
+  const practName = fhirName(pract);
+  const patientName = fhirName(patient);
 
   const serviceDate = claim.item?.[0]?.servicedPeriod?.start ?? claim.item?.[0]?.servicedDate ?? claim.created ?? '';
 

@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, HumanName, Organization, Resource } from 'fhir/r4b';
-import { getNPI, Secrets } from 'utils';
+import { Claim, HumanName, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { convertFhirNameToDisplayName, getNPI, Secrets } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
 export const BILLING_RESOURCE_TAG = {
@@ -17,6 +17,10 @@ export const CURRENT_STATUS_TAG_SYSTEM = 'current-status';
 
 export function getClaimStatus(claim: Claim): string {
   return claim.meta?.tag?.find((t) => t.system === CURRENT_STATUS_TAG_SYSTEM)?.code ?? claim.status ?? 'unknown';
+}
+
+export function sortClaimInsurance(claim: Pick<Claim, 'insurance'>): NonNullable<Claim['insurance']> {
+  return [...(claim.insurance ?? [])].sort((a, b) => a.sequence - b.sequence);
 }
 
 // Provider role tags
@@ -73,6 +77,11 @@ export function getTag(resource: Resource, system: string): string | undefined {
 export function formatAddress(addr?: { line?: string[]; city?: string; state?: string; postalCode?: string }): string {
   if (!addr) return '';
   return [...(addr.line ?? []), addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ');
+}
+
+export function fhirName(resource?: Patient | Practitioner): string {
+  const name = resource?.name?.[0];
+  return name ? convertFhirNameToDisplayName(name) : '';
 }
 
 // Clone a billing resource into a working copy: strips id, tags it, adds source reference.

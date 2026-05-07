@@ -21,6 +21,7 @@ import { chooseJson, ClaimsQueueItemStatuses } from 'utils';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
+import { formatCurrency } from '../utils/format';
 
 interface ClaimRow {
   id: string;
@@ -64,15 +65,13 @@ interface Filters {
   patientId?: string;
 }
 
-const fmt = (v: number): string => `$${v.toFixed(2)}`;
-
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
   field,
   headerName,
   width,
   align: 'right',
   headerAlign: 'right',
-  valueFormatter: (params: { value: number }) => fmt(params.value),
+  valueFormatter: (params: { value: number }) => formatCurrency(params.value),
 });
 
 const columns: GridColDef[] = [
@@ -256,7 +255,7 @@ export default function ClaimsList(): ReactElement {
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
           Claims
         </Typography>
-        <Button variant="contained" size="small" startIcon={<AddIcon />} disabled>
+        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
           Create
         </Button>
       </Box>
@@ -291,7 +290,7 @@ export default function ClaimsList(): ReactElement {
             <MenuItem value="">All</MenuItem>
             {ClaimsQueueItemStatuses.map((s) => (
               <MenuItem key={s} value={s}>
-                {s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, ' ')}
+                {formatClaimStatus(s)}
               </MenuItem>
             ))}
           </Select>

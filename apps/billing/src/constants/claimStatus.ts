@@ -6,6 +6,8 @@ export const CLAIM_STATUS_COLORS: Record<string, 'warning' | 'info' | 'error' | 
   locked: 'primary',
   'returned-billing': 'warning',
   'returned-coding': 'warning',
+  'returned-credentialing-hold': 'warning',
+  'credential-hold': 'warning',
 };
 
 export function formatClaimStatus(status: string): string {

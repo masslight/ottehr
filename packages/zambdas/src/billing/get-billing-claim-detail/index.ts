@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coverage, Location, Organization, Patient, Person, Practitioner } from 'fhir/r4b';
 import {
-  convertFhirNameToDisplayName,
   FHIR_RESOURCE_NOT_FOUND,
   getNPI,
   getResourcesFromBatchInlineRequests,
@@ -11,7 +10,15 @@ import {
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, findRef, formatAddress, getClaimStatus, getPayerId } from '../shared';
+import {
+  createBillingClient,
+  fhirName,
+  findRef,
+  formatAddress,
+  getClaimStatus,
+  getPayerId,
+  sortClaimInsurance,
+} from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -95,11 +102,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-function fhirName(resource?: Patient | Practitioner): string {
-  const name = resource?.name?.[0];
-  return name ? convertFhirNameToDisplayName(name) : '';
-}
-
 async function fetchClaimDetail(oystehr: Oystehr, claimId: string): Promise<ClaimDetailResponse> {
   const query = `/Claim?_id=${claimId}&_include=Claim:patient&_include=Claim:insurer&_include=Claim:provider&_include=Claim:facility`;
   const resources = await getResourcesFromBatchInlineRequests(oystehr, [query]);
@@ -113,7 +115,7 @@ async function fetchClaimDetail(oystehr: Oystehr, claimId: string): Promise<Clai
   const facility = findRef<Location>(resources, claim.facility?.reference);
 
   // Batch-fetch coverage, rendering practitioner, and secondary insurance
-  const sortedInsurance = [...(claim.insurance ?? [])].sort((a, b) => a.sequence - b.sequence);
+  const sortedInsurance = sortClaimInsurance(claim);
 
   const followUpQueries: string[] = [];
   const coverageRef = sortedInsurance[0]?.coverage?.reference;
