@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { HumanName, Organization, Resource } from 'fhir/r4b';
+import { Claim, HumanName, Organization, Resource } from 'fhir/r4b';
 import { getNPI, Secrets } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
@@ -14,6 +14,10 @@ export const BILLING_WORKING_COPY_TAG = {
 };
 
 export const CURRENT_STATUS_TAG_SYSTEM = 'current-status';
+
+export function getClaimStatus(claim: Claim): string {
+  return claim.meta?.tag?.find((t) => t.system === CURRENT_STATUS_TAG_SYSTEM)?.code ?? claim.status ?? 'unknown';
+}
 
 // Provider role tags
 export const RENDERS_TAG = 'https://fhir.ottehr.com/billing/renders-services';
@@ -82,6 +86,13 @@ export function prepareWorkingCopy<T extends Resource>(resource: T, originalId: 
     { url: SOURCE_EXT_URL, valueReference: { reference: `${resource.resourceType}/${originalId}` } },
   ];
   return copy;
+}
+
+// Resolve FHIR reference like "Patient/uuid-12345" from resource array.
+export function findRef<T extends Resource>(resources: Resource[], reference?: string): T | undefined {
+  if (!reference) return undefined;
+  const id = reference.includes('/') ? reference.split('/')[1] : reference;
+  return resources.find((r) => r.id === id) as T | undefined;
 }
 
 // Apply first/last name overrides to a Patient or Practitioner.

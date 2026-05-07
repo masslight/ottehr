@@ -23,12 +23,6 @@ export interface CreateClaimParams {
   secrets: ZambdaInput['secrets'];
 }
 
-function validateStringField(value: unknown, name: string): void {
-  if (value !== undefined && (typeof value !== 'string' || !String(value).trim())) {
-    throw INVALID_INPUT_ERROR(`"${name}" must be a non-empty string when provided`);
-  }
-}
-
 function validateOverrides(overrides: unknown, allowed: string[], label: string): void {
   if (overrides === undefined) return;
   if (typeof overrides !== 'object' || overrides === null) {
@@ -56,10 +50,11 @@ export function validateRequestParameters(input: ZambdaInput): CreateClaimParams
     throw INVALID_INPUT_ERROR('"patientId" must be a non-empty string');
   }
 
-  validateStringField(body.coverageId, 'coverageId');
-  validateStringField(body.practitionerId, 'practitionerId');
-  validateStringField(body.facilityId, 'facilityId');
-  validateStringField(body.billingProviderId, 'billingProviderId');
+  for (const field of ['coverageId', 'practitionerId', 'facilityId', 'billingProviderId'] as const) {
+    if (body[field] !== undefined && (typeof body[field] !== 'string' || !body[field].trim())) {
+      throw INVALID_INPUT_ERROR(`"${field}" must be a non-empty string when provided`);
+    }
+  }
 
   validateOverrides(body.patientOverrides, ['firstName', 'lastName', 'dob', 'gender'], 'patientOverrides');
   validateOverrides(body.coverageOverrides, ['subscriberId'], 'coverageOverrides');
