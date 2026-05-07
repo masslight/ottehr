@@ -16,7 +16,9 @@ import {
 } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { chooseJson, ClaimsQueueItemStatuses } from 'utils';
+import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 
@@ -62,16 +64,6 @@ interface Filters {
   patientId?: string;
 }
 
-const STATUS_COLORS: Record<string, 'warning' | 'info' | 'error' | 'success' | 'primary' | 'default'> = {
-  open: 'warning',
-  sent: 'info',
-  denied: 'error',
-  'partly-paid': 'success',
-  locked: 'primary',
-  'returned-billing': 'warning',
-  'returned-coding': 'warning',
-};
-
 const fmt = (v: number): string => `$${v.toFixed(2)}`;
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
@@ -93,8 +85,8 @@ const columns: GridColDef[] = [
     headerName: 'Status',
     width: 130,
     renderCell: ({ value }) => {
-      const color = STATUS_COLORS[value as string] ?? 'default';
-      const label = String(value).charAt(0).toUpperCase() + String(value).slice(1);
+      const color = CLAIM_STATUS_COLORS[value as string] ?? 'default';
+      const label = formatClaimStatus(value as string);
       return (
         <Chip label={label} color={color} variant="outlined" size="small" sx={{ borderRadius: '4px', fontSize: 12 }} />
       );
@@ -112,6 +104,7 @@ const columns: GridColDef[] = [
 ];
 
 export default function ClaimsList(): ReactElement {
+  const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
   const [claims, setClaims] = useState<ClaimRow[]>([]);
@@ -127,8 +120,8 @@ export default function ClaimsList(): ReactElement {
   const [statusFilter, setStatusFilter] = useState('');
   const [dosFrom, setDosFrom] = useState('');
   const [dosTo, setDosTo] = useState('');
-  const [payerIdFilter, setPayerIdFilter] = useState('');
-  const [patientIdFilter, setPatientIdFilter] = useState('');
+  const [selectedPayer, setSelectedPayer] = useState<PayerOption | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<PatientOption | null>(null);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const payerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -143,22 +136,21 @@ export default function ClaimsList(): ReactElement {
   }, []);
 
   const fetchClaims = useCallback(
-    async (filters?: Filters, pagination?: GridPaginationModel): Promise<void> => {
+    async (filters: Filters, pagination: GridPaginationModel): Promise<void> => {
       if (!oystehrZambda) return;
       setLoading(true);
       setError(null);
       try {
-        const page = pagination ?? paginationModel;
         const body: Record<string, unknown> = {
-          pageSize: page.pageSize,
-          offset: page.page * page.pageSize,
+          pageSize: pagination.pageSize,
+          offset: pagination.page * pagination.pageSize,
         };
-        if (filters?.searchText) body.searchText = filters.searchText;
-        if (filters?.status) body.status = filters.status;
-        if (filters?.dosFrom) body.dosFrom = filters.dosFrom;
-        if (filters?.dosTo) body.dosTo = filters.dosTo;
-        if (filters?.payerId) body.payerId = filters.payerId;
-        if (filters?.patientId) body.patientId = filters.patientId;
+        if (filters.searchText) body.searchText = filters.searchText;
+        if (filters.status) body.status = filters.status;
+        if (filters.dosFrom) body.dosFrom = filters.dosFrom;
+        if (filters.dosTo) body.dosTo = filters.dosTo;
+        if (filters.payerId) body.payerId = filters.payerId;
+        if (filters.patientId) body.patientId = filters.patientId;
 
         const response = await oystehrZambda.zambda.execute({ id: 'get-billing-claims', ...body });
         const data = chooseJson(response);
@@ -172,7 +164,7 @@ export default function ClaimsList(): ReactElement {
         setLoading(false);
       }
     },
-    [oystehrZambda, paginationModel]
+    [oystehrZambda]
   );
 
   const searchPayers = useCallback(
@@ -206,9 +198,12 @@ export default function ClaimsList(): ReactElement {
     [oystehrZambda]
   );
 
+  const initialLoadDone = useRef(false);
   useEffect(() => {
-    void fetchClaims();
-  }, [fetchClaims]);
+    if (!oystehrZambda || initialLoadDone.current) return;
+    initialLoadDone.current = true;
+    void fetchClaims({}, paginationModel);
+  }, [oystehrZambda, fetchClaims, paginationModel]);
 
   const currentFilters = useCallback(
     (overrides?: Filters): Filters => ({
@@ -216,10 +211,10 @@ export default function ClaimsList(): ReactElement {
       status: overrides?.status ?? statusFilter,
       dosFrom: overrides?.dosFrom ?? dosFrom,
       dosTo: overrides?.dosTo ?? dosTo,
-      payerId: overrides?.payerId ?? payerIdFilter,
-      patientId: overrides?.patientId ?? patientIdFilter,
+      payerId: overrides?.payerId ?? selectedPayer?.payerId,
+      patientId: overrides?.patientId ?? selectedPatient?.id,
     }),
-    [searchText, statusFilter, dosFrom, dosTo, payerIdFilter, patientIdFilter]
+    [searchText, statusFilter, dosFrom, dosTo, selectedPayer, selectedPatient]
   );
 
   const applyFilters = useCallback(
@@ -246,13 +241,14 @@ export default function ClaimsList(): ReactElement {
     setStatusFilter('');
     setDosFrom('');
     setDosTo('');
-    setPayerIdFilter('');
-    setPatientIdFilter('');
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-    void fetchClaims();
+    setSelectedPayer(null);
+    setSelectedPatient(null);
+    const resetPage = { ...paginationModel, page: 0 };
+    setPaginationModel(resetPage);
+    void fetchClaims({}, resetPage);
   };
 
-  const hasFilters = searchText || statusFilter || dosFrom || dosTo || payerIdFilter || patientIdFilter;
+  const hasFilters = searchText || statusFilter || dosFrom || dosTo || selectedPayer || selectedPatient;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -268,7 +264,7 @@ export default function ClaimsList(): ReactElement {
       <TextField
         fullWidth
         size="small"
-        placeholder="Search by patient name, payer name, payer ID, member ID, DOB..."
+        placeholder="Search by patient name..."
         value={searchText}
         onChange={(e) => handleSearchChange(e.target.value)}
         InputProps={{
@@ -310,11 +306,10 @@ export default function ClaimsList(): ReactElement {
           }}
           onOpen={() => searchPayers('')}
           filterOptions={(x) => x}
-          value={payerIdFilter ? payerOptions.find((p) => p.payerId === payerIdFilter) ?? null : null}
+          value={selectedPayer}
           onChange={(_, v) => {
-            const val = v?.payerId ?? '';
-            setPayerIdFilter(val);
-            applyFilters({ payerId: val });
+            setSelectedPayer(v);
+            applyFilters({ payerId: v?.payerId ?? '' });
           }}
           renderInput={(params) => <TextField {...params} label="Payer" />}
           isOptionEqualToValue={(o, v) => o.id === v.id}
@@ -330,11 +325,10 @@ export default function ClaimsList(): ReactElement {
           }}
           onOpen={() => searchPatients('')}
           filterOptions={(x) => x}
-          value={patientOptions.find((p) => p.id === patientIdFilter) ?? null}
+          value={selectedPatient}
           onChange={(_, v) => {
-            const val = v?.id ?? '';
-            setPatientIdFilter(val);
-            applyFilters({ patientId: val });
+            setSelectedPatient(v);
+            applyFilters({ patientId: v?.id ?? '' });
           }}
           renderInput={(params) => <TextField {...params} label="Patient" />}
           isOptionEqualToValue={(o, v) => o.id === v.id}
@@ -389,6 +383,7 @@ export default function ClaimsList(): ReactElement {
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationChange}
         pageSizeOptions={[25, 50, 100]}
+        onRowClick={(params) => navigate(`/claims/${params.id}`)}
         disableRowSelectionOnClick
         disableColumnMenu
         checkboxSelection
@@ -419,6 +414,7 @@ export default function ClaimsList(): ReactElement {
             fontSize: 14,
             color: otherColors.tableRow,
           },
+          '& .MuiDataGrid-row': { cursor: 'pointer' },
           '& .MuiDataGrid-row:hover': { bgcolor: otherColors.apptHover },
           height: 'calc(100vh - 310px)',
         }}

@@ -59,10 +59,11 @@ async function fetchClaims(
     { name: '_offset', value: String(offset) },
   ];
 
-  if (params.status) searchParams.push({ name: '_tag', value: params.status });
+  if (params.status) searchParams.push({ name: '_tag', value: `current-status|${params.status}` });
   if (params.dosFrom) searchParams.push({ name: 'created', value: `ge${params.dosFrom}` });
   if (params.dosTo) searchParams.push({ name: 'created', value: `le${params.dosTo}` });
   if (params.patientId) searchParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
+  if (params.searchText) searchParams.push({ name: 'patient.name', value: params.searchText });
   if (params.payerName) searchParams.push({ name: 'insurer.name', value: params.payerName });
   if (params.payerId) searchParams.push({ name: 'insurer.identifier', value: params.payerId });
 
@@ -96,21 +97,7 @@ async function fetchClaims(
   }
 
   const lookups = { patients, orgs, locations, practitioners, coverages };
-  let items = claims.map((claim) => mapClaimToItem(claim, lookups));
-
-  // In-memory text search on the current page only
-  if (params.searchText) {
-    const q = params.searchText.toLowerCase();
-    items = items.filter(
-      (item) =>
-        item.id.toLowerCase().includes(q) ||
-        item.patientName.toLowerCase().includes(q) ||
-        item.payerName.toLowerCase().includes(q) ||
-        item.payerId.toLowerCase().includes(q) ||
-        item.memberId.toLowerCase().includes(q) ||
-        item.patientDob.includes(q)
-    );
-  }
+  const items = claims.map((claim) => mapClaimToItem(claim, lookups));
 
   return { claims: items, total, offset, pageSize };
 }
