@@ -36,20 +36,22 @@ export const AdminLabSetExternalSelection: React.FC<AdminLabSetExternalSelection
     }
 
     const fetchLabs = async (): Promise<void> => {
-      const response = await apiClient?.getCreateExternalLabResources({
-        selectedLabSet: defaultLabs,
-      });
+      try {
+        const response = await apiClient?.getCreateExternalLabResources({
+          selectedLabSet: defaultLabs,
+        });
 
-      if (response?.labs) {
-        setSelectedLabs(response.labs);
-        hasInitializedRef.current = true;
+        if (response?.labs) {
+          setSelectedLabs(response.labs);
+          hasInitializedRef.current = true;
+        }
+      } catch (e) {
+        console.log('error fetching labs:', e);
+        setFetchLabsError(true);
       }
     };
 
-    fetchLabs().catch((e) => {
-      console.log('error fetching labs:', e);
-      setFetchLabsError(true);
-    });
+    void fetchLabs();
   }, [defaultLabs, apiClient]);
 
   useEffect(() => {

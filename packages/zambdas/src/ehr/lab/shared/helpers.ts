@@ -24,7 +24,6 @@ import {
   LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL,
   LabListSearchFieldKey,
   LabSetDTO,
-  LabSetNoIdDTO,
   LabType,
 } from 'utils';
 
@@ -179,7 +178,7 @@ const getLabListEntryFieldFromExtension = (
   return fieldValue;
 };
 
-export const formatListEntry = (labSet: LabSetDTO | LabSetNoIdDTO): ListEntry[] => {
+export const formatListEntry = (labSet: LabSetDTO): ListEntry[] => {
   const now = DateTime.now().toISO();
   let entry: ListEntry[] | undefined;
 

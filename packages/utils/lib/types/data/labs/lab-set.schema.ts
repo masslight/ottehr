@@ -19,63 +19,33 @@ export enum LabSetStatus {
 
 export const BaseLabSetSchema = z.object({
   listId: z.string(),
-  listName: z.string(),
+  listName: z.string().min(1, { message: 'Lab set name is required' }),
   listStatus: z.nativeEnum(LabSetStatus),
 });
 
 export const ExternalLabSetSchema = BaseLabSetSchema.extend({
   listType: z.literal(LabType.external),
-  labs: z.array(ExternalLabListItemSchema),
+  labs: z.array(ExternalLabListItemSchema).min(1, { message: 'Please select at least one lab' }),
 });
 
 export const InHouseLabSetSchema = BaseLabSetSchema.extend({
   listType: z.literal(LabType.inHouse),
-  labs: z.array(InHouseLabListItemSchema),
+  labs: z.array(InHouseLabListItemSchema).min(1, { message: 'Please select at least one lab' }),
 });
 
-export const LabSetSchema = z.discriminatedUnion('listType', [ExternalLabSetSchema, InHouseLabSetSchema]);
-
-// for creating a lab set, no id yet
-const ExternalLabSetNoIdSchema = ExternalLabSetSchema.omit({
-  listId: true,
-});
-const InHouseLabSetNoIdSchema = InHouseLabSetSchema.omit({
-  listId: true,
-});
-export const LabSetNoIdSchema = z.discriminatedUnion('listType', [ExternalLabSetNoIdSchema, InHouseLabSetNoIdSchema]);
-
-// for the admin lab set form
-export const AdminLabSetFormInputSchema = z
-  .object({
-    listId: z.string().optional(),
-
-    listName: z.string().trim().min(1, 'Set name is required'),
-
-    listStatus: z.nativeEnum(LabSetStatus),
-
-    listType: z.enum([LabType.external, LabType.inHouse], {
-      errorMap: () => ({ message: 'Lab type is required' }),
-    }),
-
-    labs: z.array(z.union([InHouseLabListItemSchema, ExternalLabListItemSchema])).optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (!data.listType) return;
-
-    if (!data.labs || data.labs.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['labs'],
-        message:
-          data.listType === LabType.inHouse ? 'Select at least one in-house lab' : 'Select at least one external lab',
-      });
+export const LabSetDTOSchema = z.discriminatedUnion('listType', [ExternalLabSetSchema, InHouseLabSetSchema], {
+  errorMap: (issue, ctx) => {
+    // this schema is used to validate RHF when creating a lab set in the admin portal
+    // when the form first loads, no list type is selected, if the user clicks submit on the empty form a invalid_union_discriminator error is thrown
+    // this allows the front end to get a human readable error instead
+    if (issue.code === 'invalid_union_discriminator') {
+      return { message: `Lab type is required` };
     }
-  });
+    return { message: ctx.defaultError };
+  },
+});
 
 // LAB SET DTO types
 export type ExternalLabSetDTO = z.infer<typeof ExternalLabSetSchema>;
 export type InHouseLabSetDTO = z.infer<typeof InHouseLabSetSchema>;
-export type LabSetDTO = z.infer<typeof LabSetSchema>;
-export type LabSetNoIdDTO = z.infer<typeof LabSetNoIdSchema>;
-
-export type AdminLabSetFormInput = z.infer<typeof AdminLabSetFormInputSchema>;
+export type LabSetDTO = z.infer<typeof LabSetDTOSchema>;

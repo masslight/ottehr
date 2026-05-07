@@ -5,7 +5,7 @@ import { ReactElement, useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import PageContainer from 'src/layout/PageContainer';
-import { AdminLabSetFormInput, LabSetStatus } from 'utils';
+import { LabSetDTO, LabSetStatus } from 'utils';
 import { useAdminGetLabSetDetail, useAdminUpdateLabSet } from '../admin.queries';
 import AdminLabSetForm from './AdminLabSetForm';
 
@@ -30,7 +30,7 @@ export default function AdminLabSetDetails(): ReactElement {
   const dataToRender = existingData?.labSetDTO ?? undefined;
 
   const onEdit = useCallback(
-    async (labSetData: AdminLabSetFormInput) => {
+    async (labSetData: LabSetDTO) => {
       console.log('submitted formData', labSetData);
 
       try {

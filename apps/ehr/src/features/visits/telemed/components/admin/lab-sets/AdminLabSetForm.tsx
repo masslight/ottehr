@@ -13,14 +13,14 @@ import {
   Theme,
   useTheme,
 } from '@mui/material';
-import { PropsWithChildren, ReactElement, ReactNode, useEffect, useMemo, useState } from 'react';
+import { PropsWithChildren, ReactElement, ReactNode, useEffect, useState } from 'react';
 import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import {
-  AdminLabSetFormInput,
-  AdminLabSetFormInputSchema,
   DataEntryTestItem,
   ExternalLabSetDTO,
   InHouseLabSetDTO,
+  LabSetDTO,
+  LabSetDTOSchema,
   LabSetStatus,
   LabType,
   LabTypeDisplay,
@@ -30,9 +30,9 @@ import { AdminLabSetExternalSelection } from './components/AdminLabSetExternalSe
 import { AdminLabSetInHouseSelection } from './components/AdminLabSetInHouseSelection';
 
 export interface AdminLabSetFormProps {
-  defaultValues?: AdminLabSetFormInput;
+  defaultValues?: LabSetDTO;
   formMode: 'add' | 'edit';
-  onSubmit: (data: AdminLabSetFormInput) => void;
+  onSubmit: (data: LabSetDTO) => void;
   isSubmitting: boolean;
   submitError?: Error | null;
 }
@@ -44,6 +44,7 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
   const [labsErrorMessage, setLabsErrorMessage] = useState<string | undefined>(undefined);
 
   const valuesForForm = defaultValues ?? {
+    listId: '',
     listName: '',
     listType: undefined,
     listStatus: LabSetStatus.active,
@@ -56,37 +57,31 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
     defaultValues?.listType === LabType.external ? (defaultValues as ExternalLabSetDTO) : undefined;
 
   const theme = useTheme();
-  const methods = useForm<AdminLabSetFormInput>({
+  const methods = useForm<LabSetDTO>({
     defaultValues: valuesForForm,
-    resolver: zodResolver(AdminLabSetFormInputSchema),
+    resolver: zodResolver(LabSetDTOSchema),
     mode: 'onChange',
-    reValidateMode: 'onSubmit',
+    reValidateMode: 'onChange',
   });
 
   const selectedListType = useWatch({ control: methods.control, name: 'listType' });
 
-  const labs = useMemo(() => {
-    if (selectedListType === LabType.inHouse) {
-      const inHouseLabs: InHouseLabSetDTO['labs'] = selectedInHouseTests.map((t) => ({
-        display: t.name,
-        adUrl: t.adUrl,
-      }));
-      return inHouseLabs;
-    }
-
-    if (selectedListType === LabType.external) {
-      const externalLabs: ExternalLabSetDTO['labs'] = selectedExternalTests.map((r) => ({
-        display: r.item.uniqueName,
-        itemCode: r.item.itemCode,
-        labGuid: r.lab.labGuid,
-      }));
-      return externalLabs;
-    }
-
-    return [];
-  }, [selectedListType, selectedInHouseTests, selectedExternalTests]);
-
   useEffect(() => {
+    const labs =
+      selectedListType === LabType.inHouse
+        ? selectedInHouseTests.map((t) => ({
+            display: t.name,
+            adUrl: t.adUrl,
+          }))
+        : selectedExternalTests.map((r) => ({
+            display: r.item.uniqueName,
+            itemCode: r.item.itemCode,
+            labGuid: r.lab.labGuid,
+          }));
+
+    // here to help with form validation
+    // labs form data is tied to multiple fields (which are also conditionally rendered)
+    // so things need to be handled somewhat manually
     methods.setValue('labs', labs, {
       shouldDirty: true,
       shouldTouch: true,
@@ -94,9 +89,10 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
     if (labs.length > 0) {
       setLabsErrorMessage(undefined);
     }
-  }, [labs, methods]);
+  }, [methods, selectedInHouseTests, selectedExternalTests, selectedListType]);
 
   useEffect(() => {
+    // for validating the labs form data
     methods.register('labs');
   }, [methods]);
 
@@ -146,7 +142,7 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
             control={methods.control}
             rules={{ required: true }}
             render={({ field: { onChange, value }, fieldState }) => (
-              <FormControl sx={{ marginTop: 2, marginBottom: 1, width: '100%' }} error={!!fieldState.error}>
+              <FormControl sx={{ marginTop: 2, marginBottom: 1, width: '100%' }} required error={!!fieldState.error}>
                 <InputLabel id="list-type-label">Lab Type</InputLabel>
                 <Select
                   labelId="list-type-label"

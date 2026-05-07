@@ -15,7 +15,7 @@ export const ExternalSelectedTests: React.FC<ExternalSelectedTestsProps> = ({ se
       <Grid item xs={12} data-testid={dataTestIds.externalLabs.createPg.selectedLabContainer}>
         <ActionsList
           data={selectedLabs}
-          getKey={(value, index) => `selected-lab-${index}-${value.item.itemCode}`}
+          getKey={(value, index) => `selected-lab-${index}-${value.lab.labName}-${value.item.itemCode}`}
           renderItem={(value) => <Typography>{nameLabTest(value.item.itemName, value.lab.labName, false)}</Typography>}
           renderActions={(lab) => (
             <DeleteIconButton

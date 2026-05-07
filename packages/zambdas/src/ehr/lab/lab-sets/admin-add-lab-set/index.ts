@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
-import { AdminAddLabSetOutput, getSecret, LAB_LIST_CODE_CODING, LabSetNoIdDTO, LabType, SecretsKeys } from 'utils';
+import { AdminAddLabSetOutput, getSecret, LAB_LIST_CODE_CODING, LabSetDTO, LabType, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -41,7 +41,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-async function createLabSet(labSet: LabSetNoIdDTO, oystehr: Oystehr): Promise<AdminAddLabSetOutput> {
+async function createLabSet(labSet: LabSetDTO, oystehr: Oystehr): Promise<AdminAddLabSetOutput> {
   console.log('configuring the list resource for the new lab set');
 
   const entry = formatListEntry(labSet);

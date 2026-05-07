@@ -4,7 +4,7 @@ import {
   INVALID_INPUT_ERROR,
   isValidUUID,
   LabSetDTO,
-  LabSetSchema,
+  LabSetDTOSchema,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
@@ -42,7 +42,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
   if (missingParams.length > 0) throw MISSING_REQUIRED_PARAMETERS(missingParams);
 
   if (updateType === 'edit') {
-    const dataValidated = LabSetSchema.safeParse(data);
+    const dataValidated = LabSetDTOSchema.safeParse(data);
     if (!dataValidated.success) {
       console.error(
         'Hit validation error during zod parsing. Tried to parse this json:',
