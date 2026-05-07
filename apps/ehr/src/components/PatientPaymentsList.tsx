@@ -45,6 +45,7 @@ import {
   CoverageCheckWithDetails,
   CPT_CODE_SYSTEM,
   CPT_MODIFIER_EXTENSION_URL,
+  findOrgMatchingReference,
   getCoding,
   getLocationIdFromAppointment,
   getPaymentVariantFromEncounter,
@@ -628,11 +629,7 @@ export default function PatientPaymentList({
   const insurance = insuranceCoverages?.coverages?.primary?.identifier?.find(
     (temp) => temp.type?.coding?.find((temp) => temp.code === 'MB')
   )?.assigner;
-  const insuranceOrganization = insuranceCoverages?.insuranceOrgs?.find(
-    (organization) =>
-      organization.id === insurance?.reference?.replace('Organization/', '') ||
-      oystehr?.rcm.constructPayerUrl({ id: organization.id! }) === insurance?.reference
-  );
+  const insuranceOrganization = findOrgMatchingReference(insurance?.reference, insuranceCoverages?.insuranceOrgs);
   const insuranceName = insuranceOrganization?.name;
   const insuranceNotes = insuranceOrganization?.extension?.find(
     (extensionTemp) => extensionTemp.url === ottehrExtensionUrl('insurance-override-note')

@@ -14,6 +14,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  findOrgMatchingReference,
   formatDateToMDYWithTime,
   getMemberIdFromCoverage,
   getPayerId,
@@ -142,14 +143,7 @@ function getInsuranceDetails(
   }
 
   const payorReference = coverage.payor?.[0]?.reference;
-  const oystehr = new Oystehr({}); // get access to static helper
-  const payerOrgByReference = payorReference
-    ? insuranceOrgs.find(
-        (org) =>
-          `Organization/${org.id}` === payorReference ||
-          oystehr.rcm.constructPayerUrl({ id: org.id! }) === payorReference
-      )
-    : undefined;
+  const payerOrgByReference = payorReference ? findOrgMatchingReference(payorReference, insuranceOrgs) : undefined;
   const payerOrgByPayerId = coverage.class?.[0]?.value
     ? insuranceOrgs.find((org) => getPayerId(org) === coverage.class?.[0]?.value)
     : undefined;

@@ -62,6 +62,7 @@ import {
   createReference,
   EmCodeOption,
   FHIR_IDENTIFIER_NPI,
+  findOrgMatchingReference,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
   getEmCodes,
@@ -179,11 +180,7 @@ const createCandidCreateEncounterInput = async (
   const { coverages, insuranceOrgs } = await getAccountAndCoverageResourcesForPatient(patient.id, oystehr);
   const coverage = coverages.primary;
   const coverageSubscriber = coverages.primarySubscriber;
-  const coveragePayor = insuranceOrgs.find(
-    (insuranceOrg) =>
-      `Organization/${insuranceOrg.id}` === coverage?.payor[0]?.reference ||
-      oystehr.rcm.constructPayerUrl({ id: insuranceOrg.id! }) === coverage?.payor[0]?.reference
-  );
+  const coveragePayor = findOrgMatchingReference(coverage?.payor[0]?.reference, insuranceOrgs);
   if (coverage && (!coverageSubscriber || !coveragePayor)) {
     throw MISSING_PATIENT_COVERAGE_INFO_ERROR;
   }

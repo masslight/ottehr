@@ -10,6 +10,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   ELIGIBILITY_BENEFIT_CODES,
+  findOrgMatchingReference,
   InsuranceCheckStatusWithDate,
   InsuranceEligibilityCheckStatus,
   parseCoverageEligibilityResponse,
@@ -110,12 +111,13 @@ export const parseEligibilityCheckResponsePromiseResult = async (
 };
 
 export const getPayorRef = (oystehr: Oystehr, coverage: Coverage, orgs: Organization[]): string | undefined => {
-  const payor = orgs.find((org) => {
-    return coverage.payor.some((res) => {
-      return (
-        res.reference === `Organization/${org.id}` || oystehr.rcm.constructPayerUrl({ id: org.id! }) === res.reference
-      );
-    });
-  });
-  return payor ? `Organization/${payor.id}` : undefined;
+  let payor: Organization | undefined;
+  for (const payorRef of coverage.payor) {
+    const match = findOrgMatchingReference(payorRef.reference, orgs);
+    if (match) {
+      payor = match;
+      break;
+    }
+  }
+  return payor ? oystehr.rcm.constructPayerUrl({ id: payor.id! }) : undefined;
 };

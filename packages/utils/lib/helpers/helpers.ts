@@ -1718,3 +1718,18 @@ export function replaceTemplateVariablesHandlebars(template: string, variables: 
     return template;
   }
 }
+
+/**
+ * Pulls Organization matching reference out of a list of orgs
+ * @param reference payer url or internal FHIR reference
+ * @param organizations list of payer organizations
+ */
+export function findOrgMatchingReference(reference?: string, organizations?: Organization[]): Organization | undefined {
+  if (!reference) return undefined;
+  const oystehr = new Oystehr({}); // get access to static helper
+  return (organizations ?? []).find(
+    (organization) =>
+      organization.id === reference.replace('Organization/', '') ||
+      oystehr?.rcm.constructPayerUrl({ id: organization.id! }) === reference
+  );
+}

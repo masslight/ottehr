@@ -64,6 +64,7 @@ import {
   FHIR_EXTENSION,
   FileDocDataForDocReference,
   filterHiddenRemovableFields,
+  findOrgMatchingReference,
   flattenIntakeQuestionnaireItems,
   flattenItems,
   formatPhoneNumber,
@@ -1913,12 +1914,7 @@ function getInsuranceDetailsFromAnswers(
     ?.valueReference;
   if (!insuranceOrgReference) return undefined;
 
-  const oystehr = new Oystehr({}); // get access to static helper
-  const org = organizations.find(
-    (org) =>
-      `${org.resourceType}/${org.id}` === insuranceOrgReference.reference ||
-      oystehr.rcm.constructPayerUrl({ id: org.id! }) === insuranceOrgReference.reference
-  );
+  const org = findOrgMatchingReference(insuranceOrgReference.reference, organizations);
   if (!org) return undefined;
 
   const qType = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]?.valueString;
@@ -2827,12 +2823,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       let workersCompCoverage: Coverage | undefined = undefined;
       const workersCompInsurance = employerInformation.workersCompInsurance;
       const workersCompMemberId = employerInformation.workersCompMemberId;
-      const oystehr = new Oystehr({}); // get access to static helper
-      const workersCompInsuranceOrg = organizationResources.find(
-        (org) =>
-          `${org.resourceType}/${org.id}` === workersCompInsurance ||
-          oystehr.rcm.constructPayerUrl({ id: org.id! }) === workersCompInsurance
-      );
+      const workersCompInsuranceOrg = findOrgMatchingReference(workersCompInsurance, organizationResources);
       const payerId = getPayerId(workersCompInsuranceOrg);
       if (existingCoverages.workersComp) {
         workersCompCoverage = existingCoverages.workersComp;

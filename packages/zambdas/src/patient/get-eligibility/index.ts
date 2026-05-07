@@ -77,7 +77,7 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
       throw FHIR_RESOURCE_NOT_FOUND('Coverage');
     }
 
-    const payorReference = getPayorRef(coverageToUse, insuranceOrgs);
+    const payorReference = getPayorRef(oystehr, coverageToUse, insuranceOrgs);
 
     if (!payorReference) {
       throw new Error('Payor reference not found');
