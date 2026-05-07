@@ -548,7 +548,7 @@ describe('Harvest Module', () => {
       id: uuidV4(),
       status: 'active',
       beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-      payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/60054' }],
+      payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/J1859' }],
       subscriberId: 'FdfDfdFdfDfh7897',
       subscriber: { reference: 'RelatedPerson/36ef99c3-43fa-40f4-bf9c-d9ea12c2bf63' },
       order: 1,
@@ -557,7 +557,7 @@ describe('Harvest Module', () => {
           ...COVERAGE_MEMBER_IDENTIFIER_BASE,
           value: 'FdfDfdFdfDfh7897',
           assigner: {
-            reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
+            reference: 'https://rcm-api.zapehr.com/v1/payer/J1859',
             display: 'United Heartland',
           },
         },
@@ -2585,7 +2585,7 @@ describe('Harvest Module', () => {
           ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
           value: 'FdfDfdFdfDfh7897',
           assigner: {
-            reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
+            reference: 'https://rcm-api.zapehr.com/v1/payer/J1859',
             display: 'United Heartland',
           },
         },
@@ -2593,7 +2593,7 @@ describe('Harvest Module', () => {
       // contained: [expectedSecondaryPolicyHolderFromQR1],
       status: 'active',
       beneficiary: { reference: `Patient/${bundle1Patient}`, type: 'Patient' },
-      payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/60054' }],
+      payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/J1859' }],
       subscriberId: 'FdfDfdFdfDfh7897',
       subscriber: { reference: `RelatedPerson/${bundle1RP1.id}` },
       relationship: {
@@ -3629,7 +3629,7 @@ const insurancePlans1: InsurancePlan[] = [
       lastUpdated: '2024-12-12T10:02:42.725Z',
     },
     ownedBy: {
-      reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
+      reference: 'https://rcm-api.zapehr.com/v1/payer/J1859',
     },
     status: 'active',
     extension: [
