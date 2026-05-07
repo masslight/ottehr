@@ -150,13 +150,24 @@ export default function Appointments(): ReactElement {
   const visitTypeToLabel = useMemo(() => getVisitTypeToLabel(), []);
 
   useEffect(() => {
-    const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');
-    if (selectedVisitTypes) {
-      queryParams?.set('visitType', JSON.parse(selectedVisitTypes) ?? '');
-      navigate(`?${queryParams?.toString()}`);
-    } else {
-      queryParams?.set('visitType', Object.keys(visitTypeToLabel).join(','));
+    const allowedKeys = Object.keys(visitTypeToLabel);
+    const stored = localStorage.getItem('selectedVisitTypes');
+    let selected: string[] | null = null;
+    if (stored) {
+      try {
+        const parsed: unknown = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((k): k is string => typeof k === 'string' && allowedKeys.includes(k));
+          if (filtered.length > 0) selected = filtered;
+        }
+      } catch {
+        // malformed storage, fall through to defaults
+      }
     }
+    const next = (selected ?? allowedKeys).join(',');
+    if (queryParams.get('visitType') === next) return;
+    queryParams.set('visitType', next);
+    navigate(`?${queryParams.toString()}`);
   }, [navigate, queryParams, visitTypeToLabel]);
 
   useEffect(() => {
