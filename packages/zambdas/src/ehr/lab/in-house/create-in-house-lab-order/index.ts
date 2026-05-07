@@ -372,14 +372,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const saveChartDataResponse = diagnosesNew.length
-      ? await oystehr.zambda.execute(
-          {
-            id: 'save-chart-data',
-            encounterId,
-            diagnosis: diagnosesNew,
-          },
-          { accessToken: validatedParameters.userToken }
-        )
+      ? await oystehr.zambda.execute({
+          id: 'save-chart-data',
+          encounterId,
+          diagnosis: diagnosesNew,
+        })
       : {};
 
     const response = {
