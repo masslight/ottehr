@@ -15,6 +15,7 @@ import {
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   INSURANCE_CARD_CODE,
+  PATIENT_INSTRUCTIONS_PDF_CODE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -394,6 +395,7 @@ export const BUCKET_NAMES = {
   RECEIPTS: 'receipts',
   PAPERWORK: 'exported-questionnaires',
   DISCHARGE_SUMMARIES: 'discharge-summaries',
+  PATIENT_INSTRUCTIONS: 'patient-instructions',
   STATEMENTS: 'statements',
   REPORTS: 'invoiceable-patients-reports',
 } as const;
@@ -470,6 +472,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.DISCHARGE_SUMMARIES,
     display: 'Discharge Summary',
     documentTypeCode: DISCHARGE_SUMMARY_CODE,
+  },
+  {
+    title: BUCKET_NAMES.PATIENT_INSTRUCTIONS,
+    display: 'Patient Instructions',
+    documentTypeCode: PATIENT_INSTRUCTIONS_PDF_CODE,
   },
   {
     title: BUCKET_NAMES.STATEMENTS,

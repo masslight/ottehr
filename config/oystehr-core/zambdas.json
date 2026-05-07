@@ -1356,6 +1356,13 @@
       "src": "src/ehr/create-discharge-summary/index",
       "zip": ".dist/zips/create-discharge-summary.zip"
     },
+    "CREATE-PATIENT-INSTRUCTIONS-PDF": {
+      "name": "create-patient-instructions-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-patient-instructions-pdf/index",
+      "zip": ".dist/zips/create-patient-instructions-pdf.zip"
+    },
     "GET-VITALS": {
       "name": "get-vitals",
       "type": "http_auth",
