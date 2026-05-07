@@ -1,14 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
-import { AdminAddLabSetOutput, getSecret, LAB_LIST_CODE_CODING, LabSetDTO, LabType, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { AdminAddLabSetOutput, LAB_LIST_CODE_CODING, LabSetDTO, LabType } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 import { formatListEntry } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -17,28 +11,21 @@ const ZAMBDA_NAME = 'admin-add-lab-set';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    const { labSet, secrets } = validatedParameters;
+  const { labSet, secrets } = validatedParameters;
 
-    console.log('validateRequestParameters success');
+  console.log('validateRequestParameters success');
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const response = await createLabSet(labSet, oystehr);
+  const response = await createLabSet(labSet, oystehr);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    console.error(`Error in ${ZAMBDA_NAME}`, error);
-
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
 });
 
 async function createLabSet(labSet: LabSetDTO, oystehr: Oystehr): Promise<AdminAddLabSetOutput> {

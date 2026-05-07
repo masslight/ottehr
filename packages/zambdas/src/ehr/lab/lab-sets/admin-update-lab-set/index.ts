@@ -1,14 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
-import { getSecret, LabSetDTO, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { LabSetDTO } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 import { formatListEntry } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -17,36 +11,29 @@ const ZAMBDA_NAME = 'admin-update-lab-set';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    const { updateType, data, secrets } = validatedParameters;
+  const { updateType, data, secrets } = validatedParameters;
 
-    console.log('validateRequestParameters success');
+  console.log('validateRequestParameters success');
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    if (updateType === 'edit') {
-      await updateLabSetData(data, oystehr);
-      return {
-        statusCode: 200,
-        body: JSON.stringify({}),
-      };
-    } else if (updateType === 'toggle-status') {
-      await toggleLabSetStatus(data.labSetId, oystehr);
-      return {
-        statusCode: 200,
-        body: JSON.stringify({}),
-      };
-    } else {
-      throw new Error(`Error parsing updateType: ${updateType}. Expected 'edit' or 'toggle-status'.`);
-    }
-  } catch (error: any) {
-    console.error(`Error in ${ZAMBDA_NAME}`, error);
-
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+  if (updateType === 'edit') {
+    await updateLabSetData(data, oystehr);
+    return {
+      statusCode: 200,
+      body: JSON.stringify({}),
+    };
+  } else if (updateType === 'toggle-status') {
+    await toggleLabSetStatus(data.labSetId, oystehr);
+    return {
+      statusCode: 200,
+      body: JSON.stringify({}),
+    };
+  } else {
+    throw new Error(`Error parsing updateType: ${updateType}. Expected 'edit' or 'toggle-status'.`);
   }
 });
 

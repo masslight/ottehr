@@ -1,20 +1,8 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
-import {
-  AdminGetLabSetDetailOutput,
-  AdminGetLabSetListOutput,
-  getSecret,
-  LAB_LIST_CODE_CODING,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { AdminGetLabSetDetailOutput, AdminGetLabSetListOutput, LAB_LIST_CODE_CODING } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 import { formatLabListDTOs } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -23,37 +11,30 @@ const ZAMBDA_NAME = 'admin-get-lab-sets';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
-  try {
-    const validatedParameters = validateRequestParameters(input);
+  const validatedParameters = validateRequestParameters(input);
 
-    const { type, secrets } = validatedParameters;
+  const { type, secrets } = validatedParameters;
 
-    console.log('validateRequestParameters success');
+  console.log('validateRequestParameters success');
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    if (type === 'detail') {
-      const labSetId = validatedParameters.labSetId;
-      const response = await getLabSets(oystehr, labSetId);
-      return {
-        statusCode: 200,
-        body: JSON.stringify(response),
-      };
-    } else if (type === 'list') {
-      const response = await getLabSets(oystehr);
-      return {
-        statusCode: 200,
-        body: JSON.stringify(response),
-      };
-    } else {
-      throw new Error(`Error parsing validated parameters type: ${type}`);
-    }
-  } catch (error: any) {
-    console.error(`Error in ${ZAMBDA_NAME}`, error);
-
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+  if (type === 'detail') {
+    const labSetId = validatedParameters.labSetId;
+    const response = await getLabSets(oystehr, labSetId);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
+  } else if (type === 'list') {
+    const response = await getLabSets(oystehr);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
+  } else {
+    throw new Error(`Error parsing validated parameters type: ${type}`);
   }
 });
 
