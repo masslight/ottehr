@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
 import {
+  CreateCustomFolderInputValidated,
   CreateCustomFolderOutput,
   CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
   deriveInternalFolderName,
@@ -28,13 +29,20 @@ export const index = wrapHandler('create-custom-folder', async (input: ZambdaInp
     if (!input.headers?.Authorization) {
       throw NOT_AUTHORIZED;
     }
-    const userToken = (input.headers.Authorization as string).replace('Bearer ', '');
-    if (!userToken) {
-      throw NOT_AUTHORIZED;
+
+    let validatedInput: CreateCustomFolderInputValidated;
+    try {
+      validatedInput = validateRequestParameters(input);
+    } catch (error: any) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: `Invalid request parameters. ${error.message || error}`,
+        }),
+      };
     }
 
-    const validatedInput = validateRequestParameters(input);
-    const { folderName, secrets } = validatedInput;
+    const { folderName, secrets, userToken } = validatedInput;
 
     const user = await getUser(userToken, secrets);
     if (!user) {

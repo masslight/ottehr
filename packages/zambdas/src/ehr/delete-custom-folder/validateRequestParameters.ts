@@ -1,7 +1,7 @@
-import { RenameCustomFolderInputSchema, RenameCustomFolderInputValidated } from 'utils';
+import { DeleteCustomFolderInputSchema, DeleteCustomFolderInputValidated } from 'utils';
 import { safeValidate, ZambdaInput } from '../../shared';
 
-export function validateRequestParameters(input: ZambdaInput): RenameCustomFolderInputValidated {
+export function validateRequestParameters(input: ZambdaInput): DeleteCustomFolderInputValidated {
   console.group('validateRequestParameters');
 
   if (!input.body) {
@@ -16,13 +16,12 @@ export function validateRequestParameters(input: ZambdaInput): RenameCustomFolde
 
   const parsed = JSON.parse(input.body) as unknown;
 
-  const { internalName, newName } = safeValidate(RenameCustomFolderInputSchema, parsed);
+  const { internalName } = safeValidate(DeleteCustomFolderInputSchema, parsed);
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
   return {
     internalName,
-    newName,
     secrets: input.secrets,
     userToken,
   };

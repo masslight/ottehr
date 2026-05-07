@@ -1928,6 +1928,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/rename-custom-folder/index",
       "zip": ".dist/zips/rename-custom-folder.zip"
+    },
+    "DELETE-CUSTOM-FOLDER": {
+      "name": "delete-custom-folder",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-custom-folder/index",
+      "zip": ".dist/zips/delete-custom-folder.zip"
     }
   },
   "fhirResources": {

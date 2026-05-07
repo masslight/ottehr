@@ -75,6 +75,8 @@ import {
   CreateUserParams,
   DailyPaymentsReportZambdaInput,
   DailyPaymentsReportZambdaOutput,
+  DeleteCustomFolderInput,
+  DeleteCustomFolderOutput,
   DeleteEmCodeInput,
   DeleteInHouseLabOrderParameters,
   DeleteInHouseLabOrderZambdaOutput,
@@ -309,6 +311,7 @@ const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
 const ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-update-in-house-lab';
 const CREATE_CUSTOM_FOLDER_ZAMBDA_ID = 'create-custom-folder';
 const RENAME_CUSTOM_FOLDER_ZAMBDA_ID = 'rename-custom-folder';
+const DELETE_CUSTOM_FOLDER_ZAMBDA_ID = 'delete-custom-folder';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -2506,6 +2509,22 @@ export const renameCustomFolder = async (
       ...parameters,
     });
     return chooseJson(response) as RenameCustomFolderOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const deleteCustomFolder = async (
+  oystehr: Oystehr,
+  parameters: DeleteCustomFolderInput
+): Promise<DeleteCustomFolderOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: DELETE_CUSTOM_FOLDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as DeleteCustomFolderOutput;
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);

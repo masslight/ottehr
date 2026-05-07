@@ -9,6 +9,7 @@ import {
   INVALID_INPUT_ERROR,
   NOT_AUTHORIZED,
   parseCustomFoldersCatalog,
+  RenameCustomFolderInputValidated,
   RenameCustomFolderOutput,
   RoleType,
   SecretsKeys,
@@ -24,13 +25,20 @@ export const index = wrapHandler('rename-custom-folder', async (input: ZambdaInp
     if (!input.headers?.Authorization) {
       throw NOT_AUTHORIZED;
     }
-    const userToken = (input.headers.Authorization as string).replace('Bearer ', '');
-    if (!userToken) {
-      throw NOT_AUTHORIZED;
+
+    let validatedInput: RenameCustomFolderInputValidated;
+    try {
+      validatedInput = validateRequestParameters(input);
+    } catch (error: any) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: `Invalid request parameters. ${error.message || error}`,
+        }),
+      };
     }
 
-    const validatedInput = validateRequestParameters(input);
-    const { internalName, newName, secrets } = validatedInput;
+    const { internalName, newName, secrets, userToken } = validatedInput;
 
     const user = await getUser(userToken, secrets);
     if (!user) {
