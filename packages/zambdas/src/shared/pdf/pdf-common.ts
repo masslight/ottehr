@@ -598,9 +598,13 @@ export const createConfiguredSection = <TData, TSectionData>(
   const userShouldRender = section.shouldRender;
   const wrappedShouldRender: PdfSection<TData, TSectionData>['shouldRender'] = (sectionData, rootData) => {
     // `appointmentContext` is an optional field on PdfData. PDFs that don't
-    // populate it (e.g. discharge summary) just see undefined → triggers that
-    // require a service-category match short-circuit to false, which is the
-    // correct behavior (those sections aren't used by those PDFs anyway).
+    // populate it (e.g. discharge summary) evaluate section triggers against
+    // undefined appointment values. That generally disables triggers that
+    // require specific appointment matches (e.g. service-category =
+    // 'workers-comp'), while triggers that explicitly check for missing
+    // values (e.g. service-category exists answerBoolean=false) may still
+    // evaluate to enabled. Configurations relying on appointment context
+    // therefore need to use the appropriate trigger semantics.
     const ctx = (rootData as PdfData | undefined)?.appointmentContext;
     if (!isSectionTriggerEnabled(sectionDef, ctx)) return false;
     return userShouldRender ? userShouldRender(sectionData, rootData) : true;

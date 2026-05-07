@@ -19,7 +19,9 @@ export const createOccupationalMedicineEmployerSection = <
     render: (client, omEmployer, styles) => {
       if (shouldShow('occupational-medicine-employer')) {
         client.drawLabelValueRow(
-          'Employer Name',
+          // Sentence case matches PATIENT_RECORD_CONFIG label
+          // (`occupationalMedicineEmployerInformation.items.employerName.label`).
+          'Employer name',
           omEmployer.employerName,
           styles.textStyles.regular,
           styles.textStyles.regular,
