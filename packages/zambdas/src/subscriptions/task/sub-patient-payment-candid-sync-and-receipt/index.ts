@@ -139,6 +139,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const errors: string[] = [];
 
       // Perform Candid pre-encounter sync
+      // Skip recording payment in Candid for Stripe payments — only cash/check payments should be recorded
+      const shouldRecordPaymentInCandid = !stripePaymentIntentId;
       try {
         if (!candidApiClient) {
           candidApiClient = createCandidApiClient(secrets);
@@ -148,7 +150,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           encounterId,
           oystehr,
           candidApiClient,
-          amountCents: amountInCents,
+          amountCents: shouldRecordPaymentInCandid ? amountInCents : undefined,
         });
         console.timeEnd('Candid pre-encounter sync');
       } catch (error) {

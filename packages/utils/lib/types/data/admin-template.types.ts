@@ -1,3 +1,4 @@
+import { RosFindingState } from 'utils';
 import { ExamType } from '../../ottehr-config';
 
 // ── admin-create-template ──
@@ -42,6 +43,12 @@ export interface AdminGetTemplateDetailInput {
   templateId: string;
 }
 
+export interface TemplateRosFinding {
+  fieldName: string;
+  label: string;
+  findingState: RosFindingState | undefined;
+  stale: boolean;
+}
 export interface TemplateExamFinding {
   fieldName: string;
   label: string;
@@ -71,6 +78,7 @@ export interface AdminGetTemplateDetailOutput {
     hpiNote: string | null;
     moiNote: string | null;
     rosNote: string | null;
+    rosFindings: TemplateRosFinding[];
     examFindings: TemplateExamFinding[];
     mdm: string | null;
     diagnoses: TemplateCodeInfo[];

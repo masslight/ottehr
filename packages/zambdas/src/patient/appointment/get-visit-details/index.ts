@@ -6,6 +6,7 @@ import {
   FileURLInfo,
   getSecret,
   GetVisitDetailsResponse,
+  isAnnotationFollowupEncounter,
   isFollowupEncounter,
   SecretsKeys,
 } from 'utils';
@@ -55,7 +56,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     ).unbundle();
     allEncounters = encounterResults.filter((e) => e.resourceType === 'Encounter') as Encounter[];
     // Find the main encounter (not follow-up)
-    encounter = allEncounters.find((e) => !isFollowupEncounter(e)) as Encounter;
+    encounter = allEncounters.find((e) => !isAnnotationFollowupEncounter(e)) as Encounter;
     const appointment = encounterResults.find((e) => e.resourceType === 'Appointment') as Appointment;
     if (!encounter || !encounter.id) {
       throw new Error('Error getting appointment encounter');
@@ -74,8 +75,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { presignedUrls, reviewedLabResultsUrls } = await getPatientPortalPresignedURLs(
       oystehr,
       oystehrToken,
-      encounter?.id,
-      secrets
+      encounter?.id
     );
     documents = presignedUrls;
     reviewedLabResults = reviewedLabResultsUrls;
@@ -103,7 +103,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
 
       const sortedFollowups = allEncounters
-        .filter((e) => isFollowupEncounter(e))
+        .filter((e) => isFollowupEncounter(e) && e.id !== encounter.id)
         .sort((a, b) => getEncounterSortValue(a) - getEncounterSortValue(b));
 
       followUps = await Promise.all(
@@ -114,8 +114,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               const { presignedUrls } = await getPatientPortalPresignedURLs(
                 oystehr,
                 oystehrToken,
-                followupEncounter.id,
-                secrets
+                followupEncounter.id
               );
               followupDocuments = presignedUrls;
             }
@@ -124,7 +123,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             captureException(error);
           }
 
-          const encounterTime = followupEncounter.period?.start ?? followupEncounter.period?.end ?? 'unknown date';
+          const encounterTime = followupEncounter.period?.start ?? followupEncounter.period?.end;
 
           return {
             encounterTime,

@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Encounter, EncounterStatusHistory, Extension, Location } from 'fhir/r4b';
+import { Appointment, Encounter, EncounterStatusHistory, Extension, Location, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 import {
@@ -16,6 +16,9 @@ import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL, FHIR_EXTENSION 
 // follow up encounter consts
 export const FOLLOWUP_TYPES = ['Follow-up Encounter'] as const;
 export type FollowupType = (typeof FOLLOWUP_TYPES)[number];
+
+export type FollowupSubtype = 'annotation' | 'scheduled';
+export const FOLLOWUP_SUBTYPE_SYSTEM = `${FHIR_BASE_URL}/followup-subtype`;
 
 export const FOLLOWUP_REASONS = [
   'Result - Lab',
@@ -54,10 +57,30 @@ export const isFollowupEncounter = (encounter: Encounter): boolean => {
   );
 };
 
-export type EncounterVisitType = 'main' | 'follow-up';
+export const getFollowupSubtype = (encounter: Encounter): FollowupSubtype | undefined => {
+  if (!isFollowupEncounter(encounter)) return undefined;
+  const subtypeCoding = encounter.type
+    ?.flatMap((t) => t.coding ?? [])
+    .find((c) => c.system === FOLLOWUP_SUBTYPE_SYSTEM);
+  if (subtypeCoding?.code === 'scheduled') return 'scheduled';
+  return 'annotation';
+};
+
+export const isScheduledFollowupEncounter = (encounter: Encounter): boolean => {
+  return getFollowupSubtype(encounter) === 'scheduled';
+};
+
+export const isAnnotationFollowupEncounter = (encounter: Encounter): boolean => {
+  return isFollowupEncounter(encounter) && !isScheduledFollowupEncounter(encounter);
+};
+
+export type EncounterVisitType = 'main' | 'follow-up' | 'scheduled-follow-up';
 
 export const getEncounterVisitType = (encounter?: Encounter): EncounterVisitType => {
   if (encounter && isFollowupEncounter(encounter)) {
+    if (isScheduledFollowupEncounter(encounter)) {
+      return 'scheduled-follow-up';
+    }
     return 'follow-up';
   }
   return 'main';
@@ -276,4 +299,83 @@ export const isEncounterSelfPay = (encounter?: Encounter): boolean => {
   if (!encounter) return false;
   const paymentVariant = getPaymentVariantFromEncounter(encounter);
   return paymentVariant === PaymentVariant.selfPay;
+};
+
+export const buildAppointmentStartMap = (resources: Resource[]): Record<string, string> => {
+  const map: Record<string, string> = {};
+  resources.forEach((r) => {
+    if (r.resourceType === 'Appointment' && r.id && (r as Appointment).start) {
+      map[r.id] = (r as Appointment).start!;
+    }
+  });
+  return map;
+};
+
+// Resolves the best available datetime for an encounter
+export const getEncounterDateTime = (
+  encounter: Encounter,
+  appointmentStartMap: Record<string, string>
+): string | undefined => {
+  // Annotation follow-ups share the parent appointment reference rather than having their own,
+  // so the appointment start would give the main visit time — use period.start instead.
+  if (!isAnnotationFollowupEncounter(encounter)) {
+    const apptId = encounter.appointment?.[0]?.reference?.replace('Appointment/', '');
+    if (apptId && appointmentStartMap[apptId]) return appointmentStartMap[apptId];
+  }
+  if (encounter.period?.start) return encounter.period.start;
+  return encounter.statusHistory?.[0]?.period?.start;
+};
+
+export const getEncounterDisplayName = (
+  encounter: Encounter,
+  appointmentStartMap: Record<string, string>,
+  formatDateTime: (iso: string) => string
+): string => {
+  const dateTime = getEncounterDateTime(encounter, appointmentStartMap);
+  const dateStr = dateTime ? formatDateTime(dateTime) : '';
+  if (!encounter.partOf) {
+    return `Main Visit${dateStr ? ` - ${dateStr}` : ''}`;
+  }
+  const typeText = encounter.type?.[0]?.text || 'Follow-up';
+  return `${typeText}${dateStr ? ` - ${dateStr}` : ''}`;
+};
+
+export const getAnnotationFollowupStatusLabel = (encounterStatus: string | undefined): 'OPEN' | 'RESOLVED' => {
+  return encounterStatus === 'in-progress' ? 'OPEN' : 'RESOLVED';
+};
+
+/**
+ * Determines which encounter should be pre-selected as the "initial visit"
+ * when creating a new follow-up from the current visit context.
+ * If the current encounter is itself a follow-up child (has partOf), the parent
+ * (followUpOriginEncounter) is the initial visit; otherwise the current encounter is.
+ */
+export const getInitialEncounterIdForFollowUp = (
+  encounter: Encounter | undefined,
+  followUpOriginEncounter: Encounter | undefined
+): string | undefined => {
+  return encounter?.partOf ? followUpOriginEncounter?.id : encounter?.id;
+};
+
+export const getFollowUpProgressNotePathSegment = (
+  followupSubtype: FollowupSubtype | undefined
+): 'review-and-sign' | 'follow-up-note' => {
+  if (followupSubtype === 'scheduled') {
+    return 'review-and-sign';
+  }
+  return 'follow-up-note';
+};
+
+export const getInteractionModeForEncounter = (
+  encounter: Encounter,
+  followUpOriginEncounterId: string | undefined
+): 'main' | 'follow-up' => {
+  if (encounter.id === followUpOriginEncounterId) return 'main';
+  if (isScheduledFollowupEncounter(encounter)) return 'main';
+  return 'follow-up';
+};
+
+export const getEncounterLocationId = (encounter: Encounter | undefined): string | undefined => {
+  const locationRef = encounter?.location?.[0]?.location?.reference;
+  return locationRef?.split('/')[1];
 };

@@ -3,6 +3,9 @@ import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useChartFields } from '../../../hooks/useChartFields';
 
+/**
+ * Legacy container for charts with ros data saved via the free text field.
+ */
 export const ReviewOfSystemsContainer: FC = () => {
   const { data: chartFields } = useChartFields({ requestedFields: { ros: { _tag: 'ros' } } });
   const ros = chartFields?.ros?.text;

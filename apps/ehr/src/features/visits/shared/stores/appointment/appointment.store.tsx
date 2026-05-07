@@ -26,6 +26,7 @@ import {
   CHART_FIELDS_QUERY_KEY,
   QUERY_STALE_TIME,
 } from 'src/constants';
+import { useRosObservations } from 'src/features/visits/shared/hooks/useRosObservations';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import {
   createRefreshableAppointmentData,
@@ -56,7 +57,7 @@ import { create } from 'zustand';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
-import { getEncounterValues } from './parser/extractors';
+import { getAppointmentValues, getEncounterValues } from './parser/extractors';
 import { parseBundle } from './parser/parser';
 import { VisitMappedData, VisitResources } from './parser/types';
 import { resetExamObservationsStore } from './reset-exam-observations';
@@ -120,7 +121,7 @@ type ReactQueryState = {
   isPending: boolean;
 };
 
-type ChartDataResponse = Omit<
+export type ChartDataResponse = Omit<
   GetChartDataResponse,
   Exclude<
     RequestedFields,
@@ -287,17 +288,50 @@ export const useAppointmentData = (
     const selectedEncounter = getSelectedEncounter();
     const encounterToUse = selectedEncounter || state.followUpOriginEncounter;
 
+    let appointmentToUse = state.appointment;
+    if (encounterToUse?.appointment?.[0]?.reference) {
+      const encApptId = encounterToUse.appointment[0].reference.replace('Appointment/', '');
+      if (encApptId !== appointmentToUse?.id) {
+        const matchingAppointment = state.rawResources?.find(
+          (r): r is Appointment => r.resourceType === 'Appointment' && r.id === encApptId
+        );
+        if (matchingAppointment) {
+          appointmentToUse = matchingAppointment;
+        }
+      }
+    }
+
+    let questionnaireResponseToUse = state.questionnaireResponse;
+    if (encounterToUse?.id) {
+      const matchingQR = state.rawResources?.find(
+        (r): r is QuestionnaireResponse =>
+          r.resourceType === 'QuestionnaireResponse' && r.encounter?.reference === `Encounter/${encounterToUse.id}`
+      );
+      if (matchingQR) {
+        questionnaireResponseToUse = matchingQR;
+      }
+    }
+
     return {
       ...state,
+      appointment: appointmentToUse,
       encounter: encounterToUse,
+      questionnaireResponse: questionnaireResponseToUse,
       visitState: {
         ...state.visitState,
+        appointment: appointmentToUse,
         encounter: encounterToUse,
+        questionnaireResponse: questionnaireResponseToUse,
       },
       resources: {
         ...state.resources,
+        appointment: getAppointmentValues(appointmentToUse),
         encounter: getEncounterValues(encounterToUse),
       },
+      reviewAndSignData: extractReviewAndSignAppointmentData(state.rawResources || [], {
+        appointmentId: appointmentToUse?.id,
+        encounterId: encounterToUse?.id,
+      }),
       isAppointmentLoading: isLoading,
       appointmentRefetch: refetch,
       appointmentSetState: setState,
@@ -337,16 +371,27 @@ export type AppointmentResources =
 
 const selectAppointmentData = (
   data: AppointmentResources[] | undefined,
-  preserveSelectedEncounterId?: string
+  preserveSelectedEncounterId?: string,
+  appointmentId?: string
 ): (AppointmentTelemedState & InPersonAppointmentState & AppointmentRawResourcesState) | null => {
   if (!data) return null;
 
-  const questionnaireResponse = data?.find(
-    (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse'
-  ) as QuestionnaireResponse;
-
   const parsed = parseBundle(data);
-  const appointment = data?.find((resource: FhirResource) => resource.resourceType === 'Appointment') as Appointment;
+  const appointments = data.filter(
+    (resource: FhirResource) => resource.resourceType === 'Appointment'
+  ) as Appointment[];
+  const allEncountersForSelection = data.filter(
+    (resource: FhirResource) => resource.resourceType === 'Encounter'
+  ) as Encounter[];
+  const appointment = (
+    appointmentId
+      ? appointments.find((resource) => resource.id === appointmentId)
+      : appointments.find((apt) =>
+          allEncountersForSelection.some(
+            (enc) => !enc.partOf && enc.appointment?.some((ref) => ref.reference === `Appointment/${apt.id}`)
+          )
+        ) ?? appointments[0]
+  ) as Appointment;
   const patient = data?.find((resource: FhirResource) => resource.resourceType === 'Patient') as Patient;
 
   const appointmentLocationRef = appointment?.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))
@@ -357,12 +402,22 @@ const selectAppointmentData = (
       resource.resourceType === 'Location' && resource.id === appointmentLocationId && !isLocationVirtual(resource)
   );
 
-  const followUpOriginEncounter = data?.find(
-    (resource: FhirResource) => resource.resourceType === 'Encounter' && !resource.partOf
+  const allEncountersRaw = data?.filter(
+    (resource: FhirResource) => resource.resourceType === 'Encounter'
+  ) as Encounter[];
+  const appointmentRef = `Appointment/${appointment?.id}`;
+  let followUpOriginEncounter = allEncountersRaw?.find(
+    (e) => !e.partOf && e.appointment?.some((encAppointmentRef) => encAppointmentRef.reference === appointmentRef)
   ) as Encounter;
-  const followupEncounters = data?.filter(
-    (resource: FhirResource) => resource.resourceType === 'Encounter' && resource.partOf
-  ) as Encounter[] | undefined;
+  const followupEncounters = allEncountersRaw?.filter((e) => e.partOf) as Encounter[] | undefined;
+
+  // For scheduled follow-up appointments, the encounter has partOf set.
+  // If no non-partOf encounter exists, use the encounter that references this appointment.
+  if (!followUpOriginEncounter && allEncountersRaw?.length > 0) {
+    followUpOriginEncounter = allEncountersRaw.find(
+      (e) => e.appointment?.some((encAppointmentRef) => encAppointmentRef.reference === appointmentRef)
+    ) as Encounter;
+  }
 
   // Preserve the selected encounter ID if it exists and is valid, otherwise default to main encounter
   const allEncounters = [followUpOriginEncounter, ...(followupEncounters || [])].filter(Boolean);
@@ -370,6 +425,14 @@ const selectAppointmentData = (
     preserveSelectedEncounterId && allEncounters.some((enc) => enc.id === preserveSelectedEncounterId)
       ? preserveSelectedEncounterId
       : followUpOriginEncounter?.id;
+  const selectedEncounter = allEncounters.find((enc) => enc.id === validSelectedEncounterId) ?? followUpOriginEncounter;
+  const questionnaireResponse = data
+    ?.filter((resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse')
+    .find(
+      (resource) =>
+        (resource as QuestionnaireResponse).encounter?.reference === `Encounter/${selectedEncounter?.id}` ||
+        (resource as QuestionnaireResponse).encounter?.reference === `Encounter/${followUpOriginEncounter?.id}`
+    ) as QuestionnaireResponse;
 
   return {
     rawResources: data,
@@ -397,7 +460,10 @@ const selectAppointmentData = (
         )
         .flatMap((docRef: FhirResource) => (docRef as DocumentReference).content.map((cnt) => cnt.attachment.url))
         .filter(Boolean) as string[]) || [],
-    reviewAndSignData: extractReviewAndSignAppointmentData(data),
+    reviewAndSignData: extractReviewAndSignAppointmentData(data, {
+      appointmentId: appointment?.id,
+      encounterId: selectedEncounter?.id,
+    }),
     resources: parsed.resources,
     mappedData: parsed.mappedData,
 
@@ -476,6 +542,10 @@ const useGetAppointment = (
                 value: 'Encounter:part-of',
               },
               {
+                name: '_include:iterate',
+                value: 'Encounter:appointment',
+              },
+              {
                 name: '_revinclude:iterate',
                 value: 'QuestionnaireResponse:encounter',
               },
@@ -491,7 +561,59 @@ const useGetAppointment = (
               resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
           );
 
-        return selectAppointmentData(data, currentSelectedEncounterId);
+        // For scheduled follow-ups: the encounter has partOf referencing a parent encounter.
+        // We need to fetch the parent encounter's full tree to show all encounters in the sidebar.
+        const scheduledFollowupEncounter = data.find(
+          (r) => r.resourceType === 'Encounter' && (r as Encounter).partOf
+        ) as Encounter | undefined;
+
+        if (scheduledFollowupEncounter?.partOf?.reference) {
+          const parentEncounterId = scheduledFollowupEncounter.partOf.reference.replace('Encounter/', '');
+          // Fetch the parent encounter to find its appointment, then fetch the full tree
+          const parentEncounter = await oystehr.fhir.get<Encounter>({
+            resourceType: 'Encounter',
+            id: parentEncounterId,
+          });
+          const parentAppointmentId = parentEncounter.appointment?.[0]?.reference?.replace('Appointment/', '');
+
+          if (parentAppointmentId && parentAppointmentId !== appointmentId) {
+            const parentData = (
+              await oystehr.fhir.search<AppointmentResources>({
+                resourceType: 'Appointment',
+                params: [
+                  { name: '_id', value: parentAppointmentId },
+                  { name: '_revinclude:iterate', value: 'Encounter:appointment' },
+                  { name: '_revinclude:iterate', value: 'Encounter:part-of' },
+                  { name: '_include:iterate', value: 'Encounter:appointment' },
+                  { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
+                ],
+              })
+            ).unbundle();
+
+            // Merge parent tree data, avoiding duplicates
+            const existingIds = new Set(data.map((r) => `${r.resourceType}/${r.id}`));
+            for (const resource of parentData) {
+              const key = `${resource.resourceType}/${resource.id}`;
+              if (!existingIds.has(key)) {
+                data.push(resource);
+                existingIds.add(key);
+              }
+            }
+          }
+        }
+
+        // Only fall back to the scheduled follow-up encounter when the URL actually targets it.
+        // Otherwise, on a main-appointment URL the bundle's child follow-up encounter would hijack
+        // the selection and vitals would get saved against the follow-up's id.
+        const hasMainEncounterForRequestedAppt = data.some(
+          (r) =>
+            r.resourceType === 'Encounter' &&
+            !(r as Encounter).partOf &&
+            (r as Encounter).appointment?.some((ref) => ref.reference === `Appointment/${appointmentId}`)
+        );
+        const fallbackEncounterId = hasMainEncounterForRequestedAppt ? undefined : scheduledFollowupEncounter?.id;
+
+        return selectAppointmentData(data, currentSelectedEncounterId || fallbackEncounterId, appointmentId);
       }
       throw new Error('fhir client not defined or appointmentId not provided');
     },
@@ -664,6 +786,7 @@ export const useChartData = ({
   ReactQueryState => {
   const apiClient = useOystehrAPIClient();
   const { update: updateExamObservations } = useExamObservations();
+  const { update: updateRosObservations } = useRosObservations();
   const { id: appointmentIdFromUrl } = useParams();
   const { encounter } = useAppointmentData(appointmentId || appointmentIdFromUrl);
   const encounterId = encounter?.id ?? paramEncounterId;
@@ -687,6 +810,7 @@ export const useChartData = ({
       onSuccess?.(data);
       if (shouldUpdateExams) {
         updateExamObservations(data.examObservations, true);
+        updateRosObservations(data.rosObservations || [], true);
       }
     },
     (error) => {

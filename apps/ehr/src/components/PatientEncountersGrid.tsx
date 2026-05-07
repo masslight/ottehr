@@ -27,6 +27,10 @@ import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import {
+  getInPersonUrlByAppointmentType,
+  withFollowUpEncounterId,
+} from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils';
@@ -38,6 +42,8 @@ import {
   BOOKING_CONFIG,
   FollowUpVisitHistoryRow,
   formatMinutes,
+  getAnnotationFollowupStatusLabel,
+  getFollowUpProgressNotePathSegment,
   getServiceCategoryAbbreviation,
   PatientVisitListResponse,
   ServiceMode,
@@ -255,16 +261,32 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         return encounter.office ? encounter.office : '-';
       case 'status': {
         if (!encounter.status) return null;
-        const statusVal = encounter.status === 'in-progress' ? 'OPEN' : 'RESOLVED';
-        return getFollowupStatusChip(statusVal);
+        // Scheduled follow-ups use encounter status directly (planned, arrived, etc.)
+        // Annotation follow-ups use OPEN/RESOLVED
+        if (encounter.followupSubtype === 'scheduled') {
+          return <Typography variant="body2">{encounter.status}</Typography>;
+        }
+        return getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter.status));
+      }
+      case 'info': {
+        if (encounter.followupSubtype !== 'scheduled' || !encounter.appointmentId) return null;
+        return (
+          <RoundedButton to={`/visit/${encounter.appointmentId}`} state={{ encounterId: encounter.encounterId }}>
+            Visit Info
+          </RoundedButton>
+        );
       }
       case 'note': {
-        const { encounterId, originalAppointmentId } = encounter;
+        const { encounterId, originalAppointmentId, followupSubtype, status } = encounter;
         if (!originalAppointmentId) return '-';
-        const to = `/in-person/${originalAppointmentId}/follow-up-note${
-          encounterId ? `?encounterId=${encounterId}` : ''
-        }`;
-
+        if (typeof status === 'string' && ['planned', 'arrived'].includes(status)) {
+          return null;
+        }
+        const pathSegment = getFollowUpProgressNotePathSegment(followupSubtype);
+        const to = getInPersonUrlByAppointmentType(
+          { id: originalAppointmentId, encounterId, isFollowUp: true },
+          pathSegment
+        );
         return <RoundedButton to={to}>Progress Note</RoundedButton>;
       }
       default:
@@ -314,12 +336,13 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           </RoundedButton>
         );
       }
-      case 'note':
-        return (
-          <RoundedButton to={`/in-person/${row.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`}>
-            Progress Note
-          </RoundedButton>
-        );
+      case 'note': {
+        const baseUrl = `/in-person/${row.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`;
+        const to = row.encounterId
+          ? withFollowUpEncounterId(baseUrl, { isFollowUp: true, encounterId: row.encounterId })
+          : baseUrl;
+        return <RoundedButton to={to}>Progress Note</RoundedButton>;
+      }
       default:
         return '-';
     }

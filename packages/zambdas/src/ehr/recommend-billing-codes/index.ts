@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { fixAndParseJsonObjectFromString } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
-import { invokeChatbot } from '../../shared/ai';
+import { invokeChatbotVertexAI } from '../../shared/ai';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export const index = wrapHandler(
@@ -23,6 +23,19 @@ export const index = wrapHandler(
     } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
+
+    const billingCodesSchema = {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          code: { type: 'string' },
+          description: { type: 'string' },
+          useWhen: { type: 'string' },
+        },
+        required: ['code', 'description', 'useWhen'],
+      },
+    };
 
     let prompt =
       'Based on the provided details recommend urgent care CPT billing codes for the procedure. Limit to 5 recommendations. Respond with a JSON array of the recommended CPT codes. Do not include markdown formatting. Each entry in the array should be an object with the following structure: { "code": "CPT_CODE", "description": "DESCRIPTION", "useWhen": "USE_WHEN" }\n\n';
@@ -57,7 +70,7 @@ export const index = wrapHandler(
       prompt += ` The total time spent on the procedure was: ${timeSpent}.`;
     }
 
-    const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
+    const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets, billingCodesSchema);
     console.log(aiResponseString);
 
     let aiResponseObject;

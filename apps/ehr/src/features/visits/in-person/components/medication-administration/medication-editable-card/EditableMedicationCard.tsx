@@ -27,8 +27,10 @@ import { ERX, ERXStatus } from 'src/features/visits/shared/components/ERX';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useFhirQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { useMergedInHouseMedicationQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_HCPCS,
@@ -104,7 +106,7 @@ export const EditableMedicationCard: React.FC<{
   const { isLoading: isMedicationHistoryLoading, medicationHistory, refetchHistory } = useMedicationHistory();
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
-  const { quickPicks: fhirQuickPicks } = useFhirQuickPicks(getInHouseMedicationQuickPicks);
+  const { quickPicks: fhirQuickPicks } = useMergedInHouseMedicationQuickPicks();
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicksForDialog, setExistingQuickPicksForDialog] = useState<InHouseMedicationQuickPickData[]>([]);
@@ -258,6 +260,32 @@ export const EditableMedicationCard: React.FC<{
     },
     [isOrderType, selectsOptions.medicationId.options]
   );
+
+  const commandPaletteItems = useMemo(() => {
+    if (typeFromProps !== 'order-new' || isReadOnly) {
+      return [];
+    }
+
+    return fhirQuickPicks.map((quickPick) => ({
+      id: `in-house-medication-${quickPick.id ?? quickPick.name}`,
+      label: `${quickPick.name} (In-house)`,
+      category: 'Add Medication',
+      onSelect: () => handleFhirQuickPickSelect(quickPick),
+    }));
+  }, [fhirQuickPicks, handleFhirQuickPickSelect, isReadOnly, typeFromProps]);
+  useCommandPaletteSource('in-house-medication-quick-picks', commandPaletteItems);
+
+  const handlePendingInHouseMedication = useCallback(
+    (payload: InHouseMedicationQuickPickData) => {
+      if (isReadOnly) {
+        return;
+      }
+
+      handleFhirQuickPickSelect(payload);
+    },
+    [handleFhirQuickPickSelect, isReadOnly]
+  );
+  usePendingQuickPick('in-house-medications', handlePendingInHouseMedication);
 
   const openQuickPickDialog = async (): Promise<void> => {
     if (!oystehrZambda) return;

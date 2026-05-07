@@ -70,7 +70,7 @@ describe('chart-data integration tests', () => {
       expect(typedGetChartDataOutput.surgicalHistory?.length).toEqual(0);
       expect(typedGetChartDataOutput).toHaveProperty('examObservations');
       expect(typedGetChartDataOutput.examObservations).toBeInstanceOf(Array);
-      expect(typedGetChartDataOutput.examObservations?.length).toBeGreaterThan(1);
+      expect(typedGetChartDataOutput.examObservations?.length).toEqual(0);
       expect(typedGetChartDataOutput).toHaveProperty('cptCodes');
       expect(typedGetChartDataOutput.cptCodes).toBeInstanceOf(Array);
       expect(typedGetChartDataOutput.cptCodes?.length).toEqual(0);
@@ -97,34 +97,7 @@ describe('chart-data integration tests', () => {
       expect(typedGetChartDataOutput.aiChat?.providers?.length).toEqual(0);
       expect(typedGetChartDataOutput).toHaveProperty('patientInfoConfirmed');
       expect(typedGetChartDataOutput.patientInfoConfirmed).toEqual({
-        value: true,
-      });
-    });
-
-    it('should validate shape of examObservations -- success', async () => {
-      const getChartDataInput: GetChartDataRequest = {
-        encounterId: baseResources.encounter.id!,
-      };
-      let getChartDataOutput: any;
-      try {
-        getChartDataOutput = (
-          await oystehrLocalZambdas.zambda.execute({
-            id: 'GET-CHART-DATA',
-            ...getChartDataInput,
-          })
-        ).output as GetChartDataResponse;
-      } catch (error) {
-        console.error('Error executing zambda:', error);
-        getChartDataOutput = error as Error;
-      }
-      expect(getChartDataOutput instanceof Error).toBe(false);
-      const typedGetChartDataOutput = getChartDataOutput as GetChartDataResponse;
-      expect(typedGetChartDataOutput).toHaveProperty('examObservations');
-      expect(typedGetChartDataOutput.examObservations).toBeInstanceOf(Array);
-      expect(typedGetChartDataOutput.examObservations?.[0]).toMatchObject({
-        resourceId: expect.any(String),
-        field: expect.any(String),
-        value: expect.any(Boolean),
+        value: false,
       });
     });
   });

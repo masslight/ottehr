@@ -112,6 +112,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         },
         html,
         addressPlacement: 'top_first_page',
+        mailingClass: 'first_class',
         color,
         doubleSided: true,
         metadata: {

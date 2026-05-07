@@ -119,6 +119,9 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
       {
         questionnaireResponseItem: items,
         patientId,
+        // Pass the post-patch Patient so same-as-patient address resolution
+        // sees the address change applied above without re-fetching.
+        patient: patientResource,
         preserveOmittedCoverages,
         questionnaireForEnableWhenFiltering,
       },

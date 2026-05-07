@@ -81,11 +81,13 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
       // Only update if the source value is different from current value
       if (sourceFieldValue !== undefined && sourceFieldValue !== currentValue) {
         stashedValueRef.current = currentValue;
-        setValue(item.key, sourceFieldValue, { shouldDirty: true });
+        // shouldDirty:false — this field mirrors the source as derived state; the
+        // trigger field the user actually toggles carries the dirty signal.
+        setValue(item.key, sourceFieldValue, { shouldDirty: false });
       }
     } else if (dynamicPopulation && triggerState === 'disabled' && !isDisabled) {
       if (stashedValueRef.current !== null) {
-        setValue(item.key, stashedValueRef.current, { shouldDirty: true });
+        setValue(item.key, stashedValueRef.current, { shouldDirty: false });
         stashedValueRef.current = null;
       }
     }

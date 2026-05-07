@@ -12,38 +12,21 @@ export function useVisionLocalState(): VisionLocalState {
   const [isWithoutGlassesOptionSelected, setWithoutGlassesOptionSelected] = useState<boolean>(false);
   const [validationError, setValidationError] = useState<boolean>(false);
 
-  const handleLeftEyeChange = useCallback(
-    (event: { target: { value: string } }): void => {
-      const eventValue = event.target.value;
-      const selectedLeftEye = eventValue ?? '';
-      setLeftEyeSelection(selectedLeftEye);
-      setValidationError(false);
-      if (selectedLeftEye !== rightEyeSelection) {
-        setBothEyesSelection('');
-      }
-    },
-    [rightEyeSelection]
-  );
+  const handleLeftEyeChange = useCallback((event: { target: { value: string } }): void => {
+    const eventValue = event.target.value;
+    setLeftEyeSelection(eventValue ?? '');
+    setValidationError(false);
+  }, []);
 
-  const handleRightEyeChange = useCallback(
-    (event: { target: { value: string } }): void => {
-      const eventValue = event.target.value;
-      const selectedRightEye = eventValue ?? '';
-      setRightEyeSelection(selectedRightEye);
-      setValidationError(false);
-      if (selectedRightEye !== leftEyeSelection) {
-        setBothEyesSelection('');
-      }
-    },
-    [leftEyeSelection]
-  );
+  const handleRightEyeChange = useCallback((event: { target: { value: string } }): void => {
+    const eventValue = event.target.value;
+    setRightEyeSelection(eventValue ?? '');
+    setValidationError(false);
+  }, []);
 
   const handleBothEyesChange = useCallback((event: { target: { value: string } }): void => {
     const eventValue = event.target.value;
-    const selectedBothEyes = eventValue ?? '';
-    setBothEyesSelection(selectedBothEyes);
-    setLeftEyeSelection(selectedBothEyes);
-    setRightEyeSelection(selectedBothEyes);
+    setBothEyesSelection(eventValue ?? '');
     setValidationError(false);
   }, []);
 
@@ -72,7 +55,9 @@ export function useVisionLocalState(): VisionLocalState {
   }, []);
 
   const getDTO = useCallback((): VitalsVisionObservationDTO | null => {
-    if (!leftEyeSelection || !rightEyeSelection) return null;
+    const hasBoth = leftEyeSelection.length > 0 && rightEyeSelection.length > 0;
+    const hasBothEyes = bothEyesSelection.length > 0;
+    if (!hasBoth && !hasBothEyes) return null;
     const extraOptions: VitalsVisionOption[] = [];
     if (isChildTooYoungOptionSelected) {
       extraOptions.push('child_too_young');
@@ -87,11 +72,13 @@ export function useVisionLocalState(): VisionLocalState {
       field: VitalFieldNames.VitalVision,
       leftEyeVisionText: leftEyeSelection,
       rightEyeVisionText: rightEyeSelection,
+      bothEyesVisionText: bothEyesSelection || undefined,
       extraVisionOptions: extraOptions,
     };
   }, [
     leftEyeSelection,
     rightEyeSelection,
+    bothEyesSelection,
     isChildTooYoungOptionSelected,
     isWithGlassesOptionSelected,
     isWithoutGlassesOptionSelected,
@@ -100,15 +87,18 @@ export function useVisionLocalState(): VisionLocalState {
   const hasData =
     leftEyeSelection.length > 0 ||
     rightEyeSelection.length > 0 ||
+    bothEyesSelection.length > 0 ||
     isChildTooYoungOptionSelected ||
     isWithGlassesOptionSelected ||
     isWithoutGlassesOptionSelected;
 
   const isValid = getDTO() !== null;
-  const isDisabled = !leftEyeSelection || !rightEyeSelection;
+  const hasBothEyesValue = bothEyesSelection.length > 0;
+  const isDisabled = hasBothEyesValue ? false : !leftEyeSelection || !rightEyeSelection;
 
   const isLeftEyeInvalid =
     !leftEyeSelection &&
+    !hasBothEyesValue &&
     (rightEyeSelection.length > 0 ||
       isChildTooYoungOptionSelected ||
       isWithGlassesOptionSelected ||
@@ -116,6 +106,7 @@ export function useVisionLocalState(): VisionLocalState {
 
   const isRightEyeInvalid =
     !rightEyeSelection &&
+    !hasBothEyesValue &&
     (leftEyeSelection.length > 0 ||
       isChildTooYoungOptionSelected ||
       isWithGlassesOptionSelected ||

@@ -159,6 +159,14 @@ export const sidebarMenuIcons = {
       />
     </svg>
   ),
+  Checklist: (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M4 18C3.45 18 2.97917 17.8042 2.5875 17.4125C2.19583 17.0208 2 16.55 2 16V2C2 1.45 2.19583 0.979167 2.5875 0.5875C2.97917 0.195833 3.45 0 4 0H16C16.55 0 17.0208 0.195833 17.4125 0.5875C17.8042 0.979167 18 1.45 18 2V16C18 16.55 17.8042 17.0208 17.4125 17.4125C17.0208 17.8042 16.55 18 16 18H4ZM4 16H16V2H4V16ZM6 14H11V12H6V14ZM13.175 14L17 10.175L15.6 8.775L13.175 11.2L12.075 10.1L10.675 11.5L13.175 14ZM6 9H11V7H6V9ZM13.175 9L17 5.175L15.6 3.775L13.175 6.2L12.075 5.1L10.675 6.5L13.175 9Z"
+        fill="currentColor"
+      />
+    </svg>
+  ),
   Stethoscope: (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path

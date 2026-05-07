@@ -3,6 +3,7 @@ import { Extension } from 'fhir/r4b';
 import React from 'react';
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
 import InputMask from '../../../components/InputMask';
+import { configAoeDecimalEntryTestId } from '../utils/test-ids';
 
 interface NumberQuestionProps {
   questionText: string;
@@ -64,6 +65,7 @@ export const AOENumberQuestion: React.FC<NumberQuestionProps> = (props) => {
           scale: decimals,
           // step: decimals ? `0.${'0'.padStart(decimals - 1, '0')}1` : null,
           readOnly: isReadOnly,
+          'data-testid': configAoeDecimalEntryTestId(linkId),
         },
       }}
     />

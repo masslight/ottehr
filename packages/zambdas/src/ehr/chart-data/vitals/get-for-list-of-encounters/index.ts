@@ -192,16 +192,20 @@ const parseVisionObservation = (
   const {
     leftEyeVisText: leftEyeVisionText,
     rightEyeVisText: rightEyeVisionText,
+    bothEyesVisText: bothEyesVisionText,
     visionOptions,
   } = extractVisionValues(components);
 
-  if (leftEyeVisionText === undefined || rightEyeVisionText === undefined) return undefined;
+  if (leftEyeVisionText === undefined && rightEyeVisionText === undefined && bothEyesVisionText === undefined) {
+    return undefined;
+  }
 
   return {
     resourceId: observation.id,
     field: VitalFieldNames.VitalVision,
-    leftEyeVisionText,
-    rightEyeVisionText,
+    leftEyeVisionText: leftEyeVisionText ?? '',
+    rightEyeVisionText: rightEyeVisionText ?? '',
+    bothEyesVisionText,
     authorId: performer.id,
     authorName: getFullName(performer),
     lastUpdated: observation.effectiveDateTime || '',

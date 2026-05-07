@@ -4,10 +4,10 @@ import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DATETIME_FULL_NO_YEAR,
+  FEATURE_FLAGS_CONFIG,
   getAddressStringForScheduleResource,
   getPatientContactEmail,
   InPersonCompletionTemplateData,
-  isFeatureFlagEnabled,
   isFollowupEncounter,
   OTTEHR_MODULE,
   progressNoteChartDataRequestedFields,
@@ -145,10 +145,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Chart data received');
     try {
       // Check if we should skip making visit note visible in patient portal
-      const skipVisitNoteInPatientPortal = isFeatureFlagEnabled(
-        'SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG',
-        secrets
-      );
+      const skipVisitNoteInPatientPortal = FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled;
 
       // Always create the PDF
       const { pdfInfo } = await createProgressNotePdf(
