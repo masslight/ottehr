@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition, UsageContext } from 'fhir/r4b';
-import { getPayerUrl, orgIdMatchesReference } from 'utils';
+import { getPayerUrl, orgIdMatchesReference, uuidRegex } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -30,7 +30,7 @@ export const index = wrapHandler('cm-associate-payer', async (input: ZambdaInput
           display: 'Payer',
         },
         valueReference: {
-          reference: getPayerUrl(organizationId!),
+          reference: organizationId.match(uuidRegex) ? `Organization/${organizationId}` : getPayerUrl(organizationId),
         },
       });
     }

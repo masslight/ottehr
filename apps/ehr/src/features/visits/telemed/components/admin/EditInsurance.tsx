@@ -79,6 +79,7 @@ export default function EditInsurance(): JSX.Element {
     },
   });
 
+  // CW TODO: i don't think you should be able to change the field this is populating... it's the insurance you're editing!
   const { isFetching: insuranceOrgsFetching, data: insuranceOrgsData } = useInsuranceOrganizationsQuery();
   const insurancePayorOrgs: PayorOrg[] = insuranceOrgsData?.map((org) => ({ name: org.name, id: org.id })) || [
     { id: '', name: '' },

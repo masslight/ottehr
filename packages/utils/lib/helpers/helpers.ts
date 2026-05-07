@@ -1577,6 +1577,11 @@ export function isPayerUrl(maybeUrl?: string): boolean {
   return !!maybeUrl && maybeUrl.startsWith('https://rcm-api.zapehr.com/v1/payer/');
 }
 
+export function extractPayerIdFromUrl(maybeUrl?: string): string | undefined {
+  if (!maybeUrl || !isPayerUrl(maybeUrl)) return undefined;
+  return maybeUrl.replace('https://rcm-api.zapehr.com/v1/payer/', '');
+}
+
 export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirResource): string | undefined => {
   let location: string | undefined;
   if (scheduleResource.resourceType === 'Location') {

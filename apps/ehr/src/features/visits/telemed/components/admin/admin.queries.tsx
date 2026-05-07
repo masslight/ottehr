@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { RcmListPayersResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Extension, Location, Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
@@ -90,57 +90,33 @@ export const useInsurancesQuery = (id?: string, enabled?: boolean): UseQueryResu
     queryKey: ['insurances', id],
 
     queryFn: async () => {
-      const searchParams = [];
-      let offset = 0;
+      if (!oystehr) {
+        throw new Error('Oystehr client is not defined');
+      }
       if (id) {
-        searchParams.push({
-          name: '_id',
-          value: id,
-        });
+        const payer = await oystehr.rcm.getPayer({ id });
+        return [payer];
       }
-      searchParams.push(
-        {
-          name: '_count',
-          value: '1000',
-        },
-        {
-          name: 'type',
-          value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
-        },
-        {
-          name: '_offset',
-          value: offset,
-        }
-      );
-      let plans: Organization[] = [];
-      let resources = await oystehr!.fhir.search<Organization>({
-        resourceType: 'Organization',
-        params: searchParams,
-      });
-      plans = plans.concat(resources.unbundle());
-      while (resources.link?.find((link) => link.relation === 'next')) {
-        resources = await oystehr!.fhir.search<Organization>({
-          resourceType: 'Organization',
-          params: searchParams.map((param) => {
-            if (param.name === '_offset') {
-              return {
-                ...param,
-                value: (offset += 1000),
-              };
-            }
-            return param;
-          }),
+      const payers = [];
+      let hasMore = true;
+      let nextCursor: string | null = null;
+      while (hasMore) {
+        const result: RcmListPayersResponse = await oystehr.rcm.listPayers({
+          limit: 200,
+          cursor: nextCursor ?? undefined,
         });
-        plans = plans.concat(resources.unbundle());
+        payers.push(...result.data);
+        nextCursor = result.metadata.nextCursor;
+        hasMore = !!nextCursor;
       }
-
-      return plans;
+      return payers;
     },
     enabled: enabled && !!oystehr,
     gcTime: 0,
   });
 };
 
+// CW TODO: add things to lists instead
 export const useInsuranceMutation = (
   insurancePlan?: Organization
 ): UseMutationResult<Organization, Error, InsuranceData> => {
