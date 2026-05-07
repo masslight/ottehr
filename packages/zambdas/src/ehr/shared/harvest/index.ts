@@ -80,6 +80,7 @@ import {
   getPatchOperationToAddOrUpdatePreferredName,
   getPatchOperationToRemovePreferredLanguage,
   getPayerId,
+  getPayerUrl,
   getPhoneNumberForIndividual,
   getSecret,
   getTaxID,
@@ -3899,6 +3900,10 @@ export const getAccountAndCoverageResourcesForPatient = async (
           name: '_include:iterate',
           value: 'Coverage:subscriber',
         },
+        {
+          name: '_include:iterate',
+          value: 'Coverage:payor',
+        },
       ],
     })
   ).unbundle();
@@ -3923,22 +3928,32 @@ export const getAccountAndCoverageResourcesForPatient = async (
 
   const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
   console.log('colin get coverages', JSON.stringify(coverageResources));
+  const insuranceOrgsFromFhir = resources.filter((res): res is Organization => res.resourceType === 'Organization');
+  const resourcesWithoutInsuranceOrgsFromFhir = resources.filter((res) => res.resourceType !== 'Organization');
 
   // Get payer info for coverages
-  const insuranceRefUrls = coverageResources
-    .flatMap((cov) =>
-      cov.payor.map((ref) => (ref.reference?.startsWith('https://rcm-api.zapehr.com') ? ref.reference : undefined))
+  const insuranceOrgs: Organization[] = (
+    await Promise.all(
+      coverageResources
+        .flatMap<string | undefined>((cov) => cov.payor.map((ref) => ref.reference))
+        .filter<string>((ref): ref is string => !!ref)
+        .map(async (ref): Promise<Organization | undefined> => {
+          if (ref.startsWith('https://rcm-api.zapehr.com')) {
+            return oystehr.rcm.getPayerByUrl({ url: ref });
+          }
+          const orgFromFhir = findOrgMatchingReference(ref, insuranceOrgsFromFhir);
+          if (orgFromFhir) {
+            return orgFromFhir;
+          }
+          return undefined;
+        })
     )
-    .filter<string>((refUrl): refUrl is string => !!refUrl);
-  const insuranceOrgs: Organization[] = await Promise.all(
-    insuranceRefUrls.map(async (url) => await oystehr.rcm.getPayerByUrl({ url }))
-  );
+  ).filter<Organization>((org): org is Organization => !!org);
+
   // Get EHR-facing payer notes
   const ehrPayerList = await getInsuranceOverrideList(oystehr, ListName.EHR);
   for (const org of insuranceOrgs) {
-    const override = ehrPayerList.entry?.find(
-      (override) => override.item.reference === oystehr.rcm.constructPayerUrl({ id: org.id! })
-    );
+    const override = ehrPayerList.entry?.find((override) => override.item.reference === getPayerUrl(org.id!));
     if (override) {
       // CW TODO: i'm not sure if this puts the extension on the right resource
       const extensions = [...(org.extension ?? []), ...(override.extension ?? [])];
@@ -3948,7 +3963,7 @@ export const getAccountAndCoverageResourcesForPatient = async (
 
   return getCoverageUpdateResourcesFromUnbundled({
     patient: patientResource,
-    resources: [...resources, ...insuranceOrgs],
+    resources: [...resourcesWithoutInsuranceOrgsFromFhir, ...insuranceOrgs],
   });
 };
 
@@ -4004,6 +4019,7 @@ export const updatePatientAccountFromQuestionnaire = async (
     ?.answer?.[0]?.valueReference?.reference;
   if (workersCompInsuranceOrg) insuranceOrgs.push(workersCompInsuranceOrg);
 
+  console.log('colin harvest', JSON.stringify(insuranceOrgs));
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
 
   const {

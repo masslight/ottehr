@@ -12,6 +12,7 @@ vi.mock('../../src/shared', () => ({
   ZambdaInput: {},
 }));
 
+import { getPayerUrl } from 'utils';
 import { index as _handler } from '../../src/rcm/fee-schedules/find-applicable-fee-schedule/index';
 import { createOystehrClient } from '../../src/shared';
 import { ZambdaInput } from '../../src/shared/types';
@@ -53,7 +54,7 @@ function fsWithOrg(
   return makeFeeSchedule({
     id,
     date,
-    useContext: [{ code: { code: 'payer' }, valueReference: { reference: `Organization/${orgId}` } } as any],
+    useContext: [{ code: { code: 'payer' }, valueReference: { reference: getPayerUrl(orgId) } } as any],
     ...extra,
   });
 }
@@ -63,7 +64,7 @@ function fsWithOrgAndLocation(id: string, orgId: string, locationId: string, dat
     id,
     date,
     useContext: [
-      { code: { code: 'payer' }, valueReference: { reference: `Organization/${orgId}` } } as any,
+      { code: { code: 'payer' }, valueReference: { reference: getPayerUrl(orgId) } } as any,
       { code: { code: 'venue' }, valueReference: { reference: `Location/${locationId}` } } as any,
     ],
   });

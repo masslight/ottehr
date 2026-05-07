@@ -14,6 +14,7 @@ vi.mock('../../src/shared', () => ({
 
 const RCM_TAG_SYSTEM = 'https://fhir.zapehr.com/r4/StructureDefinitions/rcm';
 
+import { getPayerUrl } from 'utils';
 import { index as _handler } from '../../src/rcm/charge-masters/find-applicable-charge-master/index';
 import { createOystehrClient } from '../../src/shared';
 import { ZambdaInput } from '../../src/shared/types';
@@ -54,7 +55,7 @@ function cmWithOrg(
   return makeChargeMaster({
     id,
     date,
-    useContext: [{ code: { code: 'payer' }, valueReference: { reference: `Organization/${orgId}` } } as any],
+    useContext: [{ code: { code: 'payer' }, valueReference: { reference: getPayerUrl(orgId) } } as any],
     ...extra,
   });
 }
@@ -64,7 +65,7 @@ function cmWithOrgAndLocation(id: string, orgId: string, locationId: string, dat
     id,
     date,
     useContext: [
-      { code: { code: 'payer' }, valueReference: { reference: `Organization/${orgId}` } } as any,
+      { code: { code: 'payer' }, valueReference: { reference: getPayerUrl(orgId) } } as any,
       { code: { code: 'venue' }, valueReference: { reference: `Location/${locationId}` } } as any,
     ],
   });

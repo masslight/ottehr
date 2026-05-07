@@ -1568,6 +1568,11 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
   return payerId;
 };
 
+export function getPayerUrl(payerId: string): string {
+  const oystehr = new Oystehr({}); // get access to static helper
+  return oystehr.rcm.constructPayerUrl({ id: payerId });
+}
+
 export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirResource): string | undefined => {
   let location: string | undefined;
   if (scheduleResource.resourceType === 'Location') {
@@ -1726,10 +1731,11 @@ export function replaceTemplateVariablesHandlebars(template: string, variables: 
  */
 export function findOrgMatchingReference(reference?: string, organizations?: Organization[]): Organization | undefined {
   if (!reference) return undefined;
+  return (organizations ?? []).find((organization) => orgIdMatchesReference(reference, organization.id!));
+}
+
+export function orgIdMatchesReference(reference: string | undefined, orgId: string): boolean {
+  if (!reference) return false;
   const oystehr = new Oystehr({}); // get access to static helper
-  return (organizations ?? []).find(
-    (organization) =>
-      organization.id === reference.replace('Organization/', '') ||
-      oystehr?.rcm.constructPayerUrl({ id: organization.id! }) === reference
-  );
+  return orgId === reference.replace('Organization/', '') || oystehr.rcm.constructPayerUrl({ id: orgId }) === reference;
 }

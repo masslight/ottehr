@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
+import { orgIdMatchesReference } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -79,7 +80,7 @@ export const index = wrapHandler(
     // 2. Fall back to payer (insurance) fee schedule
     if (payerOrganizationId) {
       const payerFeeSchedules = allFeeSchedules.filter(
-        (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`)
+        (fs) => fs.useContext?.some((uc) => orgIdMatchesReference(uc.valueReference?.reference, payerOrganizationId))
       );
 
       const payerMatch = findBestMatch(payerFeeSchedules);

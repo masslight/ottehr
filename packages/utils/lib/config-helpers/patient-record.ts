@@ -92,7 +92,10 @@ export const prepopulatePatientRecordItems = (
       });
     }
   }
-  const patientRecordItems = makePrepopulatedItemsFromPatientRecord({ ...input, overriddenItems: prepopOverrides });
+  const patientRecordItems = makePrepopulatedItemsFromPatientRecord({
+    ...input,
+    overriddenItems: prepopOverrides,
+  });
 
   return patientRecordItems;
 };

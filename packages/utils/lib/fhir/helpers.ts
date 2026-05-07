@@ -48,6 +48,7 @@ import {
   getMimeType,
   getPatchOperationsForNewMetaTags,
   getPatchOperationToRemoveMetaTags,
+  getPayerUrl,
   LAB_RESULT_DOC_REF_CODING_CODE,
   PatientMasterRecordResourceType,
   replaceOperation,
@@ -1067,7 +1068,7 @@ export const createCoverageMemberIdentifier = (memberId: string, insuranceOrg: O
     ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
     value: memberId,
     assigner: {
-      reference: `Organization/${insuranceOrg.id}`,
+      reference: getPayerUrl(insuranceOrg.id!),
       display: insuranceOrg.name,
     },
   };

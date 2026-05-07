@@ -6,6 +6,7 @@ import {
   getCandidPlanTypeCodeFromCoverage,
   getFullName,
   getPayerId,
+  getPayerUrl,
 } from 'utils';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { Insurance, InsuranceDataInput, InsuranceInfo, PdfSection } from '../types';
@@ -27,7 +28,7 @@ export const composeInsuranceData: DataComposer<InsuranceDataInput, InsuranceInf
     const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
     if (payerId && org) {
       primaryInsurancePlanReference = {
-        reference: `Organization/${org.id}`,
+        reference: getPayerUrl(org.id!),
         display: org.name,
       };
     }
@@ -38,7 +39,7 @@ export const composeInsuranceData: DataComposer<InsuranceDataInput, InsuranceInf
     const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
     if (payerId && org) {
       secondaryInsurancePlanReference = {
-        reference: `Organization/${org.id}`,
+        reference: getPayerUrl(org.id!),
         display: org.name,
       };
     }
