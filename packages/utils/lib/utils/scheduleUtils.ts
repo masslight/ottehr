@@ -150,6 +150,10 @@ export interface ScheduleDTOOwner {
   hoursOfOperation?: Location['hoursOfOperation'];
   timezone: Timezone;
   isVirtual?: boolean;
+  /** PR owners only — IDs of HealthcareService resources this role offers. */
+  healthcareServiceIds?: string[];
+  /** PR owners only — id of the Location this role is bound to. */
+  locationId?: string;
 }
 export interface ScheduleDTO {
   id: string;
@@ -831,8 +835,14 @@ export const getAvailableSlotsForSchedules = async (
   const availableSlots: SlotListItem[] = [];
 
   const fetchBusySlotsForSchedule = async (scheduleId: string, fromISO: string, toISO: string): Promise<Slot[]> => {
+    // For PR-actored Schedules, "this provider is busy" must include bookings
+    // made against any of their other PRs (other locations, other service
+    // mixes). One human, one calendar — see getPractitionerSchedulePeerIds.
+    const peerScheduleIds = await getPractitionerSchedulePeerIds(scheduleId, oystehr);
+    const allowedIdSet = new Set(peerScheduleIds);
+
     const getBusySlotsInput: GetSlotsInWindowInput = {
-      scheduleIds: [scheduleId],
+      scheduleIds: peerScheduleIds,
       fromISO,
       toISO,
       status: ['busy', 'busy-tentative', 'busy-unavailable'],
@@ -851,7 +861,7 @@ export const getAvailableSlotsForSchedules = async (
     const allBusySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
     return allBusySlots.filter((slot) => {
       const id = slot.schedule?.reference?.split('/')?.[1];
-      return id === scheduleId && !getSlotIsPostTelemed(slot);
+      return !!id && allowedIdSet.has(id) && !getSlotIsPostTelemed(slot);
     });
   };
 
@@ -908,6 +918,15 @@ export const getAvailableSlotsForSchedules = async (
   // follows a least-recently-booked heuristic: the member with the fewest
   // upcoming busy slots gets the pick, so demand distributes across members
   // over time. Tiebreak: schedule id, for deterministic/stable results.
+  //
+  // ── v2 smarter picker hook ─────────────────────────────────────────────────
+  // This is where a qualification-aware picker would replace the load-based
+  // tiebreak. Call canScheduleAllBookings (scheduleMatching.ts) with [existing
+  // bookings on the day, plus the candidate]; among feasible assignments,
+  // prefer the one that leaves the most specialists free for future bookings
+  // (e.g. give Botox to a generalist when both an ARNP-only-doing-aesthetics
+  // and a multi-specialty ARNP qualify). Reduces the v1 false-negative rate
+  // documented in scheduleMatching.ts without changing the data model.
   const loadScore: Record<string, number> = {};
   for (const sao of scheduleList) {
     const sid = sao.schedule.id;
@@ -961,6 +980,16 @@ export const getAvailableSlotsForSchedules = async (
     }
     return picked.sort((a, b) => DateTime.fromISO(a.slot.start).toMillis() - DateTime.fromISO(b.slot.start).toMillis());
   };
+
+  // ── v2 silent-rebalance hook ───────────────────────────────────────────────
+  // Before computing slots for the day, a v2 implementation would run
+  // canScheduleAllBookings across the day's anonymous bookings + each
+  // proposed candidate, and silently rewrite Appointment.participant +
+  // Slot.schedule.reference for any anonymous booking whose visit hasn't
+  // started, when the matching primitive finds a better assignment. No new UI
+  // surface needed — the rebalance happens as a side-effect of the slot
+  // generation a patient triggers when browsing. Skipped in v1 per the
+  // limitation documented in scheduleMatching.ts.
 
   if (selectedDate) {
     for (const scheduleTemp of scheduleList) {
@@ -1872,7 +1901,11 @@ export const fhirTypeForScheduleType = (scheduleType: ScheduleType): ScheduleOwn
     return 'Location';
   }
   if (scheduleType === 'provider') {
-    return 'Practitioner';
+    // 'provider' now means PractitionerRole — the PR-aware equivalent of the
+    // legacy "book this provider" link. Slug + booking URL pin a particular
+    // (provider, location, categories) tuple. Practitioner-actored Schedules
+    // are no longer produced by this codebase.
+    return 'PractitionerRole';
   }
   return 'HealthcareService';
 };
@@ -2154,11 +2187,69 @@ const applyOverrideToDay = (override: ScheduleOverrideDay, day: ScheduleDay): Sc
   };
 };
 
+/**
+ * Resolve every Schedule that represents the same practitioner as the given
+ * Schedule. For PractitionerRole-actored Schedules this is "all Schedules of
+ * all of this practitioner's PRs"; for any other actor type it's just the
+ * caller's schedule (no aggregation needed).
+ *
+ * Used by the slot generator to subtract a practitioner's full busy set from
+ * any individual PR's working window, so the same human cannot be booked at
+ * two locations at the same time. Same lookup feeds the matching primitive's
+ * "is provider X free during interval [a, b)?" question.
+ */
+export const getPractitionerSchedulePeerIds = async (scheduleId: string, oystehr: Oystehr): Promise<string[]> => {
+  // 1. Pull the Schedule and its actor in one query so we can branch on actor type.
+  const scheduleBundle = await oystehr.fhir.search<Schedule | PractitionerRole>({
+    resourceType: 'Schedule',
+    params: [
+      { name: '_id', value: scheduleId },
+      { name: '_include', value: 'Schedule:actor:PractitionerRole' },
+    ],
+  });
+  const scheduleResources = scheduleBundle.unbundle();
+  const schedule = scheduleResources.find((r): r is Schedule => r.resourceType === 'Schedule');
+  if (!schedule) return [scheduleId];
+
+  const actorRef = schedule.actor?.[0]?.reference ?? '';
+  if (!actorRef.startsWith('PractitionerRole/')) {
+    // Location- or HealthcareService-actored Schedules don't represent a
+    // single human's calendar; nothing to aggregate.
+    return [scheduleId];
+  }
+
+  const actorPr = scheduleResources.find(
+    (r): r is PractitionerRole => r.resourceType === 'PractitionerRole' && `PractitionerRole/${r.id}` === actorRef
+  );
+  const practitionerRef = actorPr?.practitioner?.reference;
+  if (!practitionerRef) return [scheduleId];
+
+  // 2. Find every PR for that Practitioner, _revincluded with their Schedules.
+  // One round-trip; siblings + their schedules come back together.
+  const peersBundle = await oystehr.fhir.search<PractitionerRole | Schedule>({
+    resourceType: 'PractitionerRole',
+    params: [
+      { name: 'practitioner', value: practitionerRef },
+      { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+    ],
+  });
+  const peerSchedules = peersBundle
+    .unbundle()
+    .filter((r): r is Schedule => r.resourceType === 'Schedule')
+    .map((s) => s.id)
+    .filter((id): id is string => !!id);
+
+  // De-dupe and ensure the original scheduleId is included.
+  return Array.from(new Set([scheduleId, ...peerSchedules]));
+};
+
 export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType']): ScheduleType => {
   if (fhirType === 'Location') {
     return ScheduleType.location;
   }
-  if (fhirType === 'Practitioner') {
+  if (fhirType === 'PractitionerRole') {
+    // PR-actored Schedules surface as the per-provider booking type — see
+    // fhirTypeForScheduleType for the reverse mapping.
     return ScheduleType.provider;
   }
   return ScheduleType.group;

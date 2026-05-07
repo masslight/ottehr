@@ -76,7 +76,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
   })();
 
   const { data, error, isLoading, isFetching, isRefetching } = useQuery({
-    queryKey: ['schedule-list'],
+    queryKey: ['schedule-list', ownerType],
     queryFn: () => (oystehrZambda ? listScheduleOwners({ ownerType }, oystehrZambda) : null),
     enabled: !!oystehrZambda,
   });
@@ -141,11 +141,15 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
             margin="dense"
             size="small"
           />
-          <Link to={`/admin/schedule/${scheduleType}/add`}>
-            <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
-              Add {scheduleType}
-            </Button>
-          </Link>
+          {/* PR rows are created via Edit Employee → "Add another schedule" — there's no
+              meaningful "add a PR" action without picking a practitioner first. */}
+          {scheduleType !== 'provider' && (
+            <Link to={`/admin/schedule/${scheduleType}/add`}>
+              <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
+                Add {scheduleType}
+              </Button>
+            </Link>
+          )}
           {loading && (
             <Box sx={{ marginLeft: 'auto' }}>
               <Loading />
@@ -153,42 +157,79 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
           )}
         </Box>
 
-        <Table sx={{ minWidth: 650 }} aria-label={`${scheduleType}sTable`}>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>{capitalize(scheduleType)} name</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Address</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Today&apos;s hours</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Upcoming schedule changes</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {pageItems.map((item) => (
-              <TableRow key={item.owner.id}>
-                <TableCell>
-                  <Link to={getLinkForItem(item)} style={{ textDecoration: 'none' }}>
-                    <Typography color="primary">{item.owner.name}</Typography>
-                  </Link>
-                </TableCell>
-                <TableCell align="left">
-                  <Typography>{item.owner.address ?? ''}</Typography>
-                </TableCell>
-                <TableCell align="left">
-                  <Typography>{getHoursOfOperationText(item)}</Typography>
-                </TableCell>
-                <TableCell align="left">
-                  <Typography
-                    style={{
-                      color: item.schedules[0]?.upcomingScheduleChanges ? 'inherit' : otherColors.none,
-                    }}
-                  >
-                    {item.schedules[0]?.upcomingScheduleChanges ?? 'No upcoming schedule changes'}
-                  </Typography>
-                </TableCell>
+        {scheduleType === 'provider' ? (
+          <Table sx={{ minWidth: 650 }} aria-label="providerSchedulesTable">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Provider</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '15%' }}>Schedules</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '27%' }}>Locations</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '28%' }}>Service categories</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {pageItems.map((item) => (
+                <TableRow key={item.owner.id}>
+                  <TableCell>
+                    <Link to={getLinkForItem(item)} style={{ textDecoration: 'none' }}>
+                      <Typography color="primary">{item.owner.name}</Typography>
+                    </Link>
+                  </TableCell>
+                  <TableCell align="left">
+                    <Typography>{item.owner.providerSchedulesSummary?.scheduleCount ?? 0}</Typography>
+                  </TableCell>
+                  <TableCell align="left">
+                    <Typography>{item.owner.providerSchedulesSummary?.locationNames?.join(', ') ?? ''}</Typography>
+                  </TableCell>
+                  <TableCell align="left">
+                    <Typography>
+                      {item.owner.providerSchedulesSummary?.categoryLabels?.length
+                        ? item.owner.providerSchedulesSummary.categoryLabels.join(', ')
+                        : 'All'}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <Table sx={{ minWidth: 650 }} aria-label={`${scheduleType}sTable`}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>{capitalize(scheduleType)} name</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Address</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Today&apos;s hours</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Upcoming schedule changes</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {pageItems.map((item) => (
+                <TableRow key={item.owner.id}>
+                  <TableCell>
+                    <Link to={getLinkForItem(item)} style={{ textDecoration: 'none' }}>
+                      <Typography color="primary">{item.owner.name}</Typography>
+                    </Link>
+                  </TableCell>
+                  <TableCell align="left">
+                    <Typography>{item.owner.address ?? ''}</Typography>
+                  </TableCell>
+                  <TableCell align="left">
+                    <Typography>{getHoursOfOperationText(item)}</Typography>
+                  </TableCell>
+                  <TableCell align="left">
+                    <Typography
+                      style={{
+                        color: item.schedules[0]?.upcomingScheduleChanges ? 'inherit' : otherColors.none,
+                      }}
+                    >
+                      {item.schedules[0]?.upcomingScheduleChanges ?? 'No upcoming schedule changes'}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
 
         {/* Table Pagination */}
         <TablePagination
@@ -226,20 +267,19 @@ const getHoursOfOperationText = (item: SchedulesAndOwnerListItem): string => {
 };
 
 const getLinkForItem = (item: SchedulesAndOwnerListItem): string => {
-  let itemPathSegment = '';
-  if (item.owner.resourceType === 'Practitioner') {
-    itemPathSegment = 'provider';
-  } else if (item.owner.resourceType === 'Location') {
-    itemPathSegment = 'location';
-  } else {
-    itemPathSegment = 'group';
-  }
-
   if (item.owner.resourceType === 'HealthcareService') {
     return `/admin/group/id/${item.owner.id}`;
+  }
+  // Provider rows route to the employee detail page where all of the
+  // practitioner's per-location schedules are managed in one place.
+  if (item.owner.resourceType === 'Practitioner') {
+    return `/admin/employee/${item.owner.id}#schedule`;
   }
   if (item.schedules.length) {
     return `/admin/schedule/id/${item.schedules[0].id}`;
   }
-  return `/admin/schedule/new/${itemPathSegment}/${item.owner.id}`;
+  if (item.owner.resourceType === 'Location') {
+    return `/admin/schedule/new/location/${item.owner.id}`;
+  }
+  return '#';
 };

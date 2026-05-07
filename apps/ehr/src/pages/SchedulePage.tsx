@@ -1,10 +1,13 @@
 import { otherColors } from '@ehrTheme/colors';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Autocomplete,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Grid,
   Paper,
@@ -31,7 +34,7 @@ import {
   UpdateScheduleParams,
   useSuccessQuery,
 } from 'utils';
-import { createSchedule, getSchedule, updateSchedule } from '../api/api';
+import { createSchedule, getSchedule, listServiceCategories, updatePractitionerRole, updateSchedule } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import Loading from '../components/Loading';
 import ScheduleComponent from '../components/schedule/ScheduleComponent';
@@ -40,13 +43,9 @@ import PageContainer from '../layout/PageContainer';
 
 const INTAKE_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
-export function getResource(
-  scheduleType: 'location' | 'provider' | 'group'
-): 'Location' | 'Practitioner' | 'HealthcareService' {
+export function getResource(scheduleType: 'location' | 'group'): 'Location' | 'HealthcareService' {
   if (scheduleType === 'location') {
     return 'Location';
-  } else if (scheduleType === 'provider') {
-    return 'Practitioner';
   } else if (scheduleType === 'group') {
     return 'HealthcareService';
   }
@@ -56,9 +55,8 @@ export function getResource(
 }
 
 export default function SchedulePage(): ReactElement {
-  // Define variables to interact w database and navigate to other pages
-  const { oystehr } = useApiClients();
-  const scheduleType = useParams()['schedule-type'] as 'location' | 'provider' | undefined;
+  const { oystehr, oystehrZambda } = useApiClients();
+  const scheduleType = useParams()['schedule-type'] as 'location' | 'group' | undefined;
   const ownerId = useParams()['owner-id'] as string | undefined;
   const scheduleId = useParams()['schedule-id'] as string;
   const createMode = scheduleType !== undefined && ownerId !== undefined;
@@ -77,6 +75,9 @@ export default function SchedulePage(): ReactElement {
   // the underlying fhir resource representing the schedule owner
   const [slug, setSlug] = useState<string | undefined>(undefined);
   const [timezone, setTimezone] = useState<string>(TIMEZONES[0]);
+  // For PR-actored schedules only — the categories this role offers and the Location it's bound to.
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [locationId, setLocationId] = useState<string | undefined>(undefined);
   const defaultIntakeUrl = (() => {
     const fhirType = item?.owner.type;
     const locationType = item?.owner.isVirtual ? 'virtual' : 'in-person';
@@ -92,10 +93,36 @@ export default function SchedulePage(): ReactElement {
     if (item) {
       setTimezone(item?.owner.timezone ?? TIMEZONES[0]);
       setSlug(item?.owner.slug);
+      setCategoryIds(item?.owner.healthcareServiceIds ?? []);
+      setLocationId(item?.owner.locationId);
     }
   }, [item]);
 
-  const { oystehrZambda } = useApiClients();
+  const isPractitionerRoleOwner = item?.owner.type === 'PractitionerRole';
+
+  // For the PR Location picker — list of active Locations.
+  const { data: locationOptions } = useQuery({
+    queryKey: ['ehr-active-locations'],
+    queryFn: async (): Promise<Location[]> => {
+      if (!oystehr) return [];
+      const bundle = await oystehr.fhir.search<Location>({
+        resourceType: 'Location',
+        params: [{ name: 'status', value: 'active' }],
+      });
+      return bundle.unbundle();
+    },
+    enabled: !!oystehr && isPractitionerRoleOwner,
+  });
+
+  // Fetch the service-category options (only used by the General tab when this
+  // schedule's owner is a PractitionerRole).
+  const { data: categoriesData } = useQuery({
+    queryKey: ['ehr-schedule-categories'],
+    queryFn: () => (oystehrZambda ? listServiceCategories(oystehrZambda) : null),
+    enabled: !!oystehrZambda && isPractitionerRoleOwner,
+  });
+  const categoryOptions = (categoriesData?.serviceCategories ?? []).filter((sc: any) => sc.id);
+
   const queryEnabled = (() => {
     if (!oystehrZambda) {
       return false;
@@ -257,14 +284,38 @@ export default function SchedulePage(): ReactElement {
       enqueueSnackbar('Oops. Something went wrong. Please reload the page and try again.', { variant: 'error' });
       return;
     }
-    const params: UpdateScheduleParams = {
+    // Schedule-level fields (slug, timezone) go through the schedule zambda.
+    saveScheduleChanges.mutate({
       scheduleId: item.id,
       timezone,
       slug,
-      // Convert empty-string selection to null so the zambda clears the field.
-      serviceCategoryCode: serviceCategoryCode || null,
-    };
-    saveScheduleChanges.mutate({ ...params });
+    });
+    // Categories and Location are PR-level; bundle them into one PATCH when
+    // the owner is a PR and either changed. Errors here are independent of
+    // the schedule save above.
+    if (isPractitionerRoleOwner && oystehrZambda) {
+      const initialCats = item.owner.healthcareServiceIds ?? [];
+      const sortedInitialCats = [...initialCats].sort();
+      const sortedCurrentCats = [...categoryIds].sort();
+      const categoriesChanged =
+        sortedInitialCats.length !== sortedCurrentCats.length ||
+        sortedInitialCats.some((v, i) => v !== sortedCurrentCats[i]);
+      const locationChanged = (locationId ?? '') !== (item.owner.locationId ?? '');
+
+      if (categoriesChanged || locationChanged) {
+        try {
+          await updatePractitionerRole(oystehrZambda, {
+            roleId: item.owner.id,
+            ...(categoriesChanged ? { categoryHealthcareServiceIds: categoryIds } : {}),
+            ...(locationChanged && locationId ? { locationId } : {}),
+          });
+          await queryClient.invalidateQueries({ queryKey: ['ehr-get-schedule'] });
+        } catch (err) {
+          console.error(err);
+          enqueueSnackbar('Failed to update schedule metadata.', { variant: 'error' });
+        }
+      }
+    }
   };
 
   return (
@@ -391,6 +442,64 @@ export default function SchedulePage(): ReactElement {
                           }
                         }}
                       />
+                      {isPractitionerRoleOwner && (
+                        <Autocomplete
+                          options={(locationOptions ?? []).map((l) => l.id!).filter(Boolean)}
+                          value={locationId ?? null}
+                          onChange={(_e, v) => setLocationId(v ?? undefined)}
+                          getOptionLabel={(id) => {
+                            const hit = (locationOptions ?? []).find((l) => l.id === id);
+                            return hit?.name || id;
+                          }}
+                          isOptionEqualToValue={(a, b) => a === b}
+                          renderOption={(props, id) => {
+                            const hit = (locationOptions ?? []).find((l) => l.id === id);
+                            return (
+                              <li {...props} key={id}>
+                                {hit?.name || id}
+                              </li>
+                            );
+                          }}
+                          renderInput={(params) => <TextField {...params} label="Location" />}
+                          sx={{ marginTop: 2, width: '500px' }}
+                        />
+                      )}
+                      {isPractitionerRoleOwner && (
+                        <Autocomplete
+                          multiple
+                          disableCloseOnSelect
+                          options={categoryOptions.map((c: any) => c.id as string)}
+                          value={categoryIds}
+                          onChange={(_e, v) => setCategoryIds(v)}
+                          getOptionLabel={(id) => {
+                            const hit = categoryOptions.find((c: any) => c.id === id);
+                            return hit ? `${hit.name} — ${hit.config.durationMinutes} min` : id;
+                          }}
+                          renderOption={(props, id) => {
+                            const isSelected = categoryIds.includes(id);
+                            const hit = categoryOptions.find((c: any) => c.id === id);
+                            return (
+                              <li {...props} key={id}>
+                                <Checkbox
+                                  icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+                                  checkedIcon={<CheckBoxIcon fontSize="small" />}
+                                  style={{ marginRight: 8 }}
+                                  checked={isSelected}
+                                />
+                                {hit ? `${hit.name} — ${hit.config.durationMinutes} min` : id}
+                              </li>
+                            );
+                          }}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              label="Service categories"
+                              helperText="Leave empty to allow this schedule to serve all categories."
+                            />
+                          )}
+                          sx={{ marginTop: 2, width: '500px' }}
+                        />
+                      )}
                       <br />
                       <LoadingButton
                         type="submit"

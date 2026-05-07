@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Medication, Schedule, Slot } from 'fhir/r4b';
+import { Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import {
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
@@ -291,6 +291,9 @@ const ADMIN_LIST_SERVICE_CATEGORIES_ZAMBDA_ID = 'admin-list-service-categories';
 const ADMIN_CREATE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-create-service-category';
 const ADMIN_UPDATE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-update-service-category';
 const ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-delete-service-category';
+const ADMIN_CREATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-create-practitioner-role';
+const ADMIN_UPDATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-update-practitioner-role';
+const ADMIN_DELETE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-delete-practitioner-role';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -2428,6 +2431,39 @@ export const deleteServiceCategory = async (
   const response = await oystehr.zambda.execute({
     id: ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID,
     serviceCategoryId,
+  } as any);
+  return chooseJson(response);
+};
+
+export const createPractitionerRole = async (
+  oystehr: Oystehr,
+  input: { practitionerId: string; locationId: string; categoryHealthcareServiceIds: string[]; timezone: string }
+): Promise<{ role: PractitionerRole; schedule: Schedule }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_CREATE_PRACTITIONER_ROLE_ZAMBDA_ID,
+    ...input,
+  } as any);
+  return chooseJson(response);
+};
+
+export const updatePractitionerRole = async (
+  oystehr: Oystehr,
+  input: { roleId: string; categoryHealthcareServiceIds?: string[]; locationId?: string }
+): Promise<{ role: PractitionerRole }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_UPDATE_PRACTITIONER_ROLE_ZAMBDA_ID,
+    ...input,
+  } as any);
+  return chooseJson(response);
+};
+
+export const deletePractitionerRole = async (
+  oystehr: Oystehr,
+  input: { roleId: string }
+): Promise<{ deactivatedScheduleCount: number }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_DELETE_PRACTITIONER_ROLE_ZAMBDA_ID,
+    ...input,
   } as any);
   return chooseJson(response);
 };

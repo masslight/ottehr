@@ -1,6 +1,6 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, Paper, TextField, Typography } from '@mui/material';
-import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
+import { HealthcareService, Location } from 'fhir/r4b';
 import { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ScheduleStrategyCoding } from 'utils';
@@ -10,19 +10,15 @@ import PageContainer from '../layout/PageContainer';
 import { getResource } from './SchedulePage';
 
 export default function AddSchedulePage(): ReactElement {
-  // Define variables to interact w database and navigate to other pages
   const { oystehr } = useApiClients();
   const navigate = useNavigate();
-  const scheduleType = useParams()['schedule-type'] as 'location' | 'provider' | 'group';
+  const scheduleType = useParams()['schedule-type'] as 'location' | 'group';
 
   if (!scheduleType) {
     throw new Error('scheduleType is not defined');
   }
 
-  // state variables
   const [name, setName] = useState<string | undefined>(undefined);
-  const [firstName, setFirstName] = useState<string | undefined>(undefined);
-  const [lastName, setLastName] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(false);
 
   async function createSchedule(event: any): Promise<void> {
@@ -31,9 +27,9 @@ export default function AddSchedulePage(): ReactElement {
       return;
     }
     setLoading(true);
-    const resourceData: Location | Practitioner | HealthcareService = {
+    const resourceData: Location | HealthcareService = {
       resourceType: getResource(scheduleType),
-      name: (getResource(scheduleType) === 'Practitioner' ? [{ given: [firstName], family: lastName }] : name) as any,
+      name: name as any,
     };
     if (scheduleType === 'group') {
       (resourceData as HealthcareService).characteristic = [
@@ -57,7 +53,7 @@ export default function AddSchedulePage(): ReactElement {
         },
       ];
     }
-    const resource = await oystehr.fhir.create<Location | Practitioner | HealthcareService>(resourceData);
+    const resource = await oystehr.fhir.create<Location | HealthcareService>(resourceData);
     setLoading(false);
 
     if (scheduleType === 'group') {
@@ -71,7 +67,6 @@ export default function AddSchedulePage(): ReactElement {
     <PageContainer>
       <>
         <Box marginX={12}>
-          {/* Breadcrumbs */}
           <CustomBreadcrumbs
             chain={[
               { link: '/admin', children: 'Admin' },
@@ -80,29 +75,11 @@ export default function AddSchedulePage(): ReactElement {
             ]}
           />
           <Paper sx={{ padding: 2 }}>
-            {/* Page title */}
             <Typography variant="h3" color="primary.dark" marginBottom={1}>
               Add {scheduleType}
             </Typography>
             <form onSubmit={createSchedule}>
-              {scheduleType === 'provider' ? (
-                <>
-                  <TextField
-                    label="First name"
-                    required
-                    value={firstName}
-                    onChange={(event) => setFirstName(event.target.value)}
-                  />
-                  <TextField
-                    label="Last name"
-                    required
-                    value={lastName}
-                    onChange={(event) => setLastName(event.target.value)}
-                  />
-                </>
-              ) : (
-                <TextField label="Name" required value={name} onChange={(event) => setName(event.target.value)} />
-              )}
+              <TextField label="Name" required value={name} onChange={(event) => setName(event.target.value)} />
               <br />
               <LoadingButton type="submit" loading={loading} variant="contained" sx={{ marginTop: 2 }}>
                 Save

@@ -1,8 +1,8 @@
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, Chip, Grid, Paper, Skeleton, Typography } from '@mui/material';
+import { Box, Chip, Grid, Paper, Skeleton, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useParams } from 'react-router-dom';
 import { allLicensesForPractitioner, PractitionerLicense, User, UserActivationMode } from 'utils';
 import { getUserDetails, userActivation } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -15,11 +15,25 @@ import PageContainer from '../layout/PageContainer';
 
 export default function EditEmployeePage(): JSX.Element {
   const { oystehr, oystehrZambda } = useApiClients();
+  const location = useLocation();
   const [isActive, setIsActive] = useState<boolean>();
   const [user, setUser] = useState<User>();
-  const [scheduleId, setScheduleId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({ submit: '' });
+
+  // When linked here from the Schedules list with `#schedule`, jump past the
+  // employee form to the scheduling card. The card only mounts after the user
+  // loads, so we use a callback ref to scroll exactly once when the element
+  // first appears (with a one-frame defer so layout has settled).
+  const scheduleAnchorRef = useCallback(
+    (node: HTMLElement | null) => {
+      if (!node || location.hash !== '#schedule') return;
+      window.requestAnimationFrame(() => {
+        node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    },
+    [location.hash]
+  );
 
   const userLicenses: PractitionerLicense[] = useMemo(() => {
     if (user?.profileResource?.qualification) {
@@ -48,8 +62,7 @@ export default function EditEmployeePage(): JSX.Element {
           userId: id,
         });
         if (loading) {
-          const { user: appUser, userScheduleId } = res;
-          setScheduleId(userScheduleId);
+          const { user: appUser } = res;
           setUser(appUser);
           setIsActive(checkUserIsActive(appUser));
           loading = false;
@@ -149,28 +162,9 @@ export default function EditEmployeePage(): JSX.Element {
               )}
 
               {isActive && user?.profileResource?.id && (
-                <>
-                  {/* Legacy single-schedule section kept for back-compat — shown
-                      only when a Practitioner-owned Schedule already exists.
-                      New roles are managed by PractitionerRoleList below. */}
-                  {scheduleId && (
-                    <Paper sx={{ padding: 3, marginTop: 3 }}>
-                      <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-                        Legacy provider schedule
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        This provider has a schedule attached directly to the Practitioner resource. New scheduling
-                        should go through roles (below); this editor remains available for legacy data.
-                      </Typography>
-                      <Link to={`/admin/schedule/id/${scheduleId}`}>
-                        <Button variant="contained" sx={{ marginTop: 1 }}>
-                          Edit legacy schedule
-                        </Button>
-                      </Link>
-                    </Paper>
-                  )}
+                <Box id="schedule" ref={scheduleAnchorRef}>
                   <PractitionerRoleList practitionerId={user.profileResource.id} />
-                </>
+                </Box>
               )}
 
               {/* Activate or Deactivate Profile */}

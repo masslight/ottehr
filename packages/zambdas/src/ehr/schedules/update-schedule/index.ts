@@ -149,7 +149,12 @@ const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oyste
   const [actorType, actorId] = (schedule.actor ?? [])[0]?.reference?.split('/') ?? [];
   console.log('actorType, actorId', actorType, actorId);
   let owner: ScheduleOwnerFhirResource | undefined;
-  if (actorType === 'Location' || actorType === 'HealthcareService' || actorType === 'Practitioner') {
+  if (
+    actorType === 'Location' ||
+    actorType === 'HealthcareService' ||
+    actorType === 'Practitioner' ||
+    actorType === 'PractitionerRole'
+  ) {
     owner = await oystehr.fhir.get<ScheduleOwnerFhirResource>({ resourceType: actorType, id: actorId });
   }
 

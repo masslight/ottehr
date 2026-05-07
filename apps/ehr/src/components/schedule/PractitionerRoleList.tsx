@@ -1,5 +1,6 @@
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import {
   Autocomplete,
   Box,
@@ -9,7 +10,9 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
+  IconButton,
   Paper,
   Table,
   TableBody,
@@ -17,58 +20,77 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Location, PractitionerRole, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { listServiceCategories } from 'src/api/api';
-import { BLANK_SCHEDULE_JSON_TEMPLATE, SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL, TIMEZONES } from 'utils';
+import { Link, useNavigate } from 'react-router-dom';
+import { createPractitionerRole, deletePractitionerRole, listServiceCategories } from 'src/api/api';
+import { TIMEZONES } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
 
 interface PractitionerRoleListProps {
   practitionerId: string;
 }
 
-interface RoleRow {
+interface ScheduleRow {
   role: PractitionerRole;
   location?: Location;
   schedule?: Schedule;
   categoryLabels: string[];
+  /** User-facing label, e.g. "Intake — Main Clinic" or "Main Clinic". */
+  displayLabel: string;
+}
+
+function deriveDisplayLabel(locationName: string | undefined, categoryLabels: string[]): string {
+  const loc = locationName || 'Unnamed location';
+  if (categoryLabels.length === 0) return loc;
+  return `${categoryLabels.join(' & ')} — ${loc}`;
 }
 
 export default function PractitionerRoleList({ practitionerId }: PractitionerRoleListProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<ScheduleRow | null>(null);
 
-  // Fetch all PractitionerRoles for this Practitioner, plus their referenced
-  // Locations and the Schedules whose actor is one of those roles. Single
-  // batch request keeps the page snappy.
   const { data, isLoading } = useQuery({
     queryKey: ['practitioner-role-list', practitionerId],
-    queryFn: async (): Promise<{
-      rows: RoleRow[];
-      categoriesById: Map<string, { code: string; name: string }>;
-    }> => {
+    queryFn: async (): Promise<{ rows: ScheduleRow[]; activeLocations: Location[] }> => {
       if (!oystehr) throw new Error('oystehr client not ready');
-      const bundle = await oystehr.fhir.search<PractitionerRole | Location | Schedule>({
-        resourceType: 'PractitionerRole',
-        params: [
-          { name: 'practitioner', value: `Practitioner/${practitionerId}` },
-          { name: '_include', value: 'PractitionerRole:location' },
-          { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
-        ],
-      });
-      const resources = bundle.unbundle();
-      const roles = resources.filter((r): r is PractitionerRole => r.resourceType === 'PractitionerRole');
-      const locations = resources.filter((r): r is Location => r.resourceType === 'Location');
-      const schedules = resources.filter((r): r is Schedule => r.resourceType === 'Schedule');
+      const [roleBundle, locationBundle] = await Promise.all([
+        oystehr.fhir.search<PractitionerRole | Location | Schedule>({
+          resourceType: 'PractitionerRole',
+          params: [
+            { name: 'practitioner', value: `Practitioner/${practitionerId}` },
+            { name: '_include', value: 'PractitionerRole:location' },
+            { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+          ],
+        }),
+        oystehr.fhir.search<Location>({
+          resourceType: 'Location',
+          params: [{ name: 'status', value: 'active' }],
+        }),
+      ]);
+      const resources = roleBundle.unbundle();
+      // PRs without a Location reference are group-membership records (linking
+      // a practitioner to a Group HealthcareService), not schedule-bearing PRs.
+      // Skip those — they belong to the Group admin flow, not scheduling.
+      // Also skip soft-deleted PRs (active=false from a previous "Delete schedule").
+      const roles = resources.filter(
+        (r): r is PractitionerRole =>
+          r.resourceType === 'PractitionerRole' &&
+          !!(r as PractitionerRole).location?.[0]?.reference &&
+          (r as PractitionerRole).active !== false
+      );
+      const includedLocations = resources.filter((r): r is Location => r.resourceType === 'Location');
+      const schedules = resources.filter((r): r is Schedule => r.resourceType === 'Schedule' && r.active !== false);
 
-      // Resolve category-tagged HealthcareService names once so we can label
-      // each role's offered categories in the table.
+      // Resolve category labels once.
       const categoriesResp = oystehrZambda
         ? await listServiceCategories(oystehrZambda).catch(() => ({ serviceCategories: [] }))
         : { serviceCategories: [] };
@@ -79,9 +101,9 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
         }
       }
 
-      const rows: RoleRow[] = roles.map((role) => {
+      const rows: ScheduleRow[] = roles.map((role) => {
         const locRef = role.location?.[0]?.reference;
-        const location = locations.find((l) => `Location/${l.id}` === locRef);
+        const location = includedLocations.find((l) => `Location/${l.id}` === locRef);
         const schedule = schedules.find((s) => s.actor?.some((a) => a.reference === `PractitionerRole/${role.id}`));
         const categoryLabels = (role.healthcareService || [])
           .map((ref) => {
@@ -90,48 +112,58 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
             return categoriesById.get(id)?.name;
           })
           .filter((n): n is string => !!n);
-        return { role, location, schedule, categoryLabels };
+        return {
+          role,
+          location,
+          schedule,
+          categoryLabels,
+          displayLabel: deriveDisplayLabel(location?.name, categoryLabels),
+        };
       });
-      return { rows, categoriesById };
+
+      return { rows, activeLocations: locationBundle.unbundle() };
     },
     enabled: !!oystehr,
   });
 
   const createRole = useMutation({
     mutationFn: async (input: { locationId: string; categoryHealthcareServiceIds: string[]; timezone: string }) => {
-      if (!oystehr) throw new Error('oystehr client not ready');
-      // 1. Create PractitionerRole binding practitioner + location + categories.
-      const role = await oystehr.fhir.create<PractitionerRole>({
-        resourceType: 'PractitionerRole',
-        active: true,
-        practitioner: { reference: `Practitioner/${practitionerId}` },
-        location: [{ reference: `Location/${input.locationId}` }],
-        healthcareService: input.categoryHealthcareServiceIds.map((id) => ({
-          reference: `HealthcareService/${id}`,
-        })),
+      if (!oystehrZambda) throw new Error('zambda client not ready');
+      return createPractitionerRole(oystehrZambda, {
+        practitionerId,
+        locationId: input.locationId,
+        categoryHealthcareServiceIds: input.categoryHealthcareServiceIds,
+        timezone: input.timezone,
       });
-      // 2. Create a blank Schedule whose actor is the role.
-      const schedule = await oystehr.fhir.create<Schedule>({
-        resourceType: 'Schedule',
-        active: true,
-        actor: [{ reference: `PractitionerRole/${role.id}` }],
-        extension: [
-          { url: SCHEDULE_EXTENSION_URL, valueString: JSON.stringify(BLANK_SCHEDULE_JSON_TEMPLATE) },
-          { url: TIMEZONE_EXTENSION_URL, valueString: input.timezone },
-        ],
-      });
-      return { role, schedule };
     },
-    onSuccess: () => {
-      enqueueSnackbar('Role created — open its schedule to set working hours and capacity.', {
-        variant: 'success',
-      });
+    onSuccess: ({ schedule }) => {
       void queryClient.invalidateQueries({ queryKey: ['practitioner-role-list', practitionerId] });
       setDialogOpen(false);
+      // Drop the admin straight into the editor for the new schedule — no
+      // separate "ok now configure it" step.
+      if (schedule.id) {
+        navigate(`/admin/schedule/id/${schedule.id}`);
+      }
     },
     onError: (err) => {
       console.error(err);
-      enqueueSnackbar('Failed to create role.', { variant: 'error' });
+      enqueueSnackbar('Failed to create schedule.', { variant: 'error' });
+    },
+  });
+
+  const deleteRole = useMutation({
+    mutationFn: async (roleId: string) => {
+      if (!oystehrZambda) throw new Error('zambda client not ready');
+      return deletePractitionerRole(oystehrZambda, { roleId });
+    },
+    onSuccess: () => {
+      enqueueSnackbar('Schedule deleted.', { variant: 'success' });
+      setPendingDelete(null);
+      void queryClient.invalidateQueries({ queryKey: ['practitioner-role-list', practitionerId] });
+    },
+    onError: (err) => {
+      console.error(err);
+      enqueueSnackbar('Failed to delete schedule.', { variant: 'error' });
     },
   });
 
@@ -143,45 +175,104 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
     );
   }
 
+  const rows = data.rows;
+  const activeLocations = data.activeLocations;
+  const isMulti = rows.length >= 2;
+  const headerLabel = rows.length === 1 ? 'Schedule' : 'Schedules';
+
+  // Single-Location org + zero schedules → one-click setup. The admin doesn't
+  // need to pick a Location since there's only one.
+  const handleSetUpFastPath = (): void => {
+    if (activeLocations.length === 1) {
+      createRole.mutate({
+        locationId: activeLocations[0].id!,
+        categoryHealthcareServiceIds: [],
+        timezone: TIMEZONES[0],
+      });
+    } else {
+      setDialogOpen(true);
+    }
+  };
+
   return (
     <Paper sx={{ padding: 3, marginTop: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-          Provider schedules (per location)
+          {headerLabel}
         </Typography>
-        <Button variant="contained" onClick={() => setDialogOpen(true)}>
-          Add role at location
-        </Button>
+        {rows.length === 0 ? (
+          <Button variant="contained" onClick={handleSetUpFastPath} disabled={createRole.isPending}>
+            Set up scheduling
+          </Button>
+        ) : (
+          <Button variant="outlined" onClick={() => setDialogOpen(true)}>
+            Add another schedule
+          </Button>
+        )}
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2 }}>
-        A provider can have one role per location, each with its own set of offered service categories and its own
-        schedule. Bookings made through a role are attributed to the role's location for billing and tracking.
-      </Typography>
 
-      {data.rows.length === 0 ? (
-        <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-          No roles yet. Click "Add role at location" to create the first one.
+      {rows.length === 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          No schedule configured yet. Click <strong>Set up scheduling</strong> to create one.
         </Typography>
-      ) : (
-        <Table size="small">
+      )}
+
+      {rows.length === 1 && (
+        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box>
+            <Typography variant="body1">{rows[0].location?.name || 'Unnamed location'}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Categories: {rows[0].categoryLabels.length > 0 ? rows[0].categoryLabels.join(', ') : 'All categories'}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {rows[0].schedule?.id ? (
+              <Link to={`/admin/schedule/id/${rows[0].schedule.id}`}>
+                <Button variant="contained">Edit</Button>
+              </Link>
+            ) : (
+              <Typography variant="caption" color="error">
+                Schedule resource missing
+              </Typography>
+            )}
+            <Tooltip title="Delete schedule">
+              <IconButton size="small" onClick={() => setPendingDelete(rows[0])}>
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      )}
+
+      {isMulti && (
+        <Table size="small" sx={{ mt: 2 }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 'bold' }}>Location</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Service Categories</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Schedule</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Service categories</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '20%' }} />
             </TableRow>
           </TableHead>
           <TableBody>
-            {data.rows.map(({ role, location, schedule, categoryLabels }) => (
-              <TableRow key={role.id}>
-                <TableCell>{location?.name || <em>unknown</em>}</TableCell>
-                <TableCell>{categoryLabels.length > 0 ? categoryLabels.join(', ') : <em>none</em>}</TableCell>
+            {rows.map((row) => (
+              <TableRow key={row.role.id}>
+                <TableCell>{row.location?.name || 'Unnamed location'}</TableCell>
                 <TableCell>
-                  {schedule?.id ? (
-                    <Link to={`/admin/schedule/id/${schedule.id}`}>Edit schedule</Link>
-                  ) : (
-                    <em>missing</em>
-                  )}
+                  {row.categoryLabels.length > 0 ? row.categoryLabels.join(', ') : 'All categories'}
+                </TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
+                    {row.schedule?.id ? (
+                      <Link to={`/admin/schedule/id/${row.schedule.id}`}>Edit</Link>
+                    ) : (
+                      <em>missing</em>
+                    )}
+                    <Tooltip title="Delete schedule">
+                      <IconButton size="small" onClick={() => setPendingDelete(row)}>
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
                 </TableCell>
               </TableRow>
             ))}
@@ -189,7 +280,7 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
         </Table>
       )}
 
-      <AddRoleDialog
+      <AddScheduleDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         onCreate={(loc, categoryIds, tz) =>
@@ -197,25 +288,53 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
         }
         isSubmitting={createRole.isPending}
       />
+
+      <Dialog open={!!pendingDelete} onClose={() => !deleteRole.isPending && setPendingDelete(null)}>
+        <DialogTitle>Delete schedule?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will deactivate{' '}
+            <strong>
+              {pendingDelete?.location?.name || 'this schedule'}
+              {pendingDelete?.categoryLabels.length ? ` (${pendingDelete.categoryLabels.join(', ')})` : ''}
+            </strong>
+            . Past appointments and encounters that referenced this schedule are preserved; it just stops appearing as a
+            bookable option going forward.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDelete(null)} disabled={deleteRole.isPending}>
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={deleteRole.isPending}
+            onClick={() => pendingDelete?.role.id && deleteRole.mutate(pendingDelete.role.id)}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 }
 
-interface AddRoleDialogProps {
+interface AddScheduleDialogProps {
   open: boolean;
   onClose: () => void;
   onCreate: (locationId: string, categoryHealthcareServiceIds: string[], timezone: string) => void;
   isSubmitting: boolean;
 }
 
-function AddRoleDialog({ open, onClose, onCreate, isSubmitting }: AddRoleDialogProps): ReactElement {
+function AddScheduleDialog({ open, onClose, onCreate, isSubmitting }: AddScheduleDialogProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const [location, setLocation] = useState<Location | null>(null);
   const [categoryHsIds, setCategoryHsIds] = useState<string[]>([]);
   const [timezone, setTimezone] = useState<string>(TIMEZONES[0]);
 
   const { data: locations } = useQuery({
-    queryKey: ['add-role-locations'],
+    queryKey: ['add-schedule-locations'],
     queryFn: async (): Promise<Location[]> => {
       if (!oystehr) return [];
       const bundle = await oystehr.fhir.search<Location>({
@@ -228,7 +347,7 @@ function AddRoleDialog({ open, onClose, onCreate, isSubmitting }: AddRoleDialogP
   });
 
   const { data: categories } = useQuery({
-    queryKey: ['add-role-categories'],
+    queryKey: ['add-schedule-categories'],
     queryFn: async () => {
       if (!oystehrZambda) return { serviceCategories: [] };
       try {
@@ -249,12 +368,18 @@ function AddRoleDialog({ open, onClose, onCreate, isSubmitting }: AddRoleDialogP
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Add role at location</DialogTitle>
+      <DialogTitle>Add another schedule</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           <Autocomplete
             options={locations ?? []}
             getOptionLabel={(opt) => opt.name || 'Unnamed'}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            renderOption={(props, opt) => (
+              <li {...props} key={opt.id}>
+                {opt.name || 'Unnamed'}
+              </li>
+            )}
             value={location}
             onChange={(_e, v) => setLocation(v)}
             renderInput={(params) => <TextField {...params} label="Location" required />}
@@ -284,7 +409,13 @@ function AddRoleDialog({ open, onClose, onCreate, isSubmitting }: AddRoleDialogP
                 </li>
               );
             }}
-            renderInput={(params) => <TextField {...params} label="Service Categories" />}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Service Categories"
+                helperText="Leave empty to allow this schedule to serve all categories."
+              />
+            )}
           />
           <Autocomplete
             options={TIMEZONES as unknown as string[]}

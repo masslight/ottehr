@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { HealthcareService, Location, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
   BLANK_SCHEDULE_JSON_TEMPLATE,
   getScheduleExtension,
@@ -23,7 +23,7 @@ import {
   TIMEZONES,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { addressStringFromAddress, getNameForOwner } from '../shared';
+import { addressStringFromAddress, getNameForOwner, getNameForPractitionerRole } from '../shared';
 
 let m2mToken: string;
 
@@ -39,7 +39,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createOystehrClient(m2mToken, secrets);
   const effectInput = await complexValidation(validatedParameters, oystehr);
 
-  const scheduleDTO = performEffect(effectInput);
+  // PR rows need an extra fetch to compose "Dr. X — Location Y" since the
+  // Schedule's _include only brings in the PR resource itself, not its
+  // referenced Practitioner + Location.
+  let displayName: string | undefined;
+  if (effectInput.owner.resourceType === 'PractitionerRole') {
+    displayName = await getNameForPractitionerRole(effectInput.owner as PractitionerRole, oystehr);
+  }
+  const scheduleDTO = performEffect(effectInput, displayName);
 
   return {
     statusCode: 200,
@@ -47,14 +54,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-const performEffect = (input: EffectInput): ScheduleDTO => {
+const performEffect = (input: EffectInput, displayNameOverride?: string): ScheduleDTO => {
   const { scheduleExtension, scheduleId, timezone, owner: ownerResource, scheduleActive } = input;
 
   let active = false;
   if (ownerResource.resourceType === 'Location') {
     active = (ownerResource as Location).status === 'active';
   } else {
-    active = (ownerResource as Practitioner | HealthcareService).active ?? false;
+    active = (ownerResource as HealthcareService | PractitionerRole).active ?? false;
   }
 
   let detailText: string | undefined = undefined;
@@ -69,10 +76,21 @@ const performEffect = (input: EffectInput): ScheduleDTO => {
     isVirtual = isLocationVirtual(loc);
   }
 
+  const healthcareServiceIds =
+    ownerResource.resourceType === 'PractitionerRole'
+      ? ((ownerResource as PractitionerRole).healthcareService ?? [])
+          .map((ref) => ref.reference?.split('/')[1])
+          .filter((id): id is string => !!id)
+      : undefined;
+  const locationId =
+    ownerResource.resourceType === 'PractitionerRole'
+      ? (ownerResource as PractitionerRole).location?.[0]?.reference?.split('/')[1]
+      : undefined;
+
   const owner: ScheduleDTOOwner = {
     type: ownerResource.resourceType,
     id: ownerResource.id!,
-    name: getNameForOwner(ownerResource),
+    name: displayNameOverride ?? getNameForOwner(ownerResource),
     slug: getSlugForBookableResource(ownerResource) ?? '',
     timezone: getTimezone(ownerResource),
     active,
@@ -80,6 +98,8 @@ const performEffect = (input: EffectInput): ScheduleDTO => {
     infoMessage: '',
     hoursOfOperation: (ownerResource as Location)?.hoursOfOperation,
     isVirtual,
+    healthcareServiceIds,
+    locationId,
   };
 
   return {
@@ -136,9 +156,9 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     console.log('ownerId', ownerId);
     throw INVALID_RESOURCE_ID_ERROR('ownerId');
   }
-  if (createMode && !['Location', 'Practitioner', 'HealthcareService', 'PractitionerRole'].includes(ownerType)) {
+  if (createMode && !['Location', 'HealthcareService', 'PractitionerRole'].includes(ownerType)) {
     throw INVALID_INPUT_ERROR(
-      '"ownerType" must be a string and one of: "Location", "Practitioner", "HealthcareService", "PractitionerRole"'
+      '"ownerType" must be a string and one of: "Location", "HealthcareService", "PractitionerRole"'
     );
   }
 
@@ -193,10 +213,6 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
         },
         {
           name: '_include',
-          value: 'Schedule:actor:Practitioner',
-        },
-        {
-          name: '_include',
           value: 'Schedule:actor:HealthcareService',
         },
         {
@@ -219,8 +235,8 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
 
   const scheduleOwnerRef = schedule.actor?.[0]?.reference ?? '';
   const [scheduleOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
-  let owner: Location | Practitioner | HealthcareService | PractitionerRole | undefined = undefined;
-  const permittedScheduleOwnerTypes = ['Location', 'Practitioner', 'HealthcareService', 'PractitionerRole'];
+  let owner: Location | HealthcareService | PractitionerRole | undefined = undefined;
+  const permittedScheduleOwnerTypes = ['Location', 'HealthcareService', 'PractitionerRole'];
   if (scheduleOwnerId !== undefined && permittedScheduleOwnerTypes.includes(scheduleOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;
@@ -274,7 +290,7 @@ const getEffectInputFromOwner = async (
   const scheduleOwnerRef = schedule?.actor?.[0]?.reference ?? '';
   const [scheduleOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
   let owner: ScheduleOwnerFhirResource | undefined = undefined;
-  const permittedScheduleOwnerTypes = ['Location', 'Practitioner', 'HealthcareService', 'PractitionerRole'];
+  const permittedScheduleOwnerTypes = ['Location', 'HealthcareService', 'PractitionerRole'];
   if (scheduleOwnerId !== undefined && permittedScheduleOwnerTypes.includes(scheduleOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;

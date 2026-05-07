@@ -147,6 +147,31 @@ const ServiceCategoryDialog: FC<{
             fullWidth
           />
           <FormControl size="small" fullWidth>
+            <InputLabel>Cadence (start interval)</InputLabel>
+            <Select
+              value={value.config.cadenceMinutes ?? ''}
+              input={<OutlinedInput label="Cadence (start interval)" />}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const parsed = raw === '' ? undefined : Number(raw);
+                setValue((v) => ({
+                  ...v,
+                  config: {
+                    ...v.config,
+                    cadenceMinutes: parsed === undefined || Number.isNaN(parsed) ? undefined : parsed,
+                  },
+                }));
+              }}
+              renderValue={(selected) => (selected === '' ? 'Default (15 min)' : `${selected} min`)}
+              displayEmpty
+            >
+              <MenuItem value="">Default (15 min)</MenuItem>
+              <MenuItem value={15}>15 min</MenuItem>
+              <MenuItem value={30}>30 min</MenuItem>
+              <MenuItem value={60}>60 min</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl size="small" fullWidth>
             <InputLabel>Service Modes</InputLabel>
             <Select
               multiple
@@ -327,6 +352,9 @@ export const ServiceCategoriesAdminPage: FC = () => {
                 <TableCell sx={{ fontWeight: 600 }} align="center">
                   Duration
                 </TableCell>
+                <TableCell sx={{ fontWeight: 600 }} align="center">
+                  Cadence
+                </TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Service Modes</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Booking Flows</TableCell>
                 <TableCell sx={{ fontWeight: 600 }} align="center">
@@ -351,6 +379,9 @@ export const ServiceCategoriesAdminPage: FC = () => {
                   <TableCell>{sc.name}</TableCell>
                   <TableCell sx={{ fontFamily: 'monospace' }}>{sc.code}</TableCell>
                   <TableCell align="center">{sc.config.durationMinutes} min</TableCell>
+                  <TableCell align="center">
+                    {sc.config.cadenceMinutes ? `${sc.config.cadenceMinutes} min` : 'default'}
+                  </TableCell>
                   <TableCell>
                     {sc.config.serviceModes.map((m) => (
                       <Chip key={m} label={m} size="small" sx={{ mr: 0.5 }} />

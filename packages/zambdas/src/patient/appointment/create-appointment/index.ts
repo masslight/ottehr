@@ -648,6 +648,16 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
     if (!available && scheduleOwner.resourceType === 'HealthcareService') {
       // Group fallback: walk other member Schedules, pick the first free one.
+      //
+      // ── v2 smarter picker hook ───────────────────────────────────────────
+      // Replace this linear "first-free-wins" walk with a call to
+      // canScheduleAllBookings (utils/scheduleMatching.ts). Build the input
+      // from the day's existing bookings plus this candidate; let the
+      // primitive's witness assignment choose which member takes the
+      // candidate. A heuristic on top — "prefer the member whose
+      // qualifications overlap least with this service" — would preserve
+      // specialists for future specialist bookings and shrink the v1
+      // false-negative rate documented in scheduleMatching.ts.
       const memberSchedules = await resolveGroupMemberSchedules(oystehr, scheduleOwner);
       for (const memberSchedule of memberSchedules) {
         if (!memberSchedule.id || memberSchedule.id === targetScheduleId) continue;

@@ -29,7 +29,7 @@ type HealthcareServiceCharacteristic = CodeableConcept;
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getEmployees, listServiceCategories } from 'src/api/api';
+import { listServiceCategories } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { getPatchBinary, getSlugForBookableResource, SLUG_SYSTEM } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
@@ -40,7 +40,6 @@ const GROUP_ASSIGNMENT_MODE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/group-a
 const GROUP_SLOT_CADENCE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/group-slot-cadence';
 
 type AssignmentMode = 'anonymous' | 'provider';
-type SlotCadence = '15' | '30' | '60';
 
 const INTAKE_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
@@ -66,7 +65,8 @@ function GroupPageContent(): ReactElement {
   // categories are derived from the selected roles at save time.
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('anonymous');
-  const [slotCadence, setSlotCadence] = useState<SlotCadence>('15');
+  // Slot cadence moved from the group to the service category. Stripping any
+  // existing GROUP_SLOT_CADENCE coding on save (above) cleans up legacy data.
   const [slug, setSlug] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
@@ -101,24 +101,19 @@ function GroupPageContent(): ReactElement {
     return map;
   }, [categoryData]);
 
-  // Filter role options to roles whose underlying Practitioner corresponds to
-  // an Oystehr User (matches Providers admin page behavior — hides orphans).
-  const { data: employeeData } = useQuery({
-    queryKey: ['group-admin-employees'],
-    queryFn: () => getEmployees(oystehrZambda!),
-    enabled: !!oystehrZambda,
-  });
-  const providerEmployees = (employeeData?.employees || []).filter((e) => e.isProvider);
-  const providerEmployeePractitionerIds = new Set(
-    providerEmployees.map((e) => (e.profile || '').replace('Practitioner/', ''))
-  );
-
   // Derive the selected roles' (location × category) combinations for display
   // and for booking-link generation. Memberships are expressed solely through
   // the set of selectedRoleIds; locations and categories carried on the group's
   // HealthcareService are kept in sync at save time.
   const derivedMembership = useMemo(() => {
-    const selectedRoles = (practitionerRoles || []).filter((r) => r.id && selectedRoleIds.includes(r.id));
+    // Inactive PRs (soft-deleted from the EditEmployee schedule list) shouldn't
+    // contribute to the group's effective Locations / Categories — they're
+    // dead schedules, not currently-bookable ones. They still appear in the
+    // selector below (with an "(inactive)" marker) so an admin can deselect,
+    // but they don't show up in the "Derived from group members" summary.
+    const selectedRoles = (practitionerRoles || []).filter(
+      (r) => r.id && selectedRoleIds.includes(r.id) && r.active !== false
+    );
     const locationById = new Map<string, Location>();
     for (const loc of locations || []) if (loc.id) locationById.set(loc.id, loc);
 
@@ -222,11 +217,15 @@ function GroupPageContent(): ReactElement {
       console.log('oystehr client is not defined');
       return;
     }
+    // Query PractitionerRoles directly (with their referenced Practitioners
+    // _included). Earlier this came in via Practitioner?_revinclude, but that
+    // pages on the Practitioner count — at 307 practitioners only the first 50
+    // had their PRs returned, hiding any provider beyond that page.
     const request = await oystehr.fhir.batch({
       requests: [
         { method: 'GET', url: `/HealthcareService?_id=${groupID}` },
-        { method: 'GET', url: '/Location' },
-        { method: 'GET', url: '/Practitioner?_revinclude=PractitionerRole:practitioner' },
+        { method: 'GET', url: '/Location?_count=1000' },
+        { method: 'GET', url: '/PractitionerRole?_include=PractitionerRole:practitioner&_count=1000' },
       ],
     });
     const groupTemp: HealthcareService = (request?.entry?.[0]?.resource as any).entry.map(
@@ -262,12 +261,6 @@ function GroupPageContent(): ReactElement {
       .flatMap((c) => c.coding || [])
       .find((c) => c.system === GROUP_ASSIGNMENT_MODE_SYSTEM);
     setAssignmentMode((modeCoding?.code as AssignmentMode) || 'anonymous');
-
-    const cadenceCoding = (groupTemp.characteristic || [])
-      .flatMap((c) => c.coding || [])
-      .find((c) => c.system === GROUP_SLOT_CADENCE_SYSTEM);
-    const cadenceCode = cadenceCoding?.code;
-    setSlotCadence(cadenceCode === '30' || cadenceCode === '60' ? cadenceCode : '15');
   }, [oystehr, groupID]);
 
   useEffect(() => {
@@ -344,6 +337,10 @@ function GroupPageContent(): ReactElement {
         { op: group?.type ? 'replace' : 'add', path: '/type', value: derivedTypes },
       ];
 
+      // Slot cadence used to live on the group as GROUP_SLOT_CADENCE_SYSTEM but
+      // moved to the service category (ServiceCategoryRuntimeConfig.cadenceMinutes).
+      // We strip any legacy cadence coding here so saving the group cleans it
+      // up, but we no longer write a new cadence characteristic.
       const OWNED_SYSTEMS = new Set([GROUP_ASSIGNMENT_MODE_SYSTEM, GROUP_SLOT_CADENCE_SYSTEM]);
       const preservedCharacteristics: HealthcareServiceCharacteristic[] = (group?.characteristic || [])
         .map((c) => ({
@@ -354,7 +351,6 @@ function GroupPageContent(): ReactElement {
       const newCharacteristics: HealthcareServiceCharacteristic[] = [
         ...preservedCharacteristics,
         { coding: [{ system: GROUP_ASSIGNMENT_MODE_SYSTEM, code: assignmentMode }] },
-        { coding: [{ system: GROUP_SLOT_CADENCE_SYSTEM, code: slotCadence }] },
       ];
       patchOperations.push({
         op: group?.characteristic ? 'replace' : 'add',
@@ -401,27 +397,36 @@ function GroupPageContent(): ReactElement {
     );
   }
 
-  // Only show roles whose practitioner is an active provider (mirrors the
-  // Providers admin page filter). Already-selected roles that no longer match
-  // stay included so admins can deselect them.
+  // Show schedule-bearing PRs (those with a Location reference); group-only
+  // membership PRs without a Location aren't real schedules and would clutter
+  // the picker. Already-selected roles always stay in the list so admins can
+  // deselect them, even if the data shape would otherwise hide them.
   const roleOptions = (practitionerRoles || []).filter((role) => {
-    const pracId = role.practitioner?.reference?.split('/')[1];
-    if (!pracId) return false;
+    if (!role.practitioner?.reference) return false;
     if (selectedRoleIds.includes(role.id!)) return true;
-    return providerEmployeePractitionerIds.has(pracId);
+    return !!role.location?.[0]?.reference;
   });
 
   const labelForRole = (role: PractitionerRole): string => {
     const pracId = role.practitioner?.reference?.split('/')[1];
     const pracResource = (practitioners || []).find((p) => p.id === pracId);
     const pracLabel = pracResource?.name?.[0]
-      ? oystehr?.fhir.formatHumanName(pracResource.name[0]) || 'Unknown'
-      : 'Unknown';
+      ? oystehr?.fhir.formatHumanName(pracResource.name[0]) || 'Unknown provider'
+      : 'Unknown provider';
     const locRef = role.location?.[0]?.reference;
     const locId = locRef?.split('/')[1];
-    const locName = (locations || []).find((l) => l.id === locId)?.name || 'no location';
-    return `${pracLabel} @ ${locName}`;
+    const locName = (locations || []).find((l) => l.id === locId)?.name;
+    const inactiveSuffix = role.active === false ? ' (inactive)' : '';
+    const base = locName ? `${pracLabel} @ ${locName}` : pracLabel;
+    return `${base}${inactiveSuffix}`;
   };
+
+  // Selected PRs that have since been deactivated. These linger as group
+  // members until an admin deselects them — surface a warning so the cleanup
+  // is obvious.
+  const selectedInactiveRoles = (practitionerRoles || []).filter(
+    (r) => r.id && selectedRoleIds.includes(r.id) && r.active === false
+  );
 
   return (
     <>
@@ -439,6 +444,28 @@ function GroupPageContent(): ReactElement {
         Each role carries its own Location and list of offered service categories; the group's offered categories and
         locations are derived from that union.
       </Typography>
+      {selectedInactiveRoles.length > 0 && (
+        <Box
+          sx={{
+            mt: 2,
+            p: 2,
+            border: '1px solid',
+            borderColor: 'warning.main',
+            borderRadius: 1,
+            backgroundColor: 'warning.lighter',
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {selectedInactiveRoles.length === 1
+              ? '1 inactive provider schedule is still selected as a member.'
+              : `${selectedInactiveRoles.length} inactive provider schedules are still selected as members.`}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Inactive schedules don't contribute to this group's bookable hours, locations, or categories. Deselect them
+            in the picker below and Save to clean up.
+          </Typography>
+        </Box>
+      )}
       <form onSubmit={onSubmit}>
         <Grid container direction="column" spacing={4} sx={{ marginTop: 0 }}>
           <Grid item xs={6}>
@@ -489,6 +516,26 @@ function GroupPageContent(): ReactElement {
             </Box>
           </Grid>
           <Grid item xs={6}>
+            <FormControl size="small" sx={{ width: 320 }}>
+              <InputLabel>Assignment Mode</InputLabel>
+              <Select
+                label="Assignment Mode"
+                value={assignmentMode}
+                onChange={(e) => setAssignmentMode(e.target.value as AssignmentMode)}
+              >
+                <MenuItem value="anonymous">Anonymous (pooled — unassigned until claim)</MenuItem>
+                <MenuItem value="provider">Provider (assigned at book time)</MenuItem>
+              </Select>
+            </FormControl>
+            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
+              <strong>Anonymous</strong>: booking round-robin-picks a member and writes them to the Appointment only.
+              The EHR shows the visit unassigned until front-desk confirms.
+              <br />
+              <strong>Provider</strong>: booking writes the picked provider directly to the Encounter. The EHR shows
+              them as the attending immediately.
+            </Typography>
+          </Grid>
+          <Grid item xs={6}>
             <Autocomplete
               multiple
               disableCloseOnSelect
@@ -520,19 +567,19 @@ function GroupPageContent(): ReactElement {
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Group Members (Provider Roles)"
-                  placeholder={selectedRoleIds.length === 0 ? 'Add a role…' : ''}
+                  label="Group Members (Provider Schedules)"
+                  placeholder={selectedRoleIds.length === 0 ? 'Add a provider schedule…' : ''}
                 />
               )}
             />
             <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
-              Each role is a provider-at-location binding created from the Employees admin page. The group's offered
-              service categories and locations are the union of these roles' attributes.
+              Each provider schedule binds a provider to a location and a set of service categories — created from the
+              Employees admin page. The group's offered service categories and locations are the union of its members'.
             </Typography>
           </Grid>
           <Grid item xs={6}>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              Derived from selected roles:
+              Derived from group members:
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               <strong>Locations:</strong>{' '}
@@ -545,44 +592,6 @@ function GroupPageContent(): ReactElement {
               {derivedMembership.derivedCategoryHsIds.length === 0
                 ? 'none'
                 : derivedMembership.derivedCategoryHsIds.map((id) => categoryByHsId.get(id)?.name || id).join(', ')}
-            </Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <FormControl size="small" sx={{ width: 320 }}>
-              <InputLabel>Assignment Mode</InputLabel>
-              <Select
-                label="Assignment Mode"
-                value={assignmentMode}
-                onChange={(e) => setAssignmentMode(e.target.value as AssignmentMode)}
-              >
-                <MenuItem value="anonymous">Anonymous (pooled — unassigned until claim)</MenuItem>
-                <MenuItem value="provider">Provider (assigned at book time)</MenuItem>
-              </Select>
-            </FormControl>
-            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
-              <strong>Anonymous</strong>: booking round-robin-picks a member and writes them to the Appointment only.
-              The EHR shows the visit unassigned until front-desk confirms.
-              <br />
-              <strong>Provider</strong>: booking writes the picked provider directly to the Encounter. The EHR shows
-              them as the attending immediately.
-            </Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <FormControl size="small" sx={{ width: 320 }}>
-              <InputLabel>Slot Cadence</InputLabel>
-              <Select
-                label="Slot Cadence"
-                value={slotCadence}
-                onChange={(e) => setSlotCadence(e.target.value as SlotCadence)}
-              >
-                <MenuItem value="60">On the hour</MenuItem>
-                <MenuItem value="30">Every 30 minutes</MenuItem>
-                <MenuItem value="15">Every 15 minutes</MenuItem>
-              </Select>
-            </FormControl>
-            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
-              Step between offered start times. A 45-minute visit with a 15-minute cadence offers starts at :00, :15,
-              :30, :45 (capacity permitting); with a 30-minute cadence, only :00 and :30.
             </Typography>
           </Grid>
           <Grid item xs={2}>

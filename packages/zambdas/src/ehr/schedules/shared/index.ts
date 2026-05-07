@@ -1,4 +1,5 @@
-import { Address, FhirResource, HealthcareService, Location, Practitioner } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { Address, FhirResource, HealthcareService, Location, Practitioner, PractitionerRole } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   ClosureType,
@@ -41,8 +42,6 @@ export const getNameForOwner = (owner: FhirResource): string => {
   let name: string | undefined = '';
   if (owner.resourceType === 'Location') {
     name = (owner as Location).name;
-  } else if (owner.resourceType === 'Practitioner') {
-    name = getFullName(owner as Practitioner);
   } else if (owner.resourceType === 'HealthcareService') {
     name = (owner as HealthcareService).name;
   }
@@ -50,6 +49,27 @@ export const getNameForOwner = (owner: FhirResource): string => {
     return name;
   }
   return `${owner.resourceType}/${owner.id}`;
+};
+
+/**
+ * Compose a display name for a PractitionerRole owner: "Dr. Smith — Main Clinic".
+ * Fetches the referenced Practitioner and Location to build the string. Returns
+ * the role's id-fallback if the references can't be resolved.
+ */
+export const getNameForPractitionerRole = async (role: PractitionerRole, oystehr: Oystehr): Promise<string> => {
+  const practitionerId = role.practitioner?.reference?.split('/')[1];
+  const locationId = role.location?.[0]?.reference?.split('/')[1];
+  const [practitioner, location] = await Promise.all([
+    practitionerId
+      ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId }).catch(() => undefined)
+      : Promise.resolve(undefined),
+    locationId
+      ? oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }).catch(() => undefined)
+      : Promise.resolve(undefined),
+  ]);
+  const practitionerName = practitioner ? getFullName(practitioner) : 'Unknown provider';
+  const locationName = location?.name ?? 'Unknown location';
+  return `${practitionerName} — ${locationName}`;
 };
 
 export interface UpdateScheduleBasicInput extends UpdateScheduleParams {

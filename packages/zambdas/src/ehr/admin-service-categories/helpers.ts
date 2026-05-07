@@ -21,6 +21,13 @@ export const SERVICE_CATEGORY_CONFIG_EXTENSION_URL =
  */
 export interface ServiceCategoryRuntimeConfig {
   durationMinutes: number;
+  /**
+   * Interval between offered slot start times, in minutes. Independent of
+   * durationMinutes — a 60-minute service may be offered every 30 min if
+   * cadenceMinutes is 30. When omitted, the slot generator falls back to a
+   * sensible default (typically 15).
+   */
+  cadenceMinutes?: number;
   serviceModes: Array<'in-person' | 'virtual'>;
   /** FHIR booking-flow visit types — 'prebook' vs 'walk-in', inherited from BOOKING_CONFIG shape. */
   visitTypes: Array<'prebook' | 'walk-in'>;
@@ -53,6 +60,7 @@ export function parseConfig(resource: HealthcareService): ServiceCategoryRuntime
     const parsed = JSON.parse(raw) as Partial<ServiceCategoryRuntimeConfig>;
     return {
       durationMinutes: parsed.durationMinutes ?? 15,
+      cadenceMinutes: parsed.cadenceMinutes,
       serviceModes: parsed.serviceModes ?? ['in-person'],
       visitTypes: parsed.visitTypes ?? ['prebook'],
       reasonsForVisit: parsed.reasonsForVisit,

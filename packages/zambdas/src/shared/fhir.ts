@@ -52,16 +52,19 @@ export async function getSchedules(
   scheduleType: 'location' | 'provider' | 'group',
   slug: string
 ): Promise<GetScheduleResponse> {
+  // 'provider' resolves to a PractitionerRole — the PR-aware equivalent of the
+  // legacy "this provider's booking link." A PR pins (Practitioner, Location,
+  // categories) so the share-link is meaningfully scoped. Practitioner-actored
+  // Schedules are no longer produced by this codebase.
   const fhirType = (() => {
     if (scheduleType === 'location') {
       return 'Location';
     }
     if (scheduleType === 'provider') {
-      return 'Practitioner';
+      return 'PractitionerRole';
     }
     return 'HealthcareService';
   })();
-  // get specific schedule resource with all the slots
   const searchParams: SearchParam[] = [
     { name: 'identifier', value: `${SLUG_SYSTEM}|${slug}` },
     { name: '_revinclude', value: `Schedule:actor:${fhirType}` },
@@ -71,11 +74,21 @@ export async function getSchedules(
   if (scheduleType === 'location') {
     resourceType = 'Location';
   } else if (scheduleType === 'provider') {
-    resourceType = 'Practitioner';
+    resourceType = 'PractitionerRole';
   } else if (scheduleType === 'group') {
     resourceType = 'HealthcareService';
   } else {
     throw new Error('resourceType is not expected');
+  }
+
+  if (scheduleType === 'provider') {
+    // Pull in the PR's Practitioner + Location so downstream code has the
+    // resources to render a meaningful name + address without a follow-up
+    // FHIR roundtrip.
+    searchParams.push(
+      { name: '_include', value: 'PractitionerRole:practitioner' },
+      { name: '_include', value: 'PractitionerRole:location' }
+    );
   }
 
   if (scheduleType === 'group') {
@@ -120,7 +133,7 @@ export async function getSchedules(
 
   const scheduleOwner = scheduleResources.find((res) => {
     return res.resourceType === fhirType && checkResourceHasSlug(res, slug);
-  }) as Location | Practitioner | HealthcareService;
+  }) as Location | Practitioner | HealthcareService | PractitionerRole;
 
   let hsSchedulingStrategy: ScheduleStrategy | undefined;
   if (scheduleOwner?.resourceType === 'HealthcareService') {

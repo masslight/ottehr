@@ -27,9 +27,17 @@ export interface ListScheduleOwnersParams {
 export interface ScheduleOwnerListItem {
   resourceType: ScheduleOwnerFhirResource['resourceType'];
   id: string;
+  /** Display name. For provider rows, the practitioner's full name. */
   name: string;
   address?: string;
   hours?: string;
+  /** Populated only for Practitioner rows on the provider-schedules tab —
+   *  each provider can have multiple PRs, so we aggregate across them. */
+  providerSchedulesSummary?: {
+    locationNames: string[];
+    categoryLabels: string[];
+    scheduleCount: number;
+  };
 }
 
 export interface ScheduleListItem {

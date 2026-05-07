@@ -1,6 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coding, Location, Schedule } from 'fhir/r4b';
-import { HealthcareService } from 'fhir/r4b';
+import { Coding, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AvailableLocationInformation,
@@ -8,6 +7,7 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   fhirTypeForScheduleType,
   getAvailableSlotsForSchedules,
+  getFullName,
   getLocationInformation,
   getOpeningTime,
   getScheduleExtension,
@@ -15,7 +15,6 @@ import {
   getSecret,
   getTimezone,
   getWaitingMinutesAtSchedule,
-  GROUP_SLOT_CADENCE_SYSTEM,
   isLocationOpen,
   isLocationVirtual,
   SecretsKeys,
@@ -63,37 +62,57 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
 
   const { serviceCategoryCode } = validatedParameters;
 
-  // Resolve service-category metadata. Preference: FHIR-managed HealthcareService
-  // tagged 'booking-service-category' → BOOKING_CONFIG fallback. Used both for
-  // Slot.serviceCategory stamping and for slot duration.
+  // Resolve the effective service category for this booking. Sources, in order:
+  //   1. URL serviceCategoryCode (group bookings, explicitly-scoped PR links).
+  //   2. PR-direct bookings where the PR offers exactly one category — that
+  //      category is unambiguously what's being booked, so use it.
+  //   3. Otherwise undefined; slot generator uses defaults.
+  //
+  // Same lookup feeds Slot.serviceCategory stamping, slot duration, AND cadence.
+  // We fetch the category-tagged HealthcareServices once and use the result for
+  // every downstream lookup that needs them.
+  const fhirCategoryHits = (
+    await oystehr.fhir.search<HealthcareService>({
+      resourceType: 'HealthcareService',
+      params: [
+        { name: '_tag', value: 'booking-service-category' },
+        { name: 'active', value: 'true' },
+      ],
+    })
+  ).unbundle();
+
+  const parseCategoryConfig = (hs: HealthcareService): { durationMinutes?: number; cadenceMinutes?: number } => {
+    try {
+      const raw = hs.extension?.find(
+        (e) => e.url === 'https://fhir.ottehr.com/StructureDefinitions/service-category-config'
+      )?.valueString;
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as { durationMinutes?: number; cadenceMinutes?: number };
+      const out: { durationMinutes?: number; cadenceMinutes?: number } = {};
+      if (typeof parsed.durationMinutes === 'number' && parsed.durationMinutes > 0) {
+        out.durationMinutes = parsed.durationMinutes;
+      }
+      if (typeof parsed.cadenceMinutes === 'number' && parsed.cadenceMinutes > 0) {
+        out.cadenceMinutes = parsed.cadenceMinutes;
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  };
+
   let resolvedCoding: Coding | undefined;
   let slotLengthMinutes: number | undefined;
+  let cadenceMinutes: number | undefined;
+
+  // 1. Explicit category in the URL.
   if (serviceCategoryCode) {
-    const fhirMatches = (
-      await oystehr.fhir.search<HealthcareService>({
-        resourceType: 'HealthcareService',
-        params: [
-          { name: '_tag', value: 'booking-service-category' },
-          { name: 'active', value: 'true' },
-        ],
-      })
-    ).unbundle();
-    const fhirHit = fhirMatches.find((hs) => hs.type?.[0]?.coding?.some((c) => c.code === serviceCategoryCode));
+    const fhirHit = fhirCategoryHits.find((hs) => hs.type?.[0]?.coding?.some((c) => c.code === serviceCategoryCode));
     if (fhirHit) {
       resolvedCoding = { system: SERVICE_CATEGORY_SYSTEM, code: serviceCategoryCode };
-      try {
-        const raw = fhirHit.extension?.find(
-          (e) => e.url === 'https://fhir.ottehr.com/StructureDefinitions/service-category-config'
-        )?.valueString;
-        if (raw) {
-          const parsed = JSON.parse(raw) as { durationMinutes?: number };
-          if (typeof parsed.durationMinutes === 'number' && parsed.durationMinutes > 0) {
-            slotLengthMinutes = parsed.durationMinutes;
-          }
-        }
-      } catch {
-        // fall through — use default slot length
-      }
+      const cfg = parseCategoryConfig(fhirHit);
+      slotLengthMinutes = cfg.durationMinutes;
+      cadenceMinutes = cfg.cadenceMinutes;
     } else {
       const configHit = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategoryCode);
       if (configHit) {
@@ -101,6 +120,23 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
       }
     }
   }
+
+  // 2. PR-direct booking with a single offered category — infer it.
+  if (!resolvedCoding && scheduleOwner.resourceType === 'PractitionerRole') {
+    const roleServices = (scheduleOwner as any).healthcareService ?? [];
+    if (roleServices.length === 1) {
+      const onlyId = (roleServices[0]?.reference as string | undefined)?.split('/')[1];
+      const inferredHit = fhirCategoryHits.find((hs) => hs.id === onlyId);
+      const inferredCode = inferredHit?.type?.[0]?.coding?.find((c) => c.code)?.code;
+      if (inferredHit && inferredCode) {
+        resolvedCoding = { system: SERVICE_CATEGORY_SYSTEM, code: inferredCode };
+        const cfg = parseCategoryConfig(inferredHit);
+        slotLengthMinutes = cfg.durationMinutes;
+        cadenceMinutes = cfg.cadenceMinutes;
+      }
+    }
+  }
+
   const serviceCategories: Coding[] | undefined = resolvedCoding ? [resolvedCoding] : undefined;
 
   // Filter PractitionerRole-owned schedules by healthcareService[]. When a
@@ -141,19 +177,10 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     scheduleList.push(...filtered);
   }
 
-  // For group schedules, pick up the admin-configured slot cadence from the
-  // root HealthcareService.characteristic (code '15' | '30' | '60'). Other
-  // schedule types don't expose this knob — cadence defaults to gcd(slotLen,60).
-  let cadenceMinutes: number | undefined;
-  if (scheduleOwner.resourceType === 'HealthcareService') {
-    const cadenceCode = (scheduleOwner as HealthcareService).characteristic
-      ?.flatMap((c) => c.coding || [])
-      ?.find((c) => c.system === GROUP_SLOT_CADENCE_SYSTEM)?.code;
-    const parsed = cadenceCode ? parseInt(cadenceCode, 10) : NaN;
-    if (Number.isFinite(parsed) && parsed > 0) {
-      cadenceMinutes = parsed;
-    }
-  }
+  // Cadence now lives on ServiceCategoryRuntimeConfig and was resolved above
+  // alongside slotLengthMinutes. The legacy GROUP_SLOT_CADENCE characteristic
+  // on the group HealthcareService is no longer consulted — cadence is a
+  // service-level concern, not a group-level one.
 
   console.log(
     'SERVICE CATEGORIES FOR SLOT GENERATION:',
@@ -219,6 +246,31 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     scheduleOwner,
     scheduleMatch
   );
+
+  // PR-actored schedules don't carry a friendly name — getLocationInformation
+  // returns "Role <uuid>" as a placeholder. Compose "<practitioner-name> at
+  // <location-name>" by fetching the referenced resources, so the booking page
+  // header reads naturally to the patient.
+  if (scheduleOwner.resourceType === 'PractitionerRole') {
+    const role = scheduleOwner as PractitionerRole;
+    const practitionerId = role.practitioner?.reference?.split('/')[1];
+    const locationId = role.location?.[0]?.reference?.split('/')[1];
+    const [practitioner, prLocation] = await Promise.all([
+      practitionerId
+        ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId }).catch(() => undefined)
+        : Promise.resolve(undefined),
+      locationId
+        ? oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }).catch(() => undefined)
+        : Promise.resolve(undefined),
+    ]);
+    const practitionerName = practitioner ? getFullName(practitioner) : undefined;
+    const locationName = prLocation?.name;
+    const composed =
+      practitionerName && locationName ? `${practitionerName} at ${locationName}` : practitionerName ?? locationName;
+    if (composed) {
+      locationInformationWithClosures.name = composed;
+    }
+  }
 
   console.log('getting wait time based on longest waiting patient at location');
   console.time('get_waiting_minutes');

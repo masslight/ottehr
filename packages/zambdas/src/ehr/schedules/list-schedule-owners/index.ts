@@ -1,11 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Address, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
+import { Address, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   Closure,
   ClosureType,
   DOW,
+  getFullName,
   getScheduleExtension,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -43,7 +44,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } else if (ownerType === 'Location') {
     effectInput = await complexValidation<Location>(validatedParameters, oystehr);
   } else {
-    effectInput = await complexValidation<Practitioner>(validatedParameters, oystehr);
+    // 'Practitioner' — one row per provider, summarizing across all of their PRs.
+    effectInput = await complexValidationForPractitioner(validatedParameters, oystehr);
   }
   const response = performEffect(effectInput);
 
@@ -56,20 +58,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {
   const list = input.list
     .map((item) => {
-      const { owner, schedules } = item;
+      const { owner, schedules, displayName, address: itemAddress, providerSchedulesSummary } = item;
       let address: Address | undefined;
       if (owner.resourceType === 'Location') {
         address = (owner as Location).address;
-      } else if (owner.resourceType === 'Practitioner') {
-        address = (owner as Practitioner).address?.[0];
       }
-      const addressString = address ? addressStringFromAddress(address) : '';
+      const addressString = itemAddress ?? (address ? addressStringFromAddress(address) : '');
       return {
         owner: {
           resourceType: owner.resourceType,
           id: owner.id!,
-          name: getNameForOwner(owner),
+          name: displayName ?? getNameForOwner(owner),
           address: addressString ?? '',
+          providerSchedulesSummary,
         },
         schedules: schedules.map((schedule) => ({
           resourceType: schedule.resourceType,
@@ -115,7 +116,20 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
 };
 
 interface EffectInput {
-  list: { owner: ScheduleOwnerFhirResource; schedules: Schedule[] }[];
+  list: {
+    owner: ScheduleOwnerFhirResource;
+    schedules: Schedule[];
+    /** Override for getNameForOwner — for Practitioner rows, getFullName(). */
+    displayName?: string;
+    /** Override for the address column. */
+    address?: string;
+    /** Populated only for Practitioner rows on the provider-schedules tab. */
+    providerSchedulesSummary?: {
+      locationNames: string[];
+      categoryLabels: string[];
+      scheduleCount: number;
+    };
+  }[];
 }
 
 const complexValidation = async <T extends ScheduleOwnerFhirResource>(
@@ -172,6 +186,108 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
       schedules,
     };
   });
+  return { list };
+};
+
+// One row per active provider. Shows everyone, including providers who have
+// not yet had any schedule configured — their row reads as 0 schedules /
+// empty locations / empty categories, and the link still routes to the
+// employee detail page where setup happens.
+//
+// Row id is the Oystehr User.id (not Practitioner.id) so /admin/employee/:id
+// and getUserDetails resolve correctly.
+const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
+  // PR-side bundle gives us PRs + their Practitioners + Locations + categories
+  // + Schedules. We then union these Practitioners with the full active
+  // Practitioner set so unconfigured providers also surface.
+  const [prBundle, practitionerBundle, allUsers] = await Promise.all([
+    oystehr.fhir.search<PractitionerRole | Practitioner | Location | Schedule | HealthcareService>({
+      resourceType: 'PractitionerRole',
+      params: [
+        { name: 'active', value: 'true' },
+        { name: '_count', value: '1000' },
+        { name: '_include', value: 'PractitionerRole:practitioner' },
+        { name: '_include', value: 'PractitionerRole:location' },
+        { name: '_include', value: 'PractitionerRole:service' },
+        { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+      ],
+    }),
+    oystehr.fhir.search<Practitioner>({
+      resourceType: 'Practitioner',
+      params: [
+        { name: 'active', value: 'true' },
+        { name: '_count', value: '1000' },
+      ],
+    }),
+    oystehr.user.list(),
+  ]);
+
+  const prResources = prBundle.unbundle();
+  const roles = prResources.filter((r): r is PractitionerRole => r.resourceType === 'PractitionerRole');
+  const includedPractitioners = prResources.filter((r): r is Practitioner => r.resourceType === 'Practitioner');
+  const locations = prResources.filter((r): r is Location => r.resourceType === 'Location');
+  const schedules = prResources.filter((r): r is Schedule => r.resourceType === 'Schedule');
+  const healthcareServices = prResources.filter((r): r is HealthcareService => r.resourceType === 'HealthcareService');
+
+  // Union of active practitioners (preserves identity by id).
+  const allPractitionersById = new Map<string, Practitioner>();
+  for (const p of practitionerBundle.unbundle()) if (p.id) allPractitionersById.set(p.id, p);
+  for (const p of includedPractitioners) if (p.id) allPractitionersById.set(p.id, p);
+
+  // Map each Practitioner to its corresponding Oystehr User. Only providers
+  // with a User account (i.e., login-able) appear — otherwise editing them
+  // through /admin/employee/:id wouldn't work anyway.
+  const userIdByPractitionerId = new Map<string, string>();
+  for (const u of allUsers) {
+    const profileId = u.profile?.split('/')[1];
+    if (profileId) userIdByPractitionerId.set(profileId, u.id);
+  }
+
+  // Aggregate PRs per Practitioner so we can summarize across roles. Skip
+  // group-membership PRs (no Location) — they aren't schedules.
+  const rolesByPractitionerId = new Map<string, PractitionerRole[]>();
+  for (const role of roles) {
+    const practitionerId = role.practitioner?.reference?.split('/')[1];
+    if (!practitionerId) continue;
+    if (!role.location?.[0]?.reference) continue;
+    const arr = rolesByPractitionerId.get(practitionerId) ?? [];
+    arr.push(role);
+    rolesByPractitionerId.set(practitionerId, arr);
+  }
+
+  const list = [...allPractitionersById.values()]
+    .filter((p) => p.id && userIdByPractitionerId.has(p.id))
+    .map((practitioner) => {
+      const practitionerRoles = rolesByPractitionerId.get(practitioner.id!) ?? [];
+      const locationNames = new Set<string>();
+      const categoryLabels = new Set<string>();
+      const ownedSchedules: Schedule[] = [];
+      for (const role of practitionerRoles) {
+        const locationRef = role.location?.[0]?.reference;
+        const location = locations.find((l) => `Location/${l.id}` === locationRef);
+        if (location?.name) locationNames.add(location.name);
+        for (const ref of role.healthcareService ?? []) {
+          const hsId = ref.reference?.split('/')[1];
+          const hs = healthcareServices.find((h) => h.id === hsId);
+          if (hs?.name) categoryLabels.add(hs.name);
+        }
+        for (const s of schedules) {
+          if (s.actor?.some((a) => a.reference === `PractitionerRole/${role.id}`)) {
+            ownedSchedules.push(s);
+          }
+        }
+      }
+      return {
+        owner: { ...practitioner, id: userIdByPractitionerId.get(practitioner.id!)! },
+        schedules: ownedSchedules,
+        displayName: getFullName(practitioner),
+        providerSchedulesSummary: {
+          locationNames: [...locationNames],
+          categoryLabels: [...categoryLabels],
+          scheduleCount: practitionerRoles.length,
+        },
+      };
+    });
   return { list };
 };
 
