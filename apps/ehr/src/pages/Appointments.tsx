@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import { Autocomplete, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
+import { VisitType } from 'config-types';
 import { HealthcareService, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
@@ -11,6 +12,7 @@ import { useGetVitalsForEncounters } from 'src/features/visits/shared/components
 import { useGetOrdersForTrackingBoard } from 'src/hooks/useGetOrdersForTrackingBoard';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
+  AppointmentType,
   BOOKING_CONFIG,
   GetVitalsForListOfEncountersResponseData,
   InPersonAppointmentInformation,
@@ -28,28 +30,31 @@ import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { LocationWithWalkinSchedule } from './AddPatient';
 
-const ALL_VISIT_TYPE_LABELS: Record<string, string> = {
+// keys are the appointment-type strings get-appointments uses:
+// `${'in-person' | 'virtual'}-${AppointmentType}`
+const ALL_VISIT_TYPE_LABELS = {
   'in-person-walk-in': 'Walk-in In Person Visit',
   'in-person-pre-booked': 'Pre-booked In Person Visit',
   'in-person-post-telemed': 'Post Telemed Lab Only',
   'virtual-walk-in': 'On-demand Telemed',
   'virtual-pre-booked': 'Pre-booked Telemed',
+} as const satisfies Partial<Record<`${'in-person' | 'virtual'}-${AppointmentType}`, string>>;
+type VisitTypeFilterKey = keyof typeof ALL_VISIT_TYPE_LABELS;
+
+// this map bridges visit and appointment types so we can filter only the options configured for the
+// project
+const FILTER_KEY_TO_BOOKING_OPTION_ID: Record<VisitTypeFilterKey, VisitType> = {
+  'in-person-walk-in': VisitType.InPersonWalkIn,
+  'in-person-pre-booked': VisitType.InPersonPreBook,
+  'in-person-post-telemed': VisitType.InPersonPostTelemed,
+  'virtual-walk-in': VisitType.VirtualOnDemand,
+  'virtual-pre-booked': VisitType.VirtualScheduled,
 };
 
-// get-appointments uses `[in-person|virtual]-[AppointmentTypeOptions]` to filter keys
-// this map bridges that with ALL_VISIT_TYPE_LABELS so we can filter only the options configured for the project
-const FILTER_KEY_TO_BOOKING_OPTION_ID: Record<string, string> = {
-  'in-person-walk-in': 'in-person-walk-in',
-  'in-person-pre-booked': 'in-person-pre-booked',
-  'in-person-post-telemed': 'in-person-post-telemed',
-  'virtual-walk-in': 'virtual-on-demand',
-  'virtual-pre-booked': 'virtual-scheduled',
-};
-
-const getVisitTypeToLabel = (): Record<string, string> => {
+const getVisitTypeToLabel = (): Partial<typeof ALL_VISIT_TYPE_LABELS> => {
   const enabledBookingOptionIds = new Set(BOOKING_CONFIG.ehrBookingOptions.map((opt) => opt.id));
   return Object.fromEntries(
-    Object.entries(ALL_VISIT_TYPE_LABELS).filter(([key]) =>
+    (Object.entries(ALL_VISIT_TYPE_LABELS) as [VisitTypeFilterKey, string][]).filter(([key]) =>
       enabledBookingOptionIds.has(FILTER_KEY_TO_BOOKING_OPTION_ID[key])
     )
   );
