@@ -58,10 +58,13 @@ steps:
       - -c
       - |
         set -euo pipefail
-        mkdir -p config/.env apps/ehr/env apps/intake/env
-        gcloud secrets versions access latest --secret=${_SECRET_OTTEHR_CONFIG} > config/.env/local.json
-        gcloud secrets versions access latest --secret=${_SECRET_EHR_APP_ENV} > "apps/ehr/env/.env.${_VITE_MODE}"
-        gcloud secrets versions access latest --secret=${_SECRET_INTAKE_APP_ENV} > "apps/intake/env/.env.${_VITE_MODE}"
+        mkdir -p packages/zambdas/.env apps/ehr/env apps/intake/env
+        gcloud secrets versions access latest --secret=${_SECRET_ZAMBDA} \
+          > packages/zambdas/.env/zambda-secrets-${_VITE_MODE}.json
+        gcloud secrets versions access latest --secret=${_SECRET_EHR_APP_ENV} \
+          > "apps/ehr/env/.env.${_VITE_MODE}"
+        gcloud secrets versions access latest --secret=${_SECRET_INTAKE_APP_ENV} \
+          > "apps/intake/env/.env.${_VITE_MODE}"
 
   # EHR + Intake production bundles (apps/*/build)
   - id: npm-ci-build-web
@@ -140,7 +143,9 @@ steps:
       - --platform=managed
       - --service-account=${_CLOUD_RUN_SA}
       - --port=8080
-      - --set-secrets=OTTEHR_CONFIG=${_SECRET_OTTEHR_CONFIG}:latest,ZAMBDA_SECRETS=${_SECRET_ZAMBDA}:latest
+      - --update-secrets=/app/packages/zambdas/.env/zambda-secrets-staging.json=${_SECRET_ZAMBDA}:latest
       - --set-env-vars=ENV=staging
+      - --quiet
+      - --allow-unauthenticated
       - --quiet
       - --allow-unauthenticated
