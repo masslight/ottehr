@@ -93,6 +93,7 @@ import {
   IntakeQuestionnaireItem,
   isFieldExplicitlyCleared,
   isoStringFromDateComponents,
+  isPayerUrl,
   isValidUUID,
   makeSSNIdentifier,
   mapBirthSexToGender,
@@ -1617,7 +1618,13 @@ export async function searchInsuranceInformation(
   if (insuranceOrgRefs.length === 0) {
     return [];
   }
-  return await Promise.all(insuranceOrgRefs.map((ref) => oystehr.rcm.getPayerByUrl({ url: ref })));
+  return await Promise.all(
+    insuranceOrgRefs.map((ref) =>
+      isPayerUrl(ref)
+        ? oystehr.rcm.getPayerByUrl({ url: ref })
+        : oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: ref.split('/')[1] })
+    )
+  );
 }
 
 const getCoverageGroups = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[][] => {
