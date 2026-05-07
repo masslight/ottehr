@@ -17,8 +17,6 @@ export const index = wrapHandler('assign-practitioner', async (input: ZambdaInpu
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
   console.log('Created Oystehr client');
 
-  console.log('Created CurrentUser Oystehr client');
-
   const validatedData = await complexValidation(oystehr, validatedParameters);
 
   const response = await performEffect(
