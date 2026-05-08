@@ -90,10 +90,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   logIt('Got list resource');
 
   if (!documentsFolder) {
+    if (isSyntheticFolderId) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({
+          error: `Custom folder "${resolvedInternalName}" not found in catalog (it may have been deleted or renamed)`,
+        }),
+      };
+    }
     return {
-      statusCode: 500,
+      statusCode: 404,
       body: JSON.stringify({
-        error: `Can't fetch or create List resource (fileFolderId=${fileFolderId}, internalName=${resolvedInternalName})`,
+        error: `List resource not found (fileFolderId=${fileFolderId})`,
       }),
     };
   }
