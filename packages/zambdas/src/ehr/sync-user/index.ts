@@ -12,7 +12,7 @@ import {
   SyncUserResponse,
   userMe,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -148,7 +148,7 @@ async function getLocalEHRPractitioner(
   token: string,
   secrets: Secrets | null
 ): Promise<Practitioner> {
-  const practitionerId = (await userMe(token, secrets)).profile.replace('Practitioner/', '');
+  const practitionerId = await getMyPractitionerId(token, secrets);
   return await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
     id: practitionerId,

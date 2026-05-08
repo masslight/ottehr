@@ -23,7 +23,6 @@ import {
   PATIENT_VITALS_META_SYSTEM,
   SCHOOL_WORK_NOTE,
   Secrets,
-  userMe,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -32,6 +31,7 @@ import {
   createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
+  getMyPractitionerId,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
@@ -626,11 +626,7 @@ async function getUserPractitioner(
   secrets: Secrets | null
 ): Promise<Practitioner> {
   try {
-    const getUserResponse = await userMe(userToken, secrets);
-    const userProfile = getUserResponse.profile;
-    console.log(`User Profile: ${JSON.stringify(userProfile)}`);
-    const userProfileString = userProfile.split('/');
-    const practitionerId = userProfileString[1];
+    const practitionerId = await getMyPractitionerId(userToken, secrets);
     return await oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
       id: practitionerId,

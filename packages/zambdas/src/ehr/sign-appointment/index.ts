@@ -20,7 +20,7 @@ import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler, ZambdaInput } from '../../shared';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
@@ -82,8 +82,8 @@ export const performEffect = async (
   if (isFollowup) {
     // For follow-up encounters: only update encounter status and create PDF (no appointment updates, no email)
     if (currentStatus) {
-      const user = await userMe(userToken, secrets);
-      await changeFollowupEncounterStatusToCompleted(oystehr, user, visitResources, supervisorApprovalEnabled);
+      const userId = await getMyPractitionerId(userToken, secrets);
+      await changeFollowupEncounterStatusToCompleted(oystehr, userId, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Follow-up encounter status has been changed.`);
 
@@ -160,7 +160,7 @@ export const performEffect = async (
 
 const changeFollowupEncounterStatusToCompleted = async (
   oystehr: Oystehr,
-  user: User,
+  userId: string,
   resourcesToUpdate: FullAppointmentResourcePackage,
   supervisorApprovalEnabled?: boolean
 ): Promise<void> => {
@@ -204,11 +204,7 @@ const changeFollowupEncounterStatusToCompleted = async (
         provenanceCreate = {
           method: 'POST',
           url: '/Provenance',
-          resource: createProvenanceForEncounter(
-            resourcesToUpdate.encounter.id,
-            user.profile.split('/')[1],
-            'verifier'
-          ),
+          resource: createProvenanceForEncounter(resourcesToUpdate.encounter.id, userId, 'verifier'),
         };
       }
     }
