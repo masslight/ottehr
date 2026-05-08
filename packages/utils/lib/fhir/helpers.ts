@@ -48,6 +48,7 @@ import {
   getMimeType,
   getPatchOperationsForNewMetaTags,
   getPatchOperationToRemoveMetaTags,
+  getPayerId,
   getPayerUrl,
   LAB_RESULT_DOC_REF_CODING_CODE,
   PatientMasterRecordResourceType,
@@ -55,6 +56,7 @@ import {
   TaskCoding,
   TELEMED_VIDEO_ROOM_CODE,
   User,
+  uuidRegex,
   VisitStatusWithoutUnknown,
 } from 'utils';
 import { PROJECT_WEBSITE } from '../ottehr-config/branding';
@@ -1064,11 +1066,16 @@ export const getMemberIdFromCoverage = (coverage: Coverage): string | undefined 
 };
 
 export const createCoverageMemberIdentifier = (memberId: string, insuranceOrg: Organization): Identifier => {
+  const payerId = getPayerId(insuranceOrg);
   return {
     ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
     value: memberId,
     assigner: {
-      reference: getPayerUrl(insuranceOrg.id!),
+      reference: payerId
+        ? getPayerUrl(payerId)
+        : insuranceOrg.id?.match(uuidRegex)
+        ? `Organization/${insuranceOrg.id}`
+        : getPayerUrl(insuranceOrg.id!),
       display: insuranceOrg.name,
     },
   };
