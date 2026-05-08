@@ -4,7 +4,6 @@ import {
   genderMap,
   getFormattedPatientFullName,
   getNameSuffix,
-  getUnconfirmedDOBForAppointment,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   standardizePhoneNumber,
 } from 'utils';
@@ -16,7 +15,6 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
   const suffix = getNameSuffix(patient) ?? '';
   const preferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0] ?? '';
   const dob = formatDateForDisplay(patient?.birthDate);
-  const unconfirmedDOB = formatDateForDisplay(getUnconfirmedDOBForAppointment(appointment));
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
   const id = patient.id ?? '';
   const phone = standardizePhoneNumber(patient.telecom?.find((telecom) => telecom.system === 'phone')?.value) ?? '';
@@ -45,7 +43,6 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
     suffix,
     preferredName,
     dob,
-    unconfirmedDOB,
     sex,
     id,
     phone,
@@ -92,18 +89,6 @@ export const createPatientInfoSection = <TData extends { patient?: PatientInfo }
         client.drawLabelValueRow(
           'Date of birth (Original)',
           patientInfo.dob,
-          styles.textStyles.regular,
-          styles.textStyles.regular,
-          {
-            drawDivider: true,
-            dividerMargin: 8,
-          }
-        );
-      }
-      if (patientInfo.unconfirmedDOB) {
-        client.drawLabelValueRow(
-          'Date of birth (Unmatched)',
-          patientInfo.unconfirmedDOB,
           styles.textStyles.regular,
           styles.textStyles.regular,
           {
