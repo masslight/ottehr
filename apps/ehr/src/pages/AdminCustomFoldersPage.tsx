@@ -26,7 +26,13 @@ import Loading from 'src/components/Loading';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ConfirmDeleteFolderDialog } from 'src/features/visits/shared/components/patient/docs/ConfirmDeleteFolderDialog';
 import { FolderNameDialog } from 'src/features/visits/shared/components/patient/docs/FolderNameDialog';
-import { CustomFolderDefinition, FOLDERS_CONFIG, parseCustomFoldersCatalog, RoleType } from 'utils';
+import {
+  CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
+  CustomFolderDefinition,
+  FOLDERS_CONFIG,
+  parseCustomFoldersCatalog,
+  RoleType,
+} from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import { QUERY_KEYS } from '../hooks/useGetPatientDocs';
@@ -56,7 +62,7 @@ const AdminCustomFoldersPage: FC = () => {
       if (!oystehr) throw new Error('oystehr client not available');
       const bundle = await oystehr.fhir.search<List>({
         resourceType: 'List',
-        params: [{ name: 'identifier', value: 'ottehr-custom-folders-catalog' }],
+        params: [{ name: 'identifier', value: CUSTOM_FOLDERS_CATALOG_IDENTIFIER }],
       });
       return parseCustomFoldersCatalog(bundle.unbundle()[0]);
     },
