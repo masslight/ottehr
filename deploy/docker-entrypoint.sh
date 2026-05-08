@@ -16,8 +16,8 @@ if [ -n "${ZAMBDA_SECRETS:-}" ]; then
   printf '%s' "$ZAMBDA_SECRETS" > /app/packages/zambdas/.env/zambda-secrets-${ENV}.json
 fi
 
-if [ ! -f /app/config/.env/local.json ] || [ ! -f "/app/packages/zambdas/.env/zambda-secrets-${ENV}.json" ]; then
-  echo "Missing config: local.json and zambda-secrets-${ENV}.json are required. Set OTTEHR_CONFIG and ZAMBDA_SECRETS (e.g. via Cloud Run --set-secrets) or mount files." >&2
+if [ ! -f "/app/packages/zambdas/.env/zambda-secrets-${ENV}.json" ]; then
+  echo "Missing config: /app/packages/zambdas/.env/zambda-secrets-${ENV}.json is required. Set ZAMBDA_SECRETS (e.g. via Cloud Run --set-secrets) or mount the file." >&2
   exit 1
 fi
 
