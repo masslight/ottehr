@@ -1,14 +1,12 @@
-import { Autocomplete, Grid, TextField, Typography } from '@mui/material';
+import { Autocomplete, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { ActionsList } from 'src/components/ActionsList';
-import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetCreateExternalLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
-  LabListsDTO,
+  LabSetDTO,
   LabType,
   ModifiedOrderingLocation,
   nameLabTest,
@@ -20,14 +18,21 @@ import { LabSets } from './LabSets';
 
 type LabsAutocompleteProps = {
   selectedLabs: OrderableItemSearchResult[];
-  selectedOrderingLocationId: string;
+  orderingLocation:
+    | {
+        searchingForAll: true;
+      }
+    | {
+        searchingForAll: false;
+        selectedOrderingLocationId: string;
+      };
   labOrgIdsString: string;
   setSelectedLabs: React.Dispatch<React.SetStateAction<OrderableItemSearchResult[]>>;
-  labSets: LabListsDTO[] | undefined;
+  labSets: LabSetDTO[] | undefined;
 };
 
 export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
-  const { selectedLabs, setSelectedLabs, labOrgIdsString, labSets, selectedOrderingLocationId } = props;
+  const { selectedLabs, setSelectedLabs, labOrgIdsString, labSets, orderingLocation } = props;
   const [debouncedLabSearchTerm, setDebouncedLabSearchTerm] = useState<string | undefined>(undefined);
   const apiClient = useOystehrAPIClient();
 
@@ -44,9 +49,9 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
   // coming back from the hook, we expect all these locations to have labGuids in their enabledLabs details
   const orderingLocations = data?.orderingLocations || [];
 
-  const labs = expandResultsForGeneric(data?.labs || [], orderingLocations, selectedOrderingLocationId);
-
-  console.log('labs', JSON.stringify(labs));
+  const labs = orderingLocation.searchingForAll
+    ? data?.labs ?? []
+    : expandResultsForGeneric(data?.labs || [], orderingLocations, orderingLocation.selectedOrderingLocationId);
 
   const { debounce } = useDebounce(800);
   const debouncedHandleLabInputChange = (searchValue: string): void => {
@@ -57,7 +62,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
 
   if (resourceFetchError) console.log('resourceFetchError', resourceFetchError);
 
-  const handleSetSelectedLabsViaLabSets = async (labSet: LabListsDTO): Promise<void> => {
+  const handleSetSelectedLabsViaLabSets = async (labSet: LabSetDTO): Promise<void> => {
     if (labSet.listType === LabType.external) {
       const res = await apiClient?.getCreateExternalLabResources({
         selectedLabSet: labSet,
@@ -118,31 +123,6 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
       />
 
       {labSets && <LabSets labSets={labSets} setSelectedLabs={handleSetSelectedLabsViaLabSets} />}
-
-      {selectedLabs.length > 0 && (
-        <Grid container>
-          <Grid item xs={12} data-testid={dataTestIds.externalLabs.createPg.selectedLabContainer}>
-            <ActionsList
-              data={selectedLabs}
-              getKey={(value, index) => `selected-lab-${index}-${value.item.itemCode}`}
-              renderItem={(value) => (
-                <Typography>{nameLabTest(value.item.itemName, value.lab.labName, false)}</Typography>
-              )}
-              renderActions={(lab) => (
-                <DeleteIconButton
-                  onClick={() =>
-                    setSelectedLabs((prev) =>
-                      prev.filter((tempLab) => {
-                        return tempLab.item.uniqueName !== lab.item.uniqueName;
-                      })
-                    )
-                  }
-                />
-              )}
-            />
-          </Grid>
-        </Grid>
-      )}
     </>
   );
 };

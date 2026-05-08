@@ -441,6 +441,10 @@ export const fetchActiveInHouseLabActivityDefinitions = async (oystehr: Oystehr)
       resourceType: 'ActivityDefinition',
       params: [
         { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
+        {
+          name: '_tag',
+          value: `${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.system}|${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.code}`,
+        },
         { name: 'status', value: 'active' },
       ],
     })

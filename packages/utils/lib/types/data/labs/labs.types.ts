@@ -12,6 +12,7 @@ import {
   Reference,
 } from 'fhir/r4b';
 import { CPTCodeOption, DiagnosisDTO, LAB_DR_TYPE_TAG, Pagination } from '../..';
+import { ExternalLabSetDTO, LabSetDTO } from './lab-set.schema';
 
 // todo labs team - we should do some assessing of all our type files, our types feel a bit unorganized and as a result i think we have some redundancy
 export interface OrderableItemSearchResult {
@@ -29,22 +30,6 @@ export interface InHouseLabListItem {
   display: string;
   activityDefinitionId: string;
 }
-
-export interface ExternalLabListDTO {
-  listId: string;
-  listName: string;
-  listType: LabType.external;
-  labs: ExternalLabListItem[];
-}
-
-export interface InHouseLabListDTO {
-  listId: string;
-  listName: string;
-  listType: LabType.inHouse;
-  labs: InHouseLabListItem[];
-}
-
-export type LabListsDTO = ExternalLabListDTO | InHouseLabListDTO;
 
 export interface sampleDTO {
   specimen: { id: string; collectionDate?: string }; // collectionDate exists after order is submitted
@@ -278,6 +263,14 @@ export enum LabType {
   unsolicited = 'unsolicited', // external but has less fhir resources available since it did not originate from ottehr
   reflex = 'reflex', // external but has less fhir resources available since it did not originate from ottehr
 }
+
+export const LabTypeDisplay: Record<LabType, string> = {
+  [LabType.external]: 'External',
+  [LabType.inHouse]: 'In-House',
+  [LabType.unsolicited]: 'Unsolicited',
+  [LabType.reflex]: 'Reflex',
+};
+
 /**
  * 'unsolicited', 'reflex'
  */
@@ -353,7 +346,7 @@ export type GetCreateLabOrderResources = {
   encounterId?: string;
   search?: string;
   labOrgIdsString?: string;
-  selectedLabSet?: ExternalLabListDTO;
+  selectedLabSet?: ExternalLabSetDTO;
 };
 
 export type ModifiedOrderingLocation = {
@@ -377,7 +370,7 @@ export type LabOrderResourcesRes = {
   labs: OrderableItemSearchResult[];
   appointmentIsWorkersComp: boolean;
   cptCodesToAddPerEncounter?: CPTCodeOption[]; // does not apply to psc orders and only once per encounter
-  labSets: LabListsDTO[] | undefined;
+  labSets: LabSetDTO[] | undefined;
 } & ExternalLabOrderingLocations;
 
 export type PatientLabItem = {
@@ -615,3 +608,38 @@ export type LabsTableColumn =
   | 'status'
   | 'detail'
   | 'actions';
+
+// ADMIN GET LAB SET API TYPES
+export type AdminGetLabSetListOutput = {
+  labSetDTO: LabSetDTO[];
+};
+
+export type AdminGetLabSetDetailInput = {
+  labSetId: string;
+};
+export type AdminGetLabSetDetailOutput = {
+  labSetDTO: LabSetDTO;
+};
+
+// ADMIN ADD LAB SET API TYPES
+export type AdminAddLabSetInput = {
+  labSetFormInput: LabSetDTO;
+};
+export type AdminAddLabSetOutput = {
+  labSetId: string;
+};
+
+// ADMIN UPDATE LAB SET API TYPES
+export type AdminUpdateLabSetStatus = {
+  updateType: 'toggle-status';
+  data: {
+    labSetId: string;
+  };
+};
+
+export type AdminEditLabSet = {
+  updateType: 'edit';
+  data: LabSetDTO;
+};
+
+export type AdminUpdateLabSetInput = AdminEditLabSet | AdminUpdateLabSetStatus;
