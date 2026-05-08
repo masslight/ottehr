@@ -205,7 +205,7 @@ export type RemoveInHouseMedicationQuickPickResponse = QuickPickRemoveResponse;
 export interface PatientInstructionQuickPickData {
   id?: string;
   name: string;
-  text: string;
+  text?: string;
 }
 
 export type CreatePatientInstructionQuickPickInput = QuickPickCreateInput<PatientInstructionQuickPickData>;
