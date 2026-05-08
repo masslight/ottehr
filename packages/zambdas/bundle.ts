@@ -221,7 +221,7 @@ const main = async (): Promise<void> => {
   const assetsDir = '.dist/assets';
 
   const isSentryEnabled =
-    !['local', 'e2e', 'e2e2', 'e2e3'].includes(process.env.ENV || '') &&
+    !['local', 'e2e', 'e2e2', 'e2e3', 'development'].includes(process.env.ENV || '') &&
     Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
 
   const icd10Zambdas = zambdas.filter((zambda) => zambdasWithIcd10Search.includes(zambda.name));
