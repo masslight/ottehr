@@ -848,6 +848,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     }
   }
 
+  // This checks are brittle if there is drift between payor and identifier
   if (primary) {
     primaryMemberId =
       primary.identifier?.find(
