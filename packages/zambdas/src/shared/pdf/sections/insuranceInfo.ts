@@ -1,4 +1,4 @@
-import { Reference } from 'fhir/r4b';
+import { Coverage, Reference } from 'fhir/r4b';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   formatDateForDisplay,
@@ -7,9 +7,20 @@ import {
   getFullName,
   getPayerId,
   getPayerUrl,
+  insuranceTypeOptionsData,
 } from 'utils';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { Insurance, InsuranceDataInput, InsuranceInfo, PdfSection } from '../types';
+
+// Mirrors EHR's `insurancePlanTypeOptions` label format (`${candidCode} - ${label}`)
+// so the PDF prints exactly what the user sees in the Insurance type dropdown.
+const formatInsurancePlanType = (coverage: Coverage | undefined): string => {
+  if (!coverage) return '';
+  const code = getCandidPlanTypeCodeFromCoverage(coverage);
+  if (!code) return '';
+  const option = insuranceTypeOptionsData.find((o) => o.candidCode === code);
+  return option ? `${option.candidCode} - ${option.label}` : code;
+};
 
 export const composeInsuranceData: DataComposer<InsuranceDataInput, InsuranceInfo> = ({ coverages, insuranceOrgs }) => {
   const { primary, secondary, primarySubscriber, secondarySubscriber } = coverages;
@@ -20,8 +31,8 @@ export const composeInsuranceData: DataComposer<InsuranceDataInput, InsuranceInf
   let primaryMemberId = '';
   let secondaryMemberId = '';
 
-  let primaryPlanType: string | undefined;
-  let secondaryPlanType: string | undefined;
+  const primaryPlanType = formatInsurancePlanType(primary);
+  const secondaryPlanType = formatInsurancePlanType(secondary);
 
   if (primary) {
     const payerId = primary.class?.[0].value;
@@ -56,13 +67,6 @@ export const composeInsuranceData: DataComposer<InsuranceDataInput, InsuranceInf
       secondary.identifier?.find(
         (i) => i.type?.coding?.[0]?.code === 'MB' && i.assigner?.reference === secondary.payor[0]?.reference
       )?.value ?? '';
-  }
-
-  if (primary) {
-    primaryPlanType = getCandidPlanTypeCodeFromCoverage(primary);
-  }
-  if (secondary) {
-    secondaryPlanType = getCandidPlanTypeCodeFromCoverage(secondary);
   }
 
   const primarySubscriberDoB = formatDateForDisplay(primarySubscriber?.birthDate);
@@ -135,16 +139,25 @@ export const composeInsuranceData: DataComposer<InsuranceDataInput, InsuranceInf
   };
 };
 
+/**
+ * `keySuffix` mirrors how the EHR resolves `hiddenFields`: each item in
+ * `PATIENT_RECORD_CONFIG.FormFields.insurance.items[ordinal]` has its own key
+ * (e.g. `insurance-carrier` for primary, `insurance-carrier-2` for secondary).
+ * Customer overrides in `hiddenFields` are per-key, so the PDF must check the
+ * matching key per ordinal — same way `PatientRecordFormField` does in the EHR.
+ */
 const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
   title: string,
-  dataSelector: (data: TData) => Insurance | undefined
+  dataSelector: (data: TData) => Insurance | undefined,
+  keySuffix: '' | '-2' = ''
 ): PdfSection<TData, Insurance> => {
+  const k = (base: string): string => `${base}${keySuffix}`;
   return createConfiguredSection('insurance', (shouldShow) => ({
     title,
     dataSelector,
     shouldRender: (coverage) => !!coverage.insuranceCarrier,
     render: (client, data, styles) => {
-      if (shouldShow('insurance-carrier')) {
+      if (shouldShow(k('insurance-carrier'))) {
         client.drawLabelValueRow(
           'Insurance Carrier',
           data.insuranceCarrier,
@@ -156,16 +169,28 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
           }
         );
       }
-      if (shouldShow('insurance-member-id')) {
+      if (shouldShow(k('insurance-plan-type'))) {
+        client.drawLabelValueRow(
+          'Insurance type',
+          data.planType,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
+      }
+      if (shouldShow(k('insurance-member-id'))) {
         client.drawLabelValueRow('Member ID', data.memberId, styles.textStyles.regular, styles.textStyles.regular, {
           drawDivider: true,
           dividerMargin: 8,
         });
       }
       if (
-        shouldShow('policy-holder-first-name') ||
-        shouldShow('policy-holder-middle-name') ||
-        shouldShow('policy-holder-last-name')
+        shouldShow(k('policy-holder-first-name')) ||
+        shouldShow(k('policy-holder-middle-name')) ||
+        shouldShow(k('policy-holder-last-name'))
       ) {
         client.drawLabelValueRow(
           `Policy holder's name`,
@@ -178,7 +203,7 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
           }
         );
       }
-      if (shouldShow('policy-holder-date-of-birth')) {
+      if (shouldShow(k('policy-holder-date-of-birth'))) {
         client.drawLabelValueRow(
           `Policy holder's date of birth`,
           data.policyHoldersDateOfBirth,
@@ -190,7 +215,7 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
           }
         );
       }
-      if (shouldShow('policy-holder-birth-sex')) {
+      if (shouldShow(k('policy-holder-birth-sex'))) {
         client.drawLabelValueRow(
           `Policy holder's sex`,
           data.policyHoldersSex,
@@ -202,7 +227,7 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
           }
         );
       }
-      if (shouldShow('policy-holder-address')) {
+      if (shouldShow(k('policy-holder-address'))) {
         client.drawLabelValueRow(
           'Street address',
           data.streetAddress,
@@ -214,7 +239,7 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
           }
         );
       }
-      if (shouldShow('policy-holder-address-additional-line')) {
+      if (shouldShow(k('policy-holder-address-additional-line'))) {
         client.drawLabelValueRow(
           'Address line 2',
           data.addressLineOptional,
@@ -226,7 +251,10 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
           }
         );
       }
-      if ((shouldShow('policy-holder-city') && shouldShow('policy-holder-state')) || shouldShow('policy-holder-zip')) {
+      if (
+        (shouldShow(k('policy-holder-city')) && shouldShow(k('policy-holder-state'))) ||
+        shouldShow(k('policy-holder-zip'))
+      ) {
         client.drawLabelValueRow(
           'City, State, ZIP',
           `${data.city}, ${data.state}, ${data.zip}`,
@@ -238,7 +266,7 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
           }
         );
       }
-      if (shouldShow('patient-relationship-to-insured')) {
+      if (shouldShow(k('patient-relationship-to-insured'))) {
         client.drawLabelValueRow(
           `Patient's relationship to insured`,
           data.relationship,
@@ -250,7 +278,7 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
           }
         );
       }
-      if (shouldShow('insurance-additional-information')) {
+      if (shouldShow(k('insurance-additional-information'))) {
         client.drawLabelValueRow(
           `Additional insurance information`,
           data.additionalInformation,
@@ -268,9 +296,9 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
 export const createPrimaryInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(): PdfSection<
   TData,
   Insurance
-> => createInsuranceSection('Primary insurance information', (data) => data.insurances?.primary);
+> => createInsuranceSection('Primary insurance information', (data) => data.insurances?.primary, '');
 
 export const createSecondaryInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(): PdfSection<
   TData,
   Insurance
-> => createInsuranceSection('Secondary insurance information', (data) => data.insurances?.secondary);
+> => createInsuranceSection('Secondary insurance information', (data) => data.insurances?.secondary, '-2');

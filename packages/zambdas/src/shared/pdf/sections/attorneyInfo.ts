@@ -45,18 +45,21 @@ export const createAttorneyInfoSection = <TData extends { attorney?: AttorneyInf
   TData,
   AttorneyInfo
 > => {
-  return createConfiguredSection(null, () => ({
+  return createConfiguredSection('attorneyInformation', (shouldShow) => ({
     title: 'Attorney for Motor Vehicle Accident',
     dataSelector: (data) => data.attorney,
     shouldRender: (attorney) => hasAttorneyInfo(attorney),
     render: (client, attorneyInfo, styles) => {
-      if (attorneyInfo.firm) {
+      // Each row is gated by `shouldShow` (so customer `hiddenFields` overrides
+      // are honored) and by truthiness of the value (compact render: empty
+      // optional fields are omitted, like the original behavior).
+      if (shouldShow('attorney-mva-firm') && attorneyInfo.firm) {
         client.drawLabelValueRow('Firm', attorneyInfo.firm, styles.textStyles.regular, styles.textStyles.regular, {
           drawDivider: true,
           dividerMargin: 8,
         });
       }
-      if (attorneyInfo.firstName) {
+      if (shouldShow('attorney-mva-first-name') && attorneyInfo.firstName) {
         client.drawLabelValueRow(
           'First name',
           attorneyInfo.firstName,
@@ -68,7 +71,7 @@ export const createAttorneyInfoSection = <TData extends { attorney?: AttorneyInf
           }
         );
       }
-      if (attorneyInfo.lastName) {
+      if (shouldShow('attorney-mva-last-name') && attorneyInfo.lastName) {
         client.drawLabelValueRow(
           'Last name',
           attorneyInfo.lastName,
@@ -80,19 +83,19 @@ export const createAttorneyInfoSection = <TData extends { attorney?: AttorneyInf
           }
         );
       }
-      if (attorneyInfo.email) {
+      if (shouldShow('attorney-mva-email') && attorneyInfo.email) {
         client.drawLabelValueRow('Email', attorneyInfo.email, styles.textStyles.regular, styles.textStyles.regular, {
           drawDivider: true,
           dividerMargin: 8,
         });
       }
-      if (attorneyInfo.mobile) {
+      if (shouldShow('attorney-mva-mobile') && attorneyInfo.mobile) {
         client.drawLabelValueRow('Mobile', attorneyInfo.mobile, styles.textStyles.regular, styles.textStyles.regular, {
           drawDivider: true,
           dividerMargin: 8,
         });
       }
-      if (attorneyInfo.fax) {
+      if (shouldShow('attorney-mva-fax') && attorneyInfo.fax) {
         client.drawLabelValueRow('Fax', attorneyInfo.fax, styles.textStyles.regular, styles.textStyles.regular, {
           spacing: 16,
         });

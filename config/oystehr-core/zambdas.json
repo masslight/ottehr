@@ -1904,6 +1904,27 @@
       "src": "src/ehr/lab/in-house/admin-update-in-house-lab/index",
       "zip": ".dist/zips/admin-update-in-house-lab.zip"
     },
+    "ADMIN_GET_LAB_SETS": {
+      "name": "admin-get-lab-sets",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-get-lab-sets/index",
+      "zip": ".dist/zips/admin-get-lab-sets.zip"
+    },
+    "ADMIN_ADD_LAB_SET": {
+      "name": "admin-add-lab-set",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-add-lab-set/index",
+      "zip": ".dist/zips/admin-add-lab-set.zip"
+    },
+    "ADMIN_UPDATE_LAB_SET": {
+      "name": "admin-update-lab-set",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-update-lab-set/index",
+      "zip": ".dist/zips/admin-update-lab-set.zip"
+    },
     "ERX_NOTIFICATION": {
       "name": "erx-notification-subscription",
       "type": "subscription",

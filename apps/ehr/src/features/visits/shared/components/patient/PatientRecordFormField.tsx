@@ -10,13 +10,13 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AnswerOptionSource,
   dedupeObjectsByKey,
+  evaluateFieldTriggers,
   FormFieldsDisplayItem,
   FormFieldsGroupItem,
   FormFieldsInputItem,
   isRemovableField,
   QuestionnaireItemGroupType,
 } from 'utils';
-import { evaluateFieldTriggers } from './patientRecordValidation';
 
 interface PatientRecordFormFieldProps {
   item: FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem;

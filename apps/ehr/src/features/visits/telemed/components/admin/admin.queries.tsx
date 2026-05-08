@@ -4,9 +4,12 @@ import { Extension, Location, Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import {
   adminAddInHouseLab,
+  adminAddLabSet,
   adminGetInHouseLabConfig,
+  adminGetLabSets,
   adminListInHouseLabs,
   adminUpdateInHouseLab,
+  adminUpdateLabSet,
   bulkUpdateInsuranceStatus,
   createEmCode,
   deleteEmCode,
@@ -28,10 +31,16 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
+  AdminAddLabSetInput,
+  AdminAddLabSetOutput,
   AdminGetInHouseLabConfigInput,
+  AdminGetLabSetDetailInput,
+  AdminGetLabSetDetailOutput,
+  AdminGetLabSetListOutput,
   AdminInHouseLabConfigOutput,
   AdminListInHouseLabsOutput,
   AdminUpdateInHouseLabInput,
+  AdminUpdateLabSetInput,
   APIError,
   BulkUpdateInsuranceStatusInput,
   CreateEmCodeInput,
@@ -517,6 +526,103 @@ export const useAdminDeleteEmCodeMutation = (): UseMutationResult<EmCodeOption[]
     },
     onError: () => {
       enqueueSnackbar('Failed to delete E&M code', { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminGetLabSetsList = (): UseQueryResult<AdminGetLabSetListOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-get-lab-sets'],
+    queryFn: async () => {
+      return adminGetLabSets(oystehrZambda!);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
+  });
+};
+
+export const useAdminGetLabSetDetail = (
+  input: AdminGetLabSetDetailInput
+): UseQueryResult<AdminGetLabSetDetailOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-get-lab-sets', input.labSetId],
+    queryFn: async () => {
+      return adminGetLabSets(oystehrZambda!, input);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
+  });
+};
+
+export const useAdminAddLabSet = (): UseMutationResult<AdminAddLabSetOutput, Error, AdminAddLabSetInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-add-lab-set'],
+    mutationFn: async (input: AdminAddLabSetInput) => {
+      console.log('mutation for add in house lab called');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return adminAddLabSet(oystehrZambda!, input);
+    },
+    onSuccess: async (_data, _variables) => {
+      // invalidate so the list page re-loads correctly
+      await queryClient.invalidateQueries({
+        queryKey: ['admin-get-lab-sets'],
+      });
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! Lab set could not be created :(';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminUpdateLabSet = (labSetId: string): UseMutationResult<void, Error, AdminUpdateLabSetInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-update-lab-set', labSetId],
+    mutationFn: async (input: AdminUpdateLabSetInput) => {
+      console.log('mutation for update in house lab called');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return adminUpdateLabSet(oystehrZambda!, input);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['admin-get-lab-sets'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['external lab resource search'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['inhouse lab resource search'],
+        }),
+      ]);
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! The lab set update could not be made.';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
     },
   });
 };
