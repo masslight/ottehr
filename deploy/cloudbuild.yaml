@@ -143,7 +143,16 @@ steps:
       - --platform=managed
       - --service-account=${_CLOUD_RUN_SA}
       - --port=8080
-      - --update-secrets=/app/packages/zambdas/.env/zambda-secrets-${_VITE_MODE}.json=${_SECRET_ZAMBDA}:latest
-      - --set-env-vars=ENV=${_VITE_MODE}
-      - --quiet
-      - --allow-unauthenticated
+  args:
+    - run
+    - deploy
+    - ${_CLOUD_RUN_SERVICE}
+    - --image=...
+    - --region=${_REGION}
+    - --platform=managed
+    - --service-account=${_CLOUD_RUN_SA}
+    - --port=8080
+    - --quiet
+    - --allow-unauthenticated      
+    - --update-secrets=/app/packages/zambdas/.env/zambda-secrets-${_VITE_MODE}.json=${_SECRET_ZAMBDA}:latest
+    - --set-env-vars=ENV=${_VITE_MODE}
