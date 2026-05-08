@@ -11,7 +11,7 @@ import {
   Reference,
 } from 'fhir/r4b';
 import { CPTCodeOption, DiagnosisDTO, LAB_DR_TYPE_TAG, Pagination } from '../..';
-import { LabelPdf, LabelType, LabelXml } from '../printing';
+import { LabelPdf } from '../printing';
 
 // todo labs team - we should do some assessing of all our type files, our types feel a bit unorganized and as a result i think we have some redundancy
 export interface OrderableItemSearchResult {
@@ -176,7 +176,6 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   questionnaire: QuestionnaireData[];
   samples: sampleDTO[];
   labelPdfUrl?: string; // will exist after test is marked ready
-  labelXmlUrl?: string; // will exist for new tests marked as ready but not historical tests that already have labels
 };
 
 export type UnsolicitedLabListPageDTO = {
@@ -463,8 +462,7 @@ export enum LabDocumentType {
   ottehrGeneratedResult = 'ottehr-generated-result',
   abn = 'abn',
   orderPdf = 'order-pdf',
-  label = LabelType.label,
-  xmlLabel = LabelType.xmlLabel,
+  label = 'label',
 }
 export interface LabDocumentBase {
   docRefId: string;
@@ -479,15 +477,10 @@ export interface LabDocumentRelatedToServiceRequest extends LabDocumentBase {
   serviceRequestIds: string[]; // one order pdf doc ref to many service requests
 }
 
-export type LabDocument =
-  | LabDocumentRelatedToDiagnosticReport
-  | LabDocumentRelatedToServiceRequest
-  | LabelPdf
-  | LabelXml;
+export type LabDocument = LabDocumentRelatedToDiagnosticReport | LabDocumentRelatedToServiceRequest | LabelPdf;
 
 export interface ExternalLabDocuments {
   labelPDF: LabelPdf | undefined; // only ever returned for the detail page atm
-  labelXML: LabelXml | undefined; // also only for the detail page
   labGeneratedResults: LabDocumentRelatedToDiagnosticReport[] | undefined; // only ever returned for the detail page atm
   resultPDFs: LabDocumentRelatedToDiagnosticReport[] | undefined; // only ever returned for the detail page atm
   orderPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;

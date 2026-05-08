@@ -80,12 +80,6 @@ export const EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE = {
   display: 'Specimen Container Label',
 };
 
-export const EXTERNAL_LAB_LABEL_XML_DOC_REF_DOCTYPE = {
-  system: 'http://ottehr.org/fhir/StructureDefinition/specimen-collection-label',
-  code: 'specimen-container-label-xml',
-  display: 'Specimen Container Label',
-};
-
 export const LAB_DR_TYPE_TAG = {
   system: 'result-type',
   code: {

@@ -12,7 +12,6 @@ import {
   CreateLabPaymentMethod,
   DEFAULT_OYSTEHR_LABS_HL7_SYSTEM,
   EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE,
-  EXTERNAL_LAB_LABEL_XML_DOC_REF_DOCTYPE,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LAB_DOC_REF_TAG_hl7_TRANSMISSION,
@@ -303,17 +302,6 @@ export const docRefIsLabelPDFAndCurrent = (docRef: DocumentReference): boolean =
       code.code === EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE.code
   );
   return isCurrent && isLabelPdf;
-};
-
-export const docRefIsLabelXmlAndCurrent = (docRef: DocumentReference): boolean => {
-  const isCurrent = docRef.status === 'current';
-  const isLabelXml = !!docRef.type?.coding?.find(
-    (coding) =>
-      coding.system === EXTERNAL_LAB_LABEL_XML_DOC_REF_DOCTYPE.system &&
-      coding.code === EXTERNAL_LAB_LABEL_XML_DOC_REF_DOCTYPE.code
-  );
-
-  return isCurrent && isLabelXml;
 };
 
 export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {

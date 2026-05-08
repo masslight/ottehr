@@ -296,7 +296,6 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
       questionnaire: questionnaires,
       samples: parseSamples(serviceRequest, specimens),
       labelPdfUrl: labDocuments?.labelPDF?.presignedURL,
-      labelXmlUrl: labDocuments?.labelXML?.presignedURL,
     };
 
     return detailedPageDTO as LabOrderDTO<SearchBy>;
