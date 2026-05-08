@@ -9,13 +9,13 @@ import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   dedupeObjectsByKey,
+  evaluateFieldTriggers,
   FormFieldsDisplayItem,
   FormFieldsGroupItem,
   FormFieldsInputItem,
   isRemovableField,
   QuestionnaireItemGroupType,
 } from 'utils';
-import { evaluateFieldTriggers } from './patientRecordValidation';
 
 interface PatientRecordFormFieldProps {
   item: FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem;
