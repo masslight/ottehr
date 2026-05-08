@@ -8,12 +8,14 @@ export ENV="${ENV:-local}"
 
 mkdir -p /app/config/.env /app/packages/zambdas/.env
 
-if [ -n "${OTTEHR_CONFIG:-}" ]; then
-  printf '%s' "$OTTEHR_CONFIG" > /app/config/.env/local.json
+# Write from env var only when the file isn't already populated (e.g., via Cloud Run
+# secret volume mount, which makes the parent dir read-only and would fail any write).
+if [ -n "${OTTEHR_CONFIG:-}" ] && [ ! -s "/app/config/.env/local.json" ]; then
+  printf '%s' "$OTTEHR_CONFIG" > "/app/config/.env/local.json"
 fi
 
-if [ -n "${ZAMBDA_SECRETS:-}" ]; then
-  printf '%s' "$ZAMBDA_SECRETS" > /app/packages/zambdas/.env/zambda-secrets-${ENV}.json
+if [ -n "${ZAMBDA_SECRETS:-}" ] && [ ! -s "/app/packages/zambdas/.env/zambda-secrets-${ENV}.json" ]; then
+  printf '%s' "$ZAMBDA_SECRETS" > "/app/packages/zambdas/.env/zambda-secrets-${ENV}.json"
 fi
 
 if [ ! -f "/app/packages/zambdas/.env/zambda-secrets-${ENV}.json" ]; then
