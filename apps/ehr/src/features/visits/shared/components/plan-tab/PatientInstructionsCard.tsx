@@ -15,7 +15,7 @@ import { PatientInstructionsTemplatesDialog } from './components/PatientInstruct
 
 export const PatientInstructionsCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [myTemplatesOpen, setMyTemplatesOpen] = useState(false);
+  const [myQuickPicksOpen, setMyQuickPicksOpen] = useState(false);
   const [practiceQuickPicksOpen, setPracticeQuickPicksOpen] = useState(false);
   const [instruction, setInstruction] = useState('');
   const [instructionTitle, setInstructionTitle] = useState('');
@@ -146,7 +146,7 @@ export const PatientInstructionsCard: FC = () => {
                     fullWidth
                   />
                 </Box>
-                <RoundedButton onClick={() => setMyTemplatesOpen(true)}>My Quick Picks</RoundedButton>
+                <RoundedButton onClick={() => setMyQuickPicksOpen(true)}>My Quick Picks</RoundedButton>
                 <RoundedButton onClick={() => setPracticeQuickPicksOpen(true)}>Practice Quick Picks</RoundedButton>
               </Box>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -194,11 +194,11 @@ export const PatientInstructionsCard: FC = () => {
         </Box>
       </AccordionCard>
 
-      {myTemplatesOpen && (
+      {myQuickPicksOpen && (
         <PatientInstructionsTemplatesDialog
-          open={myTemplatesOpen}
-          onClose={() => setMyTemplatesOpen(false)}
-          source="myTemplates"
+          open={true}
+          onClose={() => setMyQuickPicksOpen(false)}
+          type="provider"
           onSelect={(value) => {
             setInstruction(value.text ?? '');
             setInstructionTitle(value.title ?? '');
@@ -207,9 +207,9 @@ export const PatientInstructionsCard: FC = () => {
       )}
       {practiceQuickPicksOpen && (
         <PatientInstructionsTemplatesDialog
-          open={practiceQuickPicksOpen}
+          open={true}
           onClose={() => setPracticeQuickPicksOpen(false)}
-          source="practiceQuickPicks"
+          type="organization"
           onSelect={(value) => {
             setInstruction(value.text ?? '');
             setInstructionTitle(value.title ?? '');

@@ -12,71 +12,37 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChangeEvent, FC, useEffect, useMemo, useState } from 'react';
-import { getPatientInstructionQuickPicks } from 'src/api/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { ChangeEvent, FC, useMemo, useState } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { CommunicationDTO } from 'utils';
+import { CommunicationDTO, InstructionType } from 'utils';
 import {
   useDeletePatientInstruction,
   useGetPatientInstructions,
 } from '../../../stores/appointment/appointment.queries';
 
-export type PatientInstructionsTemplatesDialogSource = 'myTemplates' | 'practiceQuickPicks';
-
 type MyTemplatesDialogProps = {
   open: boolean;
   onClose: () => void;
-  source: PatientInstructionsTemplatesDialogSource;
+  type: InstructionType;
   onSelect: (value: CommunicationDTO) => void;
 };
 
 export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (props) => {
-  const { open, onClose, source, onSelect } = props;
+  const { open, onClose, type, onSelect } = props;
 
   const theme = useTheme();
-  const isMyTemplates = source === 'myTemplates';
   const [patientInstructions, setPatientInstructions] = useState<CommunicationDTO[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const { oystehrZambda } = useApiClients();
 
-  const { isFetching: isFetchingMyTemplates } = useGetPatientInstructions(
-    { type: 'provider' },
-    (data) => {
-      if (!isMyTemplates) return;
-      if (!data) return;
-      setPatientInstructions(data);
-    },
-    { enabled: isMyTemplates }
-  );
-
-  const { isFetching: isFetchingPracticeQuickPicks, data: practiceQuickPicks } = useQuery({
-    queryKey: ['practice-patient-instruction-quick-picks'],
-    queryFn: async () => {
-      const response = await getPatientInstructionQuickPicks(oystehrZambda!);
-      return response.quickPicks;
-    },
-    enabled: !isMyTemplates && !!oystehrZambda,
+  const { isFetching } = useGetPatientInstructions({ type }, (data) => {
+    if (!data) return;
+    setPatientInstructions(data);
   });
 
-  useEffect(() => {
-    if (isMyTemplates) return;
-    if (!practiceQuickPicks) return;
-    setPatientInstructions(
-      [...practiceQuickPicks]
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((qp) => ({
-          resourceId: qp.id,
-          title: qp.name,
-          text: qp.text,
-        }))
-    );
-  }, [isMyTemplates, practiceQuickPicks]);
-
-  const isFetching = isMyTemplates ? isFetchingMyTemplates : isFetchingPracticeQuickPicks;
+  const isMyTemplates = type === 'provider';
 
   const { mutate, isPending: isDeleting } = useDeletePatientInstruction();
   const queryClient = useQueryClient();
@@ -120,7 +86,7 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
       <Divider />
       <Box sx={{ px: 3, pt: 3, pb: 2 }}>
         <TextField
-          placeholder={isMyTemplates ? 'Search My Quick Picks' : 'Search Practice Quick Picks'}
+          placeholder="Search Quick Picks"
           fullWidth
           value={searchTerm}
           onChange={(event: ChangeEvent<HTMLInputElement>) => {
