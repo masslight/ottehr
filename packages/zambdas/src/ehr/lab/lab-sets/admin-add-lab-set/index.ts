@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
-import { AdminAddLabSetOutput, LAB_LIST_CODE_CODING, LabSetDTO, LabType } from 'utils';
+import { AdminAddLabSetOutput, LabSetDTO } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
-import { formatListEntry } from '../../shared/helpers';
+import { configFhirListForLabSet } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -31,18 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function createLabSet(labSet: LabSetDTO, oystehr: Oystehr): Promise<AdminAddLabSetOutput> {
   console.log('configuring the list resource for the new lab set');
 
-  const entry = formatListEntry(labSet);
-
-  const labSetList: List = {
-    resourceType: 'List',
-    status: 'current',
-    mode: 'working',
-    title: labSet.listName,
-    code: {
-      coding: [labSet.listType === LabType.inHouse ? LAB_LIST_CODE_CODING.inHouse : LAB_LIST_CODE_CODING.external],
-    },
-    entry,
-  };
+  const labSetList = configFhirListForLabSet(labSet);
 
   console.log('sending request to fhir to create the list');
 

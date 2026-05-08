@@ -18,6 +18,7 @@ import {
   DR_UNSOLICITED_PATIENT_REF,
   getLabListStatus,
   getLabListType,
+  LAB_LIST_CODE_CODING,
   LAB_LIST_IDENTIFIER_SYSTEM,
   LAB_LIST_IN_HOUSE_ITEM_IDENTIFIER_SYSTEM,
   LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL,
@@ -176,6 +177,23 @@ const getLabListEntryFieldFromExtension = (
   }
 
   return fieldValue;
+};
+
+export const configFhirListForLabSet = (labSet: LabSetDTO): List => {
+  const entry = formatListEntry(labSet);
+
+  const labSetList: List = {
+    resourceType: 'List',
+    status: 'current',
+    mode: 'working',
+    title: labSet.listName,
+    code: {
+      coding: [labSet.listType === LabType.inHouse ? LAB_LIST_CODE_CODING.inHouse : LAB_LIST_CODE_CODING.external],
+    },
+    entry,
+  };
+
+  return labSetList;
 };
 
 export const formatListEntry = (labSet: LabSetDTO): ListEntry[] => {

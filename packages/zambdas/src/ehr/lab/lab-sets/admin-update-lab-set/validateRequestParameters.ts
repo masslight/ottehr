@@ -1,9 +1,7 @@
 import {
   AdminUpdateLabSetInput,
-  AdminUpdateLabSetStatus,
   INVALID_INPUT_ERROR,
   isValidUUID,
-  LabSetDTO,
   LabSetDTOSchema,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
@@ -16,7 +14,7 @@ type BaseContext = {
   userToken: string;
 };
 
-type ValidatedRequest = BaseContext & (AdminUpdateLabSetStatus | { updateType: 'edit'; data: LabSetDTO });
+type ValidatedRequest = BaseContext & AdminUpdateLabSetInput;
 
 export function validateRequestParameters(input: ZambdaInput): ValidatedRequest {
   if (!input.body) {
