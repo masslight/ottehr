@@ -488,6 +488,7 @@ export default function QuickPicksAdminPage(): ReactElement {
                 required: true,
                 placeholder: 'Full instruction text…',
                 multiline: true,
+                rows: 6,
               },
             ]}
             editable={true}
