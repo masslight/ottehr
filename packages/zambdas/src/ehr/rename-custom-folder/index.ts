@@ -145,7 +145,12 @@ const performEffect = async (
           resourceType: 'List',
           params: [{ name: 'identifier', value: CUSTOM_FOLDERS_CATALOG_IDENTIFIER }],
         });
-        currentCatalog = refetched.unbundle()[0];
+        const refetchedCatalog = refetched.unbundle()[0] as List | undefined;
+        if (!refetchedCatalog) {
+          console.error('rename-custom-folder: catalog disappeared during optimistic-lock retry');
+          throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No custom folders catalog found`);
+        }
+        currentCatalog = refetchedCatalog;
       } else {
         console.error(
           `rename-custom-folder: catalog update failed on attempt ${attempt}:`,
