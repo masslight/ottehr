@@ -71,6 +71,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const resolvedInternalName =
     internalName ??
     (fileFolderId?.startsWith(SYNTHETIC_PREFIX) ? fileFolderId.slice(SYNTHETIC_PREFIX.length) : undefined);
+  if (isSyntheticFolderId && (typeof resolvedInternalName !== 'string' || resolvedInternalName.length === 0)) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        error: 'internalName is required (non-empty string) when fileFolderId is a synthetic folder id',
+      }),
+    };
+  }
   if (!documentsFolder && resolvedInternalName) {
     logIt(`per-patient List missing for "${resolvedInternalName}" — looking up / creating lazily`);
     documentsFolder = await findOrCreatePatientCustomFolderList({
