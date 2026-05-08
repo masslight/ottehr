@@ -143,9 +143,7 @@ steps:
       - --platform=managed
       - --service-account=${_CLOUD_RUN_SA}
       - --port=8080
-      - --update-secrets=/app/packages/zambdas/.env/zambda-secrets-staging.json=${_SECRET_ZAMBDA}:latest
-      - --set-env-vars=ENV=staging
-      - --quiet
-      - --allow-unauthenticated
+      - --update-secrets=/app/packages/zambdas/.env/zambda-secrets-${_VITE_MODE}.json=${_SECRET_ZAMBDA}:latest
+      - --set-env-vars=ENV=${_VITE_MODE}
       - --quiet
       - --allow-unauthenticated
