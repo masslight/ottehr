@@ -12,18 +12,21 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { Address, ChargeItemDefinition, Identifier, Organization } from 'fhir/r4b';
+import { useQuery } from '@tanstack/react-query';
+import { Address, ChargeItemDefinition, Identifier, List, Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { BILLING_URL, CHARGE_MASTERS_URL, FEE_SCHEDULES_URL, INSURANCES_URL } from 'src/App';
+import { Link, useParams } from 'react-router-dom';
+import { BILLING_URL, CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
 import { useListChargeMastersQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
 import { useListFeeSchedulesQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
-import { CASE_RATE_CODE, FHIR_EXTENSION, INSURANCE_SETTINGS_MAP, RCM_TAG_SYSTEM } from 'utils';
-import { useInsuranceMutation, useInsuranceOrganizationsQuery, useInsurancesQuery } from './admin.queries';
+import { CASE_RATE_CODE, FHIR_EXTENSION, getPayerId, getPayerUrl, INSURANCE_SETTINGS_MAP, RCM_TAG_SYSTEM } from 'utils';
+import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { useInsuranceMutation, useInsurancesQuery } from './admin.queries';
 
 // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
 // const INSURANCE_SETTINGS_CHECKBOXES: Array<
@@ -62,10 +65,9 @@ type InsuranceForm = Omit<InsuranceData, 'id' | 'active'>;
 
 export default function EditInsurance(): JSX.Element {
   const theme = useTheme();
-  const navigate = useNavigate();
+  const { oystehrZambda } = useApiClients();
   const { insurance: insuranceIdParam } = useParams();
-  const isNew = insuranceIdParam === 'new';
-  const insuranceId = isNew ? undefined : insuranceIdParam;
+  const insuranceId = insuranceIdParam;
   const [error, setError] = useState('');
   const didSetInsuranceDetailsForm = useRef(false);
 
@@ -79,19 +81,45 @@ export default function EditInsurance(): JSX.Element {
     },
   });
 
-  // CW TODO: i don't think you should be able to change the field this is populating... it's the insurance you're editing!
-  const { isFetching: insuranceOrgsFetching, data: insuranceOrgsData } = useInsuranceOrganizationsQuery();
-  const insurancePayorOrgs: PayorOrg[] = insuranceOrgsData?.map((org) => ({ name: org.name, id: org.id })) || [
-    { id: '', name: '' },
-  ];
-
   const {
     data: insuranceData,
     isFetching: insuranceDataLoading,
     refetch: refetchInsuranceData,
   } = useInsurancesQuery(insuranceId, insuranceId !== undefined);
-  const insuranceDetails = isNew ? undefined : insuranceData?.[0];
+  const insuranceDetails = insuranceData?.[0];
   const isActive = insuranceDetails?.active ?? true;
+  const payerId = getPayerId(insuranceDetails) ?? ''; // CW TODO: default
+
+  const { data: patientInsuranceOverrideList, refetch: refetchPatientOverrideList } = useQuery({
+    queryKey: ['insurance-override-list'],
+    queryFn: async () => {
+      if (!oystehrZambda) return undefined;
+      const result = await oystehrZambda.zambda.execute({
+        id: 'get-insurance-override-list',
+        listName: 'patient',
+      });
+      return result.output as List;
+    },
+    enabled: !!oystehrZambda,
+  });
+  const nameOverride = patientInsuranceOverrideList?.entry
+    ?.find((e) => e.item.reference === getPayerUrl(payerId))
+    ?.extension?.find((ext) => ext.url === ottehrExtensionUrl('insurance-override-name'))?.valueString;
+  const { data: ehrInsuranceOverrideList, refetch: refetchEhrOverrideList } = useQuery({
+    queryKey: ['insurance-override-list'],
+    queryFn: async () => {
+      if (!oystehrZambda) return undefined;
+      const result = await oystehrZambda.zambda.execute({
+        id: 'get-insurance-override-list',
+        listName: 'ehr',
+      });
+      return result.output as List;
+    },
+    enabled: !!oystehrZambda,
+  });
+  const note = ehrInsuranceOverrideList?.entry
+    ?.find((e) => e.item.reference === getPayerUrl(payerId))
+    ?.extension?.find((ext) => ext.url === ottehrExtensionUrl('insurance-override-note'))?.valueString;
 
   const [payerNameInputValue, setPayerNameInputValue] = useState('');
 
@@ -160,69 +188,44 @@ export default function EditInsurance(): JSX.Element {
     });
 
   if (insuranceDetails && !didSetInsuranceDetailsForm.current) {
-    const alias = insuranceDetails.alias?.[0];
-
     reset({
       payor: insuranceDetails,
-      displayName: alias || insuranceDetails.name,
-      notes: insuranceDetails.extension?.find((ext) => ext.url === FHIR_EXTENSION.InsurancePlan.notes.url)?.valueString,
+      displayName: nameOverride ?? insuranceDetails.name,
+      notes: note,
       // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
       // ...settingsMap,
     });
     didSetInsuranceDetailsForm.current = true;
   }
 
-  const { mutateAsync: mutateInsurance, isPending: mutationPending } = useInsuranceMutation(insuranceDetails);
+  const { mutateAsync: mutateInsurance, isPending: mutationPending } = useInsuranceMutation(payerId);
 
-  const onSubmit = async (event: any): Promise<void> => {
+  const onSubmit = async (newStatus?: boolean): Promise<void> => {
     setError('');
-    event.preventDefault();
     const formData = getValues();
-    const insurance = insuranceOrgsData?.find((org) => org.id === formData.payor?.id);
-    const data: InsuranceData = {
-      id: insuranceId,
-      active: insuranceDetails?.active ?? true,
-      ...formData,
-      identifier: insurance?.identifier,
-      address: insurance?.address,
-    };
-    const submitSnackbarText = isNew
-      ? `${data.displayName} was successfully created`
-      : `${data.displayName} was updated successfully`;
+    const submitSnackbarText = `${formData.displayName} was updated successfully`;
 
     try {
-      const mutateResp = await mutateInsurance(data);
+      await mutateInsurance({
+        existingName: nameOverride,
+        name: formData.displayName,
+        existingNote: note,
+        note: formData.notes,
+        showInPaperwork: newStatus ?? isActive,
+      });
       enqueueSnackbar(`${submitSnackbarText}`, {
         variant: 'success',
       });
-      const mutateInsuranceId = mutateResp.id ? mutateResp.id : '';
-      navigate(INSURANCES_URL + `/${mutateInsuranceId}`);
-    } catch {
-      const submitErrorString = 'Error trying to save insurance configuration. Please, try again';
-      setError(`${submitErrorString}`);
-      enqueueSnackbar(`${submitErrorString}`, {
-        variant: 'error',
-      });
-    }
-  };
-
-  const handleStatusChange = async (newStatus: InsuranceData['active']): Promise<void> => {
-    try {
-      await mutateInsurance({
-        id: insuranceId,
-        payor: insuranceDetails,
-        displayName: insuranceDetails?.alias?.[0] || insuranceDetails?.name || '',
-        ...settingsMap,
-        active: newStatus,
-      });
+      void refetchPatientOverrideList();
+      void refetchEhrOverrideList();
       await refetchInsuranceData();
       enqueueSnackbar(`${insuranceDetails!.name || 'Insurance'} status was updated successfully`, {
         variant: 'success',
       });
     } catch {
-      const statusErrorString = 'Error trying to change insurance configuration status. Please, try again';
-      setError(`${statusErrorString}`);
-      enqueueSnackbar(`${statusErrorString}`, {
+      const submitErrorString = 'Error trying to save insurance configuration. Please, try again';
+      setError(`${submitErrorString}`);
+      enqueueSnackbar(`${submitErrorString}`, {
         variant: 'error',
       });
     }
@@ -239,13 +242,7 @@ export default function EditInsurance(): JSX.Element {
               { link: `${BILLING_URL}/insurance`, children: 'Insurance' },
               {
                 link: '#',
-                children: isNew ? (
-                  'New insurance'
-                ) : insuranceDataLoading ? (
-                  <Skeleton width={150} />
-                ) : (
-                  insuranceDetails?.name || ''
-                ),
+                children: insuranceDataLoading ? <Skeleton width={150} /> : insuranceDetails?.name || '',
               },
             ]}
           />
@@ -256,7 +253,7 @@ export default function EditInsurance(): JSX.Element {
             marginBottom={2}
             sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', fontWeight: '600 !important' }}
           >
-            {insuranceDataLoading ? <Skeleton width={250} /> : insuranceDetails?.name || (isNew ? 'New' : '')}
+            {insuranceDataLoading ? <Skeleton width={250} /> : insuranceDetails?.name || ''}
           </Typography>
           {insuranceId && insuranceDataLoading ? (
             <Skeleton height={550} sx={{ marginY: -5 }} />
@@ -264,7 +261,12 @@ export default function EditInsurance(): JSX.Element {
             <Paper sx={{ padding: 3 }}>
               {/* Breadcrumbs */}
 
-              <form onSubmit={onSubmit}>
+              <form
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  await onSubmit();
+                }}
+              >
                 <FormLabel
                   sx={{
                     ...theme.typography.h4,
@@ -279,22 +281,19 @@ export default function EditInsurance(): JSX.Element {
                 <Controller
                   name="payor"
                   control={control}
-                  render={({ field: { onChange, value } }) => {
+                  render={({ field: { value } }) => {
                     return (
                       <Autocomplete
                         value={value || null}
-                        disabled={insuranceOrgsFetching}
+                        disabled
                         getOptionLabel={(option) => option.name || ''}
-                        loading={insuranceOrgsFetching}
+                        loading={insuranceDataLoading}
                         isOptionEqualToValue={(option, value) => {
                           return option.id === value.id;
                         }}
-                        onChange={(_, newValue) => {
-                          onChange(newValue as PayorOrg);
-                        }}
                         inputValue={payerNameInputValue}
                         onInputChange={(_, newValue) => setPayerNameInputValue(newValue)}
-                        options={insurancePayorOrgs}
+                        options={[{ id: insuranceDetails?.id, name: insuranceDetails?.name }]}
                         renderOption={(props, option) => {
                           return (
                             <li {...props} key={option.id}>
@@ -420,12 +419,12 @@ export default function EditInsurance(): JSX.Element {
             ) : (
               <Paper sx={{ padding: 3, marginTop: 3 }}>
                 <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-                  {isActive ? 'Deactivate insurance' : 'Activate insurance'}
+                  {isActive ? 'Hide insurance from patients' : 'Show insurance to patients'}
                 </Typography>
                 <Typography variant="body1" marginTop={1}>
                   {isActive
-                    ? 'When you deactivate this insurance, patients will not be able to select it.'
-                    : 'Activate this license.'}
+                    ? 'When you hide this insurance, patients will not be able to select it.'
+                    : 'Show this insurance to patients.'}
                 </Typography>
 
                 <LoadingButton
@@ -439,155 +438,154 @@ export default function EditInsurance(): JSX.Element {
                     marginRight: 1,
                   }}
                   loading={mutationPending}
-                  onClick={() => handleStatusChange(!isActive)}
+                  onClick={async (event) => {
+                    event.preventDefault();
+                    await onSubmit(!isActive);
+                  }}
                 >
-                  {isActive ? 'Deactivate' : 'Activate'}
+                  {isActive ? 'Hide' : 'Show'}
                 </LoadingButton>
               </Paper>
             ))}
-          {!isNew && (
-            <Paper sx={{ padding: 3, marginTop: 3 }}>
-              <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-                Applicable Fee Schedule
+          <Paper sx={{ padding: 3, marginTop: 3 }}>
+            <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+              Applicable Fee Schedule
+            </Typography>
+            <Typography variant="body1" marginTop={1}>
+              The most recent fee schedule associated with this payer with an effective date on or before today.
+            </Typography>
+            {feeSchedulesFetching ? (
+              <Skeleton height={80} sx={{ marginTop: -1 }} />
+            ) : !applicableFeeSchedule ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                No applicable fee schedule found for this insurance.
               </Typography>
-              <Typography variant="body1" marginTop={1}>
-                The most recent fee schedule associated with this payer with an effective date on or before today.
-              </Typography>
-              {feeSchedulesFetching ? (
-                <Skeleton height={80} sx={{ marginTop: -1 }} />
-              ) : !applicableFeeSchedule ? (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                  No applicable fee schedule found for this insurance.
-                </Typography>
-              ) : (
-                <Box
-                  sx={{
-                    mt: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    p: 1.5,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                  }}
-                >
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {applicableFeeSchedule.title}
-                      </Typography>
-                      {applicableFeeSchedule.meta?.tag?.some(
-                        (t) => t.system === RCM_TAG_SYSTEM && t.code === CASE_RATE_CODE
-                      ) ? (
-                        <Chip
-                          label="Case Rate"
-                          size="small"
-                          sx={{
-                            fontSize: '0.65rem',
-                            height: 20,
-                            backgroundColor: '#E65100',
-                            color: '#fff',
-                          }}
-                        />
-                      ) : (
-                        <Chip
-                          label="Fee-for-Service"
-                          size="small"
-                          variant="outlined"
-                          sx={{
-                            fontSize: '0.65rem',
-                            height: 20,
-                            borderColor: '#2E7D32',
-                            color: '#2E7D32',
-                          }}
-                        />
-                      )}
-                    </Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Effective: {applicableFeeSchedule.date ?? 'N/A'} ·{' '}
-                      {applicableFeeSchedule.propertyGroup?.length ?? 0} procedure codes
+            ) : (
+              <Box
+                sx={{
+                  mt: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  p: 1.5,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                }}
+              >
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {applicableFeeSchedule.title}
                     </Typography>
-                  </Box>
-                  <Link to={`${FEE_SCHEDULES_URL}/${applicableFeeSchedule.id}`}>
-                    <Button size="small" sx={{ textTransform: 'none' }}>
-                      View
-                    </Button>
-                  </Link>
-                </Box>
-              )}
-            </Paper>
-          )}
-          {!isNew && (
-            <Paper sx={{ padding: 3, marginTop: 3 }}>
-              <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-                Applicable Charge Master
-              </Typography>
-              <Typography variant="body1" marginTop={1}>
-                The most recent charge master applicable to this payer, resolved by payer association then designation
-                fallback.
-              </Typography>
-              {chargeMastersFetching ? (
-                <Skeleton height={80} sx={{ marginTop: -1 }} />
-              ) : !applicableChargeMaster.chargeMaster ? (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                  No applicable charge master found for this insurance.
-                </Typography>
-              ) : (
-                <Box
-                  sx={{
-                    mt: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    p: 1.5,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                  }}
-                >
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {applicableChargeMaster.chargeMaster.title}
-                      </Typography>
+                    {applicableFeeSchedule.meta?.tag?.some(
+                      (t) => t.system === RCM_TAG_SYSTEM && t.code === CASE_RATE_CODE
+                    ) ? (
                       <Chip
-                        label={
-                          applicableChargeMaster.source === 'payer-specific'
-                            ? 'Payer-Specific'
-                            : applicableChargeMaster.source === 'default-insurance'
-                            ? 'Default Insurance'
-                            : 'Self-Pay'
-                        }
+                        label="Case Rate"
                         size="small"
                         sx={{
                           fontSize: '0.65rem',
                           height: 20,
-                          ...(applicableChargeMaster.source === 'payer-specific'
-                            ? {}
-                            : applicableChargeMaster.source === 'default-insurance'
-                            ? { backgroundColor: '#6A1B9A', color: '#fff' }
-                            : { backgroundColor: '#E91E90', color: '#fff' }),
+                          backgroundColor: '#E65100',
+                          color: '#fff',
                         }}
-                        {...(applicableChargeMaster.source === 'payer-specific'
-                          ? { color: 'primary', variant: 'outlined' }
-                          : {})}
                       />
-                    </Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Effective: {applicableChargeMaster.chargeMaster.date ?? 'N/A'} ·{' '}
-                      {applicableChargeMaster.chargeMaster.propertyGroup?.length ?? 0} procedure codes
-                    </Typography>
+                    ) : (
+                      <Chip
+                        label="Fee-for-Service"
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          fontSize: '0.65rem',
+                          height: 20,
+                          borderColor: '#2E7D32',
+                          color: '#2E7D32',
+                        }}
+                      />
+                    )}
                   </Box>
-                  <Link to={`${CHARGE_MASTERS_URL}/${applicableChargeMaster.chargeMaster.id}`}>
-                    <Button size="small" sx={{ textTransform: 'none' }}>
-                      View
-                    </Button>
-                  </Link>
+                  <Typography variant="caption" color="text.secondary">
+                    Effective: {applicableFeeSchedule.date ?? 'N/A'} ·{' '}
+                    {applicableFeeSchedule.propertyGroup?.length ?? 0} procedure codes
+                  </Typography>
                 </Box>
-              )}
-            </Paper>
-          )}
+                <Link to={`${FEE_SCHEDULES_URL}/${applicableFeeSchedule.id}`}>
+                  <Button size="small" sx={{ textTransform: 'none' }}>
+                    View
+                  </Button>
+                </Link>
+              </Box>
+            )}
+          </Paper>
+          <Paper sx={{ padding: 3, marginTop: 3 }}>
+            <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+              Applicable Charge Master
+            </Typography>
+            <Typography variant="body1" marginTop={1}>
+              The most recent charge master applicable to this payer, resolved by payer association then designation
+              fallback.
+            </Typography>
+            {chargeMastersFetching ? (
+              <Skeleton height={80} sx={{ marginTop: -1 }} />
+            ) : !applicableChargeMaster.chargeMaster ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                No applicable charge master found for this insurance.
+              </Typography>
+            ) : (
+              <Box
+                sx={{
+                  mt: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  p: 1.5,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                }}
+              >
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {applicableChargeMaster.chargeMaster.title}
+                    </Typography>
+                    <Chip
+                      label={
+                        applicableChargeMaster.source === 'payer-specific'
+                          ? 'Payer-Specific'
+                          : applicableChargeMaster.source === 'default-insurance'
+                          ? 'Default Insurance'
+                          : 'Self-Pay'
+                      }
+                      size="small"
+                      sx={{
+                        fontSize: '0.65rem',
+                        height: 20,
+                        ...(applicableChargeMaster.source === 'payer-specific'
+                          ? {}
+                          : applicableChargeMaster.source === 'default-insurance'
+                          ? { backgroundColor: '#6A1B9A', color: '#fff' }
+                          : { backgroundColor: '#E91E90', color: '#fff' }),
+                      }}
+                      {...(applicableChargeMaster.source === 'payer-specific'
+                        ? { color: 'primary', variant: 'outlined' }
+                        : {})}
+                    />
+                  </Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Effective: {applicableChargeMaster.chargeMaster.date ?? 'N/A'} ·{' '}
+                    {applicableChargeMaster.chargeMaster.propertyGroup?.length ?? 0} procedure codes
+                  </Typography>
+                </Box>
+                <Link to={`${CHARGE_MASTERS_URL}/${applicableChargeMaster.chargeMaster.id}`}>
+                  <Button size="small" sx={{ textTransform: 'none' }}>
+                    View
+                  </Button>
+                </Link>
+              </Box>
+            )}
+          </Paper>
         </Grid>
       </Grid>
     </PageContainer>
