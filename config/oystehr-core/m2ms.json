@@ -62,7 +62,8 @@
             "Z3:#{var/PROJECT_ID}-labs/*",
             "Z3:#{var/PROJECT_ID}-statements/*",
             "Z3:#{var/PROJECT_ID}-legacy-data/*",
-            "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*"
+            "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*",
+            "Z3:#{var/PROJECT_ID}-patient-docs-custom-folders/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject", "Z3:DeleteObject", "Z3:ListObjects"],
           "effect": "Allow"
@@ -70,16 +71,6 @@
         {
           "resource": ["Z3:#{var/PROJECT_ID}-school-work-notes/*"],
           "action": ["Z3:DeleteObject"],
-          "effect": "Allow"
-        },
-        {
-          "resource": ["Z3:*"],
-          "action": ["Z3:CreateBucket"],
-          "effect": "Allow"
-        },
-        {
-          "resource": ["Z3:*"],
-          "action": ["Z3:PutObject", "Z3:GetObject", "Z3:DeleteObject", "Z3:ListObjects"],
           "effect": "Allow"
         },
         {
