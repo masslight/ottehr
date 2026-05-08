@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
+import { getSecret, SAFE_FOLDER_PATH_SEGMENT_REGEX, Secrets, SecretsKeys } from 'utils';
 
 type Z3UrlAudioInput = {
   secrets: Secrets | null;
@@ -37,6 +37,9 @@ export const makeZ3FileUrl = (input: Z3UrlAudioInput): string => {
 
 export const makeZ3Url = (input: Z3UrlInput): string => {
   const { secrets, bucketName, patientID, folderName } = input;
+  if (folderName !== undefined && !SAFE_FOLDER_PATH_SEGMENT_REGEX.test(folderName)) {
+    throw new Error(`Invalid folderName for Z3 path: ${JSON.stringify(folderName)}`);
+  }
   const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const dateTimeNow = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
   let resolvedFileName: string;

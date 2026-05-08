@@ -101,6 +101,11 @@ export const deriveInternalFolderName = (displayName: string): string => {
   return `${CUSTOM_FOLDER_INTERNAL_NAME_PREFIX}${slug}`;
 };
 
+// Folder identifier values become path segments in Z3 object keys, so they must
+// not contain separators, traversal, or other shell-meaningful characters. This
+// pattern is a superset of what `deriveInternalFolderName` produces.
+export const SAFE_FOLDER_PATH_SEGMENT_REGEX = /^[a-zA-Z0-9_-]+$/;
+
 export const parseCustomFoldersCatalog = (catalogList: List | undefined): CustomFolderDefinition[] => {
   if (!catalogList?.entry) return [];
   return catalogList.entry
