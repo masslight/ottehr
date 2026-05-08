@@ -7,7 +7,6 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FolderNameDialog } from 'src/features/visits/shared/components/patient/docs/FolderNameDialog';
 import {
   PatientDocumentFoldersColumn,
   PatientDocumentFoldersColumnSkeleton,
@@ -17,13 +16,12 @@ import {
   PatientDocumentsExplorerTable,
 } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
-import { FOLDERS_CONFIG, getFullName, RoleType } from 'utils';
+import { getFullName } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch, { CustomFormEventHandler } from '../components/DateSearch';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { RoundedButton } from '../components/RoundedButton';
 import { ScannerModal } from '../components/ScannerModal';
-import useEvolveUser from '../hooks/useEvolveUser';
 import { useGetPatient } from '../hooks/useGetPatient';
 import {
   PatientDocumentsFilters,
@@ -45,16 +43,11 @@ const FileAttachmentHiddenInput = styled('input')({
   width: 1,
 });
 
-type DialogState = { mode: 'create' } | { mode: 'rename'; folder: PatientDocumentsFolder } | null;
-
 const PatientDocumentsExplorerPage: FC = () => {
   const theme = useTheme();
 
   const { id: patientId } = useParams();
   const navigate = useNavigate();
-
-  const evolveUser = useEvolveUser();
-  const canManageFolders = !!evolveUser?.hasRole([RoleType.Administrator]);
 
   const { patient, loading: isLoadingPatientData } = useGetPatient(patientId);
   useEffect(() => {
@@ -73,7 +66,6 @@ const PatientDocumentsExplorerPage: FC = () => {
     downloadDocument,
     renameDocument,
     documentActions,
-    folderActions,
   } = useGetPatientDocs(patientId!);
 
   const [searchDocNameFieldValue, setSearchDocNameFieldValue] = useState<string>('');
@@ -81,7 +73,6 @@ const PatientDocumentsExplorerPage: FC = () => {
   const [searchDocAddedDate, setSearchDocAddedDate] = useState<DateTime | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>(undefined);
   const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
-  const [dialogState, setDialogState] = useState<DialogState>(null);
   const [pendingSelectInternalName, setPendingSelectInternalName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -277,23 +268,6 @@ const PatientDocumentsExplorerPage: FC = () => {
     };
   }, [documentActions.deleteDocumentAction, downloadDocument, renameDocument]);
 
-  const allFolderDisplayNames = [
-    ...FOLDERS_CONFIG.map((f) => f.display),
-    ...documentsFolders.filter((f) => f.isCustom).map((f) => f.folderName),
-  ];
-
-  const handleCreateFolderSubmit = async (name: string): Promise<void> => {
-    const created = await folderActions.createFolder(name);
-    setPendingSelectInternalName(created.internalName);
-    setDialogState(null);
-  };
-
-  const handleRenameFolderSubmit = async (name: string): Promise<void> => {
-    if (dialogState?.mode !== 'rename') return;
-    const internalName = dialogState.folder.internalName ?? dialogState.folder.folderName;
-    await folderActions.renameFolder(internalName, name);
-  };
-
   if (isLoadingPatientData) return <LoadingScreen />;
 
   return (
@@ -406,9 +380,6 @@ const PatientDocumentsExplorerPage: FC = () => {
                       documentsFolders={documentsFolders}
                       selectedFolder={selectedFolder}
                       onFolderSelected={handleFolderSelected}
-                      canManageFolders={canManageFolders}
-                      onCreateFolderClick={() => setDialogState({ mode: 'create' })}
-                      onRenameFolderClick={(folder) => setDialogState({ mode: 'rename', folder })}
                     />
                   )}
                 </Box>
@@ -464,15 +435,6 @@ const PatientDocumentsExplorerPage: FC = () => {
       </Box>
 
       <ScannerModal open={isScanModalOpen} onClose={handleCloseScanModal} onScanComplete={handleScanComplete} />
-
-      <FolderNameDialog
-        open={dialogState !== null}
-        mode={dialogState?.mode ?? 'create'}
-        initialName={dialogState?.mode === 'rename' ? dialogState.folder.folderName : ''}
-        existingNames={allFolderDisplayNames}
-        onSubmit={dialogState?.mode === 'rename' ? handleRenameFolderSubmit : handleCreateFolderSubmit}
-        onClose={() => setDialogState(null)}
-      />
     </Box>
   );
 };

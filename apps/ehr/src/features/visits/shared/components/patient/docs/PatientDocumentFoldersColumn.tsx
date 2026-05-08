@@ -1,17 +1,6 @@
-import CreateNewFolderOutlinedIcon from '@mui/icons-material/CreateNewFolderOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
-import {
-  IconButton,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Skeleton,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { List, ListItemButton, ListItemIcon, ListItemText, Skeleton, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { PatientDocumentsFolder } from 'src/hooks/useGetPatientDocs';
 
@@ -19,51 +8,21 @@ export type PatientDocumentFoldersColumnProps = {
   documentsFolders: PatientDocumentsFolder[];
   selectedFolder?: PatientDocumentsFolder;
   onFolderSelected?: (selectedFolder: PatientDocumentsFolder) => void;
-  canManageFolders?: boolean;
-  onCreateFolderClick?: () => void;
-  onRenameFolderClick?: (folder: PatientDocumentsFolder) => void;
 };
 
 export const PatientDocumentFoldersColumn: FC<PatientDocumentFoldersColumnProps> = (props) => {
-  const {
-    documentsFolders,
-    selectedFolder,
-    onFolderSelected,
-    canManageFolders = false,
-    onCreateFolderClick,
-    onRenameFolderClick,
-  } = props;
+  const { documentsFolders, selectedFolder, onFolderSelected } = props;
 
   const theme = useTheme();
 
-  const selectedIndex = documentsFolders
-    .slice()
-    .sort((a, b) => a.folderName.localeCompare(b.folderName))
-    .findIndex((folder) => folder.id === selectedFolder?.id || folder.folderName === selectedFolder?.folderName);
-
   const sortedFolders = documentsFolders.slice().sort((a, b) => a.folderName.localeCompare(b.folderName));
+
+  const selectedIndex = sortedFolders.findIndex(
+    (folder) => folder.id === selectedFolder?.id || folder.folderName === selectedFolder?.folderName
+  );
 
   return (
     <List>
-      {canManageFolders && (
-        <ListItemButton
-          onClick={onCreateFolderClick}
-          sx={{
-            borderRadius: 3,
-            py: 0.5,
-            marginX: 2,
-            '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.05)' },
-          }}
-        >
-          <ListItemIcon sx={{ color: theme.palette.primary.main }}>
-            <CreateNewFolderOutlinedIcon />
-          </ListItemIcon>
-          <ListItemText
-            primary={<Typography sx={{ color: theme.palette.primary.main, fontWeight: '500' }}>New Folder</Typography>}
-          />
-        </ListItemButton>
-      )}
-
       {sortedFolders.map((folder, index) => (
         <ListItemButton
           key={`${folder.folderName}__${index}`}
@@ -73,17 +32,10 @@ export const PatientDocumentFoldersColumn: FC<PatientDocumentFoldersColumnProps>
             borderRadius: 3,
             py: 0.5,
             marginX: 2,
-            '&:hover': {
-              backgroundColor: 'rgba(0, 0, 0, 0.05)',
-              '& .folder-rename-button': { opacity: 1 },
-            },
+            '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.05)' },
           }}
         >
-          <ListItemIcon
-            sx={{
-              color: folder.isCustom ? theme.palette.primary.dark : theme.palette.primary.main,
-            }}
-          >
+          <ListItemIcon sx={{ color: theme.palette.primary.main }}>
             {selectedIndex === index ? <FolderOpenOutlinedIcon /> : <FolderOutlinedIcon />}
           </ListItemIcon>
           <ListItemText
@@ -98,25 +50,6 @@ export const PatientDocumentFoldersColumn: FC<PatientDocumentFoldersColumnProps>
               </Typography>
             }
           />
-          {folder.isCustom && canManageFolders && (
-            <IconButton
-              size="small"
-              className="folder-rename-button"
-              sx={{
-                ml: 'auto',
-                color: theme.palette.primary.main,
-                opacity: 0,
-                transition: 'opacity 0.15s ease-in-out',
-                '&:focus-visible': { opacity: 1 },
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onRenameFolderClick?.(folder);
-              }}
-            >
-              <EditOutlinedIcon fontSize="medium" />
-            </IconButton>
-          )}
         </ListItemButton>
       ))}
     </List>
