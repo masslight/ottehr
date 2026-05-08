@@ -5,14 +5,7 @@ import {
   ErxSearchAllergensResponse,
   ErxSearchMedicationsResponse,
 } from '@oystehr/sdk';
-import {
-  keepPreviousData,
-  useMutation,
-  UseMutationResult,
-  useQueries,
-  useQuery,
-  UseQueryResult,
-} from '@tanstack/react-query';
+import { keepPreviousData, useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Bundle, Coding, FhirResource, InsurancePlan, Medication, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -651,44 +644,27 @@ export const useGetPatientInstructions = (
   const apiClient = useOystehrAPIClient();
   const { oystehrZambda } = useApiClients();
 
-  const queryResult = useQueries({
-    queries: [
-      {
-        queryKey: ['telemed-get-patient-instructions', type],
-        queryFn: () => {
-          if (!apiClient) {
-            throw new Error('api client not defined');
-          }
-          return apiClient.getPatientInstructions({ type });
-        },
-        enabled: !!apiClient && type === 'provider',
-      },
-      {
-        queryKey: ['practice-patient-instruction-quick-picks'],
-        queryFn: async () => {
-          if (!oystehrZambda) {
-            throw new Error('oystehrZambda not defined');
-          }
-          const response = await getPatientInstructionQuickPicks(oystehrZambda);
-          return response.quickPicks.map<CommunicationDTO>((quickPick) => {
-            return {
-              title: quickPick.name,
-              text: quickPick.text,
-            };
-          });
-        },
-        enabled: !!oystehrZambda && type === 'organization',
-      },
-    ],
-    combine: (results) => {
-      return {
-        data: [...(results[0].data ?? []), ...(results[1].data ?? [])].sort((a, b) =>
-          (a.title ?? 'z').localeCompare(b.title ?? 'z')
-        ),
-        isFetching: results.some((result) => result.isFetching),
-        isError: results.some((result) => result.isError),
-      };
+  const queryResult = useQuery({
+    queryKey: ['telemed-get-patient-instructions', type],
+    queryFn: async () => {
+      if (!apiClient) {
+        throw new Error('api client not defined');
+      }
+      if (!oystehrZambda) {
+        throw new Error('oystehrZambda not defined');
+      }
+      if (type === 'provider') {
+        return apiClient.getPatientInstructions({ type });
+      }
+      const quickPicksResponse = await getPatientInstructionQuickPicks(oystehrZambda);
+      return quickPicksResponse.quickPicks.map<CommunicationDTO>((quickPick) => {
+        return {
+          title: quickPick.name,
+          text: quickPick.text,
+        };
+      });
     },
+    enabled: !!apiClient && !!oystehrZambda,
   });
 
   useSuccessQuery(queryResult.data, onSuccess);

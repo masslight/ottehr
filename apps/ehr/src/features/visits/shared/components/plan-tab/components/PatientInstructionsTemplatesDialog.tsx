@@ -38,7 +38,7 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
   const [searchTerm, setSearchTerm] = useState<string>('');
   const { isFetching } = useGetPatientInstructions({ type }, (data) => {
     if (!data) return;
-    setPatientInstructions(data);
+    setPatientInstructions(data.sort((a, b) => (a.title ?? 'z').localeCompare(b.title ?? 'z')));
   });
   const isMyTemplates = type === 'provider';
   const { mutate, isPending: isDeleting } = useDeletePatientInstruction();
