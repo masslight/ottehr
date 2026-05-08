@@ -24,7 +24,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Markdown as TiptapMarkdown } from '@tiptap/markdown';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { Appointment, ChargeItemDefinition, DocumentReference, Encounter, Organization, Patient } from 'fhir/r4b';
+import { Appointment, ChargeItemDefinition, DocumentReference, Encounter, List, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, Fragment, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
@@ -244,6 +244,18 @@ export default function PatientPaymentList({
     },
     enabled: !!oystehrZambda && !!patient?.id && !!appointment?.id,
   });
+  const { data: insuranceOverrideList } = useQuery({
+    queryKey: ['insurance-override-list'],
+    queryFn: async () => {
+      if (!oystehrZambda) return undefined;
+      const result = await oystehrZambda.zambda.execute({
+        id: 'get-insurance-override-list',
+        listName: 'ehr',
+      });
+      return result.output as List;
+    },
+    enabled: !!oystehrZambda,
+  });
 
   const {
     data: encounter,
@@ -269,10 +281,13 @@ export default function PatientPaymentList({
     extractPayerIdFromUrl(primaryInsurancePayerRef) ?? primaryInsurancePayerRef?.replace('Organization/', '');
   const insuranceOrganization = findOrgMatchingReference(primaryInsurancePayerRef, insuranceCoverages?.insuranceOrgs);
   const insuranceName = insuranceOrganization?.name;
-  // CW TODO: insurance note read here
-  const insuranceNotes = insuranceOrganization?.extension?.find(
+  const insuranceNotesFromOrg = insuranceOrganization?.extension?.find(
     (extensionTemp) => extensionTemp.url === ottehrExtensionUrl('insurance-override-note')
   )?.valueString;
+  const insuranceNotesFromList = insuranceOverrideList?.entry
+    ?.find((e) => e.item.reference === primaryInsurancePayerRef)
+    ?.extension?.find((ext) => ext.url === ottehrExtensionUrl('insurance-override-note'))?.valueString;
+  const insuranceNotes = insuranceNotesFromList ?? insuranceNotesFromOrg;
 
   const employerOrgId = useMemo(() => {
     if (paymentVariant !== PaymentVariant.employer) return undefined;
