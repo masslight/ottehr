@@ -57,6 +57,8 @@ import {
   CreateMedicationHistoryQuickPickInput,
   CreateMedicationHistoryQuickPickResponse,
   CreateNursingOrderInput,
+  CreatePatientInstructionsPdfInput,
+  CreatePatientInstructionsPdfResponse,
   CreateProcedureQuickPickInput,
   CreateProcedureQuickPickResponse,
   CreateRadiologyQuickPickInput,
@@ -264,6 +266,7 @@ const UPLOAD_AUDIO_RECORDING_ZAMBDA_ID = 'upload-audio-recording';
 const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-audio-recording';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
 const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
+const CREATE_PATIENT_INSTRUCTIONS_PDF = 'create-patient-instructions-pdf';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 const VISIT_DETAILS_TO_PDF_ZAMBDA_ID = 'visit-details-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
@@ -1470,6 +1473,22 @@ export const createDischargeSummary = async (
   try {
     const response = await oystehr.zambda.execute({
       id: CREATE_DISCHARGE_SUMMARY,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createPatientInstructionsPdf = async (
+  oystehr: Oystehr,
+  parameters: CreatePatientInstructionsPdfInput
+): Promise<CreatePatientInstructionsPdfResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_PATIENT_INSTRUCTIONS_PDF,
       ...parameters,
     });
     return chooseJson(response);

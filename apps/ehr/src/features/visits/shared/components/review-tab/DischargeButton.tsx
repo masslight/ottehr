@@ -9,12 +9,14 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getInPersonVisitStatus } from 'utils';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
+import { DischargeDocumentsDialog } from './DischargeDocumentsDialog';
 
 export const DischargeButton: FC = () => {
   const { appointment, encounter, appointmentRefetch } = useAppointmentData();
   const { oystehrZambda } = useApiClients();
   const user = useEvolveUser();
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
+  const [dialogOpen, setDialogOpen] = useState<boolean>(false);
 
   const inPersonStatus = useMemo(
     () => appointment && getInPersonVisitStatus(appointment, encounter),
@@ -40,6 +42,7 @@ export const DischargeButton: FC = () => {
       await handleChangeInPersonVisitStatus({ encounterId, updatedStatus: 'discharged' }, oystehrZambda);
       await appointmentRefetch();
       enqueueSnackbar('Patient discharged successfully', { variant: 'success' });
+      setDialogOpen(true);
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
@@ -60,6 +63,7 @@ export const DischargeButton: FC = () => {
       >
         {isAlreadyDischarged ? 'Discharged' : 'Discharge'}
       </RoundedButton>
+      <DischargeDocumentsDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
     </Box>
   );
 };

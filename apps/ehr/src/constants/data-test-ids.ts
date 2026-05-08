@@ -277,6 +277,8 @@ export const dataTestIds = {
     dischargeButton: 'discharge-button',
     sendFaxButton: 'send-fax-button',
     dischargeSummaryButton: 'discharge-summary-button',
+    dischargeDocumentsDialog: 'discharge-documents-dialog',
+    dischargeDocumentsPrintButton: 'discharge-documents-print-button',
     missingCard: 'missing-card',
     missingCardText: 'missing-card-text',
     patientVerificationLink: 'patient-verification-link',
