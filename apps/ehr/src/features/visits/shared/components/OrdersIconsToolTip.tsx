@@ -72,18 +72,24 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
 
   const orderConfigs: OrderToolTipConfig[] = [];
 
+  const withEncounter = (url: string): string => {
+    if (!appointment.encounterId) return url;
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}encounterId=${appointment.encounterId}`;
+  };
+
   if (externalLabOrders?.length) {
     const externalLabOrderConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['External Labs'],
       title: 'External Labs',
-      tableUrl: getExternalLabOrdersUrl(navAppointmentId),
+      tableUrl: withEncounter(getExternalLabOrdersUrl(navAppointmentId)),
       unreadBadge: Boolean(
         externalLabOrders.find((ord) => EXTERNAL_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(ord.orderStatus))
       ),
       orders: externalLabOrders.map((order) => ({
         fhirResourceId: order.serviceRequestId,
         itemDescription: order.testItem,
-        detailPageUrl: getExternalLabOrderEditUrl(navAppointmentId, order.serviceRequestId),
+        detailPageUrl: withEncounter(getExternalLabOrderEditUrl(navAppointmentId, order.serviceRequestId)),
         statusChip: <LabsOrderStatusChip status={order.orderStatus} />,
         unreadBadge: EXTERNAL_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(order.orderStatus),
       })),
@@ -95,14 +101,14 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     const inHouseLabOrderConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['In-House Labs'],
       title: 'In-House Labs',
-      tableUrl: getInHouseLabsUrl(navAppointmentId),
+      tableUrl: withEncounter(getInHouseLabsUrl(navAppointmentId)),
       unreadBadge: Boolean(
         inHouseLabOrders.find((ord) => IN_HOUSE_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(ord.status))
       ),
       orders: inHouseLabOrders.map((order) => ({
         fhirResourceId: order.serviceRequestId,
         itemDescription: order.testItemName,
-        detailPageUrl: getInHouseLabOrderDetailsUrl(navAppointmentId, order.serviceRequestId),
+        detailPageUrl: withEncounter(getInHouseLabOrderDetailsUrl(navAppointmentId, order.serviceRequestId)),
         statusChip: <InHouseLabsStatusChip status={order.status} />,
         unreadBadge: IN_HOUSE_LAB_ORDERS_PENDING_BADGE_STATUSES.includes(order.status),
       })),
@@ -114,14 +120,14 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     const nursingOrdersConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['Nursing Orders'],
       title: 'Nursing Orders',
-      tableUrl: getNursingOrdersUrl(navAppointmentId),
+      tableUrl: withEncounter(getNursingOrdersUrl(navAppointmentId)),
       unreadBadge: Boolean(nursingOrders.find((ord) => NURSING_ORDERS_PENDING_BADGE_STATUSES.includes(ord.status))),
       orders: nursingOrders
         .filter((order) => order.status !== NursingOrdersStatus.cancelled)
         .map((order) => ({
           fhirResourceId: order.serviceRequestId,
           itemDescription: order.note,
-          detailPageUrl: getNursingOrderDetailsUrl(navAppointmentId, order.serviceRequestId),
+          detailPageUrl: withEncounter(getNursingOrderDetailsUrl(navAppointmentId, order.serviceRequestId)),
           statusChip: <NursingOrdersStatusChip status={order.status} />,
           unreadBadge: NURSING_ORDERS_PENDING_BADGE_STATUSES.includes(order.status),
         })),
@@ -133,7 +139,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     const inHouseMedicationConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['Med. Administration'],
       title: 'In-House Medications',
-      tableUrl: getInHouseMedicationMARUrl(navAppointmentId),
+      tableUrl: withEncounter(getInHouseMedicationMARUrl(navAppointmentId)),
       unreadBadge: Boolean(
         filteredInHouseMedications.find((ord) =>
           FILTERED_IN_HOUSE_MEDICATIONS_PENDING_BADGE_STATUSES.includes(ord.status as MedicationOrderStatuses)
@@ -148,7 +154,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
         return {
           fhirResourceId: med.id,
           itemDescription: med.medicationName,
-          detailPageUrl: targetUrl,
+          detailPageUrl: withEncounter(targetUrl),
           statusChip: <MedicationStatusChip medication={med} />,
           unreadBadge: FILTERED_IN_HOUSE_MEDICATIONS_PENDING_BADGE_STATUSES.includes(
             med.status as MedicationOrderStatuses
@@ -163,12 +169,12 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     const radiologyOrdersConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['Radiology'],
       title: 'Radiology Orders',
-      tableUrl: getRadiologyUrl(navAppointmentId),
+      tableUrl: withEncounter(getRadiologyUrl(navAppointmentId)),
       unreadBadge: Boolean(radiologyOrders.find((ord) => RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES.includes(ord.status))),
       orders: radiologyOrders.map((order) => ({
         fhirResourceId: order.serviceRequestId,
         itemDescription: order.studyType,
-        detailPageUrl: getRadiologyOrderEditUrl(navAppointmentId, order.serviceRequestId),
+        detailPageUrl: withEncounter(getRadiologyOrderEditUrl(navAppointmentId, order.serviceRequestId)),
         statusChip: <RadiologyTableStatusChip status={order.status} />,
         unreadBadge: RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES.includes(order.status),
       })),
@@ -180,11 +186,11 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     const ordersConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['eRX'],
       title: 'eRx',
-      tableUrl: getErxUrl(navAppointmentId),
+      tableUrl: withEncounter(getErxUrl(navAppointmentId)),
       orders: erxOrders.map((order) => ({
         fhirResourceId: order.resourceId ?? '',
         itemDescription: order.name ?? '',
-        detailPageUrl: getErxUrl(navAppointmentId),
+        detailPageUrl: withEncounter(getErxUrl(navAppointmentId)),
         statusChip: <MappedStatusChip status={order.status ?? 'unknown'} mapper={medicationStatusMapper} />,
       })),
     };
@@ -195,13 +201,15 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     const proceduresConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['Procedures'],
       title: 'Procedures',
-      tableUrl: getProceduresUrl(navAppointmentId),
+      tableUrl: withEncounter(getProceduresUrl(navAppointmentId)),
       orders: procedures.map((procedure) => ({
         fhirResourceId: procedure.resourceId ?? '',
         itemDescription: procedure.procedureType ?? '',
-        detailPageUrl: procedure.resourceId
-          ? getProcedureDetailsUrl(navAppointmentId, procedure.resourceId)
-          : getProceduresUrl(navAppointmentId),
+        detailPageUrl: withEncounter(
+          procedure.resourceId
+            ? getProcedureDetailsUrl(navAppointmentId, procedure.resourceId)
+            : getProceduresUrl(navAppointmentId)
+        ),
         statusChip: <></>,
       })),
     };
@@ -212,7 +220,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     const config: OrderToolTipConfig = {
       icon: sidebarMenuIcons['Immunization'],
       title: 'Immunization',
-      tableUrl: getImmunizationMARUrl(navAppointmentId),
+      tableUrl: withEncounter(getImmunizationMARUrl(navAppointmentId)),
       orders: immunizationOrders
         .filter((order) => order.status !== 'cancelled')
         .map((order) => {
@@ -223,7 +231,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
           return {
             fhirResourceId: order.id ?? '',
             itemDescription: order.details.medication.name,
-            detailPageUrl: targetUrl,
+            detailPageUrl: withEncounter(targetUrl),
             statusChip: <OrderStatusChip status={order.status} />,
             unreadBadge: order.status === 'pending',
           };

@@ -14,7 +14,7 @@ import {
   Resource,
   Schedule,
 } from 'fhir/r4b';
-import { isNonPaperworkQuestionnaireResponse } from 'utils';
+import { isAnnotationFollowupEncounter, isNonPaperworkQuestionnaireResponse } from 'utils';
 import { getVideoRoomResourceExtension, resolveTimezone } from '../../helpers';
 import { FullAppointmentResourcePackage } from './types';
 
@@ -191,13 +191,17 @@ export const getAppointmentAndRelatedResources = async (
     return (
       item.resourceType === 'Encounter' &&
       (inPerson || getVideoRoomResourceExtension(item)) &&
-      (encounterId ? item.id === encounterId : !(item as Encounter).partOf)
+      (encounterId ? item.id === encounterId : !isAnnotationFollowupEncounter(item as Encounter))
     );
   }) as Encounter;
   if (!encounter) return undefined;
 
+  const appointmentRef = `Appointment/${appointment.id}`;
   const mainEncounter: Encounter | undefined = items.find((item: Resource) => {
-    return item.resourceType === 'Encounter' && !(item as Encounter).partOf;
+    if (item.resourceType !== 'Encounter') return false;
+    const enc = item as Encounter;
+    if (isAnnotationFollowupEncounter(enc)) return false;
+    return enc.appointment?.some((ref) => ref.reference === appointmentRef) ?? false;
   }) as Encounter;
 
   const chargeItem: ChargeItem | undefined = items.find((item: Resource) => {

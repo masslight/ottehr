@@ -59,6 +59,7 @@ import {
   DataExports,
   IncompleteEncounters,
   InvoiceablePatients,
+  MailedStatements,
   PracticeKpis,
   RecentPatients,
   VisitsOverview,
@@ -205,6 +206,7 @@ function App(): ReactElement {
                 <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 <Route path="/reports/recent-patients" element={<RecentPatients />} />
                 <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
+                <Route path="/reports/mailed-statements" element={<MailedStatements />} />
               </>
             )}
             {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) && (
@@ -226,6 +228,7 @@ function App(): ReactElement {
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
                 <Route path="/admin/:adminTab" element={<AdminPage />} />
+                <Route path="/admin/:adminTab/:subTab" element={<AdminPage />} />
                 <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
                 <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
                 <Route

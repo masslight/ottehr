@@ -71,4 +71,27 @@ export class OrderDetailsSection {
       orderedBy
     );
   }
+
+  async selectAssociatedDx(dxSearchText: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.orderVaccinePage.associatedDx).click();
+    await this.#page.getByTestId(dataTestIds.orderVaccinePage.associatedDx).locator('input').fill(dxSearchText);
+    await this.#page.getByRole('option').filter({ hasText: dxSearchText }).first().waitFor();
+    await this.#page.getByRole('option').filter({ hasText: dxSearchText }).first().click();
+  }
+
+  async verifyAssociatedDx(dxText: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.orderVaccinePage.associatedDx).locator('input')).toHaveValue(
+      new RegExp(dxText, 'i')
+    );
+  }
+
+  async enterManufacturer(manufacturer: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.orderVaccinePage.manufacturer).locator('input').fill(manufacturer);
+  }
+
+  async verifyManufacturer(manufacturer: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.orderVaccinePage.manufacturer).locator('input')).toHaveValue(
+      manufacturer
+    );
+  }
 }

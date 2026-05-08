@@ -55,7 +55,9 @@ export function useVisionLocalState(): VisionLocalState {
   }, []);
 
   const getDTO = useCallback((): VitalsVisionObservationDTO | null => {
-    if (!leftEyeSelection || !rightEyeSelection) return null;
+    const hasBoth = leftEyeSelection.length > 0 && rightEyeSelection.length > 0;
+    const hasBothEyes = bothEyesSelection.length > 0;
+    if (!hasBoth && !hasBothEyes) return null;
     const extraOptions: VitalsVisionOption[] = [];
     if (isChildTooYoungOptionSelected) {
       extraOptions.push('child_too_young');
@@ -70,11 +72,13 @@ export function useVisionLocalState(): VisionLocalState {
       field: VitalFieldNames.VitalVision,
       leftEyeVisionText: leftEyeSelection,
       rightEyeVisionText: rightEyeSelection,
+      bothEyesVisionText: bothEyesSelection || undefined,
       extraVisionOptions: extraOptions,
     };
   }, [
     leftEyeSelection,
     rightEyeSelection,
+    bothEyesSelection,
     isChildTooYoungOptionSelected,
     isWithGlassesOptionSelected,
     isWithoutGlassesOptionSelected,
@@ -83,15 +87,18 @@ export function useVisionLocalState(): VisionLocalState {
   const hasData =
     leftEyeSelection.length > 0 ||
     rightEyeSelection.length > 0 ||
+    bothEyesSelection.length > 0 ||
     isChildTooYoungOptionSelected ||
     isWithGlassesOptionSelected ||
     isWithoutGlassesOptionSelected;
 
   const isValid = getDTO() !== null;
-  const isDisabled = !leftEyeSelection || !rightEyeSelection;
+  const hasBothEyesValue = bothEyesSelection.length > 0;
+  const isDisabled = hasBothEyesValue ? false : !leftEyeSelection || !rightEyeSelection;
 
   const isLeftEyeInvalid =
     !leftEyeSelection &&
+    !hasBothEyesValue &&
     (rightEyeSelection.length > 0 ||
       isChildTooYoungOptionSelected ||
       isWithGlassesOptionSelected ||
@@ -99,6 +106,7 @@ export function useVisionLocalState(): VisionLocalState {
 
   const isRightEyeInvalid =
     !rightEyeSelection &&
+    !hasBothEyesValue &&
     (leftEyeSelection.length > 0 ||
       isChildTooYoungOptionSelected ||
       isWithGlassesOptionSelected ||

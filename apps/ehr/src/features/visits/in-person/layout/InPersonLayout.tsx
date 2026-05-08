@@ -3,6 +3,7 @@ import { Container, Fab, Paper } from '@mui/material';
 import { GlobalStyles, lightTheme, MeetingProvider } from 'amazon-chime-sdk-component-library-react';
 import React from 'react';
 import { Outlet } from 'react-router-dom';
+import { CommandPaletteInPersonRegistrations } from 'src/components/CommandPaletteRegistrations';
 import { ThemeProvider } from 'styled-components';
 import { getAdmitterPractitionerId, getAttendingPractitionerId, getSelectors, isTelemedAppointment } from 'utils';
 import { Sidebar } from '../../shared/components/Sidebar';
@@ -55,6 +56,7 @@ export const InPersonLayout: React.FC = () => {
 
   return (
     <div style={layoutStyle}>
+      <CommandPaletteInPersonRegistrations />
       <Header />
       <div style={mainBlocksStyle}>
         <Sidebar />

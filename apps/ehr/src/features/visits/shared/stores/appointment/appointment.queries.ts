@@ -13,14 +13,13 @@ import {
   useQuery,
   UseQueryResult,
 } from '@tanstack/react-query';
-import { Appointment, Bundle, Coding, Encounter, FhirResource, InsurancePlan, Medication, Patient } from 'fhir/r4b';
+import { Bundle, Coding, FhirResource, InsurancePlan, Medication, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { getPatientInstructionQuickPicks, icd10Search } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { extractReviewAndSignAppointmentData } from 'src/features/visits/telemed/utils/appointments';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
@@ -60,7 +59,6 @@ import {
   MeetingData,
   ProcedureDetail,
   PromiseReturnType,
-  ReviewAndSignData,
   UpdateMedicationOrderInput,
   useErrorQuery,
   useSuccessQuery,
@@ -68,50 +66,6 @@ import {
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAppointmentData } from './appointment.store';
-
-export const useGetReviewAndSignData = (
-  {
-    appointmentId,
-    runImmediately,
-  }: {
-    appointmentId: string | undefined;
-    runImmediately: boolean;
-  },
-  onSuccess: (data: ReviewAndSignData | undefined) => void
-): UseQueryResult<(Appointment | Encounter)[], Error> => {
-  const { oystehr } = useApiClients();
-
-  const queryResult = useQuery({
-    queryKey: ['telemed-appointment-review-and-sign', { appointmentId }],
-
-    queryFn: async () => {
-      if (oystehr && appointmentId) {
-        return (
-          await oystehr.fhir.search<Appointment | Encounter>({
-            resourceType: 'Appointment',
-            params: [
-              { name: '_id', value: appointmentId },
-              { name: '_revinclude:iterate', value: 'Encounter:appointment' },
-            ],
-          })
-        ).unbundle();
-      }
-      throw new Error('Oystehr client not defined or appointmentId not provided');
-    },
-
-    enabled: runImmediately,
-  });
-
-  useSuccessQuery(queryResult.data, (data) => {
-    if (!data || !onSuccess) {
-      return;
-    }
-    const reviewAndSignData = extractReviewAndSignAppointmentData(data, { appointmentId });
-    onSuccess(reviewAndSignData);
-  });
-
-  return queryResult;
-};
 
 export const useGetDocumentReferences = (
   {

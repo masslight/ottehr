@@ -24,10 +24,9 @@ export async function getPatientsForUser(user: User, oystehr: Oystehr): Promise<
       ],
     })
   ).unbundle();
-  const resourcesTemp = resources.filter((resourceTemp) => resourceTemp.resourceType === 'Patient');
+  const patients = resources.filter((r): r is Patient => r.resourceType === 'Patient' && r.active !== false);
   console.timeEnd(`Getting patients for user: ${user.name}`);
-  // console.log(`Get patients for user resources: ${JSON.stringify(resourcesTemp)}`);
-  return resourcesTemp as Patient[];
+  return patients;
 }
 
 export async function getRelatedPersonsForPatient(patientID: string, oystehr: Oystehr): Promise<RelatedPerson[]> {
