@@ -25,7 +25,7 @@ enum PageTab {
   'quick-picks' = 'quick-picks',
   'in-house-labs' = 'in-house-labs',
   'em-codes' = 'em-codes',
-  'custom-folders' = 'custom-folders',
+  'docs-folders' = 'docs-folders',
 }
 
 export function AdminPage(): JSX.Element {
@@ -102,10 +102,10 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab['em-codes']}`)}
                 />
                 <Tab
-                  label="Custom Folders"
-                  value={PageTab['custom-folders']}
+                  label="Docs Folders"
+                  value={PageTab['docs-folders']}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab['custom-folders']}`)}
+                  onClick={() => navigate(`/admin/${PageTab['docs-folders']}`)}
                 />
               </TabList>
             </Box>
@@ -149,7 +149,7 @@ export function AdminPage(): JSX.Element {
           <TabPanel value={PageTab['em-codes']} sx={{ padding: 0 }}>
             <EMCodesAdminPage />
           </TabPanel>
-          <TabPanel value={PageTab['custom-folders']} sx={{ padding: 0 }}>
+          <TabPanel value={PageTab['docs-folders']} sx={{ padding: 0 }}>
             <AdminCustomFoldersPage />
           </TabPanel>
         </TabContext>

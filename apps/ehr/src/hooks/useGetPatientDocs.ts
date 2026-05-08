@@ -390,18 +390,19 @@ const useGetPatientDocsFolders = (
       const internalName = list.title;
       if (!internalName) continue;
       const isCustom = isCustomFolderList(list);
-      // Custom folder displayName is owned by the catalog. System folders keep
-      // their display on the per-patient List itself.
+      // Custom folder displayName is owned by the catalog when present. If the catalog
+      // entry has been deleted, the List is an orphan (soft-delete read path): keep the
+      // folder so the patient still sees their existing documents, and fall back to the
+      // display frozen on the per-patient List itself at lazy-create time.
       const catalogDef = isCustom ? catalogDefs.find((d) => d.internalName === internalName) : undefined;
-      if (isCustom && !catalogDef) {
-        // Orphaned: catalog entry was removed but per-patient List still exists. Hide it.
-        continue;
-      }
-      const folderName = isCustom
-        ? catalogDef!.displayName
-        : list.code?.coding?.find((c) => c.code === PATIENT_FOLDERS_CODE)?.display ?? '';
-
       const docRefs: DocRef[] = (list.entry ?? []).map((entry) => ({ reference: entry.item }) as DocRef);
+
+      if (isCustom && !catalogDef && docRefs.length === 0) continue;
+
+      const folderName =
+        isCustom && catalogDef
+          ? catalogDef.displayName
+          : list.code?.coding?.find((c) => c.code === PATIENT_FOLDERS_CODE)?.display ?? '';
 
       byInternalName.set(internalName, {
         id: list.id!,

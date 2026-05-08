@@ -2,7 +2,6 @@ import { Box, TextField } from '@mui/material';
 import { ChangeEvent, FC, useEffect, useState } from 'react';
 import { CustomDialog } from 'src/components/dialogs';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { InfoAlert } from 'src/features/visits/in-person/components/InfoAlert';
 
 const FOLDER_NAME_REGEX = /^[a-zA-Z0-9+!\-_'()\\.@$ ]+$/;
 const MAX_NAME_LENGTH = 60;
@@ -87,11 +86,11 @@ export const FolderNameDialog: FC<FolderNameDialogProps> = ({
     <CustomDialog
       open={open}
       handleClose={onClose}
-      title={displayMode === 'create' ? 'New Folder' : 'Rename Folder'}
+      title={displayMode === 'create' ? 'Create New Folder' : 'Rename Folder'}
       description={
         <Box sx={{ width: '436px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {displayMode === 'create' && <InfoAlert text="New folder will appear for all patients." persistent />}
           <TextField
+            sx={{ mt: 0.5 }}
             autoFocus
             fullWidth
             label="Folder Name"
