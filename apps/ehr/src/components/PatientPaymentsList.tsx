@@ -45,6 +45,7 @@ import {
   CoverageCheckWithDetails,
   CPT_CODE_SYSTEM,
   CPT_MODIFIER_EXTENSION_URL,
+  extractPayerIdFromUrl,
   findOrgMatchingReference,
   getCoding,
   getLocationIdFromAppointment,
@@ -263,9 +264,14 @@ export default function PatientPaymentList({
     patientId: patient?.id ?? null,
   });
 
-  const insuranceOrgId = insuranceCoverages?.coverages?.primary?.identifier
-    ?.find((id) => id.type?.coding?.find((c) => c.code === 'MB'))
-    ?.assigner?.reference?.replace('Organization/', '');
+  const primaryInsurancePayerRef = insuranceCoverages?.coverages.primary?.payor.find((p) => !!p.reference)?.reference;
+  const insuranceOrgId =
+    extractPayerIdFromUrl(primaryInsurancePayerRef) ?? primaryInsurancePayerRef?.replace('Organization/', '');
+  const insuranceOrganization = findOrgMatchingReference(primaryInsurancePayerRef, insuranceCoverages?.insuranceOrgs);
+  const insuranceName = insuranceOrganization?.name;
+  const insuranceNotes = insuranceOrganization?.extension?.find(
+    (extensionTemp) => extensionTemp.url === ottehrExtensionUrl('insurance-override-note')
+  )?.valueString;
 
   const employerOrgId = useMemo(() => {
     if (paymentVariant !== PaymentVariant.employer) return undefined;
@@ -624,16 +630,6 @@ export default function PatientPaymentList({
     }
     return null;
   })();
-
-  // CW TODO: whaaaaaaaat is this lookup? why not use coverage.payor????
-  const insurance = insuranceCoverages?.coverages?.primary?.identifier?.find(
-    (temp) => temp.type?.coding?.find((temp) => temp.code === 'MB')
-  )?.assigner;
-  const insuranceOrganization = findOrgMatchingReference(insurance?.reference, insuranceCoverages?.insuranceOrgs);
-  const insuranceName = insuranceOrganization?.name;
-  const insuranceNotes = insuranceOrganization?.extension?.find(
-    (extensionTemp) => extensionTemp.url === ottehrExtensionUrl('insurance-override-note')
-  )?.valueString;
 
   let coverageCheck: CoverageCheckWithDetails | undefined = undefined;
   if (insuranceCoverages?.coverages?.primary && insuranceData?.coverageChecks) {
