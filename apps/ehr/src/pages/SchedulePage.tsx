@@ -21,7 +21,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Location, Practitioner, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useEffect, useState } from 'react';
+import { ReactElement, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   APIError,
@@ -78,6 +78,11 @@ export default function SchedulePage(): ReactElement {
   // For PR-actored schedules only — the categories this role offers and the Location it's bound to.
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [locationId, setLocationId] = useState<string | undefined>(undefined);
+  // Admin-editable display name for PR-actored schedules. Empty string (or
+  // unset) means "fall back to '<Practitioner> at <Location>'." The placeholder
+  // shows that fallback so admins always see what name will be used.
+  const [scheduleName, setScheduleName] = useState<string>('');
+  const [initialScheduleName, setInitialScheduleName] = useState<string>('');
   const defaultIntakeUrl = (() => {
     const fhirType = item?.owner.type;
     const locationType = item?.owner.isVirtual ? 'virtual' : 'in-person';
@@ -93,8 +98,19 @@ export default function SchedulePage(): ReactElement {
     if (item) {
       setTimezone(item?.owner.timezone ?? TIMEZONES[0]);
       setSlug(item?.owner.slug);
-      setCategoryIds(item?.owner.healthcareServiceIds ?? []);
       setLocationId(item?.owner.locationId);
+      // Seed with the displayed name. owner.name already resolves to the
+      // explicit displayName when set, falling back to "<Provider> @ <Location>"
+      // — exactly what we want as the editable starting value.
+      const seedName = item?.owner.displayName?.trim() || item?.owner.name || '';
+      setScheduleName(seedName);
+      setInitialScheduleName(seedName);
+      // The PR's healthcareService[] can also contain group-membership refs
+      // (a HealthcareService that's a Group rather than a service category).
+      // Those aren't categories the admin should see in this picker; the
+      // categoryOptions filter below handles them by treating only known
+      // service-category HS ids as selectable. Initial state is filtered to
+      // those — non-category refs are preserved server-side on save.
     }
   }, [item]);
 
@@ -122,6 +138,21 @@ export default function SchedulePage(): ReactElement {
     enabled: !!oystehrZambda && isPractitionerRoleOwner,
   });
   const categoryOptions = (categoriesData?.serviceCategories ?? []).filter((sc: any) => sc.id);
+
+  // The PR's healthcareService[] can include refs that aren't service
+  // categories (e.g., the group HealthcareService that owns this PR as a
+  // member). Initialize the multi-select only with refs that appear in the
+  // service-category catalog — group refs stay on the PR untouched and are
+  // preserved by the update zambda when the admin saves a category change.
+  const seededCategoriesRef = useRef(false);
+  useEffect(() => {
+    if (seededCategoriesRef.current) return;
+    if (!item || !isPractitionerRoleOwner || categoryOptions.length === 0) return;
+    const knownIds = new Set(categoryOptions.map((c: any) => c.id as string));
+    const filtered = (item.owner.healthcareServiceIds ?? []).filter((id) => knownIds.has(id));
+    setCategoryIds(filtered);
+    seededCategoriesRef.current = true;
+  }, [item, isPractitionerRoleOwner, categoryOptions]);
 
   const queryEnabled = (() => {
     if (!oystehrZambda) {
@@ -290,29 +321,40 @@ export default function SchedulePage(): ReactElement {
       timezone,
       slug,
     });
-    // Categories and Location are PR-level; bundle them into one PATCH when
-    // the owner is a PR and either changed. Errors here are independent of
-    // the schedule save above.
+    // Categories, Location, and the optional display Name are PR-level;
+    // bundle them into one PATCH when the owner is a PR and any changed.
+    // Errors here are independent of the schedule save above.
     if (isPractitionerRoleOwner && oystehrZambda) {
-      const initialCats = item.owner.healthcareServiceIds ?? [];
+      // Compare against the same category-only subset we seeded the picker
+      // with, so non-category refs (group memberships) on the PR don't trip
+      // the diff and force a no-op PATCH.
+      const knownIds = new Set(categoryOptions.map((c: any) => c.id as string));
+      const initialCats = (item.owner.healthcareServiceIds ?? []).filter((id) => knownIds.has(id));
       const sortedInitialCats = [...initialCats].sort();
       const sortedCurrentCats = [...categoryIds].sort();
       const categoriesChanged =
         sortedInitialCats.length !== sortedCurrentCats.length ||
         sortedInitialCats.some((v, i) => v !== sortedCurrentCats[i]);
       const locationChanged = (locationId ?? '') !== (item.owner.locationId ?? '');
+      const nameChanged = scheduleName.trim() !== initialScheduleName.trim();
 
-      if (categoriesChanged || locationChanged) {
+      if (categoriesChanged || locationChanged || nameChanged) {
         try {
           await updatePractitionerRole(oystehrZambda, {
             roleId: item.owner.id,
             ...(categoriesChanged ? { categoryHealthcareServiceIds: categoryIds } : {}),
             ...(locationChanged && locationId ? { locationId } : {}),
+            ...(nameChanged ? { displayName: scheduleName } : {}),
           });
           await queryClient.invalidateQueries({ queryKey: ['ehr-get-schedule'] });
         } catch (err) {
           console.error(err);
-          enqueueSnackbar('Failed to update schedule metadata.', { variant: 'error' });
+          // Surface conflict / structured errors from the zambda directly.
+          const message =
+            err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string'
+              ? (err as any).message
+              : 'Failed to update schedule metadata.';
+          enqueueSnackbar(message, { variant: 'error' });
         }
       }
     }
@@ -395,6 +437,18 @@ export default function SchedulePage(): ReactElement {
                         void saveGeneralFields(e);
                       }}
                     >
+                      {isPractitionerRoleOwner && (
+                        <>
+                          <TextField
+                            label="Name"
+                            required
+                            value={scheduleName}
+                            onChange={(event) => setScheduleName(event.target.value)}
+                            sx={{ width: '500px', mb: 2 }}
+                          />
+                          <br />
+                        </>
+                      )}
                       <TextField
                         label="Slug"
                         value={slug}
@@ -491,11 +545,7 @@ export default function SchedulePage(): ReactElement {
                             );
                           }}
                           renderInput={(params) => (
-                            <TextField
-                              {...params}
-                              label="Service categories"
-                              helperText="Leave empty to allow this schedule to serve all categories."
-                            />
+                            <TextField {...params} label="Services" helperText="Empty = all available services" />
                           )}
                           sx={{ marginTop: 2, width: '500px' }}
                         />
@@ -506,6 +556,7 @@ export default function SchedulePage(): ReactElement {
                         loading={somethingIsLoadingInSomeWay}
                         variant="contained"
                         sx={{ marginTop: 2 }}
+                        disabled={isPractitionerRoleOwner && !scheduleName.trim()}
                       >
                         Save
                       </LoadingButton>

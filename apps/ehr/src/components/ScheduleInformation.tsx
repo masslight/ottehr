@@ -164,7 +164,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
                 <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Provider</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', width: '15%' }}>Schedules</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', width: '27%' }}>Locations</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', width: '28%' }}>Service categories</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '28%' }}>Services</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
