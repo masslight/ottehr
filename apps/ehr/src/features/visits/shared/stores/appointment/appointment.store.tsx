@@ -23,7 +23,10 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY, QUERY_STALE_TIME } from 'src/constants';
 import { useRosObservations } from 'src/features/visits/shared/hooks/useRosObservations';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
-import { extractPhotoUrlsFromAppointmentData } from 'src/features/visits/telemed/utils/appointments';
+import {
+  extractPatientConditionPhotoRefsFromAppointmentData,
+  PatientConditionPhotoRef,
+} from 'src/features/visits/telemed/utils/appointments';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
@@ -64,7 +67,7 @@ export type AppointmentTelemedState = {
   followupEncounters?: Encounter[];
   selectedEncounterId: string | undefined;
   questionnaireResponse: QuestionnaireResponse | undefined;
-  patientPhotoUrls: string[];
+  patientConditionPhotos: PatientConditionPhotoRef[];
   schoolWorkNoteUrls: string[];
 };
 
@@ -147,7 +150,7 @@ const APPOINTMENT_INITIAL: AppointmentTelemedState & AppointmentRawResourcesStat
   followupEncounters: [],
   selectedEncounterId: undefined,
   questionnaireResponse: undefined,
-  patientPhotoUrls: [],
+  patientConditionPhotos: [],
   schoolWorkNoteUrls: [],
   rawResources: [],
 
@@ -431,7 +434,7 @@ const selectAppointmentData = (
     followupEncounters,
     selectedEncounterId: validSelectedEncounterId,
     questionnaireResponse,
-    patientPhotoUrls: extractPhotoUrlsFromAppointmentData(data),
+    patientConditionPhotos: extractPatientConditionPhotoRefsFromAppointmentData(data),
     schoolWorkNoteUrls:
       (data
         ?.filter(
