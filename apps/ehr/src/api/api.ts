@@ -127,7 +127,6 @@ import {
   InHouseMedicationQuickPickData,
   InviteParticipantRequestParameters,
   LabelPdf,
-  LabelXml,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
   ListTemplatesZambdaInput,
@@ -364,10 +363,8 @@ export const createResourcesFromAudioRecording = async (
   }
 };
 
-export const getOrCreateVisitLabel = async (
-  oystehr: Oystehr,
-  parameters: GetVisitLabelInput
-): Promise<(LabelPdf | LabelXml)[]> => {
+// ATHENA TODO: fix all of these
+export const getOrCreateVisitLabel = async (oystehr: Oystehr, parameters: GetVisitLabelInput): Promise<LabelPdf[]> => {
   try {
     if (GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID == null) {
       throw new Error('get-or-create-visit-label-pdf environment variable could not be loaded');
