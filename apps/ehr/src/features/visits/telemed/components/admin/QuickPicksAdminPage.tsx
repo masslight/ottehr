@@ -478,7 +478,7 @@ export default function QuickPicksAdminPage(): ReactElement {
             description="Manage instruction templates that appear as Practice Quick Picks in the Plan / Patient Instructions section."
             columns={[
               { label: 'Title', getValue: (item) => item.name },
-              { label: 'Instruction', getValue: (item) => item.text ?? '' },
+              { label: 'Instruction', getValue: (item) => item.text },
             ]}
             fields={[
               { key: 'name', label: 'Instruction title', required: true, placeholder: 'e.g. Concussion follow-up' },
@@ -499,7 +499,7 @@ export default function QuickPicksAdminPage(): ReactElement {
               name: values.name.trim(),
               text: values.text.trim(),
             })}
-            getFieldValues={(item) => ({ name: item.name, text: item.text ?? '' })}
+            getFieldValues={(item) => ({ name: item.name, text: item.text })}
           />
         </TabPanel>
       </TabContext>
