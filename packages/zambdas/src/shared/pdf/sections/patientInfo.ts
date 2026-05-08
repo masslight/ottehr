@@ -67,7 +67,8 @@ export const createPatientHeader = <TData extends { patient?: PatientInfo }>(): 
 
 export const createPatientInfoSection = <TData extends { patient?: PatientInfo }>(): PdfSection<TData, PatientInfo> => {
   return createConfiguredSection('patientSummary', (shouldShow) => ({
-    title: 'About the patient',
+    // Mirrors `PATIENT_RECORD_CONFIG.FormFields.patientSummary.title`.
+    title: 'Patient summary',
     dataSelector: (data) => data.patient,
     render: (client, patientInfo, styles) => {
       if (shouldShow('patient-name-suffix')) {

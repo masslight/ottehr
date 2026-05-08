@@ -5,7 +5,7 @@ export const findActiveAppointment = (
   appointments?: TelemedAppointmentInformationIntake[]
 ): TelemedAppointmentInformationIntake | undefined => {
   return appointments?.reduce<TelemedAppointmentInformationIntake | undefined>?.((latest, current) => {
-    if (!['ready', 'pre-video', 'on-video'].includes(current.telemedStatus)) {
+    if (!['provider'].includes(current.status)) {
       return latest;
     }
     if (!latest?.start || !current.start) {

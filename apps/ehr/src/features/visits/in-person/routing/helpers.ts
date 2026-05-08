@@ -1,4 +1,4 @@
-import { InPersonAppointmentInformation } from 'utils';
+import { AppointmentHistoryRow, InPersonAppointmentInformation } from 'utils';
 
 export const getNewOrderUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/in-house-medication/order/new`;
@@ -88,10 +88,48 @@ export const getInPersonUrlByAppointmentType = (
   if (targetUrl) {
     baseVisitUrl = `${baseVisitUrl}/${targetUrl}`;
   }
-  if (appointment.isFollowUp && appointment.encounterId) {
-    baseVisitUrl = `${baseVisitUrl}?encounterId=${appointment.encounterId}`;
+  return withFollowUpEncounterId(baseVisitUrl, appointment);
+};
+
+export const withFollowUpEncounterId = (
+  url: string,
+  appointment: Pick<InPersonAppointmentInformation, 'isFollowUp' | 'encounterId'>
+): string => {
+  if (!appointment.isFollowUp || !appointment.encounterId) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}encounterId=${appointment.encounterId}`;
+};
+
+export type FollowUpAppointmentLookup = Record<string, { parentAppointmentId: string; encounterId: string }>;
+
+export const buildFollowUpAppointmentLookup = (
+  visits: AppointmentHistoryRow[] | undefined
+): FollowUpAppointmentLookup => {
+  const lookup: FollowUpAppointmentLookup = {};
+  if (!visits) return lookup;
+  for (const visit of visits) {
+    if (!visit.followUps) continue;
+    for (const followUp of visit.followUps) {
+      if (followUp.appointmentId && followUp.originalAppointmentId) {
+        lookup[followUp.appointmentId] = {
+          parentAppointmentId: followUp.originalAppointmentId,
+          encounterId: followUp.encounterId,
+        };
+      }
+    }
   }
-  return baseVisitUrl;
+  return lookup;
+};
+
+export const resolveOrderRoutingFromFollowUpLookup = (
+  orderAppointmentId: string,
+  lookup: FollowUpAppointmentLookup | undefined
+): { appointmentId: string; encounterIdQuery: string | undefined } => {
+  const followUpInfo = lookup?.[orderAppointmentId];
+  if (followUpInfo) {
+    return { appointmentId: followUpInfo.parentAppointmentId, encounterIdQuery: followUpInfo.encounterId };
+  }
+  return { appointmentId: orderAppointmentId, encounterIdQuery: undefined };
 };
 
 export const getChiefComplaintUrl = (appointmentId: string): string => {

@@ -2,6 +2,7 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Autocomplete, Box, debounce, Tab, TextField } from '@mui/material';
 import { ErxSearchAllergensResponse, ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import React, { ReactElement, useCallback, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   createAllergyQuickPick,
   createMedicalConditionQuickPick,
@@ -35,16 +36,6 @@ import InHouseMedicationQuickPicksPage from './InHouseMedicationQuickPicksPage';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
 import QuickPickEditor from './QuickPickEditor';
 import RadiologyQuickPicksPage from './RadiologyQuickPicksPage';
-
-type SubTab =
-  | 'procedures'
-  | 'allergies'
-  | 'medical-conditions'
-  | 'medications'
-  | 'radiology'
-  | 'immunizations'
-  | 'in-house-medications'
-  | 'quick-texts';
 
 const AllergenSearchField: React.FC<{
   value: string;
@@ -258,7 +249,8 @@ const MedicalConditionSearchField: React.FC<{
 };
 
 export default function QuickPicksAdminPage(): ReactElement {
-  const [subTab, setSubTab] = useState<SubTab>('procedures');
+  const navigate = useNavigate();
+  const { _, subTab } = useParams();
   const { oystehrZambda } = useApiClients();
 
   // ── Allergy callbacks ──
@@ -368,9 +360,9 @@ export default function QuickPicksAdminPage(): ReactElement {
 
   return (
     <Box>
-      <TabContext value={subTab}>
+      <TabContext value={subTab ?? 'procedures'}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <TabList onChange={(_, v) => setSubTab(v)} aria-label="Quick pick categories">
+          <TabList onChange={(_, v) => navigate(`/admin/quick-picks/${v}`)} aria-label="Quick pick categories">
             <Tab label="Procedures" value="procedures" sx={{ textTransform: 'none' }} />
             <Tab label="Allergies" value="allergies" sx={{ textTransform: 'none' }} />
             <Tab label="Medical Conditions" value="medical-conditions" sx={{ textTransform: 'none' }} />

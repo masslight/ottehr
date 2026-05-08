@@ -1,8 +1,10 @@
 import Oystehr from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
 import { appointmentTypeLabels } from 'ehr-ui/src/types/types';
 import {
   Account,
   Appointment,
+  DocumentReference,
   Encounter,
   FhirResource,
   List,
@@ -18,18 +20,20 @@ import { PageSizes, PDFImage } from 'pdf-lib';
 import Stripe from 'stripe';
 import {
   CashOrCardPayment,
+  createFilesDocumentReferences,
   FhirAppointmentType,
   getFullName,
   getPatientAddress,
   getPhoneNumberForIndividual,
   getSecret,
   getStripeCustomerIdFromAccount,
+  OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
+  RECEIPT_CODE,
   removePrefix,
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { makeReceiptPdfDocumentReference } from '../../ehr/change-telemed-appointment-status/helpers/helpers';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../stripeIntegration';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
@@ -610,3 +614,69 @@ const makeReceiptZ3Url = (secrets: Secrets | null, bucketName: string, fileName:
   console.log('created z3 url: ', fileURL);
   return fileURL;
 };
+
+async function makeReceiptPdfDocumentReference(
+  oystehr: Oystehr,
+  pdfInfo: PdfInfo,
+  patientId: string,
+  encounterId: string,
+  listResources: List[]
+): Promise<DocumentReference> {
+  const { docRefs } = await createFilesDocumentReferences({
+    files: [
+      {
+        url: pdfInfo.uploadURL,
+        title: pdfInfo.title,
+      },
+    ],
+    type: {
+      coding: [
+        {
+          system: 'http://loinc.org',
+          code: RECEIPT_CODE,
+          display: 'Telehealth Payment Receipt',
+        },
+      ],
+    },
+    references: {
+      subject: {
+        reference: `Patient/${patientId}`,
+      },
+      context: {
+        encounter: [{ reference: `Encounter/${encounterId}` }],
+      },
+    },
+    dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
+    oystehr,
+    generateUUID: randomUUID,
+    meta: {
+      tag: [{ code: OTTEHR_MODULE.TM }],
+    },
+    searchParams: [
+      { name: 'encounter', value: `Encounter/${encounterId}` },
+      { name: 'subject', value: `Patient/${patientId}` },
+    ],
+    listResources,
+  });
+  const documentReference = docRefs.find((docRef) => docRef.status === 'current');
+  if (documentReference?.id) {
+    try {
+      await oystehr.fhir.patch({
+        resourceType: 'DocumentReference',
+        id: documentReference.id,
+        operations: [
+          {
+            op: 'replace',
+            path: '/date',
+            value: DateTime.now().setZone('UTC').toISO() ?? '',
+          },
+        ],
+      });
+    } catch (error) {
+      const errorMsg = `Failed to update DocumentReference date for id ${documentReference.id}: ${error}`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+  }
+  return documentReference!;
+}

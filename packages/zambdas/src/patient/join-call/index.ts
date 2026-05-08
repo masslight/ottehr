@@ -6,6 +6,7 @@ import { decodeJwt, jwtVerify } from 'jose';
 import { JSONPath } from 'jsonpath-plus';
 import { DateTime } from 'luxon';
 import {
+  APIError,
   CANNOT_JOIN_CALL_NOT_STARTED_ERROR,
   createOystehrClient,
   FHIR_EXTENSION,
@@ -165,7 +166,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   const userToken = isInvitedParticipant ? oystehrToken : jwt;
-  const joinCallResponse = await joinTelemedMeeting(projectApiURL, userToken, videoEncounter.id, isInvitedParticipant);
+  let joinCallResponse;
+  try {
+    joinCallResponse = await joinTelemedMeeting(projectApiURL, userToken, videoEncounter.id, isInvitedParticipant);
+  } catch (error: any) {
+    console.error('Error joining telemed meeting:', error);
+    // Handle expired/unavailable meeting errors (404 NotFoundException from AWS Chime SDK)
+    // This status code indicates the meeting has expired or does not exist
+    // This is expected behavior and we should return a user-friendly error
+    if (error?.statusCode === 404) {
+      return lambdaResponse(400, CANNOT_JOIN_CALL_NOT_STARTED_ERROR);
+    }
+    throw error;
+  }
 
   return lambdaResponse(200, joinCallResponse);
 });
@@ -283,7 +296,12 @@ async function joinTelemedMeeting(
     method: 'GET',
   });
   if (!response.ok) {
-    throw new Error(`API call failed: ${JSON.stringify(await response.json())}`);
+    const errorBody = await response.json();
+    const error: APIError = {
+      message: `API call failed: ${JSON.stringify(errorBody)}`,
+      statusCode: response.status,
+    };
+    throw error;
   }
 
   return (await response.json()) as JoinCallResponse;

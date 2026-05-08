@@ -94,7 +94,7 @@ export const MissingCard: FC = () => {
           Click on the item to navigate to it.
         </Typography>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start' }}>
           {isPatientVerificationMissing && (
             <Link
               component="button"
