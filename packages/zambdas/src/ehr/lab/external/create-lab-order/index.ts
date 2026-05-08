@@ -87,16 +87,15 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
   const oystehr = createOystehrClient(m2mToken, secrets);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const oystehrCurrentUser = createOystehrClient(userToken, secrets);
   let curUserPractitionerId: string | undefined;
   try {
-    curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+    curUserPractitionerId = await getMyPractitionerId(userToken, secrets);
   } catch {
     throw EXTERNAL_LAB_ERROR(
       'Resource configuration error - user creating this external lab order must have a Practitioner resource linked'
     );
   }
-  const currentUserPractitioner = await oystehrCurrentUser.fhir.get<Practitioner>({
+  const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
     id: curUserPractitionerId,
   });

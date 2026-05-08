@@ -8,6 +8,7 @@ import {
   DeleteUserZambdaOutput,
   RoleType,
   Secrets,
+  userMe,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
@@ -26,10 +27,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
-  const callerOystehr = createOystehrClient(userToken, secrets);
 
   console.group('complexValidation');
-  await complexValidation(oystehr, callerOystehr, userId);
+  await complexValidation(oystehr, userToken, secrets, userId);
   console.groupEnd();
   console.debug('complexValidation success');
 
@@ -70,8 +70,13 @@ function validateRequestParameters(
   };
 }
 
-async function complexValidation(oystehr: Oystehr, callerOystehr: Oystehr, userId: string): Promise<void> {
-  const [user, caller] = await Promise.all([oystehr.user.get({ id: userId }), callerOystehr.user.me()]);
+async function complexValidation(
+  oystehr: Oystehr,
+  token: string,
+  secrets: Secrets | null,
+  userId: string
+): Promise<void> {
+  const [user, caller] = await Promise.all([oystehr.user.get({ id: userId }), userMe(token, secrets)]);
   if (!user) {
     throw {
       code: APIErrorCode.INVALID_INPUT,

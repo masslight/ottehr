@@ -36,7 +36,7 @@ import {
   Pagination,
   TestStatus,
 } from 'utils';
-import { createOystehrClient, getMyPractitionerId, sendErrors } from '../../../../shared';
+import { getMyPractitionerId, sendErrors } from '../../../../shared';
 import { getObservationsForDiagnosticReportResults } from '../../shared/helpers';
 import {
   buildOrderHistory,
@@ -313,8 +313,7 @@ export const getInHouseResources = async (
       activityDefinitions.push(...additionalActivityDefinitions);
     }
 
-    const oystehrCurrentUser = createOystehrClient(userToken, params.secrets);
-    const myPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+    const myPractitionerId = await getMyPractitionerId(userToken, params.secrets);
 
     if (myPractitionerId) {
       currentPractitioner = await oystehr.fhir.get<Practitioner>({
