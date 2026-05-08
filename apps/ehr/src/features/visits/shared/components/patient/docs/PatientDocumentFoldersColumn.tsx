@@ -25,7 +25,7 @@ export const PatientDocumentFoldersColumn: FC<PatientDocumentFoldersColumnProps>
     <List>
       {sortedFolders.map((folder, index) => (
         <ListItemButton
-          key={`${folder.folderName}__${index}`}
+          key={folder.id}
           onClick={() => onFolderSelected && onFolderSelected(folder)}
           sx={{
             backgroundColor: selectedIndex === index ? '#4D15B714' : 'transparent',
