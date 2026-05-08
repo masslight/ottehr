@@ -2173,7 +2173,7 @@ describe('Harvest Module', () => {
                 },
               ],
             },
-            value: 'https://rcm-api.zapehr.com/v1/payer/60054',
+            value: '60054',
           },
         ],
         type: {

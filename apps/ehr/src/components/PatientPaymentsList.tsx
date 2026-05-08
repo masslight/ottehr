@@ -269,6 +269,7 @@ export default function PatientPaymentList({
     extractPayerIdFromUrl(primaryInsurancePayerRef) ?? primaryInsurancePayerRef?.replace('Organization/', '');
   const insuranceOrganization = findOrgMatchingReference(primaryInsurancePayerRef, insuranceCoverages?.insuranceOrgs);
   const insuranceName = insuranceOrganization?.name;
+  // CW TODO: insurance note read here
   const insuranceNotes = insuranceOrganization?.extension?.find(
     (extensionTemp) => extensionTemp.url === ottehrExtensionUrl('insurance-override-note')
   )?.valueString;
