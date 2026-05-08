@@ -148,6 +148,22 @@ jobs:
           parallel: true
           file: ./packages/test-utils/coverage/lcov.info
 
+      - name: Deploy tests with coverage
+        if: ${{ !cancelled() }}
+        run: cd deploy && npx vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --passWithNoTests
+        env:
+          ENV: ${{ steps.env.outputs.environment }}
+          CI: true
+          NODE_OPTIONS: "--max-old-space-size=8192"
+
+      - name: Upload deploy coverage to Coveralls
+        if: ${{ !cancelled() && hashFiles('deploy/coverage/lcov.info') != '' }}
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
+        with:
+          flag-name: deploy
+          parallel: true
+          file: ./deploy/coverage/lcov.info
+
       - name: Utils tests with coverage
         if: ${{ !cancelled() }}
         run: cd packages/utils && npx vitest run --coverage --passWithNoTests
@@ -164,7 +180,7 @@ jobs:
           parallel: true
           file: ./packages/utils/coverage/lcov.info
 
-      - name: Zambda unit & integration tests with coverage
+      - name: Zambda tests with coverage
         if: ${{ !cancelled() }}
         run: cd packages/zambdas && npx vitest run --coverage --passWithNoTests
         env:
@@ -249,7 +265,7 @@ jobs:
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
         with:
           parallel-finished: true
-          carryforward: "spec,test-utils,utils,zambdas,ehr-unit,ehr-component,intake-unit,intake-component"
+          carryforward: "spec,test-utils,deploy,utils,zambdas,ehr-unit,ehr-component,intake-unit,intake-component"
 
       - name: Set GitHub Commit Status
         if: github.event_name == 'workflow_dispatch'
