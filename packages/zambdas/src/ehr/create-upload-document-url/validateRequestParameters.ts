@@ -6,6 +6,10 @@ export function validateRequestParameters(input: ZambdaInput): CreateUploadPatie
     throw new Error('No request body provided');
   }
 
+  if (!input.headers?.Authorization) {
+    throw new Error('Authorization header is required');
+  }
+
   const { patientId, fileFolderId, fileName, internalName } = JSON.parse(input.body);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
