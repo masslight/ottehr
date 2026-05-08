@@ -26,14 +26,17 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Location, PractitionerRole, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPractitionerRole, deletePractitionerRole, listServiceCategories } from 'src/api/api';
-import { TIMEZONES } from 'utils';
+import { SCHEDULE_DISPLAY_NAME_EXTENSION_URL, TIMEZONES } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
 
 interface PractitionerRoleListProps {
   practitionerId: string;
+  /** Display name of the provider — used to seed the default schedule name
+   *  in the create-schedule dialog ("<Provider Name> @ <Location>"). */
+  practitionerName: string;
 }
 
 interface ScheduleRow {
@@ -45,13 +48,18 @@ interface ScheduleRow {
   displayLabel: string;
 }
 
-function deriveDisplayLabel(locationName: string | undefined, categoryLabels: string[]): string {
-  const loc = locationName || 'Unnamed location';
-  if (categoryLabels.length === 0) return loc;
-  return `${categoryLabels.join(' & ')} — ${loc}`;
+// Default label when an admin hasn't set a custom Name. Just the Location —
+// services are already listed on the row below as "Services: …". Admins who
+// have multiple schedules at the same location can name them explicitly to
+// disambiguate.
+function deriveDisplayLabel(locationName: string | undefined): string {
+  return locationName || 'Unnamed location';
 }
 
-export default function PractitionerRoleList({ practitionerId }: PractitionerRoleListProps): ReactElement {
+export default function PractitionerRoleList({
+  practitionerId,
+  practitionerName,
+}: PractitionerRoleListProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -112,12 +120,16 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
             return categoriesById.get(id)?.name;
           })
           .filter((n): n is string => !!n);
+        // Admin-set display name wins; fallback to the auto-derived label.
+        const explicitName = (role.extension ?? [])
+          .find((ext) => ext.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL)
+          ?.valueString?.trim();
         return {
           role,
           location,
           schedule,
           categoryLabels,
-          displayLabel: deriveDisplayLabel(location?.name, categoryLabels),
+          displayLabel: explicitName || deriveDisplayLabel(location?.name),
         };
       });
 
@@ -127,13 +139,19 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
   });
 
   const createRole = useMutation({
-    mutationFn: async (input: { locationId: string; categoryHealthcareServiceIds: string[]; timezone: string }) => {
+    mutationFn: async (input: {
+      locationId: string;
+      categoryHealthcareServiceIds: string[];
+      timezone: string;
+      displayName?: string;
+    }) => {
       if (!oystehrZambda) throw new Error('zambda client not ready');
       return createPractitionerRole(oystehrZambda, {
         practitionerId,
         locationId: input.locationId,
         categoryHealthcareServiceIds: input.categoryHealthcareServiceIds,
         timezone: input.timezone,
+        displayName: input.displayName,
       });
     },
     onSuccess: ({ schedule }) => {
@@ -147,7 +165,13 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
     },
     onError: (err) => {
       console.error(err);
-      enqueueSnackbar('Failed to create schedule.', { variant: 'error' });
+      // Conflict errors carry a useful, admin-friendly message from the zambda
+      // — surface it directly. Generic catch-all otherwise.
+      const message =
+        err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string'
+          ? (err as any).message
+          : 'Failed to create schedule.';
+      enqueueSnackbar(message, { variant: 'error' });
     },
   });
 
@@ -220,9 +244,9 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
       {rows.length === 1 && (
         <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
-            <Typography variant="body1">{rows[0].location?.name || 'Unnamed location'}</Typography>
+            <Typography variant="body1">{rows[0].displayLabel}</Typography>
             <Typography variant="body2" color="text.secondary">
-              Categories: {rows[0].categoryLabels.length > 0 ? rows[0].categoryLabels.join(', ') : 'All categories'}
+              Services: {rows[0].categoryLabels.length > 0 ? rows[0].categoryLabels.join(', ') : 'All services'}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -248,18 +272,16 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
         <Table size="small" sx={{ mt: 2 }}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>Location</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Service categories</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Schedule</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Services</TableCell>
               <TableCell sx={{ fontWeight: 'bold', width: '20%' }} />
             </TableRow>
           </TableHead>
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.role.id}>
-                <TableCell>{row.location?.name || 'Unnamed location'}</TableCell>
-                <TableCell>
-                  {row.categoryLabels.length > 0 ? row.categoryLabels.join(', ') : 'All categories'}
-                </TableCell>
+                <TableCell>{row.displayLabel}</TableCell>
+                <TableCell>{row.categoryLabels.length > 0 ? row.categoryLabels.join(', ') : 'All services'}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
                     {row.schedule?.id ? (
@@ -283,10 +305,16 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
       <AddScheduleDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        onCreate={(loc, categoryIds, tz) =>
-          createRole.mutate({ locationId: loc, categoryHealthcareServiceIds: categoryIds, timezone: tz })
+        onCreate={(loc, categoryIds, tz, name) =>
+          createRole.mutate({
+            locationId: loc,
+            categoryHealthcareServiceIds: categoryIds,
+            timezone: tz,
+            displayName: name,
+          })
         }
         isSubmitting={createRole.isPending}
+        practitionerName={practitionerName}
       />
 
       <Dialog open={!!pendingDelete} onClose={() => !deleteRole.isPending && setPendingDelete(null)}>
@@ -323,15 +351,46 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
 interface AddScheduleDialogProps {
   open: boolean;
   onClose: () => void;
-  onCreate: (locationId: string, categoryHealthcareServiceIds: string[], timezone: string) => void;
+  onCreate: (locationId: string, categoryHealthcareServiceIds: string[], timezone: string, displayName: string) => void;
   isSubmitting: boolean;
+  practitionerName: string;
 }
 
-function AddScheduleDialog({ open, onClose, onCreate, isSubmitting }: AddScheduleDialogProps): ReactElement {
+function AddScheduleDialog({
+  open,
+  onClose,
+  onCreate,
+  isSubmitting,
+  practitionerName,
+}: AddScheduleDialogProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const [location, setLocation] = useState<Location | null>(null);
   const [categoryHsIds, setCategoryHsIds] = useState<string[]>([]);
   const [timezone, setTimezone] = useState<string>(TIMEZONES[0]);
+  const [scheduleName, setScheduleName] = useState<string>('');
+  // Track whether the admin has manually typed in the Name field. While
+  // false, Name auto-fills from the practitioner + selected location so the
+  // admin sees a sensible default. As soon as they type, the auto-fill
+  // backs off and respects their edit.
+  const [nameEditedManually, setNameEditedManually] = useState<boolean>(false);
+
+  // Reset fields when the dialog reopens so prior selections don't leak.
+  useEffect(() => {
+    if (open) {
+      setLocation(null);
+      setCategoryHsIds([]);
+      setTimezone(TIMEZONES[0]);
+      setScheduleName(`${practitionerName} Schedule`);
+      setNameEditedManually(false);
+    }
+  }, [open, practitionerName]);
+
+  // Live-update the default name as the location changes, until the admin
+  // edits the field manually.
+  useEffect(() => {
+    if (!open || nameEditedManually) return;
+    setScheduleName(location?.name ? `${practitionerName} @ ${location.name}` : `${practitionerName} Schedule`);
+  }, [location, practitionerName, open, nameEditedManually]);
 
   const { data: locations } = useQuery({
     queryKey: ['add-schedule-locations'],
@@ -363,7 +422,7 @@ function AddScheduleDialog({ open, onClose, onCreate, isSubmitting }: AddSchedul
 
   const handleCreate = (): void => {
     if (!location?.id) return;
-    onCreate(location.id, categoryHsIds, timezone);
+    onCreate(location.id, categoryHsIds, timezone, scheduleName);
   };
 
   return (
@@ -383,6 +442,15 @@ function AddScheduleDialog({ open, onClose, onCreate, isSubmitting }: AddSchedul
             value={location}
             onChange={(_e, v) => setLocation(v)}
             renderInput={(params) => <TextField {...params} label="Location" required />}
+          />
+          <TextField
+            label="Name"
+            required
+            value={scheduleName}
+            onChange={(e) => {
+              setScheduleName(e.target.value);
+              setNameEditedManually(true);
+            }}
           />
           <Autocomplete
             multiple
@@ -410,11 +478,7 @@ function AddScheduleDialog({ open, onClose, onCreate, isSubmitting }: AddSchedul
               );
             }}
             renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Service Categories"
-                helperText="Leave empty to allow this schedule to serve all categories."
-              />
+              <TextField {...params} label="Services" helperText="Empty = all available services" />
             )}
           />
           <Autocomplete
@@ -427,7 +491,7 @@ function AddScheduleDialog({ open, onClose, onCreate, isSubmitting }: AddSchedul
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" disabled={!location || isSubmitting} onClick={handleCreate}>
+        <Button variant="contained" disabled={!location || !scheduleName.trim() || isSubmitting} onClick={handleCreate}>
           Create
         </Button>
       </DialogActions>

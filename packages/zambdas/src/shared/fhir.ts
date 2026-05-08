@@ -52,10 +52,8 @@ export async function getSchedules(
   scheduleType: 'location' | 'provider' | 'group',
   slug: string
 ): Promise<GetScheduleResponse> {
-  // 'provider' resolves to a PractitionerRole — the PR-aware equivalent of the
-  // legacy "this provider's booking link." A PR pins (Practitioner, Location,
-  // categories) so the share-link is meaningfully scoped. Practitioner-actored
-  // Schedules are no longer produced by this codebase.
+  // 'provider' resolves to a PractitionerRole — a PR pins (Practitioner,
+  // Location, categories) so the share-link is meaningfully scoped.
   const fhirType = (() => {
     if (scheduleType === 'location') {
       return 'Location';
@@ -113,12 +111,9 @@ export async function getSchedules(
         name: '_include:iterate',
         value: 'PractitionerRole:service',
       },
-      { name: '_revinclude:iterate', value: 'Schedule:actor:Practitioner' },
       { name: '_revinclude:iterate', value: 'Schedule:actor:Location' },
-      // PractitionerRole-as-schedule-actor support: pull in any Schedule whose
-      // actor is one of the PractitionerRoles we included above. This enables
-      // the newer model where a Practitioner's schedule-at-a-location lives on
-      // a PractitionerRole rather than on the Practitioner directly.
+      // Pull in any Schedule whose actor is one of the PractitionerRoles we
+      // included above — the per-provider schedule lives on a PractitionerRole.
       { name: '_revinclude:iterate', value: 'Schedule:actor:PractitionerRole' }
     );
   }

@@ -25,10 +25,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   const oystehr = createOystehrClient(m2mToken, input.secrets);
 
-  // Deactivate any Schedule whose actor is this PR. We do these first so a
-  // partial failure leaves the PR's Schedule(s) inactive even if the PR PATCH
-  // fails — slot generation already filters by Schedule.active, so the
-  // schedule is effectively gone the moment its Schedules go inactive.
+  // Deactivate any Schedule whose actor is this PR before deactivating the PR
+  // itself. The PR-side filter (active=true) is the load-bearing mechanism
+  // that hides a soft-deleted PR from admin lists, conflict checks, and group
+  // member resolution — Schedule.active is patched here for completeness and
+  // to keep the resource graph consistent.
   const scheduleBundle = await oystehr.fhir.search<Schedule>({
     resourceType: 'Schedule',
     params: [{ name: 'actor', value: `PractitionerRole/${parsed.roleId}` }],

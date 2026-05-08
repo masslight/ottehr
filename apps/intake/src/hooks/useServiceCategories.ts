@@ -44,10 +44,17 @@ export interface ServiceCategoryContext {
 }
 
 /**
- * Returns the current service categories from the FHIR registry, falling back
- * to the compiled-in BOOKING_CONFIG.SERVICE_CATEGORIES_AVAILABLE when the
- * registry is empty or unreachable. The hook always returns *something* — it
- * never shows an empty list — so existing booking flows keep working.
+ * Returns the active service categories: the compiled-in BOOKING_CONFIG entries
+ * (production source of truth, in-flight when this branch was started) merged
+ * with any FHIR-registry entries the admin has added through the new Services
+ * admin UI. **BOOKING_CONFIG wins on code collisions** — a FHIR entry with the
+ * same code as an existing BOOKING_CONFIG entry is ignored. This keeps
+ * production URLs (e.g. `?serviceCategoryCode=urgent-care`) and intake homepage
+ * routing structurally identical to pre-branch behavior; the FHIR registry can
+ * only *add* new categories, not silently override the compiled defaults.
+ *
+ * If the registry is unreachable or returns an empty list, the result is just
+ * BOOKING_CONFIG.serviceCategories — the pre-branch shape.
  *
  * When a group context is passed, the returned list is intersected with the
  * group's declared categories (HealthcareService.type[]), so patients booking
@@ -55,7 +62,7 @@ export interface ServiceCategoryContext {
  */
 export function useServiceCategories(context: ServiceCategoryContext = {}): {
   serviceCategories: ServiceCategoryConfig[];
-  source: 'fhir' | 'booking-config' | 'fallback';
+  source: 'fhir' | 'booking-config' | 'merged' | 'fallback';
   isLoading: boolean;
 } {
   const zambdaClient = useUCZambdaClient({ tokenless: true });
@@ -65,7 +72,7 @@ export function useServiceCategories(context: ServiceCategoryContext = {}): {
     queryKey: ['intake-service-categories', scheduleType ?? null, bookingOn ?? null],
     queryFn: async (): Promise<{
       serviceCategories: ServiceCategoryConfig[];
-      source: 'fhir' | 'booking-config';
+      source: 'fhir' | 'booking-config' | 'merged';
     }> => {
       if (!zambdaClient) {
         return { serviceCategories: BOOKING_CONFIG.serviceCategories, source: 'booking-config' };
@@ -79,7 +86,19 @@ export function useServiceCategories(context: ServiceCategoryContext = {}): {
       if (records.length === 0) {
         return { serviceCategories: BOOKING_CONFIG.serviceCategories, source: 'booking-config' };
       }
-      return { serviceCategories: records.map(toConfig), source: parsed?.source ?? 'fhir' };
+      // Merge: BOOKING_CONFIG entries are the production source of truth and
+      // win on code collisions. Only FHIR entries with codes NOT already in
+      // BOOKING_CONFIG are added to the list. This makes the FHIR registry
+      // strictly additive — admins can introduce new categories but cannot
+      // silently override compiled defaults that production URLs depend on.
+      const bookingCodes = new Set(
+        BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code).filter((c): c is string => !!c)
+      );
+      const fhirOnly = records.map(toConfig).filter((sc) => sc.category.code && !bookingCodes.has(sc.category.code));
+      return {
+        serviceCategories: [...BOOKING_CONFIG.serviceCategories, ...fhirOnly],
+        source: fhirOnly.length > 0 ? 'merged' : 'booking-config',
+      };
     },
     enabled: !!zambdaClient,
     staleTime: 5 * 60 * 1000,

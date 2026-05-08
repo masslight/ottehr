@@ -4,6 +4,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import {
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
@@ -14,6 +15,7 @@ import {
   FormControlLabel,
   IconButton,
   InputLabel,
+  ListItemText,
   MenuItem,
   OutlinedInput,
   Paper,
@@ -31,7 +33,8 @@ import {
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useCallback, useEffect, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { BOOKING_CONFIG } from 'utils';
 import {
   createServiceCategory,
   deleteServiceCategory,
@@ -42,6 +45,13 @@ import {
 import { useApiClients } from '../hooks/useAppClients';
 
 const QUERY_KEY = ['service-categories'];
+
+/** Set of service codes that are defined in the compiled-in BOOKING_CONFIG.
+ *  Per D14 these are non-overridable from this UI; preventing creation of
+ *  colliding codes here avoids the "saved but does nothing" failure mode. */
+const COMPILED_SERVICE_CODES: ReadonlySet<string> = new Set(
+  BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code).filter((c): c is string => !!c)
+);
 
 const DEFAULT_NEW_SERVICE_CATEGORY: ServiceCategoryRecord = {
   name: '',
@@ -76,6 +86,8 @@ const ServiceCategoryDialog: FC<{
     }
   }, [open, initial]);
 
+  const codeIsTaken = useMemo(() => !!value.code.trim() && COMPILED_SERVICE_CODES.has(value.code.trim()), [value.code]);
+
   const handleSave = useCallback(async () => {
     const missing: string[] = [];
     if (!value.name.trim()) missing.push('name');
@@ -83,6 +95,12 @@ const ServiceCategoryDialog: FC<{
     if (value.config.durationMinutes < 1) missing.push('duration');
     if (missing.length > 0) {
       enqueueSnackbar(`Missing required field(s): ${missing.join(', ')}`, { variant: 'warning' });
+      return;
+    }
+    if (codeIsTaken) {
+      enqueueSnackbar(`A service with the code "${value.code}" already exists. Choose a different code.`, {
+        variant: 'warning',
+      });
       return;
     }
     setSaving(true);
@@ -99,11 +117,11 @@ const ServiceCategoryDialog: FC<{
     } finally {
       setSaving(false);
     }
-  }, [onSubmit, value, reasonsText]);
+  }, [onSubmit, value, reasonsText, codeIsTaken]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{initial?.id ? 'Edit Service Category' : 'New Service Category'}</DialogTitle>
+      <DialogTitle>{initial?.id ? 'Edit Service' : 'New Service'}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           <TextField
@@ -127,7 +145,12 @@ const ServiceCategoryDialog: FC<{
             required
             size="small"
             fullWidth
-            helperText="URL-safe identifier — e.g., 'urgent-care', 'workers-comp'"
+            error={codeIsTaken}
+            helperText={
+              codeIsTaken
+                ? `A service with the code "${value.code}" already exists. Choose a different code.`
+                : "URL-safe identifier — e.g., 'urgent-care', 'workers-comp'"
+            }
           />
           <TextField
             label="Duration (minutes)"
@@ -147,10 +170,10 @@ const ServiceCategoryDialog: FC<{
             fullWidth
           />
           <FormControl size="small" fullWidth>
-            <InputLabel>Cadence (start interval)</InputLabel>
+            <InputLabel shrink>Cadence (start interval)</InputLabel>
             <Select
               value={value.config.cadenceMinutes ?? ''}
-              input={<OutlinedInput label="Cadence (start interval)" />}
+              input={<OutlinedInput notched label="Cadence (start interval)" />}
               onChange={(e) => {
                 const raw = e.target.value;
                 const parsed = raw === '' ? undefined : Number(raw);
@@ -162,7 +185,7 @@ const ServiceCategoryDialog: FC<{
                   },
                 }));
               }}
-              renderValue={(selected) => (selected === '' ? 'Default (15 min)' : `${selected} min`)}
+              renderValue={(selected) => (selected ? `${selected as number} min` : 'Default (15 min)')}
               displayEmpty
             >
               <MenuItem value="">Default (15 min)</MenuItem>
@@ -188,10 +211,18 @@ const ServiceCategoryDialog: FC<{
                   },
                 }))
               }
-              renderValue={(selected) => (selected as string[]).join(', ')}
+              renderValue={(selected) =>
+                (selected as string[]).map((s) => (s === 'in-person' ? 'In-Person' : 'Virtual')).join(', ')
+              }
             >
-              <MenuItem value="in-person">In-Person</MenuItem>
-              <MenuItem value="virtual">Virtual</MenuItem>
+              <MenuItem value="in-person">
+                <Checkbox checked={value.config.serviceModes.includes('in-person')} />
+                <ListItemText primary="In-Person" />
+              </MenuItem>
+              <MenuItem value="virtual">
+                <Checkbox checked={value.config.serviceModes.includes('virtual')} />
+                <ListItemText primary="Virtual" />
+              </MenuItem>
             </Select>
           </FormControl>
           <FormControl size="small" fullWidth>
@@ -211,10 +242,18 @@ const ServiceCategoryDialog: FC<{
                   },
                 }))
               }
-              renderValue={(selected) => (selected as string[]).join(', ')}
+              renderValue={(selected) =>
+                (selected as string[]).map((s) => (s === 'prebook' ? 'Prebook' : 'Walk-in')).join(', ')
+              }
             >
-              <MenuItem value="prebook">Prebook</MenuItem>
-              <MenuItem value="walk-in">Walk-in</MenuItem>
+              <MenuItem value="prebook">
+                <Checkbox checked={value.config.visitTypes.includes('prebook')} />
+                <ListItemText primary="Prebook" />
+              </MenuItem>
+              <MenuItem value="walk-in">
+                <Checkbox checked={value.config.visitTypes.includes('walk-in')} />
+                <ListItemText primary="Walk-in" />
+              </MenuItem>
             </Select>
           </FormControl>
           <TextField
@@ -242,7 +281,7 @@ const ServiceCategoryDialog: FC<{
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || codeIsTaken}
           startIcon={saving ? <CircularProgress size={16} /> : null}
         >
           Save
@@ -283,7 +322,13 @@ export const ServiceCategoriesAdminPage: FC = () => {
         setEditing(undefined);
       } catch (err) {
         console.error('Failed to save service category:', err);
-        enqueueSnackbar('Failed to save service category', { variant: 'error' });
+        // Try to surface a friendly message from the server (e.g. the
+        // SERVICE_CATEGORY_CODE_TAKEN response). The Oystehr SDK throws on
+        // non-2xx with the response body attached in various shapes; check
+        // the common ones before falling back to the generic message.
+        const friendly = (err as any)?.response?.data?.message ?? (err as any)?.body?.message ?? (err as any)?.message;
+        const isCodeTakenError = typeof friendly === 'string' && friendly.startsWith('A service with the code');
+        enqueueSnackbar(isCodeTakenError ? friendly : 'Failed to save service category', { variant: 'error' });
       }
     },
     [oystehrZambda, queryClient]
@@ -306,12 +351,34 @@ export const ServiceCategoriesAdminPage: FC = () => {
     [oystehrZambda, queryClient]
   );
 
-  const serviceCategories = data?.serviceCategories || [];
+  // The FHIR registry returns admin-managed categories. Merge in the
+  // compiled-in BOOKING_CONFIG entries so the admin can see *every* service
+  // that's bookable in the system, not just the ones they can edit. System
+  // rows are flagged so the table can render them read-only.
+  const serviceCategories = useMemo<Array<ServiceCategoryRecord & { systemManaged?: boolean }>>(() => {
+    const fhirRows = data?.serviceCategories || [];
+    const fhirCodes = new Set(fhirRows.map((sc) => sc.code));
+    const systemRows: Array<ServiceCategoryRecord & { systemManaged: boolean }> = BOOKING_CONFIG.serviceCategories
+      .filter((sc) => sc.category.code && !fhirCodes.has(sc.category.code))
+      .map((sc) => ({
+        name: sc.category.display ?? sc.category.code ?? '',
+        code: sc.category.code ?? '',
+        active: true,
+        config: {
+          durationMinutes: 0,
+          serviceModes: sc.serviceModes,
+          visitTypes: sc.visitTypes,
+          reasonsForVisit: sc.reasonsForVisit?.default ?? [],
+        },
+        systemManaged: true,
+      }));
+    return [...fhirRows, ...systemRows];
+  }, [data?.serviceCategories]);
 
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h5">Service Categories</Typography>
+        <Typography variant="h5">Services</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -320,15 +387,13 @@ export const ServiceCategoriesAdminPage: FC = () => {
             setDialogOpen(true);
           }}
         >
-          New Service Category
+          New Service
         </Button>
       </Box>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Service categories define the bookable appointment categories a patient can choose — each with its own duration,
-        service modes, and reasons for visit. Managed here as FHIR <code>HealthcareService</code> resources. When no
-        categories have been created here, the system falls back to the deployment's compiled-in{' '}
-        <code>BOOKING_CONFIG.SERVICE_CATEGORIES_AVAILABLE</code>.
+        Services are the appointment types patients can book. Add a service here, then attach it to a provider's
+        schedule from their employee page or to a group from the group admin page.
       </Typography>
 
       {isLoading ? (
@@ -338,8 +403,8 @@ export const ServiceCategoriesAdminPage: FC = () => {
       ) : serviceCategories.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="body1" color="text.secondary">
-            No service categories defined in FHIR yet. Click "New Service Category" to create one, or rely on the
-            deployment's default <code>BOOKING_CONFIG</code> until you're ready to manage these at runtime.
+            No services defined in FHIR yet. Click "New Service" to create one, or rely on the deployment's default{' '}
+            <code>BOOKING_CONFIG</code> until you're ready to manage these at runtime.
           </Typography>
         </Paper>
       ) : (
@@ -370,17 +435,18 @@ export const ServiceCategoriesAdminPage: FC = () => {
                 <TableRow
                   key={sc.id || sc.code}
                   hover
-                  sx={{ cursor: 'pointer' }}
+                  sx={{ cursor: sc.systemManaged ? 'default' : 'pointer' }}
                   onClick={() => {
+                    if (sc.systemManaged) return;
                     setEditing(sc);
                     setDialogOpen(true);
                   }}
                 >
                   <TableCell>{sc.name}</TableCell>
                   <TableCell sx={{ fontFamily: 'monospace' }}>{sc.code}</TableCell>
-                  <TableCell align="center">{sc.config.durationMinutes} min</TableCell>
+                  <TableCell align="center">{sc.systemManaged ? '—' : `${sc.config.durationMinutes} min`}</TableCell>
                   <TableCell align="center">
-                    {sc.config.cadenceMinutes ? `${sc.config.cadenceMinutes} min` : 'default'}
+                    {sc.systemManaged ? '—' : sc.config.cadenceMinutes ? `${sc.config.cadenceMinutes} min` : 'default'}
                   </TableCell>
                   <TableCell>
                     {sc.config.serviceModes.map((m) => (
@@ -393,30 +459,40 @@ export const ServiceCategoriesAdminPage: FC = () => {
                     ))}
                   </TableCell>
                   <TableCell align="center">
-                    <Chip
-                      label={sc.active ? 'active' : 'inactive'}
-                      size="small"
-                      color={sc.active ? 'success' : 'default'}
-                    />
+                    {sc.systemManaged ? (
+                      <Tooltip title="Defined in compiled config; not editable from this page.">
+                        <Chip label="System" size="small" />
+                      </Tooltip>
+                    ) : (
+                      <Chip
+                        label={sc.active ? 'active' : 'inactive'}
+                        size="small"
+                        color={sc.active ? 'success' : 'default'}
+                      />
+                    )}
                   </TableCell>
                   <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          setEditing(sc);
-                          setDialogOpen(true);
-                        }}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    {sc.active && (
-                      <Tooltip title="Deactivate">
-                        <IconButton size="small" color="error" onClick={() => sc.id && handleDeactivate(sc.id)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                    {!sc.systemManaged && (
+                      <>
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setEditing(sc);
+                              setDialogOpen(true);
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {sc.active && (
+                          <Tooltip title="Deactivate">
+                            <IconButton size="small" color="error" onClick={() => sc.id && handleDeactivate(sc.id)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </>
                     )}
                   </TableCell>
                 </TableRow>

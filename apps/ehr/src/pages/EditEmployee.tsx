@@ -163,7 +163,10 @@ export default function EditEmployeePage(): JSX.Element {
 
               {isActive && user?.profileResource?.id && (
                 <Box id="schedule" ref={scheduleAnchorRef}>
-                  <PractitionerRoleList practitionerId={user.profileResource.id} />
+                  <PractitionerRoleList
+                    practitionerId={user.profileResource.id}
+                    practitionerName={user.name || 'Provider'}
+                  />
                 </Box>
               )}
 

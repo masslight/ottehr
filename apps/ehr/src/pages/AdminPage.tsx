@@ -15,7 +15,7 @@ import ServiceCategoriesAdminPage from './ServiceCategoriesAdminPage';
 
 enum PageTab {
   schedules = 'schedules',
-  'service-categories' = 'service-categories',
+  services = 'services',
   'virtual-locations' = 'virtual-locations',
   employees = 'employees',
   providers = 'providers',
@@ -46,10 +46,10 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab.schedules}`)}
                 />
                 <Tab
-                  label="Service Categories"
-                  value={PageTab['service-categories']}
+                  label="Services"
+                  value={PageTab.services}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab['service-categories']}`)}
+                  onClick={() => navigate(`/admin/${PageTab.services}`)}
                 />
                 <Tab
                   label="Virtual Locations"
@@ -114,7 +114,7 @@ export function AdminPage(): JSX.Element {
           <TabPanel value={PageTab.schedules} sx={{ padding: 0 }}>
             <SchedulesPage />
           </TabPanel>
-          <TabPanel value={PageTab['service-categories']} sx={{ padding: 0 }}>
+          <TabPanel value={PageTab.services} sx={{ padding: 0 }}>
             <ServiceCategoriesAdminPage />
           </TabPanel>
           <TabPanel value={PageTab['virtual-locations']} sx={{ padding: 0 }}>

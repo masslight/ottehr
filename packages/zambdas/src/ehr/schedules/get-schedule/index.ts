@@ -13,6 +13,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   MISSING_SCHEDULE_EXTENSION_ERROR,
+  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
   SCHEDULE_NOT_FOUND_ERROR,
   SCHEDULE_OWNER_NOT_FOUND_ERROR,
   ScheduleDTO,
@@ -39,14 +40,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createOystehrClient(m2mToken, secrets);
   const effectInput = await complexValidation(validatedParameters, oystehr);
 
-  // PR rows need an extra fetch to compose "Dr. X — Location Y" since the
-  // Schedule's _include only brings in the PR resource itself, not its
-  // referenced Practitioner + Location.
-  let displayName: string | undefined;
+  // For PR rows, the page title prefers an admin-set display name (stored as
+  // a PR.extension valueString) and falls back to the composed
+  // "<Practitioner> at <Location>" form. Only the composed form requires an
+  // extra FHIR fetch — the explicit name lives on the resource we already
+  // have in hand.
+  let resolvedNameOverride: string | undefined;
   if (effectInput.owner.resourceType === 'PractitionerRole') {
-    displayName = await getNameForPractitionerRole(effectInput.owner as PractitionerRole, oystehr);
+    const explicit = ((effectInput.owner as PractitionerRole).extension ?? [])
+      .find((ext) => ext.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL)
+      ?.valueString?.trim();
+    resolvedNameOverride = explicit
+      ? explicit
+      : await getNameForPractitionerRole(effectInput.owner as PractitionerRole, oystehr);
   }
-  const scheduleDTO = performEffect(effectInput, displayName);
+  const scheduleDTO = performEffect(effectInput, resolvedNameOverride);
 
   return {
     statusCode: 200,
@@ -86,6 +94,12 @@ const performEffect = (input: EffectInput, displayNameOverride?: string): Schedu
     ownerResource.resourceType === 'PractitionerRole'
       ? (ownerResource as PractitionerRole).location?.[0]?.reference?.split('/')[1]
       : undefined;
+  const displayName =
+    ownerResource.resourceType === 'PractitionerRole'
+      ? ((ownerResource as PractitionerRole).extension ?? []).find(
+          (ext) => ext.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL
+        )?.valueString
+      : undefined;
 
   const owner: ScheduleDTOOwner = {
     type: ownerResource.resourceType,
@@ -100,6 +114,7 @@ const performEffect = (input: EffectInput, displayNameOverride?: string): Schedu
     isVirtual,
     healthcareServiceIds,
     locationId,
+    displayName,
   };
 
   return {

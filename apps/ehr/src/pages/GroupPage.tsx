@@ -9,6 +9,7 @@ import {
   Checkbox,
   CircularProgress,
   FormControl,
+  FormControlLabel,
   Grid,
   InputLabel,
   MenuItem,
@@ -27,17 +28,17 @@ import { CodeableConcept, HealthcareService, Location, Practitioner, Practitione
 // CodeableConcept. Defining locally to avoid a missing named export.
 type HealthcareServiceCharacteristic = CodeableConcept;
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { listServiceCategories } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
-import { getPatchBinary, getSlugForBookableResource, SLUG_SYSTEM } from 'utils';
+import { getPatchBinary, getSlugForBookableResource, SCHEDULE_DISPLAY_NAME_EXTENSION_URL, SLUG_SYSTEM } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 
 const SERVICE_CATEGORY_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/service-category';
 const GROUP_ASSIGNMENT_MODE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/group-assignment-mode';
-const GROUP_SLOT_CADENCE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/group-slot-cadence';
+const GROUP_UNIFORM_QUALIFICATIONS_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/group-uniform-qualifications';
 
 type AssignmentMode = 'anonymous' | 'provider';
 
@@ -65,8 +66,15 @@ function GroupPageContent(): ReactElement {
   // categories are derived from the selected roles at save time.
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('anonymous');
-  // Slot cadence moved from the group to the service category. Stripping any
-  // existing GROUP_SLOT_CADENCE coding on save (above) cleans up legacy data.
+  // Categories the group supports. Authoritative — what the patient is allowed
+  // to book through this group. Admin-curated; a Massage group containing a
+  // multi-skill member shouldn't expose that member's other categories.
+  const [supportedCategoryHsIds, setSupportedCategoryHsIds] = useState<string[]>([]);
+  // When true, every member of this group is presumed qualified for every
+  // category the group supports, regardless of the per-PR healthcareService
+  // list. Designed for homogeneous teams where adding a service should land
+  // for everyone in one click.
+  const [uniformQualifications, setUniformQualifications] = useState<boolean>(false);
   const [slug, setSlug] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
@@ -88,13 +96,24 @@ function GroupPageContent(): ReactElement {
   // useMemo so the dependency is stable across renders.
   const categoryByHsId = useMemo(() => {
     const available = categoryData?.serviceCategories || [];
-    const map = new Map<string, { code: string; name: string; durationMinutes: number }>();
+    const map = new Map<
+      string,
+      {
+        code: string;
+        name: string;
+        durationMinutes: number;
+        serviceModes: Array<'in-person' | 'virtual'>;
+        visitTypes: Array<'prebook' | 'walk-in'>;
+      }
+    >();
     for (const sc of available) {
       if ((sc as any).id) {
         map.set((sc as any).id, {
           code: sc.code,
           name: sc.name,
           durationMinutes: (sc as any).config?.durationMinutes ?? 15,
+          serviceModes: ((sc as any).config?.serviceModes ?? ['in-person']) as Array<'in-person' | 'virtual'>,
+          visitTypes: ((sc as any).config?.visitTypes ?? ['prebook']) as Array<'prebook' | 'walk-in'>,
         });
       }
     }
@@ -170,47 +189,82 @@ function GroupPageContent(): ReactElement {
     };
   }, [selectedRoleIds, practitionerRoles, practitioners, locations, oystehr, categoryByHsId]);
 
-  // Build booking links for (location, category) pairs present among the
-  // selected roles. Category picker URL is only meaningful for a group that
-  // has exactly one location and multiple categories.
+  // Build booking links for (location, category) pairs.
+  //   • Locations come from selected members (a group inherits its
+  //     locations from who's in it).
+  //   • Categories come from the group's admin-curated allow-list
+  //     (supportedCategoryHsIds), not from any member's PR. This makes
+  //     "I added Massage 90 to the group" produce a link even if no
+  //     individual member's PR explicitly lists Massage 90 — the toggle
+  //     story handles whether members actually qualify at slot-gen time.
   const bookingLinks = useMemo(() => {
     if (!slug) return [];
-    const base = `${INTAKE_URL}/prebook/in-person`;
     const groupParams = `bookingOn=${slug}&scheduleType=group`;
 
     const distinctLocations = new Map<string, { id: string; name: string; slug: string }>();
-    const distinctCategories = new Map<string, { code: string; name: string; durationMinutes: number }>();
     for (const row of derivedMembership.roleRows) {
       if (row.locationId && row.locationSlug && !distinctLocations.has(row.locationId)) {
         distinctLocations.set(row.locationId, { id: row.locationId, name: row.locationName, slug: row.locationSlug });
       }
-      for (const hsId of row.categoryHsIds) {
-        const cat = categoryByHsId.get(hsId);
-        if (cat && !distinctCategories.has(cat.code)) distinctCategories.set(cat.code, cat);
-      }
+    }
+
+    type CatInfo = {
+      code: string;
+      name: string;
+      durationMinutes: number;
+      serviceModes: Array<'in-person' | 'virtual'>;
+      visitTypes: Array<'prebook' | 'walk-in'>;
+    };
+    const distinctCategories = new Map<string, CatInfo>();
+    for (const hsId of supportedCategoryHsIds) {
+      const cat = categoryByHsId.get(hsId);
+      if (cat && !distinctCategories.has(cat.code)) distinctCategories.set(cat.code, cat);
     }
     const locs = Array.from(distinctLocations.values());
     const cats = Array.from(distinctCategories.values());
 
+    // Walk-in URLs are not generated for groups: the walk-in route is
+    // Location-scoped (`/walkin/schedule/<id>`), not group-scoped, so a group
+    // doesn't have a walk-in entry point. Front-desk walk-in flows go through
+    // the Location admin's walk-in URL.
+    const prebookCats = cats.filter((c) => c.visitTypes.includes('prebook'));
+
     const links: Array<{ label: string; url: string }> = [];
-    if (locs.length === 1 && cats.length >= 2) {
-      links.push({
-        label: `Category picker — ${locs[0].name}`,
-        url: `${base}/select-service-category?${groupParams}&atLocation=${encodeURIComponent(locs[0].slug)}`,
-      });
-    }
+
+    // Category picker fast-path. The picker route exists per service mode.
+    // Emit one picker link per (location × distinct mode) when more than one
+    // category supports that mode at that location.
     for (const loc of locs) {
-      for (const cat of cats) {
-        links.push({
-          label: `${loc.name} · ${cat.name} — ${cat.durationMinutes} min`,
-          url: `${base}?${groupParams}&serviceCategory=${encodeURIComponent(cat.code)}&atLocation=${encodeURIComponent(
-            loc.slug
-          )}`,
-        });
+      for (const mode of ['in-person', 'virtual'] as const) {
+        const modeCats = prebookCats.filter((c) => c.serviceModes.includes(mode));
+        if (modeCats.length >= 2 && locs.length === 1) {
+          const modeLabel = mode === 'virtual' ? 'Virtual' : 'In-person';
+          links.push({
+            label: `${modeLabel} category picker — ${loc.name}`,
+            url: `${INTAKE_URL}/prebook/${mode}/select-service-category?${groupParams}&atLocation=${encodeURIComponent(
+              loc.slug
+            )}`,
+          });
+        }
+      }
+    }
+
+    // Direct prebook links: one per (location × category × mode-of-category).
+    for (const loc of locs) {
+      for (const cat of prebookCats) {
+        for (const mode of cat.serviceModes) {
+          const modeLabel = mode === 'virtual' ? ' [virtual]' : '';
+          links.push({
+            label: `${loc.name} · ${cat.name}${modeLabel} — ${cat.durationMinutes} min`,
+            url: `${INTAKE_URL}/prebook/${mode}?${groupParams}&serviceCategory=${encodeURIComponent(
+              cat.code
+            )}&atLocation=${encodeURIComponent(loc.slug)}`,
+          });
+        }
       }
     }
     return links;
-  }, [slug, derivedMembership, categoryByHsId]);
+  }, [slug, derivedMembership, categoryByHsId, supportedCategoryHsIds]);
 
   const getOptions = useCallback(async () => {
     if (!oystehr) {
@@ -261,7 +315,35 @@ function GroupPageContent(): ReactElement {
       .flatMap((c) => c.coding || [])
       .find((c) => c.system === GROUP_ASSIGNMENT_MODE_SYSTEM);
     setAssignmentMode((modeCoding?.code as AssignmentMode) || 'anonymous');
+
+    const uniformCoding = (groupTemp.characteristic || [])
+      .flatMap((c) => c.coding || [])
+      .find((c) => c.system === GROUP_UNIFORM_QUALIFICATIONS_SYSTEM);
+    setUniformQualifications(uniformCoding?.code === 'true');
   }, [oystehr, groupID]);
+
+  // Resolve the group's authoritative supported-categories list. group.type[]
+  // stores category codes; the multi-select keys on HS ids. We map via the
+  // catalog (categoryByHsId, populated by the service-categories query). A
+  // group with empty type[] (e.g., freshly created) hydrates to an empty
+  // allow-list — the admin must explicitly select services.
+  const supportedHydratedRef = useRef(false);
+  useEffect(() => {
+    if (supportedHydratedRef.current) return;
+    if (!group || !categoryByHsId.size) return;
+
+    const codes = (group.type || [])
+      .flatMap((t) => t.coding || [])
+      .map((c) => c.code)
+      .filter((c): c is string => !!c);
+
+    const allowed = new Set<string>();
+    for (const [id, info] of categoryByHsId.entries()) {
+      if (codes.includes(info.code)) allowed.add(id);
+    }
+    setSupportedCategoryHsIds([...allowed]);
+    supportedHydratedRef.current = true;
+  }, [group, categoryByHsId]);
 
   useEffect(() => {
     void getOptions();
@@ -318,15 +400,17 @@ function GroupPageContent(): ReactElement {
         );
       }
 
-      // Derive the group's declared locations and offered categories from the
-      // currently-selected roles. Keeps downstream readers (tracking board
-      // filter, URL generators) consistent without requiring manual upkeep.
+      // Locations stay derived from membership — they're a fact of who's in the
+      // group, not a separate admin choice. Categories, on the other hand, are
+      // explicitly admin-curated (Option A): the supportedCategoryHsIds list
+      // is what the patient is allowed to book through this group, even if a
+      // multi-skill member's PR exposes more.
       const derivedLocationRefs = derivedMembership.derivedLocationIds.map((id) => ({
         reference: `Location/${id}`,
       }));
-      const derivedTypes: CodeableConcept[] = derivedMembership.derivedCategoryHsIds
+      const supportedTypes: CodeableConcept[] = supportedCategoryHsIds
         .map((hsId) => categoryByHsId.get(hsId))
-        .filter((x): x is { code: string; name: string; durationMinutes: number } => !!x)
+        .filter((x): x is NonNullable<typeof x> => !!x)
         .map((cat) => ({
           coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: cat.code, display: cat.name }],
           text: cat.name,
@@ -334,14 +418,13 @@ function GroupPageContent(): ReactElement {
 
       const patchOperations: Operation[] = [
         { op: group?.location ? 'replace' : 'add', path: '/location', value: derivedLocationRefs },
-        { op: group?.type ? 'replace' : 'add', path: '/type', value: derivedTypes },
+        { op: group?.type ? 'replace' : 'add', path: '/type', value: supportedTypes },
       ];
 
-      // Slot cadence used to live on the group as GROUP_SLOT_CADENCE_SYSTEM but
-      // moved to the service category (ServiceCategoryRuntimeConfig.cadenceMinutes).
-      // We strip any legacy cadence coding here so saving the group cleans it
-      // up, but we no longer write a new cadence characteristic.
-      const OWNED_SYSTEMS = new Set([GROUP_ASSIGNMENT_MODE_SYSTEM, GROUP_SLOT_CADENCE_SYSTEM]);
+      // Replace this page's own characteristic codings on save; preserve any
+      // characteristic codings owned by other systems (e.g., service-mode set
+      // at group creation).
+      const OWNED_SYSTEMS = new Set([GROUP_ASSIGNMENT_MODE_SYSTEM, GROUP_UNIFORM_QUALIFICATIONS_SYSTEM]);
       const preservedCharacteristics: HealthcareServiceCharacteristic[] = (group?.characteristic || [])
         .map((c) => ({
           ...c,
@@ -351,6 +434,9 @@ function GroupPageContent(): ReactElement {
       const newCharacteristics: HealthcareServiceCharacteristic[] = [
         ...preservedCharacteristics,
         { coding: [{ system: GROUP_ASSIGNMENT_MODE_SYSTEM, code: assignmentMode }] },
+        {
+          coding: [{ system: GROUP_UNIFORM_QUALIFICATIONS_SYSTEM, code: uniformQualifications ? 'true' : 'false' }],
+        },
       ];
       patchOperations.push({
         op: group?.characteristic ? 'replace' : 'add',
@@ -399,15 +485,24 @@ function GroupPageContent(): ReactElement {
 
   // Show schedule-bearing PRs (those with a Location reference); group-only
   // membership PRs without a Location aren't real schedules and would clutter
-  // the picker. Already-selected roles always stay in the list so admins can
-  // deselect them, even if the data shape would otherwise hide them.
+  // the picker. Inactive (soft-deleted) PRs are also excluded as new options.
+  // Already-selected roles always stay in the list so admins can deselect
+  // them — they get an "(inactive)" suffix in labelForRole.
   const roleOptions = (practitionerRoles || []).filter((role) => {
     if (!role.practitioner?.reference) return false;
     if (selectedRoleIds.includes(role.id!)) return true;
+    if (role.active === false) return false;
     return !!role.location?.[0]?.reference;
   });
 
   const labelForRole = (role: PractitionerRole): string => {
+    const inactiveSuffix = role.active === false ? ' (inactive)' : '';
+    // Admin-set name wins. Critical when one provider has multiple PRs at the
+    // same Location — without it, the picker shows two indistinguishable rows.
+    const explicitName = (role.extension ?? [])
+      .find((ext) => ext.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL)
+      ?.valueString?.trim();
+    if (explicitName) return `${explicitName}${inactiveSuffix}`;
     const pracId = role.practitioner?.reference?.split('/')[1];
     const pracResource = (practitioners || []).find((p) => p.id === pracId);
     const pracLabel = pracResource?.name?.[0]
@@ -416,7 +511,6 @@ function GroupPageContent(): ReactElement {
     const locRef = role.location?.[0]?.reference;
     const locId = locRef?.split('/')[1];
     const locName = (locations || []).find((l) => l.id === locId)?.name;
-    const inactiveSuffix = role.active === false ? ' (inactive)' : '';
     const base = locName ? `${pracLabel} @ ${locName}` : pracLabel;
     return `${base}${inactiveSuffix}`;
   };
@@ -441,8 +535,8 @@ function GroupPageContent(): ReactElement {
       <Typography variant="h4">Manage the schedule for {group?.name}</Typography>
       <Typography variant="body1">
         This is a group schedule. Its availability is made up of the schedules of the provider roles selected below.
-        Each role carries its own Location and list of offered service categories; the group's offered categories and
-        locations are derived from that union.
+        Each role carries its own Location and list of offered services; the group's offered services and locations are
+        derived from that union.
       </Typography>
       {selectedInactiveRoles.length > 0 && (
         <Box
@@ -461,8 +555,8 @@ function GroupPageContent(): ReactElement {
               : `${selectedInactiveRoles.length} inactive provider schedules are still selected as members.`}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Inactive schedules don't contribute to this group's bookable hours, locations, or categories. Deselect them
-            in the picker below and Save to clean up.
+            Inactive schedules don't contribute to this group's bookable hours, locations, or services. Deselect them in
+            the picker below and Save to clean up.
           </Typography>
         </Box>
       )}
@@ -534,6 +628,110 @@ function GroupPageContent(): ReactElement {
               <strong>Provider</strong>: booking writes the picked provider directly to the Encounter. The EHR shows
               them as the attending immediately.
             </Typography>
+            <FormControlLabel
+              sx={{ mt: 2, display: 'flex', alignItems: 'flex-start' }}
+              control={
+                <Checkbox
+                  checked={uniformQualifications}
+                  onChange={(e) => setUniformQualifications(e.target.checked)}
+                />
+              }
+              label={
+                <Box sx={{ pt: 0.5 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    Treat all members as qualified for every service this group supports
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {uniformQualifications
+                      ? 'Every member is presumed qualified for every service. Adding a service to the group makes it instantly bookable from all members. Use only when the team is uniformly qualified.'
+                      : "Each member's qualifications are read from their own provider schedule. A patient sees slots only from members whose schedule explicitly lists the requested service."}
+                  </Typography>
+                </Box>
+              }
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              Services this group supports
+            </Typography>
+            <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary' }}>
+              The patient is allowed to book only the checked services through this group's link. Each row shows which
+              selected members currently offer the service.
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxWidth: 640 }}>
+              {Array.from(categoryByHsId.entries())
+                .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+                .map(([hsId, info]) => {
+                  const isInAllowList = supportedCategoryHsIds.includes(hsId);
+                  // Members of this group whose PR explicitly offers this category.
+                  const offeringNames: string[] = [];
+                  if (practitionerRoles && practitioners) {
+                    const seen = new Set<string>();
+                    for (const role of practitionerRoles) {
+                      if (!role.id || !selectedRoleIds.includes(role.id)) continue;
+                      const offers = role.healthcareService?.some(
+                        (ref) => ref.reference === `HealthcareService/${hsId}`
+                      );
+                      if (!offers) continue;
+                      const pracId = role.practitioner?.reference?.split('/')[1];
+                      const prac = practitioners.find((p) => p.id === pracId);
+                      const name = prac?.name?.[0]
+                        ? oystehr?.fhir.formatHumanName(prac.name[0]) || 'Unknown'
+                        : 'Unknown';
+                      if (!seen.has(name)) {
+                        seen.add(name);
+                        offeringNames.push(name);
+                      }
+                    }
+                  }
+                  const providerText = uniformQualifications
+                    ? 'all group members'
+                    : offeringNames.length > 0
+                    ? offeringNames.join(', ')
+                    : 'no current member is qualified — slots will appear empty';
+                  const isWarning = !uniformQualifications && offeringNames.length === 0 && isInAllowList;
+                  return (
+                    <Box
+                      key={hsId}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 1,
+                        py: 0.5,
+                      }}
+                    >
+                      <Checkbox
+                        size="small"
+                        checked={isInAllowList}
+                        sx={{ p: 0.5, mt: 0.25 }}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSupportedCategoryHsIds([...supportedCategoryHsIds, hsId]);
+                          } else {
+                            setSupportedCategoryHsIds(supportedCategoryHsIds.filter((x) => x !== hsId));
+                          }
+                        }}
+                      />
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {info.name}
+                          <Typography component="span" variant="caption" sx={{ ml: 0.5, color: 'text.secondary' }}>
+                            ({info.durationMinutes} min)
+                          </Typography>
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: isWarning ? 'warning.main' : 'text.secondary' }}>
+                          {providerText}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              {categoryByHsId.size === 0 && (
+                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                  No services defined yet. Create them in Admin → Services.
+                </Typography>
+              )}
+            </Box>
           </Grid>
           <Grid item xs={6}>
             <Autocomplete
@@ -579,19 +777,15 @@ function GroupPageContent(): ReactElement {
           </Grid>
           <Grid item xs={6}>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              Derived from group members:
+              Locations from selected members:
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              <strong>Locations:</strong>{' '}
               {derivedMembership.roleRows.length === 0
                 ? 'none'
                 : Array.from(new Set(derivedMembership.roleRows.map((r) => r.locationName))).join(', ')}
             </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              <strong>Service categories:</strong>{' '}
-              {derivedMembership.derivedCategoryHsIds.length === 0
-                ? 'none'
-                : derivedMembership.derivedCategoryHsIds.map((id) => categoryByHsId.get(id)?.name || id).join(', ')}
+            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
+              Locations are derived from membership — change them by selecting different members above.
             </Typography>
           </Grid>
           <Grid item xs={2}>

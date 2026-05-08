@@ -1,9 +1,15 @@
 import { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { PractitionerRole, Schedule } from 'fhir/r4b';
-import { BLANK_SCHEDULE_JSON_TEMPLATE, SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils';
+import { HealthcareService, PractitionerRole, Schedule } from 'fhir/r4b';
+import {
+  BLANK_SCHEDULE_JSON_TEMPLATE,
+  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
+  SCHEDULE_EXTENSION_URL,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkPractitionerRoleConflict } from '../admin-practitioner-role-shared/check-conflict';
 
 interface AdminCreatePractitionerRoleInput {
   practitionerId: string;
@@ -12,6 +18,11 @@ interface AdminCreatePractitionerRoleInput {
   categoryHealthcareServiceIds: string[];
   /** IANA timezone name; written into a TIMEZONE_EXTENSION on the new Schedule. */
   timezone: string;
+  /**
+   * Optional admin-set display name. Written as a PR.extension valueString.
+   * Empty/omitted means callers fall back to "<Practitioner> @ <Location>".
+   */
+  displayName?: string;
 }
 
 interface AdminCreatePractitionerRoleResponse {
@@ -43,9 +54,48 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   const oystehr = createOystehrClient(m2mToken, input.secrets);
 
+  // Reject configurations where this provider already has an active schedule
+  // at this location offering one of the requested categories. We resolve
+  // category names from the requested ids so the error is human-readable.
+  const categoryNameById = new Map<string, string>();
+  if (parsed.categoryHealthcareServiceIds.length > 0) {
+    const hsBundle = await oystehr.fhir.search<HealthcareService>({
+      resourceType: 'HealthcareService',
+      params: [{ name: '_id', value: parsed.categoryHealthcareServiceIds.join(',') }],
+    });
+    for (const hs of hsBundle.unbundle()) {
+      if (hs.id) categoryNameById.set(hs.id, hs.name ?? hs.id);
+    }
+  }
+  const conflict = await checkPractitionerRoleConflict(
+    oystehr,
+    {
+      practitionerRef: `Practitioner/${parsed.practitionerId}`,
+      locationRef: `Location/${parsed.locationId}`,
+      categoryHsIds: parsed.categoryHealthcareServiceIds,
+    },
+    { categoryNameById }
+  );
+  if (conflict) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        code: 'PRACTITIONER_SCHEDULE_CONFLICT',
+        message: `This provider already has an active schedule at this location offering ${conflict.conflictingCategoryNames.join(
+          ', '
+        )}. Remove ${
+          conflict.conflictingCategoryNames.length === 1 ? 'it' : 'them'
+        } from that schedule first, or pick a different location.`,
+        conflictingScheduleId: conflict.conflictingScheduleId,
+        conflictingCategoryNames: conflict.conflictingCategoryNames,
+      }),
+    };
+  }
+
   // Create the PractitionerRole and its Schedule in a single FHIR transaction
   // so the partial-failure case (PR exists, Schedule missing) can't happen.
   const roleFullUrl = `urn:uuid:${randomUUID()}`;
+  const trimmedName = parsed.displayName?.trim();
   const roleResource: PractitionerRole = {
     resourceType: 'PractitionerRole',
     active: true,
@@ -54,6 +104,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     healthcareService: parsed.categoryHealthcareServiceIds.map((id) => ({
       reference: `HealthcareService/${id}`,
     })),
+    ...(trimmedName ? { extension: [{ url: SCHEDULE_DISPLAY_NAME_EXTENSION_URL, valueString: trimmedName }] } : {}),
   };
   const scheduleResource: Schedule = {
     resourceType: 'Schedule',

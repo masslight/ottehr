@@ -2381,6 +2381,13 @@ export const migrateExamData = async (
 
 export interface ServiceCategoryRuntimeConfig {
   durationMinutes: number;
+  /**
+   * Interval between offered slot start times, in minutes. Independent of
+   * durationMinutes — a 60-minute service may be offered every 30 min if
+   * cadenceMinutes is 30. When omitted, the slot generator falls back to a
+   * sensible default (typically 15).
+   */
+  cadenceMinutes?: number;
   serviceModes: Array<'in-person' | 'virtual'>;
   /** Booking flows for this category — 'prebook' vs 'walk-in'. */
   visitTypes: Array<'prebook' | 'walk-in'>;
@@ -2437,7 +2444,14 @@ export const deleteServiceCategory = async (
 
 export const createPractitionerRole = async (
   oystehr: Oystehr,
-  input: { practitionerId: string; locationId: string; categoryHealthcareServiceIds: string[]; timezone: string }
+  input: {
+    practitionerId: string;
+    locationId: string;
+    categoryHealthcareServiceIds: string[];
+    timezone: string;
+    /** Optional admin-set display name for the new schedule. */
+    displayName?: string;
+  }
 ): Promise<{ role: PractitionerRole; schedule: Schedule }> => {
   const response = await oystehr.zambda.execute({
     id: ADMIN_CREATE_PRACTITIONER_ROLE_ZAMBDA_ID,
@@ -2448,7 +2462,13 @@ export const createPractitionerRole = async (
 
 export const updatePractitionerRole = async (
   oystehr: Oystehr,
-  input: { roleId: string; categoryHealthcareServiceIds?: string[]; locationId?: string }
+  input: {
+    roleId: string;
+    categoryHealthcareServiceIds?: string[];
+    locationId?: string;
+    /** Optional admin-set display name. Empty string clears the override. */
+    displayName?: string;
+  }
 ): Promise<{ role: PractitionerRole }> => {
   const response = await oystehr.zambda.execute({
     id: ADMIN_UPDATE_PRACTITIONER_ROLE_ZAMBDA_ID,

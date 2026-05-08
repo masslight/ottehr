@@ -154,6 +154,11 @@ export interface ScheduleDTOOwner {
   healthcareServiceIds?: string[];
   /** PR owners only — id of the Location this role is bound to. */
   locationId?: string;
+  /**
+   * PR owners only — admin-editable schedule display name.
+   * Empty/undefined when not set; callers fall back to "<Practitioner> @ <Location>".
+   */
+  displayName?: string;
 }
 export interface ScheduleDTO {
   id: string;
@@ -1901,10 +1906,8 @@ export const fhirTypeForScheduleType = (scheduleType: ScheduleType): ScheduleOwn
     return 'Location';
   }
   if (scheduleType === 'provider') {
-    // 'provider' now means PractitionerRole — the PR-aware equivalent of the
-    // legacy "book this provider" link. Slug + booking URL pin a particular
-    // (provider, location, categories) tuple. Practitioner-actored Schedules
-    // are no longer produced by this codebase.
+    // 'provider' means PractitionerRole — slug + booking URL pin a particular
+    // (provider, location, categories) tuple.
     return 'PractitionerRole';
   }
   return 'HealthcareService';

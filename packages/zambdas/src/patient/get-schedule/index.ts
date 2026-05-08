@@ -106,17 +106,26 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   let cadenceMinutes: number | undefined;
 
   // 1. Explicit category in the URL.
+  // Resolution order is BOOKING_CONFIG-first → FHIR-fallback. BOOKING_CONFIG is
+  // the compiled-in source of truth for production-deployed categories
+  // (urgent-care, workers-comp, etc.); a FHIR entry with the same code is
+  // intentionally ignored so an admin who creates a colliding FHIR row can't
+  // silently change the slot-generation behavior of an existing production
+  // booking URL. The FHIR catalog is consulted only for codes that are NOT
+  // already in BOOKING_CONFIG (i.e., genuinely new admin-added categories).
   if (serviceCategoryCode) {
-    const fhirHit = fhirCategoryHits.find((hs) => hs.type?.[0]?.coding?.some((c) => c.code === serviceCategoryCode));
-    if (fhirHit) {
-      resolvedCoding = { system: SERVICE_CATEGORY_SYSTEM, code: serviceCategoryCode };
-      const cfg = parseCategoryConfig(fhirHit);
-      slotLengthMinutes = cfg.durationMinutes;
-      cadenceMinutes = cfg.cadenceMinutes;
+    const configHit = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategoryCode);
+    if (configHit) {
+      resolvedCoding = { system: configHit.category.system, code: configHit.category.code };
+      // BOOKING_CONFIG entries don't carry cadence — slot generation falls
+      // through to per-Schedule slot length, the pre-branch behavior.
     } else {
-      const configHit = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === serviceCategoryCode);
-      if (configHit) {
-        resolvedCoding = { system: configHit.category.system, code: configHit.category.code };
+      const fhirHit = fhirCategoryHits.find((hs) => hs.type?.[0]?.coding?.some((c) => c.code === serviceCategoryCode));
+      if (fhirHit) {
+        resolvedCoding = { system: SERVICE_CATEGORY_SYSTEM, code: serviceCategoryCode };
+        const cfg = parseCategoryConfig(fhirHit);
+        slotLengthMinutes = cfg.durationMinutes;
+        cadenceMinutes = cfg.cadenceMinutes;
       }
     }
   }
@@ -139,13 +148,46 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
 
   const serviceCategories: Coding[] | undefined = resolvedCoding ? [resolvedCoding] : undefined;
 
+  // For group bookings, the group's type[] is the authoritative allow-list of
+  // categories patients can book through it. Reject URL category codes that
+  // aren't in the list — otherwise a multi-skill member's other categories
+  // (e.g. an aesthetics provider in a Massage group) would leak through.
+  if (serviceCategoryCode && scheduleOwner.resourceType === 'HealthcareService') {
+    const groupSupportedCodes = (scheduleOwner as HealthcareService).type
+      ?.flatMap((t) => t.coding || [])
+      .map((c) => c.code)
+      .filter((c): c is string => !!c);
+    if (groupSupportedCodes && groupSupportedCodes.length > 0 && !groupSupportedCodes.includes(serviceCategoryCode)) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: `This group does not offer "${serviceCategoryCode}".`,
+          code: 'CATEGORY_NOT_SUPPORTED_BY_GROUP',
+        }),
+      };
+    }
+  }
+
+  // Group's "uniform qualifications" toggle: when true, every member is
+  // presumed qualified for every category the group supports. Skip the
+  // per-PR.healthcareService filter for this group's slot-list. Working
+  // hours and busy-slot subtraction still apply.
+  const groupHasUniformQualifications =
+    scheduleOwner.resourceType === 'HealthcareService' &&
+    (scheduleOwner as HealthcareService).characteristic
+      ?.flatMap((c) => c.coding || [])
+      ?.some(
+        (c) => c.system === 'https://fhir.ottehr.com/CodeSystem/group-uniform-qualifications' && c.code === 'true'
+      );
+
   // Filter PractitionerRole-owned schedules by healthcareService[]. When a
   // category is requested, drop any schedule whose PractitionerRole owner
   // doesn't list the category-tagged HealthcareService (matched by code on
   // the role's healthcareService references resolved through fhirMatches).
   // Schedules owned by Location / Practitioner / HealthcareService pass through
   // unchanged — we only use the role's service list to narrow the pool.
-  if (serviceCategoryCode) {
+  // Skip when the group declares uniform qualifications.
+  if (serviceCategoryCode && !groupHasUniformQualifications) {
     const categoryHealthcareServiceIds = new Set<string>();
     // Resolve the category-tagged HealthcareService(s) to their ids so we can
     // match against role.healthcareService[].reference.
@@ -177,10 +219,8 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     scheduleList.push(...filtered);
   }
 
-  // Cadence now lives on ServiceCategoryRuntimeConfig and was resolved above
-  // alongside slotLengthMinutes. The legacy GROUP_SLOT_CADENCE characteristic
-  // on the group HealthcareService is no longer consulted — cadence is a
-  // service-level concern, not a group-level one.
+  // Cadence is a service-level property — resolved above from
+  // ServiceCategoryRuntimeConfig alongside slotLengthMinutes.
 
   console.log(
     'SERVICE CATEGORIES FOR SLOT GENERATION:',

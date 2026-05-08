@@ -68,7 +68,7 @@ export default function SchedulePage(): ReactElement {
   const [item, setItem] = useState<ScheduleDTO | undefined>(undefined);
 
   const [statusPatchLoading, setStatusPatchLoading] = useState(false);
-  const [isCopied, setIsCopied] = useState<boolean>(false);
+  const [copiedLinkKey, setCopiedLinkKey] = useState<string | null>(null);
 
   // todo: currently these things are props of the schedule owner and get rendered as the content of the "general" tab
   // would like to refactor that tab to be its own Page responsible for displaying the configuration of
@@ -83,15 +83,32 @@ export default function SchedulePage(): ReactElement {
   // shows that fallback so admins always see what name will be used.
   const [scheduleName, setScheduleName] = useState<string>('');
   const [initialScheduleName, setInitialScheduleName] = useState<string>('');
-  const defaultIntakeUrl = (() => {
+  // Booking links for this schedule. Always at least the prebook link; for
+  // Location-actored schedules we also surface a walk-in link (the walk-in
+  // route resolves Schedule IDs and is only modeled for Location actors —
+  // per the requirements doc, walk-in is the front-desk-assigns-whoever-is-
+  // free pattern that lives on a Location, not a per-provider role).
+  const bookingLinks = (() => {
     const fhirType = item?.owner.type;
     const locationType = item?.owner.isVirtual ? 'virtual' : 'in-person';
+    const links: Array<{ label: string; url: string; copyKey: string }> = [];
     if (slug && fhirType) {
-      return `${INTAKE_URL}/prebook/${locationType}?bookingOn=${slug}&scheduleType=${scheduleTypeFromFHIRType(
-        fhirType
-      )}`;
+      links.push({
+        label: 'Prebook',
+        url: `${INTAKE_URL}/prebook/${locationType}?bookingOn=${slug}&scheduleType=${scheduleTypeFromFHIRType(
+          fhirType
+        )}`,
+        copyKey: 'prebook',
+      });
     }
-    return '';
+    if (fhirType === 'Location' && scheduleId && isValidUUID(scheduleId)) {
+      links.push({
+        label: 'Walk-in',
+        url: `${INTAKE_URL}/walkin/schedule/${scheduleId}`,
+        copyKey: 'walkin',
+      });
+    }
+    return links;
   })();
 
   useEffect(() => {
@@ -457,33 +474,52 @@ export default function SchedulePage(): ReactElement {
                       />
                       <br />
 
-                      <Typography variant="body2" sx={{ pt: 1, pb: 0.5, fontWeight: 600 }}>
-                        Share booking link to this schedule:
+                      <Typography
+                        variant="body2"
+                        sx={{ pt: 1, pb: 0.5, fontWeight: 600, display: bookingLinks.length > 0 ? 'block' : 'none' }}
+                      >
+                        Share booking links:
                       </Typography>
-                      <Box sx={{ display: defaultIntakeUrl ? 'flex' : 'none', alignItems: 'center', gap: 0.5, mb: 3 }}>
-                        <Tooltip
-                          title={isCopied ? 'Link copied!' : 'Copy link'}
-                          placement="top"
-                          arrow
-                          onClose={() => {
-                            setTimeout(() => {
-                              setIsCopied(false);
-                            }, 200);
-                          }}
-                        >
-                          <Button
-                            onClick={() => {
-                              void navigator.clipboard.writeText(defaultIntakeUrl);
-                              setIsCopied(true);
-                            }}
-                            sx={{ p: 0, minWidth: 0 }}
-                          >
-                            <ContentCopyRoundedIcon fontSize="small" />
-                          </Button>
-                        </Tooltip>
-                        <Link to={defaultIntakeUrl} target="_blank">
-                          <Typography variant="body2">{defaultIntakeUrl}</Typography>
-                        </Link>
+                      <Box
+                        sx={{
+                          display: bookingLinks.length > 0 ? 'flex' : 'none',
+                          flexDirection: 'column',
+                          gap: 0.5,
+                          mb: 3,
+                        }}
+                      >
+                        {bookingLinks.map((link) => (
+                          <Box key={link.copyKey} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Tooltip
+                              title={copiedLinkKey === link.copyKey ? 'Link copied!' : 'Copy link'}
+                              placement="top"
+                              arrow
+                              onClose={() => {
+                                setTimeout(() => {
+                                  if (copiedLinkKey === link.copyKey) setCopiedLinkKey(null);
+                                }, 200);
+                              }}
+                            >
+                              <Button
+                                onClick={() => {
+                                  void navigator.clipboard.writeText(link.url);
+                                  setCopiedLinkKey(link.copyKey);
+                                }}
+                                sx={{ p: 0, minWidth: 0 }}
+                              >
+                                <ContentCopyRoundedIcon fontSize="small" />
+                              </Button>
+                            </Tooltip>
+                            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                {link.label}
+                              </Typography>
+                              <Link to={link.url} target="_blank">
+                                <Typography variant="body2">{link.url}</Typography>
+                              </Link>
+                            </Box>
+                          </Box>
+                        ))}
                       </Box>
                       <Autocomplete
                         options={TIMEZONES}

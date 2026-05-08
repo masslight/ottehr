@@ -247,6 +247,16 @@ export const PRACTITIONER_QUALIFICATION_STATE_SYSTEM = 'http://hl7.org/fhir/us/c
 
 export const SLUG_SYSTEM = `${FHIR_BASE_URL}/r4/slug`;
 
+/**
+ * Optional admin-editable display name for a PractitionerRole-actored schedule.
+ * Stored as a PR.extension valueString. When absent, callers compose a name
+ * from the role's referenced Practitioner + Location — see the GroupPage /
+ * PractitionerRoleList fallbacks. The field exists to disambiguate two PRs at
+ * the same (provider, location) — e.g., a provider's morning intake schedule
+ * vs afternoon surgery schedule.
+ */
+export const SCHEDULE_DISPLAY_NAME_EXTENSION_URL = `${FHIR_BASE_URL}/StructureDefinitions/schedule-display-name`;
+
 export const SERVICE_EXTENSION = 'http://extensions.ottehr.com';
 
 export const AppointmentInsuranceRelatedResourcesExtension = {
@@ -767,10 +777,6 @@ export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
 
 // HealthcareService.characteristic coding that controls the cadence at which
 // bookable slot start times are offered for group schedules (e.g. 15/30/60).
-// Codes: '15' | '30' | '60'. Absent → falls back to the generator's default
-// (gcd of slotLength and 60).
-export const GROUP_SLOT_CADENCE_SYSTEM = ottehrCodeSystemUrl('group-slot-cadence');
-
 export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
 
 export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/global-template-list`;
