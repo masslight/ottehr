@@ -36,14 +36,11 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
   const theme = useTheme();
   const [patientInstructions, setPatientInstructions] = useState<CommunicationDTO[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
-
   const { isFetching } = useGetPatientInstructions({ type }, (data) => {
     if (!data) return;
     setPatientInstructions(data);
   });
-
   const isMyTemplates = type === 'provider';
-
   const { mutate, isPending: isDeleting } = useDeletePatientInstruction();
   const queryClient = useQueryClient();
 
