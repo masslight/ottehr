@@ -116,9 +116,41 @@ jobs:
           key: seed-data-${{ steps.env.outputs.environment }}-${{ github.sha }}-${{ github.run_id }}
           fail-on-cache-miss: true
 
+      - name: Spec tests with coverage
+        if: ${{ !cancelled() }}
+        run: cd packages/spec && npx vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --passWithNoTests
+        env:
+          ENV: ${{ steps.env.outputs.environment }}
+          CI: true
+          NODE_OPTIONS: "--max-old-space-size=8192"
+
+      - name: Upload spec coverage to Coveralls
+        if: ${{ !cancelled() && hashFiles('packages/spec/coverage/lcov.info') != '' }}
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
+        with:
+          flag-name: spec
+          parallel: true
+          file: ./packages/spec/coverage/lcov.info
+
+      - name: Test-utils tests with coverage
+        if: ${{ !cancelled() }}
+        run: cd packages/test-utils && npx vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --passWithNoTests
+        env:
+          ENV: ${{ steps.env.outputs.environment }}
+          CI: true
+          NODE_OPTIONS: "--max-old-space-size=8192"
+
+      - name: Upload test-utils coverage to Coveralls
+        if: ${{ !cancelled() && hashFiles('packages/test-utils/coverage/lcov.info') != '' }}
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
+        with:
+          flag-name: test-utils
+          parallel: true
+          file: ./packages/test-utils/coverage/lcov.info
+
       - name: Utils tests with coverage
         if: ${{ !cancelled() }}
-        run: cd packages/utils && npx vitest run --coverage
+        run: cd packages/utils && npx vitest run --coverage --passWithNoTests
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
@@ -132,25 +164,9 @@ jobs:
           parallel: true
           file: ./packages/utils/coverage/lcov.info
 
-      - name: UI components tests with coverage
-        if: ${{ !cancelled() }}
-        run: cd packages/ui-components && npx vitest run --coverage
-        env:
-          ENV: ${{ steps.env.outputs.environment }}
-          CI: true
-          NODE_OPTIONS: "--max-old-space-size=8192"
-
-      - name: Upload ui-components coverage to Coveralls
-        if: ${{ !cancelled() && hashFiles('packages/ui-components/coverage/lcov.info') != '' }}
-        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
-        with:
-          flag-name: ui-components
-          parallel: true
-          file: ./packages/ui-components/coverage/lcov.info
-
       - name: Zambda unit & integration tests with coverage
         if: ${{ !cancelled() }}
-        run: cd packages/zambdas && npx vitest run --coverage
+        run: cd packages/zambdas && npx vitest run --coverage --passWithNoTests
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
@@ -166,7 +182,7 @@ jobs:
 
       - name: EHR unit tests with coverage
         if: ${{ !cancelled() }}
-        run: cd apps/ehr && npx vitest run --config ./vitest.config.ts --coverage
+        run: cd apps/ehr && npx vitest run --config ./vitest.config.ts --coverage --passWithNoTests
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
@@ -182,7 +198,7 @@ jobs:
 
       - name: EHR component tests with coverage
         if: ${{ !cancelled() }}
-        run: cd apps/ehr && npx vitest run --config ./vitest.config.component-tests.ts --coverage
+        run: cd apps/ehr && npx vitest run --config ./vitest.config.component-tests.ts --coverage --passWithNoTests
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
@@ -198,7 +214,7 @@ jobs:
 
       - name: Intake unit tests with coverage
         if: ${{ !cancelled() }}
-        run: cd apps/intake && npx vitest run --config ./vitest.config.ts --coverage
+        run: cd apps/intake && npx vitest run --config ./vitest.config.ts --coverage --passWithNoTests
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
@@ -214,7 +230,7 @@ jobs:
 
       - name: Intake component tests with coverage
         if: ${{ !cancelled() }}
-        run: cd apps/intake && npx vitest run --config ./vitest.config.component-tests.ts --coverage
+        run: cd apps/intake && npx vitest run --config ./vitest.config.component-tests.ts --coverage --passWithNoTests
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
@@ -233,7 +249,7 @@ jobs:
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
         with:
           parallel-finished: true
-          carryforward: "utils,ui-components,zambdas,ehr-unit,ehr-component,intake-unit,intake-component"
+          carryforward: "spec,test-utils,utils,zambdas,ehr-unit,ehr-component,intake-unit,intake-component"
 
       - name: Set GitHub Commit Status
         if: github.event_name == 'workflow_dispatch'
