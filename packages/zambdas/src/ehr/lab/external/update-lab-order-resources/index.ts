@@ -93,8 +93,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
-  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-  const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
+  const practitionerIdFromCurrentUser = await getMyPractitionerId(
+    validatedParameters.userToken,
+    validatedParameters.secrets
+  );
 
   switch (validatedParameters.event) {
     case 'reviewed': {

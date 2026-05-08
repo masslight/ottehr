@@ -39,7 +39,13 @@ import {
   searchRouteByCode,
   UpdateMedicationOrderInput,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  getMyPractitionerId,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import {
   createMedicationAdministrationResource,
   createMedicationRequest,
@@ -49,7 +55,6 @@ import {
   createMedicationCopy,
   getEncounterIdFromMA,
   getMedicationById,
-  practitionerIdFromZambdaInput,
   updateMedicationAdministrationData,
   validateProviderAccess,
 } from './helpers';
@@ -66,7 +71,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '') as string;
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-  const practitionerId = await practitionerIdFromZambdaInput(userToken, validatedParameters.secrets);
+  const practitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
   console.log('Created zapToken, fhir and clients.');
 
   const response = await performEffect(oystehr, validatedParameters, practitionerId, userToken);
