@@ -122,7 +122,7 @@ const copyAssets = async (from: string, to: string): Promise<void> => {
   }
 };
 
-const SENTRY_CHUNK_SIZE = 20;
+const SENTRY_CHUNK_SIZE = 10;
 
 const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<void> => {
   if (!process.env.SENTRY_ORG || !process.env.SENTRY_PROJECT || !process.env.SENTRY_AUTH_TOKEN) {
