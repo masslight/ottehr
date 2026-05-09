@@ -88,8 +88,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('token', m2mToken);
 
   const oystehr = createOystehrClient(m2mToken, secrets);
-  const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-  const curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+  const curUserPractitionerId = await getMyPractitionerId(userToken, secrets);
 
   const {
     serviceRequest,

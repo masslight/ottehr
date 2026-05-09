@@ -43,6 +43,30 @@
       "src": "src/ehr/incomplete-encounters-report/index",
       "zip": ".dist/zips/incomplete-encounters-report.zip"
     },
+    "MAILED-STATEMENTS-REPORT": {
+      "name": "mailed-statements-report",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/mailed-statements-report/index",
+      "zip": ".dist/zips/mailed-statements-report.zip"
+    },
+    "SYNC-MAILED-STATEMENT-STATUSES": {
+      "name": "sync-mailed-statement-statuses",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/sync-mailed-statement-statuses/index",
+      "zip": ".dist/zips/sync-mailed-statement-statuses.zip"
+    },
+    "SYNC-MAILED-STATEMENT-STATUSES-CRON": {
+      "name": "sync-mailed-statement-statuses-cron",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/cron/sync-mailed-statement-statuses/index",
+      "zip": ".dist/zips/sync-mailed-statement-statuses-cron.zip",
+      "schedule": {
+        "expression": "cron(0 6 * * ? *)"
+      }
+    },
     "AI-ASSISTED-ENCOUNTERS-REPORT": {
       "name": "ai-assisted-encounters-report",
       "type": "http_auth",
@@ -543,7 +567,7 @@
     "VISIT-DETAILS-TO-PDF": {
       "name": "visit-details-to-pdf",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/visit-details-to-pdf/index",
       "zip": ".dist/zips/visit-details-to-pdf.zip"
     },
@@ -952,6 +976,14 @@
       "src": "src/subscriptions/task/sub-harvest-paperwork/index",
       "zip": ".dist/zips/sub-harvest-paperwork-page.zip"
     },
+    "SUB-MERGE-PATIENTS": {
+      "name": "sub-merge-patients",
+      "type": "subscription",
+      "timeout": "300",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-merge-patients/index",
+      "zip": ".dist/zips/sub-merge-patients.zip"
+    },
     "SUB-SEND-CLAIM": {
       "name": "sub-send-claim",
       "type": "subscription",
@@ -1120,10 +1152,38 @@
       "src": "src/ehr/ai-suggestion-notes/index",
       "zip": ".dist/zips/ai-suggestion-notes.zip"
     },
+    "GET-EM-CODES": {
+      "name": "get-em-codes",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/em-codes/get/index",
+      "zip": ".dist/zips/get-em-codes.zip"
+    },
+    "CREATE-EM-CODE": {
+      "name": "create-em-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/em-codes/create/index",
+      "zip": ".dist/zips/create-em-code.zip"
+    },
+    "UPDATE-EM-CODE": {
+      "name": "update-em-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/em-codes/update/index",
+      "zip": ".dist/zips/update-em-code.zip"
+    },
+    "DELETE-EM-CODE": {
+      "name": "delete-em-code",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/em-codes/delete/index",
+      "zip": ".dist/zips/delete-em-code.zip"
+    },
     "RECOMMEND-BILLING-SUGGESTIONS": {
       "name": "recommend-billing-suggestions",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/recommend-billing-suggestions/index",
       "zip": ".dist/zips/recommend-billing-suggestions.zip"
     },
@@ -1879,6 +1939,27 @@
       "src": "src/ehr/lab/in-house/admin-update-in-house-lab/index",
       "zip": ".dist/zips/admin-update-in-house-lab.zip"
     },
+    "ADMIN_GET_LAB_SETS": {
+      "name": "admin-get-lab-sets",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-get-lab-sets/index",
+      "zip": ".dist/zips/admin-get-lab-sets.zip"
+    },
+    "ADMIN_ADD_LAB_SET": {
+      "name": "admin-add-lab-set",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-add-lab-set/index",
+      "zip": ".dist/zips/admin-add-lab-set.zip"
+    },
+    "ADMIN_UPDATE_LAB_SET": {
+      "name": "admin-update-lab-set",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/lab/lab-sets/admin-update-lab-set/index",
+      "zip": ".dist/zips/admin-update-lab-set.zip"
+    },
     "ERX_NOTIFICATION": {
       "name": "erx-notification-subscription",
       "type": "subscription",
@@ -2105,6 +2186,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-HARVEST-PAPERWORK-PAGE/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_MERGE_PATIENTS_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "background merge patients",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|merge-patients&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-MERGE-PATIENTS/id}"
         },
         "extension": [
           {

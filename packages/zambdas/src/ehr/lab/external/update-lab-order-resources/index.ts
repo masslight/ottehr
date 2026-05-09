@@ -93,8 +93,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
-  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-  const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
+  const practitionerIdFromCurrentUser = await getMyPractitionerId(
+    validatedParameters.userToken,
+    validatedParameters.secrets
+  );
 
   switch (validatedParameters.event) {
     case 'reviewed': {
@@ -305,12 +307,6 @@ const handleReviewedEvent = async ({
     throw new Error(`ServiceRequest/${serviceRequestId} not found for diagnostic report, ${diagnosticReportId}`);
   }
 
-  const observationId = diagnosticReport.result?.[0]?.reference?.split('/').pop();
-
-  if (!observationId) {
-    throw new Error(`Observation Id not found in DiagnosticReport/${diagnosticReportId}`);
-  }
-
   let location: Location | undefined;
   const locationReference = serviceRequest?.locationReference?.[0];
   if (locationReference) {
@@ -326,13 +322,25 @@ const handleReviewedEvent = async ({
 
   const tempProvenanceUuid = `urn:uuid:${crypto.randomUUID()}`;
 
-  const target: Reference[] = [
-    { reference: `DiagnosticReport/${diagnosticReport.id}` },
-    { reference: `Observation/${observationId}` },
-  ];
+  const observationId = diagnosticReport.result?.[0]?.reference?.split('/').pop();
+
+  if (!observationId) {
+    console.warn(
+      `Observation Id not found in DiagnosticReport/${diagnosticReportId}. Will not add to provenance target`
+    );
+    await sendErrors(
+      `Observation Id not found in DiagnosticReport/${diagnosticReportId}. Ensure HL7 corroborates that`,
+      getSecret(SecretsKeys.ENVIRONMENT, secrets)
+    );
+  }
+
+  const target: Reference[] = [{ reference: `DiagnosticReport/${diagnosticReport.id}` }];
+  if (observationId) target.push({ reference: `Observation/${observationId}` });
   if (serviceRequest) {
     target.push({ reference: `ServiceRequest/${serviceRequest.id}` });
   }
+
+  console.log('Provenance target is: ', JSON.stringify(target));
 
   const provenanceRequest: BatchInputPostRequest<Provenance> = {
     method: 'POST',

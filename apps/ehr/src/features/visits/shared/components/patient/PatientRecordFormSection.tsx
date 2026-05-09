@@ -2,8 +2,7 @@ import { FormFieldItemRecord, FormFieldItemRecordSchema, FormFieldsDisplayItem, 
 import { FC, ReactElement } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Section } from 'src/components/layout';
-import { PATIENT_RECORD_CONFIG } from 'utils';
-import { evaluateFieldTriggers } from './patientRecordValidation';
+import { evaluateFieldTriggers, PATIENT_RECORD_CONFIG } from 'utils';
 
 interface PatientRecordFormSectionInput {
   formSection: FormFieldSection;

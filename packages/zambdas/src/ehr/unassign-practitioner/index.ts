@@ -22,10 +22,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
   console.log('Created Oystehr client');
 
-  const validatedData = await complexValidation(oystehr, oystehrCurrentUser, validatedParameters);
+  const validatedData = await complexValidation(oystehr, validatedParameters);
 
   const response = await performEffect(oystehr, validatedData);
   return {
@@ -35,7 +34,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 export const complexValidation = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
   params: UnassignPractitionerZambdaInputValidated
 ): Promise<{
   encounter: Encounter;
