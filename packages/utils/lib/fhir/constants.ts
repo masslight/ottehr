@@ -397,6 +397,7 @@ export const BUCKET_NAMES = {
   DISCHARGE_SUMMARIES: 'discharge-summaries',
   STATEMENTS: 'statements',
   PATIENT_EDUCATION: 'patient-education',
+  PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
   REPORTS: 'invoiceable-patients-reports',
 } as const;
 

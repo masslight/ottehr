@@ -1,6 +1,7 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
+import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
@@ -24,6 +25,7 @@ enum PageTab {
   billing = 'billing',
   'quick-picks' = 'quick-picks',
   'in-house-labs' = 'in-house-labs',
+  'patient-education' = 'patient-education',
   'em-codes' = 'em-codes',
   'lab-sets' = 'lab-sets',
 }
@@ -96,6 +98,12 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab['in-house-labs']}`)}
                 />
                 <Tab
+                  label="Patient Education"
+                  value={PageTab['patient-education']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['patient-education']}`)}
+                />
+                <Tab
                   label="E&M Codes"
                   value={PageTab['em-codes']}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
@@ -145,6 +153,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['in-house-labs']} sx={{ padding: 0 }}>
             <InHouseLabAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['patient-education']} sx={{ padding: 0 }}>
+            <PatientEducationAdminPage />
           </TabPanel>
           <TabPanel value={PageTab['em-codes']} sx={{ padding: 0 }}>
             <EMCodesAdminPage />

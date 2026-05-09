@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { useCallback, useRef, useState } from 'react';
-import { CommunicationDTO } from 'utils';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ApprovedPatientEducationItem, CommunicationDTO } from 'utils';
 import { useAppointmentData, useChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 
@@ -61,7 +61,7 @@ export interface EducationSection {
   icdDescription: string;
 }
 
-export type GenerateOutcome = 'review';
+export type GenerateOutcome = 'review' | 'completed';
 
 export interface UsePatientEducationResult {
   prefetchAllDiagnoses: () => void;
@@ -74,6 +74,7 @@ export interface UsePatientEducationResult {
   error: string | null;
   progress: string | null;
   allDiagnoses: DiagnosisOption[];
+  approvedByCode: Map<string, ApprovedPatientEducationItem>;
 }
 
 export function usePatientEducation(): UsePatientEducationResult {
@@ -93,17 +94,46 @@ export function usePatientEducation(): UsePatientEducationResult {
     isPrimary: d.isPrimary,
   }));
 
+  const [approvedByCode, setApprovedByCode] = useState<Map<string, ApprovedPatientEducationItem>>(new Map());
+  // The full selection from the most recent generateForDiagnoses call, preserved
+  // so saveFromSections can merge approved PDFs with newly-rendered content.
+  const lastSelectionRef = useRef<DiagnosisOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!apiClient) return;
+    apiClient
+      .listApprovedPatientEducation()
+      .then((res) => {
+        if (cancelled) return;
+        const map = new Map<string, ApprovedPatientEducationItem>();
+        for (const item of res.items) {
+          for (const icd of item.icdCodes) {
+            map.set(icd.code, item);
+          }
+        }
+        setApprovedByCode(map);
+      })
+      .catch((err) => {
+        console.error('Failed to load approved patient education index:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [apiClient]);
+
   const clearGeneratedSections = useCallback(() => {
     setGeneratedSections(null);
     setError(null);
   }, []);
 
-  // Prefetch cache: fires off requests for every diagnosis as soon as the modal opens
+  // Prefetch cache: fires off requests for all non-approved diagnoses as soon as the modal opens
   const prefetchCacheRef = useRef<Map<string, Promise<EducationSection | null>>>(new Map());
 
   const prefetchAllDiagnoses = useCallback(() => {
     if (!apiClient) return;
     for (const diagnosis of allDiagnoses) {
+      if (approvedByCode.has(diagnosis.code)) continue;
       if (prefetchCacheRef.current.has(diagnosis.code)) continue;
       const promise = apiClient
         .generatePatientEducation({
@@ -127,22 +157,55 @@ export function usePatientEducation(): UsePatientEducationResult {
         });
       prefetchCacheRef.current.set(diagnosis.code, promise);
     }
-  }, [apiClient, allDiagnoses]);
+  }, [apiClient, allDiagnoses, approvedByCode]);
 
-  const buildAndSavePdf = useCallback(
-    async (sections: EducationSection[]): Promise<void> => {
+  const buildAndSaveMergedPdf = useCallback(
+    async (selection: DiagnosisOption[], sections: EducationSection[]): Promise<void> => {
       if (!apiClient) {
         setError('API client not available.');
         return;
       }
 
-      const pdfBytes = await generateCombinedPdf(sections);
+      const finalDoc = await PDFDocument.create();
+
+      // 1. Copy pages from approved PDFs (in selection order)
+      for (const dx of selection) {
+        const approved = approvedByCode.get(dx.code);
+        if (!approved) continue;
+        const response = await fetch(approved.pdfPresignedUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch approved PDF for ${dx.code}: ${response.status}`);
+        }
+        const bytes = await response.arrayBuffer();
+        const sourceDoc = await PDFDocument.load(bytes);
+        const copied = await finalDoc.copyPages(sourceDoc, sourceDoc.getPageIndices());
+        copied.forEach((page) => finalDoc.addPage(page));
+      }
+
+      // 2. Render & append the freshly-generated sections, if any
+      if (sections.length > 0) {
+        const generatedBytes = await generateCombinedPdf(sections);
+        const generatedDoc = await PDFDocument.load(generatedBytes);
+        const copied = await finalDoc.copyPages(generatedDoc, generatedDoc.getPageIndices());
+        copied.forEach((page) => finalDoc.addPage(page));
+      }
+
+      const pdfBytes = await finalDoc.save();
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const blobUrl = URL.createObjectURL(blob);
 
       const pdfBase64 = uint8ArrayToBase64(pdfBytes);
 
-      const titleParts = sections.map((s) => s.patientTitle || s.icdDescription);
+      const titleParts: string[] = [];
+      for (const dx of selection) {
+        const approved = approvedByCode.get(dx.code);
+        if (approved) {
+          titleParts.push(approved.title.replace(/^Patient Education:\s*/, '') || dx.display);
+        } else {
+          const section = sections.find((s) => s.icdCode === dx.code);
+          titleParts.push(section?.patientTitle || dx.display);
+        }
+      }
       const title = 'Patient Education: ' + titleParts.join(', ');
 
       const { documentReferenceId } = await apiClient.savePatientEducationPdf({
@@ -181,7 +244,7 @@ export function usePatientEducation(): UsePatientEducationResult {
         }
       );
     },
-    [apiClient, chartData?.instructions, encounter, patient, saveChartData, setPartialChartData]
+    [apiClient, approvedByCode, chartData?.instructions, encounter, patient, saveChartData, setPartialChartData]
   );
 
   const generateForDiagnoses = useCallback(
@@ -199,12 +262,27 @@ export function usePatientEducation(): UsePatientEducationResult {
       setError(null);
       setProgress(null);
       setGeneratedSections(null);
+      lastSelectionRef.current = selectedDiagnoses;
+
+      const toGenerate = selectedDiagnoses.filter((d) => !approvedByCode.has(d.code));
 
       try {
+        // Fast path: every selected diagnosis has a pre-approved PDF — skip review and merge directly.
+        if (toGenerate.length === 0) {
+          setIsLoading(false);
+          setIsSaving(true);
+          try {
+            await buildAndSaveMergedPdf(selectedDiagnoses, []);
+            return 'completed';
+          } finally {
+            setIsSaving(false);
+          }
+        }
+
         const sections: EducationSection[] = [];
-        for (let i = 0; i < selectedDiagnoses.length; i++) {
-          const diagnosis = selectedDiagnoses[i];
-          setProgress(`Loading ${i + 1} of ${selectedDiagnoses.length}: ${diagnosis.display}...`);
+        for (let i = 0; i < toGenerate.length; i++) {
+          const diagnosis = toGenerate[i];
+          setProgress(`Loading ${i + 1} of ${toGenerate.length}: ${diagnosis.display}...`);
 
           let sectionPromise = prefetchCacheRef.current.get(diagnosis.code);
           if (!sectionPromise) {
@@ -245,7 +323,7 @@ export function usePatientEducation(): UsePatientEducationResult {
         setProgress(null);
       }
     },
-    [apiClient]
+    [apiClient, approvedByCode, buildAndSaveMergedPdf]
   );
 
   const saveFromSections = useCallback(
@@ -257,7 +335,7 @@ export function usePatientEducation(): UsePatientEducationResult {
       setIsSaving(true);
       setError(null);
       try {
-        await buildAndSavePdf(sections);
+        await buildAndSaveMergedPdf(lastSelectionRef.current, sections);
         setGeneratedSections(null);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -267,7 +345,7 @@ export function usePatientEducation(): UsePatientEducationResult {
         setIsSaving(false);
       }
     },
-    [apiClient, buildAndSavePdf]
+    [apiClient, buildAndSaveMergedPdf]
   );
 
   return {
@@ -281,6 +359,7 @@ export function usePatientEducation(): UsePatientEducationResult {
     error,
     progress,
     allDiagnoses,
+    approvedByCode,
   };
 }
 
