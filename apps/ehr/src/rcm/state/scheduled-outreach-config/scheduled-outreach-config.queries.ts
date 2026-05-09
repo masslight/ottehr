@@ -50,7 +50,14 @@ export const useListOutreachTasksQuery = (
 ): UseQueryResult<ListOutreachTasksResponse, Error> => {
   const { oystehrZambda } = useApiClients();
   return useQuery({
-    queryKey: [...OUTREACH_TASKS_QUERY_KEY, params?.status],
+    queryKey: [
+      ...OUTREACH_TASKS_QUERY_KEY,
+      params?.status,
+      params?.dueDateFrom,
+      params?.dueDateTo,
+      params?.createdFrom,
+      params?.createdTo,
+    ],
     queryFn: async () => {
       if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
       return listOutreachTasks(oystehrZambda, params);

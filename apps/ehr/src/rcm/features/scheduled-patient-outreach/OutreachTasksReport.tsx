@@ -3,7 +3,9 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   Alert,
+  Autocomplete,
   Box,
+  Checkbox,
   Chip,
   CircularProgress,
   FormControl,
@@ -20,6 +22,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -31,15 +34,8 @@ import { useListOutreachTasksQuery } from 'src/rcm/state/scheduled-outreach-conf
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const STATUS_OPTIONS = [
-  { value: 'draft,requested,in-progress,on-hold', label: 'Pending (all)' },
-  { value: 'draft', label: 'Pending' },
-  { value: 'requested', label: 'Requested' },
-  { value: 'in-progress', label: 'In Progress' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'on-hold', label: 'On Hold' },
-  { value: 'draft,requested,in-progress,completed,on-hold', label: 'All' },
-];
+const STATUS_FILTER_OPTIONS = ['draft', 'requested', 'in-progress', 'on-hold', 'completed'] as const;
+type StatusFilterValue = (typeof STATUS_FILTER_OPTIONS)[number];
 
 const STATUS_DISPLAY: Record<string, string> = {
   draft: 'Pending',
@@ -93,15 +89,106 @@ const TRIGGER_EVENT_LABELS: Record<string, string> = {
   'patient-birthday': 'Patient Birthday',
 };
 
+type DateRangePreset =
+  | 'all'
+  | 'today'
+  | 'last7days'
+  | 'last30days'
+  | 'thisMonth'
+  | 'lastMonth'
+  | 'thisQuarter'
+  | 'lastQuarter'
+  | 'custom';
+
+const DATE_RANGE_OPTIONS: { value: DateRangePreset; label: string }[] = [
+  { value: 'all', label: 'All Time' },
+  { value: 'today', label: 'Today' },
+  { value: 'last7days', label: 'Last 7 Days' },
+  { value: 'last30days', label: 'Last 30 Days' },
+  { value: 'thisMonth', label: 'This Month' },
+  { value: 'lastMonth', label: 'Last Month' },
+  { value: 'thisQuarter', label: 'This Quarter' },
+  { value: 'lastQuarter', label: 'Last Quarter' },
+  { value: 'custom', label: 'Custom Range' },
+];
+
+function getDateRangeValues(
+  preset: DateRangePreset,
+  customStart: string,
+  customEnd: string
+): { from?: string; to?: string } {
+  const now = DateTime.now();
+  switch (preset) {
+    case 'all':
+      return {};
+    case 'today':
+      return { from: now.startOf('day').toISO() ?? undefined, to: now.endOf('day').toISO() ?? undefined };
+    case 'last7days':
+      return {
+        from: now.minus({ days: 6 }).startOf('day').toISO() ?? undefined,
+        to: now.endOf('day').toISO() ?? undefined,
+      };
+    case 'last30days':
+      return {
+        from: now.minus({ days: 29 }).startOf('day').toISO() ?? undefined,
+        to: now.endOf('day').toISO() ?? undefined,
+      };
+    case 'thisMonth':
+      return {
+        from: now.startOf('month').toISO() ?? undefined,
+        to: now.endOf('month').toISO() ?? undefined,
+      };
+    case 'lastMonth': {
+      const lm = now.minus({ months: 1 });
+      return { from: lm.startOf('month').toISO() ?? undefined, to: lm.endOf('month').toISO() ?? undefined };
+    }
+    case 'thisQuarter':
+      return {
+        from: now.startOf('quarter').toISO() ?? undefined,
+        to: now.endOf('quarter').toISO() ?? undefined,
+      };
+    case 'lastQuarter': {
+      const lq = now.minus({ quarters: 1 });
+      return { from: lq.startOf('quarter').toISO() ?? undefined, to: lq.endOf('quarter').toISO() ?? undefined };
+    }
+    case 'custom': {
+      if (!customStart && !customEnd) return {};
+      return {
+        from: customStart ? DateTime.fromISO(customStart).startOf('day').toISO() ?? undefined : undefined,
+        to: customEnd ? DateTime.fromISO(customEnd).endOf('day').toISO() ?? undefined : undefined,
+      };
+    }
+    default:
+      return {};
+  }
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function OutreachTasksReport(): ReactElement {
-  const [statusFilter, setStatusFilter] = useState('draft,requested,in-progress,on-hold');
-  const { data, isLoading, error, refetch, isFetching } = useListOutreachTasksQuery({ status: statusFilter });
+  const [selectedStatuses, setSelectedStatuses] = useState<StatusFilterValue[]>([
+    'draft',
+    'requested',
+    'in-progress',
+    'on-hold',
+  ]);
+  const [dueDatePreset, setDueDatePreset] = useState<DateRangePreset>('all');
+  const [dueDateCustomStart, setDueDateCustomStart] = useState('');
+  const [dueDateCustomEnd, setDueDateCustomEnd] = useState('');
+  const [createdPreset, setCreatedPreset] = useState<DateRangePreset>('all');
+  const [createdCustomStart, setCreatedCustomStart] = useState('');
+  const [createdCustomEnd, setCreatedCustomEnd] = useState('');
 
-  const handleStatusChange = (event: SelectChangeEvent): void => {
-    setStatusFilter(event.target.value);
-  };
+  const statusFilter = selectedStatuses.join(',');
+  const dueRange = getDateRangeValues(dueDatePreset, dueDateCustomStart, dueDateCustomEnd);
+  const createdRange = getDateRangeValues(createdPreset, createdCustomStart, createdCustomEnd);
+  const { data, isLoading, error, refetch, isFetching } = useListOutreachTasksQuery({
+    status: statusFilter,
+    dueDateFrom: dueRange.from,
+    dueDateTo: dueRange.to,
+    createdFrom: createdRange.from,
+    createdTo: createdRange.to,
+  });
 
   if (error) {
     return (
@@ -121,25 +208,142 @@ export default function OutreachTasksReport(): ReactElement {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Typography variant="h6">Outreach Tasks Report</Typography>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Status Filter</InputLabel>
-            <Select value={statusFilter} label="Status Filter" onChange={handleStatusChange}>
-              {STATUS_OPTIONS.map((opt) => (
-                <MenuItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Tooltip title="Refresh">
-            <IconButton onClick={() => refetch()} disabled={isFetching}>
-              {isFetching ? <CircularProgress size={20} /> : <RefreshIcon />}
-            </IconButton>
-          </Tooltip>
-        </Stack>
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap', rowGap: 1 }}>
+        <Autocomplete
+          multiple
+          size="small"
+          limitTags={5}
+          options={[...STATUS_FILTER_OPTIONS]}
+          getOptionLabel={(opt) => STATUS_DISPLAY[opt] || opt}
+          value={selectedStatuses}
+          onChange={(_, newValue) => setSelectedStatuses(newValue as StatusFilterValue[])}
+          disableCloseOnSelect
+          renderInput={(params) => <TextField {...params} label="Filter by status" placeholder="Status" />}
+          renderOption={(props, option, { selected }) => (
+            <li {...props}>
+              <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
+              <Chip
+                label={STATUS_DISPLAY[option] || option}
+                size="small"
+                sx={{
+                  borderRadius: '4px',
+                  border: 'none',
+                  fontWeight: 500,
+                  fontSize: '12px',
+                  textTransform: 'uppercase',
+                  height: '20px',
+                  ...(STATUS_CHIP_STYLES[option] || STATUS_CHIP_STYLES.draft),
+                }}
+              />
+            </li>
+          )}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => {
+              const styles = STATUS_CHIP_STYLES[option] || STATUS_CHIP_STYLES.draft;
+              return (
+                <Chip
+                  {...getTagProps({ index })}
+                  key={option}
+                  label={STATUS_DISPLAY[option] || option}
+                  size="small"
+                  sx={{
+                    borderRadius: '4px',
+                    border: 'none',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    height: '22px',
+                    ...styles,
+                    '& .MuiChip-deleteIcon': {
+                      color: styles.color,
+                      opacity: 0.7,
+                      '&:hover': { opacity: 1 },
+                    },
+                  }}
+                />
+              );
+            })
+          }
+          getLimitTagsText={(more) => `+${more} more`}
+          sx={{ width: 500 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Due Date</InputLabel>
+          <Select
+            value={dueDatePreset}
+            label="Due Date"
+            onChange={(e: SelectChangeEvent) => setDueDatePreset(e.target.value as DateRangePreset)}
+          >
+            {DATE_RANGE_OPTIONS.map((opt) => (
+              <MenuItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {dueDatePreset === 'custom' && (
+          <>
+            <TextField
+              size="small"
+              label="From"
+              type="date"
+              value={dueDateCustomStart}
+              onChange={(e) => setDueDateCustomStart(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 155 }}
+            />
+            <TextField
+              size="small"
+              label="To"
+              type="date"
+              value={dueDateCustomEnd}
+              onChange={(e) => setDueDateCustomEnd(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 155 }}
+            />
+          </>
+        )}
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Created Date</InputLabel>
+          <Select
+            value={createdPreset}
+            label="Created Date"
+            onChange={(e: SelectChangeEvent) => setCreatedPreset(e.target.value as DateRangePreset)}
+          >
+            {DATE_RANGE_OPTIONS.map((opt) => (
+              <MenuItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {createdPreset === 'custom' && (
+          <>
+            <TextField
+              size="small"
+              label="From"
+              type="date"
+              value={createdCustomStart}
+              onChange={(e) => setCreatedCustomStart(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 155 }}
+            />
+            <TextField
+              size="small"
+              label="To"
+              type="date"
+              value={createdCustomEnd}
+              onChange={(e) => setCreatedCustomEnd(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 155 }}
+            />
+          </>
+        )}
+        <Tooltip title="Refresh">
+          <IconButton onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? <CircularProgress size={20} /> : <RefreshIcon />}
+          </IconButton>
+        </Tooltip>
       </Stack>
 
       {isLoading ? (
@@ -172,6 +376,14 @@ export default function OutreachTasksReport(): ReactElement {
   );
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function isOverdue(task: OutreachTaskSummary): boolean {
+  if (task.status === 'completed' || task.status === 'cancelled') return false;
+  if (!task.dueDateTime) return false;
+  return DateTime.fromISO(task.dueDateTime) < DateTime.now();
+}
+
 // ── Table Sub-component ────────────────────────────────────────────────────
 
 function TaskTable({ tasks }: { tasks: OutreachTaskSummary[] }): ReactElement {
@@ -186,126 +398,18 @@ function TaskTable({ tasks }: { tasks: OutreachTaskSummary[] }): ReactElement {
             <TableCell>Trigger</TableCell>
             <TableCell>Due Date</TableCell>
             <TableCell>Created</TableCell>
+            <TableCell>Completed</TableCell>
             <TableCell>Visit Date</TableCell>
             <TableCell>Based On</TableCell>
             <TableCell>Mediums</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {tasks.map((task) => (
-            <TableRow key={task.id} hover>
-              <TableCell>
-                <Tooltip
-                  placement="bottom-start"
-                  disableInteractive={false}
-                  leaveDelay={200}
-                  slotProps={{
-                    tooltip: {
-                      sx: {
-                        bgcolor: 'background.paper',
-                        color: 'text.primary',
-                        boxShadow: 2,
-                        maxWidth: 'none',
-                      },
-                    },
-                  }}
-                  title={
-                    <Box sx={{ p: 0.5 }}>
-                      <CopyableIdRow label="Task ID" value={task.id} />
-                    </Box>
-                  }
-                >
-                  <Chip
-                    label={STATUS_DISPLAY[task.status] || task.status}
-                    size="small"
-                    variant="outlined"
-                    sx={{
-                      borderRadius: '4px',
-                      border: 'none',
-                      fontWeight: 500,
-                      fontSize: '12px',
-                      textTransform: 'uppercase',
-                      height: '20px',
-                      cursor: 'default',
-                      ...(STATUS_CHIP_STYLES[task.status] || STATUS_CHIP_STYLES.draft),
-                    }}
-                  />
-                </Tooltip>
-              </TableCell>
-              <TableCell>
-                <Tooltip
-                  placement="bottom-start"
-                  disableInteractive={false}
-                  leaveDelay={200}
-                  slotProps={{
-                    tooltip: {
-                      sx: {
-                        bgcolor: 'background.paper',
-                        color: 'text.primary',
-                        boxShadow: 2,
-                        maxWidth: 'none',
-                      },
-                    },
-                  }}
-                  title={
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 0.5 }}>
-                      {task.patientFriendlyId && <CopyableIdRow label="PID" value={task.patientFriendlyId} />}
-                      <CopyableIdRow label="UUID" value={task.patientId} />
-                    </Box>
-                  }
-                >
-                  <Box sx={{ display: 'inline-flex' }}>
-                    <Link
-                      to={`/patient/${task.patientId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ textDecoration: 'underline', color: '#1976d2' }}
-                    >
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {task.patientName}
-                      </Typography>
-                    </Link>
-                  </Box>
-                </Tooltip>
-              </TableCell>
-              <TableCell>
-                <Chip
-                  label={ACTION_TYPE_LABELS[task.actionType] || task.actionType}
-                  size="small"
-                  variant="outlined"
-                  sx={{
-                    bgcolor: '#fff',
-                    color: ACTION_CHIP_COLORS[task.actionType] || 'text.primary',
-                    borderColor: ACTION_CHIP_COLORS[task.actionType] || 'divider',
-                    fontWeight: 500,
-                  }}
-                />
-              </TableCell>
-              <TableCell>{TRIGGER_EVENT_LABELS[task.triggerEvent] || task.triggerEvent}</TableCell>
-              <TableCell>
-                {task.dueDateTime ? DateTime.fromISO(task.dueDateTime).toFormat('M/d/yyyy, h:mm a ZZZZ') : '—'}
-              </TableCell>
-              <TableCell>
-                {task.authoredOn ? DateTime.fromISO(task.authoredOn).toFormat('M/d/yyyy, h:mm a ZZZZ') : '—'}
-              </TableCell>
-              <TableCell>
-                {task.visitDate && task.appointmentId ? (
-                  <Link
-                    to={`/visit/${task.appointmentId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ textDecoration: 'underline', color: '#1976d2' }}
-                  >
-                    <Typography variant="body2">
-                      {DateTime.fromISO(task.visitDate).toLocaleString(DateTime.DATE_SHORT)}
-                    </Typography>
-                  </Link>
-                ) : (
-                  '—'
-                )}
-              </TableCell>
-              <TableCell>
-                {task.appointmentId ? (
+          {tasks.map((task) => {
+            const overdue = isOverdue(task);
+            return (
+              <TableRow key={task.id} hover>
+                <TableCell>
                   <Tooltip
                     placement="bottom-start"
                     disableInteractive={false}
@@ -322,48 +426,189 @@ function TaskTable({ tasks }: { tasks: OutreachTaskSummary[] }): ReactElement {
                     }}
                     title={
                       <Box sx={{ p: 0.5 }}>
-                        <CopyableIdRow label="Appointment ID" value={task.appointmentId} />
+                        <CopyableIdRow label="Task ID" value={task.id} />
                       </Box>
                     }
                   >
-                    <Typography
-                      variant="body2"
-                      sx={{ cursor: 'default', color: 'text.secondary', fontSize: '0.75rem' }}
-                    >
-                      {task.focusReference.split('/')[0]}
-                    </Typography>
+                    <Chip
+                      label={STATUS_DISPLAY[task.status] || task.status}
+                      size="small"
+                      variant="outlined"
+                      sx={{
+                        borderRadius: '4px',
+                        border: 'none',
+                        fontWeight: 500,
+                        fontSize: '12px',
+                        textTransform: 'uppercase',
+                        height: '20px',
+                        cursor: 'default',
+                        ...(STATUS_CHIP_STYLES[task.status] || STATUS_CHIP_STYLES.draft),
+                      }}
+                    />
                   </Tooltip>
-                ) : (
-                  <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                    {task.focusReference.split('/')[0] || '—'}
-                  </Typography>
-                )}
-              </TableCell>
-              <TableCell>
-                {task.mediums ? (
-                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                    {task.mediums.split(',').map((m) => (
-                      <Chip
-                        key={m}
-                        label={MEDIUM_LABELS[m.trim()] || m.trim()}
-                        size="small"
-                        variant="outlined"
-                        sx={{
-                          bgcolor: '#fff',
-                          color: MEDIUM_CHIP_COLORS[m.trim()] || 'text.primary',
-                          borderColor: MEDIUM_CHIP_COLORS[m.trim()] || 'divider',
-                          fontWeight: 500,
-                          fontSize: '0.75rem',
-                        }}
-                      />
-                    ))}
-                  </Box>
-                ) : (
-                  '—'
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
+                </TableCell>
+                <TableCell>
+                  <Tooltip
+                    placement="bottom-start"
+                    disableInteractive={false}
+                    leaveDelay={200}
+                    slotProps={{
+                      tooltip: {
+                        sx: {
+                          bgcolor: 'background.paper',
+                          color: 'text.primary',
+                          boxShadow: 2,
+                          maxWidth: 'none',
+                        },
+                      },
+                    }}
+                    title={
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 0.5 }}>
+                        {task.patientFriendlyId && <CopyableIdRow label="PID" value={task.patientFriendlyId} />}
+                        <CopyableIdRow label="UUID" value={task.patientId} />
+                      </Box>
+                    }
+                  >
+                    <Box sx={{ display: 'inline-flex' }}>
+                      <Link
+                        to={`/patient/${task.patientId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ textDecoration: 'underline', color: '#1976d2' }}
+                      >
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {task.patientName}
+                        </Typography>
+                      </Link>
+                    </Box>
+                  </Tooltip>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={ACTION_TYPE_LABELS[task.actionType] || task.actionType}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      bgcolor: '#fff',
+                      color: ACTION_CHIP_COLORS[task.actionType] || 'text.primary',
+                      borderColor: ACTION_CHIP_COLORS[task.actionType] || 'divider',
+                      fontWeight: 500,
+                    }}
+                  />
+                </TableCell>
+                <TableCell>{TRIGGER_EVENT_LABELS[task.triggerEvent] || task.triggerEvent}</TableCell>
+                <TableCell>
+                  {task.dueDateTime ? (
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <Typography variant="body2">
+                        {DateTime.fromISO(task.dueDateTime).toFormat('M/d/yyyy, h:mm a ZZZZ')}
+                      </Typography>
+                      {overdue && (
+                        <Chip
+                          label="OVERDUE"
+                          size="small"
+                          sx={{
+                            borderRadius: '4px',
+                            border: 'none',
+                            fontWeight: 600,
+                            fontSize: '10px',
+                            textTransform: 'uppercase',
+                            height: '18px',
+                            background: '#FECDD2',
+                            color: '#B71C1C',
+                          }}
+                        />
+                      )}
+                    </Stack>
+                  ) : (
+                    '—'
+                  )}
+                </TableCell>
+                <TableCell>
+                  {task.authoredOn ? DateTime.fromISO(task.authoredOn).toFormat('M/d/yyyy, h:mm a ZZZZ') : '—'}
+                </TableCell>
+                <TableCell>
+                  {task.completedDateTime
+                    ? DateTime.fromISO(task.completedDateTime).toFormat('M/d/yyyy, h:mm a ZZZZ')
+                    : '—'}
+                </TableCell>
+                <TableCell>
+                  {task.visitDate && task.appointmentId ? (
+                    <Link
+                      to={`/visit/${task.appointmentId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: 'underline', color: '#1976d2' }}
+                    >
+                      <Typography variant="body2">
+                        {DateTime.fromISO(task.visitDate).toLocaleString(DateTime.DATE_SHORT)}
+                      </Typography>
+                    </Link>
+                  ) : (
+                    '—'
+                  )}
+                </TableCell>
+                <TableCell>
+                  {task.appointmentId ? (
+                    <Tooltip
+                      placement="bottom-start"
+                      disableInteractive={false}
+                      leaveDelay={200}
+                      slotProps={{
+                        tooltip: {
+                          sx: {
+                            bgcolor: 'background.paper',
+                            color: 'text.primary',
+                            boxShadow: 2,
+                            maxWidth: 'none',
+                          },
+                        },
+                      }}
+                      title={
+                        <Box sx={{ p: 0.5 }}>
+                          <CopyableIdRow label="Appointment ID" value={task.appointmentId} />
+                        </Box>
+                      }
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{ cursor: 'default', color: 'text.secondary', fontSize: '0.75rem' }}
+                      >
+                        {task.focusReference.split('/')[0]}
+                      </Typography>
+                    </Tooltip>
+                  ) : (
+                    <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                      {task.focusReference.split('/')[0] || '—'}
+                    </Typography>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {task.mediums ? (
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                      {task.mediums.split(',').map((m) => (
+                        <Chip
+                          key={m}
+                          label={MEDIUM_LABELS[m.trim()] || m.trim()}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            bgcolor: '#fff',
+                            color: MEDIUM_CHIP_COLORS[m.trim()] || 'text.primary',
+                            borderColor: MEDIUM_CHIP_COLORS[m.trim()] || 'divider',
+                            fontWeight: 500,
+                            fontSize: '0.75rem',
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    '—'
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </TableContainer>

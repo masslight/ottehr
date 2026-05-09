@@ -114,6 +114,7 @@ export interface OutreachTaskSummary {
   focusReference: string;
   dueDateTime: string;
   authoredOn: string;
+  completedDateTime?: string;
   description: string;
   mediums?: string;
 }
@@ -124,6 +125,10 @@ export interface ListOutreachTasksResponse {
 
 export interface ListOutreachTasksInput {
   status?: string;
+  dueDateFrom?: string;
+  dueDateTo?: string;
+  createdFrom?: string;
+  createdTo?: string;
 }
 
 export const listOutreachTasks = async (

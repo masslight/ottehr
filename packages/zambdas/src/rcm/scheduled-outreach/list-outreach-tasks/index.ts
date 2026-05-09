@@ -23,6 +23,7 @@ export interface OutreachTaskSummary {
   focusReference: string;
   dueDateTime: string;
   authoredOn: string;
+  completedDateTime?: string;
   description: string;
   mediums?: string;
 }
@@ -43,6 +44,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     { name: '_sort', value: '-_lastUpdated' },
     { name: '_include', value: 'Task:patient' },
   ];
+
+  if (params.dueDateFrom) searchParams.push({ name: 'period', value: `ge${params.dueDateFrom}` });
+  if (params.dueDateTo) searchParams.push({ name: 'period', value: `le${params.dueDateTo}` });
+  if (params.createdFrom) searchParams.push({ name: 'authored-on', value: `ge${params.createdFrom}` });
+  if (params.createdTo) searchParams.push({ name: 'authored-on', value: `le${params.createdTo}` });
 
   const bundle = await oystehr.fhir.search<Task | Patient>({
     resourceType: 'Task',
@@ -106,6 +112,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       focusReference: focusRef,
       dueDateTime: task.executionPeriod?.start || '',
       authoredOn: task.authoredOn || '',
+      completedDateTime: task.executionPeriod?.end,
       description: task.description || '',
       mediums: extractInput(task, 'mediums'),
     };
