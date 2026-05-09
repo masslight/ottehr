@@ -19,7 +19,7 @@ const PATIENT_SEARCH_ITEM_ID = '__patient-search__';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const sortItems = (items: CommandPaletteItem[]): CommandPaletteItem[] => {
+const sortItems = (items: CommandPaletteItem[], query = ''): CommandPaletteItem[] => {
   // Build a quick id → item lookup so children can be sorted by their parent's
   // label rather than their own (which would scatter them throughout the list
   // and break the visual hierarchy that parentId implies).
@@ -47,9 +47,23 @@ const sortItems = (items: CommandPaletteItem[]): CommandPaletteItem[] => {
     return { primary: item.label.toLowerCase(), isChild: false, secondary: 0 };
   };
 
+  // When the user has typed a query, items whose LABEL contains it rank above
+  // items whose match comes only from keyword/category. Both stay visible, but
+  // label matches are obviously more relevant — typing "schedul" should put
+  // "Schedules" above items that only match because they keyword "fee schedule"
+  // or "scheduled".
+  const normalizedQuery = query.trim().toLowerCase();
+  const matchPriority = (item: CommandPaletteItem): number => {
+    if (!normalizedQuery) return 0;
+    if (item.label.toLowerCase().includes(normalizedQuery)) return 0;
+    return 1; // category or keyword match (still visible, just lower priority)
+  };
+
   return [...items].sort((left, right) => {
     const categoryComparison = left.category.localeCompare(right.category);
     if (categoryComparison !== 0) return categoryComparison;
+    const priorityComparison = matchPriority(left) - matchPriority(right);
+    if (priorityComparison !== 0) return priorityComparison;
     const lk = sortKeyFor(left);
     const rk = sortKeyFor(right);
     const primaryComparison = lk.primary.localeCompare(rk.primary);
@@ -124,7 +138,7 @@ export const CommandPalette: FC = () => {
     // stranded near where the parent used to sit. sortItems also handles
     // grouping children directly under their (visible) parent.
     if (filteredItems.length > 0 || !query.trim()) {
-      return sortItems(filteredItems);
+      return sortItems(filteredItems, query);
     }
 
     return [
