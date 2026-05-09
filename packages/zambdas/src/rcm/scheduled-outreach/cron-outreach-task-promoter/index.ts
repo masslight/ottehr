@@ -32,7 +32,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     params: [
       { name: '_tag', value: `${OUTREACH_TASK_TAG_SYSTEM}|` },
       { name: 'status', value: 'draft' },
-      { name: 'execution-period', value: `le${now}` },
+      { name: 'period', value: `le${now}` },
       { name: '_count', value: '100' },
     ],
   });
