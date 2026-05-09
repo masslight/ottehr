@@ -8,10 +8,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   FormControlLabel,
   Link,
-  TextField,
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
@@ -25,6 +23,7 @@ import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { EducationSection, getEducationBlobUrl, usePatientEducation } from '../../hooks/usePatientEducation';
 import { useChartData, useDeleteChartData } from '../../stores/appointment/appointment.store';
+import { PatientEducationSectionsEditor } from '../PatientEducationSectionsEditor';
 
 export const PatientEducationCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -257,76 +256,39 @@ export const PatientEducationCard: FC = () => {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Review Patient Education Materials</DialogTitle>
+        <DialogTitle component={Typography} variant="h4" color="primary.dark" sx={{ pb: 2 }}>
+          Review Patient Education Materials
+        </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Review and edit the content below. Use markdown formatting: ## for section headers, - for bullet points.
-          </Typography>
-          {(editableSections.length > 0 ? editableSections : generatedSections ?? []).map((section, idx) => (
-            <Box key={section.icdCode} sx={{ mb: idx < (generatedSections?.length ?? 1) - 1 ? 3 : 0 }}>
-              <TextField
-                label="Title"
-                value={section.patientTitle}
-                onChange={(e) => {
-                  setEditableSections((prev) => {
-                    const sections = prev.length > 0 ? [...prev] : [...(generatedSections ?? [])];
-                    sections[idx] = { ...sections[idx], patientTitle: e.target.value };
-                    return sections;
-                  });
-                }}
-                fullWidth
-                size="small"
-                sx={{ mb: 1 }}
-                disabled={isEducationSaving}
-              />
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-                {section.icdCode} — {section.icdDescription}
-              </Typography>
-              <TextField
-                value={section.content}
-                onChange={(e) => {
-                  setEditableSections((prev) => {
-                    const sections = prev.length > 0 ? [...prev] : [...(generatedSections ?? [])];
-                    sections[idx] = { ...sections[idx], content: e.target.value };
-                    return sections;
-                  });
-                }}
-                fullWidth
-                multiline
-                minRows={10}
-                maxRows={20}
-                disabled={isEducationSaving}
-                sx={{ '& .MuiInputBase-root': { fontFamily: 'monospace', fontSize: 13 } }}
-              />
-              {idx < (generatedSections?.length ?? 1) - 1 && <Divider sx={{ mt: 2 }} />}
-            </Box>
-          ))}
-          {educationError && (
-            <Typography color="error" variant="body2" sx={{ mt: 1 }}>
-              {educationError}
-            </Typography>
-          )}
+          <PatientEducationSectionsEditor
+            sections={editableSections.length > 0 ? editableSections : generatedSections ?? []}
+            onSectionsChange={setEditableSections}
+            disabled={isEducationSaving}
+            errorMessage={educationError}
+          />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <RoundedButton
-            onClick={() => {
-              clearGeneratedSections();
-              setEditableSections([]);
-              setEducationModalOpen(false);
-            }}
-            disabled={isEducationSaving}
-          >
-            Cancel
-          </RoundedButton>
-          <RoundedButton
-            onClick={() => {
-              setEditableSections([]);
-              clearGeneratedSections();
-            }}
-            disabled={isEducationSaving}
-          >
-            Back
-          </RoundedButton>
+          <Box sx={{ mr: 'auto', display: 'flex', gap: 1 }}>
+            <RoundedButton
+              onClick={() => {
+                clearGeneratedSections();
+                setEditableSections([]);
+                setEducationModalOpen(false);
+              }}
+              disabled={isEducationSaving}
+            >
+              Cancel
+            </RoundedButton>
+            <RoundedButton
+              onClick={() => {
+                setEditableSections([]);
+                clearGeneratedSections();
+              }}
+              disabled={isEducationSaving}
+            >
+              Back
+            </RoundedButton>
+          </Box>
           <RoundedButton
             variant="contained"
             onClick={async () => {

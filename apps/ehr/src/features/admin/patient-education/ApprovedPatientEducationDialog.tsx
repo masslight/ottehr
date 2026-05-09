@@ -2,6 +2,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SchoolIcon from '@mui/icons-material/School';
 import {
   Autocomplete,
+  Box,
   Chip,
   CircularProgress,
   Dialog,
@@ -16,6 +17,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { PatientEducationSectionsEditor } from 'src/features/visits/shared/components/PatientEducationSectionsEditor';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { EducationSection, generateCombinedPdf } from 'src/features/visits/shared/hooks/usePatientEducation';
 import { useICD10SearchNew } from 'src/features/visits/shared/stores/appointment/appointment.queries';
@@ -197,38 +199,15 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
         )}
 
         {showReview && reviewSection && (
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Edit the content below if needed. Use markdown formatting: ## for section headers, - for bullet points.
-              When you approve, the rendered PDF is what charting will use.
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {reviewSection.icdCode} — {reviewSection.icdDescription}
-            </Typography>
-            <TextField
-              label="Title"
-              value={reviewSection.patientTitle}
-              onChange={(e) => setEditableSection({ ...reviewSection, patientTitle: e.target.value })}
-              fullWidth
-              size="small"
+          <Box sx={{ mt: 1 }}>
+            <PatientEducationSectionsEditor
+              sections={[reviewSection]}
+              onSectionsChange={(next) => setEditableSection(next[0])}
               disabled={isBusy}
+              errorMessage={errorMsg}
+              helperText="Edit the content below if needed. Use markdown formatting: ## for section headers, - for bullet points. When you approve, the rendered PDF is what charting will use."
             />
-            <TextField
-              value={reviewSection.content}
-              onChange={(e) => setEditableSection({ ...reviewSection, content: e.target.value })}
-              fullWidth
-              multiline
-              minRows={10}
-              maxRows={20}
-              disabled={isBusy}
-              sx={{ '& .MuiInputBase-root': { fontFamily: 'monospace', fontSize: 13 } }}
-            />
-            {errorMsg && (
-              <Typography color="error" variant="body2">
-                {errorMsg}
-              </Typography>
-            )}
-          </Stack>
+          </Box>
         )}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
