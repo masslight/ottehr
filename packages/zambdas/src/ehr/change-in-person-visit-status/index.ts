@@ -9,6 +9,7 @@ import {
   userMe,
   VisitStatusWithoutUnknown,
 } from 'utils';
+import { produceDischargeOutreach } from '../../rcm/scheduled-outreach/producers/shared';
 import { checkOrCreateM2MClientToken, wrapHandler } from '../../shared';
 import { completeInProgressAiQuestionnaireResponseIfPossible } from '../../shared/ai-complete-questionnaire-response';
 import { createOystehrClient } from '../../shared/helpers';
@@ -90,6 +91,13 @@ export const performEffect = async (
   const { encounter, appointment, user, updatedStatus } = validatedData;
 
   await changeInPersonVisitStatusIfPossible(oystehr, { encounter, appointment }, user, updatedStatus);
+
+  // Produce outreach tasks triggered by discharge (fire-and-forget)
+  if (updatedStatus === 'discharged') {
+    produceDischargeOutreach({ encounter, oystehr }).catch((err) => {
+      console.error('Failed to produce discharge outreach tasks:', err);
+    });
+  }
 
   // handle not completed AI interview to give provider required data, completed AI Interview triggers resource creation via subscription
   if (updatedStatus === 'ready for provider' && encounter.id) {

@@ -23,6 +23,7 @@ import {
   SecretsKeys,
 } from 'utils';
 import { accountMatchesType } from '../../../ehr/shared/harvest';
+import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -117,6 +118,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const taskCopy = addInvoiceIdToTaskOutput(task, invoiceResponse.id);
     await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
     console.log('Task status and output updated');
+
+    // Produce outreach tasks triggered by invoice issuance (fire-and-forget)
+    produceOutreachTasks({
+      triggerEvent: 'invoice-issued',
+      patient: { reference: `Patient/${patient.id}` },
+      focus: { reference: `Encounter/${encounterId}` },
+      eventTimestamp: new Date().toISOString(),
+      oystehr,
+    }).catch((err) => {
+      console.error('Failed to produce invoice-issued outreach tasks:', err);
+    });
   } catch (error) {
     const oystehr = createOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');
