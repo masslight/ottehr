@@ -327,11 +327,9 @@ export const getInitialEncounterIdForFollowUp = (
 };
 
 export const getFollowUpProgressNotePathSegment = (
-  followupSubtype: FollowupSubtype | undefined,
-  encounterStatus: string | undefined
-): 'review-and-sign' | 'follow-up-note' | null => {
+  followupSubtype: FollowupSubtype | undefined
+): 'review-and-sign' | 'follow-up-note' => {
   if (followupSubtype === 'scheduled') {
-    if (encounterStatus === 'planned' || encounterStatus === 'arrived') return null;
     return 'review-and-sign';
   }
   return 'follow-up-note';

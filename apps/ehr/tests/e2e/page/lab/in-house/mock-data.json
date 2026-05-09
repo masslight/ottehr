@@ -158,7 +158,7 @@
       }
     },
     {
-      "fullUrl": "urn:uuid:mock-ad-rapid-covid-19-antigen",
+      "fullUrl": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidCOVID-19Antigen-Mock",
       "resourceType": "ActivityDefinition",
       "status": "active",
       "kind": "ServiceRequest",
@@ -647,7 +647,10 @@
           "date": "2026-02-10T17:00:00.001Z",
           "item": {
             "type": "ActivityDefinition",
-            "reference": "urn:uuid:mock-ad-flu-vid",
+            "identifier": {
+              "system": "https://fhir.ottehr.com/Identifier/in-house-ad-url",
+              "value": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/Flu-Vid-Mock"
+            },
             "display": "Flu-Vid (testing AD)"
           }
         },
@@ -655,7 +658,10 @@
           "date": "2026-02-10T17:00:00.001Z",
           "item": {
             "type": "ActivityDefinition",
-            "reference": "urn:uuid:mock-ad-rapid-covid-19-antigen",
+            "identifier": {
+              "system": "https://fhir.ottehr.com/Identifier/in-house-ad-url",
+              "value": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidCOVID-19Antigen-Mock"
+            },
             "display": "Rapid COVID-19 Antigen (testing AD)"
           }
         },
@@ -663,7 +669,10 @@
           "date": "2026-02-10T17:00:00.001Z",
           "item": {
             "type": "ActivityDefinition",
-            "reference": "urn:uuid:mock-ad-monospot-test",
+            "identifier": {
+              "system": "https://fhir.ottehr.com/Identifier/in-house-ad-url",
+              "value": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/Monospottest-Mock"
+            },
             "display": "Monospot test (testing AD)"
           }
         }

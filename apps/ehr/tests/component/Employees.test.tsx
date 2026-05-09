@@ -168,7 +168,7 @@ describe('EmployeesPage', () => {
     expect(within(bodyRows[2]).queryByTestId(dataTestIds.employeesPage.needsReviewChip)).not.toBeInTheDocument();
   });
 
-  it('assigning a role calls updateUser with the chosen role', async () => {
+  it('assigning roles calls updateUser with all chosen roles', async () => {
     const user = userEvent.setup();
     mockUpdateUser.mockResolvedValue({ message: 'ok' });
     mockGetEmployees.mockResolvedValue({
@@ -191,17 +191,47 @@ describe('EmployeesPage', () => {
     await waitFor(() => expect(screen.getByTestId(dataTestIds.employeesPage.assignRoleButton)).toBeInTheDocument());
     await user.click(screen.getByTestId(dataTestIds.employeesPage.assignRoleButton));
 
-    // Open the select and pick Staff
+    // Save should be disabled until at least one role is picked
+    expect(screen.getByTestId(dataTestIds.dialog.proceedButton)).toBeDisabled();
+
     await user.click(screen.getByRole('combobox', { name: /role/i }));
     await user.click(await screen.findByRole('option', { name: 'Staff' }));
+    await user.click(await screen.findByRole('option', { name: 'Manager' }));
+    await user.keyboard('{Escape}');
 
     await user.click(screen.getByTestId(dataTestIds.dialog.proceedButton));
 
     await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledTimes(1));
     expect(mockUpdateUser).toHaveBeenCalledWith(expect.anything(), {
       userId: 'u-review',
-      selectedRoles: [RoleType.Staff],
+      selectedRoles: [RoleType.Staff, RoleType.Manager],
     });
+  });
+
+  it('save stays disabled when no roles are selected', async () => {
+    const user = userEvent.setup();
+    mockGetEmployees.mockResolvedValue({
+      message: 'ok',
+      employees: [
+        makeEmployee({
+          id: 'u-review',
+          firstName: '',
+          lastName: '',
+          name: 'pending@x.com',
+          email: 'pending@x.com',
+          profile: 'Patient/abc',
+          needsReview: true,
+        }),
+      ],
+    });
+
+    render(<EmployeesPage employeeType={EmployeeTypes.employees} />, { wrapper: createWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId(dataTestIds.employeesPage.assignRoleButton)).toBeInTheDocument());
+    await user.click(screen.getByTestId(dataTestIds.employeesPage.assignRoleButton));
+
+    expect(screen.getByTestId(dataTestIds.dialog.proceedButton)).toBeDisabled();
+    expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 
   it('deleting calls deleteUser with the user id', async () => {

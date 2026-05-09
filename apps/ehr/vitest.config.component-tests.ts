@@ -15,6 +15,19 @@ export default defineConfig({
     setupFiles: ['./tests/component/setup.ts'],
     environment: 'jsdom',
     testTimeout: 30_000, // 30 seconds
+    coverage: {
+      provider: 'v8',
+      reporter: ['lcov', 'text-summary', 'json'],
+      reportsDirectory: './coverage/component',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/**/*.spec.{ts,tsx}',
+        'src/**/*.d.ts',
+        'src/**/types/**',
+        'src/**/__mocks__/**',
+      ],
+    },
   },
   plugins: [tsconfigPaths(), react()],
 });
