@@ -54,6 +54,7 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
   const [generatedSection, setGeneratedSection] = useState<EducationSection | null>(null);
   const [editableSection, setEditableSection] = useState<EducationSection | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const generateMutation = useMutation({
     mutationFn: async () => {
@@ -147,7 +148,15 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
                 debouncePrimary(() => setPrimaryDebounced(value));
               }}
               renderInput={(params) => (
-                <TextField {...params} size="small" label="Diagnosis" placeholder="Start typing to search" />
+                <TextField
+                  {...params}
+                  required
+                  size="small"
+                  label="Diagnosis"
+                  placeholder="Start typing to search"
+                  error={submitAttempted && !primary}
+                  helperText={submitAttempted && !primary ? 'This field is required' : undefined}
+                />
               )}
             />
             <Autocomplete<Diagnosis, true>
@@ -240,8 +249,14 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
         {!showReview ? (
           <RoundedButton
             variant="contained"
-            onClick={() => generateMutation.mutate()}
-            disabled={!primary || isBusy}
+            onClick={() => {
+              if (!primary) {
+                setSubmitAttempted(true);
+                return;
+              }
+              generateMutation.mutate();
+            }}
+            disabled={isBusy}
             startIcon={isBusy ? <CircularProgress size={16} /> : <SchoolIcon />}
           >
             Generate

@@ -1229,6 +1229,13 @@
       "src": "src/ehr/delete-approved-patient-education/index",
       "zip": ".dist/zips/delete-approved-patient-education.zip"
     },
+    "UPDATE-APPROVED-PATIENT-EDUCATION-CODES": {
+      "name": "update-approved-patient-education-codes",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/update-approved-patient-education-codes/index",
+      "zip": ".dist/zips/update-approved-patient-education-codes.zip"
+    },
     "AI-INTERVIEW-SUMMARY": {
       "name": "ai-interview-summary",
       "type": "subscription",

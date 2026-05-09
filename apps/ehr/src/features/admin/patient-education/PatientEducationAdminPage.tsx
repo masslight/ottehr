@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import EditIcon from '@mui/icons-material/Edit';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import {
   Box,
@@ -16,6 +17,7 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
@@ -24,13 +26,16 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { ApprovedPatientEducationItem } from 'utils';
 import { ApprovedPatientEducationDialog } from './ApprovedPatientEducationDialog';
+import { EditApprovedPatientEducationCodesDialog } from './EditApprovedPatientEducationCodesDialog';
 
 export const APPROVED_PATIENT_EDUCATION_QUERY_KEY = ['approved-patient-education'];
 
 export const PatientEducationAdminPage = (): ReactElement => {
+  const theme = useTheme();
   const apiClient = useOystehrAPIClient();
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<ApprovedPatientEducationItem | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: APPROVED_PATIENT_EDUCATION_QUERY_KEY,
@@ -81,7 +86,9 @@ export const PatientEducationAdminPage = (): ReactElement => {
                 <TableCell>Title</TableCell>
                 <TableCell>Diagnosis</TableCell>
                 <TableCell>Alternative ICD-10 Codes</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell align="right" sx={{ whiteSpace: 'nowrap', width: '1%' }}>
+                  Actions
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -126,16 +133,22 @@ export const PatientEducationAdminPage = (): ReactElement => {
                         ))}
                       </Stack>
                     </TableCell>
-                    <TableCell align="right">
+                    <TableCell align="right" sx={{ whiteSpace: 'nowrap', width: '1%' }}>
+                      <IconButton size="small" onClick={() => setEditing(item)} title="Edit codes">
+                        <EditIcon fontSize="small" />
+                      </IconButton>
                       <IconButton
+                        size="small"
                         onClick={() => {
-                          if (confirm(`Delete approved PDF for ${item.title}?`)) {
+                          if (window.confirm(`Delete approved PDF for ${item.title}?`)) {
                             deleteMutation.mutate(item.documentReferenceId);
                           }
                         }}
                         disabled={deleteMutation.isPending}
+                        title="Remove"
+                        sx={{ color: theme.palette.error.main }}
                       >
-                        <DeleteIcon />
+                        <DeleteOutlineIcon fontSize="small" />
                       </IconButton>
                     </TableCell>
                   </TableRow>
@@ -147,6 +160,9 @@ export const PatientEducationAdminPage = (): ReactElement => {
       )}
 
       {addOpen && <ApprovedPatientEducationDialog open={addOpen} onClose={() => setAddOpen(false)} />}
+      {editing && (
+        <EditApprovedPatientEducationCodesDialog open={!!editing} onClose={() => setEditing(null)} item={editing} />
+      )}
     </Box>
   );
 };

@@ -45,6 +45,7 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
           listApprovedPatientEducationZambdaID: 'list-approved-patient-education',
           saveApprovedPatientEducationZambdaID: 'save-approved-patient-education',
           deleteApprovedPatientEducationZambdaID: 'delete-approved-patient-education',
+          updateApprovedPatientEducationCodesZambdaID: 'update-approved-patient-education-codes',
         },
         oystehrZambda
       );

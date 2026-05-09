@@ -32,3 +32,12 @@ export interface DeleteApprovedPatientEducationInput {
 export interface DeleteApprovedPatientEducationOutput {
   success: true;
 }
+
+export interface UpdateApprovedPatientEducationCodesInput {
+  documentReferenceId: string;
+  icdCodes: ApprovedPatientEducationIcdCode[];
+}
+
+export interface UpdateApprovedPatientEducationCodesOutput {
+  documentReferenceId: string;
+}

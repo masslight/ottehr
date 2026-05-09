@@ -58,6 +58,8 @@ import {
   UnassignPractitionerZambdaOutput,
   UnlockAppointmentZambdaInputValidated,
   UnlockAppointmentZambdaOutput,
+  UpdateApprovedPatientEducationCodesInput,
+  UpdateApprovedPatientEducationCodesOutput,
   UpdateLabOrderResourcesInput,
   UpdateMedicationOrderInput,
   UpdatePatientAccountInput,
@@ -102,6 +104,7 @@ enum ZambdaNames {
   'list approved patient education' = 'list approved patient education',
   'save approved patient education' = 'save approved patient education',
   'delete approved patient education' = 'delete approved patient education',
+  'update approved patient education codes' = 'update approved patient education codes',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
@@ -141,6 +144,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'list approved patient education': false,
   'save approved patient education': false,
   'delete approved patient education': false,
+  'update approved patient education codes': false,
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
@@ -186,6 +190,7 @@ export const getOystehrTelemedAPI = (
   listApprovedPatientEducation: typeof listApprovedPatientEducation;
   saveApprovedPatientEducation: typeof saveApprovedPatientEducation;
   deleteApprovedPatientEducation: typeof deleteApprovedPatientEducation;
+  updateApprovedPatientEducationCodes: typeof updateApprovedPatientEducationCodes;
 } => {
   const {
     initTelemedSessionZambdaID,
@@ -224,6 +229,7 @@ export const getOystehrTelemedAPI = (
     listApprovedPatientEducationZambdaID,
     saveApprovedPatientEducationZambdaID,
     deleteApprovedPatientEducationZambdaID,
+    updateApprovedPatientEducationCodesZambdaID,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
@@ -263,6 +269,7 @@ export const getOystehrTelemedAPI = (
     'list approved patient education': listApprovedPatientEducationZambdaID,
     'save approved patient education': saveApprovedPatientEducationZambdaID,
     'delete approved patient education': deleteApprovedPatientEducationZambdaID,
+    'update approved patient education codes': updateApprovedPatientEducationCodesZambdaID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
@@ -476,6 +483,12 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('delete approved patient education', parameters);
   };
 
+  const updateApprovedPatientEducationCodes = async (
+    parameters: UpdateApprovedPatientEducationCodesInput
+  ): Promise<UpdateApprovedPatientEducationCodesOutput> => {
+    return await makeZapRequest('update approved patient education codes', parameters);
+  };
+
   return {
     initTelemedSession,
     getChartData,
@@ -514,5 +527,6 @@ export const getOystehrTelemedAPI = (
     listApprovedPatientEducation,
     saveApprovedPatientEducation,
     deleteApprovedPatientEducation,
+    updateApprovedPatientEducationCodes,
   };
 };

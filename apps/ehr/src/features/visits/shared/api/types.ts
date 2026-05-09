@@ -36,6 +36,7 @@ export type GetOystehrTelemedAPIParams = {
   listApprovedPatientEducationZambdaID?: string;
   saveApprovedPatientEducationZambdaID?: string;
   deleteApprovedPatientEducationZambdaID?: string;
+  updateApprovedPatientEducationCodesZambdaID?: string;
 };
 
 export type { PromiseReturnType } from 'utils';
