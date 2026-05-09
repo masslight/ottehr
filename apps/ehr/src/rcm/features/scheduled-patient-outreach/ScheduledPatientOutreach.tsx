@@ -723,7 +723,9 @@ export default function ScheduledPatientOutreach(): ReactElement {
       'patient-birthday': 4,
     };
     return [...actions].sort(
-      (a, b) => eventOrder[a.trigger.event] - eventOrder[b.trigger.event] || a.trigger.daysAfter - b.trigger.daysAfter
+      (a, b) =>
+        eventOrder[a.trigger.event] - eventOrder[b.trigger.event] ||
+        triggerToDayEquivalent(a.trigger) - triggerToDayEquivalent(b.trigger)
     );
   }, [actions]);
 
