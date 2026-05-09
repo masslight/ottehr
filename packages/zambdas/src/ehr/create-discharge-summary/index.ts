@@ -1,8 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { DocumentReference } from 'fhir/r4b';
+import { PDFDocument } from 'pdf-lib';
 import {
   CreateDischargeSummaryInputValidated,
   CreateDischargeSummaryResponse,
+  PATIENT_EDUCATION_DOC_TYPE_CODE,
   progressNoteChartDataRequestedFields,
   Secrets,
 } from 'utils';
@@ -10,6 +13,7 @@ import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaIn
 import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
 import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-discharge-summary-document-reference';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
+import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { getChartData } from '../get-chart-data';
 import { getMedicationOrders } from '../get-medication-orders';
 import { getRadiologyOrders } from '../radiology/order-list';
@@ -112,6 +116,57 @@ export const performEffect = async (
     m2mToken
   );
   if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
+
+  // Append patient education PDFs if any exist
+  try {
+    const educationDocRefs = (
+      await oystehr.fhir.search<DocumentReference>({
+        resourceType: 'DocumentReference',
+        params: [
+          { name: 'encounter', value: `Encounter/${encounter.id}` },
+          { name: 'type', value: PATIENT_EDUCATION_DOC_TYPE_CODE },
+          { name: 'status', value: 'current' },
+        ],
+      })
+    ).unbundle();
+
+    if (educationDocRefs.length > 0) {
+      console.log(`Found ${educationDocRefs.length} patient education PDF(s) to append`);
+
+      // Download the discharge summary PDF
+      const dischargePdfUrl = await createPresignedUrl(m2mToken, pdfInfo.uploadURL, 'download');
+      const dischargeResponse = await fetch(dischargePdfUrl);
+      const dischargeBytes = new Uint8Array(await dischargeResponse.arrayBuffer());
+      const mergedPdf = await PDFDocument.load(dischargeBytes);
+
+      // Download and merge each education PDF
+      for (const docRef of educationDocRefs) {
+        const z3Url = docRef.content?.[0]?.attachment?.url;
+        if (!z3Url) continue;
+        try {
+          const eduPdfUrl = await createPresignedUrl(m2mToken, z3Url, 'download');
+          const eduResponse = await fetch(eduPdfUrl);
+          const eduBytes = new Uint8Array(await eduResponse.arrayBuffer());
+          const eduPdf = await PDFDocument.load(eduBytes);
+          const pages = await mergedPdf.copyPages(eduPdf, eduPdf.getPageIndices());
+          pages.forEach((page) => mergedPdf.addPage(page));
+          console.log(`Appended education PDF from DocumentReference/${docRef.id}`);
+        } catch (err) {
+          console.error(`Failed to append education PDF DocumentReference/${docRef.id}:`, err);
+        }
+      }
+
+      // Re-upload the merged PDF to the same Z3 URL
+      const mergedBytes = await mergedPdf.save();
+      const uploadUrl = await createPresignedUrl(m2mToken, pdfInfo.uploadURL, 'upload');
+      await uploadObjectToZ3(mergedBytes, uploadUrl);
+      console.log('Re-uploaded merged discharge summary with education PDFs');
+    }
+  } catch (err) {
+    console.error('Failed to merge education PDFs into discharge summary:', err);
+    // Non-fatal: proceed with the discharge summary without education PDFs
+  }
+
   console.log(`Creating discharge summary pdf Document Reference`);
   const documentReference = await makeDischargeSummaryPdfDocumentReference(
     oystehr,

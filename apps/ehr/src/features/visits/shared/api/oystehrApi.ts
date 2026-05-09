@@ -92,6 +92,8 @@ enum ZambdaNames {
   'search places' = 'search places',
   'inhouse lab resource search' = 'inhouse lab resource search',
   'make medication history pdf' = 'make medication history pdf',
+  'generate patient education' = 'generate patient education',
+  'save patient education pdf' = 'save patient education pdf',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
@@ -126,6 +128,8 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'search places': false,
   'inhouse lab resource search': false,
   'make medication history pdf': false,
+  'generate patient education': false,
+  'save patient education pdf': false,
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
@@ -166,6 +170,8 @@ export const getOystehrTelemedAPI = (
   searchPlaces: typeof searchPlaces;
   getCreateInHouseLabOrderResources: typeof getCreateInHouseLabOrderResources;
   makeMedicationHistoryPdf: typeof makeMedicationHistoryPdf;
+  generatePatientEducation: typeof generatePatientEducation;
+  savePatientEducationPdf: typeof savePatientEducationPdf;
 } => {
   const {
     initTelemedSessionZambdaID,
@@ -199,6 +205,8 @@ export const getOystehrTelemedAPI = (
     searchPlacesID,
     inhouseLabResourceSearchID,
     makeMedicationHistoryPdfID,
+    generatePatientEducationZambdaID,
+    savePatientEducationPdfZambdaID,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
@@ -233,6 +241,8 @@ export const getOystehrTelemedAPI = (
     'search places': searchPlacesID,
     'inhouse lab resource search': inhouseLabResourceSearchID,
     'make medication history pdf': makeMedicationHistoryPdfID,
+    'generate patient education': generatePatientEducationZambdaID,
+    'save patient education pdf': savePatientEducationPdfZambdaID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
@@ -407,6 +417,29 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('make medication history pdf', parameters);
   };
 
+  const generatePatientEducation = async (parameters: {
+    icdCode: string;
+    icdDescription: string;
+  }): Promise<{
+    content: string | null;
+    error?: string;
+    patientTitle?: string;
+    icdCode: string;
+    icdDescription: string;
+    links?: { title: string; url: string }[];
+  }> => {
+    return await makeZapRequest('generate patient education', parameters);
+  };
+
+  const savePatientEducationPdf = async (parameters: {
+    encounterId: string;
+    patientId: string;
+    pdfBase64: string;
+    title: string;
+  }): Promise<{ documentReferenceId: string }> => {
+    return await makeZapRequest('save patient education pdf', parameters);
+  };
+
   return {
     initTelemedSession,
     getChartData,
@@ -440,5 +473,7 @@ export const getOystehrTelemedAPI = (
     searchPlaces,
     getCreateInHouseLabOrderResources,
     makeMedicationHistoryPdf,
+    generatePatientEducation,
+    savePatientEducationPdf,
   };
 };

@@ -25,7 +25,8 @@ export const PatientInstructionsCard: FC = () => {
   const isLoading = isSavePatientInstructionLoading || isSaveChartDataLoading;
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { chartData, setPartialChartData } = useChartData();
-  const instructions = chartData?.instructions || [];
+  const allInstructions = chartData?.instructions || [];
+  const instructions = allInstructions.filter((item) => !item.educationDocRefId);
 
   const onAddAndSave = (): void => {
     savePatientInstruction(
@@ -43,7 +44,7 @@ export const PatientInstructionsCard: FC = () => {
 
   const onAdd = (): void => {
     const localInstructions = [
-      ...instructions,
+      ...allInstructions,
       {
         text: instruction || undefined,
         title: instructionTitle || undefined,
@@ -77,7 +78,7 @@ export const PatientInstructionsCard: FC = () => {
             variant: 'error',
           });
           // Rollback to previous state
-          setPartialChartData({ instructions });
+          setPartialChartData({ instructions: allInstructions });
           setInstruction(instruction);
           setInstructionTitle(instructionTitle);
         },
@@ -89,11 +90,11 @@ export const PatientInstructionsCard: FC = () => {
   };
 
   const onDelete = (value: CommunicationDTO): void => {
-    const prevInstructions = [...instructions];
+    const prevInstructions = [...allInstructions];
     // Optimistic update
     setPartialChartData(
       {
-        instructions: instructions.filter((item) => item.resourceId !== value.resourceId),
+        instructions: allInstructions.filter((item) => item.resourceId !== value.resourceId),
       },
       { invalidateQueries: false }
     );

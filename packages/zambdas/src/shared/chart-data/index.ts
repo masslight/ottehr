@@ -666,7 +666,7 @@ export function makeCommunicationResource(
   data: CommunicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): Communication {
-  const { resourceId, text, title } = data;
+  const { resourceId, text, title, educationDocRefId } = data;
   return {
     resourceType: 'Communication',
     id: resourceId,
@@ -686,15 +686,20 @@ export function makeCommunicationResource(
         },
       ],
     }),
+    ...(educationDocRefId && {
+      about: [{ reference: `DocumentReference/${educationDocRefId}` }],
+    }),
     meta: getMetaWFieldName(fieldName),
   };
 }
 
 export function makeCommunicationDTO(resource: Communication): CommunicationDTO {
+  const educationDocRef = resource.about?.find((ref) => ref.reference?.startsWith('DocumentReference/'));
   return {
     resourceId: resource.id,
     text: resource.payload?.[0]?.contentString,
     title: resource.topic?.text,
+    educationDocRefId: educationDocRef?.reference?.replace('DocumentReference/', ''),
   };
 }
 
