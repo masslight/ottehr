@@ -3,8 +3,8 @@ import FmdBadOutlinedIcon from '@mui/icons-material/FmdBadOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Grid, Tab, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import React, { ReactElement, useCallback, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { ReactElement, useCallback, useEffect, useState } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import {
   GetVitalsForListOfEncountersResponseData,
@@ -52,14 +52,47 @@ export default function AppointmentTabs({
   vitals,
 }: AppointmentsTabProps): ReactElement {
   const routeLocation = useLocation();
-  const initialTab = (routeLocation.state?.tab as ApptTab) || ApptTab['in-office'];
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Selected tab is read from `?tab=` (the canonical, bookmarkable source) and
+  // falls back to `location.state?.tab` (legacy nav-state pattern still used by
+  // a couple of callers we haven't migrated yet) and finally to the default.
+  // Both sources are validated against the ApptTab enum so a bogus value
+  // (`?tab=foo`) is ignored rather than left in `value` as a non-tab.
+  const isApptTab = (v: unknown): v is ApptTab =>
+    typeof v === 'string' && (Object.values(ApptTab) as string[]).includes(v);
+  const tabFromUrl = searchParams.get('tab');
+  const initialTab: ApptTab = isApptTab(tabFromUrl)
+    ? tabFromUrl
+    : isApptTab(routeLocation.state?.tab)
+    ? (routeLocation.state.tab as ApptTab)
+    : ApptTab['in-office'];
 
   const [value, setValue] = useState<ApptTab>(initialTab);
   const [now, setNow] = useState<DateTime>(DateTime.now());
 
-  const handleChange = (event: any, newValue: ApptTab): any => {
-    setValue(newValue);
-  };
+  // Sync local state when the URL tab changes from outside this component
+  // (e.g. command-palette navigation, browser back/forward).
+  useEffect(() => {
+    if (isApptTab(tabFromUrl) && tabFromUrl !== value) {
+      setValue(tabFromUrl);
+    }
+  }, [tabFromUrl, value]);
+
+  const handleChange = useCallback(
+    (_event: any, newValue: ApptTab): void => {
+      setValue(newValue);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', newValue);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
 
   React.useEffect(() => {
     function updateTime(): void {

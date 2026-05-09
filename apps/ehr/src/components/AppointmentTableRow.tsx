@@ -655,7 +655,7 @@ export default function AppointmentTableRow({
         encounterId: encounterId,
       });
       await updateAppointments();
-      navigate('/visits', { state: { tab: ApptTab.completed } });
+      navigate(`/visits?tab=${ApptTab.completed}`);
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred while approving. Please try again.', { variant: 'error' });
