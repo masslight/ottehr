@@ -18,6 +18,7 @@ export interface ProduceOutreachTasksParams {
   triggerEvent: TriggerEvent;
   patient: Reference;
   focus: Reference; // Invoice, Encounter, etc.
+  appointment?: Reference; // Appointment linked to the triggering event
   eventTimestamp: string; // ISO datetime the event occurred/is scheduled
   oystehr: Oystehr;
 }
@@ -33,7 +34,7 @@ export interface OutreachTaskResult {
  * matching action with executionPeriod.start calculated from event time + offset.
  */
 export async function produceOutreachTasks(params: ProduceOutreachTasksParams): Promise<OutreachTaskResult> {
-  const { triggerEvent, patient, focus, eventTimestamp, oystehr } = params;
+  const { triggerEvent, patient, focus, appointment, eventTimestamp, oystehr } = params;
 
   const planDefinition = await getOrCreateOutreachConfig(oystehr);
   const actions = parsePlanDefinitionToActions(planDefinition);
@@ -58,7 +59,7 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
     }
 
     const dueDateTime = calculateDueDateTime(eventTimestamp, action);
-    const task = buildOutreachTask(action, planDefinition, patient, focus, dueDateTime);
+    const task = buildOutreachTask(action, planDefinition, patient, focus, dueDateTime, appointment);
     const created = await oystehr.fhir.create<Task>(task);
     result.created.push(created);
   }
@@ -120,8 +121,14 @@ function buildOutreachTask(
   planDefinition: PlanDefinition,
   patient: Reference,
   focus: Reference,
-  dueDateTime: string
+  dueDateTime: string,
+  appointment?: Reference
 ): Omit<Task, 'id'> {
+  const basedOn: Reference[] = [{ reference: `PlanDefinition/${planDefinition.id}` }];
+  if (appointment?.reference) {
+    basedOn.push(appointment);
+  }
+
   return {
     resourceType: 'Task',
     status: 'draft',
@@ -138,7 +145,7 @@ function buildOutreachTask(
     description: `Outreach: ${actionTypeDisplay(action.actionType)} triggered by ${action.trigger.event}`,
     for: patient,
     focus: focus,
-    basedOn: [{ reference: `PlanDefinition/${planDefinition.id}` }],
+    basedOn,
     executionPeriod: {
       start: dueDateTime,
     },

@@ -124,6 +124,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       triggerEvent: 'invoice-issued',
       patient: { reference: `Patient/${patient.id}` },
       focus: { reference: `Encounter/${encounterId}` },
+      appointment: appointment?.id ? { reference: `Appointment/${appointment.id}` } : undefined,
       eventTimestamp: new Date().toISOString(),
       oystehr,
     }).catch((err) => {

@@ -1882,6 +1882,13 @@
       "src": "src/rcm/scheduled-outreach-config/save-scheduled-outreach-config/index",
       "zip": ".dist/zips/save-scheduled-outreach-config.zip"
     },
+    "LIST-OUTREACH-TASKS": {
+      "name": "list-outreach-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/list-outreach-tasks/index",
+      "zip": ".dist/zips/list-outreach-tasks.zip"
+    },
     "PRODUCE-OUTREACH-DISCHARGE-TASKS": {
       "name": "produce-outreach-discharge-tasks",
       "type": "http_auth",

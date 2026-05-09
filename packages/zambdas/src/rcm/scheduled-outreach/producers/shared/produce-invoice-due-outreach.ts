@@ -60,7 +60,8 @@ export async function produceInvoiceDueOutreach(oystehr: Oystehr): Promise<Produ
  */
 export async function produceInvoiceDueOutreachForInvoice(
   invoice: Invoice,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  appointmentRef?: string
 ): Promise<OutreachTaskResult> {
   if (!invoice.subject?.reference) {
     throw INVALID_INPUT_ERROR(`Invoice ${invoice.id} has no subject (patient) reference`);
@@ -72,6 +73,7 @@ export async function produceInvoiceDueOutreachForInvoice(
     triggerEvent: 'invoice-due',
     patient: invoice.subject,
     focus: { reference: `Invoice/${invoice.id}` },
+    appointment: appointmentRef ? { reference: appointmentRef } : undefined,
     eventTimestamp: dueDate,
     oystehr,
   });

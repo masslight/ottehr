@@ -4,6 +4,7 @@ import { chooseJson } from 'utils';
 
 const GET_OUTREACH_CONFIG_ZAMBDA_ID = 'get-scheduled-outreach-config';
 const SAVE_OUTREACH_CONFIG_ZAMBDA_ID = 'save-scheduled-outreach-config';
+const LIST_OUTREACH_TASKS_ZAMBDA_ID = 'list-outreach-tasks';
 
 export interface NotificationsTimeRestrictionDTO {
   enabled: boolean;
@@ -89,6 +90,50 @@ export const saveOutreachConfig = async (
     const response = await oystehr.zambda.execute({
       id: SAVE_OUTREACH_CONFIG_ZAMBDA_ID,
       ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+// ── Outreach Tasks (report) ─────────────────────────────────────────────────
+
+export interface OutreachTaskSummary {
+  id: string;
+  status: string;
+  actionType: string;
+  triggerEvent: string;
+  actionId: string;
+  patientId: string;
+  patientName: string;
+  patientFriendlyId?: string;
+  appointmentId?: string;
+  visitDate?: string;
+  focusReference: string;
+  dueDateTime: string;
+  authoredOn: string;
+  description: string;
+  mediums?: string;
+}
+
+export interface ListOutreachTasksResponse {
+  tasks: OutreachTaskSummary[];
+}
+
+export interface ListOutreachTasksInput {
+  status?: string;
+}
+
+export const listOutreachTasks = async (
+  oystehr: Oystehr,
+  parameters?: ListOutreachTasksInput
+): Promise<ListOutreachTasksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: LIST_OUTREACH_TASKS_ZAMBDA_ID,
+      ...(parameters || {}),
     });
     return chooseJson(response);
   } catch (error: unknown) {

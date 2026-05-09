@@ -7,6 +7,8 @@ export interface ProduceInvoiceIssuedOutreachParams {
   /** The Invoice resource, or an invoice ID to fetch it */
   invoice?: Invoice;
   invoiceId?: string;
+  /** Optional Appointment reference to link in basedOn */
+  appointmentRef?: string;
   oystehr: Oystehr;
 }
 
@@ -43,6 +45,7 @@ export async function produceInvoiceIssuedOutreach(
     triggerEvent: 'invoice-issued',
     patient: invoice.subject,
     focus: { reference: `Invoice/${invoice.id}` },
+    appointment: params.appointmentRef ? { reference: params.appointmentRef } : undefined,
     eventTimestamp: issuedDate,
     oystehr,
   });
