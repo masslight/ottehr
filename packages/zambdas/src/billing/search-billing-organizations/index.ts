@@ -1,8 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
-import { getNPI, getSecret, getTaxID, SecretsKeys } from 'utils';
+import { getNPI, getPayerId, getSecret, getTaxID, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, getPayerId } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -32,7 +32,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         name: o.name ?? '',
         npi: getNPI(o) ?? '',
         tin: getTaxID(o) ?? '',
-        payerId: getPayerId(o),
+        payerId: getPayerId(o) ?? '',
         isPayer,
       };
     });

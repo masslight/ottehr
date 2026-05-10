@@ -4,21 +4,14 @@ import { Claim, Coverage, Location, Organization, Patient, Person, Practitioner 
 import {
   FHIR_RESOURCE_NOT_FOUND,
   getNPI,
+  getPayerId,
   getResourcesFromBatchInlineRequests,
   getSecret,
   getTaxID,
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import {
-  createBillingClient,
-  fhirName,
-  findRef,
-  formatAddress,
-  getClaimStatus,
-  getPayerId,
-  sortClaimInsurance,
-} from '../shared';
+import { createBillingClient, fhirName, findRef, formatAddress, getClaimStatus, sortClaimInsurance } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -176,14 +169,14 @@ async function fetchClaimDetail(oystehr: Oystehr, claimId: string): Promise<Clai
     coverageFhirId: coverage?.id ?? '',
     payorFhirId: insurer?.id ?? '',
     payerName: insurer?.name ?? '',
-    payerId: insurer ? getPayerId(insurer) : '',
+    payerId: getPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
     subscriberId: coverage?.subscriberId ?? '',
     coverageStatus: coverage?.status ?? '',
     responsibleParty: 'Primary',
     secondaryCoverageFhirId: secondaryCoverage?.id ?? '',
     secondaryPayerName: secondaryInsurer?.name ?? '',
-    secondaryPayerId: secondaryInsurer ? getPayerId(secondaryInsurer) : '',
+    secondaryPayerId: getPayerId(secondaryInsurer) ?? '',
     secondaryMemberId: secondaryCoverage?.subscriberId ?? '',
     nonInsurancePayerFhirId: '',
     nonInsurancePayerName: '',

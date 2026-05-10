@@ -1,8 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage, Organization } from 'fhir/r4b';
-import { getSecret, SecretsKeys } from 'utils';
+import { getPayerId, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, getPayerId } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -38,7 +38,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         status: cov.status,
         subscriberId: cov.subscriberId ?? '',
         payorName: payorOrg?.name ?? '',
-        payorId: payorOrg ? getPayerId(payorOrg) : '',
+        payorId: getPayerId(payorOrg) ?? '',
         payorFhirId: payorOrg?.id ?? '',
       };
     });

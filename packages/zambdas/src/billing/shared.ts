@@ -60,12 +60,6 @@ export function createBillingClient(token: string, secrets: Secrets | null): Oys
   return createOystehrClient(token, secrets, { workspaceTag: BILLING_RESOURCE_TAG });
 }
 
-export function getPayerId(org: Organization): string {
-  return (
-    org.identifier?.find((id) => id.type?.coding?.some((c) => c.code === 'ETIN' || c.code === 'NIIP'))?.value ?? ''
-  );
-}
-
 export function hasNpiIdentifier(org: Organization): boolean {
   return getNPI(org) != null;
 }

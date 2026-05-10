@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { getSecret, SecretsKeys } from 'utils';
+import { getPayerId, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, fhirName, findRef, getClaimStatus, getPayerId, sortClaimInsurance } from '../shared';
+import { createBillingClient, fhirName, findRef, getClaimStatus, sortClaimInsurance } from '../shared';
 import { GetBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
 interface BillingClaimItem {
@@ -128,7 +128,7 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
     patientName,
     patientDob: patient?.birthDate ?? '',
     payerName: insurer?.name ?? '',
-    payerId: insurer ? getPayerId(insurer) : '',
+    payerId: getPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
     serviceDate,
     facility: facility?.name ?? '',
