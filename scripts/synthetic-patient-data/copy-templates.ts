@@ -105,14 +105,36 @@ async function createOystehrFromEnv(env: EnvConfig, label: string): Promise<Oyst
 
 // ── Holder-list helpers ───────────────────────────────────────────────────────
 
-async function findHolderList(oystehr: Oystehr): Promise<List | undefined> {
+async function findHolderList(oystehr: Oystehr, projectLabel: string): Promise<List | undefined> {
   const lists = (
     await oystehr.fhir.search<List>({
       resourceType: 'List',
       params: [{ name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` }],
     })
   ).unbundle();
-  return lists.find((l) => l.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM));
+  const matches = lists.filter((l) => l.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM));
+  if (matches.length > 1) {
+    // The IaC stanza for this resource (oystehr_fhir_resource.GlobalTemplatesHolderList)
+    // is supposed to be the only thing that creates this List, and Terraform's state
+    // tracking is supposed to keep it singular. When state is lost between IaC runs
+    // (fresh dev env, dropped .tfstate, etc.) the apply creates a new holder and
+    // orphans the old. We don't want to silently pick one — it would be surprising
+    // when the dev's UI shows a different set of templates than copy-templates is
+    // operating on. Log loudly and continue with the canonical (first) one, which is
+    // what findHolderList in template-helpers.ts uses (and therefore what list-templates
+    // and the admin UI see).
+    const canonical = matches[0];
+    console.warn(
+      `⚠ ${projectLabel} project has ${matches.length} global-templates holder Lists; expected 1. ` +
+        `This usually means IaC was applied without state continuity. Using the canonical ` +
+        `(first) holder, which matches what list-templates and the admin UI see:`
+    );
+    console.warn(`  canonical: List/${canonical.id} (entries=${canonical.entry?.length ?? 0})`);
+    for (const stray of matches.slice(1)) {
+      console.warn(`  stray:     List/${stray.id} (entries=${stray.entry?.length ?? 0}, ignored)`);
+    }
+  }
+  return matches[0];
 }
 
 function isTemplateList(template: List): boolean {
@@ -145,11 +167,11 @@ async function main(): Promise<void> {
 
   // Holder lists
   console.log('');
-  const sourceHolder = await findHolderList(source);
+  const sourceHolder = await findHolderList(source, 'Source');
   if (!sourceHolder) throw new Error('Source project has no holder list — nothing to copy from.');
   console.log(`Source holder list: ${sourceHolder.id} with ${sourceHolder.entry?.length ?? 0} entries`);
 
-  const destHolder = await findHolderList(dest);
+  const destHolder = await findHolderList(dest, 'Destination');
   if (!destHolder) {
     throw new Error(
       'Destination project has no holder list. The holder list is auto-provisioned with admin-create-template; create one template in the dest project first, or extend this script to provision a holder list.'
