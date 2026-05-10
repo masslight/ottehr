@@ -15,7 +15,7 @@ import { formatZodError, getAuth0Token, wrapHandler, ZambdaInput } from '../../s
 import { getInsuranceOverrideList, ListName } from '../get-insurance-override-list/handler';
 
 const payerInfoSchema = z.object({
-  listName: z.literal(ListName.EHR),
+  listName: z.enum([ListName.EHR, ListName.Patient]),
   payerId: z.string(),
 });
 

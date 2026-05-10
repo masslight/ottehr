@@ -29,8 +29,9 @@ enum PageTab {
 }
 
 export function AdminPage(): JSX.Element {
-  const { adminTab, billingTab } = useParams();
+  const { adminTab, billingTab, insuranceTab } = useParams();
   const navigate = useNavigate();
+  console.log('colin AdminPage', adminTab, billingTab, insuranceTab);
 
   const pageTab = billingTab ? PageTab.billing : (adminTab as PageTab) || PageTab.schedules;
 
@@ -135,7 +136,7 @@ export function AdminPage(): JSX.Element {
             <MedicationsConfigurationPage />
           </TabPanel>
           <TabPanel value={PageTab.billing} sx={{ padding: 0 }}>
-            <BillingConfiguration billingTab={billingTab} />
+            <BillingConfiguration billingTab={billingTab} insuranceTab={insuranceTab} />
           </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />

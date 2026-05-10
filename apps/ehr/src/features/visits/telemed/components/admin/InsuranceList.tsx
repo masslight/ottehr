@@ -17,18 +17,20 @@ import { Organization } from 'fhir/r4b';
 import React, { ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { INSURANCES_URL } from 'src/App';
+import Loading from 'src/components/Loading';
 import { INSURANCE_ROWS_PER_PAGE } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { getPayerId } from 'utils';
 import { useInsurancesQuery } from './admin.queries';
 
-export default function Insurances(): ReactElement {
+export default function InsuranceList(): ReactElement {
   const theme = useTheme();
   // set up the pagination states
   const [rowsPerPage, setRowsPerPage] = React.useState(INSURANCE_ROWS_PER_PAGE);
   const [pageNumber, setPageNumber] = React.useState(0);
   const [searchText, setSearchText] = React.useState('');
 
-  const { data, isPending } = useInsurancesQuery();
+  const { data, isPending } = useInsurancesQuery(undefined, true);
 
   // Filter insurances based on filters and search
   const filteredInsurances = React.useMemo(() => {
@@ -83,10 +85,7 @@ export default function Insurances(): ReactElement {
         <Skeleton width={20} height={20} />
       </TableCell>
       <TableCell>
-        <Skeleton width={100} height="100%" />
-      </TableCell>
-      <TableCell>
-        <Skeleton width={35} height={20} />
+        <Skeleton width={20} height={20} />
       </TableCell>
     </TableRow>
   );
@@ -99,7 +98,7 @@ export default function Insurances(): ReactElement {
             <TextField
               fullWidth
               id="outlined-basic"
-              label="Insurance"
+              label="Search by name..."
               onChange={(e) => {
                 if (pageNumber !== 0) setPageNumber(0);
                 handleChangeSearchText(e);
@@ -108,24 +107,30 @@ export default function Insurances(): ReactElement {
               margin="dense"
             />
           </Grid>
+          <Grid item xs={0} sm={5} />
+          <Grid item xs={12} sm={2}>
+            {isPending ? <Loading /> : <></>}
+          </Grid>
         </Grid>
 
         <Table sx={{ minWidth: 650 }} aria-label="insurancesTable">
           {/* Label Row */}
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 'bold', width: '50%' }}>Display name</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '80%' }}>Official Name</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Payer ID</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {isPending && [1, 2, 3].map((id) => skeletonRow('skeleton-row-' + id))}
             {currentPagesEntities.map((insurance: Organization, idx: number) => {
               const displayName = insurance.name;
+              const payerId = getPayerId(insurance);
               return (
                 <TableRow key={idx}>
                   <TableCell>
                     <Link
-                      to={`${INSURANCES_URL}/${insurance.id}`}
+                      to={`${INSURANCES_URL}/all/${insurance.id}`}
                       style={{
                         display: 'contents',
                         color: theme.palette.primary.main,
@@ -134,6 +139,7 @@ export default function Insurances(): ReactElement {
                       {displayName}
                     </Link>
                   </TableCell>
+                  <TableCell>{payerId}</TableCell>
                 </TableRow>
               );
             })}

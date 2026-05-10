@@ -87,19 +87,22 @@ export const useVirtualLocationsQuery = (): UseQueryResult<Location[], Error> =>
   });
 };
 
-export const useInsurancesQuery = (id?: string, enabled?: boolean): UseQueryResult<Organization[], Error> => {
+export const useInsurancesQuery = (ids?: string[], enabled?: boolean): UseQueryResult<Organization[], Error> => {
   const { oystehr } = useApiClients();
 
   return useQuery({
-    queryKey: ['insurances', id],
+    queryKey: ['insurances', ids],
 
     queryFn: async () => {
       if (!oystehr) {
         throw new Error('Oystehr client is not defined');
       }
-      if (id) {
-        const payer = await oystehr.rcm.getPayer({ id });
-        return [payer];
+      if (ids) {
+        if (!ids.length) {
+          return [];
+        }
+        const payers = await Promise.all(ids.map((id) => oystehr.rcm.getPayer({ id })));
+        return payers;
       }
       const payers = [];
       let hasMore = true;
@@ -133,7 +136,7 @@ export const useInsuranceMutation = (
     showInPaperwork?: boolean;
   }
 > => {
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
 
   return useMutation({
     mutationKey: ['insurances', payerId],
@@ -147,7 +150,7 @@ export const useInsuranceMutation = (
     }) => {
       if (data.showInPaperwork) {
         if (!data.existingName && data.name) {
-          await oystehr?.zambda.execute({
+          await oystehrZambda?.zambda.execute({
             id: 'add-payer-to-insurance-override-list',
             listName: 'patient',
             payerId,
@@ -155,7 +158,7 @@ export const useInsuranceMutation = (
           });
         }
         if (data.existingName && data.existingName !== data.name) {
-          await oystehr?.zambda.execute({
+          await oystehrZambda?.zambda.execute({
             id: 'edit-payer-in-insurance-override-list',
             listName: 'patient',
             payerId,
@@ -164,14 +167,14 @@ export const useInsuranceMutation = (
         }
       }
       if (!data.showInPaperwork) {
-        await oystehr?.zambda.execute({
+        await oystehrZambda?.zambda.execute({
           id: 'remove-payer-from-insurance-override-list',
           listName: 'patient',
           payerId,
         });
       }
       if (!data.existingNote && data.note) {
-        await oystehr?.zambda.execute({
+        await oystehrZambda?.zambda.execute({
           id: 'add-payer-to-insurance-override-list',
           listName: 'ehr',
           payerId,
@@ -179,15 +182,19 @@ export const useInsuranceMutation = (
         });
       }
       if (data.existingNote && data.note && data.existingNote !== data.note) {
-        await oystehr?.zambda.execute({
+        await oystehrZambda?.zambda.execute({
           id: 'edit-payer-in-insurance-override-list',
           listName: 'ehr',
           payerId,
-          payerNameOverride: data.note,
+          payerNote: data.note,
         });
       }
       if (data.existingNote && !data.note) {
-        await oystehr?.zambda.execute({ id: 'remove-payer-from-insurance-override-list', listName: 'ehr', payerId });
+        await oystehrZambda?.zambda.execute({
+          id: 'remove-payer-from-insurance-override-list',
+          listName: 'ehr',
+          payerId,
+        });
       }
     },
   });
