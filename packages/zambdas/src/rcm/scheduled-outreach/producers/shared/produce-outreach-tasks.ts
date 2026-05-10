@@ -1,7 +1,9 @@
 import Oystehr from '@oystehr/sdk';
+import { BatchInputRequest } from '@oystehr/sdk';
 import { PlanDefinition, Reference, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { getPatchBinary } from '../../../../shared/helpers';
 import {
   ActionType,
   getOrCreateOutreachConfig,
@@ -165,7 +167,7 @@ function buildOutreachTask(
  * Encode the action details into Task.input so the executor has everything
  * it needs without re-reading the PlanDefinition.
  */
-function buildTaskInput(action: OutreachAction): Task['input'] {
+export function buildTaskInput(action: OutreachAction): Task['input'] {
   const inputs: Task['input'] = [
     {
       type: { text: 'action-id' },
@@ -231,4 +233,134 @@ function actionTypeDisplay(actionType: ActionType): string {
     'refer-to-collections': 'Refer to Collections',
   };
   return displays[actionType];
+}
+
+/**
+ * Compute the signed offset in minutes for an action trigger.
+ */
+function triggerOffsetMinutes(action: OutreachAction): number {
+  const timeUnit = action.trigger.timeUnit || 'days';
+  const direction = action.trigger.direction || 'after';
+  const offset = action.trigger.daysAfter;
+  const multiplier = timeUnit === 'days' ? 1440 : timeUnit === 'hours' ? 60 : 1;
+  return (direction === 'before' ? -offset : offset) * multiplier;
+}
+
+/**
+ * After saving an updated outreach configuration, reconcile existing draft tasks:
+ *  - Cancel draft tasks whose action ID was removed from the config.
+ *  - Update draft tasks whose action config changed (timing, templates, etc.).
+ *
+ * Only tasks in 'draft' status are affected; requested/in-progress/completed tasks
+ * are left untouched.
+ *
+ * Returns batch request entries to be included in a FHIR transaction alongside
+ * the PlanDefinition update for atomicity.
+ */
+export async function reconcileDraftTasksWithConfig(
+  oystehr: Oystehr,
+  oldActions: OutreachAction[],
+  newActions: OutreachAction[]
+): Promise<{ requests: BatchInputRequest<Task>[]; cancelled: number; updated: number }> {
+  const newActionMap = new Map(newActions.map((a) => [a.id, a]));
+  const oldActionMap = new Map(oldActions.map((a) => [a.id, a]));
+
+  // Identify removed and potentially changed action IDs
+  const removedIds = oldActions.filter((a) => !newActionMap.has(a.id)).map((a) => a.id);
+  const keptIds = oldActions.filter((a) => newActionMap.has(a.id)).map((a) => a.id);
+
+  const requests: BatchInputRequest<Task>[] = [];
+  let cancelled = 0;
+  let updated = 0;
+
+  // ── Cancel tasks for removed actions ────────────────────────────────────
+  if (removedIds.length > 0) {
+    const draftTasks = await searchDraftTasksByActionIds(oystehr, removedIds);
+    for (const task of draftTasks) {
+      if (!task.id) continue;
+      requests.push(
+        getPatchBinary({
+          resourceId: task.id,
+          resourceType: 'Task',
+          patchOperations: [{ op: 'replace', path: '/status', value: 'cancelled' }],
+        })
+      );
+      cancelled++;
+    }
+    console.log(`reconcileDraftTasks: will cancel ${cancelled} draft tasks for ${removedIds.length} removed action(s)`);
+  }
+
+  // ── Update tasks for modified actions ───────────────────────────────────
+  if (keptIds.length > 0) {
+    const draftTasks = await searchDraftTasksByActionIds(oystehr, keptIds);
+    for (const task of draftTasks) {
+      if (!task.id) continue;
+      const actionId = task.meta?.tag?.find((t) => t.system === `${OUTREACH_TASK_TAG_SYSTEM}/action-id`)?.code;
+      if (!actionId) continue;
+
+      const oldAction = oldActionMap.get(actionId);
+      const newAction = newActionMap.get(actionId);
+      if (!oldAction || !newAction) continue;
+
+      // Build patches
+      const patchOps: { op: 'replace' | 'add'; path: string; value: unknown }[] = [];
+
+      // Timing change: shift executionPeriod.start by the offset delta
+      const oldOffsetMin = triggerOffsetMinutes(oldAction);
+      const newOffsetMin = triggerOffsetMinutes(newAction);
+      if (oldOffsetMin !== newOffsetMin && task.executionPeriod?.start) {
+        const deltaMin = newOffsetMin - oldOffsetMin;
+        const newStart = DateTime.fromISO(task.executionPeriod.start).plus({ minutes: deltaMin }).toISO()!;
+        patchOps.push({ op: 'replace', path: '/executionPeriod/start', value: newStart });
+      }
+
+      // Config change: rebuild input
+      const newInput = buildTaskInput(newAction);
+      const oldInputJson = JSON.stringify(task.input);
+      const newInputJson = JSON.stringify(newInput);
+      if (oldInputJson !== newInputJson) {
+        patchOps.push({ op: 'replace', path: '/input', value: newInput });
+      }
+
+      if (patchOps.length > 0) {
+        requests.push(
+          getPatchBinary({
+            resourceId: task.id,
+            resourceType: 'Task',
+            patchOperations: patchOps,
+          })
+        );
+        updated++;
+      }
+    }
+    console.log(`reconcileDraftTasks: will update ${updated} draft tasks for modified actions`);
+  }
+
+  return { requests, cancelled, updated };
+}
+
+/**
+ * Search for draft outreach tasks that match any of the given action IDs.
+ * Searches each action ID individually since _tag with multiple system|code
+ * pairs in a single param is unreliable.
+ */
+async function searchDraftTasksByActionIds(oystehr: Oystehr, actionIds: string[]): Promise<Task[]> {
+  const allTasks: Task[] = [];
+  const seenIds = new Set<string>();
+  for (const actionId of actionIds) {
+    const bundle = await oystehr.fhir.search<Task>({
+      resourceType: 'Task',
+      params: [
+        { name: '_tag', value: `${OUTREACH_TASK_TAG_SYSTEM}/action-id|${actionId}` },
+        { name: 'status', value: 'draft' },
+      ],
+    });
+    for (const task of bundle.unbundle()) {
+      if (task.id && !seenIds.has(task.id)) {
+        seenIds.add(task.id);
+        allTasks.push(task);
+      }
+    }
+  }
+  return allTasks;
 }

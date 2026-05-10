@@ -1,4 +1,5 @@
 import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
@@ -21,6 +22,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Tooltip,
@@ -30,11 +32,14 @@ import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { OutreachTaskSummary } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.api';
-import { useListOutreachTasksQuery } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.queries';
+import {
+  useCancelOutreachTaskMutation,
+  useListOutreachTasksQuery,
+} from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.queries';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const STATUS_FILTER_OPTIONS = ['draft', 'requested', 'in-progress', 'on-hold', 'completed'] as const;
+const STATUS_FILTER_OPTIONS = ['draft', 'requested', 'in-progress', 'on-hold', 'completed', 'cancelled'] as const;
 type StatusFilterValue = (typeof STATUS_FILTER_OPTIONS)[number];
 
 const STATUS_DISPLAY: Record<string, string> = {
@@ -166,28 +171,42 @@ function getDateRangeValues(
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function OutreachTasksReport(): ReactElement {
-  const [selectedStatuses, setSelectedStatuses] = useState<StatusFilterValue[]>([
-    'draft',
-    'requested',
-    'in-progress',
-    'on-hold',
-  ]);
+  const [selectedStatuses, setSelectedStatuses] = useState<StatusFilterValue[]>([...STATUS_FILTER_OPTIONS]);
   const [dueDatePreset, setDueDatePreset] = useState<DateRangePreset>('all');
   const [dueDateCustomStart, setDueDateCustomStart] = useState('');
   const [dueDateCustomEnd, setDueDateCustomEnd] = useState('');
   const [createdPreset, setCreatedPreset] = useState<DateRangePreset>('all');
   const [createdCustomStart, setCreatedCustomStart] = useState('');
   const [createdCustomEnd, setCreatedCustomEnd] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const cancelMutation = useCancelOutreachTaskMutation();
 
   const statusFilter = selectedStatuses.join(',');
   const dueRange = getDateRangeValues(dueDatePreset, dueDateCustomStart, dueDateCustomEnd);
   const createdRange = getDateRangeValues(createdPreset, createdCustomStart, createdCustomEnd);
+
+  // Reset to first page when filters change
+  React.useEffect(() => {
+    setPage(0);
+  }, [
+    statusFilter,
+    dueDatePreset,
+    dueDateCustomStart,
+    dueDateCustomEnd,
+    createdPreset,
+    createdCustomStart,
+    createdCustomEnd,
+  ]);
+
   const { data, isLoading, error, refetch, isFetching } = useListOutreachTasksQuery({
     status: statusFilter,
     dueDateFrom: dueRange.from,
     dueDateTo: dueRange.to,
     createdFrom: createdRange.from,
     createdTo: createdRange.to,
+    pageSize: rowsPerPage,
+    offset: page * rowsPerPage,
   });
 
   if (error) {
@@ -199,12 +218,7 @@ export default function OutreachTasksReport(): ReactElement {
   }
 
   const tasks = data?.tasks || [];
-
-  // Split into upcoming and past
-  const upcomingTasks = tasks.filter(
-    (t) => t.status !== 'completed' && t.status !== 'cancelled' && t.status !== 'failed'
-  );
-  const completedTasks = tasks.filter((t) => t.status === 'completed');
+  const totalCount = data?.totalCount ?? 0;
 
   return (
     <Box>
@@ -353,24 +367,21 @@ export default function OutreachTasksReport(): ReactElement {
       ) : tasks.length === 0 ? (
         <Alert severity="info">No outreach tasks found matching the selected filter.</Alert>
       ) : (
-        <Stack spacing={3}>
-          {upcomingTasks.length > 0 && (
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-                Scheduled ({upcomingTasks.length})
-              </Typography>
-              <TaskTable tasks={upcomingTasks} />
-            </Box>
-          )}
-          {completedTasks.length > 0 && (
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-                Completed ({completedTasks.length})
-              </Typography>
-              <TaskTable tasks={completedTasks} />
-            </Box>
-          )}
-        </Stack>
+        <Box>
+          <TaskTable tasks={tasks} onCancel={(taskId) => cancelMutation.mutate({ taskId })} />
+          <TablePagination
+            component="div"
+            count={totalCount}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 25, 50, 100]}
+          />
+        </Box>
       )}
     </Box>
   );
@@ -386,7 +397,13 @@ function isOverdue(task: OutreachTaskSummary): boolean {
 
 // ── Table Sub-component ────────────────────────────────────────────────────
 
-function TaskTable({ tasks }: { tasks: OutreachTaskSummary[] }): ReactElement {
+function TaskTable({
+  tasks,
+  onCancel,
+}: {
+  tasks: OutreachTaskSummary[];
+  onCancel?: (taskId: string) => void;
+}): ReactElement {
   return (
     <TableContainer component={Paper} variant="outlined">
       <Table size="small">
@@ -400,8 +417,8 @@ function TaskTable({ tasks }: { tasks: OutreachTaskSummary[] }): ReactElement {
             <TableCell>Created</TableCell>
             <TableCell>Completed</TableCell>
             <TableCell>Visit Date</TableCell>
-            <TableCell>Based On</TableCell>
             <TableCell>Mediums</TableCell>
+            {onCancel && <TableCell sx={{ width: 60 }}>Actions</TableCell>}
           </TableRow>
         </TableHead>
         <TableBody>
@@ -549,41 +566,6 @@ function TaskTable({ tasks }: { tasks: OutreachTaskSummary[] }): ReactElement {
                   )}
                 </TableCell>
                 <TableCell>
-                  {task.appointmentId ? (
-                    <Tooltip
-                      placement="bottom-start"
-                      disableInteractive={false}
-                      leaveDelay={200}
-                      slotProps={{
-                        tooltip: {
-                          sx: {
-                            bgcolor: 'background.paper',
-                            color: 'text.primary',
-                            boxShadow: 2,
-                            maxWidth: 'none',
-                          },
-                        },
-                      }}
-                      title={
-                        <Box sx={{ p: 0.5 }}>
-                          <CopyableIdRow label="Appointment ID" value={task.appointmentId} />
-                        </Box>
-                      }
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{ cursor: 'default', color: 'text.secondary', fontSize: '0.75rem' }}
-                      >
-                        {task.focusReference.split('/')[0]}
-                      </Typography>
-                    </Tooltip>
-                  ) : (
-                    <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                      {task.focusReference.split('/')[0] || '—'}
-                    </Typography>
-                  )}
-                </TableCell>
-                <TableCell>
                   {task.mediums ? (
                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                       {task.mediums.split(',').map((m) => (
@@ -606,6 +588,17 @@ function TaskTable({ tasks }: { tasks: OutreachTaskSummary[] }): ReactElement {
                     '—'
                   )}
                 </TableCell>
+                {onCancel && (
+                  <TableCell>
+                    {(task.status === 'draft' || task.status === 'requested') && (
+                      <Tooltip title="Cancel task">
+                        <IconButton size="small" onClick={() => onCancel(task.id)} sx={{ color: 'error.main' }}>
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </TableCell>
+                )}
               </TableRow>
             );
           })}

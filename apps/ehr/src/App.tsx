@@ -224,6 +224,7 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                 )}
                 <Route path="/admin" element={<AdminPage />} />
+                <Route path="/admin/billing/:billingTab/:outreachTab" element={<AdminPage />} />
                 <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
                 <Route path="/admin/:adminTab" element={<AdminPage />} />
                 <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />

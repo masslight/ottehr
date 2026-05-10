@@ -1889,6 +1889,13 @@
       "src": "src/rcm/scheduled-outreach/list-outreach-tasks/index",
       "zip": ".dist/zips/list-outreach-tasks.zip"
     },
+    "CANCEL-OUTREACH-TASK": {
+      "name": "cancel-outreach-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/cancel-outreach-task/index",
+      "zip": ".dist/zips/cancel-outreach-task.zip"
+    },
     "PRODUCE-OUTREACH-DISCHARGE-TASKS": {
       "name": "produce-outreach-discharge-tasks",
       "type": "http_auth",
@@ -2401,6 +2408,60 @@
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_SEND_NOTIFICATION_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach send notification",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|send-notification&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-SEND-NOTIFICATION/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_CHARGE_CARD_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach charge card on file",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|charge-card&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-CHARGE-CARD/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_REFER_TO_COLLECTIONS_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach refer to collections",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|refer-to-collections&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-REFER-TO-COLLECTIONS/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
           }
         ]
       }

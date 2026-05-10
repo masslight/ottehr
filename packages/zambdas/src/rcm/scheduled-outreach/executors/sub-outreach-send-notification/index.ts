@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 import { NotificationMedium } from '../../../scheduled-outreach-config/helpers';
 
@@ -39,6 +40,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const patientRef = task.for?.reference;
 
     console.log(`Executing send-notification for patient ${patientRef}, mediums: ${mediums.join(', ')}`);
+    console.log('--- NOTIFICATION CONTENT ---');
+    if (mediums.includes('sms') && smsTemplate) {
+      console.log(`[SMS Template]: ${smsTemplate}`);
+    }
+    if (mediums.includes('email') && emailTemplate) {
+      console.log(`[Email Template]: ${emailTemplate}`);
+    }
+    if (mediums.includes('paper-mail')) {
+      console.log(`[Paper Mail]: Statement will be generated for patient ${patientRef}`);
+    }
+    console.log('--- END NOTIFICATION CONTENT ---');
 
     const results: { medium: NotificationMedium; success: boolean; error?: string }[] = [];
 
@@ -72,6 +84,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       id: task.id!,
       operations: [
         { op: 'replace', path: '/status', value: finalStatus },
+        { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
         {
           op: 'add',
           path: '/output',
@@ -95,6 +108,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       id: task.id!,
       operations: [
         { op: 'replace', path: '/status', value: 'failed' },
+        { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
         {
           op: 'add',
           path: '/output',
@@ -127,7 +141,8 @@ async function sendSms(_patientRef: string, _template: string, _secrets: any): P
   // 1. Resolve patient phone number from FHIR
   // 2. Resolve template placeholders (patient name, amount, etc.)
   // 3. Send via provider
-  console.log(`[PLACEHOLDER] Sending SMS to patient ${_patientRef}`);
+  console.log(`[PLACEHOLDER] Would send SMS to patient ${_patientRef}`);
+  console.log(`[PLACEHOLDER] SMS body: ${_template}`);
 }
 
 async function sendEmail(_patientRef: string, _template: string, _secrets: any): Promise<void> {
@@ -135,7 +150,8 @@ async function sendEmail(_patientRef: string, _template: string, _secrets: any):
   // 1. Resolve patient email from FHIR
   // 2. Resolve template placeholders
   // 3. Send via provider
-  console.log(`[PLACEHOLDER] Sending email to patient ${_patientRef}`);
+  console.log(`[PLACEHOLDER] Would send email to patient ${_patientRef}`);
+  console.log(`[PLACEHOLDER] Email body: ${_template}`);
 }
 
 async function sendPaperMail(_patientRef: string, _secrets: any): Promise<void> {
@@ -143,5 +159,5 @@ async function sendPaperMail(_patientRef: string, _secrets: any): Promise<void> 
   // 1. Resolve patient mailing address from FHIR
   // 2. Generate statement PDF
   // 3. Send via provider
-  console.log(`[PLACEHOLDER] Sending paper mail to patient ${_patientRef}`);
+  console.log(`[PLACEHOLDER] Would send paper mail to patient ${_patientRef}`);
 }

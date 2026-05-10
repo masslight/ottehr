@@ -1,6 +1,8 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  cancelOutreachTask,
+  CancelOutreachTaskInput,
   getOutreachConfig,
   listOutreachTasks,
   ListOutreachTasksInput,
@@ -57,11 +59,32 @@ export const useListOutreachTasksQuery = (
       params?.dueDateTo,
       params?.createdFrom,
       params?.createdTo,
+      params?.pageSize,
+      params?.offset,
     ],
     queryFn: async () => {
       if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
       return listOutreachTasks(oystehrZambda, params);
     },
     enabled: !!oystehrZambda,
+  });
+};
+
+export const useCancelOutreachTaskMutation = (): UseMutationResult<
+  { success: boolean; taskId: string },
+  Error,
+  CancelOutreachTaskInput
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['cancel-outreach-task'],
+    mutationFn: async (data: CancelOutreachTaskInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+      return cancelOutreachTask(oystehrZambda, data);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: OUTREACH_TASKS_QUERY_KEY });
+    },
   });
 };

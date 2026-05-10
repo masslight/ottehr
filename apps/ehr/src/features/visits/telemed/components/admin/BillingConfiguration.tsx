@@ -35,7 +35,7 @@ type BillingSubTab =
   | 'employers'
   | 'payment-locations'
   | 'invoicing'
-  | 'patient-ar'
+  | 'patient-outreach'
   | 'em-codes';
 
 function PaymentLocationsList(): ReactElement {
@@ -148,7 +148,13 @@ function PaymentLocationsList(): ReactElement {
   );
 }
 
-export default function BillingConfiguration({ billingTab }: { billingTab?: string }): ReactElement {
+export default function BillingConfiguration({
+  billingTab,
+  outreachTab,
+}: {
+  billingTab?: string;
+  outreachTab?: string;
+}): ReactElement {
   const navigate = useNavigate();
   const subTab: BillingSubTab = (billingTab as BillingSubTab) || 'em-codes';
 
@@ -168,7 +174,7 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
             <Tab label="Employers" value="employers" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Payment Locations" value="payment-locations" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Invoicing" value="invoicing" sx={{ textTransform: 'none', fontWeight: 500 }} />
-            <Tab label="Patient Outreach" value="patient-ar" sx={{ textTransform: 'none', fontWeight: 500 }} />
+            <Tab label="Patient Outreach" value="patient-outreach" sx={{ textTransform: 'none', fontWeight: 500 }} />
           </TabList>
         </Box>
         <TabPanel value="em-codes" sx={{ padding: 0 }}>
@@ -192,8 +198,8 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
         <TabPanel value="invoicing" sx={{ padding: 0 }}>
           <Invoicing />
         </TabPanel>
-        <TabPanel value="patient-ar" sx={{ padding: 0 }}>
-          <ScheduledPatientOutreach />
+        <TabPanel value="patient-outreach" sx={{ padding: 0 }}>
+          <ScheduledPatientOutreach outreachTab={outreachTab} />
         </TabPanel>
       </TabContext>
     </Box>

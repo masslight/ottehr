@@ -45,6 +45,7 @@ import {
 } from '@mui/material';
 import { useEditor } from '@tiptap/react';
 import React, { ReactElement, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TemplateEditorField } from 'src/rcm/features/invoicing/InvoiceTemplateEditor';
 import {
   useGetOutreachConfigQuery,
@@ -667,8 +668,9 @@ function ActionConfigEditor({
 
 // ── Main Component ─────────────────────────────────────────────────────────
 
-export default function ScheduledPatientOutreach(): ReactElement {
-  const [pageTab, setPageTab] = React.useState<'configuration' | 'tasks-report'>('configuration');
+export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?: string }): ReactElement {
+  const navigate = useNavigate();
+  const pageTab = (outreachTab === 'tracker' ? 'tasks-report' : 'configuration') as 'configuration' | 'tasks-report';
   const { data: outreachConfigData, isLoading, error: loadError } = useGetOutreachConfigQuery();
   const saveMutation = useSaveOutreachConfigMutation();
   const [actions, setActions] = React.useState<OutreachAction[]>([]);
@@ -842,7 +844,13 @@ export default function ScheduledPatientOutreach(): ReactElement {
       {/* ── Page Tabs ──────────────────────────────────────────────────── */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
         <TabContext value={pageTab}>
-          <TabList onChange={(_, v) => setPageTab(v)} aria-label="Outreach page tabs">
+          <TabList
+            onChange={(_, v) => {
+              const urlTab = v === 'tasks-report' ? 'tracker' : 'configuration';
+              navigate(`/admin/billing/patient-outreach/${urlTab}`);
+            }}
+            aria-label="Outreach page tabs"
+          >
             <Tab label="Configuration" value="configuration" />
             <Tab label="Outreach Tracker" value="tasks-report" />
           </TabList>

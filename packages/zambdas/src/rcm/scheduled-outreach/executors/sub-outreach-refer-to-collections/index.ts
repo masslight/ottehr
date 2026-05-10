@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 
 let m2mToken: string;
@@ -42,6 +43,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         config.agency || 'unknown'
       }`
     );
+    console.log('--- COLLECTIONS REFERRAL CONFIG ---');
+    console.log(`[Agency]: ${config.agency || '(none)'}`);
+    console.log(`[Minimum balance]: $${config.minimumBalance || 0}`);
+    console.log(`[Include payment history]: ${config.includePaymentHistory || false}`);
+    console.log('--- END COLLECTIONS REFERRAL CONFIG ---');
 
     // TODO: Implement collections referral integration
     // 1. Gather patient demographics, balance, payment history from FHIR
@@ -54,6 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       id: task.id!,
       operations: [
         { op: 'replace', path: '/status', value: 'completed' },
+        { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
         {
           op: 'add',
           path: '/output',
@@ -76,6 +83,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       id: task.id!,
       operations: [
         { op: 'replace', path: '/status', value: 'failed' },
+        { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
         {
           op: 'add',
           path: '/output',

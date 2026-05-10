@@ -35,12 +35,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createOystehrClient(m2mToken, input.secrets);
 
   const params = input.body ? JSON.parse(input.body) : {};
-  const statusFilter = params.status || 'draft,requested,in-progress,completed,on-hold';
+  const statusFilter = params.status || 'draft,requested,in-progress,completed,on-hold,cancelled';
+  const pageSize = Math.min(Math.max(Number(params.pageSize) || 25, 1), 100);
+  const offset = Math.max(Number(params.offset) || 0, 0);
+
+  // First, get total count with _summary=count
+  const countBundle = await oystehr.fhir.search<Task>({
+    resourceType: 'Task',
+    params: [
+      { name: '_tag', value: `${OUTREACH_TASK_TAG_SYSTEM}|` },
+      { name: 'status', value: statusFilter },
+      { name: '_summary', value: 'count' },
+      ...(params.dueDateFrom ? [{ name: 'period', value: `ge${params.dueDateFrom}` }] : []),
+      ...(params.dueDateTo ? [{ name: 'period', value: `le${params.dueDateTo}` }] : []),
+      ...(params.createdFrom ? [{ name: 'authored-on', value: `ge${params.createdFrom}` }] : []),
+      ...(params.createdTo ? [{ name: 'authored-on', value: `le${params.createdTo}` }] : []),
+    ],
+  });
+  const totalCount = countBundle.total ?? 0;
 
   const searchParams: { name: string; value: string }[] = [
     { name: '_tag', value: `${OUTREACH_TASK_TAG_SYSTEM}|` },
     { name: 'status', value: statusFilter },
-    { name: '_count', value: '200' },
+    { name: '_count', value: String(pageSize) },
+    { name: '_offset', value: String(offset) },
     { name: '_sort', value: '-_lastUpdated' },
     { name: '_include', value: 'Task:patient' },
   ];
@@ -120,7 +138,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ tasks: summaries }),
+    body: JSON.stringify({ tasks: summaries, totalCount, pageSize, offset }),
   };
 });
 

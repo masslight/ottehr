@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 import { ChargeCardConfig, NotificationMedium } from '../../../scheduled-outreach-config/helpers';
 
@@ -38,6 +39,27 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const focusRef = task.focus?.reference;
 
     console.log(`Executing charge-card for patient ${patientRef}, focus ${focusRef}`);
+    console.log('--- CHARGE CARD CONFIG ---');
+    console.log(`[Retry attempts]: ${config.retryAttempts}, every ${config.retryIntervalDays} day(s)`);
+    console.log(
+      `[On success notify]: enabled=${config.onSuccess.enabled}, mediums=${config.onSuccess.mediums.join(',')}`
+    );
+    if (config.onSuccess.enabled && config.onSuccess.mediums.includes('sms')) {
+      console.log(`[On success SMS]: ${config.onSuccess.smsTemplate}`);
+    }
+    if (config.onSuccess.enabled && config.onSuccess.mediums.includes('email')) {
+      console.log(`[On success Email]: ${config.onSuccess.emailTemplate}`);
+    }
+    console.log(
+      `[On failure notify]: enabled=${config.onFailure.enabled}, mediums=${config.onFailure.mediums.join(',')}`
+    );
+    if (config.onFailure.enabled && config.onFailure.mediums.includes('sms')) {
+      console.log(`[On failure SMS]: ${config.onFailure.smsTemplate}`);
+    }
+    if (config.onFailure.enabled && config.onFailure.mediums.includes('email')) {
+      console.log(`[On failure Email]: ${config.onFailure.emailTemplate}`);
+    }
+    console.log('--- END CHARGE CARD CONFIG ---');
 
     // Attempt to charge the card
     const chargeResult = await chargeCard(patientRef!, focusRef!, input.secrets);
@@ -71,6 +93,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       id: task.id!,
       operations: [
         { op: 'replace', path: '/status', value: finalStatus },
+        { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
         {
           op: 'add',
           path: '/output',
@@ -101,6 +124,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       id: task.id!,
       operations: [
         { op: 'replace', path: '/status', value: 'failed' },
+        { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
         {
           op: 'add',
           path: '/output',
@@ -138,7 +162,7 @@ async function chargeCard(_patientRef: string, _focusRef: string, _secrets: any)
   // 2. Resolve invoice amount from focus resource
   // 3. Charge via Stripe API
   // 4. Return result
-  console.log(`[PLACEHOLDER] Charging card for patient ${_patientRef}, invoice ${_focusRef}`);
+  console.log(`[PLACEHOLDER] Would charge card for patient ${_patientRef}, invoice ${_focusRef}`);
   return { success: true, transactionId: 'placeholder-txn-id', amountCents: 0 };
 }
 
@@ -150,5 +174,7 @@ async function sendNotificationForMedium(
   _secrets: any
 ): Promise<void> {
   // TODO: Reuse notification sending logic
-  console.log(`[PLACEHOLDER] Sending ${medium} notification to patient ${_patientRef} after charge`);
+  console.log(`[PLACEHOLDER] Would send ${medium} notification to patient ${_patientRef} after charge`);
+  if (medium === 'sms') console.log(`[PLACEHOLDER] SMS body: ${_smsTemplate}`);
+  if (medium === 'email') console.log(`[PLACEHOLDER] Email body: ${_emailTemplate}`);
 }
