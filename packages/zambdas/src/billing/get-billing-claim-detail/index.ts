@@ -12,7 +12,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, fhirName, findRef, formatAddress, getClaimStatus, sortClaimInsurance } from '../shared';
-import { validateRequestParameters } from './validateRequestParameters';
+import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claim-detail';
@@ -88,14 +88,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createBillingClient(m2mToken, params.secrets);
 
-    const detail = await fetchClaimDetail(oystehr, params.claimId);
-    return { statusCode: 200, body: JSON.stringify(detail) };
+    const response = await performEffect(oystehr, params);
+    return { statusCode: 200, body: JSON.stringify(response) };
   } catch (error: unknown) {
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
-async function fetchClaimDetail(oystehr: Oystehr, claimId: string): Promise<ClaimDetailResponse> {
+async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Promise<ClaimDetailResponse> {
+  const { claimId } = params;
   const query = `/Claim?_id=${claimId}&_include=Claim:patient&_include=Claim:insurer&_include=Claim:provider&_include=Claim:facility`;
   const resources = await getResourcesFromBatchInlineRequests(oystehr, [query]);
 

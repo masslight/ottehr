@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
 import { convertFhirNameToDisplayName, getNPI, getSecret, getTaxID, SecretsKeys } from 'utils';
@@ -11,7 +12,7 @@ import {
   LICENSE_TAG,
   RENDERS_TAG,
 } from '../shared';
-import { validateRequestParameters } from './validateRequestParameters';
+import { GetBillingProvidersParams, validateRequestParameters } from './validateRequestParameters';
 
 interface ProviderItem {
   id: string;
@@ -34,38 +35,41 @@ const ZAMBDA_NAME = 'get-billing-providers';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const params = validateRequestParameters(input);
-
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createBillingClient(m2mToken, params.secrets);
 
-    const fetchRendering = params.providerType !== 'billing';
-    const fetchBilling = params.providerType !== 'rendering';
-    const searchParams = [
-      { name: '_sort', value: 'name' },
-      { name: '_count', value: '200' },
-      EXCLUDE_WORKING_COPIES_PARAM,
-    ];
-
-    const providers: ProviderItem[] = [];
-
-    if (fetchRendering) {
-      const result = await oystehr.fhir.search<Practitioner>({ resourceType: 'Practitioner', params: searchParams });
-      providers.push(...result.unbundle().map(mapPractitioner));
-    }
-
-    if (fetchBilling) {
-      const result = await oystehr.fhir.search<Organization>({ resourceType: 'Organization', params: searchParams });
-      providers.push(...result.unbundle().filter(hasNpiIdentifier).map(mapOrganization));
-    }
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ providers }),
-    };
+    const response = await performEffect(oystehr, params);
+    return { statusCode: 200, body: JSON.stringify(response) };
   } catch (error: unknown) {
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
+
+async function performEffect(
+  oystehr: Oystehr,
+  params: GetBillingProvidersParams
+): Promise<{ providers: ProviderItem[] }> {
+  const fetchRendering = params.providerType !== 'billing';
+  const fetchBilling = params.providerType !== 'rendering';
+  const searchParams = [
+    { name: '_sort', value: 'name' },
+    { name: '_count', value: '200' },
+    EXCLUDE_WORKING_COPIES_PARAM,
+  ];
+
+  const providers: ProviderItem[] = [];
+
+  if (fetchRendering) {
+    const result = await oystehr.fhir.search<Practitioner>({ resourceType: 'Practitioner', params: searchParams });
+    providers.push(...result.unbundle().map(mapPractitioner));
+  }
+  if (fetchBilling) {
+    const result = await oystehr.fhir.search<Organization>({ resourceType: 'Organization', params: searchParams });
+    providers.push(...result.unbundle().filter(hasNpiIdentifier).map(mapOrganization));
+  }
+
+  return { providers };
+}
 
 function mapPractitioner(p: Practitioner): ProviderItem {
   const name = p.name?.[0];

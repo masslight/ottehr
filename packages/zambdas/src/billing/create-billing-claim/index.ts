@@ -37,8 +37,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createBillingClient(m2mToken, params.secrets);
 
-    const result = await createClaim(oystehr, params);
-    return { statusCode: 200, body: JSON.stringify(result) };
+    const response = await performEffect(oystehr, params);
+    return { statusCode: 200, body: JSON.stringify(response) };
   } catch (error: unknown) {
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
@@ -53,7 +53,7 @@ interface OriginalResources {
   payor?: Organization;
 }
 
-async function createClaim(oystehr: Oystehr, params: CreateClaimParams): Promise<{ claimId: string }> {
+async function performEffect(oystehr: Oystehr, params: CreateClaimParams): Promise<{ claimId: string }> {
   const originals = await readOriginals(oystehr, params);
   const copies = await createWorkingCopies(oystehr, originals, params);
 

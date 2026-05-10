@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
 import { getNPI, getSecret, SecretsKeys } from 'utils';
@@ -24,21 +25,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
     const oystehr = createBillingClient(m2mToken, input.secrets);
 
-    const result = await oystehr.fhir.search<Location>({
-      resourceType: 'Location',
-      params: [{ name: '_sort', value: 'name' }, { name: '_count', value: '200' }, EXCLUDE_WORKING_COPIES_PARAM],
-    });
-
-    const locations = result.unbundle().map(mapLocation);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ locations }),
-    };
+    const response = await performEffect(oystehr);
+    return { statusCode: 200, body: JSON.stringify(response) };
   } catch (error: unknown) {
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
+
+async function performEffect(oystehr: Oystehr): Promise<{ locations: ServiceLocationItem[] }> {
+  const result = await oystehr.fhir.search<Location>({
+    resourceType: 'Location',
+    params: [{ name: '_sort', value: 'name' }, { name: '_count', value: '200' }, EXCLUDE_WORKING_COPIES_PARAM],
+  });
+
+  const locations = result.unbundle().map(mapLocation);
+  return { locations };
+}
 
 function mapLocation(loc: Location): ServiceLocationItem {
   const phone = loc.telecom?.find((t) => t.system === 'phone');

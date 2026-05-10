@@ -35,14 +35,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createBillingClient(m2mToken, params.secrets);
 
-    const response = await fetchClaims(oystehr, params);
+    const response = await performEffect(oystehr, params);
     return { statusCode: 200, body: JSON.stringify(response) };
   } catch (error: unknown) {
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
-async function fetchClaims(
+async function performEffect(
   oystehr: Oystehr,
   params: GetBillingClaimsParams
 ): Promise<{ claims: BillingClaimItem[]; total: number; offset: number; pageSize: number }> {
