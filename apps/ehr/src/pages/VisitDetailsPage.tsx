@@ -1707,14 +1707,14 @@ export default function VisitDetailsPage(): ReactElement {
           outputFormat="png"
           onScanComplete={handleScanComplete}
         />
+        {appointmentID && (
+          <SendFormDialog
+            open={sendFormDialogOpen}
+            onClose={() => setSendFormDialogOpen(false)}
+            appointmentId={appointmentID}
+          />
+        )}
       </>
-      {appointmentID && (
-        <SendFormDialog
-          open={sendFormDialogOpen}
-          onClose={() => setSendFormDialogOpen(false)}
-          appointmentId={appointmentID}
-        />
-      )}
     </PageContainer>
   );
 }

@@ -47,7 +47,7 @@ export const createQuestionnaire = wrapHandler(
       meta: { tag: [PRACTICE_MANAGED_TAG] },
     };
     // Remove client-side id if present
-    delete (resource as Record<string, unknown>).id;
+    delete (resource as unknown as Record<string, unknown>).id;
 
     const created = await oystehr.fhir.create<Questionnaire>(resource);
     return {

@@ -121,7 +121,7 @@ export const QuestionnaireBuilderPage: FC = () => {
   return (
     <PageContainer>
       <QuestionnaireBuilder
-        initial={data?.editing}
+        initial={data?.editing ?? undefined}
         onSave={handleSave}
         onCancel={handleCancel}
         systemQuestionnaires={data?.systemQuestionnaires || []}

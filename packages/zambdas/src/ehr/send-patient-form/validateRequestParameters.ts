@@ -1,11 +1,12 @@
-import { Secrets, ZambdaInput } from '../../shared';
+import { Secrets } from 'utils';
+import { ZambdaInput } from '../../shared';
 
 export interface SendPatientFormInput {
   appointmentId?: string;
   patientId?: string;
   questionnaireId: string;
   questionnaireName: string;
-  secrets: Secrets;
+  secrets: Secrets | null;
 }
 
 export function validateRequestParameters(input: ZambdaInput): SendPatientFormInput {

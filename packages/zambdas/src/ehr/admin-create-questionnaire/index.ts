@@ -15,7 +15,7 @@ export const index = wrapHandler(
       resourceType: 'Questionnaire',
       meta: { tag: [PRACTICE_MANAGED_TAG] },
     };
-    delete (resource as Record<string, unknown>).id;
+    delete (resource as unknown as Record<string, unknown>).id;
 
     const created = await oystehr.fhir.create<Questionnaire>(resource);
     return {

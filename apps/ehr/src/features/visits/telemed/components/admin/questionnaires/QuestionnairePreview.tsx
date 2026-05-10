@@ -215,7 +215,11 @@ const ItemPreview: FC<{ item: QuestionnaireItem }> = ({ item }) => {
       );
 
     case 'choice': {
-      const itemControl = getItemControl(item);
+      // The local QuestionnaireItem type's `extension` field is loosely typed
+      // (`Record<string, unknown>[]`) while the helpers in ui-components expect
+      // fhir4b.Extension with required `url`. Runtime shapes match — extensions
+      // imported from FHIR JSON always have url. Cast as needed for the helper.
+      const itemControl = getItemControl(item as unknown as Parameters<typeof getItemControl>[0]);
       const useDropdown = itemControl === 'drop-down' || (item.answerOption?.length || 0) > 6;
       const options = item.answerOption || [];
       const hasWeights = options.some((opt) => getOptionWeight(opt) !== undefined);
@@ -299,7 +303,7 @@ const ItemPreview: FC<{ item: QuestionnaireItem }> = ({ item }) => {
       );
 
     case 'decimal':
-      if (isScoreItem(item)) {
+      if (isScoreItem(item as unknown as Parameters<typeof isScoreItem>[0])) {
         return (
           <Box
             sx={{

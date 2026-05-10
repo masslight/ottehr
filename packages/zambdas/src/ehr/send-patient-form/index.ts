@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Patient } from 'fhir/r4b';
+import { Encounter, Patient } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { sendSmsForPatient } from '../../shared/communication';
@@ -17,7 +17,7 @@ export const index = wrapHandler('send-patient-form', async (input: ZambdaInput)
   let resolvedPatientId = patientId;
   if (!resolvedPatientId && appointmentId) {
     const encounters = (
-      await oystehr.fhir.search({
+      await oystehr.fhir.search<Encounter>({
         resourceType: 'Encounter',
         params: [{ name: 'appointment', value: `Appointment/${appointmentId}` }],
       })

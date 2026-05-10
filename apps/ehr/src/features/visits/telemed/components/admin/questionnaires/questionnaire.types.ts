@@ -6,6 +6,7 @@ export const QUESTIONNAIRE_ITEM_TYPES = [
   'dateTime',
   'decimal',
   'display',
+  'group',
   'integer',
   'open-choice',
   'quantity',
