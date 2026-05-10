@@ -45,11 +45,26 @@ export function getCalculatedExpression(item: QuestionnaireItem): string | undef
 /**
  * Evaluates all calculated expressions in a questionnaire against the current answers.
  * Returns a map of linkId → computed value for items with JavaScript calculated expressions.
+ *
+ * Choice answers come back from the form as strings (the option's valueCoding.code).
+ * For scoring expressions (sums, comparisons), numeric strings must be coerced to
+ * numbers — otherwise reduce((a,b)=>a+b) string-concatenates.
  */
 export function evaluateCalculatedExpressions(
   items: QuestionnaireItem[],
   answers: Record<string, any>
 ): Record<string, any> {
+  // Coerce numeric-string answers to numbers. Non-numeric strings (e.g. "female")
+  // pass through unchanged so equality checks still work.
+  const normalizedAnswers: Record<string, any> = {};
+  for (const [k, v] of Object.entries(answers)) {
+    if (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) {
+      normalizedAnswers[k] = Number(v);
+    } else {
+      normalizedAnswers[k] = v;
+    }
+  }
+
   const results: Record<string, any> = {};
   const allItems: QuestionnaireItem[] = [];
 
@@ -71,8 +86,8 @@ export function evaluateCalculatedExpressions(
       if (!expression) continue;
 
       try {
-        // Build a combined context: raw answers + previously computed results
-        const context = { ...answers, ...results };
+        // Build a combined context: normalized answers + previously computed results
+        const context = { ...normalizedAnswers, ...results };
         const fn = new Function('answers', `with(answers) { return (${expression}); }`);
         results[item.linkId] = fn(context);
       } catch (e) {
@@ -216,7 +231,6 @@ export const QuestionnaireFormField: FC<QuestionnaireFormFieldProps> = ({ item, 
       const itemControl = getItemControl(item);
       const useDropdown = itemControl === 'drop-down' || (item.answerOption?.length || 0) > 6;
       const options = item.answerOption || [];
-      const hasWeights = options.some((opt: any) => getOptionWeight(opt) !== undefined);
 
       if (useDropdown) {
         return (
@@ -232,13 +246,11 @@ export const QuestionnaireFormField: FC<QuestionnaireFormFieldProps> = ({ item, 
                   {options.map((opt: any, i: number) => {
                     const prefix = getOptionPrefix(opt);
                     const display = getOptionDisplay(opt);
-                    const weight = getOptionWeight(opt);
                     const value = opt.valueCoding?.code || opt.valueString || '';
                     return (
                       <MenuItem key={i} value={value}>
                         {prefix !== undefined ? `${prefix}. ` : ''}
                         {display}
-                        {hasWeights && weight !== undefined ? ` (${weight})` : ''}
                       </MenuItem>
                     );
                   })}
@@ -261,11 +273,8 @@ export const QuestionnaireFormField: FC<QuestionnaireFormFieldProps> = ({ item, 
                 {options.map((opt: any, i: number) => {
                   const prefix = getOptionPrefix(opt);
                   const display = getOptionDisplay(opt);
-                  const weight = getOptionWeight(opt);
                   const value = opt.valueCoding?.code || opt.valueString || '';
-                  const optLabel = `${prefix !== undefined ? `${prefix}. ` : ''}${display}${
-                    hasWeights && weight !== undefined ? ` (${weight})` : ''
-                  }`;
+                  const optLabel = `${prefix !== undefined ? `${prefix}. ` : ''}${display}`;
                   const isSelected = field.value === value;
                   return (
                     <Box
@@ -420,11 +429,23 @@ export const QuestionnaireFormField: FC<QuestionnaireFormFieldProps> = ({ item, 
 
 // ── Helper: build pages from questionnaire items ────────────────────────────
 
+// Recursively true when a group/page has any descendant that would render to
+// the patient. Used to skip pages that are pure scoring containers (e.g. a
+// final `results` group whose items are all hidden computed expressions).
+function hasVisibleContent(item: QuestionnaireItem): boolean {
+  if (isHiddenItem(item)) return false;
+  if (item.type === 'group') return (item.item || []).some(hasVisibleContent);
+  // display items only render if they have text
+  if (item.type === 'display') return !!item.text;
+  return true;
+}
+
 export function buildQuestionnairePages(items: QuestionnaireItem[], title?: string): QuestionnaireItem[] {
-  const groups = items.filter((item) => item.type === 'group');
+  const groups = items.filter((item) => item.type === 'group' && hasVisibleContent(item));
   if (groups.length > 0) return groups;
-  if (items.length > 0) {
-    return [{ linkId: '_all', type: 'group' as const, text: title, item: items } as QuestionnaireItem];
+  const visibleNonGroup = items.filter((item) => item.type !== 'group' && hasVisibleContent(item));
+  if (visibleNonGroup.length > 0) {
+    return [{ linkId: '_all', type: 'group' as const, text: title, item: visibleNonGroup } as QuestionnaireItem];
   }
   return [];
 }

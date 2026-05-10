@@ -19,7 +19,7 @@ import {
   Typography,
 } from '@mui/material';
 import { FC, useEffect, useMemo, useRef, useState } from 'react';
-import { getItemControl, getOptionDisplay, getOptionPrefix, getOptionWeight, isScoreItem } from 'ui-components';
+import { getItemControl, getOptionDisplay, getOptionPrefix, isScoreItem } from 'ui-components';
 import { FhirQuestionnaire, QuestionnaireItem } from './questionnaire.types';
 
 // Ottehr intake color palette
@@ -222,7 +222,6 @@ const ItemPreview: FC<{ item: QuestionnaireItem }> = ({ item }) => {
       const itemControl = getItemControl(item as unknown as Parameters<typeof getItemControl>[0]);
       const useDropdown = itemControl === 'drop-down' || (item.answerOption?.length || 0) > 6;
       const options = item.answerOption || [];
-      const hasWeights = options.some((opt) => getOptionWeight(opt) !== undefined);
 
       return (
         <FormControl sx={{ mb: 1.5, width: '100%' }}>
@@ -233,12 +232,10 @@ const ItemPreview: FC<{ item: QuestionnaireItem }> = ({ item }) => {
               {options.map((opt, i) => {
                 const prefix = getOptionPrefix(opt);
                 const display = getOptionDisplay(opt);
-                const weight = getOptionWeight(opt);
                 return (
                   <MenuItem key={i} value={opt.valueString || opt.valueCoding?.code || i}>
                     {prefix !== undefined ? `${prefix}. ` : ''}
                     {display}
-                    {hasWeights && weight !== undefined ? ` (${weight})` : ''}
                   </MenuItem>
                 );
               })}
@@ -248,10 +245,7 @@ const ItemPreview: FC<{ item: QuestionnaireItem }> = ({ item }) => {
               {options.map((opt, i) => {
                 const prefix = getOptionPrefix(opt);
                 const display = getOptionDisplay(opt);
-                const weight = getOptionWeight(opt);
-                const label = `${prefix !== undefined ? `${prefix}. ` : ''}${display}${
-                  hasWeights && weight !== undefined ? ` (${weight})` : ''
-                }`;
+                const label = `${prefix !== undefined ? `${prefix}. ` : ''}${display}`;
                 return <OttehrRadioOption key={i} label={label} selected={i === 0} />;
               })}
             </RadioGroup>

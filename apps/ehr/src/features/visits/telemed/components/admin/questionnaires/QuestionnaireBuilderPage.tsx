@@ -1,5 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { Box, Button, CircularProgress, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, IconButton, Typography, useTheme } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback } from 'react';
@@ -27,6 +27,7 @@ interface ListCache {
 export const QuestionnaireBuilderPage: FC = () => {
   const { questionnaireId } = useParams();
   const navigate = useNavigate();
+  const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   const isNew = !questionnaireId || questionnaireId === 'new';
@@ -118,8 +119,20 @@ export const QuestionnaireBuilderPage: FC = () => {
     );
   }
 
+  const headerTitle = isNew
+    ? 'Create Questionnaire'
+    : data?.editing?.title || data?.editing?.name || 'Edit Questionnaire';
+
   return (
     <PageContainer>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <IconButton onClick={() => navigate('/admin/questionnaires')} size="small" aria-label="Back to questionnaires">
+          <ArrowBackIcon />
+        </IconButton>
+        <Typography variant="h4" color={theme.palette.primary.dark}>
+          {headerTitle}
+        </Typography>
+      </Box>
       <QuestionnaireBuilder
         initial={data?.editing ?? undefined}
         onSave={handleSave}

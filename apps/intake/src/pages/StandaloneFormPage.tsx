@@ -1,7 +1,7 @@
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { QuestionnaireItem } from 'fhir/r4b';
-import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import {
@@ -93,6 +93,13 @@ export const StandaloneFormPage: FC = () => {
   const currentPage = pages[currentPageIndex];
   const isLastPage = currentPageIndex >= pages.length - 1;
 
+  // Restore previously-entered answers on page change so Back doesn't blank the form.
+  const allAnswersRef = useRef(allAnswers);
+  allAnswersRef.current = allAnswers;
+  useEffect(() => {
+    methods.reset(allAnswersRef.current);
+  }, [currentPageIndex, methods]);
+
   const handleSubmit = useCallback(
     async (data: Record<string, any>) => {
       if (!zambdaClient || !questionnaire || !currentPage) return;
@@ -122,7 +129,6 @@ export const StandaloneFormPage: FC = () => {
 
         if (!isLastPage) {
           setCurrentPageIndex((prev) => prev + 1);
-          methods.reset();
         } else {
           // Evaluate calculated expressions and save computed values
           const qItems = questionnaire.item || [];
@@ -171,18 +177,7 @@ export const StandaloneFormPage: FC = () => {
         setSaving(false);
       }
     },
-    [
-      zambdaClient,
-      questionnaire,
-      currentPage,
-      qrId,
-      encounterId,
-      patientId,
-      currentPageIndex,
-      isLastPage,
-      methods,
-      allAnswers,
-    ]
+    [zambdaClient, questionnaire, currentPage, qrId, encounterId, patientId, currentPageIndex, isLastPage, allAnswers]
   );
 
   if (loading) {
@@ -244,14 +239,7 @@ export const StandaloneFormPage: FC = () => {
         subtitle={questionnaire.title}
         methods={methods}
         onSubmit={handleSubmit}
-        onBack={
-          currentPageIndex > 0
-            ? () => {
-                setCurrentPageIndex((prev) => prev - 1);
-                methods.reset();
-              }
-            : undefined
-        }
+        onBack={currentPageIndex > 0 ? () => setCurrentPageIndex((prev) => prev - 1) : undefined}
         isLastPage={isLastPage}
         saving={saving}
         submitLabel={isLastPage ? 'Submit' : 'Continue'}

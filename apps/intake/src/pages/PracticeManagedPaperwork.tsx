@@ -1,6 +1,6 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { QuestionnaireItem } from 'fhir/r4b';
-import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { buildQuestionnairePages, formDataToResponseItem, QuestionnaireFormPage } from 'ui-components';
@@ -33,6 +33,7 @@ export const PracticeManagedPaperwork: FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [allAnswers, setAllAnswers] = useState<Record<string, any>>({});
   const [qrId, setQrId] = useState<string | undefined>(undefined);
   const [encounterId, setEncounterId] = useState<string>('');
   const [patientId, setPatientId] = useState<string>('');
@@ -74,12 +75,20 @@ export const PracticeManagedPaperwork: FC = () => {
   const currentPage = pages[currentPageIndex];
   const isLastPage = currentPageIndex >= pages.length - 1;
 
+  // Restore previously-entered answers on page change so Back doesn't blank the form.
+  const allAnswersRef = useRef(allAnswers);
+  allAnswersRef.current = allAnswers;
+  useEffect(() => {
+    methods.reset(allAnswersRef.current);
+  }, [currentPageIndex, methods]);
+
   const handleSubmit = useCallback(
     async (data: Record<string, any>) => {
       if (!zambdaClient || !questionnaire || !currentPage) return;
 
       setSaving(true);
       try {
+        setAllAnswers((prev) => ({ ...prev, ...data }));
         const pageItem = formDataToResponseItem(data, currentPage);
 
         const response = await (zambdaClient as ZambdaClient).execute(SAVE_PM_ZAMBDA, {
@@ -99,7 +108,6 @@ export const PracticeManagedPaperwork: FC = () => {
 
         if (!isLastPage) {
           setCurrentPageIndex((prev) => prev + 1);
-          methods.reset();
         } else {
           const currentIdx = allPmQuestionnaires.findIndex((q) => q.id === questionnaireId);
           const nextPmQ = allPmQuestionnaires[currentIdx + 1];
@@ -129,14 +137,12 @@ export const PracticeManagedPaperwork: FC = () => {
       appointmentId,
       returnSlug,
       navigate,
-      methods,
     ]
   );
 
   const handleBack = useCallback(() => {
     if (currentPageIndex > 0) {
       setCurrentPageIndex((prev) => prev - 1);
-      methods.reset();
     } else {
       const currentIdx = allPmQuestionnaires.findIndex((q) => q.id === questionnaireId);
       if (currentIdx > 0) {
@@ -146,7 +152,7 @@ export const PracticeManagedPaperwork: FC = () => {
         navigate(-1);
       }
     }
-  }, [currentPageIndex, allPmQuestionnaires, questionnaireId, appointmentId, returnSlug, navigate, methods]);
+  }, [currentPageIndex, allPmQuestionnaires, questionnaireId, appointmentId, returnSlug, navigate]);
 
   if (loading) {
     return (

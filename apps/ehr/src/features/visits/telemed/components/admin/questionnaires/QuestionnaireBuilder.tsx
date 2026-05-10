@@ -198,11 +198,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({
   }, [title, questionnaire, initial?.id, onSave]);
 
   return (
-    <Box sx={{ marginTop: 2 }}>
-      <Typography variant="h3" sx={{ mb: 2, color: '#0F347C' }}>
-        {initial ? 'Edit Questionnaire' : 'Create Questionnaire'}
-      </Typography>
-
+    <Box>
       <Box sx={{ display: 'flex', gap: 3, height: 'calc(100vh - 160px)' }}>
         {/* Left column: Form — scrollable */}
         <Box sx={{ flex: '1 1 50%', minWidth: 0, overflow: 'auto' }}>

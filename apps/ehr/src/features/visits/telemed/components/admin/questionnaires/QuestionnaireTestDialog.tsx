@@ -1,9 +1,9 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, Dialog, DialogContent, DialogTitle, IconButton, Typography } from '@mui/material';
 import { QuestionnaireItem } from 'fhir/r4b';
-import { FC, useCallback, useMemo, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { buildQuestionnairePages, QuestionnaireFormPage } from 'ui-components';
+import { buildQuestionnairePages, evaluateCalculatedExpressions, QuestionnaireFormPage } from 'ui-components';
 import { FhirQuestionnaire, QuestionnaireItem as BuilderItem } from './questionnaire.types';
 
 /** Convert builder items (with _key, extension as Record) to fhir/r4b QuestionnaireItem shape */
@@ -56,20 +56,26 @@ export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({
       setAnswers((prev) => ({ ...prev, ...data }));
       if (!isLastPage) {
         setCurrentPageIndex((prev) => prev + 1);
-        methods.reset();
       } else {
-        setAnswers((prev) => ({ ...prev, ...data }));
         setCompleted(true);
       }
     },
-    [isLastPage, methods]
+    [isLastPage]
   );
 
   const handleBack = useCallback(() => {
     if (currentPageIndex > 0) {
       setCurrentPageIndex((prev) => prev - 1);
-      methods.reset();
     }
+  }, [currentPageIndex]);
+
+  // Restore previously-entered answers when the page changes (forward or back).
+  // Watched only on currentPageIndex — `answers` updates on every submit, but
+  // the form state we want to restore is whatever's been accumulated so far.
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+  useEffect(() => {
+    methods.reset(answersRef.current);
   }, [currentPageIndex, methods]);
 
   const handleClose = useCallback(() => {
@@ -110,23 +116,56 @@ export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({
             <Typography variant="h6" sx={{ color: '#0F347C', fontWeight: 700, mb: 2 }}>
               Form Complete
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Here are the answers that would be submitted:
-            </Typography>
-            <Box
-              sx={{
-                bgcolor: '#F5F5F5',
-                borderRadius: '8px',
-                p: 2,
-                fontFamily: 'monospace',
-                fontSize: 12,
-                maxHeight: 400,
-                overflow: 'auto',
-                whiteSpace: 'pre-wrap',
-              }}
-            >
-              {JSON.stringify(answers, null, 2)}
-            </Box>
+            {(() => {
+              const computed = evaluateCalculatedExpressions(fhirItems, answers);
+              const computedEntries = Object.entries(computed).filter(([, v]) => v !== undefined);
+              return (
+                <>
+                  {computedEntries.length > 0 && (
+                    <>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        Computed scoring values (provider sees these in the QR):
+                      </Typography>
+                      <Box
+                        sx={{
+                          bgcolor: '#E2F0FF',
+                          borderRadius: '8px',
+                          p: 2,
+                          mb: 2,
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          maxHeight: 250,
+                          overflow: 'auto',
+                        }}
+                      >
+                        {computedEntries.map(([k, v]) => (
+                          <Box key={k} sx={{ mb: 0.5 }}>
+                            <strong>{k}</strong>: {typeof v === 'string' ? `"${v}"` : String(v)}
+                          </Box>
+                        ))}
+                      </Box>
+                    </>
+                  )}
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Patient answers submitted:
+                  </Typography>
+                  <Box
+                    sx={{
+                      bgcolor: '#F5F5F5',
+                      borderRadius: '8px',
+                      p: 2,
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      maxHeight: 400,
+                      overflow: 'auto',
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {JSON.stringify(answers, null, 2)}
+                  </Box>
+                </>
+              );
+            })()}
           </Box>
         ) : currentPage ? (
           <QuestionnaireFormPage

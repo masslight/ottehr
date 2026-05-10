@@ -115,10 +115,12 @@ export const index = wrapHandler(
       }
     }
 
-    // Patient-level mode (no encounter, no intake URL) — only the direct-lookup
-    // path makes sense. Skip the intake-association flow and find the Q by id,
-    // matching against any QRs on the patient.
-    if (!intakeUrl && directPatientId && directQuestionnaireId) {
+    // Standalone form by direct id. Works for both visit-scoped
+    // (/forms/:appointmentId/:questionnaireId) and patient-scoped
+    // (/forms/patient/:patientId/:questionnaireId) URLs and does NOT require
+    // an intake QR to already exist on the encounter — sent forms must open
+    // before the patient has started intake paperwork.
+    if (directQuestionnaireId) {
       const allPracticeManaged = (
         await oystehr.fhir.search<Questionnaire>({
           resourceType: 'Questionnaire',
@@ -127,18 +129,37 @@ export const index = wrapHandler(
       ).unbundle();
       const q = allPracticeManaged.find((pq) => pq.id === directQuestionnaireId && pq.status === 'active');
       if (!q) {
-        return { statusCode: 200, body: JSON.stringify({ questionnaires: [], encounterId: '', patientId }) };
+        return { statusCode: 200, body: JSON.stringify({ questionnaires: [], encounterId, patientId }) };
       }
-      const patientQrs = (
-        await oystehr.fhir.search<QuestionnaireResponse>({
-          resourceType: 'QuestionnaireResponse',
-          params: [
-            { name: 'subject', value: `Patient/${patientId}` },
-            { name: 'questionnaire', value: q.url || '' },
-          ],
-        })
-      ).unbundle();
-      const matchingQr = patientQrs.find((qr) => !qr.encounter);
+
+      // Prefer an existing QR on this encounter; fall back to a patient-level
+      // QR (no encounter) for patient-scoped sends.
+      let matchingQr: QuestionnaireResponse | undefined;
+      if (encounterId) {
+        const encounterQrs = (
+          await oystehr.fhir.search<QuestionnaireResponse>({
+            resourceType: 'QuestionnaireResponse',
+            params: [
+              { name: 'encounter', value: `Encounter/${encounterId}` },
+              { name: 'questionnaire', value: q.url || '' },
+            ],
+          })
+        ).unbundle();
+        matchingQr = encounterQrs[0];
+      }
+      if (!matchingQr && patientId) {
+        const patientQrs = (
+          await oystehr.fhir.search<QuestionnaireResponse>({
+            resourceType: 'QuestionnaireResponse',
+            params: [
+              { name: 'subject', value: `Patient/${patientId}` },
+              { name: 'questionnaire', value: q.url || '' },
+            ],
+          })
+        ).unbundle();
+        matchingQr = patientQrs.find((qr) => !qr.encounter);
+      }
+
       return {
         statusCode: 200,
         body: JSON.stringify({
@@ -155,7 +176,7 @@ export const index = wrapHandler(
               item: q.item,
             },
           ],
-          encounterId: '',
+          encounterId,
           patientId,
         }),
       };
