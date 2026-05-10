@@ -13,6 +13,7 @@ import {
   FormControlLabel,
   Link,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
@@ -116,17 +117,27 @@ export const PatientEducationCard: FC = () => {
         <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
           {!isReadOnly && (
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-              <RoundedButton
-                onClick={() => {
-                  setSelectedDiagnoses(new Set(allDiagnoses.map((d) => d.code)));
-                  prefetchAllDiagnoses();
-                  setEducationModalOpen(true);
-                }}
-                disabled={allDiagnoses.length === 0 || isEducationLoading}
-                startIcon={isEducationLoading ? <CircularProgress size={16} /> : <SchoolIcon />}
+              <Tooltip
+                title={
+                  allDiagnoses.length === 0
+                    ? 'Add at least one diagnosis on the Assessment tab to generate patient education.'
+                    : ''
+                }
               >
-                Patient Education
-              </RoundedButton>
+                <span>
+                  <RoundedButton
+                    onClick={() => {
+                      setSelectedDiagnoses(new Set(allDiagnoses.map((d) => d.code)));
+                      prefetchAllDiagnoses();
+                      setEducationModalOpen(true);
+                    }}
+                    disabled={allDiagnoses.length === 0 || isEducationLoading}
+                    startIcon={isEducationLoading ? <CircularProgress size={16} /> : <SchoolIcon />}
+                  >
+                    Patient Education
+                  </RoundedButton>
+                </span>
+              </Tooltip>
               {(educationError || educationProgress) && (
                 <Typography color={educationError ? 'error' : 'text.secondary'} variant="body2">
                   {educationError || educationProgress}
