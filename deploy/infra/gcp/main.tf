@@ -36,6 +36,7 @@ resource "google_storage_bucket" "patient_portal_bucket" {
 }
 
 resource "google_storage_bucket_iam_member" "patient_portal_iam" {
+  count  = var.patient_portal_public_access ? 1 : 0
   bucket = google_storage_bucket.patient_portal_bucket.id
   role   = "roles/storage.objectViewer"
   member = "allUsers"

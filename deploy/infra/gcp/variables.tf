@@ -39,3 +39,9 @@ variable "patient_portal_cert_domain" {
   type        = string
   nullable    = true
 }
+
+variable "patient_portal_public_access" {
+  description = "Set to false to skip the allUsers IAM binding (e.g. when org policy blocks public access)"
+  type        = bool
+  default     = true
+}

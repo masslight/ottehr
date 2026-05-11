@@ -87,3 +87,9 @@ variable "gcp_project" {
   nullable    = true
   default     = null
 }
+
+variable "patient_portal_public_access" {
+  description = "Set to false to skip the allUsers IAM binding on the patient portal bucket"
+  type        = bool
+  default     = true
+}

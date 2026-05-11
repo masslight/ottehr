@@ -171,14 +171,14 @@ export class Schema20250925 implements Schema<Spec20250925> {
         description: this.getValue(app.description, this.resources),
         login_redirect_uri: this.getValue(app.loginRedirectUri, this.resources),
         login_with_email_enabled: this.getValue(app.loginWithEmailEnabled, this.resources),
-        allowed_callback_urls: JSON.parse(this.getValue(JSON.stringify(app.allowedCallbackUrls ?? []), this.resources)),
-        allowed_logout_urls: JSON.parse(this.getValue(JSON.stringify(app.allowedLogoutUrls ?? []), this.resources)),
-        allowed_web_origins_urls: JSON.parse(
+        allowed_callback_urls: (JSON.parse(this.getValue(JSON.stringify(app.allowedCallbackUrls ?? []), this.resources)) as string[]).filter(Boolean),
+        allowed_logout_urls: (JSON.parse(this.getValue(JSON.stringify(app.allowedLogoutUrls ?? []), this.resources)) as string[]).filter(Boolean),
+        allowed_web_origins_urls: (JSON.parse(
           this.getValue(JSON.stringify(app.allowedWebOriginsUrls ?? []), this.resources)
-        ),
-        allowed_cors_origins_urls: JSON.parse(
+        ) as string[]).filter(Boolean),
+        allowed_cors_origins_urls: (JSON.parse(
           this.getValue(JSON.stringify(app.allowedCORSOriginsUrls ?? []), this.resources)
-        ),
+        ) as string[]).filter(Boolean),
         passwordless_sms: this.getValue(app.passwordlessSMS, this.resources),
         mfa_enabled: this.getValue(app.mfaEnabled, this.resources),
         should_send_invite_email: this.getValue(app.shouldSendInviteEmail, this.resources),
