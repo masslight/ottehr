@@ -15,6 +15,7 @@ export default function AdminPrintingConfigPage(): ReactElement {
     data, // the data comes back with the detected deviceId for the printing config
     isPending,
     isError: isFetchDataError,
+    dataUpdatedAt,
   } = useAdminGetLabelPrintingConfig({ deviceId: undefined }); // labs todo: in the future, we might have multiple printing configs by location, and we'll actually be passing in a deviceId here for a given config
   const existingConfig = data?.config;
   const deviceId = data?.deviceId;
@@ -56,6 +57,7 @@ export default function AdminPrintingConfigPage(): ReactElement {
               <Typography>An error has occurred</Typography>
             ) : (
               <AdminLabelPrintingConfigForm
+                key={dataUpdatedAt}
                 formMode="edit"
                 defaultValues={configToRender}
                 onSubmit={handleSubmit}
