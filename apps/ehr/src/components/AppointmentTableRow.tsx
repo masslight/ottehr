@@ -1,9 +1,8 @@
-import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
+import { progressNoteIcon } from '@ehrTheme/icons';
 import CallSplitIcon from '@mui/icons-material/CallSplit';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import LogoutIcon from '@mui/icons-material/Logout';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
 import { LoadingButton } from '@mui/lab';
@@ -56,6 +55,7 @@ import {
   OrdersForTrackingBoardRow,
   ROOM_EXTENSION_URL,
   VisitStatusHistoryEntry,
+  VisitStatusWithoutUnknown,
 } from 'utils';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
@@ -67,6 +67,7 @@ import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
 import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
+import { getTrackingBoardPrimaryAction } from '../helpers/trackingBoardPrimaryAction';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import AppointmentNote from './AppointmentNote';
@@ -197,9 +198,8 @@ export default function AppointmentTableRow({
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
 
-  const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
+  const [primaryActionButtonLoading, setPrimaryActionButtonLoading] = useState(false);
   const [progressNoteButtonLoading, setProgressNoteButtonLoading] = useState(false);
-  const [dischargeButtonLoading, setDischargeButtonLoading] = useState(false);
   const [approveButtonLoading, setApproveButtonLoading] = useState(false);
 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
@@ -565,43 +565,98 @@ export default function AppointmentTableRow({
     return null;
   }
   const encounterId: string = encounter.id;
+  const primaryAction = getTrackingBoardPrimaryAction(appointment.status);
 
-  const handleStartIntakeButton = async (): Promise<void> => {
-    setStartIntakeButtonLoading(true);
+  const handleStatusAction = async (
+    updatedStatus: VisitStatusWithoutUnknown,
+    options?: {
+      navigateTo?: string;
+      successMessage?: string;
+      missingUserMessage?: string;
+    }
+  ): Promise<void> => {
+    setPrimaryActionButtonLoading(true);
+
     if (!user) {
-      enqueueSnackbar('User is not available. Cannot start intake.', { variant: 'error' });
+      enqueueSnackbar(options?.missingUserMessage || 'User is not available. Cannot update visit status.', {
+        variant: 'error',
+      });
+      setPrimaryActionButtonLoading(false);
       return;
     }
+
+    let shouldResetLoadingState = true;
+
     try {
       await handleChangeInPersonVisitStatus(
         {
-          encounterId: encounterId,
-          updatedStatus: 'intake',
+          encounterId,
+          updatedStatus,
         },
         oystehrZambda
       );
-      navigate(getInPersonUrlByAppointmentType(appointment, 'patient-info'));
+
+      if (options?.successMessage) {
+        enqueueSnackbar(options.successMessage, { variant: 'success' });
+      }
+
+      if (options?.navigateTo) {
+        shouldResetLoadingState = false;
+        navigate(options.navigateTo);
+        return;
+      }
+
+      await updateAppointments();
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    } finally {
+      if (shouldResetLoadingState) {
+        setPrimaryActionButtonLoading(false);
+      }
     }
-    setStartIntakeButtonLoading(false);
   };
 
-  const renderStartIntakeButton = (): ReactElement | undefined => {
-    if (appointment.status === 'arrived' || appointment.status === 'ready' || appointment.status === 'intake') {
-      return (
-        <GoToButton
-          text="Start Intake"
-          loading={startIntakeButtonLoading}
-          onClick={handleStartIntakeButton}
-          dataTestId={dataTestIds.dashboard.intakeButton}
-        >
-          <img src={startIntakeIcon} />
-        </GoToButton>
-      );
+  const renderActionButton = (text: string, onClick: () => Promise<void>, dataTestId: string): ReactElement => {
+    return (
+      <LoadingButton
+        data-testid={dataTestId}
+        onClick={() => void onClick()}
+        loading={primaryActionButtonLoading}
+        variant="contained"
+        sx={{
+          borderRadius: 8,
+          textTransform: 'none',
+          fontSize: '15px',
+          fontWeight: 500,
+          minWidth: '140px',
+        }}
+      >
+        {text}
+      </LoadingButton>
+    );
+  };
+
+  const handlePrimaryActionButton = async (): Promise<void> => {
+    if (!primaryAction) {
+      return;
     }
-    return undefined;
+
+    await handleStatusAction(primaryAction.updatedStatus, {
+      missingUserMessage: primaryAction.missingUserMessage,
+      navigateTo: primaryAction.navigateToChart
+        ? getInPersonUrlByAppointmentType(appointment, 'patient-info')
+        : undefined,
+      successMessage: primaryAction.successMessage,
+    });
+  };
+
+  const renderPrimaryActionButton = (): ReactElement | undefined => {
+    if (!primaryAction) {
+      return undefined;
+    }
+
+    return renderActionButton(primaryAction.label, handlePrimaryActionButton, primaryAction.dataTestId);
   };
 
   const handleProgressNoteButton = async (): Promise<void> => {
@@ -692,45 +747,6 @@ export default function AppointmentTableRow({
           <Typography align="center">Approved</Typography>
           <Typography align="center">{mdyStringFromISOString(appointment.approvalDate)}</Typography>
         </Box>
-      );
-    }
-    return undefined;
-  };
-
-  const handleDischargeButton = async (): Promise<void> => {
-    setDischargeButtonLoading(true);
-    if (!user) {
-      enqueueSnackbar('User is not available. Cannot discharge patient.', { variant: 'error' });
-      return;
-    }
-    try {
-      await handleChangeInPersonVisitStatus(
-        {
-          encounterId: encounterId,
-          updatedStatus: 'discharged',
-        },
-        oystehrZambda
-      );
-      await updateAppointments();
-      enqueueSnackbar('Patient discharged successfully', { variant: 'success' });
-    } catch (error) {
-      console.error(error);
-      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
-    }
-    setDischargeButtonLoading(false);
-  };
-
-  const renderDischargeButton = (): ReactElement | undefined => {
-    if (appointment.status === 'provider') {
-      return (
-        <GoToButton
-          loading={dischargeButtonLoading}
-          text="Discharge"
-          onClick={handleDischargeButton}
-          dataTestId={dataTestIds.dashboard.dischargeButton}
-        >
-          <LogoutIcon />
-        </GoToButton>
       );
     }
     return undefined;
@@ -1038,9 +1054,8 @@ export default function AppointmentTableRow({
             <MedicalInformationIcon />
           </GoToButton>
           {renderArrivedButton()}
-          {renderStartIntakeButton()}
+          {renderPrimaryActionButton()}
           {renderProgressNoteButton()}
-          {renderDischargeButton()}
           {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && renderSupervisorApproval()}
         </Stack>
       </TableCell>

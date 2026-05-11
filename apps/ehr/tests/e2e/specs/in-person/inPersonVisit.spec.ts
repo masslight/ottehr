@@ -169,6 +169,8 @@ test.describe('In-person visit', async () => {
       await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
       await visitsPage.clickInOfficeTab();
       await visitsPage.verifyVisitsStatus(resourceHandler.appointment.id!, 'arrived');
+      await visitsPage.clickReadyButton(resourceHandler.appointment.id!);
+      await visitsPage.verifyVisitsStatus(resourceHandler.appointment.id!, 'ready');
       await visitsPage.clickIntakeButton(resourceHandler.appointment.id!);
       await expect(async () => {
         const content = await page.getByTestId(dataTestIds.inPersonHeader.container).textContent();
@@ -318,6 +320,8 @@ test.describe('In-person visit', async () => {
       await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
       await visitsPage.clickInOfficeTab();
       await visitsPage.verifyVisitsStatus(resourceHandler.appointment.id!, 'arrived');
+      await visitsPage.clickReadyButton(resourceHandler.appointment.id!);
+      await visitsPage.verifyVisitsStatus(resourceHandler.appointment.id!, 'ready');
       await visitsPage.clickIntakeButton(resourceHandler.appointment.id!);
       await expect(async () => {
         const content = await page.getByTestId(dataTestIds.inPersonHeader.container).textContent();
