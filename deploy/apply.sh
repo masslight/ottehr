@@ -15,7 +15,7 @@ fi
 echo "Deploying environment: ${ENV}"
 
 npm run bundle-zambdas
-ENV="${ENV}" npm run generate
+npx tsx generate-oystehr-resources.ts ../config "${ENV}" ./oystehr/
 rm -f aws_override.tf
 rm -f gcp_override.tf
 npm run terraform-init
