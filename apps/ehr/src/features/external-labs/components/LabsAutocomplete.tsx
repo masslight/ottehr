@@ -138,11 +138,11 @@ const expandResultsForGeneric = (
 ): OrderableItemSearchResult[] => {
   if (orderingLocations.length === 0) return [];
 
-  const selectedLocation = orderingLocation.searchingForAll
+  const selectedLocations = orderingLocation.searchingForAll
     ? orderingLocations
     : orderingLocations.filter((location) => location.id === orderingLocation.selectedOrderingLocationId);
 
-  if (!selectedLocation || selectedLocation.length === 0) {
+  if (!selectedLocations || selectedLocations.length === 0) {
     console.warn('Unable to expand results, returning original labs results');
     safelyCaptureMessage(
       `No selectedLocation found when trying to expandResultsForGeneric (searchingForAll=${
@@ -166,7 +166,7 @@ const expandResultsForGeneric = (
     labName: string;
   }[] = [];
 
-  for (const loc of selectedLocation) {
+  for (const loc of selectedLocations) {
     const genericDetail = loc.enabledLabs
       .map((lab) => {
         if (lab.labGuid === STATIC_COMPENDIUM_LAB_GUID && lab.labName) return lab;
@@ -194,7 +194,10 @@ const expandResultsForGeneric = (
   }
 
   if (!genericCompendiumLabDetails.length) {
-    console.log('No generic labs configured for this location, returning original list', orderingLocation);
+    console.log(
+      'No generic labs configured for this location, returning original list',
+      JSON.stringify(orderingLocation)
+    );
     return labs;
   }
 
