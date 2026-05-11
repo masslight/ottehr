@@ -138,6 +138,6 @@ function validateInput(input: ZambdaInput): Input {
 
   return {
     secrets,
-    prependIdentifier: prependIdentifier === 'true',
+    prependIdentifier: prependIdentifier === 'true' || prependIdentifier === true,
   };
 }
