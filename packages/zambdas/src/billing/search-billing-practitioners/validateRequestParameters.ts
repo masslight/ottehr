@@ -1,24 +1,22 @@
-import { INVALID_INPUT_ERROR } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { INVALID_INPUT_ERROR, SearchBillingPractitionersInput, SearchBillingPractitionersInputSchema } from 'utils';
+import { formatZodError, ZambdaInput } from '../../shared';
 
-export interface SearchBillingPractitionersParams {
-  name?: string;
+export interface SearchBillingPractitionersParams extends SearchBillingPractitionersInput {
   secrets: ZambdaInput['secrets'];
 }
 
 export function validateRequestParameters(input: ZambdaInput): SearchBillingPractitionersParams {
-  if (input.body) {
-    let body: any;
-    try {
-      body = JSON.parse(input.body);
-    } catch {
-      throw INVALID_INPUT_ERROR('Request body is not valid JSON');
-    }
+  if (!input.body) return { secrets: input.secrets };
 
-    if (body.name !== undefined && (typeof body.name !== 'string' || !body.name.trim())) {
-      throw INVALID_INPUT_ERROR('"name" must be a non-empty string when provided');
-    }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(input.body);
+  } catch {
+    throw INVALID_INPUT_ERROR('Request body is not valid JSON');
+  }
 
-    return { name: body.name, secrets: input.secrets };
-  } else return { secrets: input.secrets };
+  const result = SearchBillingPractitionersInputSchema.safeParse(raw);
+  if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
+
+  return { ...result.data, secrets: input.secrets };
 }

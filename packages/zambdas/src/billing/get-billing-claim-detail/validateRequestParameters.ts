@@ -1,25 +1,22 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { GetClaimDetailInput, GetClaimDetailInputSchema, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
+import { formatZodError, ZambdaInput } from '../../shared';
 
-export interface GetClaimDetailParams {
-  claimId: string;
+export interface GetClaimDetailParams extends GetClaimDetailInput {
   secrets: ZambdaInput['secrets'];
 }
 
 export function validateRequestParameters(input: ZambdaInput): GetClaimDetailParams {
   if (!input.body) throw MISSING_REQUEST_BODY;
 
-  let body: any;
+  let raw: unknown;
   try {
-    body = JSON.parse(input.body);
+    raw = JSON.parse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body is not valid JSON');
   }
 
-  if (!body.claimId) throw MISSING_REQUIRED_PARAMETERS(['claimId']);
-  if (typeof body.claimId !== 'string' || !body.claimId.trim()) {
-    throw INVALID_INPUT_ERROR('"claimId" must be a non-empty string');
-  }
+  const result = GetClaimDetailInputSchema.safeParse(raw);
+  if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
 
-  return { claimId: body.claimId, secrets: input.secrets };
+  return { ...result.data, secrets: input.secrets };
 }

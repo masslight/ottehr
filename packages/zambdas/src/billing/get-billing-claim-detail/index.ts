@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coverage, Location, Organization, Patient, Person, Practitioner } from 'fhir/r4b';
 import {
+  ClaimDetailResponse,
   FHIR_RESOURCE_NOT_FOUND,
   getNPI,
   getPayerId,
@@ -16,70 +17,6 @@ import { GetClaimDetailParams, validateRequestParameters } from './validateReque
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claim-detail';
-
-export interface ClaimDetailResponse {
-  id: string;
-  status: string;
-  created: string;
-  billingType: string;
-  billableStatus: string;
-  patientName: string;
-  patientDob: string;
-  patientGender: string;
-  patientId: string;
-  patientAddress: string;
-  coverageFhirId: string;
-  payorFhirId: string;
-  payerName: string;
-  payerId: string;
-  memberId: string;
-  subscriberId: string;
-  coverageStatus: string;
-  responsibleParty: string;
-  secondaryCoverageFhirId: string;
-  secondaryPayerName: string;
-  secondaryPayerId: string;
-  secondaryMemberId: string;
-  nonInsurancePayerFhirId: string;
-  nonInsurancePayerName: string;
-  renderingProviderId: string;
-  renderingProvider: string;
-  renderingNpi: string;
-  billingProviderFhirId: string;
-  billingProvider: string;
-  billingNpi: string;
-  billingTin: string;
-  facilityFhirId: string;
-  serviceFacility: string;
-  serviceFacilityAddress: string;
-  serviceFacilityNpi: string;
-  diagnoses: { sequence: number; code: string; display: string }[];
-  serviceLines: {
-    sequence: number;
-    cptCode: string;
-    description: string;
-    modifiers: string[];
-    units: number;
-    charges: number;
-    serviceDate: string;
-    placeOfService: string;
-    diagnosisPointers: number[];
-  }[];
-  billed: number;
-  allowed: number;
-  insurancePaid: number;
-  patientResp: number;
-  patientPaid: number;
-  balance: number;
-  otherClaims: {
-    id: string;
-    status: string;
-    serviceDate: string;
-    payerName: string;
-    billed: number;
-    cptCodes: string[];
-  }[];
-}
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {

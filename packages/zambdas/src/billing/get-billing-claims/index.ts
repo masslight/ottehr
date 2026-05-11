@@ -1,30 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { getPayerId, getSecret, SecretsKeys } from 'utils';
+import { BillingClaimItem, getPayerId, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, fhirName, findRef, getClaimStatus, sortClaimInsurance } from '../shared';
 import { GetBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
-
-interface BillingClaimItem {
-  id: string;
-  status: string;
-  patientName: string;
-  patientDob: string;
-  payerName: string;
-  payerId: string;
-  memberId: string;
-  serviceDate: string;
-  facility: string;
-  renderingProvider: string;
-  billed: number;
-  allowed: number;
-  insurancePaid: number;
-  patientResp: number;
-  patientPaid: number;
-  claimBalance: number;
-  responsibleParty: string;
-}
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claims';

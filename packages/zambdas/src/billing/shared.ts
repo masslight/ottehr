@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, HumanName, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, INVALID_INPUT_ERROR, Secrets } from 'utils';
+import { convertFhirNameToDisplayName, Secrets } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
 export const BILLING_RESOURCE_TAG = {
@@ -29,16 +29,6 @@ export const BILLS_TAG = 'https://fhir.ottehr.com/billing/bills-services';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
 
 export const SOURCE_EXT_URL = 'https://ottehr.com/billing/source-resource';
-
-export const ALLOWED_BILLING_RESOURCE_TYPES = [
-  'Patient',
-  'Coverage',
-  'Practitioner',
-  'Organization',
-  'Location',
-] as const;
-
-export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];
 
 const PROTECTED_OVERRIDE_KEYS = new Set(['id', 'meta', 'resourceType', 'extension']);
 
@@ -92,13 +82,6 @@ export function findRef<T extends Resource>(resources: Resource[], reference?: s
   if (!reference) return undefined;
   const id = reference.includes('/') ? reference.split('/')[1] : reference;
   return resources.find((r) => r.id === id) as T | undefined;
-}
-
-export function toNonNegativeInt(value: unknown, name: string): number | undefined {
-  if (value == null) return undefined;
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < 0) throw INVALID_INPUT_ERROR(`"${name}" must be a non-negative integer`);
-  return n;
 }
 
 // Apply first/last name overrides to a Patient or Practitioner.

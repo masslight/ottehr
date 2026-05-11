@@ -1,28 +1,27 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../shared';
+import {
+  GetPatientCoveragesInput,
+  GetPatientCoveragesInputSchema,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+} from 'utils';
+import { formatZodError, ZambdaInput } from '../../shared';
 
-export interface GetPatientCoveragesParams {
-  patientId: string;
+export interface GetPatientCoveragesParams extends GetPatientCoveragesInput {
   secrets: ZambdaInput['secrets'];
 }
 
 export function validateRequestParameters(input: ZambdaInput): GetPatientCoveragesParams {
   if (!input.body) throw MISSING_REQUEST_BODY;
 
-  let body: any;
+  let raw: unknown;
   try {
-    body = JSON.parse(input.body);
+    raw = JSON.parse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body is not valid JSON');
   }
 
-  if (!body.patientId) throw MISSING_REQUIRED_PARAMETERS(['patientId']);
-  if (typeof body.patientId !== 'string' || !body.patientId.trim()) {
-    throw INVALID_INPUT_ERROR('"patientId" must be a non-empty string');
-  }
+  const result = GetPatientCoveragesInputSchema.safeParse(raw);
+  if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
 
-  return {
-    patientId: body.patientId,
-    secrets: input.secrets,
-  };
+  return { ...result.data, secrets: input.secrets };
 }
