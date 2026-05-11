@@ -30,9 +30,11 @@ export const usePrintLabel = (): UsePrintLabelOutput => {
     // fetch the presigned url so we can handle the case where it expired and S3 sends back a gross xml error page
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch label PDF: ${response.status}`);
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    window.open(blobUrl, '_blank');
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!contentType.includes('xml'))
+      throw new Error('URL returned XML content, presigned URL may have expired. Refresh the page');
+    await response.body?.cancel();
+    window.open(url, '_blank');
   };
 
   const _printIntegratedLabel = async (input: { pdfPresignedUrl: string; labelXmlString: string }): Promise<void> => {
