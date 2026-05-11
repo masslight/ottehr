@@ -21,4 +21,5 @@ export * from './visit-details.types';
 export * from './tasks';
 export * from './search-places';
 export * from './delete-patient-document.types';
+export * from './upload-patient-condition-photo.types';
 export * from './custom-folder.types';
