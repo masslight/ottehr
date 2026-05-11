@@ -32,7 +32,6 @@ import {
   getPatientFirstName,
   getPatientLastName,
   getSMSNumberForIndividual,
-  getUnconfirmedDOBForAppointment,
   getVisitStatusHistory,
   InPersonAppointmentInformation,
   INSURANCE_CARD_CODE,
@@ -735,8 +734,6 @@ const makeAppointmentInformation = (
   const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
   const status = getInPersonVisitStatus(appointment, encounter, supervisorApprovalEnabled);
 
-  const unconfirmedDOB = getUnconfirmedDOBForAppointment(appointment);
-
   const waitingMinutesString = appointment.meta?.tag?.find((tag) => tag.system === 'waiting-minutes-estimate')?.code;
   const waitingMinutes = waitingMinutesString ? parseInt(waitingMinutesString) : undefined;
 
@@ -781,7 +778,6 @@ const makeAppointmentInformation = (
     smsModel,
     reasonForVisit: appointment.description || 'Unknown',
     comment: appointment.comment,
-    unconfirmedDOB: unconfirmedDOB ?? '',
     appointmentType: appointmentTypeForAppointment(appointment),
     appointmentAttendanceType: appointmentAttendanceTypeAppointment(appointment),
     appointmentStatus: appointment.status,
@@ -802,7 +798,6 @@ const makeAppointmentInformation = (
     participants,
     next,
     visitStatusHistory: getVisitStatusHistory(encounter),
-    needsDOBConfirmation: !!unconfirmedDOB,
     waitingMinutes,
     serviceCategory: appointment.serviceCategory
       ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])

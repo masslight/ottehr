@@ -3,6 +3,7 @@ import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
+import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
@@ -25,6 +26,7 @@ enum PageTab {
   'quick-picks' = 'quick-picks',
   'in-house-labs' = 'in-house-labs',
   'em-codes' = 'em-codes',
+  'lab-sets' = 'lab-sets',
   'docs-folders' = 'docs-folders',
 }
 
@@ -102,6 +104,12 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab['em-codes']}`)}
                 />
                 <Tab
+                  label="Lab Sets"
+                  value={PageTab['lab-sets']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['lab-sets']}`)}
+                />
+                <Tab
                   label="Docs Folders"
                   value={PageTab['docs-folders']}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
@@ -148,6 +156,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['em-codes']} sx={{ padding: 0 }}>
             <EMCodesAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['lab-sets']} sx={{ padding: 0 }}>
+            <LabSetsAdminPage />
           </TabPanel>
           <TabPanel value={PageTab['docs-folders']} sx={{ padding: 0 }}>
             <AdminCustomFoldersPage />

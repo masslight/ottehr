@@ -5,7 +5,6 @@ export interface CreateAppointmentUCTelemedParams {
   patient?: PatientInfo;
   locationState?: string;
   timezone: string;
-  unconfirmedDateOfBirth?: string;
 }
 
 export interface CreateAppointmentUCTelemedResponse {
