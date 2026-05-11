@@ -134,7 +134,7 @@ const expandResultsForGeneric = (
 ): OrderableItemSearchResult[] => {
   const selectedLocation = orderingLocations.find((location) => location.id === selectedLocationId);
   if (!selectedLocation) {
-    console.error('Unable to expand results, returning original labs results');
+    console.warn('Unable to expand results, returning original labs results');
     safelyCaptureMessage(
       `Unexpected undefined selectedLocation for id ${selectedLocationId} when trying to expandResultsForGeneric`,
       { level: 'warning' }
