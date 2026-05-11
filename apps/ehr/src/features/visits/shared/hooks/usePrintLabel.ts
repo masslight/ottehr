@@ -1,12 +1,12 @@
 import Dymo from 'dymojs';
 import { enqueueSnackbar, VariantType } from 'notistack';
 import { useState } from 'react';
-import { PrintingConfig, PrintMode } from 'utils';
+import { LabelPrintingConfig, PrintMode } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 
 interface UsePrintLabelOutput {
   printLabelByConfig: (input: {
-    printingConfig: PrintingConfig;
+    printingConfig: LabelPrintingConfig;
     pdfPresignedUrl: string;
     labelXmlString: string;
   }) => Promise<void>;
@@ -106,7 +106,7 @@ export const usePrintLabel = (): UsePrintLabelOutput => {
   };
 
   const printLabelByConfig = async (input: {
-    printingConfig: PrintingConfig;
+    printingConfig: LabelPrintingConfig;
     pdfPresignedUrl: string;
     labelXmlString: string;
   }): Promise<void> => {

@@ -3,19 +3,19 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device, DeviceProperty } from 'fhir/r4b';
 import {
   AdminUpdatePrintingConfigInput,
-  PRINTING_CONFIG_DEVICE_TAG,
-  PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
-  PRINTING_DEVICE_PROPERTIES_SYSTEM,
-  PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP,
-  PrintingConfig,
-  PrintingProperty,
+  LABEL_PRINTING_CONFIG_DEVICE_TAG,
+  LABEL_PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
+  LABEL_PRINTING_DEVICE_PROPERTIES_SYSTEM,
+  LABEL_PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP,
+  LabelPrintingConfig,
+  LabelPrintingProperty,
   Secrets,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-const ZAMBDA_NAME = 'admin-update-printing-config';
+const ZAMBDA_NAME = 'admin-update-label-printing-config';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
@@ -34,7 +34,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const searchParams: SearchParam[] = [
     {
       name: '_tag',
-      value: `${PRINTING_CONFIG_DEVICE_TAG.system}|${PRINTING_CONFIG_DEVICE_TAG.code}`,
+      value: `${LABEL_PRINTING_CONFIG_DEVICE_TAG.system}|${LABEL_PRINTING_CONFIG_DEVICE_TAG.code}`,
     },
   ];
 
@@ -79,13 +79,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-const convertPrintingConfigToDevice = (config: PrintingConfig): Device => {
+const convertPrintingConfigToDevice = (config: LabelPrintingConfig): Device => {
   const properties: Device['property'] = [];
 
   const device: Device = {
     resourceType: 'Device',
     meta: {
-      tag: [PRINTING_CONFIG_DEVICE_TAG],
+      tag: [LABEL_PRINTING_CONFIG_DEVICE_TAG],
     },
   };
 
@@ -93,7 +93,7 @@ const convertPrintingConfigToDevice = (config: PrintingConfig): Device => {
   properties.push(
     makeProperty(config, {
       propertyName: 'printing-mode',
-      valueSystem: PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['printing-mode'],
+      valueSystem: LABEL_PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['printing-mode'],
     })
   );
 
@@ -103,17 +103,17 @@ const convertPrintingConfigToDevice = (config: PrintingConfig): Device => {
     properties.push(
       makeProperty(config, {
         propertyName: 'label-type',
-        valueSystem: PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['label-type'],
+        valueSystem: LABEL_PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['label-type'],
       }),
       makeProperty(config, {
         propertyName: 'label-orientation',
-        valueSystem: PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['label-orientation'],
+        valueSystem: LABEL_PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['label-orientation'],
       })
     );
 
     device.extension = [
       {
-        url: PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
+        url: LABEL_PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
         valueBoolean: config.openPdfOnPrint,
       },
     ];
@@ -127,15 +127,15 @@ const convertPrintingConfigToDevice = (config: PrintingConfig): Device => {
 };
 
 const makeProperty = (
-  config: PrintingConfig,
-  propertyDetails: { propertyName: PrintingProperty; valueSystem: string }
+  config: LabelPrintingConfig,
+  propertyDetails: { propertyName: LabelPrintingProperty; valueSystem: string }
 ): DeviceProperty => {
   if (config.mode === 'manual') {
     return {
       type: {
         coding: [
           {
-            system: PRINTING_DEVICE_PROPERTIES_SYSTEM,
+            system: LABEL_PRINTING_DEVICE_PROPERTIES_SYSTEM,
             code: 'printing-mode',
           },
         ],
@@ -144,7 +144,7 @@ const makeProperty = (
         {
           coding: [
             {
-              system: PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['printing-mode'],
+              system: LABEL_PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['printing-mode'],
               code: 'manual',
             },
           ],
@@ -170,7 +170,7 @@ const makeProperty = (
     type: {
       coding: [
         {
-          system: PRINTING_DEVICE_PROPERTIES_SYSTEM,
+          system: LABEL_PRINTING_DEVICE_PROPERTIES_SYSTEM,
           code: propertyDetails.propertyName,
         },
       ],

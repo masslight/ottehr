@@ -2,16 +2,16 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device } from 'fhir/r4b';
 import {
-  GetPrintingConfigInput,
+  GetLabelPrintingConfigInput,
   getSecret,
+  LABEL_PRINTING_CONFIG_DEVICE_TAG,
+  LABEL_PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
+  LABEL_PRINTING_DEVICE_PROPERTIES_SYSTEM,
+  LABEL_PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP,
   LabelOrientationSchema,
+  LabelPrintingConfig,
+  LabelPrintingProperty,
   MANUFACTURER_TO_LABEL_MAPPING,
-  PRINTING_CONFIG_DEVICE_TAG,
-  PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
-  PRINTING_DEVICE_PROPERTIES_SYSTEM,
-  PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP,
-  PrintingConfig,
-  PrintingProperty,
   PrintModeSchema,
   Secrets,
   SecretsKeys,
@@ -27,12 +27,12 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-const ZAMBDA_NAME = 'get-printing-config';
+const ZAMBDA_NAME = 'get-label-printing-config';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
 
-  const validatedParameters: GetPrintingConfigInput & { secrets: Secrets | null; userToken: string } =
+  const validatedParameters: GetLabelPrintingConfigInput & { secrets: Secrets | null; userToken: string } =
     validateRequestParameters(input);
 
   const { secrets, deviceId } = validatedParameters;
@@ -74,11 +74,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 export const getPrintingConfigAndDevice = async (
   oystehr: Oystehr,
   deviceId?: string
-): Promise<{ printingConfig: PrintingConfig; device: Device | undefined }> => {
+): Promise<{ printingConfig: LabelPrintingConfig; device: Device | undefined }> => {
   const searchParams: SearchParam[] = [
     {
       name: '_tag',
-      value: `${PRINTING_CONFIG_DEVICE_TAG.system}|${PRINTING_CONFIG_DEVICE_TAG.code}`,
+      value: `${LABEL_PRINTING_CONFIG_DEVICE_TAG.system}|${LABEL_PRINTING_CONFIG_DEVICE_TAG.code}`,
     },
   ];
 
@@ -107,7 +107,7 @@ export const getPrintingConfigAndDevice = async (
   return { printingConfig: parsedConfig, device };
 };
 
-const parsePrintingConfig = (device: Device): PrintingConfig => {
+const parsePrintingConfig = (device: Device): LabelPrintingConfig => {
   console.log(`Parsing printing config from Device/${device.id}`);
 
   // determine the printing mode
@@ -118,7 +118,7 @@ const parsePrintingConfig = (device: Device): PrintingConfig => {
 
   const mode = extractValueCodeProperty(properties, {
     propertyName: 'printing-mode',
-    valueSystem: PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['printing-mode'],
+    valueSystem: LABEL_PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['printing-mode'],
   });
 
   // todo: validate printing mode
@@ -152,7 +152,7 @@ const parsePrintingConfig = (device: Device): PrintingConfig => {
 
   const labelType = extractValueCodeProperty(properties, {
     propertyName: 'label-type',
-    valueSystem: PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['label-type'],
+    valueSystem: LABEL_PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['label-type'],
   });
 
   const labelTypeResult = MANUFACTURER_TO_LABEL_MAPPING[validatedManufacturer].labelTypeSchema.safeParse(labelType);
@@ -165,7 +165,7 @@ const parsePrintingConfig = (device: Device): PrintingConfig => {
 
   const orientation = extractValueCodeProperty(properties, {
     propertyName: 'label-orientation',
-    valueSystem: PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['label-orientation'],
+    valueSystem: LABEL_PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP['label-orientation'],
   });
 
   const orientationResult = LabelOrientationSchema.safeParse(orientation);
@@ -183,7 +183,7 @@ const parsePrintingConfig = (device: Device): PrintingConfig => {
     throw new Error('Default orientation fallback has failed, orientation was undefined');
   }
 
-  const printingConfig: PrintingConfig = {
+  const printingConfig: LabelPrintingConfig = {
     mode: validatedMode,
     openPdfOnPrint: extractOpenPdfOnPrintBool(device),
     printerAndLabelConfig: {
@@ -197,16 +197,17 @@ const parsePrintingConfig = (device: Device): PrintingConfig => {
   return printingConfig;
 };
 
-const MANUAL_MODE_RESPONSE: PrintingConfig = { mode: 'manual' };
+const MANUAL_MODE_RESPONSE: LabelPrintingConfig = { mode: 'manual' };
 
 const extractValueCodeProperty = (
   properties: Device['property'],
-  propertyDetails: { propertyName: PrintingProperty; valueSystem: string }
+  propertyDetails: { propertyName: LabelPrintingProperty; valueSystem: string }
 ): string => {
   const property = properties?.find(
     (property) =>
       property.type.coding?.some(
-        (coding) => coding.system === PRINTING_DEVICE_PROPERTIES_SYSTEM && coding.code === propertyDetails.propertyName
+        (coding) =>
+          coding.system === LABEL_PRINTING_DEVICE_PROPERTIES_SYSTEM && coding.code === propertyDetails.propertyName
       )
   );
   if (!property) {
@@ -228,7 +229,7 @@ const extractOpenPdfOnPrintBool = (device: Device): boolean => {
   // if the extension isn't there, we'll open it to be conservative
   return (
     device.extension?.find(
-      (ext) => ext.url === PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM && ext.valueBoolean !== undefined
+      (ext) => ext.url === LABEL_PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM && ext.valueBoolean !== undefined
     )?.valueBoolean ?? true
   );
 };

@@ -52,7 +52,7 @@ const PrinterAndLabelConfigSchema = z.discriminatedUnion('printerManufacturer', 
 ]);
 
 // ---------- top-level config ----------
-export const PrintingConfigSchema = z.discriminatedUnion('mode', [
+export const LabelPrintingConfigSchema = z.discriminatedUnion('mode', [
   z.object({ mode: z.literal('manual') }),
   z.object({
     mode: z.literal('integrated'),
@@ -60,29 +60,29 @@ export const PrintingConfigSchema = z.discriminatedUnion('mode', [
     printerAndLabelConfig: PrinterAndLabelConfigSchema,
   }),
 ]);
-export type PrintingConfig = z.infer<typeof PrintingConfigSchema>;
+export type LabelPrintingConfig = z.infer<typeof LabelPrintingConfigSchema>;
 
-export interface GetPrintingConfigInput {
+export interface GetLabelPrintingConfigInput {
   deviceId?: string;
 }
 
-export interface GetPrintingConfigOutput {
+export interface GetLabelPrintingConfigOutput {
   deviceId?: string;
-  config: PrintingConfig;
+  config: LabelPrintingConfig;
 }
 
 export interface AdminUpdatePrintingConfigInput {
   deviceId?: string; // will be defined unless it is the very first update
-  config: PrintingConfig;
+  config: LabelPrintingConfig;
 }
 
 // --------- on demand label xml types --------
-export const OnDemandVistLabelXmlRequestSchema = z.object({
+export const OnDemandVisitLabelXmlRequestSchema = z.object({
   type: z.literal('visit'),
   encounterId: z.string(),
   // future todo: include deviceId or locationId to find printing configs specific to a location
 });
-export type OnDemandVisitLabelXmlRequestInput = z.infer<typeof OnDemandVistLabelXmlRequestSchema>;
+export type OnDemandVisitLabelXmlRequestInput = z.infer<typeof OnDemandVisitLabelXmlRequestSchema>;
 
 export const OnDemandExternalLabLabelXmlRequestSchema = z.object({
   type: z.literal('external-lab'),
@@ -93,11 +93,11 @@ export const OnDemandExternalLabLabelXmlRequestSchema = z.object({
 export type OnDemandExternalLabLabelXmlRequestInput = z.infer<typeof OnDemandExternalLabLabelXmlRequestSchema>;
 
 export const OnDemandLabelXmlRequestSchema = z.discriminatedUnion('type', [
-  OnDemandVistLabelXmlRequestSchema,
+  OnDemandVisitLabelXmlRequestSchema,
   OnDemandExternalLabLabelXmlRequestSchema,
 ]);
 export type OnDemandLabelXmlRequestInput = z.infer<typeof OnDemandLabelXmlRequestSchema>;
 export type OnDemandLabelXmlRequestOutput = {
-  printingConfig: PrintingConfig;
+  printingConfig: LabelPrintingConfig;
   labelXmlString: string;
 };

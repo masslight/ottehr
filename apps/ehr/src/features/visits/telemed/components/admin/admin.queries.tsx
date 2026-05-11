@@ -9,14 +9,14 @@ import {
   adminGetLabSets,
   adminListInHouseLabs,
   adminUpdateInHouseLab,
+  adminUpdateLabelPrintingConfig,
   adminUpdateLabSet,
-  adminUpdatePrintingConfig,
   bulkUpdateInsuranceStatus,
   createEmCode,
   deleteEmCode,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
-  getPrintingConfig,
+  getLabelPrintingConfig,
   getProcedureQuickPicks,
   getRadiologyQuickPicks,
   removeImmunizationQuickPick,
@@ -50,8 +50,8 @@ import {
   DeleteEmCodeInput,
   EmCodeOption,
   FHIR_EXTENSION,
-  GetPrintingConfigInput,
-  GetPrintingConfigOutput,
+  GetLabelPrintingConfigInput,
+  GetLabelPrintingConfigOutput,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
   INSURANCE_SETTINGS_MAP,
@@ -656,16 +656,16 @@ export const useAdminUpdateLabSet = (labSetId: string): UseMutationResult<void, 
   });
 };
 
-export const useAdminGetPrintingConfig = (
-  input: GetPrintingConfigInput
-): UseQueryResult<GetPrintingConfigOutput, Error> => {
+export const useAdminGetLabelPrintingConfig = (
+  input: GetLabelPrintingConfigInput
+): UseQueryResult<GetLabelPrintingConfigOutput, Error> => {
   const { oystehrZambda } = useApiClients();
   const { deviceId } = input;
 
   return useQuery({
-    queryKey: ['admin-get-printing-config', deviceId],
+    queryKey: ['admin-get-label-printing-config', deviceId],
     queryFn: async () => {
-      return getPrintingConfig(oystehrZambda!, input);
+      return getLabelPrintingConfig(oystehrZambda!, input);
     },
     enabled: !!oystehrZambda,
     staleTime: 30_000, // 30 sec staletime
@@ -674,7 +674,7 @@ export const useAdminGetPrintingConfig = (
   });
 };
 
-export const useAdminUpdatePrintingConfig = (
+export const useAdminUpdateLabelPrintingConfig = (
   mutatingDeviceId: string | undefined
 ): UseMutationResult<void, Error, AdminUpdatePrintingConfigInput> => {
   const { oystehrZambda } = useApiClients();
@@ -682,18 +682,18 @@ export const useAdminUpdatePrintingConfig = (
   console.log('in hook query for update printing config');
 
   return useMutation({
-    mutationKey: ['admin-update-in-house-lab', mutatingDeviceId],
+    mutationKey: ['admin-update-label-printing-config', mutatingDeviceId],
     mutationFn: async (input: AdminUpdatePrintingConfigInput) => {
       console.log('mutation for update printing config');
       if (!oystehrZambda) {
         throw new Error('oystehr client is undefined');
       }
-      await adminUpdatePrintingConfig(oystehrZambda!, input);
+      await adminUpdateLabelPrintingConfig(oystehrZambda!, input);
       console.log('finished call to update printing config in hook');
     },
     onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({
-        queryKey: ['admin-get-printing-config', variables.deviceId],
+        queryKey: ['admin-get-label-printing-config', variables.deviceId],
       });
       enqueueSnackbar('Successfully updated printing config', { variant: 'success' });
     },

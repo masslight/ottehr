@@ -102,6 +102,8 @@ import {
   GetImmunizationQuickPicksResponse,
   GetInHouseMedicationQuickPicksResponse,
   GetInHouseOrdersParameters,
+  GetLabelPrintingConfigInput,
+  GetLabelPrintingConfigOutput,
   GetLabOrdersParameters,
   GetMedicalConditionQuickPicksResponse,
   GetMedicationHistoryQuickPicksResponse,
@@ -112,8 +114,6 @@ import {
   GetPatientLoginPhoneNumbersInput,
   GetPatientLoginPhoneNumbersOutput,
   GetPresignedFileURLInput,
-  GetPrintingConfigInput,
-  GetPrintingConfigOutput,
   GetProcedureQuickPicksResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
@@ -312,8 +312,8 @@ const ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID = 'admin-list-in-house-labs';
 const ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-add-in-house-lab';
 const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
 const ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-update-in-house-lab';
-const GET_PRINTING_CONFIG_ZAMBDA_ID = 'get-printing-config';
-const ADMIN_UPDATE_PRINTING_CONFIG_ZAMBDA_ID = 'admin-update-printing-config';
+const GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'get-label-printing-config';
+const ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'admin-update-label-printing-config';
 const GENERATE_LABEL_XML_ZAMBDA_ID = 'generate-label-xml';
 const ADMIN_GET_LAB_SETS = 'admin-get-lab-sets';
 const ADMIN_ADD_LAB_SET = 'admin-add-lab-set';
@@ -1990,16 +1990,16 @@ export const adminUpdateLabSet = async (oystehr: Oystehr, parameters: AdminUpdat
   }
 };
 
-export const getPrintingConfig = async (
+export const getLabelPrintingConfig = async (
   oystehr: Oystehr,
-  parameters: GetPrintingConfigInput
-): Promise<GetPrintingConfigOutput> => {
+  parameters: GetLabelPrintingConfigInput
+): Promise<GetLabelPrintingConfigOutput> => {
   try {
-    if (GET_PRINTING_CONFIG_ZAMBDA_ID == null) {
-      throw new Error('get printing config environment variable could not be loaded');
+    if (GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID == null) {
+      throw new Error('get label printing config environment variable could not be loaded');
     }
     const response = await oystehr.zambda.execute({
-      id: GET_PRINTING_CONFIG_ZAMBDA_ID,
+      id: GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
@@ -2009,16 +2009,16 @@ export const getPrintingConfig = async (
   }
 };
 
-export const adminUpdatePrintingConfig = async (
+export const adminUpdateLabelPrintingConfig = async (
   oystehr: Oystehr,
   parameters: AdminUpdatePrintingConfigInput
 ): Promise<void> => {
   try {
-    if (ADMIN_UPDATE_PRINTING_CONFIG_ZAMBDA_ID == null) {
-      throw new Error('admin update printing config environment variable could not be loaded');
+    if (ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID == null) {
+      throw new Error('admin update label printing config environment variable could not be loaded');
     }
     await oystehr.zambda.execute({
-      id: ADMIN_UPDATE_PRINTING_CONFIG_ZAMBDA_ID,
+      id: ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID,
       ...parameters,
     });
     return;

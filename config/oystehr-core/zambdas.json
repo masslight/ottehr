@@ -1929,19 +1929,19 @@
         "reason": "Create Task for eRX notification"
       }
     },
-    "GET-PRINTING-CONFIG": {
-      "name": "get-printing-config",
+    "GET-LABEL-PRINTING-CONFIG": {
+      "name": "get-label-printing-config",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/printing-config/get-printing-config/index",
-      "zip": ".dist/zips/get-printing-config.zip"
+      "src": "src/ehr/label-printing-config/get-label-printing-config/index",
+      "zip": ".dist/zips/get-label-printing-config.zip"
     },
-    "ADMIN-UPDATE-PRINTING-CONFIG": {
-      "name": "admin-update-printing-config",
+    "ADMIN-UPDATE-LABEL-PRINTING-CONFIG": {
+      "name": "admin-update-label-printing-config",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/printing-config/admin-update-printing-config/index",
-      "zip": ".dist/zips/admin-update-printing-config.zip"
+      "src": "src/ehr/label-printing-config/admin-update-label-printing-config/index",
+      "zip": ".dist/zips/admin-update-label-printing-config.zip"
     },
     "GENERATE-LABEL-XML": {
       "name": "generate-label-xml",

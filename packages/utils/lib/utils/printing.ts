@@ -9,18 +9,19 @@ export function getLabelTypeMetadata(
   return labelTypes[labelType];
 }
 
-export const PRINTING_CONFIG_DEVICE_TAG = {
+export const LABEL_PRINTING_CONFIG_DEVICE_TAG = {
   system: 'printing-device',
-  code: 'printing-config',
+  code: 'label-printing-config',
 };
 
-export const PRINTING_DEVICE_PROPERTIES_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/print-config-properties';
+export const LABEL_PRINTING_DEVICE_PROPERTIES_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/print-config-properties';
 
-export type PrintingProperty = 'printing-mode' | 'label-type' | 'label-orientation';
-export const PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP: Record<PrintingProperty, string> = {
+export type LabelPrintingProperty = 'printing-mode' | 'label-type' | 'label-orientation';
+export const LABEL_PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP: Record<LabelPrintingProperty, string> = {
   'printing-mode': 'https://fhir.ottehr.com/CodeSystem/printing-mode',
   'label-type': 'https://fhir.ottehr.com/CodeSystem/label-type',
   'label-orientation': 'https://fhir.ottehr.com/CodeSystem/label-orientation',
 };
 
-export const PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM = 'https://fhir.ottehr.com/Extension/open-pdf-on-print';
+export const LABEL_PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM =
+  'https://fhir.ottehr.com/Extension/open-pdf-on-print';

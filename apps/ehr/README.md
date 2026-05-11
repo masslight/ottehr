@@ -20,7 +20,7 @@ To add or modify a flag, update the Zod schema in `config-types` and the default
 
 Ottehr primarily supports label printing with DYMO LabelWriter printers. These steps have not been tested with other printer types.
 
-Ottehr encourages admin users to enable system-level printing configuration through the Admin Printing Config tab. Here admins can decide if printing should be done in `manual` mode by default, or, if printing in `integrated` mode, what the printer, label type, and label orientation should be. More information on each is found below.
+Ottehr encourages admin users to enable system-level label printing configuration through the Admin Label Label Printing Config tab. Here admins can decide if printing should be done in `manual` mode by default, or, if printing in `integrated` mode, what the printer, label type, and label orientation should be. More information on each is found below.
 
 ### Printing Modes
 
@@ -73,7 +73,7 @@ We have observed that Firefox does not correctly transmit orientation metadata t
 
 ### Integrated Printing Mode
 
-In this mode, labels will print directly to your printer without the need to print through the browser. This mode is significantly more restrictive than `manual` mode, as it relies entirely on a pre-determined set of supported label sizes. While in `integrated` mode, if an admin elects the `Open PDF on Print` option from the Admin Printing Config tab, a pdf of the label will still open in the borwser to allow manual printing if desired.
+In this mode, labels will print directly to your printer without the need to print through the browser. This mode is significantly more restrictive than `manual` mode, as it relies entirely on a pre-determined set of supported label sizes. While in `integrated` mode, if an admin elects the `Open PDF on Print` option from the Admin Label Printing Config tab, a pdf of the label will still open in the borwser to allow manual printing if desired.
 
 The currently supported printer manufacturers and their label sizes are:
 
@@ -95,14 +95,14 @@ To print in `integrated` mode:
 1. Indicate the paper template size in the Admin printer config page
 1. Attempt a test print. If an error toast appears, attempt the following step.
 1. (As needed) Some systems may require explicit acceptance of the printer's certificates. In your browser, navigate to https://127.0.0.1:41951/DYMO/DLS/Printing/StatusConnected and click "Accept the risk" / "Proceed anyway" to trust the certificate for that origin. This should be a one-time step if required at all.
-1. If a label prints but the content is incorrectly placed, try adjusting the label orientation in the Adming Printing Config.
+1. If a label prints but the content is incorrectly placed, try adjusting the label orientation in the Adming Label Printing Config.
 
 If you are still having trouble after these steps, contact support@ottehr.com and revert to `manual` mode in the Admin config in the meantime.
 
 #### Notes:
 
 - Long strings will not wrap and will instead truncate
-- Attempting to use an unsupported paper size may result in unsatisfactory label prints. This does not constitute an "error" from the printer's perspective, and so as a result, the `manual` mode fallback is not triggered. This may lead to wasted labels. Admins should attempt to adjust the Admin Printing Config. Users may still have to print manually.
+- Attempting to use an unsupported paper size may result in unsatisfactory label prints. This does not constitute an "error" from the printer's perspective, and so as a result, the `manual` mode fallback is not triggered. This may lead to wasted labels. Admins should attempt to adjust the Admin Label Printing Config. Users may still have to print manually.
 
 ## EHR E2E Tests
 

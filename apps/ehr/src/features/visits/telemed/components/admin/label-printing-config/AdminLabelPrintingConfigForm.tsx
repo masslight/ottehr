@@ -20,28 +20,28 @@ import {
   APIError,
   getLabelTypeMetadata,
   LabelOrientationSchema,
+  LabelPrintingConfig,
+  LabelPrintingConfigSchema,
   MANUFACTURER_TO_LABEL_MAPPING,
-  PrintingConfig,
-  PrintingConfigSchema,
   PrintModeSchema,
   SupportedPrinterManufacturerSchema,
 } from 'utils';
 
 export interface AdminPrintingConfigFormProps {
-  defaultValues: PrintingConfig;
+  defaultValues: LabelPrintingConfig;
   formMode: 'add' | 'edit';
-  onSubmit: (data: PrintingConfig) => void;
+  onSubmit: (data: LabelPrintingConfig) => void;
   isSubmitting?: boolean;
   submitError?: OystehrSdkError | APIError;
 }
 
-export default function AdminPrintingConfigForm(props: AdminPrintingConfigFormProps): ReactElement {
+export default function AdminLabelPrintingConfigForm(props: AdminPrintingConfigFormProps): ReactElement {
   const { defaultValues, onSubmit, isSubmitting, submitError } = props;
   const theme = useTheme();
 
-  const methods = useForm<PrintingConfig>({
+  const methods = useForm<LabelPrintingConfig>({
     defaultValues,
-    resolver: zodResolver(PrintingConfigSchema),
+    resolver: zodResolver(LabelPrintingConfigSchema),
   });
 
   const selectedMode = methods.watch('mode');

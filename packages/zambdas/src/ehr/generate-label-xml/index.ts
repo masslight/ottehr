@@ -2,13 +2,13 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   ExternalLabsLabelConfig,
   ExternalLabsLabelContent,
+  LabelPrintingConfig,
   MANUFACTURER_TO_LABEL_MAPPING,
-  PrintingConfig,
   SupportedPrinterManufacturer,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { VisitLabelConfig, VisitLabelContent } from '../../shared/pdf/visit-label-pdf';
-import { getPrintingConfigAndDevice } from '../printing-config/get-printing-config';
+import { getPrintingConfigAndDevice } from '../label-printing-config/get-label-printing-config';
 import { getExternalLabLabelConfig, getVisitLabelConfig } from '../shared/label-printing';
 import { validateRequestParameters } from './validateRequestParameters';
 import { createXmlExternalLabLabel_30334 } from './xml-templates/external-lab-label-templates';
@@ -90,13 +90,13 @@ const EXTERNAL_LAB_LABEL_FUNCTION_MAP: LabelFunctionMap<ExternalLabsLabelContent
 type LabelUse = 'visit' | 'external-lab';
 function getContentToXmlFunction(
   labelUse: 'visit',
-  printingConfig: PrintingConfig
+  printingConfig: LabelPrintingConfig
 ): (content: VisitLabelContent) => string;
 function getContentToXmlFunction(
   labelUse: 'external-lab',
-  printingConfig: PrintingConfig
+  printingConfig: LabelPrintingConfig
 ): (content: ExternalLabsLabelContent) => string;
-function getContentToXmlFunction(labelUse: LabelUse, printingConfig: PrintingConfig): (content: any) => string {
+function getContentToXmlFunction(labelUse: LabelUse, printingConfig: LabelPrintingConfig): (content: any) => string {
   if (printingConfig.mode === 'manual') return () => '';
   const { printerManufacturer: manufacturer, labelType } = printingConfig.printerAndLabelConfig;
   if (labelUse === 'visit') {
