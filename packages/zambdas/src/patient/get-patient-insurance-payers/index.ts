@@ -106,11 +106,8 @@ const performEffect = async (oystehr: Oystehr): Promise<QuestionnaireItemAnswerO
 };
 
 const formatPayerAsAnswerOption = (oystehr: Oystehr, payer: Organization): QuestionnaireItemAnswerOption => {
-  let name = payer.alias?.[0] ?? payer.name;
+  const name = payer.alias?.[0] ?? payer.name;
   const payerId = getPayerId(payer);
-  if (payerId) {
-    name = `${payerId} - ${name}`;
-  }
   if (name && payerId && typeof name === 'string' && typeof payerId === 'string') {
     return {
       valueReference: {
