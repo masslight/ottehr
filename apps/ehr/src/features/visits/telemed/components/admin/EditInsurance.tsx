@@ -398,7 +398,7 @@ export default function EditInsurance(): JSX.Element {
                   >
                     <InfoOutlinedIcon sx={{ fontSize: '1.25rem', mt: '2px', flexShrink: 0 }} />
                     <Typography variant="body2" color="inherit">
-                      This insurance payer is currently being shown in patient paperwork. Choose insurance payers to
+                      All insurance payers are currently shown in patient paperwork. Choose specific insurance payers to
                       show to patients to limit the list in patient paperwork.
                     </Typography>
                   </Box>
