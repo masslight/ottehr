@@ -36,6 +36,8 @@ export interface QuickPickEditorField {
   label: string;
   required?: boolean;
   placeholder?: string;
+  multiline?: boolean;
+  rows?: number;
   renderField?: (
     value: string,
     onChange: (value: string) => void,
@@ -255,6 +257,8 @@ export default function QuickPickEditor<T extends { id?: string }>({
                 autoFocus={index === 0}
                 placeholder={field.placeholder}
                 required={field.required}
+                multiline={field.multiline}
+                rows={field.multiline ? field.rows ?? 4 : undefined}
               />
             )
           )}
