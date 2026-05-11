@@ -1,3 +1,4 @@
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
@@ -23,6 +24,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { BILLING_URL, CHARGE_MASTERS_URL, FEE_SCHEDULES_URL, INSURANCES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import Loading from 'src/components/Loading';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
 import { useListChargeMastersQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
@@ -320,6 +322,7 @@ export default function EditInsurance(): JSX.Element {
                   }}
                 >
                   Insurance settings
+                  {insuranceDataLoading ? <Loading /> : <></>}
                 </FormLabel>
                 <Controller
                   name="payor"
@@ -379,6 +382,28 @@ export default function EditInsurance(): JSX.Element {
                     />
                   )}
                 />
+                {!patientInsuranceOverrideList?.entry?.length && getValues('showInPaperwork') === false && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 1.5,
+                      backgroundColor: 'info.light',
+                      color: 'info.dark',
+                      borderRadius: 1,
+                      px: 2,
+                      py: 1.5,
+                      mb: 2,
+                      fontSize: '0.875rem',
+                    }}
+                  >
+                    <InfoOutlinedIcon sx={{ fontSize: '1.25rem', mt: '2px', flexShrink: 0 }} />
+                    <Typography variant="body2" color="inherit">
+                      This insurance payer is currently being shown in patient paperwork. Choose insurance payers to
+                      show to patients to limit the list in patient paperwork.
+                    </Typography>
+                  </Box>
+                )}
                 <Controller
                   name="displayName"
                   control={control}
