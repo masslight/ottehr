@@ -147,7 +147,6 @@ export default function BillingConfiguration({
 }): ReactElement {
   const navigate = useNavigate();
   const subTab: BillingSubTab = (billingTab as BillingSubTab) || 'insurance';
-  console.log('colin BillingConfig', billingTab, insuranceTab);
 
   const handleSubTabChange = (_: unknown, newValue: BillingSubTab): void => {
     navigate(`${BILLING_URL}/${newValue}`);

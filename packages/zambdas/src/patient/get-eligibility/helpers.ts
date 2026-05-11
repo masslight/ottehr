@@ -32,7 +32,6 @@ export const getInsurancePlansAndOrgs = async (
     ...(planIds.secondary ? [await oystehrClient.rcm.getPayer({ id: planIds.secondary })] : []),
   ];
 
-  console.log('colin getInsurancePlansAndOrgs', orgs);
   return orgs;
 };
 

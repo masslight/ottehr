@@ -12,7 +12,6 @@ type InsuranceSubTab = 'all' | 'patient' | 'notes';
 export default function InsuranceConfiguration({ insuranceTab }: { insuranceTab?: string }): ReactElement {
   const navigate = useNavigate();
   const subTab: InsuranceSubTab = (insuranceTab as InsuranceSubTab) || 'all';
-  console.log('colin InsuranceConfig', insuranceTab);
 
   const handleSubTabChange = (_: unknown, newValue: InsuranceSubTab): void => {
     navigate(`${BILLING_INSURANCE_URL}/${newValue}`);

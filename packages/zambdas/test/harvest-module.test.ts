@@ -2161,7 +2161,6 @@ describe('Harvest Module', () => {
             },
           ],
         },
-        // CW TODO this is used somewhere else that suspects it to be an id, not an url?
         class: [
           {
             name: 'Aetna',

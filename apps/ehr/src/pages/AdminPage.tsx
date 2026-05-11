@@ -31,7 +31,6 @@ enum PageTab {
 export function AdminPage(): JSX.Element {
   const { adminTab, billingTab, insuranceTab } = useParams();
   const navigate = useNavigate();
-  console.log('colin AdminPage', adminTab, billingTab, insuranceTab);
 
   const pageTab = billingTab ? PageTab.billing : (adminTab as PageTab) || PageTab.schedules;
 

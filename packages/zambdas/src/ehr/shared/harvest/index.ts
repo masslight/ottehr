@@ -1530,7 +1530,6 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
     priority2
   );
 
-  console.log('colin primary', JSON.stringify(primaryInsurance));
   if (primaryInsurance) {
     const primaryCoverage = createCoverageResource({
       patientId,
@@ -3934,7 +3933,6 @@ export const getAccountAndCoverageResourcesForPatient = async (
   }
 
   const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
-  console.log('colin get coverages', JSON.stringify(coverageResources));
   const insuranceOrgsFromFhir = resources.filter((res): res is Organization => res.resourceType === 'Organization');
   const resourcesWithoutInsuranceOrgsFromFhir = resources.filter((res) => res.resourceType !== 'Organization');
 
@@ -3962,7 +3960,6 @@ export const getAccountAndCoverageResourcesForPatient = async (
   for (const org of insuranceOrgs) {
     const override = ehrPayerList.entry?.find((override) => override.item.reference === getPayerUrl(org.id!));
     if (override) {
-      // CW TODO: i'm not sure if this puts the extension on the right resource
       const extensions = [...(org.extension ?? []), ...(override.extension ?? [])];
       org.extension = extensions;
     }
@@ -4026,7 +4023,6 @@ export const updatePatientAccountFromQuestionnaire = async (
     ?.answer?.[0]?.valueReference?.reference;
   if (workersCompInsuranceOrg) insuranceOrgs.push(workersCompInsuranceOrg);
 
-  console.log('colin harvest', JSON.stringify(insuranceOrgs));
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
 
   const {

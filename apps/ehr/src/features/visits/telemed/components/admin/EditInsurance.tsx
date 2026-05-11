@@ -95,7 +95,7 @@ export default function EditInsurance(): JSX.Element {
     refetch: refetchInsuranceData,
   } = useInsurancesQuery(insuranceId ? [insuranceId] : undefined, true);
   const insuranceDetails = insuranceData?.[0];
-  const payerId = getPayerId(insuranceDetails) ?? ''; // CW TODO: default
+  const payerId = getPayerId(insuranceDetails) ?? '';
 
   const { data: patientInsuranceOverrideList, refetch: refetchPatientOverrideList } = useQuery({
     queryKey: ['insurance-override-list', 'patient'],
@@ -261,7 +261,6 @@ export default function EditInsurance(): JSX.Element {
     }
   };
 
-  // CW TODO: handle no list / empty list note next to toggle
   return (
     <PageContainer tabTitle={'Edit State'}>
       <Grid container direction="row" alignItems="center" justifyContent="center">
