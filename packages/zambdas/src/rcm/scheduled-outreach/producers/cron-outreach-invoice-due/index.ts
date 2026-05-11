@@ -17,7 +17,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   const oystehr = createOystehrClient(m2mToken, input.secrets);
 
-  const result = await produceInvoiceDueOutreach(oystehr);
+  const result = await produceInvoiceDueOutreach(oystehr, input.secrets);
 
   return {
     statusCode: 200,

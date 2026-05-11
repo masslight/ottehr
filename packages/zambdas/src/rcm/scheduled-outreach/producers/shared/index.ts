@@ -7,5 +7,5 @@ export type { ProduceDischargeOutreachParams, ProduceDischargeOutreachResult } f
 export { produceInvoiceIssuedOutreach } from './produce-invoice-issued-outreach';
 export type { ProduceInvoiceIssuedOutreachParams } from './produce-invoice-issued-outreach';
 
-export { produceInvoiceDueOutreach, produceInvoiceDueOutreachForInvoice } from './produce-invoice-due-outreach';
+export { produceInvoiceDueOutreach } from './produce-invoice-due-outreach';
 export type { ProduceInvoiceDueOutreachResult } from './produce-invoice-due-outreach';

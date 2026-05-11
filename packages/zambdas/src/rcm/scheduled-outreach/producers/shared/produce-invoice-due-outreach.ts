@@ -1,113 +1,110 @@
 import Oystehr from '@oystehr/sdk';
-import { Invoice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { INVALID_INPUT_ERROR, PRIVATE_EXTENSION_BASE_URL } from 'utils';
-import { OutreachTaskResult, produceOutreachTasks } from './produce-outreach-tasks';
+import Stripe from 'stripe';
+import { Secrets } from 'utils';
+import { getStripeClient } from '../../../../shared';
+import { produceOutreachTasks } from './produce-outreach-tasks';
 
 export interface ProduceInvoiceDueOutreachResult {
   invoicesEvaluated: number;
   tasksCreated: number;
   tasksSkipped: number;
+  errors: number;
 }
 
 /**
- * Finds past-due invoices and creates outreach tasks for the `invoice-due` trigger.
+ * Finds past-due Stripe invoices and creates outreach tasks for the `invoice-due` trigger.
  *
- * Can be called directly from another zambda or from the cron handler.
+ * Queries Stripe for open invoices with due_date <= today, extracts
+ * oystehr_patient_id and oystehr_encounter_id from invoice metadata,
+ * and produces outreach tasks using the Encounter as focus.
  */
-export async function produceInvoiceDueOutreach(oystehr: Oystehr): Promise<ProduceInvoiceDueOutreachResult> {
-  const today = DateTime.now().toISODate()!;
+export async function produceInvoiceDueOutreach(
+  oystehr: Oystehr,
+  secrets: Secrets
+): Promise<ProduceInvoiceDueOutreachResult> {
+  const stripe = getStripeClient(secrets);
+  const today = DateTime.now().startOf('day');
+  const todayUnix = Math.floor(today.toSeconds());
 
-  const pastDueInvoices = await findPastDueInvoices(oystehr, today);
+  const pastDueInvoices = await findPastDueStripeInvoices(stripe, todayUnix);
 
-  console.log(`produceInvoiceDueOutreach: Found ${pastDueInvoices.length} past-due invoices to evaluate`);
+  console.log(`produceInvoiceDueOutreach: Found ${pastDueInvoices.length} past-due Stripe invoices to evaluate`);
 
   let tasksCreated = 0;
   let tasksSkipped = 0;
+  let errors = 0;
 
   for (const invoice of pastDueInvoices) {
-    if (!invoice.subject?.reference) {
-      console.warn(`Invoice ${invoice.id} has no subject reference, skipping`);
+    const patientId = invoice.metadata?.oystehr_patient_id;
+    const encounterId = invoice.metadata?.oystehr_encounter_id;
+
+    if (!patientId) {
+      console.warn(`Stripe invoice ${invoice.id} has no oystehr_patient_id in metadata, skipping`);
       continue;
     }
 
-    const dueDate = extractDueDate(invoice) || invoice.date || today;
+    if (!encounterId) {
+      console.warn(`Stripe invoice ${invoice.id} has no oystehr_encounter_id in metadata, skipping`);
+      continue;
+    }
 
-    const result = await produceOutreachTasks({
-      triggerEvent: 'invoice-due',
-      patient: invoice.subject,
-      focus: { reference: `Invoice/${invoice.id}` },
-      eventTimestamp: dueDate,
-      oystehr,
-    });
+    const dueDate = invoice.due_date
+      ? DateTime.fromSeconds(invoice.due_date).toISODate()!
+      : DateTime.fromSeconds(invoice.created).toISODate()!;
 
-    tasksCreated += result.created.length;
-    tasksSkipped += result.skipped.length;
+    try {
+      const result = await produceOutreachTasks({
+        triggerEvent: 'invoice-due',
+        patient: { reference: `Patient/${patientId}` },
+        focus: { reference: `Encounter/${encounterId}` },
+        eventTimestamp: dueDate,
+        oystehr,
+      });
+
+      tasksCreated += result.created.length;
+      tasksSkipped += result.skipped.length;
+    } catch (err) {
+      console.error(`Failed to produce outreach tasks for Stripe invoice ${invoice.id}:`, err);
+      errors++;
+    }
   }
 
-  console.log(`produceInvoiceDueOutreach: Created ${tasksCreated} tasks, skipped ${tasksSkipped} (already existing)`);
+  console.log(
+    `produceInvoiceDueOutreach: Created ${tasksCreated} tasks, skipped ${tasksSkipped} (already existing), errors ${errors}`
+  );
 
   return {
     invoicesEvaluated: pastDueInvoices.length,
     tasksCreated,
     tasksSkipped,
+    errors,
   };
 }
 
 /**
- * Produce outreach tasks for a single invoice that is known to be past-due.
- * Useful when another zambda already has the invoice and doesn't need the cron to find it.
+ * Find Stripe invoices that are open and past their due date.
+ * Paginates through all results using auto-pagination.
  */
-export async function produceInvoiceDueOutreachForInvoice(
-  invoice: Invoice,
-  oystehr: Oystehr,
-  appointmentRef?: string
-): Promise<OutreachTaskResult> {
-  if (!invoice.subject?.reference) {
-    throw INVALID_INPUT_ERROR(`Invoice ${invoice.id} has no subject (patient) reference`);
+async function findPastDueStripeInvoices(stripe: Stripe, dueDateLteUnix: number): Promise<Stripe.Invoice[]> {
+  const invoices: Stripe.Invoice[] = [];
+  let hasMore = true;
+  let startingAfter: string | undefined;
+
+  while (hasMore) {
+    const response = await stripe.invoices.list({
+      status: 'open',
+      due_date: { lte: dueDateLteUnix },
+      limit: 100,
+      starting_after: startingAfter,
+    });
+
+    invoices.push(...response.data);
+    hasMore = response.has_more;
+    if (hasMore && response.data.length > 0) {
+      startingAfter = response.data[response.data.length - 1].id;
+    }
   }
 
-  const dueDate = extractDueDate(invoice) || invoice.date || DateTime.now().toISODate()!;
-
-  return produceOutreachTasks({
-    triggerEvent: 'invoice-due',
-    patient: invoice.subject,
-    focus: { reference: `Invoice/${invoice.id}` },
-    appointment: appointmentRef ? { reference: appointmentRef } : undefined,
-    eventTimestamp: dueDate,
-    oystehr,
-  });
-}
-
-/**
- * Find invoices that are past their due date and still have an outstanding balance.
- */
-async function findPastDueInvoices(oystehr: Oystehr, today: string): Promise<Invoice[]> {
-  const bundle = await oystehr.fhir.search<Invoice>({
-    resourceType: 'Invoice',
-    params: [
-      { name: 'status', value: 'issued' },
-      { name: '_count', value: '200' },
-    ],
-  });
-
-  const invoices = bundle.unbundle();
-
-  return invoices.filter((inv: Invoice) => {
-    const dueDate = extractDueDate(inv);
-    if (!dueDate) return false;
-    return dueDate <= today;
-  });
-}
-
-/**
- * Extract the due date from an Invoice.
- * Looks for paymentTerms or a due-date extension.
- */
-function extractDueDate(invoice: Invoice): string | undefined {
-  const dueDateExt = invoice.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/invoice-due-date`);
-  if (dueDateExt?.valueDate) return dueDateExt.valueDate;
-  if (dueDateExt?.valueDateTime) return dueDateExt.valueDateTime.substring(0, 10);
-
-  return undefined;
+  return invoices;
 }

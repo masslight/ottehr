@@ -119,17 +119,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     await updateTaskStatusAndOutput(oystehr, task, mapDisplayToInvoiceTaskStatus('sent'), taskCopy.output);
     console.log('Task status and output updated');
 
-    // Produce outreach tasks triggered by invoice issuance (fire-and-forget)
-    produceOutreachTasks({
-      triggerEvent: 'invoice-issued',
-      patient: { reference: `Patient/${patient.id}` },
-      focus: { reference: `Encounter/${encounterId}` },
-      appointment: appointment?.id ? { reference: `Appointment/${appointment.id}` } : undefined,
-      eventTimestamp: new Date().toISOString(),
-      oystehr,
-    }).catch((err) => {
+    // Produce outreach tasks triggered by invoice issuance
+    try {
+      await produceOutreachTasks({
+        triggerEvent: 'invoice-issued',
+        patient: { reference: `Patient/${patient.id}` },
+        focus: { reference: `Encounter/${encounterId}` },
+        appointment: appointment?.id ? { reference: `Appointment/${appointment.id}` } : undefined,
+        eventTimestamp: new Date().toISOString(),
+        oystehr,
+      });
+    } catch (err) {
       console.error('Failed to produce invoice-issued outreach tasks:', err);
-    });
+    }
   } catch (error) {
     const oystehr = createOystehrClient(m2mToken, secrets);
     console.log('updating task status to failed and output');
