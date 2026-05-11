@@ -11,7 +11,6 @@ import {
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
-  getUnconfirmedDOBIdx,
   isValidUUID,
   REASON_ADDITIONAL_MAX_CHAR,
   UpdateVisitDetailsInput,
@@ -36,7 +35,6 @@ describe('saving and getting visit details', () => {
     existingPatientId?: string;
     patientAge?: { units: 'years' | 'months'; value: number };
     patientSex?: 'male' | 'female';
-    unconfirmedDob?: string;
   }
 
   const makeTestResources = async ({
@@ -46,7 +44,6 @@ describe('saving and getting visit details', () => {
     patientAge,
     existingPatientId,
     patientSex,
-    unconfirmedDob,
   }: MakeTestResourcesParams): Promise<{
     encounter: Encounter;
     appointment: Appointment;
@@ -85,14 +82,6 @@ describe('saving and getting visit details', () => {
           status: 'accepted',
         },
       ],
-      extension: unconfirmedDob
-        ? [
-            {
-              url: FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url,
-              valueString: unconfirmedDob,
-            },
-          ]
-        : undefined,
     };
     const batchInputApp: BatchInputPostRequest<Appointment> = {
       method: 'POST',
@@ -554,47 +543,6 @@ describe('saving and getting visit details', () => {
     expect(updatedName2?.given?.[1]).toBeUndefined();
     expect(updatedName2?.family).toBeDefined();
     expect(updatedName2?.family).toEqual(newLastName);
-  });
-  test.concurrent('can save and retrieve confirmed DOB', async () => {
-    if (!oystehr || !processId) {
-      throw new Error('oystehr or processId is null! could not run test!');
-    }
-    const { encounter, appointment, patient } = await makeTestResources({
-      processId,
-      oystehr,
-      patientAge: { units: 'years', value: 5 },
-      unconfirmedDob: '2022-02-02',
-    });
-    const originalBirthDate = DateTime.now().minus({ years: 5 }).toISODate();
-    expect(encounter).toBeDefined();
-    expect(appointment).toBeDefined();
-    expect(patient).toBeDefined();
-    expect(patient?.birthDate).toBeDefined();
-    expect(patient?.birthDate).toEqual(originalBirthDate);
-    expect(originalBirthDate).toBeDefined();
-    expect(getUnconfirmedDOBIdx(appointment)).toBeDefined();
-    expect(getUnconfirmedDOBIdx(appointment)).toEqual(0);
-
-    const visitDetails = await getVisitDetails(appointment.id!);
-    expect(visitDetails).toBeDefined();
-    expect(visitDetails.patient).toBeDefined();
-    expect(visitDetails.patient.birthDate).toBeDefined();
-    expect(visitDetails.patient.birthDate).toEqual(originalBirthDate);
-
-    const newBirthDate = '2017-02-02';
-    await updateVisitDetails({
-      appointmentId: appointment.id!,
-      bookingDetails: {
-        confirmedDob: newBirthDate,
-      },
-    });
-    const updatedVisitDetails = await getVisitDetails(appointment.id!);
-    expect(updatedVisitDetails).toBeDefined();
-    expect(updatedVisitDetails.appointment).toBeDefined();
-    expect(updatedVisitDetails.patient).toBeDefined();
-    expect(updatedVisitDetails.patient.birthDate).toBeDefined();
-    expect(updatedVisitDetails.patient.birthDate).toEqual(newBirthDate);
-    expect(getUnconfirmedDOBIdx(updatedVisitDetails.appointment)).toBeUndefined();
   });
   test.concurrent('can save and retrieve authorized non-legal guardians', async () => {
     if (!oystehr || !processId) {
