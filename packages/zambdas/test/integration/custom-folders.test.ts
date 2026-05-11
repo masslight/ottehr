@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { List, Patient } from 'fhir/r4b';
 import {
+  APIErrorCode,
   CreateCustomFolderOutput,
   createCustomPatientDocumentList,
   CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
@@ -92,12 +93,12 @@ describe('custom folders zambdas integration tests', () => {
   const executeCreate = async (
     folderName: string,
     client: Oystehr = oystehrTestUserM2M
-  ): Promise<{ output?: CreateCustomFolderOutput; error?: any; statusCode?: number }> => {
+  ): Promise<{ output?: CreateCustomFolderOutput; error?: any; code?: number }> => {
     try {
       const res = await client.zambda.execute({ id: 'create-custom-folder', folderName });
       return { output: res.output as CreateCustomFolderOutput };
     } catch (err: any) {
-      return { error: err, statusCode: err?.status ?? err?.statusCode };
+      return { error: err, code: err?.code };
     }
   };
 
@@ -105,36 +106,36 @@ describe('custom folders zambdas integration tests', () => {
     internalName: string,
     newName: string,
     client: Oystehr = oystehrTestUserM2M
-  ): Promise<{ output?: any; error?: any; statusCode?: number }> => {
+  ): Promise<{ output?: any; error?: any; code?: number }> => {
     try {
       const res = await client.zambda.execute({ id: 'rename-custom-folder', internalName, newName });
       return { output: res.output };
     } catch (err: any) {
-      return { error: err, statusCode: err?.status ?? err?.statusCode };
+      return { error: err, code: err?.code };
     }
   };
 
   const executeDelete = async (
     internalName: string,
     client: Oystehr = oystehrTestUserM2M
-  ): Promise<{ output?: any; error?: any; statusCode?: number }> => {
+  ): Promise<{ output?: any; error?: any; code?: number }> => {
     try {
       const res = await client.zambda.execute({ id: 'delete-custom-folder', internalName });
       return { output: res.output };
     } catch (err: any) {
-      return { error: err, statusCode: err?.status ?? err?.statusCode };
+      return { error: err, code: err?.code };
     }
   };
 
   const executeUpload = async (
     body: { patientId: string; fileFolderId: string; fileName: string; internalName?: string },
     client: Oystehr = oystehrTestUserM2M
-  ): Promise<{ output?: any; error?: any; statusCode?: number }> => {
+  ): Promise<{ output?: any; error?: any; code?: number }> => {
     try {
       const res = await client.zambda.execute({ id: 'create-upload-document-url', ...body });
       return { output: res.output };
     } catch (err: any) {
-      return { error: err, statusCode: err?.status ?? err?.statusCode };
+      return { error: err, code: err?.code };
     }
   };
 
@@ -213,31 +214,31 @@ describe('custom folders zambdas integration tests', () => {
       expect(catalogAfterFirst!.id).toBe(catalogAfterSecond!.id);
     });
 
-    it('rejects a duplicate display name with 409', async () => {
+    it('rejects a duplicate display name with INVALID_INPUT', async () => {
       const created = await createFolderAndTrack('DupName');
-      const { error, statusCode } = await executeCreate(created.displayName);
+      const { error, code } = await executeCreate(created.displayName);
       expect(error).toBeDefined();
-      expect(statusCode).toBe(409);
+      expect(code).toBe(APIErrorCode.INVALID_INPUT);
     });
 
-    it('rejects a duplicate display name case-insensitively with 409', async () => {
+    it('rejects a duplicate display name case-insensitively with INVALID_INPUT', async () => {
       const created = await createFolderAndTrack('CaseSensitive');
-      const { error, statusCode } = await executeCreate(created.displayName.toUpperCase());
+      const { error, code } = await executeCreate(created.displayName.toUpperCase());
       expect(error).toBeDefined();
-      expect(statusCode).toBe(409);
+      expect(code).toBe(APIErrorCode.INVALID_INPUT);
     });
 
     it('rejects a name that collides with a protected folder display', async () => {
       const protectedName = FOLDERS_CONFIG[0].display;
-      const { error, statusCode } = await executeCreate(protectedName);
+      const { error, code } = await executeCreate(protectedName);
       expect(error).toBeDefined();
-      expect(statusCode).toBe(409);
+      expect(code).toBe(APIErrorCode.INVALID_INPUT);
     });
 
     it('rejects an empty/whitespace name with 400', async () => {
-      const { error, statusCode } = await executeCreate('   ');
+      const { error, code } = await executeCreate('   ');
       expect(error).toBeDefined();
-      expect(statusCode).toBe(400);
+      expect(code).toBe(400);
     });
   });
 
@@ -276,25 +277,25 @@ describe('custom folders zambdas integration tests', () => {
       expect(refetchedCoding?.display).toBe(created.displayName);
     });
 
-    it('returns 404 for an unknown internal name', async () => {
-      const { error, statusCode } = await executeRename('custom-folder-does-not-exist-xyz', 'Some New Name');
+    it('returns FHIR_RESOURCE_NOT_FOUND for an unknown internal name', async () => {
+      const { error, code } = await executeRename('custom-folder-does-not-exist-xyz', 'Some New Name');
       expect(error).toBeDefined();
-      expect(statusCode).toBe(404);
+      expect(code).toBe(APIErrorCode.FHIR_RESOURCE_NOT_FOUND);
     });
 
-    it('returns 409 when renaming to a name that collides with another custom folder', async () => {
+    it('returns INVALID_INPUT when renaming to a name that collides with another custom folder', async () => {
       const a = await createFolderAndTrack('CollideA');
       const b = await createFolderAndTrack('CollideB');
-      const { error, statusCode } = await executeRename(a.internalName, b.displayName);
+      const { error, code } = await executeRename(a.internalName, b.displayName);
       expect(error).toBeDefined();
-      expect(statusCode).toBe(409);
+      expect(code).toBe(APIErrorCode.INVALID_INPUT);
     });
 
-    it('returns 409 when renaming to a protected folder display name', async () => {
+    it('returns INVALID_INPUT when renaming to a protected folder display name', async () => {
       const created = await createFolderAndTrack('CollideSystem');
-      const { error, statusCode } = await executeRename(created.internalName, FOLDERS_CONFIG[0].display);
+      const { error, code } = await executeRename(created.internalName, FOLDERS_CONFIG[0].display);
       expect(error).toBeDefined();
-      expect(statusCode).toBe(409);
+      expect(code).toBe(APIErrorCode.INVALID_INPUT);
     });
   });
 
@@ -330,17 +331,17 @@ describe('custom folders zambdas integration tests', () => {
       expect(refetched.title).toBe(created.internalName);
     });
 
-    it('returns 404 for an unknown internal name', async () => {
-      const { error, statusCode } = await executeDelete('custom-folder-does-not-exist-xyz');
+    it('returns FHIR_RESOURCE_NOT_FOUND for an unknown internal name', async () => {
+      const { error, code } = await executeDelete('custom-folder-does-not-exist-xyz');
       expect(error).toBeDefined();
-      expect(statusCode).toBe(404);
+      expect(code).toBe(APIErrorCode.FHIR_RESOURCE_NOT_FOUND);
     });
 
-    it('returns 404 when called with a protected folder title (it is not in the catalog)', async () => {
+    it('returns FHIR_RESOURCE_NOT_FOUND when called with a protected folder title (it is not in the catalog)', async () => {
       const protectedTitle = FOLDERS_CONFIG[0].title;
-      const { error, statusCode } = await executeDelete(protectedTitle);
+      const { error, code } = await executeDelete(protectedTitle);
       expect(error).toBeDefined();
-      expect(statusCode).toBe(404);
+      expect(code).toBe(APIErrorCode.FHIR_RESOURCE_NOT_FOUND);
     });
   });
 

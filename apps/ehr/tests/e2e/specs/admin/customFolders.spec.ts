@@ -20,7 +20,8 @@ test.describe('Custom Folders Admin E2E', () => {
     });
 
     await test.step('Protected folder rows are present', async () => {
-      // The first protected folder from FOLDERS_CONFIG should be visible as a non-actionable row.
+      // Filter via search so the assertion is independent of alphabetical paging.
+      await page.getByLabel('Folder', { exact: true }).fill(PROTECTED_FOLDER_NAME);
       await expect(page.getByRole('cell', { name: PROTECTED_FOLDER_NAME, exact: true })).toBeVisible(DEFAULT_TIMEOUT);
     });
   });
