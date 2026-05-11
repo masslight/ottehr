@@ -23,11 +23,8 @@ interface UseExternalLabLabelOutput {
  * @returns
  */
 export const usePrintExternalLabLabel = (): UseExternalLabLabelOutput => {
-  // const [errorState, setErrorState] = useState<>
-
   const getLabelXmlAndPrintingConfig = useGetLabelXmlAndPrintingConfig();
 
-  // this now needs to spit out a function that takes the config itself
   const { printLabelByConfig } = usePrintLabel();
 
   const printExternalLabLabel = useCallback(

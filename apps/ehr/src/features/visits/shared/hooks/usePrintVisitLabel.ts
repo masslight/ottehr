@@ -22,11 +22,8 @@ interface UsePrintVisitLabelOutput {
  * @returns
  */
 export const usePrintVisitLabel = (): UsePrintVisitLabelOutput => {
-  // const [errorState, setErrorState] = useState<>
-
   const getLabelXmlAndPrintingConfig = useGetLabelXmlAndPrintingConfig();
 
-  // this now needs to spit out a function that takes the config itself
   const { printLabelByConfig } = usePrintLabel();
 
   const printVisitLabel = useCallback(
