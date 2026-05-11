@@ -62,6 +62,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = createOystehrClient(m2mToken, secrets);
 
     if (validated.mode === 'status') {
+      if (!validated.patientId) {
+        return { statusCode: 200, body: JSON.stringify({ task: null }) };
+      }
       const response = await getActiveMergeTaskForPatient(validated.patientId, oystehr);
       return { statusCode: 200, body: JSON.stringify(response) };
     }
@@ -133,8 +136,13 @@ const validateRequestParameters = (input: ZambdaInput): ValidatedInput => {
     if (!body.patientId) {
       throw MISSING_REQUIRED_PARAMETERS(['patientId']);
     }
-    if (!isValidUUID(body.patientId)) {
-      throw new Error('patientId must be a valid UUID');
+    // Polling endpoint is hit on every page render — be tolerant of bogus values
+    // (e.g. URLs like /patient/undefined/info producing the literal string
+    // "undefined") so they don't spam logs with 400s. The handler will treat
+    // these as "no active task".
+    if (typeof body.patientId !== 'string' || !isValidUUID(body.patientId)) {
+      console.warn(`merge-patients status mode: ignoring non-UUID patientId ${JSON.stringify(body.patientId)}`);
+      return { mode: 'status', secrets, patientId: '' };
     }
     return { mode: 'status', secrets, patientId: body.patientId };
   }

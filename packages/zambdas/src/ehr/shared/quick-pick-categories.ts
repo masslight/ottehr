@@ -4,6 +4,7 @@ import {
   InHouseMedicationQuickPickData,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
+  PatientInstructionQuickPickData,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
 } from 'utils';
@@ -83,5 +84,16 @@ export const IN_HOUSE_MEDICATION_QUICK_PICK_CATEGORY: QuickPickCategory<InHouseM
     id,
     name: title,
     ...(config as Omit<InHouseMedicationQuickPickData, 'id' | 'name'>),
+  }),
+};
+
+export const PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY: QuickPickCategory<PatientInstructionQuickPickData> = {
+  tagCode: 'patient-instruction-quick-pick',
+  displayNameKey: 'name',
+  getDisplayName: (data) => data.name,
+  fromParsed: (id, title, config) => ({
+    id,
+    name: title,
+    ...(config as Omit<PatientInstructionQuickPickData, 'id' | 'name'>),
   }),
 };

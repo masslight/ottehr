@@ -47,10 +47,10 @@ const INSURANCE_CARD_TYPE_CODING = {
     {
       system: 'http://loinc.org',
       code: INSURANCE_CARD_CODE,
-      display: 'Insurance card front',
+      display: 'Health insurance card',
     },
   ],
-  text: 'Insurance card front',
+  text: 'Insurance cards',
 };
 
 const PHOTO_ID_CARD_TYPE_CODING = {

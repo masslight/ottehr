@@ -165,6 +165,13 @@
       "src": "src/ehr/delete-chart-data/index",
       "zip": ".dist/zips/delete-chart-data.zip"
     },
+    "UPLOAD-PATIENT-CONDITION-PHOTO": {
+      "name": "upload-patient-condition-photo",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/upload-patient-condition-photo/index",
+      "zip": ".dist/zips/upload-patient-condition-photo.zip"
+    },
     "MIGRATE-EXAM-DATA": {
       "name": "migrate-exam-data",
       "type": "http_auth",
@@ -374,6 +381,34 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-remove-in-house-medication-quick-pick/index",
       "zip": ".dist/zips/admin-remove-in-house-medication-quick-pick.zip"
+    },
+    "ADMIN-GET-PATIENT-INSTRUCTION-QUICK-PICKS": {
+      "name": "admin-get-patient-instruction-quick-picks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-patient-instruction-quick-picks/index",
+      "zip": ".dist/zips/admin-get-patient-instruction-quick-picks.zip"
+    },
+    "ADMIN-CREATE-PATIENT-INSTRUCTION-QUICK-PICK": {
+      "name": "admin-create-patient-instruction-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-patient-instruction-quick-pick/index",
+      "zip": ".dist/zips/admin-create-patient-instruction-quick-pick.zip"
+    },
+    "ADMIN-UPDATE-PATIENT-INSTRUCTION-QUICK-PICK": {
+      "name": "admin-update-patient-instruction-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-patient-instruction-quick-pick/index",
+      "zip": ".dist/zips/admin-update-patient-instruction-quick-pick.zip"
+    },
+    "ADMIN-REMOVE-PATIENT-INSTRUCTION-QUICK-PICK": {
+      "name": "admin-remove-patient-instruction-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-remove-patient-instruction-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-patient-instruction-quick-pick.zip"
     },
     "UPDATE-USER": {
       "name": "update-user",

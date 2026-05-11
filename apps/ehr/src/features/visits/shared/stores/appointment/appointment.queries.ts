@@ -10,7 +10,7 @@ import { Bundle, Coding, FhirResource, InsurancePlan, Medication, Patient } from
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
-import { icd10Search } from 'src/api/api';
+import { getPatientInstructionQuickPicks, icd10Search } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -21,6 +21,7 @@ import {
   BillingSuggestionInput,
   CancelMatchUnsolicitedResultTask,
   CODE_SYSTEM_NDC,
+  CommunicationDTO,
   CPTSearchRequestParams,
   FinalizeUnsolicitedResultMatch,
   GetCreateInHouseLabOrderResourcesInput,
@@ -641,20 +642,29 @@ export const useGetPatientInstructions = (
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const apiClient = useOystehrAPIClient();
+  const { oystehrZambda } = useApiClients();
 
   const queryResult = useQuery({
     queryKey: ['telemed-get-patient-instructions', type],
-
-    queryFn: () => {
-      if (apiClient) {
-        return apiClient.getPatientInstructions({
-          type,
-        });
+    queryFn: async () => {
+      if (!apiClient) {
+        throw new Error('api client not defined');
       }
-      throw new Error('api client not defined');
+      if (!oystehrZambda) {
+        throw new Error('oystehrZambda not defined');
+      }
+      if (type === 'provider') {
+        return apiClient.getPatientInstructions({ type });
+      }
+      const quickPicksResponse = await getPatientInstructionQuickPicks(oystehrZambda);
+      return quickPicksResponse.quickPicks.map<CommunicationDTO>((quickPick) => {
+        return {
+          title: quickPick.name,
+          text: quickPick.text,
+        };
+      });
     },
-
-    enabled: !!apiClient,
+    enabled: !!apiClient && !!oystehrZambda,
   });
 
   useSuccessQuery(queryResult.data, onSuccess);

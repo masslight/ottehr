@@ -51,7 +51,6 @@ const Review = (): JSX.Element => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const {
-    unconfirmedDateOfBirth,
     visitType,
     scheduleOwnerName,
     scheduleOwnerType,
@@ -143,7 +142,6 @@ const Review = (): JSX.Element => {
       const res = await ottehrApi.createAppointment(zambdaClient, {
         slotId,
         patient: patientInfo,
-        unconfirmedDateOfBirth,
         language: 'en', // replace with i18n.language to enable
       });
       const fhirAppointmentId = res.appointmentId;
