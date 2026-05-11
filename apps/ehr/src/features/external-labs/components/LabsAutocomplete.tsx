@@ -11,7 +11,6 @@ import {
   ModifiedOrderingLocation,
   nameLabTest,
   OrderableItemSearchResult,
-  refineLabResponseForGenericLabSets,
   STATIC_COMPENDIUM_LAB_GUID,
 } from 'utils';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
@@ -68,28 +67,17 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
       });
       const labs = res?.labs;
 
-      const genericLabsIncluded = new Set(labSet.labs.filter((lab) => lab.labGuid === STATIC_COMPENDIUM_LAB_GUID));
-
       if (labs) {
         setSelectedLabs((currentLabs) => {
           const existingCodes = new Set(
             currentLabs.map((lab) => `${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
           );
 
-          if (genericLabsIncluded.size > 0) {
-            const refinedLabs = refineLabResponseForGenericLabSets(labs, genericLabsIncluded);
-            const newLabs = refinedLabs.filter(
-              (lab) => !existingCodes.has(`${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
-            );
+          const newLabs = labs.filter(
+            (lab) => !existingCodes.has(`${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
+          );
 
-            return [...currentLabs, ...newLabs];
-          } else {
-            const newLabs = labs.filter(
-              (lab) => !existingCodes.has(`${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
-            );
-
-            return [...currentLabs, ...newLabs];
-          }
+          return [...currentLabs, ...newLabs];
         });
       }
     }

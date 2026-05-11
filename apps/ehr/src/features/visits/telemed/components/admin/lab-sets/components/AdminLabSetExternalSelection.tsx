@@ -5,12 +5,7 @@ import { ExternalSelectedTests } from 'src/features/external-labs/components/cre
 import { LabsAutocomplete } from 'src/features/external-labs/components/LabsAutocomplete';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetCreateExternalLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import {
-  ExternalLabSetDTO,
-  OrderableItemSearchResult,
-  refineLabResponseForGenericLabSets,
-  STATIC_COMPENDIUM_LAB_GUID,
-} from 'utils';
+import { ExternalLabSetDTO, OrderableItemSearchResult } from 'utils';
 
 interface AdminLabSetExternalSelectionProps {
   onTestsChange: (tests: OrderableItemSearchResult[]) => void;
@@ -42,19 +37,12 @@ export const AdminLabSetExternalSelection: React.FC<AdminLabSetExternalSelection
 
     const fetchLabs = async (): Promise<void> => {
       try {
-        const genericLabs = new Set(defaultLabs.labs.filter((lab) => lab.labGuid === STATIC_COMPENDIUM_LAB_GUID));
         const response = await apiClient?.getCreateExternalLabResources({
           selectedLabSet: defaultLabs,
         });
 
         if (response?.labs) {
-          if (genericLabs.size > 0) {
-            // need to massage the data a bit so we can figure out the correct generic lab name
-            const refinedLabs = refineLabResponseForGenericLabSets(response.labs, genericLabs);
-            setSelectedLabs(refinedLabs);
-          } else {
-            setSelectedLabs(response.labs);
-          }
+          setSelectedLabs(response.labs);
           hasInitializedRef.current = true;
         }
       } catch (e) {
