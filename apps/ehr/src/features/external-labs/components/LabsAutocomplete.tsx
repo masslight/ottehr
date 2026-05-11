@@ -155,7 +155,7 @@ const expandResultsForGeneric = (
     : orderingLocations.filter((location) => location.id === orderingLocation.selectedOrderingLocationId);
 
   if (!selectedLocation || selectedLocation.length === 0) {
-    console.error('Unable to expand results, returning original labs results');
+    console.warn('Unable to expand results, returning original labs results');
     safelyCaptureMessage(
       `No selectedLocation found when trying to expandResultsForGeneric (searchingForAll=${
         orderingLocation.searchingForAll
