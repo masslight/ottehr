@@ -235,7 +235,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
 
   return (
     <GenericToolTip title={<OrdersToolTip orderConfigs={orderConfigs} />} customWidth="none" placement="top">
-      <Box sx={{ display: 'flex', width: '100%' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, auto)', gap: 1 }}>
         {orderConfigs.map((config) => {
           const button = (
             <Link to={config.tableUrl} style={{ textDecoration: 'none' }}>
@@ -250,7 +250,6 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
                   height: '28px',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  marginRight: '8px',
                 }}
               >
                 {config.icon}
