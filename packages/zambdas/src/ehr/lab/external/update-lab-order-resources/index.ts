@@ -556,7 +556,7 @@ const handleSaveCollectionData = async (
     requests.push(qrPatchRequest);
   }
 
-  let presignedLabelURL: string | undefined = undefined;
+  let presignedLabelPdfUrl: string | undefined = undefined;
   // update pst task to complete, add agent and relevant history (provenance created)
   // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask
   const pstCompletedRequests = await makePstCompletePatchRequests(
@@ -580,7 +580,7 @@ const handleSaveCollectionData = async (
     });
 
     console.log('creating labs order label and getting url');
-    presignedLabelURL = (
+    presignedLabelPdfUrl = (
       await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mToken, oystehr)
     ).presignedURL;
   }
@@ -588,5 +588,5 @@ const handleSaveCollectionData = async (
   console.log('making fhir requests');
   await oystehr.fhir.transaction({ requests });
 
-  return { presignedLabelURL };
+  return { presignedLabelURL: presignedLabelPdfUrl };
 };
