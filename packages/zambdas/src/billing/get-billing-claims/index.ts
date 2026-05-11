@@ -40,8 +40,8 @@ async function performEffect(
   ];
 
   if (params.status) searchParams.push({ name: '_tag', value: `current-status|${params.status}` });
-  if (params.dosFrom) searchParams.push({ name: 'created', value: `ge${params.dosFrom}` });
-  if (params.dosTo) searchParams.push({ name: 'created', value: `le${params.dosTo}` });
+  if (params.createdFrom) searchParams.push({ name: 'created', value: `ge${params.createdFrom}` });
+  if (params.createdTo) searchParams.push({ name: 'created', value: `le${params.createdTo}` });
   if (params.patientId) searchParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
   if (params.searchText) searchParams.push({ name: 'patient.name', value: params.searchText });
   if (params.payerName) searchParams.push({ name: 'insurer.name', value: params.payerName });

@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, getSecret, SecretsKeys } from 'utils';
+import { getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, formatAddress } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, fhirName, formatAddress } from '../shared';
 import { SearchBillingPatientsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -42,15 +42,14 @@ async function performEffect(oystehr: Oystehr, params: SearchBillingPatientsPara
   const response = await oystehr.fhir.search<Patient>({ resourceType: 'Patient', params: searchParams });
 
   const patients = response.unbundle().map((p) => {
-    const name = p.name?.[0];
     const identifiers = p.identifier ?? [];
     const mrn = identifiers.find((id) => id.type?.coding?.some((c) => c.code === 'MR'))?.value ?? '';
 
     return {
       id: p.id,
-      name: name ? convertFhirNameToDisplayName(name) : '',
-      firstName: name?.given?.join(' ') ?? '',
-      lastName: name?.family ?? '',
+      name: fhirName(p),
+      firstName: p.name?.[0]?.given?.join(' ') ?? '',
+      lastName: p.name?.[0]?.family ?? '',
       dob: p.birthDate ?? '',
       gender: p.gender ?? '',
       address: formatAddress(p.address?.[0]),

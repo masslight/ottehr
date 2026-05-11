@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, FHIR_IDENTIFIER_NPI, getNPI, getSecret, getTaxID, SecretsKeys } from 'utils';
+import { FHIR_IDENTIFIER_NPI, getNPI, getSecret, getTaxID, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import {
   BILLS_TAG,
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAM,
+  fhirName,
   getTag,
   LICENSE_TAG,
   RENDERS_TAG,
@@ -70,10 +71,9 @@ async function performEffect(
 }
 
 function mapPractitioner(p: Practitioner): ProviderItem {
-  const name = p.name?.[0];
   return {
     id: p.id ?? '',
-    name: name ? convertFhirNameToDisplayName(name) : '',
+    name: fhirName(p),
     npi: getNPI(p) ?? '',
     rendersServices: getTag(p, RENDERS_TAG) !== 'false',
     billsServices: getTag(p, BILLS_TAG) === 'true',

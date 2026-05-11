@@ -17,31 +17,11 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { chooseJson, ClaimsQueueItemStatuses } from 'utils';
+import { BillingClaimItem, chooseJson, ClaimsQueueItemStatuses } from 'utils';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { formatCurrency } from '../utils/format';
-
-interface ClaimRow {
-  id: string;
-  status: string;
-  patientName: string;
-  patientDob: string;
-  payerName: string;
-  payerId: string;
-  memberId: string;
-  serviceDate: string;
-  facility: string;
-  renderingProvider: string;
-  billed: number;
-  allowed: number;
-  insurancePaid: number;
-  patientResp: number;
-  patientPaid: number;
-  claimBalance: number;
-  responsibleParty: string;
-}
 
 interface PayerOption {
   id: string;
@@ -59,8 +39,8 @@ interface PatientOption {
 interface Filters {
   searchText?: string;
   status?: string;
-  dosFrom?: string;
-  dosTo?: string;
+  createdFrom?: string;
+  createdTo?: string;
   payerId?: string;
   patientId?: string;
 }
@@ -106,7 +86,7 @@ export default function ClaimsList(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
-  const [claims, setClaims] = useState<ClaimRow[]>([]);
+  const [claims, setClaims] = useState<BillingClaimItem[]>([]);
   const [totalRows, setTotalRows] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,8 +97,8 @@ export default function ClaimsList(): ReactElement {
 
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [dosFrom, setDosFrom] = useState('');
-  const [dosTo, setDosTo] = useState('');
+  const [createdFrom, setDosFrom] = useState('');
+  const [createdTo, setDosTo] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<PayerOption | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<PatientOption | null>(null);
 
@@ -146,8 +126,8 @@ export default function ClaimsList(): ReactElement {
         };
         if (filters.searchText) body.searchText = filters.searchText;
         if (filters.status) body.status = filters.status;
-        if (filters.dosFrom) body.dosFrom = filters.dosFrom;
-        if (filters.dosTo) body.dosTo = filters.dosTo;
+        if (filters.createdFrom) body.createdFrom = filters.createdFrom;
+        if (filters.createdTo) body.createdTo = filters.createdTo;
         if (filters.payerId) body.payerId = filters.payerId;
         if (filters.patientId) body.patientId = filters.patientId;
 
@@ -208,12 +188,12 @@ export default function ClaimsList(): ReactElement {
     (overrides?: Filters): Filters => ({
       searchText: overrides?.searchText ?? searchText,
       status: overrides?.status ?? statusFilter,
-      dosFrom: overrides?.dosFrom ?? dosFrom,
-      dosTo: overrides?.dosTo ?? dosTo,
+      createdFrom: overrides?.createdFrom ?? createdFrom,
+      createdTo: overrides?.createdTo ?? createdTo,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
       patientId: overrides?.patientId ?? selectedPatient?.id,
     }),
-    [searchText, statusFilter, dosFrom, dosTo, selectedPayer, selectedPatient]
+    [searchText, statusFilter, createdFrom, createdTo, selectedPayer, selectedPatient]
   );
 
   const applyFilters = useCallback(
@@ -247,7 +227,7 @@ export default function ClaimsList(): ReactElement {
     void fetchClaims({}, resetPage);
   };
 
-  const hasFilters = searchText || statusFilter || dosFrom || dosTo || selectedPayer || selectedPatient;
+  const hasFilters = searchText || statusFilter || createdFrom || createdTo || selectedPayer || selectedPatient;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -337,11 +317,11 @@ export default function ClaimsList(): ReactElement {
         <TextField
           size="small"
           type="date"
-          label="Service Date From"
-          value={dosFrom}
+          label="Created From"
+          value={createdFrom}
           onChange={(e) => {
             setDosFrom(e.target.value);
-            applyFilters({ dosFrom: e.target.value });
+            applyFilters({ createdFrom: e.target.value });
           }}
           InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 160 }}
@@ -350,11 +330,11 @@ export default function ClaimsList(): ReactElement {
         <TextField
           size="small"
           type="date"
-          label="Service Date To"
-          value={dosTo}
+          label="Created To"
+          value={createdTo}
           onChange={(e) => {
             setDosTo(e.target.value);
-            applyFilters({ dosTo: e.target.value });
+            applyFilters({ createdTo: e.target.value });
           }}
           InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 160 }}

@@ -24,8 +24,8 @@ export const GetPatientCoveragesInputSchema = z.object({
 export const GetBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   status: nonEmptyString.optional(),
-  dosFrom: nonEmptyString.optional(),
-  dosTo: nonEmptyString.optional(),
+  createdFrom: nonEmptyString.optional(),
+  createdTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
   patientId: nonEmptyString.optional(),

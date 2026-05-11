@@ -17,6 +17,7 @@ export const ProtectedRoute: FC<ProtectedRouteProps> = (props: ProtectedRoutePro
     loginWithRedirect().catch((error) => {
       throw new Error(`Error calling loginWithRedirect Auth0 ${error}`);
     });
+    return <LoadingScreen />;
   }
 
   return props.showWhenAuthenticated;

@@ -19,12 +19,19 @@ import {
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
+  FHIR_RESOURCE_NOT_FOUND,
   getSecret,
   InternalError,
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { applyNameOverrides, createBillingClient, CURRENT_STATUS_TAG_SYSTEM, prepareWorkingCopy } from '../shared';
+import {
+  applyNameOverrides,
+  createBillingClient,
+  CURRENT_STATUS_TAG_SYSTEM,
+  findRef,
+  prepareWorkingCopy,
+} from '../shared';
 import { CreateClaimParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -45,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 interface OriginalResources {
-  patient?: Patient;
+  patient: Patient;
   coverage?: Coverage;
   practitioner?: Practitioner;
   facility?: Location;
@@ -88,20 +95,20 @@ async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promi
     }
   }
 
-  const find = <T extends Resource>(type: string, id?: string): T | undefined =>
-    id ? (resources.find((r) => r.resourceType === type && r.id === id) as T | undefined) : undefined;
+  const patient = findRef<Patient>(resources, `Patient/${params.patientId}`);
+  if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
 
-  const patient = find<Patient>('Patient', params.patientId);
-  const coverage = find<Coverage>('Coverage', params.coverageId);
-  const practitioner = find<Practitioner>('Practitioner', params.practitionerId);
-  const facility = find<Location>('Location', params.facilityId);
-  const billingProvider = find<Organization>('Organization', params.billingProviderId);
-
-  let payor: Organization | undefined;
-  if (coverage?.payor?.[0]?.reference) {
-    const payorId = coverage.payor[0].reference.replace('Organization/', '');
-    payor = find<Organization>('Organization', payorId);
-  }
+  const coverage = findRef<Coverage>(resources, params.coverageId ? `Coverage/${params.coverageId}` : undefined);
+  const practitioner = findRef<Practitioner>(
+    resources,
+    params.practitionerId ? `Practitioner/${params.practitionerId}` : undefined
+  );
+  const facility = findRef<Location>(resources, params.facilityId ? `Location/${params.facilityId}` : undefined);
+  const billingProvider = findRef<Organization>(
+    resources,
+    params.billingProviderId ? `Organization/${params.billingProviderId}` : undefined
+  );
+  const payor = findRef<Organization>(resources, coverage?.payor?.[0]?.reference);
 
   return { patient, coverage, practitioner, facility, billingProvider, payor };
 }
@@ -114,12 +121,11 @@ async function createWorkingCopies(
   const requests: { method: 'POST'; url: string; resource: FhirResource }[] = [];
   const order: string[] = [];
 
-  if (originals.patient) {
-    let copy = prepareWorkingCopy(originals.patient, originals.patient.id!);
-    copy = applyPatientOverrides(copy, params.patientOverrides);
-    requests.push({ method: 'POST', url: '/Patient', resource: copy });
-    order.push('patient');
-  }
+  let patientCopy = prepareWorkingCopy(originals.patient, originals.patient.id!);
+  patientCopy = applyPatientOverrides(patientCopy, params.patientOverrides);
+  requests.push({ method: 'POST', url: '/Patient', resource: patientCopy });
+  order.push('patient');
+
   if (originals.coverage) {
     const copy = prepareWorkingCopy(originals.coverage, originals.coverage.id!);
     if (params.coverageOverrides?.subscriberId) copy.subscriberId = params.coverageOverrides.subscriberId;
@@ -149,35 +155,29 @@ async function createWorkingCopies(
     order.push('billingProvider');
   }
 
-  if (requests.length === 0) return {};
-
   const txResult = await oystehr.fhir.transaction<FhirResource>({ requests });
   const entries = (txResult.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
 
   if (entries.length !== order.length) throw InternalError;
 
-  const result: Record<string, Resource> = {};
+  const copies: Partial<OriginalResources> = {};
   for (let i = 0; i < order.length; i++) {
     const expected = requests[i].url.replace('/', '');
     if (entries[i].resourceType !== expected) throw InternalError;
-    result[order[i]] = entries[i];
+    copies[order[i] as keyof OriginalResources] = entries[i] as any;
   }
 
-  if (result.coverage) {
-    const ops: { op: 'replace'; path: string; value: unknown }[] = [];
-    if (result.payor) {
-      ops.push({ op: 'replace', path: '/payor', value: [{ reference: `Organization/${result.payor.id}` }] });
+  if (copies.coverage) {
+    const ops: { op: 'add'; path: string; value: unknown }[] = [];
+    if (copies.payor) {
+      ops.push({ op: 'add', path: '/payor', value: [{ reference: `Organization/${copies.payor.id}` }] });
     }
-    if (result.patient) {
-      ops.push({ op: 'replace', path: '/beneficiary', value: { reference: `Patient/${result.patient.id}` } });
-      ops.push({ op: 'replace', path: '/subscriber', value: { reference: `Patient/${result.patient.id}` } });
-    }
-    if (ops.length) {
-      await oystehr.fhir.patch({ resourceType: 'Coverage', id: result.coverage.id!, operations: ops });
-    }
+    ops.push({ op: 'add', path: '/beneficiary', value: { reference: `Patient/${copies.patient!.id}` } });
+    ops.push({ op: 'add', path: '/subscriber', value: { reference: `Patient/${copies.patient!.id}` } });
+    await oystehr.fhir.patch({ resourceType: 'Coverage', id: copies.coverage.id!, operations: ops });
   }
 
-  return result as unknown as OriginalResources;
+  return { patient: originals.patient, ...copies } as OriginalResources;
 }
 
 function applyPatientOverrides(patient: Patient, overrides?: CreateClaimParams['patientOverrides']): Patient {
@@ -211,7 +211,7 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
     type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: 'professional' }] },
     use: 'claim',
     created: now,
-    patient: copies.patient?.id ? { reference: `Patient/${copies.patient.id}` } : { display: 'Unknown' },
+    patient: { reference: `Patient/${copies.patient.id}` },
     provider: copies.billingProvider?.id
       ? { reference: `Organization/${copies.billingProvider.id}` }
       : { display: 'Unknown' },

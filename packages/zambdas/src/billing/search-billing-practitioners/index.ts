@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, getNPI, getSecret, SecretsKeys } from 'utils';
+import { getNPI, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, fhirName } from '../shared';
 import { SearchBillingPractitionersParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -36,12 +36,11 @@ async function performEffect(
   const response = await oystehr.fhir.search<Practitioner>({ resourceType: 'Practitioner', params: searchParams });
 
   const practitioners = response.unbundle().map((p) => {
-    const name = p.name?.[0];
     return {
       id: p.id,
-      name: name ? convertFhirNameToDisplayName(name) : '',
-      firstName: name?.given?.join(' ') ?? '',
-      lastName: name?.family ?? '',
+      name: fhirName(p),
+      firstName: p.name?.[0]?.given?.join(' ') ?? '',
+      lastName: p.name?.[0]?.family ?? '',
       npi: getNPI(p) ?? '',
       taxonomy: p.identifier?.find((id) => id.type?.coding?.some((c) => c.code === 'ZZ'))?.value ?? '',
     };

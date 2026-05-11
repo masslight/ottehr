@@ -25,73 +25,12 @@ import {
 } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { chooseJson } from 'utils';
+import { chooseJson, ClaimDetailResponse } from 'utils';
 import { EditableSection } from '../components/claim/EditableSection';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { formatCurrency } from '../utils/format';
-
-interface ClaimDetailData {
-  id: string;
-  status: string;
-  created: string;
-  billingType: string;
-  billableStatus: string;
-  patientName: string;
-  patientDob: string;
-  patientGender: string;
-  patientId: string;
-  patientAddress: string;
-  coverageFhirId: string;
-  payerName: string;
-  payerId: string;
-  memberId: string;
-  subscriberId: string;
-  coverageStatus: string;
-  responsibleParty: string;
-  secondaryPayerName: string;
-  secondaryPayerId: string;
-  secondaryMemberId: string;
-  nonInsurancePayerName: string;
-  renderingProviderId: string;
-  renderingProvider: string;
-  renderingNpi: string;
-  billingProviderFhirId: string;
-  billingProvider: string;
-  billingNpi: string;
-  billingTin: string;
-  facilityFhirId: string;
-  serviceFacility: string;
-  serviceFacilityAddress: string;
-  serviceFacilityNpi: string;
-  diagnoses: { sequence: number; code: string; display: string }[];
-  serviceLines: {
-    sequence: number;
-    cptCode: string;
-    description: string;
-    modifiers: string[];
-    units: number;
-    charges: number;
-    serviceDate: string;
-    placeOfService: string;
-    diagnosisPointers: number[];
-  }[];
-  billed: number;
-  allowed: number;
-  insurancePaid: number;
-  patientResp: number;
-  patientPaid: number;
-  balance: number;
-  otherClaims: {
-    id: string;
-    status: string;
-    serviceDate: string;
-    payerName: string;
-    billed: number;
-    cptCodes: string[];
-  }[];
-}
 
 interface PatchOp {
   op: 'add' | 'replace' | 'remove';
@@ -108,7 +47,7 @@ export default function ClaimDetail(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
-  const [claim, setClaim] = useState<ClaimDetailData | null>(null);
+  const [claim, setClaim] = useState<ClaimDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
@@ -267,7 +206,13 @@ export default function ClaimDetail(): ReactElement {
   );
 }
 
-function PatientSection({ claim, patchResource }: { claim: ClaimDetailData; patchResource: PatchFn }): ReactElement {
+function PatientSection({
+  claim,
+  patchResource,
+}: {
+  claim: ClaimDetailResponse;
+  patchResource: PatchFn;
+}): ReactElement {
   const nameParts = claim.patientName.split(', ');
   const [firstName, setFirstName] = useState(nameParts[1] ?? '');
   const [lastName, setLastName] = useState(nameParts[0] ?? '');
@@ -349,7 +294,13 @@ function PatientSection({ claim, patchResource }: { claim: ClaimDetailData; patc
   );
 }
 
-function InsuranceSection({ claim, patchResource }: { claim: ClaimDetailData; patchResource: PatchFn }): ReactElement {
+function InsuranceSection({
+  claim,
+  patchResource,
+}: {
+  claim: ClaimDetailResponse;
+  patchResource: PatchFn;
+}): ReactElement {
   const [memberId, setMemberId] = useState(claim.memberId);
 
   const resetFields = useCallback((): void => setMemberId(claim.memberId), [claim]);
@@ -390,7 +341,7 @@ function RenderingProviderSection({
   claim,
   patchResource,
 }: {
-  claim: ClaimDetailData;
+  claim: ClaimDetailResponse;
   patchResource: PatchFn;
 }): ReactElement {
   const nameParts = claim.renderingProvider.split(', ');
@@ -445,7 +396,13 @@ function RenderingProviderSection({
   );
 }
 
-function FacilitySection({ claim, patchResource }: { claim: ClaimDetailData; patchResource: PatchFn }): ReactElement {
+function FacilitySection({
+  claim,
+  patchResource,
+}: {
+  claim: ClaimDetailResponse;
+  patchResource: PatchFn;
+}): ReactElement {
   const [name, setName] = useState(claim.serviceFacility);
 
   const resetFields = useCallback((): void => setName(claim.serviceFacility), [claim]);
@@ -485,7 +442,7 @@ function BillingProviderSection({
   claim,
   patchResource,
 }: {
-  claim: ClaimDetailData;
+  claim: ClaimDetailResponse;
   patchResource: PatchFn;
 }): ReactElement {
   const [name, setName] = useState(claim.billingProvider);
@@ -523,7 +480,7 @@ function BillingProviderSection({
   );
 }
 
-function DiagnosesSection({ claim }: { claim: ClaimDetailData }): ReactElement {
+function DiagnosesSection({ claim }: { claim: ClaimDetailResponse }): ReactElement {
   return (
     <ReadOnlySection title="Diagnoses">
       {claim.diagnoses.length > 0 ? (
@@ -545,7 +502,7 @@ function DiagnosesSection({ claim }: { claim: ClaimDetailData }): ReactElement {
   );
 }
 
-function ServiceLinesSection({ claim }: { claim: ClaimDetailData }): ReactElement {
+function ServiceLinesSection({ claim }: { claim: ClaimDetailResponse }): ReactElement {
   return (
     <ReadOnlySection title="Service Lines">
       {claim.serviceLines.length > 0 ? (
@@ -592,7 +549,7 @@ function OtherClaimsSection({
   claims,
   navigate,
 }: {
-  claims: ClaimDetailData['otherClaims'];
+  claims: ClaimDetailResponse['otherClaims'];
   navigate: (path: string) => void;
 }): ReactElement {
   if (claims.length === 0) {

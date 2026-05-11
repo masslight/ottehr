@@ -5,7 +5,7 @@ import { getNPI, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM } from '../shared';
 
-export interface ServiceLocationItem {
+interface ServiceLocationItem {
   id: string;
   name: string;
   npi: string;
