@@ -23,4 +23,4 @@ export const PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP: Record<PrintingPropert
   'label-orientation': 'https://fhir.ottehr.com/CodeSystem/label-orientation',
 };
 
-export const PRINTIN_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM = 'https://fhir.ottehr.com/Extension/open-pdf-on-print';
+export const PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM = 'https://fhir.ottehr.com/Extension/open-pdf-on-print';

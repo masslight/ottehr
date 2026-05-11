@@ -150,14 +150,11 @@ export const getExternalLabLabelConfig = async (
   const specimens = resources.filter((res): res is Specimen => res.resourceType === 'Specimen');
 
   // for the given test, grab the latest specimen collection date
-  const specimenCollectionDateTime = specimens.length
-    ? DateTime.max(
-        ...specimens
-          .map((sp) =>
-            sp.collection?.collectedDateTime ? DateTime.fromISO(sp.collection.collectedDateTime) : undefined
-          )
-          .filter((res) => res !== undefined)
-      )
+  const specimenColelctionDateTimes = specimens
+    .map((sp) => (sp.collection?.collectedDateTime ? DateTime.fromISO(sp.collection.collectedDateTime) : undefined))
+    .filter((res) => res !== undefined);
+  const specimenCollectionDateTime = specimenColelctionDateTimes.length
+    ? DateTime.max(...specimenColelctionDateTimes)
     : undefined;
 
   const serviceRequest = resources.find((res): res is ServiceRequest => res.resourceType === 'ServiceRequest');
@@ -189,7 +186,7 @@ export const getExternalLabLabelConfig = async (
   }
 
   const orderNumber = getOrderNumber(serviceRequest);
-  if (!orderNumber) throw LABEL_PRINTING_ERROR;
+  if (!orderNumber) throw LABEL_PRINTING_ERROR('Unable to print label, missing orderNumber');
 
   // this helper handles matching the location and lab org via getAccountNumberFromLocationAndOrganization
   return makeExternalLabLabelConfig({

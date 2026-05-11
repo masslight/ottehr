@@ -6,8 +6,8 @@ import {
   getSecret,
   LabelOrientationSchema,
   MANUFACTURER_TO_LABEL_MAPPING,
-  PRINTIN_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
   PRINTING_CONFIG_DEVICE_TAG,
+  PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
   PRINTING_DEVICE_PROPERTIES_SYSTEM,
   PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP,
   PrintingConfig,
@@ -123,10 +123,10 @@ const parsePrintingConfig = (device: Device): PrintingConfig => {
 
   // todo: validate printing mode
   const modeResult = PrintModeSchema.safeParse(mode);
-  if (!modeResult) {
+  if (!modeResult.success) {
     throw new Error(`Device/${device.id} contained unrecognized printing mode: ${mode}`);
   }
-  const validatedMode = modeResult.data!;
+  const validatedMode = modeResult.data;
 
   if (validatedMode === 'manual') {
     console.log('detected manual mode config');
@@ -138,6 +138,7 @@ const parsePrintingConfig = (device: Device): PrintingConfig => {
   const manufacturer = device.manufacturer;
   if (!manufacturer) {
     console.warn(`Device/${device.id} has no manufacturer, unable to validate label type vs manufacturer`);
+    throw new Error(`Missing manufacturer. Device/${device.id} is misconfigured`);
   }
 
   // make sure it's a supported manufacturer and label type combo
@@ -227,7 +228,7 @@ const extractOpenPdfOnPrintBool = (device: Device): boolean => {
   // if the extension isn't there, we'll open it to be conservative
   return (
     device.extension?.find(
-      (ext) => ext.url === PRINTIN_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM && ext.valueBoolean !== undefined
+      (ext) => ext.url === PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM && ext.valueBoolean !== undefined
     )?.valueBoolean ?? true
   );
 };

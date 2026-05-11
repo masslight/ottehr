@@ -3,8 +3,8 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device, DeviceProperty } from 'fhir/r4b';
 import {
   AdminUpdatePrintingConfigInput,
-  PRINTIN_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
   PRINTING_CONFIG_DEVICE_TAG,
+  PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
   PRINTING_DEVICE_PROPERTIES_SYSTEM,
   PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP,
   PrintingConfig,
@@ -113,7 +113,7 @@ const convertPrintingConfigToDevice = (config: PrintingConfig): Device => {
 
     device.extension = [
       {
-        url: PRINTIN_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
+        url: PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
         valueBoolean: config.openPdfOnPrint,
       },
     ];

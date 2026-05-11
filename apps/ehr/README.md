@@ -41,13 +41,13 @@ In either case, you must first:
 
 ### Manual Printing Mode
 
-This mode prints a pdf of the label via the browswer and the system print dialog. By default, Ottehr assumes a DYMO 30334 size label and a DYMO LabelWriter 550 Turbo printer. However, the system print dialog offers configurablility, so it is possible to achieve a satisfactory label using a different paper size and printer.
+This mode prints a pdf of the label via the browser and the system print dialog. By default, Ottehr assumes a DYMO 30334 size label and a DYMO LabelWriter 550 Turbo printer. However, the system print dialog offers configurablility, so it is possible to achieve a satisfactory label using a different paper size and printer.
 
 #### Chrome, Safari, and Edge
 
 Chrome and Safari are the preferred browsers for the label printing workflow, but these settings will also work for Edge.
 
-To print from the browswer:
+To print from the browser:
 
 1. Ensure pop-ups are enabled for Ottehr
 1. Open the label pdf in the browser
@@ -83,7 +83,7 @@ The currently supported printer manufacturers and their label sizes are:
 
 _Don't see your label size? Contact support@ottehr.com to request a new label size template._
 
-Label sizes can be found on the back of DYMO label paper and are indcated by the "DYMO Item #". Alternatively, open DYMO Connect with your printer powered on an connected; the program should display the label type in the bottom right hand corner of the screen.
+Label sizes can be found on the back of DYMO label paper and are indicated by the "DYMO Item #". Alternatively, open DYMO Connect with your printer powered on an connected; the program should display the label type in the bottom right hand corner of the screen.
 
 If an error is encountered while printing in `integrated` mode, Ottehr will automatically fallback to `manual` mode on a given page and display a toast with recommended adjustments. Refresh the page after making the adjustments to apply the changes.
 
@@ -94,10 +94,10 @@ To print in `integrated` mode:
 1. Select `integrated` mode on the Admin printer config page
 1. Indicate the paper template size in the Admin printer config page
 1. Attempt a test print. If an error toast appears, attempt the following step.
-1. (As needed) Some systems may require explicit acceptance of the printer's certificates. In your browswer, navigate to https://127.0.0.1:41951/DYMO/DLS/Printing/StatusConnected and click "Accept the risk" / "Proceed anyway" to trust the certificate for that origin. This should be a one-time step if required at all.
+1. (As needed) Some systems may require explicit acceptance of the printer's certificates. In your browser, navigate to https://127.0.0.1:41951/DYMO/DLS/Printing/StatusConnected and click "Accept the risk" / "Proceed anyway" to trust the certificate for that origin. This should be a one-time step if required at all.
 1. If a label prints but the content is incorrectly placed, try adjusting the label orientation in the Adming Printing Config.
 
-If you are stil having trouble after these steps, contact support@ottehr.com and revert to `manual` mode in the Admin config in the meantime.
+If you are still having trouble after these steps, contact support@ottehr.com and revert to `manual` mode in the Admin config in the meantime.
 
 #### Notes:
 

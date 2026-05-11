@@ -53,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   console.log(
-    `printing config was integrated mode, determining label xml based on config. we wre making a label of type: ${labelConfig.type}`,
+    `printing config was integrated mode, determining label xml based on config. we are making a label of type: ${labelConfig.type}`,
     JSON.stringify(printingConfig)
   );
 
