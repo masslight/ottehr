@@ -3,6 +3,7 @@ import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import InsightsIcon from '@mui/icons-material/Insights';
+import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SummarizeIcon from '@mui/icons-material/Summarize';
@@ -135,6 +136,12 @@ export default function Reports(): React.ReactElement {
       description: 'View invoiceable patients report',
       icon: <SummarizeIcon />,
       path: '/reports/invoiceable-patients',
+    },
+    {
+      title: 'Mailed Statements',
+      description: 'View patient statements sent by mail via PostGrid',
+      icon: <MailOutlineIcon />,
+      path: '/reports/mailed-statements',
     },
   ];
 

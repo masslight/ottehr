@@ -31,10 +31,7 @@ import {
   useStripeAccountInfoQuery,
   useTerminalReadersQuery,
 } from 'src/rcm/state/payments/payments.queries';
-import {
-  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
-  SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL,
-} from 'utils';
+import { SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL } from 'utils';
 
 function CopyableValue({ label, value }: { label: string; value: string | undefined }): ReactElement {
   const [copied, setCopied] = useState(false);
@@ -115,10 +112,12 @@ function SelectedTerminalLocationDetails({
   stripeAccountId,
   terminalLocationId,
   terminalLocations,
+  terminalDeviceId,
 }: {
   stripeAccountId: string;
   terminalLocationId: string | undefined;
   terminalLocations: { id: string; displayName: string | null; address: Record<string, string | null> | null }[];
+  terminalDeviceId: string | undefined;
 }): ReactElement | null {
   const isRealLocation = Boolean(terminalLocationId) && !isLegacySimulationValue(terminalLocationId);
   const selectedLoc = isRealLocation ? terminalLocations.find((l) => l.id === terminalLocationId) : null;
@@ -137,6 +136,7 @@ function SelectedTerminalLocationDetails({
       {selectedLoc && (
         <Box sx={{ mb: 1 }}>
           <CopyableValue label="Location ID" value={selectedLoc.id} />
+          {terminalDeviceId && <CopyableValue label="Oystehr Device ID" value={terminalDeviceId} />}
           {selectedLoc.address && (
             <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, py: 0.25 }}>
               <Typography variant="body2" color="text.secondary" sx={{ width: 160, flexShrink: 0 }}>
@@ -251,10 +251,12 @@ function StripeConnectSection({
   locationId,
   stripeAccountId,
   stripeTerminalLocationId,
+  terminalDeviceId,
 }: {
   locationId: string;
   stripeAccountId: string | undefined;
   stripeTerminalLocationId: string | undefined;
+  terminalDeviceId: string | undefined;
 }): ReactElement | null {
   const isValidFormat = stripeAccountId ? STRIPE_ACCOUNT_ID_REGEX.test(stripeAccountId) : false;
   const { data, isLoading, isError } = useStripeAccountInfoQuery(isValidFormat ? stripeAccountId : undefined);
@@ -413,6 +415,7 @@ function StripeConnectSection({
             stripeAccountId={stripeAccountId!}
             terminalLocationId={stripeTerminalLocationId}
             terminalLocations={data?.terminalLocations ?? []}
+            terminalDeviceId={terminalDeviceId}
           />
         </Box>
       )}
@@ -454,14 +457,10 @@ export default function PaymentLocationDetailPage(): ReactElement {
     );
   }
 
-  const { location, supportsVirtualVisits } = paymentLocation;
+  const { location, supportsVirtualVisits, stripeTerminalLocationId, terminalDeviceId } = paymentLocation;
 
   const stripeAccountId = location.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)
     ?.valueString;
-
-  const stripeTerminalLocationId = location.extension?.find(
-    (ext) => ext.url === SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL
-  )?.valueString;
 
   const address = location.address;
   const addressLines: string[] = [];
@@ -552,6 +551,7 @@ export default function PaymentLocationDetailPage(): ReactElement {
               locationId={location.id!}
               stripeAccountId={stripeAccountId}
               stripeTerminalLocationId={stripeTerminalLocationId}
+              terminalDeviceId={terminalDeviceId}
             />
           </Box>
         </Paper>

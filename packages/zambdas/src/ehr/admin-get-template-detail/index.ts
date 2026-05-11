@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ClinicalImpression, Communication, Condition, List, Observation, Procedure, Resource } from 'fhir/r4b';
+import { ClinicalImpression, Communication, Condition, List, Procedure, Resource } from 'fhir/r4b';
 import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
@@ -8,7 +8,9 @@ import {
   AdminGetTemplateDetailOutput,
   chartDataTagSystem,
   collectKnownExamFields,
+  collectKnownRosFields,
   examConfig,
+  getRosFindingStateFromKey,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   ICD_10_CODE_SYSTEM,
@@ -16,10 +18,11 @@ import {
   TemplateAccidentInfo,
   TemplateCodeInfo,
   TemplateExamFinding,
+  TemplateRosFinding,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { verifyIsTemplate } from '../shared/template-helpers';
+import { analyzeTemplateVersionData, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -162,31 +165,41 @@ const performEffect = async (
   ) as Condition | undefined;
   const moiNote = moiCondition?.note?.[0]?.text ?? null;
 
-  // Parse ROS note
-  const rosCondition = contained.find((r) => r.resourceType === 'Condition' && hasTag(r, chartDataTagSystem('ros'))) as
-    | Condition
-    | undefined;
-  const rosNote = rosCondition?.note?.[0]?.text ?? null;
+  // get details on ros findings, exam findings and legacy ros
+  // these all feed into whether or not the template version is current so they are handled together
+  const examTagSystem = chartDataTagSystem('exam-observation-field');
+  const rosTagSystem = chartDataTagSystem('ros-observation-field');
+  const legacyRosTagSystem = chartDataTagSystem('ros');
 
-  // Parse exam findings
-  const examObservations = contained.filter(
-    (r) => r.resourceType === 'Observation' && hasTag(r, chartDataTagSystem('exam-observation-field'))
-  ) as Observation[];
+  const knownExamFields = collectKnownExamFields(examTypeConfig.components);
+  const knownRosFields = collectKnownRosFields();
 
-  // A template is "current" if all its exam observation fields exist in the current config.
-  // This matches the approach used by useUnmatchedExamFields for visit exam data.
-  const knownFields = collectKnownExamFields(examTypeConfig.components);
-  const templateExamFieldCodes = examObservations
-    .map((obs) => getTagCode(obs, chartDataTagSystem('exam-observation-field')))
-    .filter((code): code is string => !!code);
-  const unmatchedFields = templateExamFieldCodes.filter((code) => !knownFields.has(code));
-  const isCurrentVersion = unmatchedFields.length === 0;
+  const { isCurrentVersion, unmatchedRosFields, examObservations, rosObservations, rosNote } =
+    analyzeTemplateVersionData({
+      contained,
+      examTagSystem,
+      rosTagSystem,
+      legacyRosTagSystem,
+      knownExamFields,
+      knownRosFields,
+    });
+
+  const unmatchedRosFieldSet: Set<string> = new Set(unmatchedRosFields);
+
+  // Config exam and row into template DTOs
+  const rosFindings: TemplateRosFinding[] = rosObservations.map((obs) => {
+    const fieldCode = getTagCode(obs, rosTagSystem) ?? 'unknown';
+    const findingState = getRosFindingStateFromKey(fieldCode);
+    const label = obs.code.text ?? 'unknown';
+    const stale = unmatchedRosFieldSet.has(fieldCode);
+    return { fieldName: fieldCode, label, findingState, stale };
+  });
 
   const abnormalFieldCodes = buildAbnormalFieldCodes(examTypeConfig.components);
   const fieldLabels = buildFieldLabels(examTypeConfig.components);
 
   const examFindings: TemplateExamFinding[] = examObservations.map((obs) => {
-    const fieldCode = getTagCode(obs, chartDataTagSystem('exam-observation-field')) ?? 'unknown';
+    const fieldCode = getTagCode(obs, examTagSystem) ?? 'unknown';
     const isAbnormal = abnormalFieldCodes.has(fieldCode);
     const note = obs.note?.[0]?.text ?? '';
     const label = fieldLabels.get(fieldCode) ?? obs.code?.text ?? fieldCode;
@@ -275,6 +288,7 @@ const performEffect = async (
       hpiNote,
       moiNote,
       rosNote,
+      rosFindings,
       examFindings,
       mdm,
       diagnoses,

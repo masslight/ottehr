@@ -47,6 +47,7 @@ import {
   ProviderDetails,
   VisitStatusLabel,
   VitalFieldNames,
+  type VitalsWeightObservationDTO,
 } from 'utils';
 import { getEmployees } from '../../../../api/api';
 import { dataTestIds } from '../../../../constants/data-test-ids';
@@ -97,18 +98,34 @@ const getPatientWeightFallback = (weight: string | undefined): string | undefine
   return normalizedWeight?.match(/^\d+(?:\.\d+)?kg/)?.[0];
 };
 
+const getWeightRefusedLabel = (): string => 'Weight: Patient Refused';
+
+const isPatientRefusedWeightObservation = (observation: VitalsWeightObservationDTO): boolean =>
+  observation.extraWeightOptions?.includes('patient_refused') ?? false;
+
 const getDisplayWeight = (
-  currentObservations: { value?: number | string }[],
-  historicalObservations: { value?: number | string }[],
+  currentObservations: VitalsWeightObservationDTO[],
+  historicalObservations: VitalsWeightObservationDTO[],
   patientWeight: string | undefined
 ): string | undefined => {
-  const numericObs = [...currentObservations, ...historicalObservations].find((o) => typeof o.value === 'number');
-  if (numericObs) {
-    return `${formatWeightKg(numericObs.value as number)}kg`;
+  const latestDisplayableObservation = [...currentObservations, ...historicalObservations].find(
+    (observation) => isPatientRefusedWeightObservation(observation) || typeof observation.value === 'number'
+  );
+
+  if (latestDisplayableObservation) {
+    if (isPatientRefusedWeightObservation(latestDisplayableObservation)) {
+      return getWeightRefusedLabel();
+    }
+
+    if (typeof latestDisplayableObservation.value === 'number') {
+      return `${formatWeightKg(latestDisplayableObservation.value)}kg`;
+    }
   }
+
   if (currentObservations.length === 0 && historicalObservations.length === 0) {
     return getPatientWeightFallback(patientWeight);
   }
+
   return undefined;
 };
 

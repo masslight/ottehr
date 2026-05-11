@@ -2,7 +2,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, Schedule } from 'fhir/r4b';
 import {
   AppointmentInformationIntake,
-  AppointmentStatus,
   appointmentTypeMap,
   createOystehrClient,
   getInPersonVisitStatus,
@@ -10,7 +9,6 @@ import {
   GetPastVisitsResponse,
   getPatientsForUser,
   getSecret,
-  getTelemedVisitStatus,
   getTimezone,
   SecretsKeys,
   TIMEZONE_EXTENSION_URL,
@@ -96,13 +94,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const timezone = scheduleResource ? getTimezone(scheduleResource) : TIMEZONES[0];
       const appointmentTypeTag = fhirAppointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
       const appointmentType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
-
-      let status: AppointmentStatus | undefined;
-      if (appointmentType === 'Telemedicine') {
-        status = getTelemedVisitStatus(encounter.status, fhirAppointment.status);
-      } else if (appointmentType === 'In-Person') {
-        status = getInPersonVisitStatus(fhirAppointment, encounter);
-      }
+      const status = getInPersonVisitStatus(fhirAppointment, encounter);
 
       if (!status) {
         console.log('No visit status for appointment');

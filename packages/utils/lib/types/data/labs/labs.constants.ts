@@ -2,7 +2,7 @@
 import { Coding } from 'fhir/r4b';
 import { LabelConfig } from '../..';
 import { Pagination } from '..';
-import { LabType } from './labs.types';
+import { LabPaymentMethod, LabType } from './labs.types';
 
 // for order form pdf (we might not want this idk)
 export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
@@ -393,6 +393,9 @@ export const LAB_LIST_CODE_CODING = {
   },
 };
 
+export const LAB_LIST_IN_HOUSE_ITEM_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/Identifier/in-house-ad-url';
+
+export const LAB_LIST_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/Identifier/lab-test-item-set-labGuid-and-test-code';
 export const LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/orderable-item-search-fields';
 export const LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL = {
@@ -400,3 +403,18 @@ export const LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL = {
   itemCode: 'https://fhir.ottehr.com/Extension/search-field-itemCode',
 } as const;
 export type LabListSearchFieldKey = keyof typeof LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL;
+
+export const STATIC_COMPENDIUM_LAB_GUID = 'oystehr-static-compendium';
+export const STATIC_COMPENDIUM_ACCOUNT_NUMBER = 'oystehr-generic-account';
+
+export const GENERIC_LAB_ORDER_TAG: Coding = {
+  system: 'order-type',
+  code: 'generic-lab-order',
+};
+
+export const LAB_PAYMENT_METHOD_DISPLAY: Record<LabPaymentMethod, string> = {
+  [LabPaymentMethod.Insurance]: 'Insurance',
+  [LabPaymentMethod.SelfPay]: 'Self Pay',
+  [LabPaymentMethod.ClientBill]: 'Client Bill',
+  [LabPaymentMethod.WorkersComp]: 'Workers Comp',
+};

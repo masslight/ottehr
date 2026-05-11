@@ -8,6 +8,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { usePrintExternalLabLabel } from 'src/features/visits/shared/hooks/usePrintExternalLabLabel';
 import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
 import { updateLabOrderResources } from '../../../api/api';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { AOECard } from './AOECard';
 import { OrderHistoryCard } from './OrderHistoryCard';
@@ -152,7 +153,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         )}
 
         {!additionalPlacerIdsMapped && (
-          <Box sx={{ mb: 2 }}>
+          <Box sx={{ mb: 2 }} data-testid={dataTestIds.externalLabs.detailsPg.requisitionNumber}>
             <Typography variant="body1">
               <span style={{ fontWeight: 500 }}>Requisition Number: </span> {labOrder.orderNumber}
             </Typography>
@@ -160,7 +161,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         )}
 
         {labOrder.location?.name && (
-          <Box sx={{ mb: 2 }}>
+          <Box sx={{ mb: 2 }} data-testid={dataTestIds.externalLabs.detailsPg.orderingOffice}>
             <Typography variant="body1">
               <span style={{ fontWeight: 500 }}>Ordering Office: </span> {labOrder.location.name}
             </Typography>
@@ -168,7 +169,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         )}
 
         {labOrder.clinicalInfoNoteByUser && (
-          <Box sx={{ mb: 2 }}>
+          <Box sx={{ mb: 2 }} data-testid={dataTestIds.externalLabs.detailsPg.clinicalNote}>
             <Typography variant="body1">
               <span style={{ fontWeight: 500 }}>Clinical Info Notes: </span> {labOrder.clinicalInfoNoteByUser}
             </Typography>
@@ -193,6 +194,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             {orderStatus === 'pending' && (
               <Stack>
                 <LoadingButton
+                  data-testid={dataTestIds.externalLabs.detailsPg.markReadyBtn}
                   loading={submitLoading}
                   variant="contained"
                   sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}

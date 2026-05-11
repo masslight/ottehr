@@ -41,6 +41,7 @@ import {
   isNonPaperworkQuestionnaireResponse,
   isTruthy,
   PHOTO_ID_CARD_CODE,
+  PRIVATE_EXTENSION_BASE_URL,
   ROOM_EXTENSION_URL,
   Secrets,
   SERVICE_CATEGORY_SYSTEM,
@@ -51,7 +52,6 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  getRelatedPersonsFromResourceList,
   sortAppointments,
   wrapHandler,
   ZambdaInput,
@@ -73,6 +73,9 @@ export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZamb
   supervisorApprovalEnabled: boolean;
   secrets: Secrets | null;
 }
+
+const isUserRelatedPerson = (rp: RelatedPerson): boolean =>
+  getCoding(rp.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson';
 
 let m2mToken: string;
 
@@ -214,7 +217,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
   const patientIds: string[] = [];
   const practitionerIds: string[] = [];
-  const patientToRPMap: Record<string, RelatedPerson[]> = getRelatedPersonsFromResourceList(appointmentResources);
+  const patientToRPMap: Record<string, RelatedPerson[]> = {};
 
   const allAppointments: Appointment[] = [];
   const patientIdMap: Record<string, Patient> = {};
@@ -223,8 +226,8 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   const patientRefToQRMap: Record<string, QuestionnaireResponse> = {};
   const rpToCommMap: Record<string, Communication[]> = {};
   const rpPhoneNumbers = new Set<string>();
-  const relatedPersonToPersonsMap: Record<string, Person[]> = {};
-  const phoneNumberToRpMap: Record<string, string[]> = {};
+  const phoneNumberToRpMap: Record<string, Set<string>> = {};
+  const rpToPhoneNumbersMap: Record<string, Set<string>> = {};
   const rpIdToResourceMap: Record<string, RelatedPerson> = {};
   const practitionerIdToResourceMap: Record<string, Practitioner> = {};
   const healthcareServiceIdToResourceMap: Record<string, HealthcareService> = {};
@@ -273,15 +276,22 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         }
       }
     } else if (resource.resourceType === 'RelatedPerson' && resource.id) {
-      const rpRef = `RelatedPerson/${resource.id}`;
-      rpIdToResourceMap[rpRef] = resource as RelatedPerson;
+      const rp = resource as RelatedPerson;
+      if (!isUserRelatedPerson(rp)) return;
 
-      const pn = getSMSNumberForIndividual(resource as RelatedPerson);
+      const rpRef = `RelatedPerson/${rp.id}`;
+      rpIdToResourceMap[rpRef] = rp;
+
+      const patientRef = rp.patient?.reference;
+      if (patientRef) {
+        (patientToRPMap[patientRef] ??= []).push(rp);
+      }
+
+      const pn = getSMSNumberForIndividual(rp);
       if (pn) {
         rpPhoneNumbers.add(pn);
-        const mapVal = phoneNumberToRpMap[pn] ?? [];
-        mapVal.push(rpRef);
-        phoneNumberToRpMap[pn] = mapVal;
+        (phoneNumberToRpMap[pn] ??= new Set<string>()).add(rpRef);
+        (rpToPhoneNumbersMap[rpRef] ??= new Set<string>()).add(pn);
       }
     } else if (resource.resourceType === 'Practitioner' && resource.id) {
       practitionerIdToResourceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
@@ -300,21 +310,49 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
         if (!rpRef?.startsWith('RelatedPerson/')) return;
 
-        if (!relatedPersonToPersonsMap[rpRef]) {
-          relatedPersonToPersonsMap[rpRef] = [];
-        }
-        relatedPersonToPersonsMap[rpRef].push(person);
-
         rpPhoneNumbers.add(phone);
-
-        const mapVal = phoneNumberToRpMap[phone] ?? [];
-        mapVal.push(rpRef);
-        phoneNumberToRpMap[phone] = mapVal;
+        (phoneNumberToRpMap[phone] ??= new Set<string>()).add(rpRef);
+        (rpToPhoneNumbersMap[rpRef] ??= new Set<string>()).add(phone);
       });
     }
   });
 
   console.timeEnd('parse_search_results');
+
+  // Fallback: the main search's `_revinclude:iterate: RelatedPerson:patient` can silently
+  // miss RPs, so narrow direct query for the matched patients.
+  // Must run before the Communications search so any newly surfaced phones make it into
+  // the `sender:RelatedPerson.telecom` filter.
+  console.time('related_persons_fallback');
+  if (patientIds.length > 0) {
+    const rpBundle = await oystehr.fhir.search<RelatedPerson>({
+      resourceType: 'RelatedPerson',
+      params: [
+        { name: 'patient', value: patientIds.join(',') },
+        { name: 'relationship', value: 'user-relatedperson' },
+      ],
+    });
+    rpBundle.unbundle().forEach((rp) => {
+      if (!rp.id || !isUserRelatedPerson(rp)) return;
+      const rpRef = `RelatedPerson/${rp.id}`;
+      if (rpIdToResourceMap[rpRef]) return;
+
+      rpIdToResourceMap[rpRef] = rp;
+
+      const patientRef = rp.patient?.reference;
+      if (patientRef) {
+        (patientToRPMap[patientRef] ??= []).push(rp);
+      }
+
+      const pn = getSMSNumberForIndividual(rp);
+      if (pn) {
+        rpPhoneNumbers.add(pn);
+        (phoneNumberToRpMap[pn] ??= new Set<string>()).add(rpRef);
+        (rpToPhoneNumbersMap[rpRef] ??= new Set<string>()).add(pn);
+      }
+    });
+  }
+  console.timeEnd('related_persons_fallback');
 
   console.time('get_all_doc_refs + get_all_communications + practitioners + signatures');
   const docRefPromise =
@@ -387,6 +425,35 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
   console.timeEnd('get_all_doc_refs + get_all_communications + practitioners + signatures');
 
+  // For follow-up appointments, the parent encounter is typically not in the current search results.
+  // Batch-fetch any parent encounters that are referenced via partOf but missing from apptRefToEncounterMap.
+  const existingEncounterRefs = new Set(Object.values(apptRefToEncounterMap).map((enc) => `Encounter/${enc.id}`));
+  const missingParentEncounterRefs = [
+    ...new Set(
+      Object.values(apptRefToEncounterMap)
+        .filter((enc) => enc.partOf?.reference && !existingEncounterRefs.has(enc.partOf.reference))
+        .map((enc) => enc.partOf!.reference!)
+    ),
+  ];
+
+  const parentEncounterToApptIdMap: Record<string, string> = {};
+  if (missingParentEncounterRefs.length > 0) {
+    const ids = missingParentEncounterRefs.map((ref) => ref.replace('Encounter/', '')).join(',');
+    const parentEncounters =
+      (
+        await oystehr.fhir.search<Encounter>({
+          resourceType: 'Encounter',
+          params: [{ name: '_id', value: ids }],
+        })
+      )?.unbundle() ?? [];
+    parentEncounters.forEach((enc) => {
+      const apptRef = enc.appointment?.[0]?.reference;
+      if (enc.id && apptRef) {
+        parentEncounterToApptIdMap[`Encounter/${enc.id}`] = apptRef.replace('Appointment/', '');
+      }
+    });
+  }
+
   // because the related person tied to the user's account has been excluded from the graph of persons
   // connected to patient resources, while the Zap sms creates communications with sender reference based on
   // the user's profile-linked resource, it is necessary to do this cross-referencing to map from the sender resource
@@ -396,14 +463,16 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     const commSenders: RelatedPerson[] = communications.filter(
       (resource) => resource.resourceType === 'RelatedPerson'
     ) as RelatedPerson[];
-    commSenders.forEach((resource) => {
-      rpIdToResourceMap[`RelatedPerson/${resource.id}`] = resource as RelatedPerson;
-      const pn = getSMSNumberForIndividual(resource as RelatedPerson);
+    commSenders.forEach((rp) => {
+      if (!rp.id) return;
+      if (!isUserRelatedPerson(rp)) return;
+      const rpRef = `RelatedPerson/${rp.id}`;
+      rpIdToResourceMap[rpRef] = rp;
+      const pn = getSMSNumberForIndividual(rp);
       if (pn) {
         rpPhoneNumbers.add(pn);
-        const mapVal = phoneNumberToRpMap[pn] ?? [];
-        mapVal.push(`RelatedPerson/${resource.id}`);
-        phoneNumberToRpMap[pn] = mapVal;
+        (phoneNumberToRpMap[pn] ??= new Set<string>()).add(rpRef);
+        (rpToPhoneNumbersMap[rpRef] ??= new Set<string>()).add(pn);
       }
     });
     const comms: Communication[] = communications.filter(
@@ -411,20 +480,15 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     ) as Communication[];
 
     comms.forEach((comm) => {
-      const { sender } = comm;
-      if (sender && sender.reference) {
-        const rpRef = sender.reference;
-        const senderResource = rpIdToResourceMap[rpRef];
-        if (senderResource && getSMSNumberForIndividual(senderResource)) {
-          const smsNumber = getSMSNumberForIndividual(senderResource);
-          const allRPsWithThisNumber = phoneNumberToRpMap[smsNumber ?? ''] ?? [];
-          allRPsWithThisNumber.forEach((rp) => {
-            const commArray = rpToCommMap[rp] ?? [];
-            commArray.push(comm);
-            rpToCommMap[rp] = commArray;
-          });
-        }
-      }
+      const rpRef = comm.sender?.reference;
+      if (!rpRef) return;
+      const senderResource = rpIdToResourceMap[rpRef];
+      if (!senderResource) return;
+      const smsNumber = getSMSNumberForIndividual(senderResource);
+      if (!smsNumber) return;
+      phoneNumberToRpMap[smsNumber]?.forEach((rp) => {
+        (rpToCommMap[rp] ??= []).push(comm);
+      });
     });
   }
 
@@ -456,7 +520,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       apptRefToEncounterMap,
       patientIdMap,
       rpToCommMap,
-      relatedPersonToPersonsMap,
+      rpToPhoneNumbersMap,
       practitionerIdToResourceMap,
       healthcareServiceIdToResourceMap,
       next: false,
@@ -464,6 +528,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       supervisorApprovalEnabled,
       encounterSignatures,
       locationIdToResourceMap,
+      parentEncounterToApptIdMap,
     };
 
     preBooked = appointmentQueues.prebooked
@@ -558,7 +623,7 @@ interface AppointmentInformationInputs {
   patientRefToQRMap: Record<string, QuestionnaireResponse>;
   patientToRPMap: Record<string, RelatedPerson[]>;
   rpToCommMap: Record<string, Communication[]>;
-  relatedPersonToPersonsMap: Record<string, Person[]>;
+  rpToPhoneNumbersMap: Record<string, Set<string>>;
   practitionerIdToResourceMap: Record<string, Practitioner>;
   healthcareServiceIdToResourceMap: Record<string, HealthcareService>;
   allDocRefs: DocumentReference[];
@@ -567,6 +632,7 @@ interface AppointmentInformationInputs {
   supervisorApprovalEnabled: boolean;
   encounterSignatures: Provenance[];
   locationIdToResourceMap: Record<string, Location>;
+  parentEncounterToApptIdMap: Record<string, string>;
 }
 
 const makeAppointmentInformation = (
@@ -583,11 +649,12 @@ const makeAppointmentInformation = (
     practitionerIdToResourceMap,
     next,
     patientToRPMap,
-    relatedPersonToPersonsMap,
+    rpToPhoneNumbersMap,
     group,
     supervisorApprovalEnabled,
     encounterSignatures,
     locationIdToResourceMap,
+    parentEncounterToApptIdMap,
   } = input;
 
   const patientRef = appointment.participant.find((appt) => appt.actor?.reference?.startsWith('Patient/'))?.actor
@@ -607,25 +674,16 @@ const makeAppointmentInformation = (
   let smsModel: SMSModel | undefined;
 
   if (patientRef) {
-    let rps: RelatedPerson[] = [];
     try {
-      if (!(patientRef in patientToRPMap)) {
-        throw new Error(`no related person found for patient ${patientId}`);
-      }
-
-      rps = patientToRPMap[patientRef];
+      const rps = patientToRPMap[patientRef] ?? [];
       const recipientsMap = new Map<string, SMSRecipient>();
 
       rps.forEach((rp) => {
         const rpRef = `RelatedPerson/${rp.id}`;
-        const linkedPersons = relatedPersonToPersonsMap[rpRef] ?? [];
+        const phones = rpToPhoneNumbersMap[rpRef] ?? new Set<string>();
 
-        linkedPersons.forEach((person) => {
-          const phone = getPersonPhone(person);
-          if (!phone) return;
-
+        phones.forEach((phone) => {
           const key = `${rpRef}|${phone}`;
-
           if (!recipientsMap.has(key)) {
             recipientsMap.set(key, {
               recipientResourceUri: rpRef,
@@ -636,18 +694,19 @@ const makeAppointmentInformation = (
       });
 
       const recipients = Array.from(recipientsMap.values());
-      if (recipients.length) {
-        const allCommunications = recipients.flatMap((recipient) => {
-          return rpToCommMap[recipient.recipientResourceUri] ?? [];
-        });
-        smsModel = {
-          hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
-          recipients,
-        };
+      if (recipients.length === 0) {
+        throw new Error(`no RelatedPerson with contact number for patient ${patientId}`);
       }
+
+      const allCommunications = recipients.flatMap((recipient) => {
+        return rpToCommMap[recipient.recipientResourceUri] ?? [];
+      });
+      smsModel = {
+        hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
+        recipients,
+      };
     } catch (e) {
       console.log('error building sms model: ', e);
-      console.log('related persons value prior to error: ', rps);
       captureException(e);
     }
   } else {
@@ -751,10 +810,10 @@ const makeAppointmentInformation = (
     location: locationIdToResourceMap[encounter.location?.[0]?.location?.reference ?? ''],
     isFollowUp: !!encounter.partOf,
     parentEncounterId: encounter.partOf?.reference?.replace('Encounter/', ''),
-    parentAppointmentId: encounter.partOf
+    parentAppointmentId: encounter.partOf?.reference
       ? Object.entries(apptRefToEncounterMap)
           .find(([, enc]) => `Encounter/${enc.id}` === encounter.partOf?.reference)?.[0]
-          ?.replace('Appointment/', '')
+          ?.replace('Appointment/', '') ?? parentEncounterToApptIdMap[encounter.partOf.reference]
       : undefined,
   };
 };

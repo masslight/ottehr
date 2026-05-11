@@ -1,3 +1,5 @@
+import { DateTime } from 'luxon';
+import { formatDateTimeToZone } from 'utils';
 import { drawFieldLine } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { EncounterInfo, FollowupCompleted, PdfSection } from '../../types';
@@ -7,11 +9,10 @@ export const composeFollowupCompleted: DataComposer<
   { appointmentPackage: FullAppointmentResourcePackage },
   FollowupCompleted
 > = ({ appointmentPackage }) => {
-  const { encounter } = appointmentPackage;
+  const { encounter, timezone } = appointmentPackage;
 
-  const completedDateTime = encounter.period?.end
-    ? new Date(encounter.period.end).toLocaleString()
-    : new Date().toLocaleString();
+  const endIso = encounter.period?.end ?? DateTime.now().toISO();
+  const completedDateTime = formatDateTimeToZone(endIso ?? undefined, timezone) ?? '';
   return {
     completedDateTime,
   };

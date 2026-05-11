@@ -27,7 +27,10 @@ import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
+import {
+  getInPersonUrlByAppointmentType,
+  withFollowUpEncounterId,
+} from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils';
@@ -44,14 +47,11 @@ import {
   getServiceCategoryAbbreviation,
   PatientVisitListResponse,
   ServiceMode,
-  TelemedAppointmentStatus,
-  TelemedCallStatusesArr,
   visitStatusArray,
 } from 'utils';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { RoundedButton } from './RoundedButton';
-import { TelemedAppointmentStatusChip } from './TelemedAppointmentStatusChip';
 
 type PatientEncountersGridProps = {
   totalCount: number;
@@ -265,10 +265,21 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         }
         return getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter.status));
       }
+      case 'info': {
+        if (encounter.followupSubtype !== 'scheduled' || !encounter.appointmentId) return null;
+        return (
+          <RoundedButton to={`/visit/${encounter.appointmentId}`} state={{ encounterId: encounter.encounterId }}>
+            Visit Info
+          </RoundedButton>
+        );
+      }
       case 'note': {
-        const { encounterId, originalAppointmentId, followupSubtype } = encounter;
-        const pathSegment = getFollowUpProgressNotePathSegment(followupSubtype, encounter.status);
-        if (!pathSegment || !originalAppointmentId) return '-';
+        const { encounterId, originalAppointmentId, followupSubtype, status } = encounter;
+        if (!originalAppointmentId) return '-';
+        if (typeof status === 'string' && ['planned', 'arrived'].includes(status)) {
+          return null;
+        }
+        const pathSegment = getFollowUpProgressNotePathSegment(followupSubtype);
         const to = getInPersonUrlByAppointmentType(
           { id: originalAppointmentId, encounterId, isFollowUp: true },
           pathSegment
@@ -286,12 +297,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         return row.dateTime ? formatISOStringToDateAndTime(row.dateTime) : '-';
       case 'status':
         if (!row.status) return null;
-        if (row.serviceMode === ServiceMode.virtual) {
-          // todo fix typing
-          return <TelemedAppointmentStatusChip status={`${row.status}` as TelemedAppointmentStatus} />;
-        } else {
-          return row.status;
-        }
+        return row.status;
       case 'type': {
         const typeLabel = getVisitTypeLabelForTypeAndServiceMode({ type: row.type, serviceMode: row.serviceMode });
         const serviceCategoryAbbr = getServiceCategoryAbbreviation(row.serviceCategory);
@@ -322,12 +328,13 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           </RoundedButton>
         );
       }
-      case 'note':
-        return (
-          <RoundedButton to={`/in-person/${row.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`}>
-            Progress Note
-          </RoundedButton>
-        );
+      case 'note': {
+        const baseUrl = `/in-person/${row.appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`;
+        const to = row.encounterId
+          ? withFollowUpEncounterId(baseUrl, { isFollowUp: true, encounterId: row.encounterId })
+          : baseUrl;
+        return <RoundedButton to={to}>Progress Note</RoundedButton>;
+      }
       default:
         return '-';
     }
@@ -405,13 +412,11 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           onChange={(e) => setStatus(e.target.value)}
         >
           <MenuItem value="all">All</MenuItem>
-          {[...new Set([...TelemedCallStatusesArr, ...visitStatusArray.filter((item) => item !== 'cancelled')])].map(
-            (status) => (
-              <MenuItem key={status} value={status}>
-                {capitalize(status)}
-              </MenuItem>
-            )
-          )}
+          {[...new Set(visitStatusArray.filter((item) => item !== 'cancelled'))].map((status) => (
+            <MenuItem key={status} value={status}>
+              {capitalize(status)}
+            </MenuItem>
+          ))}
         </TextField>
 
         <FormControlLabel

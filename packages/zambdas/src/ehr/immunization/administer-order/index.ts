@@ -5,6 +5,7 @@ import {
   Medication,
   MedicationAdministration,
   MedicationStatement,
+  Organization,
   Practitioner,
   Procedure,
   Reference,
@@ -43,6 +44,7 @@ import {
 } from '../../../shared';
 import {
   CONTAINED_EMERGENCY_CONTACT_ID,
+  CONTAINED_MANUFACTURER_ORG_ID,
   CONTAINED_MEDICATION_ID,
   getContainedMedication,
   updateOrderDetails,
@@ -58,8 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
-  const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+  const userPractitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
   const userPractitioner = await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
     id: userPractitionerId,
@@ -192,7 +193,10 @@ async function administerImmunizationOrder(
         medicationAdministration,
         medication,
         administrationDetails.administeredDateTime,
-        userPractitioner
+        userPractitioner,
+        medicationAdministration.contained?.find((r) => r.id === CONTAINED_MANUFACTURER_ORG_ID) as
+          | Organization
+          | undefined
       ),
     });
   }
@@ -300,9 +304,11 @@ function createMedicationStatement(
   medicationAdministration: MedicationAdministration,
   medication: Medication,
   administeredDateTime: string,
-  userPractitioner: Practitioner
+  userPractitioner: Practitioner,
+  manufacturer?: Organization
 ): MedicationStatement {
   const drugIdCoding = medication.code?.coding?.find((code) => code.system === MEDICATION_DISPENSABLE_DRUG_ID);
+  const containedResources = drugIdCoding ? undefined : [...[medication], ...(manufacturer ? [manufacturer] : [])];
   return {
     resourceType: 'MedicationStatement',
     status: 'active',
@@ -332,7 +338,7 @@ function createMedicationStatement(
     },
     effectiveDateTime: administeredDateTime,
     meta: fillMeta('immunization', 'immunization'),
-    contained: drugIdCoding ? undefined : [medication],
+    contained: containedResources,
   };
 }
 

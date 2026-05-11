@@ -4,11 +4,16 @@ import { Extension, Location, Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import {
   adminAddInHouseLab,
+  adminAddLabSet,
   adminGetInHouseLabConfig,
+  adminGetLabSets,
   adminListInHouseLabs,
   adminUpdateInHouseLab,
+  adminUpdateLabSet,
   adminUpdatePrintingConfig,
   bulkUpdateInsuranceStatus,
+  createEmCode,
+  deleteEmCode,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
   getPrintingConfig,
@@ -18,6 +23,7 @@ import {
   removeInHouseMedicationQuickPick,
   removeProcedureQuickPick,
   removeRadiologyQuickPick,
+  updateEmCode,
   updateImmunizationQuickPick,
   updateInHouseMedicationQuickPick,
   updateProcedureQuickPick,
@@ -27,13 +33,22 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
+  AdminAddLabSetInput,
+  AdminAddLabSetOutput,
   AdminGetInHouseLabConfigInput,
+  AdminGetLabSetDetailInput,
+  AdminGetLabSetDetailOutput,
+  AdminGetLabSetListOutput,
   AdminInHouseLabConfigOutput,
   AdminListInHouseLabsOutput,
   AdminUpdateInHouseLabInput,
+  AdminUpdateLabSetInput,
   AdminUpdatePrintingConfigInput,
   APIError,
   BulkUpdateInsuranceStatusInput,
+  CreateEmCodeInput,
+  DeleteEmCodeInput,
+  EmCodeOption,
   FHIR_EXTENSION,
   GetPrintingConfigInput,
   GetPrintingConfigOutput,
@@ -46,6 +61,7 @@ import {
   ORG_TYPE_PAYER_CODE,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
+  UpdateEmCodeInput,
 } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { InsuranceData } from './EditInsurance';
@@ -475,6 +491,163 @@ export const useAdminUpdateInHouseLab = (
       // send to sentry
       safelyCaptureException(error);
       let message = 'Something went wrong! In-house lab update could not be made.';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminCreateEmCodeMutation = (): UseMutationResult<EmCodeOption[], Error, CreateEmCodeInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['em-codes', 'create'],
+    mutationFn: async (data: CreateEmCodeInput) => {
+      if (!oystehrZambda) throw new Error('Oystehr client is not defined');
+      const result = await createEmCode(oystehrZambda, data);
+      return result.codes;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
+    },
+    onError: () => {
+      enqueueSnackbar('Failed to create E&M code', { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminUpdateEmCodeMutation = (): UseMutationResult<EmCodeOption[], Error, UpdateEmCodeInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['em-codes', 'update'],
+    mutationFn: async (data: UpdateEmCodeInput) => {
+      if (!oystehrZambda) throw new Error('Oystehr client is not defined');
+      const result = await updateEmCode(oystehrZambda, data);
+      return result.codes;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
+    },
+    onError: () => {
+      enqueueSnackbar('Failed to update E&M code', { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminDeleteEmCodeMutation = (): UseMutationResult<EmCodeOption[], Error, DeleteEmCodeInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['em-codes', 'delete'],
+    mutationFn: async (data: DeleteEmCodeInput) => {
+      if (!oystehrZambda) throw new Error('Oystehr client is not defined');
+      const result = await deleteEmCode(oystehrZambda, data);
+      return result.codes;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
+    },
+    onError: () => {
+      enqueueSnackbar('Failed to delete E&M code', { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminGetLabSetsList = (): UseQueryResult<AdminGetLabSetListOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-get-lab-sets'],
+    queryFn: async () => {
+      return adminGetLabSets(oystehrZambda!);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
+  });
+};
+
+export const useAdminGetLabSetDetail = (
+  input: AdminGetLabSetDetailInput
+): UseQueryResult<AdminGetLabSetDetailOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-get-lab-sets', input.labSetId],
+    queryFn: async () => {
+      return adminGetLabSets(oystehrZambda!, input);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
+  });
+};
+
+export const useAdminAddLabSet = (): UseMutationResult<AdminAddLabSetOutput, Error, AdminAddLabSetInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-add-lab-set'],
+    mutationFn: async (input: AdminAddLabSetInput) => {
+      console.log('mutation for add in house lab called');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return adminAddLabSet(oystehrZambda!, input);
+    },
+    onSuccess: async (_data, _variables) => {
+      // invalidate so the list page re-loads correctly
+      await queryClient.invalidateQueries({
+        queryKey: ['admin-get-lab-sets'],
+      });
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! Lab set could not be created :(';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminUpdateLabSet = (labSetId: string): UseMutationResult<void, Error, AdminUpdateLabSetInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-update-lab-set', labSetId],
+    mutationFn: async (input: AdminUpdateLabSetInput) => {
+      console.log('mutation for update in house lab called');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return adminUpdateLabSet(oystehrZambda!, input);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['admin-get-lab-sets'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['external lab resource search'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['inhouse lab resource search'],
+        }),
+      ]);
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! The lab set update could not be made.';
       if (isApiError(error)) {
         message = (error as APIError).message;
       }

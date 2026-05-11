@@ -132,6 +132,14 @@ export const usePatientsSearch = (): {
     pagination: getPaginationFromUrl(searchParams),
   });
 
+  useEffect(() => {
+    setSearchOptions({
+      filters: getFiltersFromUrl(searchParams),
+      sort: getSortFromUrl(searchParams),
+      pagination: getPaginationFromUrl(searchParams),
+    });
+  }, [searchParams]);
+
   const setSearchField = useCallback(
     ({ field, value }: { field: keyof SearchOptionsFilters; value: string }): void => {
       setSearchOptions((prev) => ({

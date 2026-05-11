@@ -10,12 +10,18 @@ import { ResultEntryNumericInput } from './ResultsEntryNumericInput';
 interface ResultEntryTableRowProps {
   component: DataEntryComponent;
   isLastRow: boolean;
+  showTopDivider?: boolean;
   disabled?: boolean; // equates to the final view
 }
 
-const ROW_STYLING = { paddingLeft: 0 };
+const ROW_STYLING = { paddingLeft: 0, borderBottom: 'none' };
 
-export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ component, disabled, isLastRow }) => {
+export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({
+  component,
+  disabled,
+  showTopDivider,
+  isLastRow,
+}) => {
   const [isAbnormal, setIsAbnormal] = useState<boolean>(false);
   const { control } = useFormContext();
   const nullOptionExistsInData = component.displayType === 'Numeric'; // a typing thing - we don't have nullOption defined StringDataEntryComponent
@@ -88,10 +94,10 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
     );
   };
 
-  const displayBottomBorder = isLastRow || nullCode;
-  const rowStyling: SxProps<Theme> = displayBottomBorder
-    ? { ...ROW_STYLING, borderBottom: 'none', paddingBottom: 0 }
-    : ROW_STYLING;
+  const rowStyling: SxProps<Theme> = {
+    ...ROW_STYLING,
+    ...(showTopDivider ? { borderTop: '1px solid', borderColor: 'divider', paddingBottom: 0 } : {}),
+  };
 
   return (
     <Controller
@@ -111,7 +117,14 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
           </TableRow>
           {nullOptionExistsInData && nullCode && (
             <TableRow>
-              <TableCell colSpan={4} sx={{ paddingLeft: 0 }}>
+              <TableCell
+                colSpan={4}
+                sx={{
+                  ...rowStyling,
+                  paddingTop: 0,
+                  ...(isLastRow ? { paddingBottom: 0 } : {}),
+                }}
+              >
                 <NullOptionCheckbox
                   disabled={!!disabled}
                   nullCode={nullCode}

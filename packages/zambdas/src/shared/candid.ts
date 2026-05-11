@@ -60,20 +60,22 @@ import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
   createReference,
+  EmCodeOption,
   FHIR_IDENTIFIER_NPI,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
+  getEmCodes,
   getPayerId,
   getPaymentVariantFromEncounter,
   getTimezone,
   INVALID_INPUT_ERROR,
+  isAppointmentAutoAccident,
   isAppointmentOccupationalMedicine,
   isAppointmentWorkersComp,
   isTelemedAppointment,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   OrderedCoveragesWithSubscribers,
   PaymentVariant,
-  PROVIDER_CONFIG,
   TIMEZONES,
 } from 'utils';
 import {
@@ -101,6 +103,7 @@ export const CANDID_NON_INSURANCE_PAYER_ID_IDENTIFIER_SYSTEM =
 
 const CANDID_TAG_WORKERS_COMP = 'workers-comp';
 const CANDID_TAG_OCCUPATIONAL_MEDICINE = 'occupational-medicine';
+const CANDID_TAG_AUTO_ACCIDENT = 'auto-accident';
 
 interface BillingProviderData {
   organizationName?: string;
@@ -131,6 +134,7 @@ interface CreateEncounterInput {
   procedures: Procedure[];
   insuranceResources?: InsuranceResources;
   accident?: Condition;
+  emCodes: EmCodeOption[];
 }
 
 const STUB_BILLING_PROVIDER_DATA: BillingProviderData = {
@@ -197,17 +201,15 @@ const createCandidCreateEncounterInput = async (
     practitioner = visitResources.practitioners?.[0] ?? null;
   }
 
-  const conditions = (
-    await oystehr.fhir.search<Condition>({
-      resourceType: 'Condition',
-      params: [
-        {
-          name: 'encounter',
-          value: `Encounter/${encounterId}`,
-        },
-      ],
-    })
-  ).unbundle();
+  const [conditions, emCodes] = await Promise.all([
+    oystehr.fhir
+      .search<Condition>({
+        resourceType: 'Condition',
+        params: [{ name: 'encounter', value: `Encounter/${encounterId}` }],
+      })
+      .then((r) => r.unbundle()),
+    getEmCodes(oystehr),
+  ]);
 
   return {
     appointment: appointment,
@@ -248,6 +250,7 @@ const createCandidCreateEncounterInput = async (
         }
       : undefined,
     accident: conditions.find((condition) => chartDataResourceHasMetaTagByCode(condition, 'accident')),
+    emCodes,
   };
 };
 
@@ -1080,6 +1083,7 @@ async function candidCreateEncounterFromAppointmentRequest(
     insuranceResources,
     location,
     accident,
+    emCodes,
   } = input;
   const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
   const practitionerName = assertDefined(practitioner.name?.[0], 'Practitioner name');
@@ -1152,9 +1156,7 @@ async function candidCreateEncounterFromAppointmentRequest(
       }
     });
 
-    const isEAndMCode = PROVIDER_CONFIG.assessment.emCodeOptions.some(
-      (emCodeOption) => emCodeOption.code === procedureCode
-    );
+    const isEAndMCode = emCodes.some((emCode) => emCode.code === procedureCode);
     if (isEAndMCode && isTelemedAppointment(appointment)) {
       modifiers = ['95'];
     }
@@ -1174,6 +1176,8 @@ async function candidCreateEncounterFromAppointmentRequest(
     tags.push(TagId(CANDID_TAG_WORKERS_COMP));
   } else if (isAppointmentOccupationalMedicine(appointment)) {
     tags.push(TagId(CANDID_TAG_OCCUPATIONAL_MEDICINE));
+  } else if (isAppointmentAutoAccident(appointment)) {
+    tags.push(TagId(CANDID_TAG_AUTO_ACCIDENT));
   }
 
   const accidentTypes =

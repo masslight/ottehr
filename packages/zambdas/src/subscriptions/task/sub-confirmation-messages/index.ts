@@ -25,6 +25,8 @@ import {
   makeJoinVisitUrl,
   makePaperworkUrl,
   makeVisitLandingUrl,
+  reportMissingUserRelatedPerson,
+  sendSmsToRelatedPersons,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -62,8 +64,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('searching for appointment, location and patient resources related to this task');
   let fhirAppointment: Appointment | undefined,
     fhirSchedule: Location | HealthcareService | Practitioner | undefined,
-    fhirPatient: Patient | undefined,
-    fhirRelatedPerson: RelatedPerson | undefined;
+    fhirPatient: Patient | undefined;
+  const fhirRelatedPersons: RelatedPerson[] = [];
   const allResources = (
     await oystehr.fhir.search<Appointment | Location | HealthcareService | Practitioner | Patient | RelatedPerson>({
       resourceType: 'Appointment',
@@ -119,7 +121,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
       );
       if (isUserRelatedPerson) {
-        fhirRelatedPerson = relatedPerson;
+        fhirRelatedPersons.push(relatedPerson);
       }
     }
   });
@@ -179,24 +181,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             captureException(e);
           }
         }
-        try {
-          if (!ownerName) {
-            throw new Error('Location with name is required to send confirmation message');
+        if (!fhirRelatedPersons.length) {
+          console.log(`no user-relatedperson for patient ${fhirPatient.id}; skipping telemed confirmation SMS`);
+          reportMissingUserRelatedPerson('sub-confirmation-messages:telemed', fhirPatient.id);
+          smsOutcome = 'skipped';
+        } else {
+          try {
+            if (!ownerName) {
+              throw new Error('Location with name is required to send confirmation message');
+            }
+            const url = makeVisitLandingUrl(fhirAppointment.id, secrets);
+            const prep = fhirSchedule.resourceType === 'Location' ? 'at' : 'with';
+            const message = `You're confirmed! Thanks for choosing ${BRANDING_CONFIG.projectName}! Your check-in time for ${firstName} ${prep} ${ownerName} is ${readableTime}. Use this URL ${url} to: 1. Complete your pre-visit paperwork 2. Once you've completed the paperwork, you may join the session.`;
+            await sendSmsToRelatedPersons({
+              relatedPersons: fhirRelatedPersons,
+              message,
+              oystehr,
+              env: getSecret(SecretsKeys.ENVIRONMENT, secrets),
+            });
+            smsOutcome = 'success';
+          } catch (e) {
+            console.log('message send error: ', JSON.stringify(e));
+            smsOutcome = 'failed';
+            captureException(e);
           }
-          const url = makeVisitLandingUrl(fhirAppointment.id, secrets);
-          const prep = fhirSchedule.resourceType === 'Location' ? 'at' : 'with';
-          const message = `You're confirmed! Thanks for choosing ${BRANDING_CONFIG.projectName}! Your check-in time for ${firstName} ${prep} ${ownerName} is ${readableTime}. Use this URL ${url} to: 1. Complete your pre-visit paperwork 2. Once you've completed the paperwork, you may join the session.`;
-          const messageRecipient = `RelatedPerson/${fhirRelatedPerson?.id}`;
-          const commId = await oystehr.transactionalSMS.send({
-            message,
-            resource: messageRecipient,
-          });
-          console.log('message send successful', commId);
-          smsOutcome = 'success';
-        } catch (e) {
-          console.log('message send error: ', JSON.stringify(e));
-          smsOutcome = 'failed';
-          captureException(e);
         }
       } else {
         if (patientEmail) {
@@ -241,27 +249,34 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           }
         }
 
-        try {
-          const appointmentType = fhirAppointment.appointmentType?.text || '';
-          const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-          const firstName = getPatientFirstName(fhirPatient);
-          const prep = fhirSchedule.resourceType === 'Location' ? 'at' : 'with';
-          const messageAll = `Thanks for choosing ${BRANDING_CONFIG.projectName}! Your check-in time for ${firstName} ${prep} ${ownerName} is ${readableTime}. Please save time at check-in by completing your pre-visit paperwork`;
-          const message =
-            appointmentType === 'walkin' || appointmentType === 'posttelemed'
-              ? `${messageAll}: ${WEBSITE_URL}/paperwork/${appointmentID}`
-              : `You're confirmed! ${messageAll}, or modify/cancel your visit: ${WEBSITE_URL}/visit/${appointmentID}`;
+        if (!fhirRelatedPersons.length) {
+          console.log(`no user-relatedperson for patient ${fhirPatient.id}; skipping in-person confirmation SMS`);
+          reportMissingUserRelatedPerson('sub-confirmation-messages:in-person', fhirPatient.id);
+          smsOutcome = 'skipped';
+        } else {
+          try {
+            const appointmentType = fhirAppointment.appointmentType?.text || '';
+            const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+            const firstName = getPatientFirstName(fhirPatient);
+            const prep = fhirSchedule.resourceType === 'Location' ? 'at' : 'with';
+            const messageAll = `Thanks for choosing ${BRANDING_CONFIG.projectName}! Your check-in time for ${firstName} ${prep} ${ownerName} is ${readableTime}. Please save time at check-in by completing your pre-visit paperwork`;
+            const message =
+              appointmentType === 'walkin' || appointmentType === 'posttelemed'
+                ? `${messageAll}: ${WEBSITE_URL}/paperwork/${appointmentID}`
+                : `You're confirmed! ${messageAll}, or modify/cancel your visit: ${WEBSITE_URL}/visit/${appointmentID}`;
 
-          const messageRecipient = `RelatedPerson/${fhirRelatedPerson?.id}`;
-          const commId = await oystehr.transactionalSMS.send({
-            message,
-            resource: messageRecipient,
-          });
-          console.log('message send successful', commId);
-          smsOutcome = 'success';
-        } catch (e) {
-          console.log('message send error: ', JSON.stringify(e));
-          smsOutcome = 'failed';
+            await sendSmsToRelatedPersons({
+              relatedPersons: fhirRelatedPersons,
+              message,
+              oystehr,
+              env: getSecret(SecretsKeys.ENVIRONMENT, secrets),
+            });
+            smsOutcome = 'success';
+          } catch (e) {
+            console.log('message send error: ', JSON.stringify(e));
+            captureException(e);
+            smsOutcome = 'failed';
+          }
         }
       }
       if (emailOutcome === 'failed' || smsOutcome === 'failed') {

@@ -5,11 +5,11 @@ import { Box, Dialog, DialogContent, DialogTitle, Divider, Grid, IconButton, Typ
 import Oystehr from '@oystehr/sdk';
 import { FC, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { LabListsDTO } from 'utils';
+import { LabSetDTO } from 'utils';
 
 type LabSetsProps = {
-  labSets: LabListsDTO[];
-  setSelectedLabs: (labSet: LabListsDTO) => Promise<void>;
+  labSets: LabSetDTO[];
+  setSelectedLabs: (labSet: LabSetDTO) => Promise<void>;
 };
 
 export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
@@ -17,7 +17,7 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string[] | undefined>(undefined);
 
-  const handleSelectLabSet = async (labSet: LabListsDTO): Promise<void> => {
+  const handleSelectLabSet = async (labSet: LabSetDTO): Promise<void> => {
     setLoadingId(labSet.listId); // start loading for this button only
     try {
       await setSelectedLabs(labSet);

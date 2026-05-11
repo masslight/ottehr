@@ -52,7 +52,6 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
   }
 
   return (
-    // Athena TODO: consider Stack instead of grid...
     <Grid item xs={12}>
       <Controller
         name={linkId}
