@@ -122,8 +122,6 @@ const copyAssets = async (from: string, to: string): Promise<void> => {
   }
 };
 
-const SENTRY_CHUNK_SIZE = 10;
-
 const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<void> => {
   if (!process.env.SENTRY_ORG || !process.env.SENTRY_PROJECT || !process.env.SENTRY_AUTH_TOKEN) {
     console.warn('Sentry environment variables are not set');
@@ -145,26 +143,11 @@ const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<void> => {
   const releaseName = revParse.stdout;
   await $(shellConfig)`sentry-cli releases new ${releaseName}`;
 
-  const zambdaDirs = zambdas.map((z) => path.dirname(`.dist/${z.src.substring('src/'.length)}.js`));
-  const chunks = chunkArray(zambdaDirs, SENTRY_CHUNK_SIZE);
-  console.log(
-    `Injecting source maps for ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${SENTRY_CHUNK_SIZE}...`
-  );
+  console.log(`Injecting source maps for ${zambdas.length} zambdas...`);
+  await $(shellConfig)`sentry-cli sourcemaps inject .dist --quiet --log-level error`;
 
-  for (const chunk of chunks) {
-    await Promise.all(
-      chunk.map((dir) => $(shellConfig)`sentry-cli sourcemaps inject ${dir} --quiet --log-level error`)
-    );
-  }
-
-  console.log(
-    `Uploading source maps for ${zambdas.length} zambdas in ${chunks.length} chunks of up to ${SENTRY_CHUNK_SIZE}...`
-  );
-  for (const chunk of chunks) {
-    await Promise.all(
-      chunk.map((dir) => $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} ${dir}`)
-    );
-  }
+  console.log(`Uploading source maps for ${zambdas.length} zambdas...`);
+  await $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} .dist`;
 
   await $(shellConfig)`sentry-cli releases finalize ${releaseName}`;
 };
