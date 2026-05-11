@@ -148,7 +148,7 @@ const expandResultsForGeneric = (
   orderingLocations: ModifiedOrderingLocation[],
   orderingLocation: LabsAutocompleteProps['orderingLocation']
 ): OrderableItemSearchResult[] => {
-  if (!orderingLocation || orderingLocations.length === 0) return [];
+  if (orderingLocations.length === 0) return [];
 
   const selectedLocation = orderingLocation.searchingForAll
     ? orderingLocations
@@ -157,7 +157,13 @@ const expandResultsForGeneric = (
   if (!selectedLocation || selectedLocation.length === 0) {
     console.error('Unable to expand results, returning original labs results');
     safelyCaptureMessage(
-      `Unexpected undefined selectedLocation for orderingLocation ${orderingLocation} when trying to expandResultsForGeneric`,
+      `No selectedLocation found when trying to expandResultsForGeneric (searchingForAll=${
+        orderingLocation.searchingForAll
+      }${
+        orderingLocation.searchingForAll
+          ? ''
+          : `, selectedOrderingLocationId=${orderingLocation.selectedOrderingLocationId}`
+      })`,
       { level: 'warning' }
     );
     return labs;
