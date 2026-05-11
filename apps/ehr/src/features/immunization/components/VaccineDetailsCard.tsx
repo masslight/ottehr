@@ -45,6 +45,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { ROUTE_OPTIONS } from 'src/shared/utils/options';
 import {
   EMERGENCY_CONTACT_RELATIONSHIPS,
+  getApiError,
   ImmunizationOrder,
   REQUIRED_FIELD_ERROR_MESSAGE,
   RoleType,
@@ -126,12 +127,19 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
     if (data.otherReason) {
       data.reason = data.otherReason;
     }
-    await administerOrder({
-      orderId: order.id,
-      type: administrationTypeRef.current.type,
-      ...(await cleanupProperties(data)),
-    });
-    navigate(getImmunizationMARUrl(appointmentId!));
+    try {
+      await administerOrder({
+        orderId: order.id,
+        type: administrationTypeRef.current.type,
+        ...(await cleanupProperties(data)),
+      });
+      navigate(getImmunizationMARUrl(appointmentId!));
+    } catch (error) {
+      enqueueSnackbar(getApiError({ error, defaultError: 'An error occurred. Please try again.' }), {
+        variant: 'error',
+      });
+      throw error;
+    }
   };
 
   const onAdministrationActionClick = async (administrationType: AdministrationType): Promise<void> => {
