@@ -904,6 +904,14 @@ export const configAllExternalLabDocuments = async (
   m2mToken: string
 ): Promise<ExternalLabDocuments | undefined> => {
   const documentsWithPresignedUrls = await fetchLabDocumentPresignedUrls(documentReferences, m2mToken);
+  console.log(
+    '>>> in configAllExternalLabDocuments, these were the original documentReferences',
+    JSON.stringify(documentReferences)
+  );
+  console.log(
+    '>>> in configAllExternalLabDocuments, these were the documentsWithPresignedUrls',
+    JSON.stringify(documentsWithPresignedUrls)
+  );
   if (!documentsWithPresignedUrls) return;
 
   const docsConfig: ExternalLabDocuments = {
@@ -996,7 +1004,9 @@ const configLabDocument = (docRef: DocumentReference, presignedURL: string): Lab
             .filter((ref): ref is string => !!ref) ?? [];
         return { type, diagnosticReportIds: relatedResultDiagnosticReportIds, ...baseInfo };
       }
-      case LabDocumentType.label:
+      case LabDocumentType.label: {
+        return { type, documentReference: docRef, presignedURL };
+      }
       default:
         return null;
     }

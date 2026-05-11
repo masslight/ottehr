@@ -109,7 +109,7 @@ export const getExternalLabLabelConfig = async (
           },
           {
             name: '_include',
-            value: 'ServiceRequest.patient',
+            value: 'ServiceRequest:patient',
           },
           {
             name: '_include',
@@ -164,13 +164,29 @@ export const getExternalLabLabelConfig = async (
   if (!serviceRequest)
     throw LABEL_PRINTING_ERROR(`Unable to make external label config. ServiceRequest/${serviceRequestId} not found`);
 
-  const location = locations.find(
-    (loc) => serviceRequest.locationReference?.some((srLocRef) => `Location/${loc.id}` === srLocRef)
-  );
-  if (!location)
+  const allLocationsByRefMap = new Map<string, Location>(locations.map((loc) => [`Location/${loc.id}`, loc]));
+  const matchingSRLocationRef = serviceRequest.locationReference?.find((locRef) =>
+    allLocationsByRefMap.has(locRef.reference ?? '')
+  )?.reference;
+  const location =
+    matchingSRLocationRef && allLocationsByRefMap.has(matchingSRLocationRef)
+      ? allLocationsByRefMap.get(matchingSRLocationRef)!
+      : undefined;
+
+  if (!location) {
+    console.error(
+      `Unable to make external label config. ServiceRequest/${serviceRequestId} does not have a Location with an account number. These were the possible Locations: `,
+      JSON.stringify(
+        locations.map((loc) => ({
+          ref: `Location/${loc.id}`,
+          identifiers: loc.identifier,
+        }))
+      )
+    );
     throw LABEL_PRINTING_ERROR(
       `Unable to make external label config. ServiceRequest/${serviceRequestId} does not have a Location with an account number`
     );
+  }
 
   const orderNumber = getOrderNumber(serviceRequest);
   if (!orderNumber) throw LABEL_PRINTING_ERROR;

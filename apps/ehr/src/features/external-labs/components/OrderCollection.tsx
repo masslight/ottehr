@@ -98,11 +98,10 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         ...(!labOrder.isPSC && { specimenCollectionDates: specimensData }), // non PSC orders require specimens
         userTimezone,
       });
-
-      if (result.presignedLabelPdfUrl) {
+      if (result.presignedLabelURL) {
         await printExternalLabLabel({
           serviceRequestId: labOrder.serviceRequestId,
-          pdfPresignedUrl: result.presignedLabelPdfUrl,
+          pdfPresignedUrl: result.presignedLabelURL,
           userTimezone,
         });
       }
