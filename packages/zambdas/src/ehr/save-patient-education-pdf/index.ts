@@ -26,7 +26,7 @@ export const index = wrapHandler(
       console.log('Created oystehr client');
 
       // Decode base64 PDF
-      const pdfBytes = Buffer.from(pdfBase64, 'base64');
+      const pdfBytes = new Uint8Array(Buffer.from(pdfBase64, 'base64'));
       console.log('Decoded PDF bytes:', pdfBytes.length);
 
       // Upload to Z3 — uses discharge-summaries bucket since patient-education
