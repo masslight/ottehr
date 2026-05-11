@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Bundle, Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { getPayerId, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, fhirName, findRef, getClaimStatus, sortClaimInsurance } from '../shared';
@@ -69,7 +69,7 @@ async function performEffect(
 
   // Use fhir.search directly to access Bundle.total for real pagination
   const bundle = await oystehr.fhir.search<Claim>({ resourceType: 'Claim', params: searchParams });
-  const total = (bundle as unknown as Bundle).total ?? 0;
+  const total = bundle.total ?? 0;
 
   const resources = (bundle.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
   const claims = resources.filter((r) => r.resourceType === 'Claim') as Claim[];

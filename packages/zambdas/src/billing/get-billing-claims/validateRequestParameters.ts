@@ -1,5 +1,6 @@
 import { INVALID_INPUT_ERROR } from 'utils';
 import { ZambdaInput } from '../../shared';
+import { toNonNegativeInt } from '../shared';
 
 export interface GetBillingClaimsParams {
   searchText?: string;
@@ -12,13 +13,6 @@ export interface GetBillingClaimsParams {
   offset?: number;
   pageSize?: number;
   secrets: ZambdaInput['secrets'];
-}
-
-function toNonNegativeInt(value: unknown, name: string): number | undefined {
-  if (value == null) return undefined;
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < 0) throw INVALID_INPUT_ERROR(`"${name}" must be a non-negative integer`);
-  return n;
 }
 
 export function validateRequestParameters(input: ZambdaInput): GetBillingClaimsParams {

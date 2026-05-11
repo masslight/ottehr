@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, HumanName, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
-import { convertFhirNameToDisplayName, getNPI, Secrets } from 'utils';
+import { Claim, HumanName, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { convertFhirNameToDisplayName, INVALID_INPUT_ERROR, Secrets } from 'utils';
 import { createOystehrClient } from '../shared/helpers';
 
 export const BILLING_RESOURCE_TAG = {
@@ -60,10 +60,6 @@ export function createBillingClient(token: string, secrets: Secrets | null): Oys
   return createOystehrClient(token, secrets, { workspaceTag: BILLING_RESOURCE_TAG });
 }
 
-export function hasNpiIdentifier(org: Organization): boolean {
-  return getNPI(org) != null;
-}
-
 export function getTag(resource: Resource, system: string): string | undefined {
   return resource.meta?.tag?.find((t) => t.system === system)?.code;
 }
@@ -96,6 +92,13 @@ export function findRef<T extends Resource>(resources: Resource[], reference?: s
   if (!reference) return undefined;
   const id = reference.includes('/') ? reference.split('/')[1] : reference;
   return resources.find((r) => r.id === id) as T | undefined;
+}
+
+export function toNonNegativeInt(value: unknown, name: string): number | undefined {
+  if (value == null) return undefined;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0) throw INVALID_INPUT_ERROR(`"${name}" must be a non-negative integer`);
+  return n;
 }
 
 // Apply first/last name overrides to a Patient or Practitioner.

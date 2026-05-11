@@ -1,24 +1,35 @@
-import { INVALID_INPUT_ERROR } from 'utils';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../shared';
+import { toNonNegativeInt } from '../shared';
+
+export type ProviderType = 'rendering' | 'billing';
 
 export interface GetBillingProvidersParams {
-  providerType?: string;
+  providerType: ProviderType;
+  offset?: number;
+  pageSize?: number;
   secrets: ZambdaInput['secrets'];
 }
 
 export function validateRequestParameters(input: ZambdaInput): GetBillingProvidersParams {
-  if (input.body) {
-    let body: any;
-    try {
-      body = JSON.parse(input.body);
-    } catch {
-      throw INVALID_INPUT_ERROR('Request body is not valid JSON');
-    }
+  if (!input.body) throw MISSING_REQUEST_BODY;
 
-    if (body.providerType !== undefined && (typeof body.providerType !== 'string' || !body.providerType.trim())) {
-      throw INVALID_INPUT_ERROR('"providerType" must be a non-empty string when provided');
-    }
+  let body: any;
+  try {
+    body = JSON.parse(input.body);
+  } catch {
+    throw INVALID_INPUT_ERROR('Request body is not valid JSON');
+  }
 
-    return { providerType: body.providerType, secrets: input.secrets };
-  } else return { secrets: input.secrets };
+  if (!body.providerType) throw MISSING_REQUIRED_PARAMETERS(['providerType']);
+  if (body.providerType !== 'rendering' && body.providerType !== 'billing') {
+    throw INVALID_INPUT_ERROR('"providerType" must be "rendering" or "billing"');
+  }
+
+  return {
+    providerType: body.providerType,
+    offset: toNonNegativeInt(body.offset, 'offset'),
+    pageSize: toNonNegativeInt(body.pageSize, 'pageSize'),
+    secrets: input.secrets,
+  };
 }
