@@ -1,20 +1,11 @@
 import { DocumentReference } from 'fhir/r4b';
 import { z } from 'zod';
 
-export enum LabelType {
-  label = 'label',
-  xmlLabel = 'xml-label',
-}
-
 // this is a general type not specific to labs
 export interface LabelPdf {
   type: 'label';
   documentReference: DocumentReference;
   presignedURL: string;
-}
-
-export interface LabelXml extends Omit<LabelPdf, 'type'> {
-  type: 'xml-label';
 }
 
 // ---------- enums (schema + inferred type, together) ----------
@@ -84,3 +75,29 @@ export interface AdminUpdatePrintingConfigInput {
   deviceId?: string; // will be defined unless it is the very first update
   config: PrintingConfig;
 }
+
+// --------- on demand label xml types --------
+export const OnDemandVistLabelXmlRequestSchema = z.object({
+  type: z.literal('visit'),
+  encounterId: z.string(),
+  // future todo: include deviceId or locationId to find printing configs specific to a location
+});
+export type OnDemandVisitLabelXmlRequestInput = z.infer<typeof OnDemandVistLabelXmlRequestSchema>;
+
+export const OnDemandExternalLabLabelXmlRequestSchema = z.object({
+  type: z.literal('external-lab'),
+  serviceRequestId: z.string(),
+  userTimezone: z.string(),
+  // future todo: include deviceId or locationId to find printing configs specific to a location
+});
+export type OnDemandExternalLabLabelXmlRequestInput = z.infer<typeof OnDemandExternalLabLabelXmlRequestSchema>;
+
+export const OnDemandLabelXmlRequestSchema = z.discriminatedUnion('type', [
+  OnDemandVistLabelXmlRequestSchema,
+  OnDemandExternalLabLabelXmlRequestSchema,
+]);
+export type OnDemandLabelXmlRequestInput = z.infer<typeof OnDemandLabelXmlRequestSchema>;
+export type OnDemandLabelXmlRequestOutput = {
+  printingConfig: PrintingConfig;
+  labelXmlString: string;
+};

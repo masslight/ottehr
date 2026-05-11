@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import React, { useMemo, useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { usePrintLabel } from 'src/features/visits/shared/hooks/usePrintLabel';
+import { usePrintExternalLabLabel } from 'src/features/visits/shared/hooks/usePrintExternalLabLabel';
 import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
 import { updateLabOrderResources } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -45,7 +45,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     (labOrder.orderStatus === ExternalLabsStatus.pending || labOrder.orderStatus === ExternalLabsStatus.sent);
   const showAOECard = aoe.length > 0;
 
-  const { printLabel } = usePrintLabel();
+  const { printExternalLabLabel } = usePrintExternalLabLabel();
 
   // if these are present they will be displayed from ResultItem.tsx so we shouldn't display the SR level requisition number on this component
   const additionalPlacerIdsMapped = labOrder.resultsDetails.some((result) => result.alternatePlacerId);
@@ -89,18 +89,20 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     const sanitizedData = sanitizeFormData(data);
     console.log('specimensData', specimensData);
     try {
+      const userTimezone = DateTime.local().zoneName;
       const result = await updateLabOrderResources(oystehr, {
         event: 'saveOrderCollectionData',
         serviceRequestId: labOrder.serviceRequestId,
         data: sanitizedData,
         ...(!labOrder.isPSC && { specimenCollectionDates: specimensData }), // non PSC orders require specimens
-        userTimezone: DateTime.local().zoneName,
+        userTimezone,
       });
 
-      if (result.presignedLabelPdfUrl || result.presignedLabelXmlUrl) {
-        await printLabel({
-          pdfPresignedUrl: result.presignedLabelPdfUrl ?? '',
-          xmlPresignedUrl: result.presignedLabelXmlUrl ?? '',
+      if (result.presignedLabelPdfUrl) {
+        await printExternalLabLabel({
+          serviceRequestId: labOrder.serviceRequestId,
+          pdfPresignedUrl: result.presignedLabelPdfUrl,
+          userTimezone,
         });
       }
       navigate(`/in-person/${appointmentID}/external-lab-orders`);
@@ -143,8 +145,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
 
         {showOrderInfo && (
           <OrderInformationCard
+            serviceRequestId={labOrder.serviceRequestId}
             labelPdfUrl={labOrder.labelPdfUrl}
-            labelXmlUrl={labOrder.labelXmlUrl}
             orderPdfUrl={labOrder.orderPdfUrl}
           />
         )}

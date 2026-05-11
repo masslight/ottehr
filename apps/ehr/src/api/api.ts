@@ -135,6 +135,8 @@ import {
   MedicationHistoryQuickPickData,
   MigrateExamDataInput,
   MigrateExamDataOutput,
+  OnDemandLabelXmlRequestInput,
+  OnDemandLabelXmlRequestOutput,
   PaginatedResponse,
   PaperworkToPDFInput,
   PendingSupervisorApprovalInput,
@@ -290,6 +292,7 @@ const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
 const ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-update-in-house-lab';
 const GET_PRINTING_CONFIG_ZAMBDA_ID = 'get-printing-config';
 const ADMIN_UPDATE_PRINTING_CONFIG_ZAMBDA_ID = 'admin-update-printing-config';
+const GENERATE_LABEL_XML_ZAMBDA_ID = 'generate-label-xml';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -363,7 +366,6 @@ export const createResourcesFromAudioRecording = async (
   }
 };
 
-// ATHENA TODO: fix all of these
 export const getOrCreateVisitLabel = async (oystehr: Oystehr, parameters: GetVisitLabelInput): Promise<LabelPdf[]> => {
   try {
     if (GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID == null) {
@@ -1828,6 +1830,25 @@ export const adminUpdatePrintingConfig = async (
       ...parameters,
     });
     return;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const generateLabelXml = async (
+  oystehr: Oystehr,
+  parameters: OnDemandLabelXmlRequestInput
+): Promise<OnDemandLabelXmlRequestOutput> => {
+  try {
+    if (GENERATE_LABEL_XML_ZAMBDA_ID == null) {
+      throw new Error('generate label xml environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: GENERATE_LABEL_XML_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);

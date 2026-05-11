@@ -1,4 +1,4 @@
-import { SearchParam } from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device } from 'fhir/r4b';
 import {
@@ -42,6 +42,39 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
+  try {
+    const { printingConfig, device } = await getPrintingConfigAndDevice(oystehr, deviceId);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        deviceId: device?.id,
+        config: printingConfig,
+      }),
+    };
+  } catch (e) {
+    console.warn(`Hit an error when trying to parse the config on Device/${deviceId}. Returning manual mode`, e);
+    await sendErrors(e, getSecret(SecretsKeys.ENVIRONMENT, secrets));
+    return {
+      statusCode: 200,
+      body: JSON.stringify(MANUAL_MODE_RESPONSE),
+    };
+  }
+});
+
+/**
+ * Parses the printing config for the default intsnace level Device, or the Device id if provided.
+ * Returns a manual config if no matching device is found. Throws if an error is encountered.
+ *
+ * Future todo: consider grabbing printing devices by location
+ * @param oystehr
+ * @param deviceId
+ * @returns
+ */
+export const getPrintingConfigAndDevice = async (
+  oystehr: Oystehr,
+  deviceId?: string
+): Promise<{ printingConfig: PrintingConfig; device: Device | undefined }> => {
   const searchParams: SearchParam[] = [
     {
       name: '_tag',
@@ -66,33 +99,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.warn(
       `No device with the device tag and/or the matching deviceId ${deviceId} was found. Returning manual config`
     );
-    return {
-      statusCode: 200,
-      body: JSON.stringify(MANUAL_MODE_RESPONSE),
-    };
+    return { printingConfig: MANUAL_MODE_RESPONSE, device: undefined };
   }
 
   console.log(`Found printing config Device/${device.id}`);
-
-  try {
-    const parsedConfig = parsePrintingConfig(device);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        deviceId: device?.id,
-        config: parsedConfig,
-      }),
-    };
-  } catch (e) {
-    console.warn(`Hit an error when trying to parse the config on Device/${device.id}. Returning manual mode`, e);
-    await sendErrors(e, getSecret(SecretsKeys.ENVIRONMENT, secrets));
-    return {
-      statusCode: 200,
-      body: JSON.stringify(MANUAL_MODE_RESPONSE),
-    };
-  }
-});
+  const parsedConfig = parsePrintingConfig(device);
+  return { printingConfig: parsedConfig, device };
+};
 
 const parsePrintingConfig = (device: Device): PrintingConfig => {
   console.log(`Parsing printing config from Device/${device.id}`);

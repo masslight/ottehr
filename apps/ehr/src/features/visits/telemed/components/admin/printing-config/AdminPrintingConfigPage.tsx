@@ -12,16 +12,16 @@ export default function AdminPrintingConfigPage(): ReactElement {
   const [submitError, setSubmitError] = useState<OystehrSdkError | APIError | undefined>(undefined);
 
   const {
-    data, // athena todo: this should actually return the deviceId, which can be defined or not. That's how we will update it
+    data, // the data comes back with the detected deviceId for the printing config
     isPending,
     isError: isFetchDataError,
   } = useAdminGetPrintingConfig({ deviceId: undefined }); // labs todo: in the future, we might have multiple printing configs by location, and we'll actually be passing in a deviceId here for a given config
   const existingConfig = data?.config;
   const deviceId = data?.deviceId;
-  console.log('>>>this is the device id from the get', deviceId);
+  console.log('Printing config device id from the get', deviceId);
   const configToRender = existingConfig ?? { mode: 'manual' };
 
-  const { mutateAsync: updatePrintingConfigMutateAsync } = useAdminUpdatePrintingConfig('athena todo id');
+  const { mutateAsync: updatePrintingConfigMutateAsync } = useAdminUpdatePrintingConfig(deviceId);
 
   const handleSubmit = useCallback(
     async (formData: PrintingConfig): Promise<void> => {

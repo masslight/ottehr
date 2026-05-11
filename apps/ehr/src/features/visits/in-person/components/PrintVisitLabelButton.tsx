@@ -3,7 +3,7 @@ import { FC, useCallback, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { usePrintLabel } from '../../shared/hooks/usePrintLabel';
+import { usePrintVisitLabel } from '../../shared/hooks/usePrintVisitLabel';
 
 const PrintDisabledOutlined: FC = () => {
   return (
@@ -35,7 +35,7 @@ type Props = {
 
 export const PrintVisitLabelButton: FC<Props> = ({ encounterId }) => {
   const { oystehrZambda } = useApiClients();
-  const { printLabel } = usePrintLabel('integrated');
+  const { printVisitLabel } = usePrintVisitLabel();
 
   const [loading, setLoading] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -55,17 +55,17 @@ export const PrintVisitLabelButton: FC<Props> = ({ encounterId }) => {
     }
 
     const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId });
+    if (labelPdfs.length !== 1) {
+      console.error('Expected 1 label pdf, received unexpected number', JSON.stringify(labelPdfs));
+      setIsError(true);
+    }
 
-    const labelPdf = labelPdfs.find((label) => label.type === 'label');
-    const labelXml = labelPdfs.find((label) => label.type === 'xml-label');
+    const labelPdf = labelPdfs[0];
 
-    await printLabel({
-      pdfPresignedUrl: labelPdf?.presignedURL ?? '',
-      xmlPresignedUrl: labelXml?.presignedURL ?? '',
-    });
+    await printVisitLabel({ pdfPresignedUrl: labelPdf?.presignedURL ?? '', encounterId });
 
     setLoading(false);
-  }, [encounterId, oystehrZambda, printLabel]);
+  }, [encounterId, oystehrZambda, printVisitLabel]);
 
   const tooltipText = isError ? 'An error occurred' : 'Print label';
   const icon = loading ? <CircularProgress size="15px" /> : isError ? <PrintDisabledOutlined /> : <PrintOutlined />;

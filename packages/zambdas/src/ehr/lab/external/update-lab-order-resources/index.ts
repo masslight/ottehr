@@ -20,17 +20,14 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  DYMO_30334_LABEL_CONFIG,
-  getAccountNumberFromLocationAndOrganization,
   getFullestAvailableName,
   getOrderNumber,
   getPatchBinary,
-  getPatientFirstName,
-  getPatientLastName,
   getSecret,
   getTestNameFromDr,
   isPSCOrder,
   LAB_ORDER_UPDATE_RESOURCES_EVENTS,
+  makeExternalLabLabelConfig,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SaveOrderCollectionData,
   Secrets,
@@ -46,7 +43,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
-import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../../../shared/pdf/external-labs-label-pdf';
+import { createExternalLabsLabelPDF } from '../../../../shared/pdf/external-labs-label-pdf';
 import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
@@ -570,25 +567,14 @@ const handleSaveCollectionData = async (
 
   // make specimen label
   if (!isPSCOrder(serviceRequest)) {
-    const labelConfig: ExternalLabsLabelConfig = {
-      labelConfig: DYMO_30334_LABEL_CONFIG,
-      content: {
-        patientId: patient.id!,
-        patientFirstName: getPatientFirstName(patient) ?? '',
-        patientLastName: getPatientLastName(patient) ?? '',
-        patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
-        sampleCollectionDateAndTimezone: mostRecentSampleCollectionDate
-          ? {
-              sampleCollectionDate: mostRecentSampleCollectionDate,
-              timezone: userTimezone,
-            }
-          : undefined,
-        orderNumber: orderNumber,
-        accountNumber:
-          (labOrganization && location && getAccountNumberFromLocationAndOrganization(location, labOrganization)) || '',
-      },
-      type: 'external-lab',
-    };
+    const labelConfig = makeExternalLabLabelConfig({
+      patient,
+      orderNumber,
+      location,
+      labOrganization,
+      specimenCollectionDateTime: mostRecentSampleCollectionDate,
+      userTimezone,
+    });
 
     console.log('creating labs order label and getting url');
     presignedLabelURL = (

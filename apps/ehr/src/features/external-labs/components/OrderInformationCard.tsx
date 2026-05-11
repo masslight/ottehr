@@ -1,15 +1,16 @@
 import { Button, Grid } from '@mui/material';
+import { DateTime } from 'luxon';
 import React from 'react';
-import { usePrintLabel } from 'src/features/visits/shared/hooks/usePrintLabel';
+import { usePrintExternalLabLabel } from 'src/features/visits/shared/hooks/usePrintExternalLabLabel';
 import { openPdf } from 'utils';
 interface OrderInfoProps {
+  serviceRequestId: string;
   labelPdfUrl: string | undefined;
-  labelXmlUrl: string | undefined;
   orderPdfUrl: string | undefined;
 }
 
-export const OrderInformationCard: React.FC<OrderInfoProps> = ({ labelPdfUrl, labelXmlUrl, orderPdfUrl }) => {
-  const { printLabel } = usePrintLabel();
+export const OrderInformationCard: React.FC<OrderInfoProps> = ({ serviceRequestId, labelPdfUrl, orderPdfUrl }) => {
+  const { printExternalLabLabel } = usePrintExternalLabLabel();
 
   return (
     <Grid container direction="row" spacing={1} sx={{ my: 2 }}>
@@ -21,9 +22,10 @@ export const OrderInformationCard: React.FC<OrderInfoProps> = ({ labelPdfUrl, la
             sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
             onClick={async () => {
               // this falls back to manual printing if there is an error
-              await printLabel({
-                pdfPresignedUrl: labelPdfUrl ?? '',
-                xmlPresignedUrl: labelXmlUrl ?? '',
+              await printExternalLabLabel({
+                serviceRequestId,
+                pdfPresignedUrl: labelPdfUrl,
+                userTimezone: DateTime.local().zoneName,
               });
             }}
           >

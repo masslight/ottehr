@@ -53,6 +53,7 @@ export enum APIErrorCode {
   IN_HOUSE_LAB_GENERAL = 4402,
   MISSING_WC_INFO_FOR_LABS = 4403,
   ADMIN_IN_HOUSE_TEST_EXISTS = 4404,
+  LABEL_PRINTING_GENERAL = 4405,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -441,5 +442,12 @@ export const ADMIN_IN_HOUSE_LAB_TEST_EXISTS_ERROR = (testName?: string): APIErro
     message: `A test matching that name${
       testName ? ` "${testName}"` : ''
     } already exists. Please change the name, or update the existing test`,
+  };
+};
+
+export const LABEL_PRINTING_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.LABEL_PRINTING_GENERAL,
+    message,
   };
 };

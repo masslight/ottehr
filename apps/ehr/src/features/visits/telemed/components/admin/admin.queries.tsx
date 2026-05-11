@@ -502,7 +502,7 @@ export const useAdminGetPrintingConfig = (
 };
 
 export const useAdminUpdatePrintingConfig = (
-  mutatingDeviceId: string
+  mutatingDeviceId: string | undefined
 ): UseMutationResult<void, Error, AdminUpdatePrintingConfigInput> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();

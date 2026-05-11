@@ -1,14 +1,18 @@
 import Dymo from 'dymojs';
 import { enqueueSnackbar, VariantType } from 'notistack';
 import { useState } from 'react';
+import { PrintingConfig, PrintMode } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 
 interface UsePrintLabelOutput {
-  printLabel: (input: { pdfPresignedUrl: string; xmlPresignedUrl: string }) => Promise<void>;
+  printLabelByConfig: (input: {
+    printingConfig: PrintingConfig;
+    pdfPresignedUrl: string;
+    labelXmlString: string;
+  }) => Promise<void>;
 }
 
 // labs future TODO: have customer specific variables set and passed e.g. in case they're using non-dymo
-type PrintMode = 'integrated' | 'manual';
 
 const dymo = new Dymo();
 
@@ -18,9 +22,9 @@ const dymo = new Dymo();
  * @param
  * @returns
  */
-export const usePrintLabel = (inputMode: PrintMode = 'integrated'): UsePrintLabelOutput => {
+export const usePrintLabel = (): UsePrintLabelOutput => {
   // tracking the mode so we can give good UX if integrated printing ever fails. Can short circuit to manual easily
-  const [mode, setMode] = useState<PrintMode>(inputMode);
+  const [fallbackOverrideMode, setFallbackOverrideMode] = useState<PrintMode | null>(null);
 
   const _openLabelPdf = async (url: string): Promise<void> => {
     // fetch the presigned url so we can handle the case where it expired and S3 sends back a gross xml error page
@@ -31,9 +35,8 @@ export const usePrintLabel = (inputMode: PrintMode = 'integrated'): UsePrintLabe
     window.open(blobUrl, '_blank');
   };
 
-  const _printIntegratedLabel = async (input: { pdfPresignedUrl: string; xmlPresignedUrl: string }): Promise<void> => {
-    const { pdfPresignedUrl, xmlPresignedUrl } = input;
-    console.log('XML file at: ', xmlPresignedUrl);
+  const _printIntegratedLabel = async (input: { pdfPresignedUrl: string; labelXmlString: string }): Promise<void> => {
+    const { pdfPresignedUrl, labelXmlString } = input;
     const showSnackbarAndPrintManually = async (message: string, variant: VariantType): Promise<void> => {
       enqueueSnackbar(message, { variant: variant });
 
@@ -53,7 +56,7 @@ export const usePrintLabel = (inputMode: PrintMode = 'integrated'): UsePrintLabe
         'Dymo Connect must be running to print in integrated mode. Install, upgrade, or restart Dymo Connect and refresh the page, or print manually from the browser.',
         'warning'
       );
-      setMode('manual');
+      setFallbackOverrideMode('manual');
       return;
     }
 
@@ -67,7 +70,7 @@ export const usePrintLabel = (inputMode: PrintMode = 'integrated'): UsePrintLabe
           'No connected available printers detected. Ensure your printer is connected and refresh the page, or print manually from the browser.',
           'warning'
         );
-        setMode('manual');
+        setFallbackOverrideMode('manual');
         return;
       }
       printerName = connectedPrinters[0].name;
@@ -78,20 +81,15 @@ export const usePrintLabel = (inputMode: PrintMode = 'integrated'): UsePrintLabe
         'Error detecting printer name. Please print manually from the browser.',
         'error'
       );
-      setMode('manual');
+      setFallbackOverrideMode('manual');
       return;
     }
 
     console.log('Attempting to print to: ', printerName);
 
-    // open label xml and print
+    // grab label xml and print
     try {
-      const response = await fetch(xmlPresignedUrl);
-      console.log('xml response', response.ok);
-      if (!response.ok) throw new Error('Error fetching xml file');
-      const labelXml = await response.text();
-
-      await safePrint(printerName, labelXml);
+      await safePrint(printerName, labelXmlString);
     } catch (error: unknown) {
       console.error('Print error', error);
       safelyCaptureException(error);
@@ -101,21 +99,32 @@ export const usePrintLabel = (inputMode: PrintMode = 'integrated'): UsePrintLabe
         `Something went wrong printing to your ${printerName} printer. Please print manually in the browser`,
         'error'
       );
-      setMode('manual');
+      setFallbackOverrideMode('manual');
     }
   };
 
-  const printLabel = async (input: { pdfPresignedUrl: string; xmlPresignedUrl: string }): Promise<void> => {
-    if (mode === 'integrated') {
+  const printLabelByConfig = async (input: {
+    printingConfig: PrintingConfig;
+    pdfPresignedUrl: string;
+    labelXmlString: string;
+  }): Promise<void> => {
+    const { printingConfig } = input;
+    const { mode: configuredMode } = printingConfig;
+    const effectiveMode = fallbackOverrideMode ?? configuredMode;
+
+    let shouldOpenPdfInIntegratedMode = false;
+    if (effectiveMode === 'integrated' && configuredMode === 'integrated')
+      shouldOpenPdfInIntegratedMode = printingConfig.openPdfOnPrint;
+    if (effectiveMode === 'integrated') {
       await _printIntegratedLabel(input);
+      if (shouldOpenPdfInIntegratedMode) await _openLabelPdf(input.pdfPresignedUrl);
+    } else {
+      await _openLabelPdf(input.pdfPresignedUrl);
     }
-    // edge case: we open the pdf either way to handle the case where a paper mismatch prevents nice usable printing
-    // in the future it would be nice if this were admin configurable
-    await _openLabelPdf(input.pdfPresignedUrl);
   };
 
   return {
-    printLabel,
+    printLabelByConfig,
   };
 };
 
