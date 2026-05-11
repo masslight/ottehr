@@ -317,12 +317,12 @@ export default function EditInsurance(): JSX.Element {
                     color: theme.palette.primary.dark,
                     mb: 2,
                     fontWeight: '600 !important',
-                    display: 'block',
+                    display: 'inline-block',
                   }}
                 >
                   Insurance settings
-                  {insuranceDataLoading ? <Loading /> : <></>}
                 </FormLabel>
+                <Box sx={{ display: 'inline-block', ml: 2 }}>{insuranceDataLoading ? <Loading /> : <></>}</Box>
                 <Controller
                   name="payor"
                   control={control}
