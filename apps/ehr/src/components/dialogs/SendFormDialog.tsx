@@ -1,6 +1,7 @@
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import SendIcon from '@mui/icons-material/Send';
 import {
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -8,11 +9,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
   IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
   TextField,
   Tooltip,
   Typography,
@@ -50,6 +47,7 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
           (result.questionnaires || [])
             .filter((q: any) => q.status === 'active')
             .map((q: any) => ({ id: q.id, title: q.title || q.name || 'Untitled' }))
+            .sort((a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title))
         );
       })
       .catch((err) => {
@@ -110,21 +108,17 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
           <Typography color="text.secondary">No practice-managed questionnaires available.</Typography>
         ) : (
           <>
-            <FormControl fullWidth size="small">
-              <InputLabel>Form</InputLabel>
-              <Select
-                value={selectedId}
-                label="Form"
-                onChange={(e) => setSelectedId(e.target.value)}
-                disabled={sending}
-              >
-                {questionnaires.map((q) => (
-                  <MenuItem key={q.id} value={q.id}>
-                    {q.title}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              size="small"
+              options={questionnaires}
+              getOptionLabel={(opt) => opt.title}
+              isOptionEqualToValue={(opt, val) => opt.id === val.id}
+              value={questionnaires.find((q) => q.id === selectedId) || null}
+              onChange={(_, value) => setSelectedId(value?.id || '')}
+              disabled={sending}
+              autoHighlight
+              renderInput={(params) => <TextField {...params} label="Form" placeholder="Type to filter…" />}
+            />
             {formUrl && (
               <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <TextField

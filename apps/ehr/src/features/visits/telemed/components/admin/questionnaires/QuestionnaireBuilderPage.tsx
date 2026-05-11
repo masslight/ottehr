@@ -125,20 +125,26 @@ export const QuestionnaireBuilderPage: FC = () => {
 
   return (
     <PageContainer>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton onClick={() => navigate('/admin/questionnaires')} size="small" aria-label="Back to questionnaires">
-          <ArrowBackIcon />
-        </IconButton>
-        <Typography variant="h4" color={theme.palette.primary.dark}>
-          {headerTitle}
-        </Typography>
-      </Box>
-      <QuestionnaireBuilder
-        initial={data?.editing ?? undefined}
-        onSave={handleSave}
-        onCancel={handleCancel}
-        systemQuestionnaires={data?.systemQuestionnaires || []}
-      />
+      <>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <IconButton
+            onClick={() => navigate('/admin/questionnaires')}
+            size="small"
+            aria-label="Back to questionnaires"
+          >
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h4" color={theme.palette.primary.dark}>
+            {headerTitle}
+          </Typography>
+        </Box>
+        <QuestionnaireBuilder
+          initial={data?.editing ?? undefined}
+          onSave={handleSave}
+          onCancel={handleCancel}
+          systemQuestionnaires={data?.systemQuestionnaires || []}
+        />
+      </>
     </PageContainer>
   );
 };

@@ -146,7 +146,9 @@ export const QuestionnaireAdminPage: FC = () => {
     },
     enabled: !!oystehrZambda,
   });
-  const questionnaires = data?.questionnaires || [];
+  const questionnaires = (data?.questionnaires || [])
+    .slice()
+    .sort((a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || ''));
   const systemQuestionnaires = data?.systemQuestionnaires || [];
 
   const handleCreate = useCallback(() => {
