@@ -99,7 +99,8 @@ async function performEffect(
         encounterIdFromMA,
         newStatus,
         orderResources.medicationAdministration,
-        userToken
+        userToken,
+        orderData.cptCodes
       );
     } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
 
@@ -451,24 +452,28 @@ async function manageAdditionalCptCodesForOrder(
   encounterId: string,
   medicationStatus: MedicationOrderStatusesType,
   medicationAdministration: MedicationAdministration,
-  userToken: string
+  userToken: string,
+  cptCodes?: { code: string; display: string }[]
 ): Promise<void> {
   try {
     console.log(`Managing additional CPT codes for order with status: ${medicationStatus}`);
 
     if (statusesToCreateAdditionalCptCodes.includes(medicationStatus)) {
-      // Read CPT codes from the MedicationAdministration extension — this is the
-      // single source of truth for the order's CPT codes. It includes auto-populated
-      // codes from the Medication resource (inventory defaults) plus any user edits.
-      const cptExt = medicationAdministration.extension?.find(
-        (ext) => ext.url === 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
-      );
-      let orderCptCodes: { code: string; display: string }[] = [];
-      if (cptExt?.valueString) {
-        try {
-          orderCptCodes = JSON.parse(cptExt.valueString) as { code: string; display: string }[];
-        } catch {
-          console.log('Failed to parse CPT codes extension');
+      let orderCptCodes: { code: string; display: string }[] = cptCodes ?? [];
+      if (!cptCodes) {
+        // Read CPT codes from the MedicationAdministration extension — this is the
+        // single source of truth for the order's CPT codes. It includes auto-populated
+        // codes from the Medication resource (inventory defaults) plus any user edits.
+        const cptExt = medicationAdministration.extension?.find(
+          (ext) => ext.url === 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
+        );
+        if (cptExt?.valueString) {
+          try {
+            orderCptCodes = JSON.parse(cptExt.valueString) as { code: string; display: string }[];
+          } catch (e) {
+            console.log('Failed to parse CPT codes extension', e, JSON.stringify(e));
+            captureException(e);
+          }
         }
       }
 

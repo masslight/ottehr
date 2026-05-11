@@ -61,7 +61,6 @@ interface PrePopulationInput {
   questionnaire: Questionnaire;
   contactInfo: { phone: string; email: string } | undefined;
   newPatientDob?: string;
-  unconfirmedDateOfBirth?: string;
   rp?: RelatedPerson;
   documents?: DocumentReference[];
   accountInfo?: PatientAccountResponse | undefined;
@@ -71,7 +70,6 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   const {
     patient,
     newPatientDob,
-    unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
     appointmentServiceCategory,
     reasonForVisit,
@@ -182,13 +180,10 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           let answer: QuestionnaireResponseItemAnswer[] | undefined;
           const { linkId } = item;
           if (linkId === 'patient-will-be-18') {
-            answer = makeAnswer(
-              checkPatientWillBe18(startTime ?? '', patient, newPatientDob, unconfirmedDateOfBirth),
-              'Boolean'
-            );
+            answer = makeAnswer(checkPatientWillBe18(startTime ?? '', patient, newPatientDob), 'Boolean');
           }
           if (linkId === 'patient-birthdate') {
-            const patientDOB = getPatientDOB(patient, newPatientDob, unconfirmedDateOfBirth);
+            const patientDOB = getPatientDOB(patient, newPatientDob);
             if (patientDOB) {
               answer = makeAnswer(patientDOB);
             }
@@ -363,12 +358,8 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   return item;
 };
 
-const getPatientDOB = (
-  patient?: Patient,
-  newPatientDob?: string,
-  unconfirmedDateOfBirth?: string
-): string | undefined => {
-  const dobStringToUse = unconfirmedDateOfBirth ?? patient?.birthDate ?? newPatientDob;
+const getPatientDOB = (patient?: Patient, newPatientDob?: string): string | undefined => {
+  const dobStringToUse = patient?.birthDate ?? newPatientDob;
   if (dobStringToUse === undefined) {
     return undefined;
   }
@@ -376,17 +367,10 @@ const getPatientDOB = (
   return patientDOB.isValid ? dobStringToUse : undefined;
 };
 
-const checkPatientWillBe18 = (
-  appointmentStart: string,
-  patient?: Patient,
-  newPatientDob?: string,
-  unconfirmedDateOfBirth?: string
-): boolean => {
+const checkPatientWillBe18 = (appointmentStart: string, patient?: Patient, newPatientDob?: string): boolean => {
   // intentionally not worrying about time zone here. the extra accuracy is not worth the query.
   const appointmentStartTime = DateTime.fromISO(appointmentStart);
-  const patientDOB = DateTime.fromISO(
-    getPatientDOB(patient, newPatientDob, unconfirmedDateOfBirth) ?? DateTime.now().toISO()
-  );
+  const patientDOB = DateTime.fromISO(getPatientDOB(patient, newPatientDob) ?? DateTime.now().toISO());
 
   if (!appointmentStartTime.isValid && patientDOB.isValid) {
     return false;

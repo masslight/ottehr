@@ -3,7 +3,14 @@ import { FhirResource, Patient, Person, QuestionnaireResponse, RelatedPerson } f
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { getFirstName, getLastName, PromiseReturnType, RemoveCoverageZambdaInput, useSuccessQuery } from 'utils';
+import {
+  getFirstName,
+  getLastName,
+  isValidUUID,
+  PromiseReturnType,
+  RemoveCoverageZambdaInput,
+  useSuccessQuery,
+} from 'utils';
 import { OystehrTelemedAPIClient } from '../features/visits/shared/api/oystehrApi';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { useApiClients } from './useAppClients';
@@ -198,10 +205,16 @@ export const useGetActiveMergeTask = (
   const apiClient = useOystehrAPIClient();
   const refetchIntervalMs = options?.refetchIntervalMs ?? 3000;
 
+  // Guard against bogus route params like the literal string "undefined".
+  // Without this, broken `/patient/${someUndefined}/info` URLs send
+  // {"patientId":"undefined","mode":"status"} to the merge-patients zambda and
+  // produce noisy 400s.
+  const validPatientId = patientId && isValidUUID(patientId) ? patientId : undefined;
+
   return useQuery({
-    queryKey: ['active-merge-task', { patientId }],
-    queryFn: () => apiClient!.getMergePatientsTask({ patientId: patientId! }),
-    enabled: (options?.enabled ?? true) && apiClient != null && !!patientId,
+    queryKey: ['active-merge-task', { patientId: validPatientId }],
+    queryFn: () => apiClient!.getMergePatientsTask({ patientId: validPatientId! }),
+    enabled: (options?.enabled ?? true) && apiClient != null && !!validPatientId,
     refetchInterval: (query) => {
       const data = query.state.data;
       if (!data?.task) return false;

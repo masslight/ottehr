@@ -825,21 +825,6 @@ export async function getInsuranceOrgById(id: string, oystehr: Oystehr): Promise
   return insuranceOrg;
 }
 
-export const getUnconfirmedDOBForAppointment = (appointment?: Appointment): string | undefined => {
-  if (!appointment) return;
-  const unconfirmedDobExt = appointment.extension?.find((ext) => {
-    return ext.url.replace('http:', 'https:') === FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url;
-  });
-  return unconfirmedDobExt?.valueString || unconfirmedDobExt?.valueDate;
-};
-
-export const getUnconfirmedDOBIdx = (appointment?: Appointment): number | undefined => {
-  if (!appointment) return;
-  return appointment.extension?.findIndex((ext) => {
-    return ext.url.replace('http:', 'https:') === FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url;
-  });
-};
-
 export function filterResources(allResources: Resource[], resourceType: string): Resource[] {
   return allResources.filter((res) => res.resourceType === resourceType && res.id);
 }

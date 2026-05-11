@@ -9,7 +9,6 @@ export interface CreateAppointmentInputParams {
   slotId: string;
   language?: string;
   locationState?: string;
-  unconfirmedDateOfBirth?: string | undefined;
   appointmentMetadata?: Appointment['meta'];
   parentEncounterId?: string;
 }
