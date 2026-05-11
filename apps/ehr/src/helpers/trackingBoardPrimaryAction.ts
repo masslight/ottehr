@@ -51,4 +51,4 @@ const trackingBoardPrimaryActions = {
 } satisfies Record<ActionableVisitStatus, TrackingBoardPrimaryAction>;
 
 export const getTrackingBoardPrimaryAction = (status: VisitStatusLabel): TrackingBoardPrimaryAction | undefined =>
-  trackingBoardPrimaryActions[status];
+  status in trackingBoardPrimaryActions ? trackingBoardPrimaryActions[status as ActionableVisitStatus] : undefined;
