@@ -25,12 +25,14 @@ import {
   LabType,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   ORDER_NUMBER_LEN,
+  OrderableItemSearchResult,
   OYSTEHR_ABN_DOC_CATEGORY_CODING,
   OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
+  STATIC_COMPENDIUM_LAB_GUID,
 } from '../../types';
 
 export const nameLabTest = (testName: string | undefined, labName: string | undefined, isReflex: boolean): string => {
@@ -344,4 +346,35 @@ export const getLabListStatus = (list: List): LabSetStatus => {
   } else {
     return LabSetStatus.inactive;
   }
+};
+
+export const refineLabResponseForGenericLabSets = (
+  labs: OrderableItemSearchResult[],
+  genericLabsFromSet: Set<{
+    display: string;
+    itemCode: string;
+    labGuid: string;
+  }>
+): OrderableItemSearchResult[] => {
+  const refinedLabs = labs.map((lab) => {
+    if (lab.lab.labGuid === STATIC_COMPENDIUM_LAB_GUID) {
+      const matched = [...genericLabsFromSet].find((genericLab) => genericLab.itemCode === lab.item.itemCode);
+      if (matched) {
+        genericLabsFromSet.delete(matched);
+        const parsedGenericLabName = matched.display?.split('/')?.[1]?.trim() ?? '';
+        return {
+          item: lab.item,
+          lab: {
+            ...lab.lab,
+            labName: parsedGenericLabName,
+          },
+        };
+      } else {
+        return lab;
+      }
+    } else {
+      return lab;
+    }
+  });
+  return refinedLabs;
 };

@@ -11,6 +11,7 @@ import {
   ModifiedOrderingLocation,
   nameLabTest,
   OrderableItemSearchResult,
+  refineLabResponseForGenericLabSets,
   STATIC_COMPENDIUM_LAB_GUID,
 } from 'utils';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
@@ -49,9 +50,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
   // coming back from the hook, we expect all these locations to have labGuids in their enabledLabs details
   const orderingLocations = data?.orderingLocations || [];
 
-  const labs = orderingLocation.searchingForAll
-    ? data?.labs ?? []
-    : expandResultsForGeneric(data?.labs || [], orderingLocations, orderingLocation.selectedOrderingLocationId);
+  const labs = expandResultsForGeneric(data?.labs || [], orderingLocations, orderingLocation);
 
   const { debounce } = useDebounce(800);
   const debouncedHandleLabInputChange = (searchValue: string): void => {
@@ -69,13 +68,28 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
       });
       const labs = res?.labs;
 
+      const genericLabsIncluded = new Set(labSet.labs.filter((lab) => lab.labGuid === STATIC_COMPENDIUM_LAB_GUID));
+
       if (labs) {
         setSelectedLabs((currentLabs) => {
-          const existingCodes = new Set(currentLabs.map((lab) => `${lab.item.itemCode}${lab.lab.labGuid}`));
+          const existingCodes = new Set(
+            currentLabs.map((lab) => `${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
+          );
 
-          const newLabs = labs.filter((lab) => !existingCodes.has(`${lab.item.itemCode}${lab.lab.labGuid}`));
+          if (genericLabsIncluded.size > 0) {
+            const refinedLabs = refineLabResponseForGenericLabSets(labs, genericLabsIncluded);
+            const newLabs = refinedLabs.filter(
+              (lab) => !existingCodes.has(`${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
+            );
 
-          return [...currentLabs, ...newLabs];
+            return [...currentLabs, ...newLabs];
+          } else {
+            const newLabs = labs.filter(
+              (lab) => !existingCodes.has(`${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
+            );
+
+            return [...currentLabs, ...newLabs];
+          }
         });
       }
     }
@@ -88,14 +102,16 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
         size="small"
         options={labs}
         getOptionLabel={(option) => nameLabTest(option.item.itemName, option.lab.labName, false)}
-        getOptionKey={(lab) => lab.item.uniqueName}
+        getOptionKey={(lab) => `${lab.item.uniqueName}${lab.lab.labName}`}
         noOptionsText={
           debouncedLabSearchTerm && labs.length === 0 ? 'No labs based on input' : 'Start typing to load labs'
         }
         value={null}
         onChange={(_, selectedLab: any) => {
           const alreadySelected = selectedLabs.find((tempLab) => {
-            return tempLab.item.uniqueName === selectedLab.item.uniqueName;
+            const selectedUniqueNameWithLab = `${selectedLab.item.uniqueName}${selectedLab.lab.labName}`;
+            const tempLabUniqueNameWithLab = `${tempLab.item.uniqueName}${tempLab.lab.labName}`;
+            return tempLabUniqueNameWithLab === selectedUniqueNameWithLab;
           });
           if (!alreadySelected) {
             setSelectedLabs([...selectedLabs, selectedLab]);
@@ -130,13 +146,18 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
 const expandResultsForGeneric = (
   labs: OrderableItemSearchResult[],
   orderingLocations: ModifiedOrderingLocation[],
-  selectedLocationId: string
+  orderingLocation: LabsAutocompleteProps['orderingLocation']
 ): OrderableItemSearchResult[] => {
-  const selectedLocation = orderingLocations.find((location) => location.id === selectedLocationId);
-  if (!selectedLocation) {
+  if (!orderingLocation || orderingLocations.length === 0) return [];
+
+  const selectedLocation = orderingLocation.searchingForAll
+    ? orderingLocations
+    : orderingLocations.filter((location) => location.id === orderingLocation.selectedOrderingLocationId);
+
+  if (!selectedLocation || selectedLocation.length === 0) {
     console.error('Unable to expand results, returning original labs results');
     safelyCaptureMessage(
-      `Unexpected undefined selectedLocation for id ${selectedLocationId} when trying to expandResultsForGeneric`,
+      `Unexpected undefined selectedLocation for orderingLocation ${orderingLocation} when trying to expandResultsForGeneric`,
       { level: 'warning' }
     );
     return labs;
@@ -144,31 +165,42 @@ const expandResultsForGeneric = (
 
   // find all the enabled labs that are using the generic compendium
   // sort by the lab name to keep the results sane
-  const genericCompendiumLabDetails = selectedLocation.enabledLabs
-    .map((lab) => {
-      if (lab.labGuid === STATIC_COMPENDIUM_LAB_GUID && lab.labName) return lab;
-      return undefined;
-    })
-    .filter(
-      (
-        lab
-      ): lab is {
-        accountNumber: string;
-        labOrgRef: string;
-        labGuid: string;
-        labName: string;
-      } => lab !== undefined
-    )
-    .sort((a, b) => {
-      const nameA = a.labName.toLowerCase();
-      const nameB = b.labName.toLowerCase();
-      if (nameA < nameB) return -1;
-      if (nameA > nameB) return 1;
-      return 0;
-    });
+  const genericCompendiumLabDetails: {
+    accountNumber: string;
+    labOrgRef: string;
+    labGuid: string;
+    labName: string;
+  }[] = [];
+
+  for (const loc of selectedLocation) {
+    const genericDetail = loc.enabledLabs
+      .map((lab) => {
+        if (lab.labGuid === STATIC_COMPENDIUM_LAB_GUID && lab.labName) return lab;
+        return undefined;
+      })
+      .filter(
+        (
+          lab
+        ): lab is {
+          accountNumber: string;
+          labOrgRef: string;
+          labGuid: string;
+          labName: string;
+        } => lab !== undefined
+      )
+      .sort((a, b) => {
+        const nameA = a.labName.toLowerCase();
+        const nameB = b.labName.toLowerCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
+      });
+
+    genericCompendiumLabDetails.push(...genericDetail);
+  }
 
   if (!genericCompendiumLabDetails.length) {
-    console.log('No generic labs configured for this location, returning original list', selectedLocationId);
+    console.log('No generic labs configured for this location, returning original list', orderingLocation);
     return labs;
   }
 

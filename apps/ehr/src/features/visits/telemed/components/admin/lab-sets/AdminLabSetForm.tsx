@@ -74,7 +74,7 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
             adUrl: t.adUrl,
           }))
         : selectedExternalTests.map((r) => ({
-            display: r.item.uniqueName,
+            display: `${r.item.itemName} / ${r.lab.labName}`,
             itemCode: r.item.itemCode,
             labGuid: r.lab.labGuid,
           }));
