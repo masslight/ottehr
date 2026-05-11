@@ -203,6 +203,8 @@ import {
   UpdateUserZambdaOutput,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
+  UploadPatientConditionPhotoInput,
+  UploadPatientConditionPhotoOutput,
   UploadPatientProfilePhotoInput,
   UserActivationZambdaInput,
   UserActivationZambdaOutput,
@@ -1591,6 +1593,22 @@ export const deletePatientDocument = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const uploadPatientConditionPhoto = async (
+  oystehr: Oystehr,
+  parameters: UploadPatientConditionPhotoInput
+): Promise<UploadPatientConditionPhotoOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'upload-patient-condition-photo',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };
 
