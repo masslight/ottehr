@@ -10,6 +10,7 @@ import {
   isApiError,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
   SecretsKeys,
 } from 'utils';
 import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
@@ -134,7 +135,11 @@ function validateInput(input: ZambdaInput): Input {
     throw MISSING_REQUEST_SECRETS;
   }
 
-  const { prependIdentifier } = JSON.parse(body);
+  const { answerSource } = JSON.parse(body);
+  if (!body) {
+    throw MISSING_REQUIRED_PARAMETERS(['answerSource']);
+  }
+  const { prependIdentifier } = answerSource;
 
   return {
     secrets,
