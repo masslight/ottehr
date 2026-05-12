@@ -42,6 +42,7 @@ import { otherColors } from 'src/themes/ottehr/colors';
 import {
   formatMinutes,
   getAbnormalVitals,
+  getAdmitterPractitionerId,
   getDurationOfStatus,
   getInPersonQuickTexts,
   getPatchBinary,
@@ -53,6 +54,7 @@ import {
   mdyStringFromISOString,
   NON_LOS_STATUSES,
   OrdersForTrackingBoardRow,
+  PRACTITIONER_CODINGS,
   ROOM_EXTENSION_URL,
   VisitStatusHistoryEntry,
   VisitStatusWithoutUnknown,
@@ -61,8 +63,10 @@ import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { InfoIconsToolTip } from '../features/visits/shared/components/InfoIconsToolTip';
 import { useOystehrAPIClient } from '../features/visits/shared/hooks/useOystehrAPIClient';
+import { usePractitionerActions } from '../features/visits/shared/hooks/usePractitioner';
 import { useSignAppointmentMutation } from '../features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder, isEligibleSupervisor } from '../helpers';
+import { completeIntakeWorkflow } from '../helpers/completeIntakeWorkflow';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
@@ -202,6 +206,7 @@ export default function AppointmentTableRow({
   const [approveButtonLoading, setApproveButtonLoading] = useState(false);
 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
+  const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'end', PRACTITIONER_CODINGS.Admitter);
 
   const rooms = useMemo(() => {
     return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
@@ -563,6 +568,7 @@ export default function AppointmentTableRow({
   }
   const encounterId: string = encounter.id;
   const primaryAction = getTrackingBoardPrimaryAction(appointment.status);
+  const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
 
   const handleStatusAction = async (
     updatedStatus: VisitStatusWithoutUnknown,
@@ -640,6 +646,28 @@ export default function AppointmentTableRow({
       return;
     }
 
+    if (appointment.status === 'intake') {
+      setPrimaryActionButtonLoading(true);
+
+      try {
+        const completedIntake = await completeIntakeWorkflow({
+          assignedIntakePerformerId,
+          encounterId,
+          endIntakePractitioner: handleUpdatePractitioner,
+          refetch: updateAppointments,
+          zambdaClient: oystehrZambda,
+        });
+
+        if (completedIntake) {
+          enqueueSnackbar('Intake completed', { variant: 'success' });
+        }
+      } finally {
+        setPrimaryActionButtonLoading(false);
+      }
+
+      return;
+    }
+
     await handleStatusAction(primaryAction.updatedStatus, {
       missingUserMessage: primaryAction.missingUserMessage,
       navigateTo: primaryAction.navigateToChart
@@ -670,6 +698,7 @@ export default function AppointmentTableRow({
 
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
+      appointment.status === 'intake' ||
       appointment.status === 'ready for provider' ||
       appointment.status === 'provider' ||
       appointment.status === 'awaiting supervisor approval' ||
