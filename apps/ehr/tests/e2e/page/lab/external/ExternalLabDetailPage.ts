@@ -103,9 +103,9 @@ export class ExternalLabDetailPage {
     ).toHaveCount(specimens.length);
 
     for (let i = 0; i < specimens.length; i++) {
-      const now = timezone ? DateTime.now().setZone(timezone) : DateTime.now();
+      const getNow = (): DateTime => (timezone ? DateTime.now().setZone(timezone) : DateTime.now());
+      const now = getNow();
       const today = now.toFormat('yyyy-MM-dd');
-      const expectedTime = now.toFormat('HH:mm');
 
       const card = sampleCollectionCards.nth(i);
       const specimen = specimens[i];
@@ -132,6 +132,9 @@ export class ExternalLabDetailPage {
       await expect(dateInput, `Confirming date input is ${today} (timezone: ${timezone})`).toHaveValue(today);
       await expect(dateInput).toBeEnabled();
 
+      // this could be flakey if by chance the time rolls over a minute, so we calculate a new now right before we check
+      const nowBeforeSubmit = getNow();
+      const expectedTime = nowBeforeSubmit.toFormat('HH:mm');
       const timeInput = card.getByTestId(detailPgTestIds.samples.collectionTime);
       await expect(timeInput, `Confirming time input is ${expectedTime} (timezone: ${timezone})`).toHaveValue(
         expectedTime
@@ -140,8 +143,8 @@ export class ExternalLabDetailPage {
     }
   }
 
-  async clickMarkAsReady(input: { isPSC: boolean }): Promise<void> {
-    const { isPSC } = input;
+  async clickMarkAsReady(input: { isPSC: boolean; expectIntegratedFallback?: boolean }): Promise<void> {
+    const { isPSC, expectIntegratedFallback = false } = input;
     const btnLabel = `Mark as Ready${!isPSC ? ' & Print Label' : ''}`;
     const markAsReadyBtn = this.#page.getByTestId(detailPgTestIds.markReadyBtn);
 
@@ -164,8 +167,25 @@ export class ExternalLabDetailPage {
         });
       });
 
-      const [popup] = await Promise.all([this.#page.waitForEvent('popup').catch(() => null), markAsReadyBtn.click()]);
-      expect(popup, 'Confirming label PDF opened in a new tab').toBeTruthy();
+      // Set up the popup listener before clicking so it doesn't miss a fast-opening tab.
+      // In fallback mode the tab opens after a ~2s delay, so we use a longer timeout.
+      const popupTimeout = expectIntegratedFallback ? 15_000 : 35_000;
+      const popupPromise = this.#page.waitForEvent('popup', { timeout: popupTimeout }).catch(() => null);
+
+      await markAsReadyBtn.click();
+
+      if (expectIntegratedFallback) {
+        // Integrated mode without a connected printer: the hook shows a warning snackbar
+        // and then falls back to opening the PDF manually after a short delay.
+        const snackbar = this.#page.locator('div[id=notistack-snackbar]').filter({ hasText: 'printer' });
+        await expect(snackbar, 'Confirming Dymo Connect warning snackbar appears').toBeVisible({ timeout: 15_000 });
+        await expect(snackbar, 'Confirming snackbar message describes missing printers').toContainText(
+          'No connected available printers detected. Ensure your printer is connected and refresh the page, or print manually from the browser.'
+        );
+      }
+
+      const popup = await popupPromise;
+      expect(popup, 'Confirming label PDF opened in a new tab (via fallback to manual)').toBeTruthy();
 
       const openedUrl = await this.#page.evaluate(() => (window as any).lastOpenUrl || '');
       expect(openedUrl, 'Confirming a URL was opened').not.toEqual('');

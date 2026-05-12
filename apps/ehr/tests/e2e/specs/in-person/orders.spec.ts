@@ -23,6 +23,7 @@ import { ExternalLabDetailPage } from 'tests/e2e/page/lab/external/ExternalLabDe
 import { ExternalLabsPage } from 'tests/e2e/page/lab/external/ExternalLabsPage';
 import { MOCK_LAB_RESULTS } from 'tests/e2e/page/lab/external/mock-data';
 import inHouseLabsMockData from 'tests/e2e/page/lab/in-house/mock-data.json' assert { type: 'json' };
+import { LabelPrintingConfigAdminPage } from 'tests/e2e/page/LabelPrintingConfigAdminPage';
 import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
 import { NursingOrdersPage } from 'tests/e2e/page/NursingOrdersPage';
@@ -728,7 +729,50 @@ test.describe('External labs page', async () => {
     !FEATURE_FLAGS.LAB_ORDERS_ENABLED,
     'External labs feature flag is false (aka labs are not enabled), skipping tests'
   );
+
+  test.afterAll(async () => {
+    // Restore the printing config to manual mode so subsequent test runs start from a clean state.
+    // EXL-0.2 leaves the Device in integrated mode; this undoes that regardless of pass/fail.
+    const labelConfigPage = new LabelPrintingConfigAdminPage(page);
+    await labelConfigPage.goto();
+    await labelConfigPage.waitForFormLoaded();
+    await labelConfigPage.selectMode('manual');
+    await labelConfigPage.submitAndWaitForSuccess();
+  });
+
   test('External labs. Tests Various Functionality.', async () => {
+    await test.step('EXL-0 Admin label printing config', async () => {
+      const labelConfigPage = new LabelPrintingConfigAdminPage(page);
+      await test.step('EXL-0.1 Form shows manual mode; save and reload confirms manual mode', async () => {
+        await labelConfigPage.goto();
+        await labelConfigPage.waitForFormLoaded();
+        await labelConfigPage.expectModeIs('manual');
+        await labelConfigPage.expectIntegratedFieldsNotVisible();
+        await labelConfigPage.submitAndWaitForSuccess();
+        await labelConfigPage.reload();
+        await labelConfigPage.expectModeIs('manual');
+        await labelConfigPage.expectIntegratedFieldsNotVisible();
+      });
+
+      await test.step('EXL-0.2 Switch to integrated mode, fill all fields, save, reload confirms integrated', async () => {
+        await labelConfigPage.selectMode('integrated');
+        await labelConfigPage.expectIntegratedFieldsVisible();
+        await labelConfigPage.selectManufacturer('DYMO');
+        await labelConfigPage.selectLabelType('30334');
+        await labelConfigPage.selectOrientation('portrait');
+        await labelConfigPage.submitAndWaitForSuccess();
+        await labelConfigPage.reload();
+        await labelConfigPage.expectModeIs('integrated');
+        await labelConfigPage.expectIntegratedFieldsVisible();
+        await labelConfigPage.expectManufacturerIs('DYMO');
+        await labelConfigPage.expectLabelTypeIs('30334');
+        await labelConfigPage.expectOrientationIs('portrait');
+      });
+    });
+
+    // Integrated mode remains active after EXL-0.2. EXL-1.4 will trigger the integrated
+    // print path, which falls back to manual (PDF in new tab) when Dymo Connect is not running / there are no printers connected.
+
     await test.step('EXL-1 Create a single self pay lab', async () => {
       const timezone = resourceHandler.appointmentLocation
         ? getTimezone(resourceHandler.appointmentLocation)
@@ -742,6 +786,7 @@ test.describe('External labs page', async () => {
       let fillerLabName: string | null = null;
 
       await test.step('EXL-1.1 Check assessment page for dx', async () => {
+        await page.goto(`in-person/${resourceHandler.appointment.id}`);
         await sideMenu.clickAssessment();
         const assessmentPage = await expectAssessmentPage(page);
         primaryDx = await assessmentPage.checkForPrimaryDx();
@@ -805,8 +850,9 @@ test.describe('External labs page', async () => {
         const aoeAnswers = mockResults.aoeAnswers;
         await detailsPage.enterAoeAnswers(aoeAnswers);
 
-        // also confirms label pdf opens when applicable
-        await detailsPage.clickMarkAsReady({ isPSC: false });
+        // Integrated mode is active (set in EXL-0.2). Dymo Connect is not running in CI,
+        // so the hook falls back to manual printing and shows a warning snackbar first.
+        await detailsPage.clickMarkAsReady({ isPSC: false, expectIntegratedFallback: true });
       });
 
       await test.step('ELX-1.5 Confirm lab is ready for submit', async () => {
