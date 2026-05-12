@@ -304,7 +304,7 @@ export default function QuickPickEditor<T extends { id?: string }>({
             Cancel
           </RoundedButton>
           <RoundedButton variant="contained" onClick={() => void handleSave()} disabled={saving}>
-            {saving ? <CircularProgress size={20} /> : editingItem ? 'Save' : `Add ${itemLabel}`}
+            {saving ? <CircularProgress size={20} /> : editingItem ? 'Save' : 'Add'}
           </RoundedButton>
         </DialogActions>
       </Dialog>
