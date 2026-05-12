@@ -47,6 +47,8 @@ import {
   CreateAllergyQuickPickResponse,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
+  CreateCustomFolderInput,
+  CreateCustomFolderOutput,
   CreateDischargeSummaryInput,
   CreateDischargeSummaryResponse,
   CreateEmCodeInput,
@@ -82,6 +84,8 @@ import {
   CreateUserParams,
   DailyPaymentsReportZambdaInput,
   DailyPaymentsReportZambdaOutput,
+  DeleteCustomFolderInput,
+  DeleteCustomFolderOutput,
   DeleteEmCodeInput,
   DeleteInHouseLabOrderParameters,
   DeleteInHouseLabOrderZambdaOutput,
@@ -174,6 +178,8 @@ import {
   RemovePatientInstructionQuickPickResponse,
   RemoveProcedureQuickPickResponse,
   RemoveRadiologyQuickPickResponse,
+  RenameCustomFolderInput,
+  RenameCustomFolderOutput,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
   SavePreliminaryReportZambdaInput,
@@ -330,6 +336,9 @@ const GENERATE_LABEL_XML_ZAMBDA_ID = 'generate-label-xml';
 const ADMIN_GET_LAB_SETS = 'admin-get-lab-sets';
 const ADMIN_ADD_LAB_SET = 'admin-add-lab-set';
 const ADMIN_UPDATE_LAB_SET_ZAMBDA_ID = 'admin-update-lab-set';
+const CREATE_CUSTOM_FOLDER_ZAMBDA_ID = 'create-custom-folder';
+const RENAME_CUSTOM_FOLDER_ZAMBDA_ID = 'rename-custom-folder';
+const DELETE_CUSTOM_FOLDER_ZAMBDA_ID = 'delete-custom-folder';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -2679,6 +2688,54 @@ export const removePatientInstructionQuickPick = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const createCustomFolder = async (
+  oystehr: Oystehr,
+  parameters: CreateCustomFolderInput
+): Promise<CreateCustomFolderOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_CUSTOM_FOLDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as CreateCustomFolderOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const renameCustomFolder = async (
+  oystehr: Oystehr,
+  parameters: RenameCustomFolderInput
+): Promise<RenameCustomFolderOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: RENAME_CUSTOM_FOLDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as RenameCustomFolderOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const deleteCustomFolder = async (
+  oystehr: Oystehr,
+  parameters: DeleteCustomFolderInput
+): Promise<DeleteCustomFolderOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: DELETE_CUSTOM_FOLDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response) as DeleteCustomFolderOutput;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };
 
