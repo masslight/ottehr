@@ -136,7 +136,7 @@ const expandResultsForGeneric = (
   orderingLocations: ModifiedOrderingLocation[],
   orderingLocation: LabsAutocompleteProps['orderingLocation']
 ): OrderableItemSearchResult[] => {
-  if (orderingLocations.length === 0) return [];
+  if (orderingLocations.length === 0) return labs;
 
   const selectedLocations = orderingLocation.searchingForAll
     ? orderingLocations
