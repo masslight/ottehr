@@ -390,3 +390,7 @@ export const makeExternalLabLabelConfig = ({
   console.log('External labs label config is:', JSON.stringify(labelConfig));
   return labelConfig;
 };
+
+export const isExternalLabServiceRequest = (resource: ServiceRequest): boolean => {
+  return !!resource.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+};

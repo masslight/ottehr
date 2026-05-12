@@ -28,6 +28,7 @@ import {
   getAttendingPractitionerId,
   getOrderNumber,
   getSecret,
+  isExternalLabServiceRequest,
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
@@ -568,11 +569,19 @@ const getCreateOrderResources = async (input: GetCreateOrderResourcesInput): Pro
     }
     // we will use these to determine if the current order is able to be bundled with any existing
     // anything past draft status is automatically in a different bundle
-    if (resource.resourceType === 'ServiceRequest' && resource.status === 'draft') {
+    if (
+      resource.resourceType === 'ServiceRequest' &&
+      resource.status === 'draft' &&
+      isExternalLabServiceRequest(resource)
+    ) {
       draftServiceRequests.push(resource);
     }
   });
   console.log('resource parsing complete');
+  console.log(
+    'Final draft draftServiceRequests: ',
+    JSON.stringify(draftServiceRequests.map((sr) => `ServiceRequest/${sr.id}`))
+  );
 
   // for determining bundles, we need to check labGuid and potentially also the lab name to account for static compendium orders
   const labOrgReferenceToOrgMap = new Map(labOrganizationSearchResults.map((org) => [`Organization/${org.id}`, org]));
@@ -596,7 +605,9 @@ const getCreateOrderResources = async (input: GetCreateOrderResourcesInput): Pro
       // for static compendium, we should bundle based on name of the lab since all generic-compendium labs have the same labGuid
       if (
         (labGuid !== STATIC_COMPENDIUM_LAB_GUID && draftSRFillerLabGuid === labGuid) ||
-        (labGuid === STATIC_COMPENDIUM_LAB_GUID && labName === draftSrMatchedLabOrg?.name)
+        (labGuid === STATIC_COMPENDIUM_LAB_GUID &&
+          draftSRFillerLabGuid === STATIC_COMPENDIUM_LAB_GUID &&
+          labName === draftSrMatchedLabOrg?.name)
       ) {
         const allCoverages = [...insuranceCoverageSearchResults];
         if (clientBillCoverage) allCoverages.push(clientBillCoverage);
@@ -610,6 +621,7 @@ const getCreateOrderResources = async (input: GetCreateOrderResourcesInput): Pro
           if (curSrIsPsc === psc) {
             // we bundled psc orders separately, so if the current test being submitted is psc
             // it should only be bundled under the same requisition number if there are other psc orders for this lab
+            console.log('adding sr to bundle. Id:', sr.id);
             serviceRequestsForBundle.push(sr);
           }
         } else {
@@ -652,16 +664,33 @@ const getCreateOrderResources = async (input: GetCreateOrderResourcesInput): Pro
   const labOrganization = labOrganizationSearchResults.find((org) => {
     const identifierLabGuid = org.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value;
     // only do the name check if it is a generic compendium lab
-    if (
-      labGuid === STATIC_COMPENDIUM_LAB_GUID &&
-      identifierLabGuid === labGuid &&
-      org.name?.toLowerCase() === labName.toLowerCase()
-    ) {
-      return org;
-    }
+    console.log(
+      'Finding the labOrg, this is the logic: ',
+      JSON.stringify({
+        labGuid,
+        STATIC_COMPENDIUM_LAB_GUID,
+        identifierLabGuid,
+        orgName: org.name?.toLowerCase(),
+        labName: labName.toLowerCase(),
+      })
+    );
 
-    return identifierLabGuid === labGuid ? org : undefined;
+    if (labGuid === STATIC_COMPENDIUM_LAB_GUID) {
+      console.log(`Organization/${org.id} was generic`);
+      if (identifierLabGuid === labGuid && org.name?.toLowerCase() === labName.toLowerCase()) {
+        console.log(
+          `Organization/${org.id} was generic and matched the labName we were searching for '${labName}'. Org Name: '${org.name}' labGuid: ${identifierLabGuid}`
+        );
+        return org;
+      }
+    } else {
+      console.log(`Organization/${org.id} was not generic. Name: '${org.name}' labGuid: ${identifierLabGuid}`);
+      return identifierLabGuid === labGuid ? org : undefined;
+    }
+    return undefined;
   });
+  console.log(`labOrganization after filter is Organization/${labOrganization?.id} ${labOrganization?.name}`);
+
   if (!labOrganization) {
     console.error(
       `We couldn't match the lab org to any results when searching for labGuid: ${labGuid} and labName: ${labName}. These were the results: ${JSON.stringify(

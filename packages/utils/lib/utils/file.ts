@@ -14,6 +14,8 @@ export const MIME_TYPES = {
   PNG: 'image/png',
   GIF: 'image/gif',
   WEBP: 'image/webp',
+  HEIC: 'image/heic',
+  HEIF: 'image/heif',
   TXT: 'text/plain',
   XML: 'application/xml',
 } as const;
@@ -28,6 +30,8 @@ const extensionToMime: Record<string, MimeType> = {
   gif: MIME_TYPES.GIF,
   webp: MIME_TYPES.WEBP,
   xml: MIME_TYPES.XML,
+  heic: MIME_TYPES.HEIC,
+  heif: MIME_TYPES.HEIF,
 };
 
 export function getMimeType(fileName: string): MimeType | undefined {
