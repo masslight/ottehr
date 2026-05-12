@@ -79,7 +79,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-const convertPrintingConfigToDevice = (config: LabelPrintingConfig): Device => {
+export const convertPrintingConfigToDevice = (config: LabelPrintingConfig): Device => {
   const properties: Device['property'] = [];
 
   const device: Device = {
