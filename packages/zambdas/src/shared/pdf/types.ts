@@ -551,7 +551,7 @@ export interface CptCodes extends PdfData {
 }
 
 export interface PlanData extends PdfData {
-  patientInstructions?: { text?: string; title?: string }[];
+  patientInstructions?: string[];
   disposition: {
     header: string;
     text: string;
@@ -869,10 +869,7 @@ export interface ErxMedicationsData extends PdfData {
 }
 
 export interface PatientInstructionsData extends PdfData {
-  instructions: {
-    title?: string;
-    text?: string;
-  }[];
+  instructions: string[];
 }
 
 export interface EducationDocumentsData extends PdfData {
