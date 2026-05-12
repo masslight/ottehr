@@ -29,6 +29,15 @@ const SelectServiceCategoryPage = (): JSX.Element => {
 
   const location = useLocation();
   const currentPath = location.pathname;
+  // Filter to services that support the flow the URL is for: walk-in picker
+  // shows only walk-in-capable services; prebook picker shows only prebook.
+  // Prevents a patient from arriving via a walk-in URL and selecting a
+  // prebook-only category that the subsequent step couldn't actually handle.
+  const isWalkinFlow = currentPath.startsWith('/walkin/');
+  const requiredVisitType = isWalkinFlow ? 'walk-in' : 'prebook';
+  const filteredServiceCategories = serviceCategories?.filter((sc) =>
+    (sc.visitTypes ?? ['prebook']).includes(requiredVisitType)
+  );
 
   const handleSelection = (serviceCategory: string): void => {
     const destination = currentPath.replace('/select-service-category', '');
@@ -42,7 +51,7 @@ const SelectServiceCategoryPage = (): JSX.Element => {
   return (
     <CustomContainer title={getWelcomeTitle()} description="" isFirstPage={true}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {serviceCategories?.map((sc) => (
+        {filteredServiceCategories?.map((sc) => (
           <HomepageOption
             key={sc.category.code}
             title={sc.category.display}

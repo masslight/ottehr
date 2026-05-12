@@ -1,13 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
-import { SERVICE_CATEGORIES_AVAILABLE } from 'utils';
+import { SERVICE_CATEGORIES_AVAILABLE, SLUG_SYSTEM } from 'utils';
 import { SERVICE_CATEGORY_TAG, ServiceCategoryRecord, toRecord } from '../../../ehr/admin-service-categories/helpers';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 let m2mToken: string;
 
 const SERVICE_CATEGORY_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/service-category';
-const SLUG_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/booking-on-slug';
 
 export const index = wrapHandler(
   'get-service-categories',
@@ -72,6 +71,16 @@ export const index = wrapHandler(
         })
       ).unbundle();
       const group = groupMatches[0];
+      if (!group) {
+        // A group was clearly requested but the slug resolved to nothing.
+        // Return an empty catalog rather than fall back to the full system
+        // catalog — leaking urgent-care / workers-comp etc. into a misrouted
+        // group picker would be the wrong default.
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ serviceCategories: [], source }),
+        };
+      }
       if (group) {
         const offeredCodes = new Set<string>();
         for (const concept of group.type || []) {

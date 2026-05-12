@@ -26,6 +26,7 @@ import SelectServiceCategoryPage from './pages/SelectServiceCategory';
 import StartVirtualVisit from './pages/StartVirtualVisit';
 import ThankYou from './pages/ThankYou';
 import VisitDetails from './pages/VisitDetails';
+import { WalkinGroup } from './pages/WalkinGroup';
 import { WalkinLanding } from './pages/WalkinLanding';
 import { IntakeClientsProvider } from './providers/intakeOysterClientProvider';
 import { ErrorAlert } from './telemed/components/ErrorAlert';
@@ -89,6 +90,13 @@ export const intakeFlowPageRoute = {
   WalkinLandingByLocationName: {
     path: '/walkin/location/:name',
     getPage: () => <WalkinLanding />,
+  },
+  WalkinGroupLanding: {
+    // Group walk-in entry: /walkin/<mode>?bookingOn=<slug>&scheduleType=group&...
+    // Two-segment path, so it does not conflict with /walkin/schedule/:id or
+    // /walkin/location/:name (three-segment paths).
+    path: `/walkin/:${BOOKING_SERVICE_MODE_PARAM}`,
+    getPage: () => <WalkinGroup />,
   },
   Appointments: {
     path: '/visits',
@@ -217,6 +225,13 @@ export const intakeFlowPageRoute = {
     path: '/walkin/location/:name/select-service-category',
     getPage: () => <SelectServiceCategoryPage />,
   },
+  SelectServiceCategoryWalkinGroup: {
+    // Group walk-in picker: `/walkin/<mode>/select-service-category?bookingOn=<slug>&scheduleType=group&...`
+    // On selection, the page strips `/select-service-category` and navigates to
+    // `/walkin/<mode>?serviceCategory=<code>&...` which the WalkinGroup page handles.
+    path: `/walkin/:${BOOKING_SERVICE_MODE_PARAM}/select-service-category`,
+    getPage: () => <SelectServiceCategoryPage />,
+  },
   StartVirtualVisit: {
     path: '/start-virtual',
     getPage: () => <StartVirtualVisit />,
@@ -314,6 +329,10 @@ function App(): JSX.Element {
                   element={intakeFlowPageRoute.WalkinLandingByLocationName.getPage()}
                 />
                 <Route
+                  path={intakeFlowPageRoute.WalkinGroupLanding.path}
+                  element={intakeFlowPageRoute.WalkinGroupLanding.getPage()}
+                />
+                <Route
                   path={intakeFlowPageRoute.PrebookVisitDynamic.path}
                   element={intakeFlowPageRoute.PrebookVisitDynamic.getPage()}
                 />
@@ -328,6 +347,10 @@ function App(): JSX.Element {
                 <Route
                   path={intakeFlowPageRoute.SelectServiceCategoryWalkin.path}
                   element={intakeFlowPageRoute.SelectServiceCategoryWalkin.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.SelectServiceCategoryWalkinGroup.path}
+                  element={intakeFlowPageRoute.SelectServiceCategoryWalkinGroup.getPage()}
                 />
                 <Route
                   path={intakeFlowPageRoute.StartVirtualVisit.path}

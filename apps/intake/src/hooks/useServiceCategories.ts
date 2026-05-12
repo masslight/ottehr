@@ -77,20 +77,31 @@ export function useServiceCategories(context: ServiceCategoryContext = {}): {
       if (!zambdaClient) {
         return { serviceCategories: BOOKING_CONFIG.serviceCategories, source: 'booking-config' };
       }
+      const isScoped = Boolean(scheduleType && bookingOn);
       const response = await zambdaClient.executePublic(
         GET_SERVICE_CATEGORIES_ZAMBDA,
-        scheduleType && bookingOn ? { scheduleType, bookingOn } : {}
+        isScoped ? { scheduleType, bookingOn } : {}
       );
       const parsed = typeof response.output === 'string' ? JSON.parse(response.output) : (response.output as any);
       const records = (parsed?.serviceCategories || []) as ServiceCategoryRuntimeRecord[];
+
+      // Scoped query (group context): the zambda has already intersected the
+      // catalog with the bookable entity's declared categories. Trust its
+      // result verbatim — do NOT re-merge BOOKING_CONFIG, or system-level
+      // categories (urgent-care, workers-comp, etc.) would leak back into a
+      // group's picker even when the group hasn't allow-listed them.
+      if (isScoped) {
+        return { serviceCategories: records.map(toConfig), source: 'fhir' };
+      }
+
       if (records.length === 0) {
         return { serviceCategories: BOOKING_CONFIG.serviceCategories, source: 'booking-config' };
       }
-      // Merge: BOOKING_CONFIG entries are the production source of truth and
-      // win on code collisions. Only FHIR entries with codes NOT already in
-      // BOOKING_CONFIG are added to the list. This makes the FHIR registry
-      // strictly additive — admins can introduce new categories but cannot
-      // silently override compiled defaults that production URLs depend on.
+      // Unscoped (homepage, etc.): merge BOOKING_CONFIG (the production source
+      // of truth for compiled-in categories that production URLs depend on)
+      // with any new FHIR-registry categories. BOOKING_CONFIG wins on code
+      // collisions so admins can only *add* categories, not silently override
+      // compiled defaults.
       const bookingCodes = new Set(
         BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code).filter((c): c is string => !!c)
       );
@@ -105,8 +116,15 @@ export function useServiceCategories(context: ServiceCategoryContext = {}): {
   });
 
   if (data) return { ...data, isLoading };
+  // No data yet (initial load). For scoped (group) queries fall back to an
+  // empty list, not the compiled-in BOOKING_CONFIG — otherwise the picker
+  // briefly flashes system-level categories (urgent-care, workers-comp, etc.)
+  // before the group's allow-listed services arrive. For unscoped queries
+  // (homepage, etc.) keep the BOOKING_CONFIG fallback so the page never
+  // appears empty during loading.
+  const isScoped = Boolean(scheduleType && bookingOn);
   return {
-    serviceCategories: BOOKING_CONFIG.serviceCategories,
+    serviceCategories: isScoped ? [] : BOOKING_CONFIG.serviceCategories,
     source: 'fallback',
     isLoading,
   };

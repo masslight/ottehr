@@ -467,7 +467,7 @@ export default function SchedulePage(): ReactElement {
                         </>
                       )}
                       <TextField
-                        label="Slug"
+                        label="Permalink"
                         value={slug}
                         onChange={(event) => setSlug(event.target.value)}
                         sx={{ width: '250px' }}

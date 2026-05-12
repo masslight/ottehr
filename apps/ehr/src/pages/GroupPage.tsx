@@ -75,6 +75,7 @@ function GroupPageContent(): ReactElement {
   // list. Designed for homogeneous teams where adding a service should land
   // for everyone in one click.
   const [uniformQualifications, setUniformQualifications] = useState<boolean>(false);
+  const [name, setName] = useState<string>('');
   const [slug, setSlug] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
@@ -223,43 +224,51 @@ function GroupPageContent(): ReactElement {
     const locs = Array.from(distinctLocations.values());
     const cats = Array.from(distinctCategories.values());
 
-    // Walk-in URLs are not generated for groups: the walk-in route is
-    // Location-scoped (`/walkin/schedule/<id>`), not group-scoped, so a group
-    // doesn't have a walk-in entry point. Front-desk walk-in flows go through
-    // the Location admin's walk-in URL.
+    // Per FR-5a, groups emit URLs per (mode × flow). Walk-in for groups is
+    // "prebook for now" — the patient hits the URL, the system stamps the
+    // visit with start=now and proceeds to the booking flow. No queue, no
+    // capacity check (mirrors anonymous group prebook semantics).
     const prebookCats = cats.filter((c) => c.visitTypes.includes('prebook'));
+    const walkinCats = cats.filter((c) => c.visitTypes.includes('walk-in'));
 
     const links: Array<{ label: string; url: string }> = [];
 
-    // Category picker fast-path. The picker route exists per service mode.
-    // Emit one picker link per (location × distinct mode) when more than one
-    // category supports that mode at that location.
+    // Category picker fast-paths. Emitted per (location × mode × flow) when
+    // ≥2 services qualify for that combination at a single-location group.
     for (const loc of locs) {
       for (const mode of ['in-person', 'virtual'] as const) {
-        const modeCats = prebookCats.filter((c) => c.serviceModes.includes(mode));
-        if (modeCats.length >= 2 && locs.length === 1) {
-          const modeLabel = mode === 'virtual' ? 'Virtual' : 'In-person';
-          links.push({
-            label: `${modeLabel} category picker — ${loc.name}`,
-            url: `${INTAKE_URL}/prebook/${mode}/select-service-category?${groupParams}&atLocation=${encodeURIComponent(
-              loc.slug
-            )}`,
-          });
+        for (const flow of ['prebook', 'walk-in'] as const) {
+          const flowCats = (flow === 'prebook' ? prebookCats : walkinCats).filter((c) => c.serviceModes.includes(mode));
+          if (flowCats.length >= 2 && locs.length === 1) {
+            const modeLabel = mode === 'virtual' ? 'Virtual' : 'In-person';
+            const flowLabel = flow === 'walk-in' ? 'walk-in' : 'category';
+            const flowRoot = flow === 'walk-in' ? 'walkin' : 'prebook';
+            links.push({
+              label: `${modeLabel} ${flowLabel} picker — ${loc.name}`,
+              url: `${INTAKE_URL}/${flowRoot}/${mode}/select-service-category?${groupParams}&atLocation=${encodeURIComponent(
+                loc.slug
+              )}`,
+            });
+          }
         }
       }
     }
 
-    // Direct prebook links: one per (location × category × mode-of-category).
+    // Direct links per (location × category × mode-of-category × flow-of-category).
     for (const loc of locs) {
-      for (const cat of prebookCats) {
+      for (const cat of cats) {
         for (const mode of cat.serviceModes) {
-          const modeLabel = mode === 'virtual' ? ' [virtual]' : '';
-          links.push({
-            label: `${loc.name} · ${cat.name}${modeLabel} — ${cat.durationMinutes} min`,
-            url: `${INTAKE_URL}/prebook/${mode}?${groupParams}&serviceCategory=${encodeURIComponent(
-              cat.code
-            )}&atLocation=${encodeURIComponent(loc.slug)}`,
-          });
+          for (const flow of cat.visitTypes) {
+            const modeLabel = mode === 'virtual' ? ' [virtual]' : '';
+            const flowLabel = flow === 'walk-in' ? ' [walk-in]' : ' [prebook]';
+            const flowRoot = flow === 'walk-in' ? 'walkin' : 'prebook';
+            links.push({
+              label: `${loc.name} · ${cat.name}${modeLabel}${flowLabel} — ${cat.durationMinutes} min`,
+              url: `${INTAKE_URL}/${flowRoot}/${mode}?${groupParams}&serviceCategory=${encodeURIComponent(
+                cat.code
+              )}&atLocation=${encodeURIComponent(loc.slug)}`,
+            });
+          }
         }
       }
     }
@@ -299,6 +308,7 @@ function GroupPageContent(): ReactElement {
     ) as PractitionerRole[];
 
     setGroup(groupTemp);
+    setName(groupTemp.name ?? '');
     setSlug(getSlugForBookableResource(groupTemp) ?? '');
     setLocations(locationsTemp);
     setPractitioners(practitionersTemp);
@@ -455,6 +465,14 @@ function GroupPageContent(): ReactElement {
         });
       }
 
+      if (group && name !== (group.name ?? '')) {
+        patchOperations.push({
+          op: group.name === undefined ? 'add' : 'replace',
+          path: '/name',
+          value: name,
+        });
+      }
+
       const healthcareServicePatchRequest = getPatchBinary({
         resourceType: 'HealthcareService',
         resourceId: groupID,
@@ -564,13 +582,29 @@ function GroupPageContent(): ReactElement {
         <Grid container direction="column" spacing={4} sx={{ marginTop: 0 }}>
           <Grid item xs={6}>
             <TextField
-              label="Slug"
+              label="Name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              sx={{ width: '400px', mb: 2, display: 'block' }}
+            />
+            <TextField
+              label="Permalink"
               value={slug}
               onChange={(event) => {
                 setSlug(event.target.value);
               }}
               sx={{ width: '250px' }}
             />
+            <Typography
+              variant="caption"
+              sx={{ display: 'block', mt: 0.5, color: 'text.secondary', fontFamily: 'monospace' }}
+            >
+              e.g. /prebook/in-person?bookingOn=
+              <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                {slug || 'your-permalink'}
+              </Box>
+              &scheduleType=group
+            </Typography>
             <Typography variant="body2" sx={{ pt: 1, pb: 0.5, fontWeight: 600, display: slug ? 'block' : 'none' }}>
               Share booking links:
             </Typography>
@@ -688,7 +722,7 @@ function GroupPageContent(): ReactElement {
                     ? 'all group members'
                     : offeringNames.length > 0
                     ? offeringNames.join(', ')
-                    : 'no current member is qualified — slots will appear empty';
+                    : 'no member offers this service';
                   const isWarning = !uniformQualifications && offeringNames.length === 0 && isInAllowList;
                   return (
                     <Box
