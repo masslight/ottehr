@@ -977,16 +977,16 @@ const FormFields: PatientRecordFormFields = {
     },
     triggers: [
       {
-        targetQuestionLinkId: 'reason-for-visit',
+        targetQuestionLinkId: 'appointment-service-category',
         effect: ['enable'],
-        operator: '=',
-        answerString: 'Auto accident',
+        operator: 'exists',
+        answerBoolean: false,
       },
       {
         targetQuestionLinkId: 'reason-for-visit',
         effect: ['enable'],
-        operator: 'exists',
-        answerBoolean: false,
+        operator: '=',
+        answerString: 'Auto accident',
       },
     ],
     enableBehavior: 'any',
