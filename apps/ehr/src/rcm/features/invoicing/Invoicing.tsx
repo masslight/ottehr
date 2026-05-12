@@ -148,7 +148,7 @@ function TemplateEditor({
 // PlaceholderChips — clickable chip row for inserting tokens
 // ---------------------------------------------------------------------------
 
-function PlaceholderChips({
+export function PlaceholderChips({
   tokens,
   onInsert,
 }: {

@@ -4,7 +4,7 @@ import {
   BRANDING_CONFIG,
   ConversationMessage,
   QuickTextQuickPickData,
-  replaceTemplateVariablesArrows,
+  replaceTemplateVariablesHandlebars,
   SMSRecipient,
   useErrorQuery,
   useSuccessQuery,
@@ -92,10 +92,11 @@ export const useSendMessagesMutation = (
 
 export interface QuickTextsContext {
   patientAppUrl?: string;
-  patientName?: string;
+  patientFirstName?: string;
+  patientLastName?: string;
   visitId?: string;
   locationName?: string;
-  start?: string;
+  bookingTime?: string;
   officePhone?: string;
   supportPhone?: string;
 }
@@ -106,16 +107,29 @@ export interface ResolvedQuickText {
   spanish?: string;
 }
 
+export const QUICK_TEXT_TOKEN_IDS = [
+  'patient-first-name',
+  'patient-last-name',
+  'paperwork-url',
+  'ai-interview-url',
+  'practice-name',
+  'location-name',
+  'booking-time',
+  'office-phone',
+  'support-phone',
+] as const;
+
 export const buildQuickTextVariables = (ctx: QuickTextsContext): Record<string, string> => ({
-  patientName: ctx.patientName ?? '',
-  visitUrl: ctx.patientAppUrl && ctx.visitId ? `${ctx.patientAppUrl}/visit/${ctx.visitId}` : '',
-  aiInterviewUrl:
+  'patient-first-name': ctx.patientFirstName ?? '',
+  'patient-last-name': ctx.patientLastName ?? '',
+  'paperwork-url': ctx.patientAppUrl && ctx.visitId ? `${ctx.patientAppUrl}/visit/${ctx.visitId}` : '',
+  'ai-interview-url':
     ctx.patientAppUrl && ctx.visitId ? `${ctx.patientAppUrl}/visit/${ctx.visitId}/ai-interview-start` : '',
-  projectName: BRANDING_CONFIG.projectName,
-  locationName: ctx.locationName ?? '',
-  start: ctx.start ?? '',
-  officePhone: ctx.officePhone ?? '',
-  supportPhone: ctx.supportPhone ?? '',
+  'practice-name': BRANDING_CONFIG.projectName,
+  'location-name': ctx.locationName ?? '',
+  'booking-time': ctx.bookingTime ?? '',
+  'office-phone': ctx.officePhone ?? '',
+  'support-phone': ctx.supportPhone ?? '',
 });
 
 export const resolveQuickText = (
@@ -123,8 +137,8 @@ export const resolveQuickText = (
   vars: Record<string, string>
 ): ResolvedQuickText => ({
   name: quickPick.name,
-  english: replaceTemplateVariablesArrows(quickPick.english, vars),
-  spanish: quickPick.spanish ? replaceTemplateVariablesArrows(quickPick.spanish, vars) : undefined,
+  english: replaceTemplateVariablesHandlebars(quickPick.english, vars),
+  spanish: quickPick.spanish ? replaceTemplateVariablesHandlebars(quickPick.spanish, vars) : undefined,
 });
 
 export const useQuickTextsQuery = (): UseQueryResult<QuickTextQuickPickData[], Error> => {

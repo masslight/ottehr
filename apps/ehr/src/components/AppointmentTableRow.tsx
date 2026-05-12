@@ -521,10 +521,11 @@ export default function AppointmentTableRow({
 
   const quickTextsContext = {
     patientAppUrl: VITE_APP_PATIENT_APP_URL,
-    patientName: appointment.patient.firstName,
+    patientFirstName: appointment.patient.firstName,
+    patientLastName: appointment.patient.lastName,
     visitId: appointment.id,
     locationName: location?.name,
-    start,
+    bookingTime: start,
     officePhone: officePhoneNumber,
     supportPhone: getSupportPhoneFor(location?.name) || '',
   };

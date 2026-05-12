@@ -35,6 +35,7 @@ import ImmunizationQuickPicksPage from './ImmunizationQuickPicksPage';
 import InHouseMedicationQuickPicksPage from './InHouseMedicationQuickPicksPage';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
 import QuickPickEditor from './QuickPickEditor';
+import { QuickTextTemplateField } from './QuickTextTemplateField';
 import RadiologyQuickPicksPage from './RadiologyQuickPicksPage';
 
 const AllergenSearchField: React.FC<{
@@ -474,7 +475,7 @@ export default function QuickPicksAdminPage(): ReactElement {
         <TabPanel value="quick-texts" sx={{ px: 0 }}>
           <QuickPickEditor<QuickTextQuickPickData>
             title="Quick Texts"
-            description="Manage SMS message templates that providers can pick from when sending texts to patients. Available variables: <patientName>, <visitUrl>, <aiInterviewUrl>, <projectName>, <officePhone>, <locationName>, <start>, <supportPhone>."
+            description="Manage SMS message templates that providers can pick from when sending texts to patients. Type {{ in a message to insert a placeholder, or click a suggestion chip below the editor."
             itemLabel="Quick Text"
             columns={[
               { label: 'Name', getValue: (item) => item.name },
@@ -487,18 +488,29 @@ export default function QuickPicksAdminPage(): ReactElement {
                 key: 'english',
                 label: 'English',
                 required: true,
-                placeholder: 'Message body shown when English is selected',
-                multiline: true,
-                rows: 5,
                 maxLength: 300,
+                renderField: (value, onValueChange) => (
+                  <QuickTextTemplateField
+                    label="English"
+                    required
+                    value={value}
+                    onChange={onValueChange}
+                    maxLength={300}
+                  />
+                ),
               },
               {
                 key: 'spanish',
                 label: 'Spanish (optional)',
-                placeholder: 'Spanish translation, leave blank if not provided',
-                multiline: true,
-                rows: 5,
                 maxLength: 300,
+                renderField: (value, onValueChange) => (
+                  <QuickTextTemplateField
+                    label="Spanish (optional)"
+                    value={value}
+                    onChange={onValueChange}
+                    maxLength={300}
+                  />
+                ),
               },
             ]}
             editable={true}

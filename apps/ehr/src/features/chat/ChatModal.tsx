@@ -23,7 +23,6 @@ import Typography from '@mui/material/Typography';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ChangeEvent, memo, ReactElement, UIEvent, useEffect, useMemo, useState } from 'react';
-import { removeHtmlTags } from 'src/features/visits/telemed/utils/removeHtmlTags';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { getPatientName } from 'src/shared/utils/getPatientName';
 import { AppointmentMessaging, ConversationMessage, initialsFromName, markAllMessagesRead, Timezone } from 'utils';
@@ -511,12 +510,12 @@ const ChatModal = memo(
                               backgroundColor: 'rgba(77, 21, 183, 0.12)',
                             },
                           }}
-                          onClick={() => selectQuickText(removeHtmlTags(body))}
+                          onClick={() => selectQuickText(body)}
                         >
                           <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.primary.dark }}>
                             {text.name}
                           </Typography>
-                          <Typography variant="body2">{parseTextToJSX(body)}</Typography>
+                          <Typography variant="body2">{body}</Typography>
                         </ListItem>
                       );
                     })}
@@ -643,24 +642,3 @@ const MessageBody: React.FC<MessageBodyProps> = (props) => {
     </Grid>
   );
 };
-
-function parseTextToJSX(text: string): JSX.Element[] {
-  // Split the string at the custom HTML tag
-  const parts = text.split(/(<phone.*?<\/phone>)/g).filter(Boolean);
-
-  return parts.map((part, index) => {
-    if (part.startsWith('<phone')) {
-      // Extract the content inside the custom HTML tag
-      const match = part.match(/<phone[^>]*>(.*?)<\/phone>/);
-      if (match) {
-        return (
-          <span key={index} style={{ whiteSpace: 'nowrap' }}>
-            {match[1]}
-          </span>
-        );
-      }
-    }
-
-    return <span key={index}>{part}</span>;
-  });
-}
