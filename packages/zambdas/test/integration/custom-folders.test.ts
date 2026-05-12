@@ -9,14 +9,15 @@ import {
   deriveInternalFolderName,
   FOLDERS_CONFIG,
   M2MClientMockType,
+  makeSyntheticFolderId,
   parseCustomFoldersCatalog,
   RoleType,
+  SYNTHETIC_FOLDER_ID_PREFIX,
 } from 'utils';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 // These tests cover the three folder catalog zambdas plus the lazy-create path of
-// create-upload-document-url. They exercise the design from
-// "Custom Folders - Technical Design.md" §3.1–§3.5 and the §6 testing checklist.
+// create-upload-document-url.
 //
 // Notes:
 // - Catalog is a single global FHIR List. We don't tag it with the test process id
@@ -358,14 +359,14 @@ describe('custom folders zambdas integration tests', () => {
 
       const { output, error } = await executeUpload({
         patientId: patient.id!,
-        fileFolderId: `synthetic:${folder.internalName}`,
+        fileFolderId: makeSyntheticFolderId(folder.internalName),
         fileName: 'first.pdf',
         internalName: folder.internalName,
       });
       expect(error).toBeUndefined();
       expect(output?.folderId).toBeDefined();
       // The returned id is a real FHIR id, not the synthetic sentinel.
-      expect(output.folderId.startsWith('synthetic:')).toBe(false);
+      expect(output.folderId.startsWith(SYNTHETIC_FOLDER_ID_PREFIX)).toBe(false);
 
       const list = await findPerPatientList(patient.id!, folder.internalName);
       expect(list).toBeDefined();
@@ -380,7 +381,7 @@ describe('custom folders zambdas integration tests', () => {
 
       const first = await executeUpload({
         patientId: patient.id!,
-        fileFolderId: `synthetic:${folder.internalName}`,
+        fileFolderId: makeSyntheticFolderId(folder.internalName),
         fileName: 'file1.pdf',
         internalName: folder.internalName,
       });
@@ -388,7 +389,7 @@ describe('custom folders zambdas integration tests', () => {
 
       const second = await executeUpload({
         patientId: patient.id!,
-        fileFolderId: `synthetic:${folder.internalName}`,
+        fileFolderId: makeSyntheticFolderId(folder.internalName),
         fileName: 'file2.pdf',
         internalName: folder.internalName,
       });
@@ -411,7 +412,7 @@ describe('custom folders zambdas integration tests', () => {
       const patient = await createTestPatient();
       const { error } = await executeUpload({
         patientId: patient.id!,
-        fileFolderId: 'synthetic:custom-folder-missing-from-catalog',
+        fileFolderId: makeSyntheticFolderId('custom-folder-missing-from-catalog'),
         fileName: 'file.pdf',
         internalName: 'custom-folder-missing-from-catalog',
       });
@@ -420,13 +421,13 @@ describe('custom folders zambdas integration tests', () => {
       expect(error).toBeDefined();
     });
 
-    it('derives internalName from the synthetic: suffix when the field is omitted', async () => {
+    it(`derives internalName from the ${SYNTHETIC_FOLDER_ID_PREFIX} suffix when the field is omitted`, async () => {
       const folder = await createFolderAndTrack('Suffix');
       const patient = await createTestPatient();
 
       const { output, error } = await executeUpload({
         patientId: patient.id!,
-        fileFolderId: `synthetic:${folder.internalName}`,
+        fileFolderId: makeSyntheticFolderId(folder.internalName),
         fileName: 'file.pdf',
         // intentionally no internalName field
       });
@@ -438,7 +439,7 @@ describe('custom folders zambdas integration tests', () => {
   });
 
   // ────────────────────────────────────────────────────────────────────────
-  // Patient registration sanity check (per Technical Design §3.4)
+  // Patient registration sanity check
   // ────────────────────────────────────────────────────────────────────────
 
   describe('createPatientDocumentLists (utils)', () => {

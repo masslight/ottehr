@@ -6,14 +6,29 @@ export type CustomFolderDefinition = {
   displayName: string;
 };
 
-const FOLDER_DISPLAY_NAME_REGEX = /^[a-zA-Z0-9+!\-_'()\\.@$ ]+$/;
-const FOLDER_DISPLAY_NAME_INVALID_CHARS_MSG = "must contain only letters, numbers, spaces, or + ! - _ ' ( ) . @ $";
+// Sentinel prefix for a folder id that refers to a custom folder which exists
+// in the catalog but does not yet have a per-patient List resource. The upload
+// zambda creates the List lazily on first upload.
+export const SYNTHETIC_FOLDER_ID_PREFIX = 'synthetic:';
+
+export const makeSyntheticFolderId = (internalName: string): string => `${SYNTHETIC_FOLDER_ID_PREFIX}${internalName}`;
+
+export const isSyntheticFolderId = (folderId: string | undefined | null): boolean =>
+  !!folderId && folderId.startsWith(SYNTHETIC_FOLDER_ID_PREFIX);
+
+export const parseSyntheticFolderId = (folderId: string | undefined | null): string | undefined =>
+  isSyntheticFolderId(folderId) ? folderId!.slice(SYNTHETIC_FOLDER_ID_PREFIX.length) : undefined;
+
+export const FOLDER_DISPLAY_NAME_REGEX = /^[a-zA-Z0-9+!\-_'().@$ ]+$/;
+export const FOLDER_DISPLAY_NAME_MAX_LENGTH = 60;
+export const FOLDER_DISPLAY_NAME_INVALID_CHARS_MSG =
+  "must contain only letters, numbers, spaces, or + ! - _ ' ( ) . @ $";
 
 const folderDisplayName = z
   .string()
   .trim()
-  .min(1, 'must be between 1 and 60 characters')
-  .max(60, 'must be between 1 and 60 characters')
+  .min(1, `must be between 1 and ${FOLDER_DISPLAY_NAME_MAX_LENGTH} characters`)
+  .max(FOLDER_DISPLAY_NAME_MAX_LENGTH, `must be between 1 and ${FOLDER_DISPLAY_NAME_MAX_LENGTH} characters`)
   .regex(FOLDER_DISPLAY_NAME_REGEX, FOLDER_DISPLAY_NAME_INVALID_CHARS_MSG);
 
 const folderInternalName = z.string().trim().min(1);

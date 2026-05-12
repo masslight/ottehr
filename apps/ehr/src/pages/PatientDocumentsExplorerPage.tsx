@@ -16,19 +16,14 @@ import {
   PatientDocumentsExplorerTable,
 } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
-import { getFullName } from 'utils';
+import { getFullName, isSyntheticFolderId } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch, { CustomFormEventHandler } from '../components/DateSearch';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { RoundedButton } from '../components/RoundedButton';
 import { ScannerModal } from '../components/ScannerModal';
 import { useGetPatient } from '../hooks/useGetPatient';
-import {
-  PatientDocumentsFilters,
-  PatientDocumentsFolder,
-  SYNTHETIC_FOLDER_ID_PREFIX,
-  useGetPatientDocs,
-} from '../hooks/useGetPatientDocs';
+import { PatientDocumentsFilters, PatientDocumentsFolder, useGetPatientDocs } from '../hooks/useGetPatientDocs';
 import { usePatientStore } from '../state/patient.store';
 
 const FileAttachmentHiddenInput = styled('input')({
@@ -186,7 +181,7 @@ const PatientDocumentsExplorerPage: FC = () => {
         const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
         const file = new File([fileBlob], finalFileName, { type: 'application/pdf' });
 
-        const wasSynthetic = folderId.startsWith(SYNTHETIC_FOLDER_ID_PREFIX);
+        const wasSynthetic = isSyntheticFolderId(folderId);
         await documentActions.uploadDocumentAction({
           docFile: file,
           fileName: finalFileName,
@@ -241,7 +236,7 @@ const PatientDocumentsExplorerPage: FC = () => {
         return;
       }
 
-      const wasSynthetic = folderId.startsWith(SYNTHETIC_FOLDER_ID_PREFIX);
+      const wasSynthetic = isSyntheticFolderId(folderId);
       await documentActions.uploadDocumentAction({
         docFile: selectedFile,
         fileName: fileName,

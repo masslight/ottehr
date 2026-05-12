@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { List } from 'fhir/r4b';
 import { ReactNode } from 'react';
-import { FOLDERS_CONFIG } from 'utils';
+import { FOLDERS_CONFIG, SYNTHETIC_FOLDER_ID_PREFIX } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock useAppClients before the hook is imported.
@@ -27,12 +27,7 @@ vi.mock('@auth0/auth0-react', () => ({
   useAuth0: () => ({ getAccessTokenSilently: vi.fn().mockResolvedValue('token') }),
 }));
 
-import {
-  PatientDocumentsFilters,
-  PatientDocumentsFolder,
-  SYNTHETIC_FOLDER_ID_PREFIX,
-  useGetPatientDocs,
-} from '../../src/hooks/useGetPatientDocs';
+import { PatientDocumentsFilters, PatientDocumentsFolder, useGetPatientDocs } from '../../src/hooks/useGetPatientDocs';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -10,7 +10,9 @@ import {
   createCustomPatientDocumentList,
   fetchCustomFoldersCatalog,
   isCustomFolderList,
+  isSyntheticFolderId,
   OTTEHR_MODULE,
+  parseSyntheticFolderId,
   replaceOperation,
   Secrets,
 } from 'utils';
@@ -62,16 +64,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   let documentsFolder: List | undefined;
   // A "real" fileFolderId is a FHIR resource id; the client sends a sentinel
   // (`synthetic:${internalName}`) when the per-patient List doesn't exist yet.
-  const SYNTHETIC_PREFIX = 'synthetic:';
-  const isSyntheticFolderId = !fileFolderId || fileFolderId.startsWith(SYNTHETIC_PREFIX);
-  if (!isSyntheticFolderId) {
+  const isSynthetic = !fileFolderId || isSyntheticFolderId(fileFolderId);
+  if (!isSynthetic) {
     documentsFolder = (await getListAndPatientResource(fileFolderId, oystehr)).list;
   }
   // Fall back to the embedded internalName if the client omitted the explicit field.
-  const resolvedInternalName =
-    internalName ??
-    (fileFolderId?.startsWith(SYNTHETIC_PREFIX) ? fileFolderId.slice(SYNTHETIC_PREFIX.length) : undefined);
-  if (isSyntheticFolderId && (typeof resolvedInternalName !== 'string' || resolvedInternalName.length === 0)) {
+  const resolvedInternalName = internalName ?? parseSyntheticFolderId(fileFolderId);
+  if (isSynthetic && (typeof resolvedInternalName !== 'string' || resolvedInternalName.length === 0)) {
     return {
       statusCode: 400,
       body: JSON.stringify({
@@ -90,7 +89,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   logIt('Got list resource');
 
   if (!documentsFolder) {
-    if (isSyntheticFolderId) {
+    if (isSynthetic) {
       return {
         statusCode: 404,
         body: JSON.stringify({

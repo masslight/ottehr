@@ -2,9 +2,11 @@ import { Box, TextField } from '@mui/material';
 import { ChangeEvent, FC, useEffect, useState } from 'react';
 import { CustomDialog } from 'src/components/dialogs';
 import { RoundedButton } from 'src/components/RoundedButton';
-
-const FOLDER_NAME_REGEX = /^[a-zA-Z0-9+!\-_'()\\.@$ ]+$/;
-const MAX_NAME_LENGTH = 60;
+import {
+  FOLDER_DISPLAY_NAME_INVALID_CHARS_MSG,
+  FOLDER_DISPLAY_NAME_MAX_LENGTH,
+  FOLDER_DISPLAY_NAME_REGEX,
+} from 'utils';
 
 type FolderNameDialogProps = {
   open: boolean;
@@ -41,9 +43,11 @@ export const FolderNameDialog: FC<FolderNameDialogProps> = ({
   const validate = (name: string): string | null => {
     const trimmed = name.trim();
     if (trimmed.length === 0) return 'Folder name is required';
-    if (trimmed.length > MAX_NAME_LENGTH) return `Folder name must be ${MAX_NAME_LENGTH} characters or fewer`;
-    if (!FOLDER_NAME_REGEX.test(trimmed)) {
-      return "Only letters, numbers, spaces, and these characters are allowed: + ! - _ ' ( ) . @ $";
+    if (trimmed.length > FOLDER_DISPLAY_NAME_MAX_LENGTH) {
+      return `Folder name must be ${FOLDER_DISPLAY_NAME_MAX_LENGTH} characters or fewer`;
+    }
+    if (!FOLDER_DISPLAY_NAME_REGEX.test(trimmed)) {
+      return `Folder name ${FOLDER_DISPLAY_NAME_INVALID_CHARS_MSG}`;
     }
     const lower = trimmed.toLowerCase();
     const isDuplicate = existingNames.some((existing) => {
@@ -99,7 +103,6 @@ export const FolderNameDialog: FC<FolderNameDialogProps> = ({
             onChange={handleChange}
             error={Boolean(error || serverError)}
             helperText={error ?? serverError ?? ' '}
-            inputProps={{ maxLength: MAX_NAME_LENGTH + 10 }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && isValid && !isSubmitting) {
                 void handleSubmit();

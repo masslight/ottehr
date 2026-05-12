@@ -12,6 +12,8 @@ import {
   getMimeType,
   getPresignedURL,
   isCustomFolderList,
+  isSyntheticFolderId,
+  makeSyntheticFolderId,
   parseCustomFoldersCatalog,
   useSuccessQuery,
 } from 'utils';
@@ -329,8 +331,6 @@ type PatientDocsFoldersQueryData = {
   catalogDefs: CustomFolderDefinition[];
 };
 
-export const SYNTHETIC_FOLDER_ID_PREFIX = 'synthetic:';
-
 const useGetPatientDocsFolders = (
   {
     patientId,
@@ -419,7 +419,7 @@ const useGetPatientDocsFolders = (
     for (const def of catalogDefs) {
       if (byInternalName.has(def.internalName)) continue;
       byInternalName.set(def.internalName, {
-        id: `${SYNTHETIC_FOLDER_ID_PREFIX}${def.internalName}`,
+        id: makeSyntheticFolderId(def.internalName),
         folderName: def.displayName,
         internalName: def.internalName,
         documentsCount: 0,
@@ -469,7 +469,7 @@ const useSearchPatientDocuments = (
       const docsFolder = filters?.documentsFolder;
       // Synthetic folders (catalog entries without a per-patient List yet) have no documents
       // by construction; no need to query the server.
-      if (docsFolder?.id?.startsWith(SYNTHETIC_FOLDER_ID_PREFIX)) {
+      if (isSyntheticFolderId(docsFolder?.id)) {
         return [];
       }
 
