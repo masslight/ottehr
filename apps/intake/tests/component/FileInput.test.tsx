@@ -22,7 +22,7 @@ if (typeof URL.createObjectURL !== 'function') {
 }
 
 const makeFile = (sizeBytes: number, name = 'photo.jpg', type = 'image/jpeg'): File => {
-  const blob = new Blob([new Uint8Array(Math.ceil(sizeBytes))], { type });
+  const blob = new Blob([new Uint8Array(Math.round(sizeBytes))], { type });
   return new File([blob], name, { type });
 };
 
