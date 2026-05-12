@@ -64,6 +64,10 @@
     "LEGACY_DATA": {
       "name": "#{var/PROJECT_ID}-legacy-data",
       "removalPolicy": "delete"
+    },
+    "PATIENT_DOCS_CUSTOM_FOLDERS": {
+      "name": "#{var/PROJECT_ID}-patient-docs-custom-folders",
+      "removalPolicy": "retain"
     }
   }
 }
