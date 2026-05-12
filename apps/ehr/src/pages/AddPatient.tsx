@@ -13,6 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
+import { useQuery } from '@tanstack/react-query';
 import { Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -33,10 +34,10 @@ import {
   ServiceMode,
   SLUG_SYSTEM,
 } from 'utils';
-import { createAppointment, createSlot, getLocations } from '../api/api';
+import { createAppointment, createSlot, getLocations, listServiceCategories } from '../api/api';
+import BookableSelect, { BookableMode, BookableTarget } from '../components/BookableSelect';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { CustomDialog } from '../components/dialogs/CustomDialog';
-import LocationSelect, { LocationType } from '../components/LocationSelect';
 import SlotPicker from '../components/SlotPicker';
 import { MAXIMUM_CHARACTER_LIMIT } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -95,9 +96,22 @@ export default function AddPatient(): JSX.Element {
   const isScheduledFollowUp = !!parentEncounterId;
   console.log('[AddPatient] location.state:', location.state, 'parentEncounterId:', parentEncounterId);
 
-  const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule | undefined>(
-    followUpState?.parentLocation
-  );
+  // selectedBookable is the canonical "what was picked" state — Location,
+  // Group, or PR-direct Schedule. For follow-ups we seed it from the parent
+  // location so existing flows behave unchanged.
+  const [selectedBookable, setSelectedBookable] = useState<BookableTarget | undefined>(() => {
+    const parent = followUpState?.parentLocation;
+    const parentSlug = parent?.identifier?.find((i) => i.system === SLUG_SYSTEM)?.value;
+    if (!parent || !parent.id || !parentSlug) return undefined;
+    return {
+      resourceType: 'Location',
+      id: parent.id,
+      slug: parentSlug,
+      name: parent.name ?? 'Location',
+      walkinSchedule: parent.walkinSchedule,
+      rawLocation: parent,
+    };
+  });
   const [birthDate, setBirthDate] = useState<DateTime | null>(
     followUpState?.patientInfo?.dateOfBirth ? DateTime.fromISO(followUpState.patientInfo.dateOfBirth) : null
   );
@@ -139,38 +153,90 @@ export default function AddPatient(): JSX.Element {
   const { oystehrZambda } = useApiClients();
   const reasonForVisitErrorMessage = `Input cannot be more than ${MAXIMUM_CHARACTER_LIMIT} characters`;
 
+  // The Service category dropdown was historically hardcoded to BOOKING_CONFIG
+  // (urgent-care / workers-comp / occupational-medicine). Now: merge with
+  // FHIR-managed admin-created services so categories created in Admin →
+  // Services (e.g., massage30/45/90) appear here too. BOOKING_CONFIG wins on
+  // code collisions, matching the patient-side useServiceCategories merge.
+  const { data: fhirServiceCategories } = useQuery({
+    queryKey: ['add-patient-service-categories'],
+    queryFn: async () => {
+      if (!oystehrZambda) return { serviceCategories: [] };
+      try {
+        return await listServiceCategories(oystehrZambda);
+      } catch {
+        return { serviceCategories: [] };
+      }
+    },
+    enabled: !!oystehrZambda,
+  });
+  const mergedServiceCategories = useMemo(() => {
+    const fhirRecords = fhirServiceCategories?.serviceCategories ?? [];
+    const bookingCodes = new Set(
+      BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code).filter((c): c is string => !!c)
+    );
+    const fhirOnly = fhirRecords
+      .filter((r) => r.active !== false && r.code && !bookingCodes.has(r.code))
+      .map((r) => ({ code: r.code as string, display: r.name }));
+    const bookingEntries = BOOKING_CONFIG.serviceCategories.map((sc) => ({
+      code: sc.category.code as string,
+      display: sc.category.display ?? sc.category.code ?? '',
+    }));
+    return [...bookingEntries, ...fhirOnly].sort((a, b) => a.display.localeCompare(b.display));
+  }, [fhirServiceCategories]);
+  // When a bookable target is later selected, a v2 enhancement could narrow
+  // this list further to the target's offered services. For now (v1) we show
+  // the merged catalog — the slot picker will return no slots if the wrong
+  // category is picked for the chosen target, which is a recoverable state.
+  const filteredServiceCategories = mergedServiceCategories;
+
   const handleAdditionalReasonForVisitChange = (newValue: string): void => {
     setValidReasonForVisit(newValue.length <= MAXIMUM_CHARACTER_LIMIT);
     setReasonForVisitAdditional(newValue);
   };
 
   useEffect(() => {
-    const fetchLocationWithSlotData = async (params: GetScheduleRequestParams, client: Oystehr): Promise<void> => {
+    const fetchSlotData = async (params: GetScheduleRequestParams, client: Oystehr): Promise<void> => {
       setLoadingSlotState({ status: 'loading', input: undefined });
       try {
-        const locationResponse = await getLocations(client, params);
-        setLocationWithSlotData(locationResponse);
+        const response = await getLocations(client, params);
+        setLocationWithSlotData(response);
       } catch (e) {
-        console.error('error loading location with slot data', e);
+        console.error('error loading slot data', e);
       } finally {
-        setLoadingSlotState({ status: 'loaded', input: `${params.slug}` });
+        setLoadingSlotState({
+          status: 'loaded',
+          input: `${params.slug}|${params.scheduleType}|${params.serviceCategoryCode ?? ''}`,
+        });
       }
     };
-    const locationSlug = selectedLocation?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)
-      ?.value;
-    if (!locationSlug) {
-      // console.log('show some toast: location is missing slug', selectedLocation, locationSlug);
-      return;
-    }
+    if (!selectedBookable || !oystehrZambda) return;
+
+    const scheduleType =
+      selectedBookable.resourceType === 'HealthcareService'
+        ? ScheduleType.group
+        : selectedBookable.resourceType === 'PractitionerRole'
+        ? ScheduleType.provider
+        : ScheduleType.location;
+
+    // For groups, the picked service category is required so the slot grid
+    // reflects the right service's duration/cadence. For locations and
+    // PR-direct (typically single-service), it's optional.
+    const params: GetScheduleRequestParams = {
+      slug: selectedBookable.slug,
+      scheduleType,
+      ...(serviceCategory ? { serviceCategoryCode: serviceCategory as any } : {}),
+    };
+    const key = `${params.slug}|${params.scheduleType}|${params.serviceCategoryCode ?? ''}`;
+
     if (
-      !oystehrZambda ||
       loadingSlotState.status === 'loading' ||
-      (loadingSlotState.status === 'loaded' && loadingSlotState.input === locationSlug)
+      (loadingSlotState.status === 'loaded' && loadingSlotState.input === key)
     ) {
       return;
     }
-    void fetchLocationWithSlotData({ slug: locationSlug, scheduleType: ScheduleType.location }, oystehrZambda);
-  }, [selectedLocation, loadingSlotState, oystehrZambda]);
+    void fetchSlotData(params, oystehrZambda);
+  }, [selectedBookable, serviceCategory, loadingSlotState, oystehrZambda]);
 
   // handle functions
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
@@ -210,14 +276,32 @@ export default function AddPatient(): JSX.Element {
       if (!oystehrZambda) throw new Error('Zambda client not found');
       let createSlotInput: CreateSlotParams;
       if (visitType === VisitType.InPersonWalkIn || visitType === VisitType.VirtualOnDemand) {
-        if (!selectedLocation) {
-          enqueueSnackbar('Please select a location', { variant: 'error' });
+        if (!selectedBookable) {
+          enqueueSnackbar('Please select where to book', { variant: 'error' });
           setLoading(false);
           return;
         }
-        const timezone = getTimezone(selectedLocation?.walkinSchedule ?? selectedLocation);
+        // Walk-in scheduleId:
+        //   - Location: the Location's walk-in Schedule resource (existing)
+        //   - Group / PR-direct: derived from the first candidate slot's
+        //     scheduleId, same approach used by the patient WalkinGroup page.
+        let walkinScheduleId: string | undefined;
+        let timezone: string;
+        if (selectedBookable.resourceType === 'Location' && selectedBookable.rawLocation) {
+          walkinScheduleId = selectedBookable.walkinSchedule?.id;
+          timezone = getTimezone(selectedBookable.walkinSchedule ?? selectedBookable.rawLocation);
+        } else {
+          const candidate = locationWithSlotData?.available?.[0] ?? locationWithSlotData?.telemedAvailable?.[0];
+          walkinScheduleId = candidate?.slot.schedule?.reference?.split('/')[1];
+          timezone = locationWithSlotData?.location?.timezone ?? 'UTC';
+        }
+        if (!walkinScheduleId) {
+          enqueueSnackbar('No walk-in availability for this target right now.', { variant: 'error' });
+          setLoading(false);
+          return;
+        }
         createSlotInput = {
-          scheduleId: selectedLocation?.walkinSchedule?.id ?? '',
+          scheduleId: walkinScheduleId,
           startISO: DateTime.now().setZone(timezone).toISO() ?? '',
           lengthInMinutes: 15,
           serviceModality: visitType === VisitType.InPersonWalkIn ? ServiceMode['in-person'] : ServiceMode['virtual'],
@@ -338,29 +422,37 @@ export default function AddPatient(): JSX.Element {
                       setServiceCategory(event.target.value);
                     }}
                   >
-                    {BOOKING_CONFIG.serviceCategories.map((sc) => {
-                      return (
-                        <MenuItem value={sc.category.code} key={sc.category.code}>
-                          {sc.category.display}
-                        </MenuItem>
-                      );
-                    })}
+                    {filteredServiceCategories.map((sc) => (
+                      <MenuItem value={sc.code} key={sc.code}>
+                        {sc.display}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
 
-                <LocationSelect
-                  location={selectedLocation}
-                  setLocation={setSelectedLocation}
-                  updateURL={false}
+                <BookableSelect
+                  selected={selectedBookable}
+                  setSelected={(target) => {
+                    setSelectedBookable(target);
+                    // Reset slot when the target changes so we don't try to
+                    // book a slot belonging to a previously-picked target.
+                    setSlot(undefined);
+                    setLoadingSlotState({ status: 'initial', input: undefined });
+                  }}
                   required
-                  renderInputProps={{ disabled: !visitType }}
-                  locationType={
+                  disabled={!visitType}
+                  mode={
                     visitType === VisitType.InPersonWalkIn ||
                     visitType === VisitType.InPersonPreBook ||
                     visitType === VisitType.InPersonPostTelemed
-                      ? [LocationType.IN_PERSON]
-                      : [LocationType.VIRTUAL]
+                      ? [BookableMode.IN_PERSON]
+                      : [BookableMode.VIRTUAL]
                   }
+                  onLocationsLoaded={() => {
+                    // Side-load not strictly required by the new flow but kept
+                    // so existing callers that consumed setLocations stay
+                    // unaffected if they're added later.
+                  }}
                 />
 
                 {!isScheduledFollowUp && (
@@ -443,7 +535,15 @@ export default function AddPatient(): JSX.Element {
                             : locationWithSlotData?.available?.map((si) => si.slot)
                         }
                         slotsLoading={loadingSlotState.status === 'loading'}
-                        selectedLocation={selectedLocation}
+                        bookableSlug={selectedBookable?.slug}
+                        bookableScheduleType={
+                          selectedBookable?.resourceType === 'HealthcareService'
+                            ? ScheduleType.group
+                            : selectedBookable?.resourceType === 'PractitionerRole'
+                            ? ScheduleType.provider
+                            : ScheduleType.location
+                        }
+                        serviceCategoryCode={serviceCategory as any}
                         timezone={locationWithSlotData?.location?.timezone || 'Undefined'}
                         selectedSlot={slot}
                         setSelectedSlot={setSlot}

@@ -515,21 +515,24 @@ function GroupPageContent(): ReactElement {
 
   const labelForRole = (role: PractitionerRole): string => {
     const inactiveSuffix = role.active === false ? ' (inactive)' : '';
-    // Admin-set name wins. Critical when one provider has multiple PRs at the
-    // same Location — without it, the picker shows two indistinguishable rows.
+    // Always lead with the provider's name — otherwise a schedule renamed to
+    // something like "Massage Schedule" is impossible to attribute back to a
+    // provider when picking group members. Format: "Provider: Schedule Name"
+    // when a display-name extension is set, falling back to
+    // "Provider: Location Name" when not.
+    const pracId = role.practitioner?.reference?.split('/')[1];
+    const pracResource = (practitioners || []).find((p) => p.id === pracId);
+    const providerName = pracResource?.name?.[0]
+      ? oystehr?.fhir.formatHumanName(pracResource.name[0]) || 'Unknown provider'
+      : 'Unknown provider';
     const explicitName = (role.extension ?? [])
       .find((ext) => ext.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL)
       ?.valueString?.trim();
-    if (explicitName) return `${explicitName}${inactiveSuffix}`;
-    const pracId = role.practitioner?.reference?.split('/')[1];
-    const pracResource = (practitioners || []).find((p) => p.id === pracId);
-    const pracLabel = pracResource?.name?.[0]
-      ? oystehr?.fhir.formatHumanName(pracResource.name[0]) || 'Unknown provider'
-      : 'Unknown provider';
     const locRef = role.location?.[0]?.reference;
     const locId = locRef?.split('/')[1];
     const locName = (locations || []).find((l) => l.id === locId)?.name;
-    const base = locName ? `${pracLabel} @ ${locName}` : pracLabel;
+    const scheduleName = explicitName || locName;
+    const base = scheduleName ? `${providerName}: ${scheduleName}` : providerName;
     return `${base}${inactiveSuffix}`;
   };
 

@@ -78,11 +78,11 @@ export default function SchedulePage(): ReactElement {
   // For PR-actored schedules only — the categories this role offers and the Location it's bound to.
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [locationId, setLocationId] = useState<string | undefined>(undefined);
-  // Admin-editable display name for PR-actored schedules. Empty string (or
-  // unset) means "fall back to '<Practitioner> at <Location>'." The placeholder
-  // shows that fallback so admins always see what name will be used.
+  // Admin-editable display name for PR-actored schedules. Seeded from a
+  // location-name fallback; the save handler always sends the current value
+  // so the seed gets committed to the PR's schedule-display-name extension
+  // on first save.
   const [scheduleName, setScheduleName] = useState<string>('');
-  const [initialScheduleName, setInitialScheduleName] = useState<string>('');
   // Booking links for this schedule. Always at least the prebook link; for
   // Location-actored schedules we also surface a walk-in link (the walk-in
   // route resolves Schedule IDs and is only modeled for Location actors —
@@ -117,11 +117,11 @@ export default function SchedulePage(): ReactElement {
       setSlug(item?.owner.slug);
       setLocationId(item?.owner.locationId);
       // Seed with the displayed name. owner.name already resolves to the
-      // explicit displayName when set, falling back to "<Provider> @ <Location>"
-      // — exactly what we want as the editable starting value.
+      // explicit displayName when set, falling back to the Location's name
+      // when no extension is persisted yet — a sensible default the save
+      // handler will commit on first save.
       const seedName = item?.owner.displayName?.trim() || item?.owner.name || '';
       setScheduleName(seedName);
-      setInitialScheduleName(seedName);
       // The PR's healthcareService[] can also contain group-membership refs
       // (a HealthcareService that's a Group rather than a service category).
       // Those aren't categories the admin should see in this picker; the
@@ -338,8 +338,13 @@ export default function SchedulePage(): ReactElement {
       timezone,
       slug,
     });
-    // Categories, Location, and the optional display Name are PR-level;
-    // bundle them into one PATCH when the owner is a PR and any changed.
+    // Categories, Location, and the display Name are PR-level; bundle them
+    // into one PATCH when the owner is a PR. The display name is always
+    // included in the payload: the field is seeded from a derived fallback
+    // (location name) which doesn't yet exist as a persisted extension on
+    // the PR, so even an unchanged seed needs to be saved on the first save
+    // to make the name "real." Without this, the field looks set in the UI
+    // but the extension is never written.
     // Errors here are independent of the schedule save above.
     if (isPractitionerRoleOwner && oystehrZambda) {
       // Compare against the same category-only subset we seeded the picker
@@ -353,15 +358,19 @@ export default function SchedulePage(): ReactElement {
         sortedInitialCats.length !== sortedCurrentCats.length ||
         sortedInitialCats.some((v, i) => v !== sortedCurrentCats[i]);
       const locationChanged = (locationId ?? '') !== (item.owner.locationId ?? '');
-      const nameChanged = scheduleName.trim() !== initialScheduleName.trim();
+      const trimmedName = scheduleName.trim();
+      // A non-empty display name should always be persisted on save —
+      // dropping the nameChanged gate so the user's first save commits the
+      // seed value to the PR's schedule-display-name extension.
+      const shouldSendName = trimmedName.length > 0;
 
-      if (categoriesChanged || locationChanged || nameChanged) {
+      if (categoriesChanged || locationChanged || shouldSendName) {
         try {
           await updatePractitionerRole(oystehrZambda, {
             roleId: item.owner.id,
             ...(categoriesChanged ? { categoryHealthcareServiceIds: categoryIds } : {}),
             ...(locationChanged && locationId ? { locationId } : {}),
-            ...(nameChanged ? { displayName: scheduleName } : {}),
+            ...(shouldSendName ? { displayName: trimmedName } : {}),
           });
           await queryClient.invalidateQueries({ queryKey: ['ehr-get-schedule'] });
         } catch (err) {
