@@ -1,7 +1,7 @@
 import { MessagingGetMessagingConfigResponse, TransactionalSMSSendResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import { useErrorQuery, useSuccessQuery } from 'utils';
 import { ConversationMessage, SMSRecipient } from 'utils';
+import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
 import { getConversation } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { MessageModel } from './ChatModal';

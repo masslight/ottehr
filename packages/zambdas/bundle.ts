@@ -90,6 +90,7 @@ const buildZambdaChunk = async (zambdas: ZambdaSpec[], outdir: string, isSentryE
       platform: 'node',
       external: ['@aws-sdk/*'],
       treeShaking: true,
+      minify: true,
       plugins: getSentryPlugins(isSentryEnabled),
     });
   } catch (error) {
