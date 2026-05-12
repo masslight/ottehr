@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI, getNPI, getSecret, getTaxID, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { FHIR_IDENTIFIER_NPI, getNPI, getTaxID } from 'utils';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   BILLS_TAG,
   createBillingClient,
@@ -32,16 +32,12 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-providers';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const params = validateRequestParameters(input);
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-    const oystehr = createBillingClient(m2mToken, params.secrets);
+  const params = validateRequestParameters(input);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
+  const oystehr = createBillingClient(m2mToken, params.secrets);
 
-    const response = await performEffect(oystehr, params);
-    return { statusCode: 200, body: JSON.stringify(response) };
-  } catch (error: unknown) {
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  const response = await performEffect(oystehr, params);
+  return { statusCode: 200, body: JSON.stringify(response) };
 });
 
 async function performEffect(

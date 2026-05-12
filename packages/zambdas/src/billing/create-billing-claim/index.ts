@@ -20,11 +20,9 @@ import {
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
   FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
   InternalError,
-  SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   applyNameOverrides,
   createBillingClient,
@@ -38,17 +36,13 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-billing-claim';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const params = validateRequestParameters(input);
+  const params = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-    const oystehr = createBillingClient(m2mToken, params.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
+  const oystehr = createBillingClient(m2mToken, params.secrets);
 
-    const response = await performEffect(oystehr, params);
-    return { statusCode: 200, body: JSON.stringify(response) };
-  } catch (error: unknown) {
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  const response = await performEffect(oystehr, params);
+  return { statusCode: 200, body: JSON.stringify(response) };
 });
 
 interface OriginalResources {

@@ -7,11 +7,9 @@ import {
   getNPI,
   getPayerId,
   getResourcesFromBatchInlineRequests,
-  getSecret,
   getTaxID,
-  SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, fhirName, findRef, formatAddress, getClaimStatus, sortClaimInsurance } from '../shared';
 import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -19,17 +17,13 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claim-detail';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    const params = validateRequestParameters(input);
+  const params = validateRequestParameters(input);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-    const oystehr = createBillingClient(m2mToken, params.secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
+  const oystehr = createBillingClient(m2mToken, params.secrets);
 
-    const response = await performEffect(oystehr, params);
-    return { statusCode: 200, body: JSON.stringify(response) };
-  } catch (error: unknown) {
-    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-  }
+  const response = await performEffect(oystehr, params);
+  return { statusCode: 200, body: JSON.stringify(response) };
 });
 
 async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Promise<ClaimDetailResponse> {
