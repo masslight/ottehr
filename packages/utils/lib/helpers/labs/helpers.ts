@@ -345,3 +345,7 @@ export const getLabListStatus = (list: List): LabSetStatus => {
     return LabSetStatus.inactive;
   }
 };
+
+export const isExternalLabServiceRequest = (resource: ServiceRequest): boolean => {
+  return !!resource.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+};
