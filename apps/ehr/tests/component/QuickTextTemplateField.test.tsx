@@ -16,7 +16,7 @@ const mockChain = vi.fn(() => ({ focus: mockFocus }));
 // and exercise the writeFooter / editorRef contract that QuickTextTemplateField relies on.
 let capturedTemplateEditorProps: Record<string, any> | null = null;
 
-vi.mock('src/rcm/features/invoicing/InvoiceTemplateEditor', () => ({
+vi.mock('src/components/template-editor-field/TemplateEditorField', () => ({
   TemplateEditorField: (props: any) => {
     capturedTemplateEditorProps = props;
     // Simulate Tiptap exposing an editor instance via the ref so chip clicks can
@@ -39,7 +39,7 @@ vi.mock('src/rcm/features/invoicing/InvoiceTemplateEditor', () => ({
   },
 }));
 
-vi.mock('src/rcm/features/invoicing/Invoicing', () => ({
+vi.mock('src/components/template-editor-field/PlaceholderChips', () => ({
   PlaceholderChips: ({ tokens, onInsert }: { tokens: readonly string[]; onInsert: (id: string) => void }) => (
     <div data-testid="placeholder-chips">
       {tokens.map((id) => (

@@ -1,9 +1,9 @@
 import { FormHelperText } from '@mui/material';
 import { useEditor } from '@tiptap/react';
 import { ReactElement, useRef } from 'react';
+import { PlaceholderChips } from 'src/components/template-editor-field/PlaceholderChips';
+import { TemplateEditorField } from 'src/components/template-editor-field/TemplateEditorField';
 import { QUICK_TEXT_TOKEN_IDS } from 'src/features/chat/chat.queries';
-import { TemplateEditorField } from 'src/rcm/features/invoicing/InvoiceTemplateEditor';
-import { PlaceholderChips } from 'src/rcm/features/invoicing/Invoicing';
 
 const SAMPLE_PREVIEW_VALUES: Record<string, string> = {
   'patient-first-name': 'First Name',
