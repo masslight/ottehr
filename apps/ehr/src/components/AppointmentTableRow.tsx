@@ -626,7 +626,8 @@ export default function AppointmentTableRow({
           textTransform: 'none',
           fontSize: '15px',
           fontWeight: 500,
-          minWidth: '140px',
+          whiteSpace: 'nowrap',
+          px: 2.5,
         }}
       >
         {text}
@@ -1028,7 +1029,7 @@ export default function AppointmentTableRow({
         )}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
-        <Stack direction={'row'} spacing={1} alignItems="center">
+        <Stack direction={'row'} spacing={1} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
           <GoToButton
             text="Visit Details"
             onClick={() => navigate(getInPersonVisitDetailsUrl(appointment.id))}
@@ -1036,9 +1037,13 @@ export default function AppointmentTableRow({
           >
             <MedicalInformationIcon />
           </GoToButton>
+          {renderProgressNoteButton()}
+        </Stack>
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'center' }}>
+        <Stack direction={'row'} spacing={1} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
           {renderArrivedButton()}
           {renderPrimaryActionButton()}
-          {renderProgressNoteButton()}
           {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && renderSupervisorApproval()}
         </Stack>
       </TableCell>
