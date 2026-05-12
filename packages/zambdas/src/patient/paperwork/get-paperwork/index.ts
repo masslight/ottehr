@@ -19,7 +19,6 @@ import {
   getLastUpdateTimestampForResource,
   getQuestionnaireAndValueSets,
   getScheduleExtension,
-  getUnconfirmedDOBForAppointment,
   HealthcareServiceWithLocationContext,
   isNonPaperworkQuestionnaireResponse,
   mapQuestionnaireAndValueSetsToItemsList,
@@ -339,7 +338,6 @@ function getPaperworkSupportingInfoForUserWithAccess(input: GetPaperworkSupporti
       location: makeLocationSummary({ appointment, location, hsResources, practitioner }),
       visitType: appointment?.appointmentType?.text as VisitType,
       status: appointment?.status,
-      unconfirmedDateOfBirth: appointment ? getUnconfirmedDOBForAppointment(appointment) : undefined,
       serviceMode: serviceMode,
     },
     patient: {

@@ -70,7 +70,6 @@ import useEvolveUser from '../hooks/useEvolveUser';
 import AppointmentNote from './AppointmentNote';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
-import { GenericToolTip } from './GenericToolTip';
 import GoToButton from './GoToButton';
 import { IN_PERSON_CHIP_STATUS_MAP, InPersonAppointmentStatusChip } from './InPersonAppointmentStatusChip';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
@@ -349,9 +348,7 @@ export default function AppointmentTableRow({
     }
   }
 
-  const patientDateOfBirth = appointment.needsDOBConfirmation
-    ? appointment.unconfirmedDOB
-    : appointment.patient?.dateOfBirth;
+  const patientDateOfBirth = appointment.patient?.dateOfBirth;
 
   const isLongWaitingTime = getIsLongWaitTime(appointment, recentStatus, now);
 
@@ -881,26 +878,12 @@ export default function AppointmentTableRow({
               </Tooltip>
             )}
           </Box>
-          {appointment.needsDOBConfirmation ? (
-            <GenericToolTip title="Date of birth for returning patient was not confirmed" customWidth="170px">
-              <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>
-                <Typography variant="body2" sx={{ color: theme.palette.text.secondary, whiteSpace: 'nowrap' }}>{`${
-                  appointment.patient?.sex && capitalize(appointment.patient?.sex)
-                } | `}</Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap' }}>
-                  <PatientDateOfBirth dateOfBirth={patientDateOfBirth} />
-                  {appointment.needsDOBConfirmation && <PriorityIconWithBorder fill={theme.palette.warning.main} />}
-                </Box>
-              </Box>
-            </GenericToolTip>
-          ) : (
-            <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>
-              <Typography sx={{ color: theme.palette.text.secondary, whiteSpace: 'nowrap' }}>{`${
-                appointment.patient?.sex && capitalize(appointment.patient?.sex)
-              } |`}</Typography>
-              <PatientDateOfBirth dateOfBirth={patientDateOfBirth} />
-            </Box>
-          )}
+          <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>
+            <Typography sx={{ color: theme.palette.text.secondary, whiteSpace: 'nowrap' }}>{`${
+              appointment.patient?.sex && capitalize(appointment.patient?.sex)
+            } |`}</Typography>
+            <PatientDateOfBirth dateOfBirth={patientDateOfBirth} />
+          </Box>
           <ReasonsForVisit
             reasonsForVisit={appointment.reasonForVisit}
             tab={tab}

@@ -8,7 +8,11 @@ export default mergeConfig(
     test: {
       environment: 'happy-dom',
       coverage: {
-        reporter: ['text', 'json', 'html'],
+        provider: 'v8',
+        reporter: ['lcov', 'text-summary', 'json'],
+        reportsDirectory: './coverage',
+        include: ['lib/**/*.{ts,tsx}'],
+        exclude: ['lib/**/*.test.{ts,tsx}', 'lib/**/*.spec.{ts,tsx}', 'lib/**/*.d.ts'],
       },
     },
   })

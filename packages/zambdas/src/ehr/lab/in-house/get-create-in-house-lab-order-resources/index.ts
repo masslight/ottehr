@@ -8,8 +8,9 @@ import {
   GetCreateInHouseLabOrderResourcesOutput,
   getFullestAvailableName,
   getSecret,
+  IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
   LAB_LIST_CODE_CODING,
-  LabListsDTO,
+  LabSetDTO,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -51,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const testItems: DataEntryTestItem[] = [];
   let providerName: string | undefined;
-  let labSets: LabListsDTO[] | undefined;
+  let labSets: LabSetDTO[] | undefined;
 
   if (validatedParameters.encounterId) {
     const [attendingPractitionerName, activeActivityDefinitions, labLists] = await Promise.all([
@@ -83,6 +84,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             resourceType: 'List',
             params: [
               { name: 'code', value: `${LAB_LIST_CODE_CODING.inHouse.system}|${LAB_LIST_CODE_CODING.inHouse.code}` },
+              { name: 'status', value: 'current' },
             ],
           })
         ).unbundle();
@@ -101,14 +103,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     providerName = attendingPractitionerName;
   } else if (validatedParameters.selectedLabSet) {
     const { selectedLabSet } = validatedParameters;
-    const activityDefinitionIds = selectedLabSet.labs.map((lab) => lab.activityDefinitionId);
+    const adUrls = selectedLabSet.labs.map((lab) => lab.adUrl);
     const labSetActivityDefinitions = (
       await oystehr.fhir.search<ActivityDefinition>({
         resourceType: 'ActivityDefinition',
         params: [
           {
-            name: '_id',
-            value: activityDefinitionIds.join(','),
+            name: 'url',
+            value: adUrls.join(','),
+          },
+          {
+            name: 'status',
+            value: 'active',
+          },
+          {
+            name: '_tag',
+            value: `${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.system}|${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.code}`,
           },
         ],
       })

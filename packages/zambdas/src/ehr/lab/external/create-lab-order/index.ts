@@ -87,16 +87,15 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
   const oystehr = createOystehrClient(m2mToken, secrets);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const oystehrCurrentUser = createOystehrClient(userToken, secrets);
   let curUserPractitionerId: string | undefined;
   try {
-    curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+    curUserPractitionerId = await getMyPractitionerId(userToken, secrets);
   } catch {
     throw EXTERNAL_LAB_ERROR(
       'Resource configuration error - user creating this external lab order must have a Practitioner resource linked'
     );
   }
-  const currentUserPractitioner = await oystehrCurrentUser.fhir.get<Practitioner>({
+  const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
     id: curUserPractitionerId,
   });
@@ -650,11 +649,29 @@ const getCreateOrderResources = async (input: GetCreateOrderResourcesInput): Pro
   }
 
   // match by both name and lab guid given the static compendium case. This labOrganization array may have multiple items since multiple labOrgs have the same labGuid in static case
-  const labOrganization = labOrganizationSearchResults.find(
-    (org) =>
-      org.name === labName && org.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value === labGuid
-  );
+  const labOrganization = labOrganizationSearchResults.find((org) => {
+    const identifierLabGuid = org.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value;
+    // only do the name check if it is a generic compendium lab
+    if (
+      labGuid === STATIC_COMPENDIUM_LAB_GUID &&
+      identifierLabGuid === labGuid &&
+      org.name?.toLowerCase() === labName.toLowerCase()
+    ) {
+      return org;
+    }
+
+    return identifierLabGuid === labGuid ? org : undefined;
+  });
   if (!labOrganization) {
+    console.error(
+      `We couldn't match the lab org to any results when searching for labGuid: ${labGuid} and labName: ${labName}. These were the results: ${JSON.stringify(
+        labOrganizationSearchResults.map((org) => ({
+          id: org.id,
+          name: org.name,
+          labGuid: org.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value,
+        }))
+      )}`
+    );
     throw EXTERNAL_LAB_ERROR(
       `Organization resource for ${labName} may be misconfigured. No organization found for lab guid ${labGuid}`
     );

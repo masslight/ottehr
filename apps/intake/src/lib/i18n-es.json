@@ -419,12 +419,6 @@
       "Photo ID": "Identificación con foto",
       "Complete consent forms": "Formularios de consentimiento"
     },
-    "confirmPatient": {
-      "confirm": "Confirmar",
-      "dob": "fecha de nacimiento",
-      "knownPatient": "de",
-      "unknownPatient": "del paciente"
-    },
     "consentToTerms": "He revisado y acepto",
     "dateAndTime": "Seleccione la fecha y horario",
     "description": "Acuerde un horario para reunirse con nuestro intermediario para pacientes de BH, quien le brindará información sobre nuestro servicio y programará una cita. Si no encuentra un horario de cita que le resulte conveniente, llame al 516-207-7840.",

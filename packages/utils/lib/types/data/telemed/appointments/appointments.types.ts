@@ -11,7 +11,6 @@ export interface CancelAppointmentRequestParams {
 export interface UpdateAppointmentRequestParams {
   appointmentId: string;
   patient: PatientInfo;
-  unconfirmedDateOfBirth?: string;
   locationState?: string;
 }
 
