@@ -9,11 +9,27 @@ import { useParams } from 'react-router-dom';
 import { createZ3Object, deletePatientDocument, uploadPatientConditionPhoto } from 'src/api/api';
 import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { GetPresignedFileURLInput, getPresignedURL } from 'utils';
+import { convertHeicToJpegIfNeeded } from 'ui-components';
+import { GetPresignedFileURLInput, getPresignedURL, MIME_TYPES } from 'utils';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 
-const ALLOWED_FORMATS: GetPresignedFileURLInput['fileFormat'][] = ['jpg', 'jpeg', 'png'];
+const ACCEPT_ATTRIBUTE = [
+  MIME_TYPES.PNG,
+  MIME_TYPES.JPEG,
+  MIME_TYPES.JPG,
+  MIME_TYPES.HEIC,
+  MIME_TYPES.HEIF,
+  '.heic',
+  '.heif',
+].join(', ');
+const HEIC_EXTENSIONS = ['heic', 'heif'];
+
+const isImageFile = (file: File): boolean => {
+  if (file.type && file.type.startsWith('image/')) return true;
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  return ext ? HEIC_EXTENSIONS.includes(ext) : false;
+};
 
 export const PatientConditionPhotosCard: FC = () => {
   const theme = useTheme();
@@ -81,15 +97,16 @@ export const PatientConditionPhotosCard: FC = () => {
     }
 
     setUploading(true);
+    let uploadedCount = 0;
     try {
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-        const format = (ext === 'jpeg' ? 'jpg' : ext) as GetPresignedFileURLInput['fileFormat'];
-        if (!ALLOWED_FORMATS.includes(format)) {
-          enqueueSnackbar(`Unsupported file type: ${file.name}`, { variant: 'error' });
+        const original = files[i];
+        if (!isImageFile(original)) {
+          enqueueSnackbar(`Unsupported file: ${original.name}. Please upload an image.`, { variant: 'error' });
           continue;
         }
+        const file = await convertHeicToJpegIfNeeded(original);
+        const format = file.type.split('/')[1] as GetPresignedFileURLInput['fileFormat'];
 
         const fileType = `patient-photo-${Date.now()}-${i}` as GetPresignedFileURLInput['fileType'];
         const z3URL = await createZ3Object(
@@ -102,9 +119,12 @@ export const PatientConditionPhotosCard: FC = () => {
           title: file.name,
           mimeType: file.type,
         });
+        uploadedCount++;
       }
-      await refreshAppointment();
-      enqueueSnackbar('Photo(s) uploaded.', { variant: 'success' });
+      if (uploadedCount > 0) {
+        await refreshAppointment();
+        enqueueSnackbar(`${uploadedCount} photo(s) uploaded.`, { variant: 'success' });
+      }
     } catch (e) {
       console.error(e);
       enqueueSnackbar('Error uploading photo.', { variant: 'error' });
@@ -151,7 +171,7 @@ export const PatientConditionPhotosCard: FC = () => {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/jpeg,image/jpg,image/png"
+              accept={ACCEPT_ATTRIBUTE}
               multiple
               hidden
               onChange={(e) => void handleFiles(e.target.files)}
@@ -169,7 +189,7 @@ export const PatientConditionPhotosCard: FC = () => {
         )}
 
         {isAppointmentLoading || photoUrlsLoading ? (
-          <Box sx={{ width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridGap: 16 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 180px)', gridGap: 16 }}>
             {[1, 2, 3].map((item) => (
               <Box key={item} sx={{ aspectRatio: '1/1' }}>
                 <Skeleton variant="rounded" height="100%" />
@@ -177,7 +197,7 @@ export const PatientConditionPhotosCard: FC = () => {
             ))}
           </Box>
         ) : carouselObjects.length > 0 ? (
-          <Box sx={{ width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridGap: 16 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 180px)', gridGap: 16 }}>
             {signedPhotos.map((photo, ind) => (
               <Box key={photo.documentRefId} sx={{ position: 'relative', aspectRatio: '1/1' }}>
                 <Box

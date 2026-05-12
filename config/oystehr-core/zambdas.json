@@ -2012,6 +2012,26 @@
       "runtime": "nodejs22.x",
       "src": "src/rcm/edit-payer-in-insurance-override-list/index",
       "zip": ".dist/zips/edit-payer-in-insurance-override-list.zip"
+    "CREATE-CUSTOM-FOLDER": {
+      "name": "create-custom-folder",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-custom-folder/index",
+      "zip": ".dist/zips/create-custom-folder.zip"
+    },
+    "RENAME-CUSTOM-FOLDER": {
+      "name": "rename-custom-folder",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/rename-custom-folder/index",
+      "zip": ".dist/zips/rename-custom-folder.zip"
+    },
+    "DELETE-CUSTOM-FOLDER": {
+      "name": "delete-custom-folder",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-custom-folder/index",
+      "zip": ".dist/zips/delete-custom-folder.zip"
     }
   },
   "fhirResources": {

@@ -393,6 +393,7 @@ export const BUCKET_NAMES = {
   DISCHARGE_SUMMARIES: 'discharge-summaries',
   STATEMENTS: 'statements',
   REPORTS: 'invoiceable-patients-reports',
+  CUSTOM_FOLDERS: 'patient-docs-custom-folders',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];

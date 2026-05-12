@@ -22,7 +22,10 @@ export const ExternalSelectedTests: React.FC<ExternalSelectedTestsProps> = ({ se
               onClick={() =>
                 setSelectedLabs((prev) =>
                   prev.filter((tempLab) => {
-                    return tempLab.item.uniqueName !== lab.item.uniqueName;
+                    // we need the lab name for generic compendium labs (unique name will be the same)
+                    const selectedUniqueNameWithLab = `${lab.item.uniqueName}${lab.lab.labName}`;
+                    const tempLabUniqueNameWithLab = `${tempLab.item.uniqueName}${tempLab.lab.labName}`;
+                    return tempLabUniqueNameWithLab !== selectedUniqueNameWithLab;
                   })
                 )
               }

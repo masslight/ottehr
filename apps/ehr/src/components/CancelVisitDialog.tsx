@@ -76,7 +76,7 @@ const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement =>
       setIsCancelling(false);
       if (!errorReceived) {
         onClose();
-        navigate('/telemed/appointments');
+        navigate('/visits');
       }
     }
   };

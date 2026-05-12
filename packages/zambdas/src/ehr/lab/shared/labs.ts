@@ -52,6 +52,7 @@ import {
   IN_HOUSE_TEST_CODE_SYSTEM,
   INCONCLUSIVE_RESULT_DR_TAG,
   InHouseLabResult,
+  isExternalLabServiceRequest as isLabServiceRequest,
   isPSCOrder,
   LAB_DR_TYPE_TAG,
   LAB_OBS_VALUE_WITH_PRECISION_EXT,
@@ -618,7 +619,7 @@ export const makeEncounterLabResults = async (
       allObservations.push(resource as Observation);
     }
     if (resource.resourceType === 'ServiceRequest') {
-      const isExternalLabServiceRequest = !!resource.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+      const isExternalLabServiceRequest = isLabServiceRequest(resource);
       const isInHouseLabServiceRequest = !!resource.code?.coding?.find((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM);
       if (isExternalLabServiceRequest || isInHouseLabServiceRequest) {
         serviceRequestMap[`ServiceRequest/${resource.id}`] = {
