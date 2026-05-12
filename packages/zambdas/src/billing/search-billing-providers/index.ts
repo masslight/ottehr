@@ -12,7 +12,7 @@ import {
   LICENSE_TAG,
   RENDERS_TAG,
 } from '../shared';
-import { GetBillingProvidersParams, validateRequestParameters } from './validateRequestParameters';
+import { SearchBillingProvidersParams, validateRequestParameters } from './validateRequestParameters';
 
 interface ProviderItem {
   id: string;
@@ -29,7 +29,7 @@ interface ProviderItem {
 }
 
 let m2mToken: string;
-const ZAMBDA_NAME = 'get-billing-providers';
+const ZAMBDA_NAME = 'search-billing-providers';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -46,7 +46,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function performEffect(
   oystehr: Oystehr,
-  params: GetBillingProvidersParams
+  params: SearchBillingProvidersParams
 ): Promise<{ providers: ProviderItem[]; total: number; offset: number; pageSize: number }> {
   const pageSize = params.pageSize ?? 50;
   const offset = params.offset ?? 0;

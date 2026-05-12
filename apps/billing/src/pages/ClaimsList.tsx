@@ -131,7 +131,7 @@ export default function ClaimsList(): ReactElement {
         if (filters.payerId) body.payerId = filters.payerId;
         if (filters.patientId) body.patientId = filters.patientId;
 
-        const response = await oystehrZambda.zambda.execute({ id: 'get-billing-claims', ...body });
+        const response = await oystehrZambda.zambda.execute({ id: 'search-billing-claims', ...body });
         const data = chooseJson(response);
         setClaims(data.claims ?? []);
         setTotalRows(data.total ?? 0);

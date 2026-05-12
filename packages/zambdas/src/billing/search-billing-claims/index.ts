@@ -4,10 +4,10 @@ import { Claim, Coverage, Location, Organization, Patient, Practitioner, Resourc
 import { BillingClaimItem, getPayerId, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, fhirName, findRef, getClaimStatus, sortClaimInsurance } from '../shared';
-import { GetBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
+import { SearchBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-const ZAMBDA_NAME = 'get-billing-claims';
+const ZAMBDA_NAME = 'search-billing-claims';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -24,7 +24,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function performEffect(
   oystehr: Oystehr,
-  params: GetBillingClaimsParams
+  params: SearchBillingClaimsParams
 ): Promise<{ claims: BillingClaimItem[]; total: number; offset: number; pageSize: number }> {
   const pageSize = params.pageSize ?? 25;
   const offset = params.offset ?? 0;

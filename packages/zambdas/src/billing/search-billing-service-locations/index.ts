@@ -18,7 +18,7 @@ interface ServiceLocationItem {
 }
 
 let m2mToken: string;
-const ZAMBDA_NAME = 'get-billing-service-locations';
+const ZAMBDA_NAME = 'search-billing-service-locations';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {

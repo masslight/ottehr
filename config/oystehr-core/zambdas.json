@@ -529,19 +529,19 @@
       "src": "src/billing/get-patient-coverages/index",
       "zip": ".dist/zips/get-patient-coverages.zip"
     },
-    "GET-BILLING-PROVIDERS": {
-      "name": "get-billing-providers",
+    "SEARCH-BILLING-PROVIDERS": {
+      "name": "search-billing-providers",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/billing/get-billing-providers/index",
-      "zip": ".dist/zips/get-billing-providers.zip"
+      "src": "src/billing/search-billing-providers/index",
+      "zip": ".dist/zips/search-billing-providers.zip"
     },
-    "GET-BILLING-SERVICE-LOCATIONS": {
-      "name": "get-billing-service-locations",
+    "SEARCH-BILLING-SERVICE-LOCATIONS": {
+      "name": "search-billing-service-locations",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/billing/get-billing-service-locations/index",
-      "zip": ".dist/zips/get-billing-service-locations.zip"
+      "src": "src/billing/search-billing-service-locations/index",
+      "zip": ".dist/zips/search-billing-service-locations.zip"
     },
     "CREATE-BILLING-CLAIM": {
       "name": "create-billing-claim",
@@ -557,12 +557,12 @@
       "src": "src/billing/create-billing-working-copy/index",
       "zip": ".dist/zips/create-billing-working-copy.zip"
     },
-    "GET-BILLING-CLAIMS": {
-      "name": "get-billing-claims",
+    "SEARCH-BILLING-CLAIMS": {
+      "name": "search-billing-claims",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/billing/get-billing-claims/index",
-      "zip": ".dist/zips/get-billing-claims.zip"
+      "src": "src/billing/search-billing-claims/index",
+      "zip": ".dist/zips/search-billing-claims.zip"
     },
     "GET-BILLING-CLAIM-DETAIL": {
       "name": "get-billing-claim-detail",

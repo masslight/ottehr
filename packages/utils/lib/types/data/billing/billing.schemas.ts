@@ -21,7 +21,7 @@ export const GetPatientCoveragesInputSchema = z.object({
   patientId: nonEmptyString,
 });
 
-export const GetBillingClaimsInputSchema = z.object({
+export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   status: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
@@ -33,7 +33,7 @@ export const GetBillingClaimsInputSchema = z.object({
   pageSize: nonNegativeInt.optional(),
 });
 
-export const GetBillingProvidersInputSchema = z.object({
+export const SearchBillingProvidersInputSchema = z.object({
   providerType: z.enum(['rendering', 'billing']),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
@@ -138,8 +138,8 @@ export const UpdateBillingClaimInputSchema = z.object({
 
 export type GetClaimDetailInput = z.infer<typeof GetClaimDetailInputSchema>;
 export type GetPatientCoveragesInput = z.infer<typeof GetPatientCoveragesInputSchema>;
-export type GetBillingClaimsInput = z.infer<typeof GetBillingClaimsInputSchema>;
-export type GetBillingProvidersInput = z.infer<typeof GetBillingProvidersInputSchema>;
+export type SearchBillingClaimsInput = z.infer<typeof SearchBillingClaimsInputSchema>;
+export type SearchBillingProvidersInput = z.infer<typeof SearchBillingProvidersInputSchema>;
 export type SearchBillingPatientsInput = z.infer<typeof SearchBillingPatientsInputSchema>;
 export type SearchBillingPractitionersInput = z.infer<typeof SearchBillingPractitionersInputSchema>;
 export type SearchBillingLocationsInput = z.infer<typeof SearchBillingLocationsInputSchema>;
