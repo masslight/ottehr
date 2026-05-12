@@ -32,7 +32,6 @@ import {
   withFollowUpEncounterId,
 } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
-import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils';
 import { visitTypeToInPersonLabel, visitTypeToTelemedLabel } from 'src/types/types';
 import styled from 'styled-components';
@@ -47,14 +46,11 @@ import {
   getServiceCategoryAbbreviation,
   PatientVisitListResponse,
   ServiceMode,
-  TelemedAppointmentStatus,
-  TelemedCallStatusesArr,
   visitStatusArray,
 } from 'utils';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { RoundedButton } from './RoundedButton';
-import { TelemedAppointmentStatusChip } from './TelemedAppointmentStatusChip';
 
 type PatientEncountersGridProps = {
   totalCount: number;
@@ -300,12 +296,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         return row.dateTime ? formatISOStringToDateAndTime(row.dateTime) : '-';
       case 'status':
         if (!row.status) return null;
-        if (row.serviceMode === ServiceMode.virtual) {
-          // todo fix typing
-          return <TelemedAppointmentStatusChip status={`${row.status}` as TelemedAppointmentStatus} />;
-        } else {
-          return row.status;
-        }
+        return row.status;
       case 'type': {
         const typeLabel = getVisitTypeLabelForTypeAndServiceMode({ type: row.type, serviceMode: row.serviceMode });
         const serviceCategoryAbbr = getServiceCategoryAbbreviation(row.serviceCategory);
@@ -326,12 +317,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         return row.length !== undefined ? `${formatMinutes(row.length)} ${row.length === 1 ? 'min' : 'mins'}` : '-';
       case 'info': {
         if (!row.appointmentId) return null;
-        const isInPerson = row.serviceMode === ServiceMode['in-person'];
         return (
-          <RoundedButton
-            to={isInPerson ? `/visit/${row.appointmentId}` : getTelemedVisitDetailsUrl(row.appointmentId)}
-            state={{ encounterId: row.encounterId }}
-          >
+          <RoundedButton to={`/visit/${row.appointmentId}`} state={{ encounterId: row.encounterId }}>
             Visit Info
           </RoundedButton>
         );
@@ -420,13 +407,11 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           onChange={(e) => setStatus(e.target.value)}
         >
           <MenuItem value="all">All</MenuItem>
-          {[...new Set([...TelemedCallStatusesArr, ...visitStatusArray.filter((item) => item !== 'cancelled')])].map(
-            (status) => (
-              <MenuItem key={status} value={status}>
-                {capitalize(status)}
-              </MenuItem>
-            )
-          )}
+          {[...new Set(visitStatusArray.filter((item) => item !== 'cancelled'))].map((status) => (
+            <MenuItem key={status} value={status}>
+              {capitalize(status)}
+            </MenuItem>
+          ))}
         </TextField>
 
         <FormControlLabel

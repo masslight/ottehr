@@ -1,8 +1,7 @@
-import Oystehr from '@oystehr/sdk';
-import { removePrefix } from 'utils';
+import { removePrefix, Secrets, userMe } from 'utils';
 
-export async function getMyPractitionerId(oystehr: Oystehr): Promise<string> {
-  const myPractitionerId = removePrefix('Practitioner/', (await oystehr.user.me()).profile);
+export async function getMyPractitionerId(token: string, secrets: Secrets | null): Promise<string> {
+  const myPractitionerId = removePrefix('Practitioner/', (await userMe(token, secrets)).profile);
   if (!myPractitionerId) throw new Error("Can't receive practitioner resource id attached to current user");
   return myPractitionerId;
 }

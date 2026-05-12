@@ -1,79 +1,9 @@
-import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useMutation, UseMutationResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Patient } from 'fhir/r4b';
-import { GetAppointmentsRequestParams } from 'src/features/visits/telemed/utils/appointments';
 import { useApiClients } from 'src/hooks/useAppClients';
-import {
-  addOrReplaceOperation,
-  ChangeTelemedAppointmentStatusInput,
-  InitTelemedSessionRequestParams,
-  PromiseReturnType,
-  SignAppointmentInput,
-} from 'utils';
-import { useSuccessQuery } from 'utils/lib/frontend';
+import { addOrReplaceOperation, InitTelemedSessionRequestParams, PromiseReturnType, SignAppointmentInput } from 'utils';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
-
-export const useGetTelemedAppointments = (
-  {
-    apiClient,
-    appointmentId,
-    usStatesFilter,
-    dateFilter,
-    timeZone,
-    providersFilter,
-    groupsFilter,
-    patientFilter,
-    statusesFilter,
-    locationsIdsFilter,
-    visitTypesFilter,
-  }: {
-    apiClient: OystehrTelemedAPIClient | null;
-  } & GetAppointmentsRequestParams,
-  onSuccess: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getTelemedAppointments']>> | null) => void
-): UseQueryResult<PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getTelemedAppointments']>>, Error> => {
-  const queryResult = useQuery({
-    queryKey: [
-      'telemed-appointments',
-      {
-        appointmentId,
-        usStatesFilter,
-        providersFilter,
-        groupsFilter,
-        dateFilter,
-        timeZone,
-        patientFilter,
-        statusesFilter,
-        locationsIdsFilter,
-        visitTypesFilter,
-      },
-    ],
-
-    queryFn: () => {
-      if (apiClient) {
-        return apiClient.getTelemedAppointments({
-          appointmentId,
-          usStatesFilter,
-          providersFilter,
-          groupsFilter,
-          dateFilter,
-          timeZone,
-          patientFilter,
-          statusesFilter,
-          locationsIdsFilter,
-          visitTypesFilter,
-        });
-      }
-      throw new Error('api client not defined');
-    },
-
-    enabled: Boolean(apiClient),
-    refetchInterval: 10000,
-  });
-
-  useSuccessQuery(queryResult.data, onSuccess);
-
-  return queryResult;
-};
 
 export const useInitTelemedSessionMutation = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrTelemedAPIClient['initTelemedSession']>>,
@@ -95,23 +25,6 @@ export const useInitTelemedSessionMutation = (): UseMutationResult<
       return apiClient.initTelemedSession({
         appointmentId,
         userId,
-      });
-    },
-  });
-
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useChangeTelemedAppointmentStatusMutation = () =>
-  useMutation({
-    mutationFn: ({
-      apiClient,
-      appointmentId,
-      newStatus,
-    }: {
-      apiClient: OystehrTelemedAPIClient;
-    } & Omit<ChangeTelemedAppointmentStatusInput, 'secrets'>) => {
-      return apiClient.changeTelemedAppointmentStatus({
-        appointmentId,
-        newStatus,
       });
     },
   });

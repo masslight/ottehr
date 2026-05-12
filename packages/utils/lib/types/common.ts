@@ -634,6 +634,7 @@ export enum TASK_INPUT_TYPE_CODES {
   PAGE_INDEX = 'page-index',
   OTHER_PATIENT_ID = 'other-patient-id',
   PROVIDER_PROFILE = 'provider-profile',
+  SKIP_EMAIL = 'skip-email',
 }
 
 export enum ServiceMode {

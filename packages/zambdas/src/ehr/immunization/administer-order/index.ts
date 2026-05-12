@@ -11,6 +11,7 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   AdministerImmunizationOrderRequest,
   CODE_SYSTEM_CPT,
@@ -23,6 +24,7 @@ import {
   getFullName,
   getMedicationName,
   ImmunizationEmergencyContact,
+  INVALID_INPUT_ERROR,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
@@ -60,8 +62,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
-  const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+  const userPractitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
   const userPractitioner = await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
     id: userPractitionerId,
@@ -283,6 +284,23 @@ export function validateRequestParameters(
   }
 
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
+
+  function validateDate(value: string, input: string): void {
+    const dt = DateTime.fromISO(value);
+    if (!dt.isValid || dt.year < 1900) {
+      throw INVALID_INPUT_ERROR(`Invalid ${input}, "${value}" is not a valid date`);
+    }
+  }
+
+  if (administrationDetails?.expDate) {
+    validateDate(administrationDetails.expDate, 'expiration date');
+  }
+  if (administrationDetails?.administeredDateTime) {
+    validateDate(administrationDetails.administeredDateTime, 'administered date');
+  }
+  if (administrationDetails?.visGivenDate) {
+    validateDate(administrationDetails.visGivenDate, 'VIS given date');
+  }
 
   if (administrationDetails) {
     if (administrationDetails.mvx) administrationDetails.mvx = administrationDetails.mvx.trim();

@@ -25,6 +25,7 @@ export enum APIErrorCode {
   USER_ALREADY_EXISTS = 4020,
   PATIENT_PHONE_NOT_FOUND = 4021,
   RESOURCE_INCOMPLETE_FOR_OPERATION = 4022,
+  ALREADY_EXISTS = 4023,
   // 41xx
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
@@ -383,6 +384,13 @@ export const PATIENT_PHONE_NOT_FOUND_ERROR = {
 export const RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.RESOURCE_INCOMPLETE_FOR_OPERATION,
+    message,
+  };
+};
+
+export const ALREADY_EXISTS_WITH_MESSAGE = (message: string): APIError => {
+  return {
+    code: APIErrorCode.ALREADY_EXISTS,
     message,
   };
 };

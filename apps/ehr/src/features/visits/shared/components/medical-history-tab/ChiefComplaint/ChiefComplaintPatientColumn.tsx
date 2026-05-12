@@ -10,7 +10,7 @@ import { useAppointmentData } from '../../../stores/appointment/appointment.stor
 
 export const ChiefComplaintPatientColumn: FC = () => {
   const theme = useTheme();
-  const { isAppointmentLoading, patientPhotoUrls } = useAppointmentData();
+  const { isAppointmentLoading, patientConditionPhotos } = useAppointmentData();
   const [signedPhotoUrls, setSignedPhotoUrls] = useState<string[]>([]);
   const [photoUrlsLoading, setPhotoUrlsLoading] = useState<boolean>(false);
   const { getAccessTokenSilently } = useAuth0();
@@ -26,10 +26,7 @@ export const ChiefComplaintPatientColumn: FC = () => {
       try {
         setPhotoUrlsLoading(true);
         const authToken = await getAccessTokenSilently();
-        const requests: Promise<string | undefined>[] = [];
-        patientPhotoUrls.forEach((url) => {
-          requests.push(getPresignedURL(url, authToken));
-        });
+        const requests = patientConditionPhotos.map((p) => getPresignedURL(p.url, authToken));
         const signedUrls = await Promise.all(requests);
         setSignedPhotoUrls(signedUrls.filter(Boolean) as string[]);
       } catch {
@@ -39,10 +36,12 @@ export const ChiefComplaintPatientColumn: FC = () => {
       }
     }
 
-    if (patientPhotoUrls?.length > 0) {
+    if (patientConditionPhotos?.length > 0) {
       void getPresignedPhotoUrls();
+    } else {
+      setSignedPhotoUrls([]);
     }
-  }, [getAccessTokenSilently, patientPhotoUrls]);
+  }, [getAccessTokenSilently, patientConditionPhotos]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

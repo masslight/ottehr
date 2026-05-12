@@ -495,8 +495,6 @@ describe('useChartDataField', () => {
         isAppointmentReadOnly: true,
         isPractitionerLicensedInState: true,
         isEncounterAssignedToCurrentPractitioner: true,
-        isStatusEditable: false,
-        isCurrentUserHasAccessToAppointment: true,
         isAppointmentLocked: false,
         visitType: 'main',
       });
@@ -522,8 +520,6 @@ describe('useChartDataField', () => {
         isAppointmentReadOnly: false,
         isPractitionerLicensedInState: true,
         isEncounterAssignedToCurrentPractitioner: true,
-        isStatusEditable: true,
-        isCurrentUserHasAccessToAppointment: true,
         isAppointmentLocked: false,
         visitType: 'main',
       });

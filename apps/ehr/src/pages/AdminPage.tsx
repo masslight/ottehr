@@ -3,11 +3,14 @@ import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
+import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
+import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
+import AdminCustomFoldersPage from './AdminCustomFoldersPage';
 import MedicationsConfigurationPage from './configuration/MedicationsConfiguration';
 import EmployeesPage, { EmployeeTypes } from './Employees';
 import SchedulesPage from './Schedules';
@@ -22,6 +25,9 @@ enum PageTab {
   billing = 'billing',
   'quick-picks' = 'quick-picks',
   'in-house-labs' = 'in-house-labs',
+  'em-codes' = 'em-codes',
+  'lab-sets' = 'lab-sets',
+  'docs-folders' = 'docs-folders',
 }
 
 export function AdminPage(): JSX.Element {
@@ -91,6 +97,24 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['in-house-labs']}`)}
                 />
+                <Tab
+                  label="E&M Codes"
+                  value={PageTab['em-codes']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['em-codes']}`)}
+                />
+                <Tab
+                  label="Lab Sets"
+                  value={PageTab['lab-sets']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['lab-sets']}`)}
+                />
+                <Tab
+                  label="Docs Folders"
+                  value={PageTab['docs-folders']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['docs-folders']}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -129,6 +153,15 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['in-house-labs']} sx={{ padding: 0 }}>
             <InHouseLabAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['em-codes']} sx={{ padding: 0 }}>
+            <EMCodesAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['lab-sets']} sx={{ padding: 0 }}>
+            <LabSetsAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['docs-folders']} sx={{ padding: 0 }}>
+            <AdminCustomFoldersPage />
           </TabPanel>
         </TabContext>
       </Box>

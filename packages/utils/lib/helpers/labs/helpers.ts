@@ -20,6 +20,7 @@ import {
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabPaymentMethod,
+  LabSetStatus,
   LabsTableColumn,
   LabType,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
@@ -335,4 +336,16 @@ export const getLabListType = (list: List): LabType.external | LabType.inHouse |
     default:
       return;
   }
+};
+
+export const getLabListStatus = (list: List): LabSetStatus => {
+  if (list.status === 'current') {
+    return LabSetStatus.active;
+  } else {
+    return LabSetStatus.inactive;
+  }
+};
+
+export const isExternalLabServiceRequest = (resource: ServiceRequest): boolean => {
+  return !!resource.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
 };

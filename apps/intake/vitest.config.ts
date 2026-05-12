@@ -11,6 +11,19 @@ export default defineConfig({
     // Disable globals to avoid conflicts with Playwright's expect during test execution
     globals: false,
     exclude: ['**/*.spec.ts', '**/*.test.tsx'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['lcov', 'text-summary', 'json'],
+      reportsDirectory: './coverage/unit',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/**/*.spec.{ts,tsx}',
+        'src/**/*.d.ts',
+        'src/**/types/**',
+        'src/**/__mocks__/**',
+      ],
+    },
   },
   plugins: [tsconfigPaths()],
 });

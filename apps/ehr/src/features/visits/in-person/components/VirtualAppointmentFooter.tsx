@@ -1,5 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { AppBar, Box, Divider, Link, Stack, Typography, useTheme } from '@mui/material';
+import { LoadingButton } from '@mui/lab';
+import { AppBar, Box, darken, Divider, Link, Stack, styled, Typography, useTheme } from '@mui/material';
 import { DateTime, Duration } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
@@ -23,9 +24,23 @@ import {
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { useGetMeetingData } from '../../shared/stores/appointment/appointment.queries';
 import { useInitTelemedSessionMutation } from '../../shared/stores/tracking-board/tracking-board.queries';
-import { FooterButton } from '../../telemed/components/appointment/AppointmentFooterButton';
 import InviteParticipant from '../../telemed/components/appointment/InviteParticipant';
 import { useVideoCallStore } from '../../telemed/state/video-call/video-call.store';
+
+const FooterButton = styled(LoadingButton)(({ theme }) => ({
+  textTransform: 'none',
+  fontSize: '15px',
+  fontWeight: 500,
+  borderRadius: 20,
+  backgroundColor: theme.palette.primary.light,
+  '&:hover': { backgroundColor: darken(theme.palette.primary.light, 0.125) },
+  '&.MuiLoadingButton-loading': {
+    backgroundColor: darken(theme.palette.primary.light, 0.25),
+  },
+  '& .MuiLoadingButton-loadingIndicator': {
+    color: darken(theme.palette.primary.contrastText, 0.25),
+  },
+}));
 
 export const VirtualAppointmentFooter: FC = () => {
   const theme = useTheme();

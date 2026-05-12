@@ -14,7 +14,6 @@ import {
   FHIR_EXTENSION,
   FILLER_ORDER_NUMBER_CODE_SYSTEM,
   getAdvaPACSLocationForAppointmentOrEncounter,
-  getCallerUserWithAccessToken,
   getSecret,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
@@ -29,6 +28,7 @@ import {
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
+  userMe,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -88,7 +88,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
 
   const validatedInput = await validateInput(unsafeInput, oystehr);
 
-  const callerUser = await getCallerUserWithAccessToken(validatedInput.callerAccessToken, secrets);
+  const callerUser = await userMe(validatedInput.callerAccessToken, secrets);
 
   const output = await performEffect(validatedInput, callerUser.profile, secrets, oystehr);
 

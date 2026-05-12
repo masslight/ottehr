@@ -55,9 +55,6 @@ export const FHIR_EXTENSION = {
     additionalInfo: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/additional-information`,
     },
-    unconfirmedDateOfBirth: {
-      url: `${PRIVATE_EXTENSION_BASE_URL}/date-of-birth-not-confirmed`,
-    },
     bookedBy: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/visit-booked-by`,
     },
@@ -396,6 +393,7 @@ export const BUCKET_NAMES = {
   DISCHARGE_SUMMARIES: 'discharge-summaries',
   STATEMENTS: 'statements',
   REPORTS: 'invoiceable-patients-reports',
+  CUSTOM_FOLDERS: 'patient-docs-custom-folders',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -603,9 +601,13 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT = 'https://api.stripe.com/v1/accounts';
 export const SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/stripe-account-id';
-export const SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL =
-  'https://fhir.ottehr.com/Extension/stripe-terminal-location-id';
+/** @deprecated Use Device resource with STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM and STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE instead */
 export const SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/advapacs-location-id';
+
+// Device-based terminal location storage
+export const STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM = 'https://api.stripe.com/v1/terminal/locations';
+export const STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/device-type';
+export const STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE = 'stripe-terminal-config';
 
 export const WALKIN_APPOINTMENT_TYPE_CODE = 'WALKIN';
 export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {

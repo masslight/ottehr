@@ -8,10 +8,6 @@ export const MAXIMUM_CHARACTER_LIMIT = 155;
 
 export const HOP_QUEUE_URI = 'hop-queue';
 
-export const CHAT_REFETCH_INTERVAL = 15000;
-
-export const APPOINTMENT_REFRESH_INTERVAL = 15000;
-
 export enum LANGUAGES {
   spanish = 'spanish',
   english = 'english',
