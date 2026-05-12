@@ -920,7 +920,7 @@
       "src": "src/cron/daily-radiology-report/index",
       "zip": ".dist/zips/daily-radiology-report.zip",
       "schedule": {
-        "expression": "cron(0 9 * * ? *)"
+        "expression": "cron(0 14 * * ? *)"
       }
     },
     "CLEANUP-INVOICE-EXPORTS": {
