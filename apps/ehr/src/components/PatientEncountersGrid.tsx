@@ -29,7 +29,6 @@ import React, { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
-import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils';
 import { visitTypeToInPersonLabel, visitTypeToTelemedLabel } from 'src/types/types';
 import styled from 'styled-components';
@@ -312,12 +311,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         return row.length !== undefined ? `${formatMinutes(row.length)} ${row.length === 1 ? 'min' : 'mins'}` : '-';
       case 'info': {
         if (!row.appointmentId) return null;
-        const isInPerson = row.serviceMode === ServiceMode['in-person'];
         return (
-          <RoundedButton
-            to={isInPerson ? `/visit/${row.appointmentId}` : getTelemedVisitDetailsUrl(row.appointmentId)}
-            state={{ encounterId: row.encounterId }}
-          >
+          <RoundedButton to={`/visit/${row.appointmentId}`} state={{ encounterId: row.encounterId }}>
             Visit Info
           </RoundedButton>
         );
