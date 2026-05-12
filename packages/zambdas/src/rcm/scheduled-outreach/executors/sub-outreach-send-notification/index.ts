@@ -1,7 +1,16 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Task } from 'fhir/r4b';
+import { Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import { fillInvoiceTemplate, getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  resolveTemplatePlaceholders,
+  sendSmsForPatient,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../../shared';
 import { NotificationMedium } from '../../../scheduled-outreach-config/helpers';
 
 let m2mToken: string;
@@ -58,7 +67,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       try {
         switch (medium) {
           case 'sms':
-            await sendSms(patientRef!, smsTemplate || '', input.secrets);
+            await sendOutreachSms(task, smsTemplate || '', oystehr, input.secrets);
             results.push({ medium, success: true });
             break;
           case 'email':
@@ -136,13 +145,32 @@ function extractInputValue(task: Task, key: string): string | undefined {
 // ── Integration placeholders ───────────────────────────────────────────────
 // These will be replaced with actual integrations (Twilio, SendGrid, Lob, etc.)
 
-async function sendSms(_patientRef: string, _template: string, _secrets: any): Promise<void> {
-  // TODO: Integrate with SMS provider (e.g., Twilio)
-  // 1. Resolve patient phone number from FHIR
-  // 2. Resolve template placeholders (patient name, amount, etc.)
-  // 3. Send via provider
-  console.log(`[PLACEHOLDER] Would send SMS to patient ${_patientRef}`);
-  console.log(`[PLACEHOLDER] SMS body: ${_template}`);
+async function sendOutreachSms(task: Task, template: string, oystehr: Oystehr, secrets: Secrets | null): Promise<void> {
+  const patientId = task.for?.reference?.replace('Patient/', '');
+  if (!patientId) throw new Error('Task has no patient reference');
+
+  const patient = await oystehr.fhir.get<Patient>({
+    resourceType: 'Patient',
+    id: patientId,
+  });
+
+  const placeholderInput = await resolveTemplatePlaceholders({
+    patient,
+    encounterRef: task.focus?.reference,
+    oystehr,
+    secrets,
+  });
+  const resolvedMessage = fillInvoiceTemplate(template, placeholderInput);
+
+  // Check for unresolved placeholders — any remaining {{key}} means data is missing
+  const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);
+  if (unresolved) {
+    const unique = [...new Set(unresolved)];
+    throw new Error(`Unresolved template placeholders: ${unique.join(', ')}`);
+  }
+
+  const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+  await sendSmsForPatient(resolvedMessage, oystehr, patient, ENVIRONMENT);
 }
 
 async function sendEmail(_patientRef: string, _template: string, _secrets: any): Promise<void> {

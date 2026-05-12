@@ -5,11 +5,9 @@ import { Account, Appointment, Encounter, Location, Patient, Schedule, Task, Tas
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
-  BRANDING_CONFIG,
   FHIR_RESOURCE_NOT_FOUND,
   fillInvoiceTemplate,
   formatDateToMDYWithTime,
-  getFullName,
   getPatientReferenceFromAccount,
   getSecret,
   getStripeAccountForAppointmentOrEncounter,
@@ -29,6 +27,7 @@ import {
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
   getStripeClient,
+  resolveTemplatePlaceholders,
   resolveTimezone,
   sendSmsForPatient,
   wrapHandler,
@@ -65,18 +64,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const timezone = resolveTimezone(schedule, location);
     const visitDate = formatDateToMDYWithTime(appointment.start, timezone)?.date;
-    const patientPortalUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
     if (!visitDate) throw new Error('visit date is missing required field');
 
-    const basePlaceholderInput = {
-      patientFullName: getFullName(fhirResources.patient),
-      clinic: BRANDING_CONFIG.projectName,
-      location: location?.name,
-      visitDate: visitDate,
-      dueDate,
-      amountCents,
-      patientPortalLink: patientPortalUrl,
-    };
+    const basePlaceholderInput = await resolveTemplatePlaceholders({
+      patient,
+      encounterRef: `Encounter/${encounterId}`,
+      oystehr,
+      secrets,
+      overrides: {
+        location: location?.name,
+        visitDate,
+        dueDate,
+        amountCents,
+      },
+    });
 
     console.log('Creating invoice and invoice item');
     const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');

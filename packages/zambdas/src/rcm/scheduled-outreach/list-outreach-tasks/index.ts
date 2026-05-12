@@ -26,6 +26,7 @@ export interface OutreachTaskSummary {
   completedDateTime?: string;
   description: string;
   mediums?: string;
+  errorMessage?: string;
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -133,6 +134,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       completedDateTime: task.executionPeriod?.end,
       description: task.description || '',
       mediums: extractInput(task, 'mediums'),
+      errorMessage: extractErrorMessage(task),
     };
   });
 
@@ -144,6 +146,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 function extractInput(task: Task, key: string): string | undefined {
   return task.input?.find((i) => i.type?.text === key)?.valueString;
+}
+
+function extractErrorMessage(task: Task): string | undefined {
+  // Check for explicit error output
+  const errorOutput = task.output?.find((o) => o.type?.text === 'error');
+  if (errorOutput?.valueString) return errorOutput.valueString;
+
+  // Check execution-result for per-medium failures
+  const resultOutput = task.output?.find((o) => o.type?.text === 'execution-result');
+  if (resultOutput?.valueString) {
+    try {
+      const results = JSON.parse(resultOutput.valueString) as { medium: string; success: boolean; error?: string }[];
+      const failures = results.filter((r) => !r.success);
+      if (failures.length > 0) {
+        return failures.map((f) => `${f.medium}: ${f.error || 'unknown error'}`).join('; ');
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+
+  return undefined;
 }
 
 function extractTagTriggerEvent(task: Task): string | undefined {

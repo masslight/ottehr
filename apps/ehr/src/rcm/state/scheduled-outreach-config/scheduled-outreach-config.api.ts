@@ -118,6 +118,7 @@ export interface OutreachTaskSummary {
   completedDateTime?: string;
   description: string;
   mediums?: string;
+  errorMessage?: string;
 }
 
 export interface ListOutreachTasksResponse {

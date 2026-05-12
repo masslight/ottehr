@@ -39,7 +39,15 @@ import {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const STATUS_FILTER_OPTIONS = ['draft', 'requested', 'in-progress', 'on-hold', 'completed', 'cancelled'] as const;
+const STATUS_FILTER_OPTIONS = [
+  'draft',
+  'requested',
+  'in-progress',
+  'on-hold',
+  'completed',
+  'failed',
+  'cancelled',
+] as const;
 type StatusFilterValue = (typeof STATUS_FILTER_OPTIONS)[number];
 
 const STATUS_DISPLAY: Record<string, string> = {
@@ -58,7 +66,7 @@ const STATUS_CHIP_STYLES: Record<string, { background: string; color: string }> 
   'in-progress': { background: '#BBDEFB', color: '#0D47A1' },
   completed: { background: '#C8E6C9', color: '#1B5E20' },
   'on-hold': { background: '#FFE0B2', color: '#E65100' },
-  failed: { background: '#FECDD2', color: '#B71C1C' },
+  failed: { background: '#B71C1C', color: '#FFFFFF' },
   cancelled: { background: '#FECDD2', color: '#B71C1C' },
 };
 
@@ -434,16 +442,21 @@ function TaskTable({
                     slotProps={{
                       tooltip: {
                         sx: {
-                          bgcolor: 'background.paper',
-                          color: 'text.primary',
-                          boxShadow: 2,
-                          maxWidth: 'none',
+                          ...(task.status === 'failed' && task.errorMessage
+                            ? { bgcolor: '#B71C1C', color: '#FFFFFF', boxShadow: 3, maxWidth: 400 }
+                            : { bgcolor: 'background.paper', color: 'text.primary', boxShadow: 2, maxWidth: 'none' }),
                         },
                       },
                     }}
                     title={
                       <Box sx={{ p: 0.5 }}>
-                        <CopyableIdRow label="Task ID" value={task.id} />
+                        {task.status === 'failed' && task.errorMessage ? (
+                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                            {task.errorMessage}
+                          </Typography>
+                        ) : (
+                          <CopyableIdRow label="Task ID" value={task.id} />
+                        )}
                       </Box>
                     }
                   >
