@@ -9,8 +9,8 @@ import {
   GetTelemedLocationsResponse,
   PatientInfo,
   PromiseReturnType,
-  useSuccessQuery,
 } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 
 export const useCreateAppointmentMutation = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrAPIClient['createAppointment']>>,

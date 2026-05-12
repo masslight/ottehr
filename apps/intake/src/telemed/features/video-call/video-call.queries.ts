@@ -1,7 +1,7 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { OystehrAPIClient } from 'ui-components';
-import { useErrorQuery, useSuccessQuery } from 'utils';
 import { PromiseReturnType } from 'utils';
+import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
 import { useAppointmentStore } from '../appointments';
 
 export const useJoinCall = (

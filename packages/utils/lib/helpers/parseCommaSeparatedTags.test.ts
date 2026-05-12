@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseCommaSeparatedTags } from './sentry';
+import { parseCommaSeparatedTags } from './parseCommaSeparatedTags';
 
 describe('parseCommaSeparatedTags', () => {
   it('undefined string, empty object', () => {

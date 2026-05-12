@@ -9,8 +9,8 @@ import {
   InitTelemedSessionRequestParams,
   PromiseReturnType,
   SignAppointmentInput,
-  useSuccessQuery,
 } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 
 export const useGetTelemedAppointments = (

@@ -31,7 +31,7 @@ vi.mock('../stores/appointment/appointment.store', () => ({
   }),
 }));
 
-vi.mock('utils', async (importOriginal) => {
+vi.mock('utils/lib/frontend', async (importOriginal) => {
   const actual = (await importOriginal()) as any;
   return {
     ...actual,

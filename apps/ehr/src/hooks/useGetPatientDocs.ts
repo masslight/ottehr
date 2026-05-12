@@ -5,8 +5,9 @@ import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
 import { deletePatientDocument } from 'src/api/api';
-import { getMimeType, useSuccessQuery } from 'utils';
+import { getMimeType } from 'utils';
 import { chooseJson, getPresignedURL } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
 

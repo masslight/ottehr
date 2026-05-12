@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
-import { parseCommaSeparatedTags, setupSentry } from 'utils';
+import { parseCommaSeparatedTags } from 'utils';
+import { setupSentry } from 'utils/lib/frontend';
 import { ScrollToTop } from './components/ScrollToTop';
 import { TestErrorPage } from './components/TestErrorPage';
 import { IntakeThemeProvider } from './IntakeThemeProvider';
