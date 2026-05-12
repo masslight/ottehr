@@ -31,8 +31,11 @@ export const usePrintLabel = (): UsePrintLabelOutput => {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to fetch label PDF: ${response.status}`);
     const contentType = response.headers.get('content-type') ?? '';
-    if (!contentType.includes('xml'))
-      throw new Error('URL returned XML content, presigned URL may have expired. Refresh the page');
+    if (contentType.includes('xml')) {
+      const errorMessage = 'URL returned XML content, presigned URL may have expired. Refresh the page';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+      throw new Error(errorMessage);
+    }
     await response.body?.cancel();
     window.open(url, '_blank');
   };
