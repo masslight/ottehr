@@ -20,7 +20,7 @@ To add or modify a flag, update the Zod schema in `config-types` and the default
 
 Ottehr primarily supports label printing with DYMO LabelWriter printers. These steps have not been tested with other printer types.
 
-Ottehr encourages admin users to enable system-level label printing configuration through the Admin Label Label Printing Config tab. Here admins can decide if printing should be done in `manual` mode by default, or, if printing in `integrated` mode, what the printer, label type, and label orientation should be. More information on each is found below.
+Ottehr encourages admin users to enable system-level label printing configuration through the Admin Label Printing Config tab. Here admins can decide if printing should be done in `manual` mode by default, or, if printing in `integrated` mode, what the printer, label type, and label orientation should be. More information on each is found below.
 
 ### Printing Modes
 
@@ -41,7 +41,7 @@ In either case, you must first:
 
 ### Manual Printing Mode
 
-This mode prints a pdf of the label via the browser and the system print dialog. By default, Ottehr assumes a DYMO 30334 size label and a DYMO LabelWriter 550 Turbo printer. However, the system print dialog offers configurablility, so it is possible to achieve a satisfactory label using a different paper size and printer.
+This mode prints a pdf of the label via the browser and the system print dialog. By default, Ottehr assumes a DYMO 30334 size label and a DYMO LabelWriter 550 Turbo printer. However, the system print dialog offers configurability, so it is possible to achieve a satisfactory label using a different paper size and printer.
 
 #### Chrome, Safari, and Edge
 
@@ -73,7 +73,7 @@ We have observed that Firefox does not correctly transmit orientation metadata t
 
 ### Integrated Printing Mode
 
-In this mode, labels will print directly to your printer without the need to print through the browser. This mode is significantly more restrictive than `manual` mode, as it relies entirely on a pre-determined set of supported label sizes. While in `integrated` mode, if an admin elects the `Open PDF on Print` option from the Admin Label Printing Config tab, a pdf of the label will still open in the borwser to allow manual printing if desired.
+In this mode, labels will print directly to your printer without the need to print through the browser. This mode is significantly more restrictive than `manual` mode, as it relies entirely on a pre-determined set of supported label sizes. While in `integrated` mode, if an admin elects the `Open PDF on Print` option from the Admin Label Printing Config tab, a pdf of the label will still open in the browser to allow manual printing if desired.
 
 The currently supported printer manufacturers and their label sizes are:
 

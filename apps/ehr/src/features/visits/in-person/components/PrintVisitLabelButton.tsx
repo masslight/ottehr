@@ -58,6 +58,7 @@ export const PrintVisitLabelButton: FC<Props> = ({ encounterId }) => {
     if (labelPdfs.length !== 1) {
       console.error('Expected 1 label pdf, received unexpected number', JSON.stringify(labelPdfs));
       setIsError(true);
+      return;
     }
 
     const labelPdf = labelPdfs[0];
