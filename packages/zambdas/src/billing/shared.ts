@@ -15,6 +15,7 @@ export const BILLING_WORKING_COPY_TAG = {
 
 export const CURRENT_STATUS_TAG_SYSTEM = 'current-status';
 
+// TODO: this function has fallback chain so it is hard to return enum and we don't have standardized status codes yet
 export function getClaimStatus(claim: Claim): string {
   return claim.meta?.tag?.find((t) => t.system === CURRENT_STATUS_TAG_SYSTEM)?.code ?? claim.status ?? 'unknown';
 }
@@ -28,7 +29,7 @@ export const RENDERS_TAG = 'https://fhir.ottehr.com/billing/renders-services';
 export const BILLS_TAG = 'https://fhir.ottehr.com/billing/bills-services';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
 
-export const SOURCE_EXT_URL = 'https://ottehr.com/billing/source-resource';
+export const SOURCE_IDENTIFIER_SYSTEM = 'https://ottehr.com/billing/source-resource';
 
 const PROTECTED_OVERRIDE_KEYS = new Set(['id', 'meta', 'resourceType', 'extension']);
 
@@ -64,15 +65,15 @@ export function fhirName(resource?: Patient | Practitioner): string {
   return name ? convertFhirNameToDisplayName(name) : '';
 }
 
-// Clone a billing resource into a working copy: strips id, tags it, adds source reference.
+// Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
 export function prepareWorkingCopy<T extends Resource>(resource: T, originalId: string): T {
-  const copy: any = structuredClone(resource);
+  const copy: T & { identifier?: { system: string; value: string }[] } = structuredClone(resource);
   delete copy.id;
   copy.meta = { tag: [BILLING_WORKING_COPY_TAG] };
-  const existing = (copy.extension ?? []).filter((e: any) => e.url !== SOURCE_EXT_URL);
-  copy.extension = [
+  const existing = (copy.identifier ?? []).filter((id) => id.system !== SOURCE_IDENTIFIER_SYSTEM);
+  copy.identifier = [
     ...existing,
-    { url: SOURCE_EXT_URL, valueReference: { reference: `${resource.resourceType}/${originalId}` } },
+    { system: SOURCE_IDENTIFIER_SYSTEM, value: `${resource.resourceType}/${originalId}` },
   ];
   return copy;
 }
@@ -90,7 +91,7 @@ export function applyNameOverrides<T extends { name?: HumanName[] }>(
   overrides?: { firstName?: string; lastName?: string }
 ): T {
   if (!overrides) return resource;
-  const copy: any = structuredClone(resource);
+  const copy = structuredClone(resource);
   if (!copy.name) copy.name = [{}];
   if (overrides.firstName !== undefined) copy.name[0].given = [overrides.firstName];
   if (overrides.lastName !== undefined) copy.name[0].family = overrides.lastName;
