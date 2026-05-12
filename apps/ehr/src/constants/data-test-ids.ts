@@ -787,4 +787,18 @@ export const dataTestIds = {
       markReadyBtn: 'external-lab-mark-ready-btn',
     },
   },
+
+  emCodesAdminPage: {
+    addButton: 'em-codes-add-button',
+    codeRow: (code: string) => `em-code-row-${code}`,
+    editButton: (code: string) => `em-code-edit-${code}`,
+    deleteButton: (code: string) => `em-code-delete-${code}`,
+    dialog: 'em-code-dialog',
+    codeField: 'em-code-field',
+    displayField: 'em-code-display-field',
+    saveButton: 'em-code-save-button',
+    confirmDeleteDialog: 'em-code-confirm-delete-dialog',
+    confirmDeleteButton: 'em-code-confirm-delete-button',
+    cancelDeleteButton: 'em-code-cancel-delete-button',
+  },
 };

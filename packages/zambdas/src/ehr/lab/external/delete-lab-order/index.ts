@@ -38,8 +38,10 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
-  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-  const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
+  const practitionerIdFromCurrentUser = await getMyPractitionerId(
+    validatedParameters.userToken,
+    validatedParameters.secrets
+  );
 
   const { serviceRequest, questionnaireResponse, tasks, communications, documentReferences, diagnosticReports } =
     await getLabOrderRelatedResources(oystehr, validatedParameters);

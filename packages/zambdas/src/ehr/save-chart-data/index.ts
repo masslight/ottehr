@@ -23,7 +23,6 @@ import {
   PATIENT_VITALS_META_SYSTEM,
   SCHOOL_WORK_NOTE,
   Secrets,
-  userMe,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -32,6 +31,7 @@ import {
   createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
+  getMyPractitionerId,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
@@ -57,6 +57,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import {
@@ -128,7 +129,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
     // const [allResources, currentPractitioner, chartDataBeforeUpdate] = await Promise.all([
     //   getEncounterAndRelatedResources(oystehr, encounterId),
-    //   getUserPractitioner(oystehr, oystehrCurrentUser),
+    //   getUserPractitioner(oystehr, userToken, secrets),
     //   getChartData(oystehr, encounterId),
     // ]);
 
@@ -521,6 +522,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('Updated chart data as a transaction');
 
+    await runChartDataPostChangeTasks(oystehr, addendumNote, encounter, appointment?.id);
+
     console.timeLog('time', 'before sorting resources');
     const output = validateBundleAndExtractSavedChartData(
       transactionBundle,
@@ -623,11 +626,7 @@ async function getUserPractitioner(
   secrets: Secrets | null
 ): Promise<Practitioner> {
   try {
-    const getUserResponse = await userMe(userToken, secrets);
-    const userProfile = getUserResponse.profile;
-    console.log(`User Profile: ${JSON.stringify(userProfile)}`);
-    const userProfileString = userProfile.split('/');
-    const practitionerId = userProfileString[1];
+    const practitionerId = await getMyPractitionerId(userToken, secrets);
     return await oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
       id: practitionerId,

@@ -5,6 +5,7 @@ import {
   IMMUNIZATION_QUICK_PICK_CATEGORY,
   MEDICAL_CONDITION_QUICK_PICK_CATEGORY,
   MEDICATION_HISTORY_QUICK_PICK_CATEGORY,
+  PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY,
   PROCEDURE_QUICK_PICK_CATEGORY,
 } from '../../src/ehr/shared/quick-pick-categories';
 import {
@@ -239,6 +240,34 @@ describe('activityDefinitionToQuickPick', () => {
       expect(result.name).toBe('Some Vaccine');
     });
   });
+
+  describe('Patient instructions', () => {
+    test('should parse a valid patient instruction ActivityDefinition with name and text', () => {
+      const title = 'inst-title';
+      const text = 'instr-text';
+      const ad = createMockActivityDefinition('patient-instruction-quick-pick', title, { text });
+
+      const result = activityDefinitionToQuickPick(ad, PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY);
+
+      expect(result.id).toBe('test-id-123');
+      expect(result.name).toBe(title);
+      expect(result.text).toBe(text);
+    });
+
+    test('should parse when config extension is missing', () => {
+      const ad: ActivityDefinition = {
+        resourceType: 'ActivityDefinition',
+        status: 'active',
+        title: 'title',
+        meta: {
+          tag: [{ system: QUICK_PICK_TAG_SYSTEM, code: 'patient-instruction-quick-pick' }],
+        },
+        // no extension
+      };
+      const result = activityDefinitionToQuickPick(ad, PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY);
+      expect(result.name).toBe(ad.title);
+    });
+  });
 });
 
 describe('quickPickToActivityDefinition', () => {
@@ -467,5 +496,18 @@ describe('round-trip conversion', () => {
     expect(restored.units).toBe('ml');
     expect(restored.vaccine).toBeUndefined();
     expect(restored.cvx).toBeUndefined();
+  });
+
+  test('should preserve patient instruction data through round-trip', () => {
+    const original = {
+      name: 'instruction name',
+      text: 'text of instruction',
+    };
+
+    const ad = quickPickToActivityDefinition(original, PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY, 'p-i-id');
+    const restored = activityDefinitionToQuickPick(ad, PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY);
+
+    expect(restored.name).toBe(original.name);
+    expect(restored.text).toBe(original.text);
   });
 });

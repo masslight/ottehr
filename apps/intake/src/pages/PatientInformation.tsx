@@ -156,7 +156,7 @@ const PatientInformation = (): JSX.Element => {
 
   const { slotId } = useParams<{ slotId: string }>();
 
-  const { patients, patientInfo, unconfirmedDateOfBirth, setPatientInfo } = useBookingContext();
+  const { patients, patientInfo, setPatientInfo } = useBookingContext();
   const selectPatientPageUrl = `${bookingBasePath}/${slotId}/patients`;
 
   const { allItems, pages, paperworkInProgress } = usePaperworkContext();
@@ -262,7 +262,6 @@ const PatientInformation = (): JSX.Element => {
       {patientInfo && !patientInfo?.newPatient && (
         <PatientInformationKnownPatientFieldsDisplay
           patientInfo={patientInfo}
-          unconfirmedDateOfBirth={unconfirmedDateOfBirth}
           selectPatientPageUrl={selectPatientPageUrl}
         />
       )}

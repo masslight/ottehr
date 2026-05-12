@@ -328,7 +328,7 @@ export const ApplyTemplate: React.FC = () => {
             Are you sure you want to apply the <strong>{getTemplateName(pendingTemplate)}</strong> template?
             <br />
             <br />
-            <strong>Overwritten:</strong> Exam, MDM, Patient Instructions, E&amp;M Code, ROS
+            <strong>Overwritten:</strong> ROS, Exam, MDM, Patient Instructions, E&amp;M Code
             <br />
             <strong>Appended:</strong> HPI, MOI, ICD-10 Diagnoses, CPT Codes
           </DialogContentText>
