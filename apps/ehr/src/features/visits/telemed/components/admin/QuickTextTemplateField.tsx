@@ -52,6 +52,7 @@ export function QuickTextTemplateField({
       editorRef={editorRef}
       tokens={QUICK_TEXT_TOKEN_IDS}
       previewValues={SAMPLE_PREVIEW_VALUES}
+      maxLength={maxLength}
       helperText={maxLength !== undefined ? `${value.length} / ${maxLength}` : undefined}
       writeFooter={
         <>

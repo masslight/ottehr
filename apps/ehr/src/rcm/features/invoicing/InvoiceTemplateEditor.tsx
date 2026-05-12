@@ -1,7 +1,9 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { alpha, Box, FormHelperText, List, ListItemButton, ListItemText, Paper, Tab, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { Extension } from '@tiptap/core';
 import Mention from '@tiptap/extension-mention';
+import { Plugin } from '@tiptap/pm/state';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { SuggestionKeyDownProps, SuggestionOptions, SuggestionProps } from '@tiptap/suggestion';
@@ -68,6 +70,34 @@ export function tiptapContentToText(doc: Record<string, unknown>): string {
     })
     .join('\n');
 }
+
+// ---------------------------------------------------------------------------
+// MaxLength enforcement — reject transactions that would push the rendered
+// plain text past the limit. Counts mentions as their `{{token-id}}` form
+// (via tiptapContentToText) so the cap matches the eventual SMS body length.
+// Filtering at the transaction level preserves cursor position and also
+// blocks programmatic inserts (e.g. clicking a placeholder chip).
+// ---------------------------------------------------------------------------
+
+const MaxLengthExtension = Extension.create<{ getMaxLength: () => number | undefined }>({
+  name: 'templateEditorMaxLength',
+  addOptions() {
+    return { getMaxLength: () => undefined };
+  },
+  addProseMirrorPlugins() {
+    const getMaxLength = this.options.getMaxLength;
+    return [
+      new Plugin({
+        filterTransaction: (transaction) => {
+          const limit = getMaxLength();
+          if (limit === undefined || !transaction.docChanged) return true;
+          const text = tiptapContentToText(transaction.doc.toJSON() as Record<string, unknown>);
+          return text.length <= limit;
+        },
+      }),
+    ];
+  },
+});
 
 // ---------------------------------------------------------------------------
 // Mention suggestion dropdown (rendered via React portal)
@@ -193,6 +223,7 @@ export interface TemplateEditorFieldProps {
   helperText?: string;
   tokens?: readonly string[];
   writeFooter?: React.ReactNode;
+  maxLength?: number;
 }
 
 export function TemplateEditorField({
@@ -207,6 +238,7 @@ export function TemplateEditorField({
   helperText,
   tokens = INVOICE_TOKEN_IDS,
   writeFooter,
+  maxLength,
 }: TemplateEditorFieldProps): ReactElement {
   const theme = useTheme();
   const [tab, setTab] = useState<'write' | 'preview'>('write');
@@ -215,6 +247,8 @@ export function TemplateEditorField({
   const initialContent = useMemo(() => textToTiptapContent(value), []);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const maxLengthRef = useRef(maxLength);
+  maxLengthRef.current = maxLength;
 
   const editor = useEditor({
     editable: !disabled,
@@ -242,6 +276,7 @@ export function TemplateEditorField({
         ],
         suggestion: makeSuggestion(tokens),
       }),
+      MaxLengthExtension.configure({ getMaxLength: () => maxLengthRef.current }),
     ],
     content: initialContent,
     onUpdate: ({ editor: ed }) => {
