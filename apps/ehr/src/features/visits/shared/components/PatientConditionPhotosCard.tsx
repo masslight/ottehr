@@ -169,7 +169,7 @@ export const PatientConditionPhotosCard: FC = () => {
         )}
 
         {isAppointmentLoading || photoUrlsLoading ? (
-          <Box sx={{ width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridGap: 16 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 180px)', gridGap: 16 }}>
             {[1, 2, 3].map((item) => (
               <Box key={item} sx={{ aspectRatio: '1/1' }}>
                 <Skeleton variant="rounded" height="100%" />
@@ -177,7 +177,7 @@ export const PatientConditionPhotosCard: FC = () => {
             ))}
           </Box>
         ) : carouselObjects.length > 0 ? (
-          <Box sx={{ width: '100%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridGap: 16 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 180px)', gridGap: 16 }}>
             {signedPhotos.map((photo, ind) => (
               <Box key={photo.documentRefId} sx={{ position: 'relative', aspectRatio: '1/1' }}>
                 <Box
