@@ -1,5 +1,6 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { randomUUID } from 'crypto';
 import { Claim, Coverage, Location, Organization, Patient, Person, Practitioner, Resource } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CLAIM_TYPE,
@@ -94,25 +95,35 @@ async function createWorkingCopies(
   originals: OriginalResources,
   params: CreateClaimParams
 ): Promise<OriginalResources> {
-  const requests: { method: 'POST'; url: string; resource: BillingFhirResource }[] = [];
+  const requests: BatchInputPostRequest<BillingFhirResource>[] = [];
   const order: string[] = [];
 
+  const patientUrn = `urn:uuid:${randomUUID()}`;
   let patientCopy = prepareWorkingCopy(originals.patient, originals.patient.id!);
   patientCopy = applyPatientOverrides(patientCopy, params.patientOverrides);
-  requests.push({ method: 'POST', url: '/Patient', resource: patientCopy });
+  requests.push({ method: 'POST', url: '/Patient', resource: patientCopy, fullUrl: patientUrn });
   order.push('patient');
+
+  if (originals.payor) {
+    const copy = prepareWorkingCopy(originals.payor, originals.payor.id!);
+    requests.push({ method: 'POST', url: '/Organization', resource: copy, fullUrl: `urn:uuid:${randomUUID()}` });
+    order.push('payor');
+  }
 
   if (originals.coverage) {
     const copy = prepareWorkingCopy(originals.coverage, originals.coverage.id!);
     if (params.coverageOverrides?.subscriberId) copy.subscriberId = params.coverageOverrides.subscriberId;
+    copy.beneficiary = { reference: patientUrn };
+    copy.subscriber = { reference: patientUrn };
+    // TODO: payor ref will move to external Oystehr payer URLs (#6603)
+    if (originals.payor) {
+      const payorUrn = requests.find((_, i) => order[i] === 'payor')!.fullUrl!;
+      copy.payor = [{ reference: payorUrn }];
+    }
     requests.push({ method: 'POST', url: '/Coverage', resource: copy });
     order.push('coverage');
   }
-  if (originals.payor) {
-    const copy = prepareWorkingCopy(originals.payor, originals.payor.id!);
-    requests.push({ method: 'POST', url: '/Organization', resource: copy });
-    order.push('payor');
-  }
+
   if (originals.practitioner) {
     let copy = prepareWorkingCopy(originals.practitioner, originals.practitioner.id!);
     copy = applyPractitionerOverrides(copy, params.practitionerOverrides);
@@ -141,16 +152,6 @@ async function createWorkingCopies(
     const expected = requests[i].url.replace('/', '');
     if (entries[i].resourceType !== expected) throw InternalError;
     copies[order[i] as keyof OriginalResources] = entries[i] as any;
-  }
-
-  if (copies.coverage) {
-    const ops: { op: 'add'; path: string; value: unknown }[] = [];
-    if (copies.payor) {
-      ops.push({ op: 'add', path: '/payor', value: [{ reference: `Organization/${copies.payor.id}` }] });
-    }
-    ops.push({ op: 'add', path: '/beneficiary', value: { reference: `Patient/${copies.patient!.id}` } });
-    ops.push({ op: 'add', path: '/subscriber', value: { reference: `Patient/${copies.patient!.id}` } });
-    await oystehr.fhir.patch({ resourceType: 'Coverage', id: copies.coverage.id!, operations: ops });
   }
 
   return { patient: originals.patient, ...copies } as OriginalResources;
