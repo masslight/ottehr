@@ -163,7 +163,7 @@ const getConditionalExtensions = (
     });
 };
 
-const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension => {
+export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension => {
   const extension = item.extension ?? [];
   let disabledDisplay = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.disabledDisplay;
