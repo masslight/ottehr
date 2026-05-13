@@ -1,7 +1,9 @@
+import Oystehr from '@oystehr/sdk';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { NonInsurancePayerId } from 'candidhealth/api/resources/nonInsurancePayers/resources/v1';
 import { Address } from 'fhir/r4b';
-import { createCandidApiClient, getOptionalSecret, Secrets, SecretsKeys } from 'utils';
+import { getOptionalSecret, Secrets, SecretsKeys } from 'utils';
+import { getOrCreateCandidApiClient } from '../../shared';
 import { CANDID_EMPLOYER_DESCRIPTION } from './helpers';
 
 const mapFhirAddressToCandidAddress = (addresses?: Address[]): CandidApi.StreetAddressShortZip | undefined => {
@@ -34,7 +36,10 @@ const mapFhirAddressToCandidAddress = (addresses?: Address[]): CandidApi.StreetA
  * All employer zambdas call this before attempting any Candid sync so they gracefully
  * skip when running in environments that have no Candid credentials.
  */
-export function createCandidClientIfConfigured(secrets: Secrets | null): CandidApiClient | null {
+export async function createCandidClientIfConfigured(
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<CandidApiClient | null> {
   const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
   const candidClientSecret = getOptionalSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets);
   const candidEnv = getOptionalSecret(SecretsKeys.CANDID_ENV, secrets);
@@ -46,7 +51,7 @@ export function createCandidClientIfConfigured(secrets: Secrets | null): CandidA
     return null;
   }
 
-  return createCandidApiClient(secrets);
+  return getOrCreateCandidApiClient(oystehr, secrets);
 }
 
 /**

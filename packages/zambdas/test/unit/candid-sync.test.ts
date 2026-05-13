@@ -48,7 +48,8 @@ vi.mock('utils', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
-    createCandidApiClient: vi.fn().mockReturnValue({}),
+    // _oauthTokenProvider is required because getOrCreateCandidApiClient monkey-patches getToken.
+    createCandidApiClient: vi.fn().mockReturnValue({ _oauthTokenProvider: { getToken: vi.fn() } }),
     getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue('acct_test'),
   };
 });

@@ -1,20 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CandidApiClient } from 'candidhealth';
 import { randomUUID } from 'crypto';
 import { DocumentReference, Encounter, List, Task } from 'fhir/r4b';
 import Handlebars from 'handlebars';
 import { DateTime } from 'luxon';
 import path from 'path';
 import pdfmakeModule from 'pdfmake';
-import {
-  BUCKET_NAMES,
-  createCandidApiClient,
-  createFilesDocumentReferences,
-  OTTEHR_MODULE,
-  Secrets,
-  STATEMENT_CODE,
-} from 'utils';
+import { BUCKET_NAMES, createFilesDocumentReferences, OTTEHR_MODULE, Secrets, STATEMENT_CODE } from 'utils';
 import {
   assertDefined,
   checkOrCreateM2MClientToken,
@@ -22,6 +14,7 @@ import {
   createPresignedUrl,
   getAuth0Token,
   getJSONStatementTemplate,
+  getOrCreateCandidApiClient,
   getStatementDetails,
   uploadObjectToZ3,
   validateJsonBody,
@@ -53,15 +46,12 @@ interface GenerateStatementInputValidated {
 
 let oystehrToken: string;
 let m2mToken: string;
-let candidApiClient: CandidApiClient | undefined;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { task, encounterId, secrets } = validateInput(input);
   const oystehr = await createOystehr(secrets);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  if (!candidApiClient) {
-    candidApiClient = createCandidApiClient(secrets);
-  }
+  const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
 
   const encounterReference = `Encounter/${encounterId}`;
   const encounter = await oystehr.fhir.get<Encounter>({

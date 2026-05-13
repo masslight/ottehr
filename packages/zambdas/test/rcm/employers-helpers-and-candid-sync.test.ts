@@ -85,6 +85,8 @@ describe('RCM candid-sync', () => {
   const createSpy = vi.fn();
   const updateSpy = vi.fn();
   const toggleSpy = vi.fn();
+  // _oauthTokenProvider is required because getOrCreateCandidApiClient monkey-patches
+  // its getToken to route through the central zambda.
   const candidClient = {
     nonInsurancePayers: {
       v1: {
@@ -93,22 +95,25 @@ describe('RCM candid-sync', () => {
         toggleEnablement: toggleSpy,
       },
     },
+    _oauthTokenProvider: { getToken: vi.fn() },
   } as any;
+
+  const mockOystehr = {} as any;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockCreateCandidApiClient.mockReturnValue(candidClient);
   });
 
-  it('returns null candid client when CANDID_CLIENT_ID is missing', () => {
+  it('returns null candid client when CANDID_CLIENT_ID is missing', async () => {
     mockGetOptionalSecret.mockReturnValue(undefined);
-    expect(createCandidClientIfConfigured(null)).toBeNull();
+    expect(await createCandidClientIfConfigured(mockOystehr, null)).toBeNull();
     expect(mockCreateCandidApiClient).not.toHaveBeenCalled();
   });
 
-  it('creates candid client when CANDID_CLIENT_ID is configured', () => {
+  it('creates candid client when CANDID_CLIENT_ID is configured', async () => {
     mockGetOptionalSecret.mockReturnValue('configured-client-id');
-    const client = createCandidClientIfConfigured(null);
+    const client = await createCandidClientIfConfigured(mockOystehr, null);
     expect(client).toBe(candidClient);
   });
 
