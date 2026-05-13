@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Coverage, Location, Organization, Patient, Person, Practitioner } from 'fhir/r4b';
+import { Claim, Coverage, Location, Organization, Patient, Person, Practitioner, Resource } from 'fhir/r4b';
 import {
   ClaimDetailResponse,
   FHIR_RESOURCE_NOT_FOUND,
@@ -28,8 +28,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Promise<ClaimDetailResponse> {
   const { claimId } = params;
-  const query = `/Claim?_id=${claimId}&_include=Claim:patient&_include=Claim:insurer&_include=Claim:provider&_include=Claim:facility`;
-  const resources = await getResourcesFromBatchInlineRequests(oystehr, [query]);
+  const bundle = await oystehr.fhir.search<Claim>({
+    resourceType: 'Claim',
+    params: [
+      { name: '_id', value: claimId },
+      { name: '_include', value: 'Claim:patient' },
+      { name: '_include', value: 'Claim:insurer' },
+      { name: '_include', value: 'Claim:provider' },
+      { name: '_include', value: 'Claim:facility' },
+    ],
+  });
+  const resources = (bundle.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
 
   const claim = resources.find((r) => r.resourceType === 'Claim' && r.id === claimId) as Claim | undefined;
   if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
