@@ -61,7 +61,7 @@ import {
   formatServiceRequestConfig,
   GetCreateOrderResourcesInput,
   GetCreateOrderResourcesReturn,
-  groupTestsByLabGuid,
+  groupTestsByKey,
   ResourcesForRequestFormatting,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -113,7 +113,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
 
   const clientOrgId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
-  const testsGroupedByLabGuid = groupTestsByLabGuid(orderableItems);
+  const testsGroupedByKey = groupTestsByKey(orderableItems);
 
   // create lab order requests will come in for the same patient, encounter, psc flag, location
   // the only potential difference is the lab that will perform the test
@@ -126,10 +126,14 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     clientOrgId,
   };
 
-  const resourceRequestPromises = Object.entries(testsGroupedByLabGuid).map(async ([labGuid, testData]) => {
+  const resourceRequestPromises = Object.entries(testsGroupedByKey).map(async ([_groupingKey, testData]) => {
     // get the fhir resources for this requsition which are grouped by lab
     // (there are some other factors that go into requisition grouping like payment type and psc status but those are will never differ at this point)
-    const resources = await getCreateOrderResources({ ...commonResources, labName: testData.labName, labGuid });
+    const resources = await getCreateOrderResources({
+      ...commonResources,
+      labName: testData.labName,
+      labGuid: testData.labGuid,
+    });
 
     const requisitionNumber = resources.existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN);
 
