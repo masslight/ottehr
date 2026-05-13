@@ -29,11 +29,9 @@ export const index = wrapHandler(
       const pdfBytes = new Uint8Array(Buffer.from(pdfBase64, 'base64'));
       console.log('Decoded PDF bytes:', pdfBytes.length);
 
-      // Upload to Z3 — uses discharge-summaries bucket since patient-education
-      // bucket may not be provisioned yet in all environments
       const z3Url = makeZ3Url({
         secrets,
-        bucketName: BUCKET_NAMES.DISCHARGE_SUMMARIES,
+        bucketName: BUCKET_NAMES.PATIENT_EDUCATION,
         patientID: patientId,
         fileName: 'PatientEducation.pdf',
       });

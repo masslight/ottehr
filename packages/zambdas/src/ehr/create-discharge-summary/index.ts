@@ -136,6 +136,11 @@ export const performEffect = async (
       // Download the discharge summary PDF
       const dischargePdfUrl = await createPresignedUrl(m2mToken, pdfInfo.uploadURL, 'download');
       const dischargeResponse = await fetch(dischargePdfUrl);
+      if (!dischargeResponse.ok) {
+        throw new Error(
+          `Failed to download discharge summary PDF: ${dischargeResponse.status} ${dischargeResponse.statusText}`
+        );
+      }
       const dischargeBytes = new Uint8Array(await dischargeResponse.arrayBuffer());
       const mergedPdf = await PDFDocument.load(dischargeBytes);
 
@@ -146,6 +151,11 @@ export const performEffect = async (
         try {
           const eduPdfUrl = await createPresignedUrl(m2mToken, z3Url, 'download');
           const eduResponse = await fetch(eduPdfUrl);
+          if (!eduResponse.ok) {
+            throw new Error(
+              `Failed to download education PDF: ${eduResponse.status} ${eduResponse.statusText}`
+            );
+          }
           const eduBytes = new Uint8Array(await eduResponse.arrayBuffer());
           const eduPdf = await PDFDocument.load(eduBytes);
           const pages = await mergedPdf.copyPages(eduPdf, eduPdf.getPageIndices());

@@ -36,6 +36,24 @@ export function getEducationBlobUrl(docRefId: string): string | undefined {
   return educationBlobUrls.get(docRefId);
 }
 
+export function revokeEducationBlobUrl(docRefId: string): void {
+  const url = educationBlobUrls.get(docRefId);
+  if (url) {
+    URL.revokeObjectURL(url);
+    educationBlobUrls.delete(docRefId);
+  }
+}
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+  }
+  return btoa(binary);
+}
+
 export interface EducationSection {
   content: string;
   patientTitle: string;
@@ -122,11 +140,7 @@ export function usePatientEducation(): UsePatientEducationResult {
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const blobUrl = URL.createObjectURL(blob);
 
-      const pdfBase64 = btoa(
-        Array.from(pdfBytes)
-          .map((b) => String.fromCharCode(b))
-          .join('')
-      );
+      const pdfBase64 = uint8ArrayToBase64(pdfBytes);
 
       const titleParts = sections.map((s) => s.patientTitle || s.icdDescription);
       const title = 'Patient Education: ' + titleParts.join(', ');

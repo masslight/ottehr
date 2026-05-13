@@ -25,7 +25,12 @@ import { ActionsList } from '../../../../../components/ActionsList';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
-import { EducationSection, getEducationBlobUrl, usePatientEducation } from '../../hooks/usePatientEducation';
+import {
+  EducationSection,
+  getEducationBlobUrl,
+  revokeEducationBlobUrl,
+  usePatientEducation,
+} from '../../hooks/usePatientEducation';
 import { useChartData, useDeleteChartData } from '../../stores/appointment/appointment.store';
 
 export const PatientEducationCard: FC = () => {
@@ -97,6 +102,11 @@ export const PatientEducationCard: FC = () => {
         instructions: [value],
       },
       {
+        onSuccess: () => {
+          if (value.educationDocRefId) {
+            revokeEducationBlobUrl(value.educationDocRefId);
+          }
+        },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting patient education. Please try again.', {
             variant: 'error',
