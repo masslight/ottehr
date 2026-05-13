@@ -35,6 +35,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
   if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
 
   const patient = findRef<Patient>(resources, claim.patient?.reference);
+  // TODO: insurer ref will move to external Oystehr payer URLs (#6603)
   const insurer = findRef<Organization>(resources, claim.insurer?.reference);
   const provider = findRef<Organization>(resources, claim.provider?.reference);
   const facility = findRef<Location>(resources, claim.facility?.reference);

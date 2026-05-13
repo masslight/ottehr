@@ -102,6 +102,7 @@ async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promi
     resources,
     params.billingProviderId ? `Organization/${params.billingProviderId}` : undefined
   );
+  // TODO: payor ref will move to external Oystehr payer URLs (#6603)
   const payor = findRef<Organization>(resources, coverage?.payor?.[0]?.reference);
 
   return { patient, coverage, practitioner, facility, billingProvider, payor };

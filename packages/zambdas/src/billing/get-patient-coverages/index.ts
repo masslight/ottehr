@@ -18,6 +18,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
+// TODO: Coverage.payor will move to external Oystehr payer refs (#6603)
 async function performEffect(oystehr: Oystehr, params: GetPatientCoveragesParams): Promise<{ coverages: unknown[] }> {
   const response = await oystehr.fhir.search<Coverage | Organization>({
     resourceType: 'Coverage',
