@@ -2490,7 +2490,7 @@ describe('Conditional logic', () => {
   });
 
   describe('structureExtension tests', () => {
-    describe.only('answer loading tests', () => {
+    describe('answer loading tests', () => {
       it('Handles full get-answer-options configuration', () => {
         const item: QuestionnaireItem = {
           linkId: 'some-link-id',
