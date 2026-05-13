@@ -13,7 +13,6 @@ import {
   IconButton,
   Skeleton,
   Stack,
-  ToggleButton,
   ToggleButtonGroup,
   Typography,
   useTheme,
@@ -21,6 +20,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getTemplateDetail } from 'src/api/api';
+import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminGetTemplateDetailOutput,
@@ -386,7 +386,7 @@ const SectionCard: React.FC<{
           <ExpandMoreIcon fontSize="small" />
         </IconButton>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.3, color: 'primary.dark' }}>
             {descriptor.label}
           </Typography>
           {summary ? (
@@ -414,19 +414,18 @@ const SectionCard: React.FC<{
             }}
             disabled={disabled}
             aria-label={`Action for ${descriptor.label}`}
-            sx={{ '& .MuiToggleButton-root': { textTransform: 'none' } }}
           >
-            <ToggleButton value="skip" title={ACTION_TOOLTIPS.skip}>
+            <ContainedPrimaryToggleButton value="skip" title={ACTION_TOOLTIPS.skip}>
               {ACTION_LABELS.skip}
-            </ToggleButton>
+            </ContainedPrimaryToggleButton>
             {noAppend ? null : (
-              <ToggleButton value="append" title={ACTION_TOOLTIPS.append}>
+              <ContainedPrimaryToggleButton value="append" title={ACTION_TOOLTIPS.append}>
                 {ACTION_LABELS.append}
-              </ToggleButton>
+              </ContainedPrimaryToggleButton>
             )}
-            <ToggleButton value="overwrite" title={ACTION_TOOLTIPS.overwrite}>
+            <ContainedPrimaryToggleButton value="overwrite" title={ACTION_TOOLTIPS.overwrite}>
               {ACTION_LABELS.overwrite}
-            </ToggleButton>
+            </ContainedPrimaryToggleButton>
           </ToggleButtonGroup>
         </Box>
       </Box>
