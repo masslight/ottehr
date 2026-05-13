@@ -73,7 +73,6 @@ async function main(): Promise<void> {
     (org) => org.extension?.some((e) => e.url === FHIR_EXTENSION.InsurancePlan.notes.url)
   );
 
-  // CW TODO: find or create lists, upsert entries
   let patientOverrideList = await getInsuranceOverrideList(oystehr, 'patient');
   let ehrOverrideList = await getInsuranceOverrideList(oystehr, 'ehr');
 
