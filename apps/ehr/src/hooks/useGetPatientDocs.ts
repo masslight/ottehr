@@ -15,8 +15,8 @@ import {
   isSyntheticFolderId,
   makeSyntheticFolderId,
   parseCustomFoldersCatalog,
-  useSuccessQuery,
 } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
 

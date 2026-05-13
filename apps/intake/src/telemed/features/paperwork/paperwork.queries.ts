@@ -1,8 +1,8 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
 import { OystehrAPIClient } from 'ui-components';
-import { useSuccessQuery } from 'utils';
 import { GetAnswerOptionsRequest, isNullOrUndefined, PromiseReturnType } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { useOystehrAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 

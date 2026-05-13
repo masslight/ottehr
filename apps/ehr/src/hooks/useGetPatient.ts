@@ -9,8 +9,8 @@ import {
   isValidUUID,
   PromiseReturnType,
   RemoveCoverageZambdaInput,
-  useSuccessQuery,
 } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { OystehrTelemedAPIClient } from '../features/visits/shared/api/oystehrApi';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { useApiClients } from './useAppClients';

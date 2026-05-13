@@ -1,6 +1,7 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { OystehrAPIClient } from 'ui-components';
-import { chooseJson, PromiseReturnType, useSuccessQuery } from 'utils';
+import { chooseJson, PromiseReturnType } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { useApiClients } from './useAppClients';
 
 interface GetPatientBalancesParams {

@@ -53,9 +53,8 @@ import {
   ProcedureDetail,
   PromiseReturnType,
   UpdateMedicationOrderInput,
-  useErrorQuery,
-  useSuccessQuery,
 } from 'utils';
+import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAppointmentData } from './appointment.store';
