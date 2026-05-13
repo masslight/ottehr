@@ -3,6 +3,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import ReplayIcon from '@mui/icons-material/Replay';
 import {
   Alert,
   Autocomplete,
@@ -41,6 +42,7 @@ import { OutreachTaskSummary } from 'src/rcm/state/scheduled-outreach-config/sch
 import {
   useCancelOutreachTaskMutation,
   useListOutreachTasksQuery,
+  useRetryOutreachTaskMutation,
 } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.queries';
 import { ConversationMessage } from 'utils';
 
@@ -198,6 +200,7 @@ export default function OutreachTasksReport(): ReactElement {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const cancelMutation = useCancelOutreachTaskMutation();
+  const retryMutation = useRetryOutreachTaskMutation();
 
   const statusFilter = selectedStatuses.join(',');
   const dueRange = getDateRangeValues(dueDatePreset, dueDateCustomStart, dueDateCustomEnd);
@@ -385,7 +388,11 @@ export default function OutreachTasksReport(): ReactElement {
         <Alert severity="info">No outreach tasks found matching the selected filter.</Alert>
       ) : (
         <Box>
-          <TaskTable tasks={tasks} onCancel={(taskId) => cancelMutation.mutate({ taskId })} />
+          <TaskTable
+            tasks={tasks}
+            onCancel={(taskId) => cancelMutation.mutate({ taskId })}
+            onRetry={(taskId) => retryMutation.mutate({ taskId })}
+          />
           <TablePagination
             component="div"
             count={totalCount}
@@ -417,9 +424,11 @@ function isOverdue(task: OutreachTaskSummary): boolean {
 function TaskTable({
   tasks,
   onCancel,
+  onRetry,
 }: {
   tasks: OutreachTaskSummary[];
   onCancel?: (taskId: string) => void;
+  onRetry?: (taskId: string) => void;
 }): ReactElement {
   return (
     <TableContainer component={Paper} variant="outlined">
@@ -609,6 +618,13 @@ function TaskTable({
                         <Tooltip title="Cancel task">
                           <IconButton size="small" onClick={() => onCancel(task.id)} sx={{ color: 'error.main' }}>
                             <CloseIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {task.status === 'failed' && onRetry && (
+                        <Tooltip title="Retry task">
+                          <IconButton size="small" onClick={() => onRetry(task.id)} sx={{ color: 'warning.main' }}>
+                            <ReplayIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}

@@ -8,6 +8,8 @@ import {
   ListOutreachTasksInput,
   ListOutreachTasksResponse,
   OutreachConfigResponse,
+  retryOutreachTask,
+  RetryOutreachTaskInput,
   saveOutreachConfig,
   SaveOutreachConfigInput,
 } from './scheduled-outreach-config.api';
@@ -82,6 +84,25 @@ export const useCancelOutreachTaskMutation = (): UseMutationResult<
     mutationFn: async (data: CancelOutreachTaskInput) => {
       if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
       return cancelOutreachTask(oystehrZambda, data);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: OUTREACH_TASKS_QUERY_KEY });
+    },
+  });
+};
+
+export const useRetryOutreachTaskMutation = (): UseMutationResult<
+  { success: boolean; taskId: string },
+  Error,
+  RetryOutreachTaskInput
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['retry-outreach-task'],
+    mutationFn: async (data: RetryOutreachTaskInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+      return retryOutreachTask(oystehrZambda, data);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: OUTREACH_TASKS_QUERY_KEY });

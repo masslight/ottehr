@@ -6,6 +6,7 @@ const GET_OUTREACH_CONFIG_ZAMBDA_ID = 'get-scheduled-outreach-config';
 const SAVE_OUTREACH_CONFIG_ZAMBDA_ID = 'save-scheduled-outreach-config';
 const LIST_OUTREACH_TASKS_ZAMBDA_ID = 'list-outreach-tasks';
 const CANCEL_OUTREACH_TASK_ZAMBDA_ID = 'cancel-outreach-task';
+const RETRY_OUTREACH_TASK_ZAMBDA_ID = 'retry-outreach-task';
 
 export interface NotificationsTimeRestrictionDTO {
   enabled: boolean;
@@ -173,6 +174,26 @@ export const cancelOutreachTask = async (
   try {
     const response = await oystehr.zambda.execute({
       id: CANCEL_OUTREACH_TASK_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export interface RetryOutreachTaskInput {
+  taskId: string;
+}
+
+export const retryOutreachTask = async (
+  oystehr: Oystehr,
+  parameters: RetryOutreachTaskInput
+): Promise<{ success: boolean; taskId: string }> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: RETRY_OUTREACH_TASK_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

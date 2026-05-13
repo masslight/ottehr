@@ -1896,6 +1896,13 @@
       "src": "src/rcm/scheduled-outreach/cancel-outreach-task/index",
       "zip": ".dist/zips/cancel-outreach-task.zip"
     },
+    "RETRY-OUTREACH-TASK": {
+      "name": "retry-outreach-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/retry-outreach-task/index",
+      "zip": ".dist/zips/retry-outreach-task.zip"
+    },
     "PRODUCE-OUTREACH-DISCHARGE-TASKS": {
       "name": "produce-outreach-discharge-tasks",
       "type": "http_auth",
