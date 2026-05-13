@@ -1,7 +1,19 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Task } from 'fhir/r4b';
+import { Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import { fillInvoiceTemplate, getSecret, getStripeCustomerIdFromAccount, Secrets, SecretsKeys } from 'utils';
+import { getAccountAndCoverageResourcesForPatient } from '../../../../ehr/shared/harvest';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  getStripeClient,
+  resolveTemplatePlaceholders,
+  sendSmsForPatient,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../../shared';
+import { findStripeInvoiceByEncounterId } from '../../../../shared/template-placeholders';
 import { ChargeCardConfig, NotificationMedium } from '../../../scheduled-outreach-config/helpers';
 
 let m2mToken: string;
@@ -62,7 +74,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('--- END CHARGE CARD CONFIG ---');
 
     // Attempt to charge the card
-    const chargeResult = await chargeCard(patientRef!, focusRef!, input.secrets);
+    const chargeResult = await chargeCard(patientRef!, focusRef!, oystehr, input.secrets);
 
     // Send appropriate notifications based on outcome
     const notificationConfig = chargeResult.success ? config.onSuccess : config.onFailure;
@@ -73,9 +85,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         try {
           await sendNotificationForMedium(
             medium,
-            patientRef!,
+            task,
             notificationConfig.smsTemplate,
             notificationConfig.emailTemplate,
+            oystehr,
             input.secrets
           );
           notificationResults.push({ medium, success: true });
@@ -156,25 +169,135 @@ interface ChargeResult {
   amountCents?: number;
 }
 
-async function chargeCard(_patientRef: string, _focusRef: string, _secrets: any): Promise<ChargeResult> {
-  // TODO: Integrate with Stripe
-  // 1. Resolve patient's payment method from FHIR Account / Stripe customer
-  // 2. Resolve invoice amount from focus resource
-  // 3. Charge via Stripe API
-  // 4. Return result
-  console.log(`[PLACEHOLDER] Would charge card for patient ${_patientRef}, invoice ${_focusRef}`);
-  return { success: true, transactionId: 'placeholder-txn-id', amountCents: 0 };
+/**
+ * Charge the patient's card on file via Stripe.
+ *
+ * Flow:
+ * 1. Extract patient ID from the FHIR reference
+ * 2. Find the patient's billing Account and its Stripe customer ID
+ * 3. Resolve the focus reference (Encounter) to find the open Stripe invoice
+ * 4. Call stripe.invoices.pay() to charge the default payment method
+ */
+async function chargeCard(
+  patientRef: string,
+  focusRef: string,
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<ChargeResult> {
+  const patientId = patientRef.replace('Patient/', '');
+  const stripe = getStripeClient(secrets);
+
+  // 1. Find the patient's billing account and Stripe customer
+  const { account } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+  if (!account) {
+    return { success: false, error: `No billing account found for patient ${patientId}` };
+  }
+
+  const stripeCustomerId = getStripeCustomerIdFromAccount(account, undefined);
+  if (!stripeCustomerId) {
+    return { success: false, error: `No Stripe customer ID on billing account for patient ${patientId}` };
+  }
+
+  // 2. Find the Stripe invoice from the focus reference (Encounter-based lookup)
+  const encounterId = focusRef.startsWith('Encounter/') ? focusRef.replace('Encounter/', '') : undefined;
+  if (!encounterId) {
+    return { success: false, error: `Unsupported focus reference format: ${focusRef}. Expected Encounter/<id>` };
+  }
+
+  const stripeInvoice = await findStripeInvoiceByEncounterId(stripe, encounterId);
+  if (!stripeInvoice) {
+    return { success: false, error: `No open Stripe invoice found for encounter ${encounterId}` };
+  }
+
+  if (stripeInvoice.status !== 'open') {
+    return {
+      success: false,
+      error: `Stripe invoice ${stripeInvoice.id} is not open (status: ${stripeInvoice.status})`,
+    };
+  }
+
+  // 3. Verify the customer has a default payment method
+  const customer = await stripe.customers.retrieve(stripeCustomerId, {
+    expand: ['invoice_settings.default_payment_method'],
+  });
+  if (customer.deleted) {
+    return { success: false, error: `Stripe customer ${stripeCustomerId} has been deleted` };
+  }
+  if (!customer.invoice_settings?.default_payment_method) {
+    return { success: false, error: `No default payment method on file for Stripe customer ${stripeCustomerId}` };
+  }
+
+  // 4. Attempt to pay the invoice
+  console.log(
+    `Charging Stripe invoice ${stripeInvoice.id} (amount_due=${stripeInvoice.amount_due}) for customer ${stripeCustomerId}`
+  );
+  try {
+    const paidInvoice = await stripe.invoices.pay(stripeInvoice.id);
+
+    if (paidInvoice.status === 'paid') {
+      console.log(`Successfully charged invoice ${stripeInvoice.id}`);
+      return {
+        success: true,
+        transactionId: typeof paidInvoice.charge === 'string' ? paidInvoice.charge : paidInvoice.charge?.id,
+        amountCents: stripeInvoice.amount_due,
+      };
+    } else {
+      return {
+        success: false,
+        error: `Invoice payment returned status: ${paidInvoice.status}`,
+        amountCents: stripeInvoice.amount_due,
+      };
+    }
+  } catch (err: any) {
+    console.error(`Stripe payment failed for invoice ${stripeInvoice.id}:`, err.message);
+    return {
+      success: false,
+      error: err.message || 'Unknown Stripe error',
+      amountCents: stripeInvoice.amount_due,
+    };
+  }
 }
 
+/**
+ * Send a post-charge notification to the patient.
+ * Currently only SMS is implemented; email/paper-mail log a warning and skip.
+ */
 async function sendNotificationForMedium(
   medium: NotificationMedium,
-  _patientRef: string,
-  _smsTemplate: string,
+  task: Task,
+  smsTemplate: string,
   _emailTemplate: string,
-  _secrets: any
+  oystehr: Oystehr,
+  secrets: Secrets | null
 ): Promise<void> {
-  // TODO: Reuse notification sending logic
-  console.log(`[PLACEHOLDER] Would send ${medium} notification to patient ${_patientRef} after charge`);
-  if (medium === 'sms') console.log(`[PLACEHOLDER] SMS body: ${_smsTemplate}`);
-  if (medium === 'email') console.log(`[PLACEHOLDER] Email body: ${_emailTemplate}`);
+  const patientId = task.for?.reference?.replace('Patient/', '');
+  if (!patientId) throw new Error('Task has no patient reference');
+
+  if (medium === 'sms') {
+    const patient = await oystehr.fhir.get<Patient>({
+      resourceType: 'Patient',
+      id: patientId,
+    });
+
+    const placeholderInput = await resolveTemplatePlaceholders({
+      patient,
+      encounterRef: task.focus?.reference,
+      oystehr,
+      secrets,
+    });
+    const resolvedMessage = fillInvoiceTemplate(smsTemplate, placeholderInput);
+
+    const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);
+    if (unresolved) {
+      const unique = [...new Set(unresolved)];
+      console.warn(`Unresolved template placeholders in charge-card SMS: ${unique.join(', ')}`);
+    }
+
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await sendSmsForPatient(resolvedMessage, oystehr, patient, ENVIRONMENT);
+    console.log(`SMS notification sent to patient ${patientId} after charge`);
+  } else {
+    // Email and paper-mail not yet implemented for charge-card notifications
+    console.warn(`[NOT IMPLEMENTED] ${medium} notification for charge-card, patient ${patientId}`);
+  }
 }

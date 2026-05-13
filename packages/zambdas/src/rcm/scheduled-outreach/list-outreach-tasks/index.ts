@@ -27,6 +27,9 @@ export interface OutreachTaskSummary {
   description: string;
   mediums?: string;
   errorMessage?: string;
+  chargeResult?: { success: boolean; transactionId?: string; error?: string; amountCents?: number };
+  notificationResults?: { medium: string; success: boolean; error?: string }[];
+  executionResult?: { medium: string; success: boolean; error?: string }[];
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -135,6 +138,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       description: task.description || '',
       mediums: extractInput(task, 'mediums'),
       errorMessage: extractErrorMessage(task),
+      chargeResult: extractJsonOutput(task, 'charge-result'),
+      notificationResults: extractJsonOutput(task, 'notification-results'),
+      executionResult: extractJsonOutput(task, 'execution-result'),
     };
   });
 
@@ -172,4 +178,14 @@ function extractErrorMessage(task: Task): string | undefined {
 
 function extractTagTriggerEvent(task: Task): string | undefined {
   return task.meta?.tag?.find((t) => t.system === OUTREACH_TASK_TAG_SYSTEM)?.code;
+}
+
+function extractJsonOutput(task: Task, key: string): any | undefined {
+  const output = task.output?.find((o) => o.type?.text === key);
+  if (!output?.valueString) return undefined;
+  try {
+    return JSON.parse(output.valueString);
+  } catch {
+    return undefined;
+  }
 }

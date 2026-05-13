@@ -119,6 +119,9 @@ export interface OutreachTaskSummary {
   description: string;
   mediums?: string;
   errorMessage?: string;
+  chargeResult?: { success: boolean; transactionId?: string; error?: string; amountCents?: number };
+  notificationResults?: { medium: string; success: boolean; error?: string }[];
+  executionResult?: { medium: string; success: boolean; error?: string }[];
 }
 
 export interface ListOutreachTasksResponse {

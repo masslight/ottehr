@@ -1,3 +1,4 @@
+import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -5,10 +6,13 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   Alert,
   Autocomplete,
+  Avatar,
   Box,
   Checkbox,
   Chip,
   CircularProgress,
+  Dialog,
+  Divider,
   FormControl,
   IconButton,
   InputLabel,
@@ -31,11 +35,14 @@ import {
 import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getConversation } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { OutreachTaskSummary } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.api';
 import {
   useCancelOutreachTaskMutation,
   useListOutreachTasksQuery,
 } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.queries';
+import { ConversationMessage } from 'utils';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -442,23 +449,15 @@ function TaskTable({
                     slotProps={{
                       tooltip: {
                         sx: {
-                          ...(task.status === 'failed' && task.errorMessage
-                            ? { bgcolor: '#B71C1C', color: '#FFFFFF', boxShadow: 3, maxWidth: 400 }
-                            : { bgcolor: 'background.paper', color: 'text.primary', boxShadow: 2, maxWidth: 'none' }),
+                          bgcolor: 'background.paper',
+                          color: 'text.primary',
+                          boxShadow: 3,
+                          maxWidth: 420,
+                          p: 0,
                         },
                       },
                     }}
-                    title={
-                      <Box sx={{ p: 0.5 }}>
-                        {task.status === 'failed' && task.errorMessage ? (
-                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                            {task.errorMessage}
-                          </Typography>
-                        ) : (
-                          <CopyableIdRow label="Task ID" value={task.id} />
-                        )}
-                      </Box>
-                    }
+                    title={<TaskStatusTooltipContent task={task} />}
                   >
                     <Chip
                       label={STATUS_DISPLAY[task.status] || task.status}
@@ -603,13 +602,18 @@ function TaskTable({
                 </TableCell>
                 {onCancel && (
                   <TableCell>
-                    {(task.status === 'draft' || task.status === 'requested') && (
-                      <Tooltip title="Cancel task">
-                        <IconButton size="small" onClick={() => onCancel(task.id)} sx={{ color: 'error.main' }}>
-                          <CloseIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      {(task.status === 'draft' || task.status === 'requested') && (
+                        <Tooltip title="Cancel task">
+                          <IconButton size="small" onClick={() => onCancel(task.id)} sx={{ color: 'error.main' }}>
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {taskHasSms(task) && (
+                        <SmsHistoryButton patientId={task.patientId} patientName={task.patientName} />
+                      )}
+                    </Stack>
                   </TableCell>
                 )}
               </TableRow>
@@ -648,5 +652,258 @@ function CopyableIdRow({ label, value }: { label: string; value: string }): Reac
         )}
       </IconButton>
     </Box>
+  );
+}
+
+// ── Rich Status Tooltip ────────────────────────────────────────────────────
+
+function TaskStatusTooltipContent({ task }: { task: OutreachTaskSummary }): ReactElement {
+  return (
+    <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <CopyableIdRow label="Task ID" value={task.id} />
+
+      {/* Error message for failed tasks */}
+      {task.status === 'failed' && task.errorMessage && (
+        <Box sx={{ bgcolor: '#FFEBEE', borderRadius: 1, p: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: '#B71C1C' }}>
+            Error
+          </Typography>
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#B71C1C', mt: 0.25 }}>
+            {task.errorMessage}
+          </Typography>
+        </Box>
+      )}
+
+      {/* Charge card result */}
+      {task.actionType === 'charge-card' && task.chargeResult && (
+        <Box sx={{ bgcolor: task.chargeResult.success ? '#E8F5E9' : '#FFEBEE', borderRadius: 1, p: 1 }}>
+          <Typography
+            variant="caption"
+            sx={{ fontWeight: 600, color: task.chargeResult.success ? '#1B5E20' : '#B71C1C' }}
+          >
+            Charge {task.chargeResult.success ? 'Successful' : 'Failed'}
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, mt: 0.5 }}>
+            {task.chargeResult.amountCents != null && (
+              <Typography variant="body2">Amount: ${(task.chargeResult.amountCents / 100).toFixed(2)}</Typography>
+            )}
+            {task.chargeResult.transactionId && (
+              <CopyableIdRow label="Txn ID" value={task.chargeResult.transactionId} />
+            )}
+            {task.chargeResult.error && (
+              <Typography variant="body2" sx={{ color: '#B71C1C' }}>
+                {task.chargeResult.error}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      )}
+
+      {/* Notification results (from charge-card post-charge notifications) */}
+      {task.notificationResults && task.notificationResults.length > 0 && (
+        <Box sx={{ bgcolor: '#F3E5F5', borderRadius: 1, p: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: '#4A148C' }}>
+            Post-Charge Notifications
+          </Typography>
+          {task.notificationResults.map((nr, i) => (
+            <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
+              <Chip
+                label={MEDIUM_LABELS[nr.medium] || nr.medium}
+                size="small"
+                sx={{
+                  height: 18,
+                  fontSize: '0.7rem',
+                  bgcolor: nr.success ? '#C8E6C9' : '#FFCDD2',
+                  color: nr.success ? '#1B5E20' : '#B71C1C',
+                }}
+              />
+              {nr.error && (
+                <Typography variant="caption" sx={{ color: '#B71C1C' }}>
+                  {nr.error}
+                </Typography>
+              )}
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      {/* Execution result (from send-notification tasks) */}
+      {task.actionType === 'send-notification' && task.executionResult && task.executionResult.length > 0 && (
+        <Box sx={{ bgcolor: '#E3F2FD', borderRadius: 1, p: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: '#0D47A1' }}>
+            Notification Results
+          </Typography>
+          {task.executionResult.map((er, i) => (
+            <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
+              <Chip
+                label={MEDIUM_LABELS[er.medium] || er.medium}
+                size="small"
+                sx={{
+                  height: 18,
+                  fontSize: '0.7rem',
+                  bgcolor: er.success ? '#C8E6C9' : '#FFCDD2',
+                  color: er.success ? '#1B5E20' : '#B71C1C',
+                }}
+              />
+              {er.error && (
+                <Typography variant="caption" sx={{ color: '#B71C1C' }}>
+                  {er.error}
+                </Typography>
+              )}
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      {/* Completed / timing info */}
+      {task.completedDateTime && (
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          Completed: {DateTime.fromISO(task.completedDateTime).toFormat('M/d/yyyy h:mm a ZZZZ')}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+// ── SMS History ────────────────────────────────────────────────────────────
+
+function taskHasSms(task: OutreachTaskSummary): boolean {
+  if (!task.mediums) return false;
+  return task.mediums.split(',').some((m) => m.trim() === 'sms');
+}
+
+function SmsHistoryButton({ patientId, patientName }: { patientId: string; patientName: string }): ReactElement {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Tooltip title="View SMS history">
+        <IconButton
+          size="small"
+          onClick={() => setOpen(true)}
+          sx={{
+            width: 28,
+            height: 28,
+            borderRadius: '100%',
+            bgcolor: '#43a047',
+            color: '#fff',
+            '&:hover': { bgcolor: '#2e7d32' },
+          }}
+        >
+          <ChatOutlinedIcon sx={{ fontSize: 16 }} />
+        </IconButton>
+      </Tooltip>
+      {open && <SmsHistoryDialog patientId={patientId} patientName={patientName} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function SmsHistoryDialog({
+  patientId,
+  patientName,
+  onClose,
+}: {
+  patientId: string;
+  patientName: string;
+  onClose: () => void;
+}): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [messages, setMessages] = React.useState<ConversationMessage[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const timezone = DateTime.now().zoneName;
+
+  React.useEffect(() => {
+    if (!oystehrZambda) return;
+    setLoading(true);
+    getConversation(oystehrZambda, { patientId, timezone })
+      .then((data) => {
+        setMessages(data || []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load SMS history:', err);
+        setError('Failed to load messages');
+        setLoading(false);
+      });
+  }, [oystehrZambda, patientId, timezone]);
+
+  return (
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+      <Box sx={{ p: 2.5 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            SMS History — {patientName}
+          </Typography>
+          <IconButton size="small" onClick={onClose}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        <Typography variant="caption" sx={{ color: 'text.secondary', mb: 1, display: 'block' }}>
+          Read-only view of SMS messages between the clinic and the patient.
+        </Typography>
+        <Divider sx={{ mb: 1.5 }} />
+        <Box
+          sx={{
+            height: 380,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1,
+            px: 0.5,
+          }}
+        >
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <CircularProgress />
+            </Box>
+          ) : error ? (
+            <Alert severity="error">{error}</Alert>
+          ) : messages.length === 0 ? (
+            <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', mt: 4 }}>
+              No SMS messages found for this patient.
+            </Typography>
+          ) : (
+            messages.map((msg) => (
+              <Box
+                key={msg.id}
+                sx={{
+                  display: 'flex',
+                  flexDirection: msg.isFromPatient ? 'row' : 'row-reverse',
+                  gap: 1,
+                  alignItems: 'flex-end',
+                }}
+              >
+                <Avatar
+                  sx={{
+                    width: 28,
+                    height: 28,
+                    fontSize: '0.75rem',
+                    bgcolor: msg.isFromPatient ? '#e0e0e0' : '#1976d2',
+                  }}
+                >
+                  {msg.isFromPatient ? 'P' : 'C'}
+                </Avatar>
+                <Box
+                  sx={{
+                    maxWidth: '70%',
+                    bgcolor: msg.isFromPatient ? '#f5f5f5' : '#e3f2fd',
+                    borderRadius: 2,
+                    p: 1,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {msg.content}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', mt: 0.25 }}>
+                    {msg.sentDay} {msg.sentTime}
+                  </Typography>
+                </Box>
+              </Box>
+            ))
+          )}
+        </Box>
+      </Box>
+    </Dialog>
   );
 }
