@@ -391,6 +391,42 @@ The zambda handles:
 
 Between `intake` and `ready for provider` an intake-staff Practitioner must be assigned; between `ready for provider` and `provider` a provider Practitioner must be assigned. See §2.4.
 
+### 2.3.5 Backdating `Encounter.statusHistory` for realistic LOS
+
+`change-in-person-visit-status` stamps every transition with `DateTime.now()` (`packages/utils/lib/fhir/encounter.ts:getEncounterStatusHistoryUpdateOp`). That's correct for production — a real patient's `arrived` timestamp is when the front desk actually clicked the button — but it produces 0-minute LOS in synth, since the script fires the lifecycle calls in milliseconds.
+
+After the walk completes, the synth pipeline does ONE direct FHIR PATCH:
+
+```ts
+// Replace Encounter.statusHistory with a backdated, realistically-spaced
+// timeline anchored to appointment.start. Per-status gaps are sampled from
+// urgent-care timing distributions and seeded by appointment id, so reruns
+// produce identical timelines.
+await oystehr.fhir.patch({
+  resourceType: 'Encounter',
+  id: encounterId,
+  operations: [{ op: 'replace', path: '/statusHistory', value: newStatusHistory }],
+});
+```
+
+Each `newStatusHistory` entry preserves the original entry's `status` (FHIR encounter status code) and the per-entry `ottehr-encounter-status-history` extension (FHIR-shape stays valid for the EHR's history viewer); only `period.start` and `period.end` are rewritten. The final entry — the one matching `targetStatus` — is left with no `period.end` (it's the currently-open status from the EHR's POV; on `targetStatus: 'completed'` this is the `completed` entry).
+
+Gap distribution (sampled per visit; ranges are realistic urgent-care timing):
+
+| Transition | Gap (minutes) |
+|---|---|
+| `pending` → `arrived` | -5 to +20 from `appointment.start` |
+| `arrived` → `ready` | 1-8 |
+| `ready` → `intake` | 5-25 |
+| `intake` → `ready for provider` | 8-15 |
+| `ready for provider` → `provider` | 3-30 |
+| `provider` → `discharged` | 12-35 |
+| `discharged` → `completed` | 2-15 |
+
+See `phase13_5_backdateStatusHistory` in `synthesize-visit.ts`.
+
+> **This is one of two documented exceptions to the "drive everything through zambdas" convention** (the other is the intake QR flow — see §7.0). Modifying `change-in-person-visit-status` to accept a timestamp override would add a synth-only code path that admins could misuse in production. Patching the FHIR resource directly after the walk is cheaper and isolated to the synth pipeline.
+
 ### 2.4 Practitioner assignment
 
 ```ts
@@ -950,7 +986,7 @@ Almost every field on the EHR Visit Details panel — full address, race / ethni
 
 `patch-paperwork` on the *consent-forms-page* additionally flips the QR to `status: 'completed'`, which fires `sub-intake-harvest` (the QR subscription) for finalization (Stripe customer sync, Appointment harvesting tag).
 
-**Why drive this through patch-paperwork instead of writing FHIR directly.** It exercises the same code paths as a real patient intake. Any change to the harvest handlers, intake schema, validators, or Coverage shape is automatically picked up on the next synth run — no need to track them separately. See `phase1_5_intakePaperwork` in `synthesize-visit.ts`.
+**Why drive this through patch-paperwork instead of writing FHIR directly.** It exercises the same code paths as a real patient intake. Any change to the harvest handlers, intake schema, validators, or Coverage shape is automatically picked up on the next synth run — no need to track them separately. See `phase1_5_intakePaperwork` in `synthesize-visit.ts`. (The other documented exception to the "use zambdas" rule is the post-walk `Encounter.statusHistory` backdate — see §2.3.5.)
 
 **Pages submitted in QR-item order; consent-forms-page MUST be last** (it's what flips the QR to completed and fires the final harvest).
 
@@ -2207,6 +2243,11 @@ Phase 5  Walk visit-status transitions                                         (
            — earlier targets stop the walk and skip Phase 7 sign-off so
            the visit lands in pre-booked / waiting-room / in-exam without
            getting locked.
+Phase 5.5 Backdate Encounter.statusHistory with realistic LOS gaps             (§2.3.5)
+         - Direct FHIR PATCH (not via zambda); rewrites period.start/end on
+           every entry to spread the lifecycle over realistic minute gaps
+           anchored to appointment.start. Skipped when targetStatus = 'pending'
+           (nothing to backdate).
 Phase 6  Coverage + Eligibility (if insured)                                   (§§7.19, 7.20)
 Phase 7  Sign-off                                                              (§3)
          Skipped when targetStatus !== 'completed'; visit stays unlocked.

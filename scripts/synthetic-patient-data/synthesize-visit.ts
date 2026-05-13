@@ -56,6 +56,14 @@
  *               run regardless — chart can be fully populated even on
  *               early-lifecycle visits, mirroring real EHR workflow where
  *               intake nurses enter vitals while the provider is still away.
+ *   Phase 13.5 — Backdate Encounter.statusHistory with realistic LOS gaps.
+ *               The change-in-person-visit-status zambda stamps every
+ *               transition with DateTime.now() (correct for prod, useless
+ *               for synth — every in-room phase ends up at 0 mins). PATCHes
+ *               Encounter.statusHistory directly to spread the lifecycle
+ *               over realistic minute gaps anchored to appointment.start.
+ *               (See README §2.3.5; this is one of the two documented
+ *               exceptions to the "drive everything through zambdas" rule.)
  *   Phase 14  — Sign-off (sign-appointment, locks the visit, triggers
  *               visit-note PDF subscription). Skipped when targetStatus is
  *               not 'completed' so the visit remains editable / unlocked.
@@ -114,6 +122,7 @@ import type {
 } from 'fhir/r4b';
 import * as fs from 'fs';
 import { readFileSync } from 'fs';
+import { DateTime } from 'luxon';
 import * as path from 'path';
 import { resolve } from 'path';
 import { type History as ScenarioHistory, type VisitScenario, VisitScenarioSchema } from './schema';
@@ -2980,6 +2989,204 @@ async function phase13_statusWalk(ctx: SynthesisContext): Promise<void> {
   }
 }
 
+// ── Phase 13.5 — backdate Encounter.statusHistory with realistic gaps ────────
+//
+// Phase 13 calls change-in-person-visit-status six or seven times back-to-back.
+// The zambda stamps each transition with `DateTime.now()`
+// (packages/utils/lib/fhir/encounter.ts:getEncounterStatusHistoryUpdateOp), so
+// every in-room phase ends up at 0 mins in the EHR's visit-history viewer.
+// The pre-arrival "pending" period also balloons (it spans from the
+// appointment's scheduled time to whenever the synth happened to run the
+// "arrived" call).
+//
+// THIS IS AN EXCEPTION to the README's "drive everything through zambdas"
+// rule. The change-in-person-visit-status zambda intentionally uses real-time
+// stamps — that's the right behavior for production. Synth needs backdated,
+// realistic spacing, so we PATCH Encounter.statusHistory directly here. The
+// alternative — modifying the zambda to accept an override timestamp — would
+// add a code path that exists solely for synth and that admins could misuse
+// in prod. Patching the FHIR resource directly is cheaper and isolated to
+// the synth pipeline.
+//
+// Anchor: appointment.start. Each gap is sampled from a deterministic
+// per-appointment seed so reruns produce identical timelines (good for
+// regression testing and demos).
+
+interface StatusGapMinutes {
+  min: number;
+  max: number;
+}
+
+// Realistic urgent-care timing distributions. Ranges chosen to span the
+// "fast visit" (~30 min total) to "slow visit" (~2 hr total) experience.
+const STATUS_GAP_DISTRIBUTIONS: Record<string, StatusGapMinutes> = {
+  // Pending → arrived: relative to appointment.start. -5 = patient arrived
+  // 5 min early; +20 = ran 20 min late.
+  arrived: { min: -5, max: 20 },
+  // arrived → ready: front desk identifies the patient + chart-update
+  ready: { min: 1, max: 8 },
+  // ready → intake: waiting for an intake nurse to call them back
+  intake: { min: 5, max: 25 },
+  // intake → ready for provider: vitals + chief complaint + paperwork
+  'ready for provider': { min: 8, max: 15 },
+  // ready for provider → provider: waiting for provider (longest variance)
+  provider: { min: 3, max: 30 },
+  // provider → discharged: actual visit
+  discharged: { min: 12, max: 35 },
+  // discharged → completed: paperwork wrap-up + room cleanup
+  completed: { min: 2, max: 15 },
+};
+
+// Cheap deterministic PRNG: mulberry32 seeded from a string hash. Reruns of
+// the same scenario produce identical timelines.
+function seededRng(seed: string): () => number {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  let state = h >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+async function phase13_5_backdateStatusHistory(ctx: SynthesisContext): Promise<void> {
+  const s = ctx.scenario;
+  if (s.signOff?.complete === false) return;
+
+  const target = s.visit.targetStatus ?? 'completed';
+  const targetIdx = VISIT_STATUS_ORDER.indexOf(target);
+  // Nothing to backdate if the walk never advanced past 'pending'.
+  if (targetIdx <= VISIT_STATUS_ORDER.indexOf('pending')) return;
+
+  startPhase('Backdate Encounter.statusHistory with realistic LOS gaps');
+
+  if (ctx.mode !== 'execute' || !ctx.oystehr) {
+    logNote(
+      `would patch Encounter.statusHistory to spread ` +
+        `${VISIT_STATUS_ORDER.slice(1, targetIdx + 1).join(' → ')} over realistic gaps anchored to appointment.start`
+    );
+    return;
+  }
+  if (!ctx.encounterId || !ctx.appointmentId) return;
+
+  // Need both the Appointment (for start anchor) and the Encounter (for
+  // current statusHistory shape — we want to preserve the FHIR encounter
+  // status code and the ottehr-visit-status extension on each entry).
+  const [appointment, encounter] = await Promise.all([
+    ctx.oystehr.fhir.get<import('fhir/r4b').Appointment>({
+      resourceType: 'Appointment',
+      id: ctx.appointmentId,
+    }),
+    ctx.oystehr.fhir.get<import('fhir/r4b').Encounter>({
+      resourceType: 'Encounter',
+      id: ctx.encounterId,
+    }),
+  ]);
+
+  const apptStartISO = appointment.start;
+  if (!apptStartISO) {
+    logNote('appointment.start missing — skipping statusHistory backdate');
+    return;
+  }
+  const apptStart = DateTime.fromISO(apptStartISO);
+
+  const existing = encounter.statusHistory ?? [];
+  if (existing.length === 0) {
+    logNote('Encounter.statusHistory empty — nothing to backdate');
+    return;
+  }
+
+  // Index existing entries by their ottehr-visit-status extension code so we
+  // can preserve each entry's FHIR status + extension shape while replacing
+  // its period.
+  const OTT_EXT_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/ottehr-encounter-status-history';
+  const byOttStatus = new Map<string, (typeof existing)[number]>();
+  for (const entry of existing) {
+    const code = entry.extension?.find((e) => e.url === OTT_EXT_URL)?.valueCode;
+    if (code) byOttStatus.set(code, entry);
+  }
+
+  const rng = seededRng(`${ctx.appointmentId}-status-history`);
+  const sampleGap = (status: string): number => {
+    const range = STATUS_GAP_DISTRIBUTIONS[status];
+    if (!range) return 5;
+    return Math.round(range.min + rng() * (range.max - range.min));
+  };
+
+  // Walk the lifecycle from 'pending' through targetStatus, computing each
+  // entry's start time. 'pending' starts when the appointment was booked
+  // (= appointment.start minus a small lead, since real visits are scheduled
+  // ahead of time) and runs until 'arrived'. Each subsequent entry's start is
+  // the previous start plus that entry's sampled gap.
+  type Stamped = { ottStatus: string; start: DateTime };
+  const stamped: Stamped[] = [];
+
+  // 'pending' baseline: appointment.start - 30 min (a notional "booking time"
+  // — this is just so 'pending' has a non-zero duration before 'arrived').
+  let cursor = apptStart.minus({ minutes: 30 });
+  stamped.push({ ottStatus: 'pending', start: cursor });
+
+  // 'arrived' baseline: anchored to appointment.start, with patient possibly
+  // a few minutes early or late.
+  for (let i = VISIT_STATUS_ORDER.indexOf('arrived'); i <= targetIdx; i++) {
+    const ottStatus = VISIT_STATUS_ORDER[i];
+    if (ottStatus === 'arrived') {
+      cursor = apptStart.plus({ minutes: sampleGap('arrived') });
+    } else {
+      cursor = cursor.plus({ minutes: sampleGap(ottStatus) });
+    }
+    stamped.push({ ottStatus, start: cursor });
+  }
+
+  // Build the new statusHistory entries. Each entry's period.end is the next
+  // entry's period.start; the final entry has no period.end (it's the
+  // currently-open status from the EHR's POV).
+  const newStatusHistory: typeof existing = stamped.map((s2, idx) => {
+    const next = stamped[idx + 1];
+    const original = byOttStatus.get(s2.ottStatus);
+    if (!original) {
+      // Defensive: the walk should have produced an entry for every reached
+      // status, but if not, fall back to a synthesized entry. The FHIR
+      // encounter status code in this case is a best-effort approximation.
+      return {
+        status: 'in-progress',
+        period: {
+          start: s2.start.toUTC().toISO()!,
+          ...(next ? { end: next.start.toUTC().toISO()! } : {}),
+        },
+        extension: [{ url: OTT_EXT_URL, valueCode: s2.ottStatus }],
+      };
+    }
+    return {
+      ...original,
+      period: {
+        start: s2.start.toUTC().toISO()!,
+        ...(next ? { end: next.start.toUTC().toISO()! } : {}),
+      },
+    };
+  });
+
+  await ctx.oystehr.fhir.patch<import('fhir/r4b').Encounter>({
+    resourceType: 'Encounter',
+    id: ctx.encounterId,
+    operations: [{ op: 'replace', path: '/statusHistory', value: newStatusHistory }],
+  });
+
+  const totalLOSMin =
+    stamped.length > 1 ? Math.round(stamped[stamped.length - 1].start.diff(stamped[1].start, 'minutes').minutes) : 0;
+  logNote(
+    `statusHistory rewritten: ${stamped.length} entries spanning ${stamped[0].start.toISO()} → ${stamped[
+      stamped.length - 1
+    ].start.toISO()} (in-room LOS ≈ ${totalLOSMin} min)`
+  );
+}
+
 // ── Phase 14 — sign-off ──────────────────────────────────────────────────────
 
 async function phase14_signOff(ctx: SynthesisContext): Promise<void> {
@@ -3129,6 +3336,7 @@ async function main(): Promise<void> {
     phase11_appointmentNotes,
     phase12_patientEducation,
     phase13_statusWalk,
+    phase13_5_backdateStatusHistory,
     phase14_signOff,
   ];
 
