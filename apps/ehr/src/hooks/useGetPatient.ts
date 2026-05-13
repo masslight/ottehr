@@ -3,13 +3,7 @@ import { FhirResource, Patient, Person, QuestionnaireResponse, RelatedPerson } f
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import {
-  getFirstName,
-  getLastName,
-  isValidUUID,
-  PromiseReturnType,
-  RemoveCoverageZambdaInput,
-} from 'utils';
+import { getFirstName, getLastName, isValidUUID, PromiseReturnType, RemoveCoverageZambdaInput } from 'utils';
 import { useSuccessQuery } from 'utils/lib/frontend';
 import { OystehrTelemedAPIClient } from '../features/visits/shared/api/oystehrApi';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
