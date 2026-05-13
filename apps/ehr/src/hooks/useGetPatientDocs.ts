@@ -17,6 +17,7 @@ import {
   parseCustomFoldersCatalogIncludingDeleted,
 } from 'utils';
 import { useSuccessQuery } from 'utils/lib/frontend';
+import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
 
@@ -394,10 +395,22 @@ const useGetPatientDocsFolders = (
       if (!internalName) continue;
       const isCustom = isCustomFolderList(list);
       // Custom folder displayName is owned by the catalog (active or soft-deleted).
-      // A custom per-patient List without a matching catalog entry is anomalous; skip
-      // it rather than render an unnamed folder.
+      // A per-patient List with no matching catalog entry is unreachable through supported
+      // flows (deletes are soft); skip it and report the invariant so it can be remediated.
       const catalogDef = isCustom ? catalogDefs.find((d) => d.internalName === internalName) : undefined;
-      if (isCustom && !catalogDef) continue;
+      if (isCustom && !catalogDef) {
+        safelyCaptureMessage('Custom-folder List has no matching catalog entry (invariant violation)', {
+          level: 'error',
+          tags: {
+            invariant: 'custom-folder-list:has-catalog-entry',
+            site: 'useGetPatientDocsFolders',
+            patientId,
+            listId: list.id ?? '',
+            internalName,
+          },
+        });
+        continue;
+      }
 
       const docRefs: DocRef[] = (list.entry ?? []).map((entry) => ({ reference: entry.item }) as DocRef);
 

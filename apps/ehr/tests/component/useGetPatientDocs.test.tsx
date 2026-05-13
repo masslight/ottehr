@@ -2,7 +2,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { List } from 'fhir/r4b';
 import { ReactNode } from 'react';
-import { FOLDERS_CONFIG, SYNTHETIC_FOLDER_ID_PREFIX } from 'utils';
+import {
+  CUSTOM_FOLDER_DELETED_FLAG_CODE,
+  CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM,
+  CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
+  FOLDERS_CONFIG,
+  SYNTHETIC_FOLDER_ID_PREFIX,
+} from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock useAppClients before the hook is imported.
@@ -76,13 +82,13 @@ const catalogList = (entries: { internalName: string; displayName: string; delet
   id: 'catalog-1',
   status: 'current',
   mode: 'working',
-  identifier: [{ value: 'ottehr-custom-folders-catalog' }],
+  identifier: [{ value: CUSTOM_FOLDERS_CATALOG_IDENTIFIER }],
   entry: entries.map((e) => ({
     item: { display: e.displayName, identifier: { value: e.internalName } },
     ...(e.deleted
       ? {
           flag: {
-            coding: [{ system: 'https://fhir.ottehr.com/r4/CodeSystem/custom-folder-entry-flag', code: 'deleted' }],
+            coding: [{ system: CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM, code: CUSTOM_FOLDER_DELETED_FLAG_CODE }],
           },
         }
       : {}),
@@ -98,7 +104,9 @@ const setupSearch = (
 ): void => {
   mockFhirSearch.mockImplementation(async (req: any) => {
     const params: { name: string; value: string }[] = req?.params ?? [];
-    const isCatalogSearch = params.some((p) => p.name === 'identifier' && p.value === 'ottehr-custom-folders-catalog');
+    const isCatalogSearch = params.some(
+      (p) => p.name === 'identifier' && p.value === CUSTOM_FOLDERS_CATALOG_IDENTIFIER
+    );
     if (isCatalogSearch) {
       return stubBundle(catalogEntries.length > 0 ? [catalogList(catalogEntries)] : []);
     }

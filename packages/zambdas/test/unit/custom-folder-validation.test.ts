@@ -1,5 +1,7 @@
 import { List } from 'fhir/r4b';
 import {
+  CUSTOM_FOLDER_DELETED_FLAG_CODE,
+  CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM,
   CUSTOM_FOLDER_INTERNAL_NAME_PREFIX,
   deriveInternalFolderName,
   isCustomFolderList,
@@ -141,7 +143,7 @@ describe('parseCustomFoldersCatalog', () => {
         { item: { display: 'Active', identifier: { value: 'custom-folder-active' } } },
         {
           flag: {
-            coding: [{ system: 'https://fhir.ottehr.com/r4/CodeSystem/custom-folder-entry-flag', code: 'deleted' }],
+            coding: [{ system: CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM, code: CUSTOM_FOLDER_DELETED_FLAG_CODE }],
           },
           item: { display: 'Tombstoned', identifier: { value: 'custom-folder-tombstoned' } },
         },
@@ -164,7 +166,7 @@ describe('parseCustomFoldersCatalogIncludingDeleted', () => {
         { item: { display: 'Active', identifier: { value: 'custom-folder-active' } } },
         {
           flag: {
-            coding: [{ system: 'https://fhir.ottehr.com/r4/CodeSystem/custom-folder-entry-flag', code: 'deleted' }],
+            coding: [{ system: CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM, code: CUSTOM_FOLDER_DELETED_FLAG_CODE }],
           },
           item: { display: 'Tombstoned', identifier: { value: 'custom-folder-tombstoned' } },
         },
