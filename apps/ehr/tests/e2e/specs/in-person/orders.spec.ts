@@ -739,6 +739,7 @@ test.describe('External labs page', async () => {
       let primaryDx: string | null = null;
       let additionalDx: string | null = null;
       let selectedTestName: string | null = null;
+      let selectedTestCode: string | null = null;
       let fillerLabName: string | null = null;
 
       await test.step('EXL-1.1 Check assessment page for dx', async () => {
@@ -772,6 +773,7 @@ test.describe('External labs page', async () => {
         const labDetails = await createExternalLabPage.searchAndSelectLab({ withAoe: true });
         selectedTestName = labDetails.testName;
         fillerLabName = labDetails.fillerLabName;
+        selectedTestCode = labDetails.testItemCode;
         await createExternalLabPage.labIsSelected(labDetails);
         additionalDx = await createExternalLabPage.selectAdditionalDx('plague');
         await createExternalLabPage.addClinicalInfoNote(note);
@@ -784,6 +786,7 @@ test.describe('External labs page', async () => {
         const testRow = await externalLabsPage.confirmTestWithOutResultsIsPresent({
           fillerLabName: fillerLabName || 'missing',
           testName: selectedTestName || 'missing',
+          testItemCode: selectedTestCode || 'missing',
           status: ExternalLabsStatus.pending,
           submitBtnDisplay: 'disabled',
         });
@@ -816,6 +819,7 @@ test.describe('External labs page', async () => {
         await externalLabsPage.confirmTestWithOutResultsIsPresent({
           fillerLabName: fillerLabName || 'missing',
           testName: selectedTestName || 'missing',
+          testItemCode: selectedTestCode || 'missing',
           status: ExternalLabsStatus.ready,
           submitBtnDisplay: 'enabled',
         });
@@ -832,6 +836,7 @@ test.describe('External labs page', async () => {
 
         await patientRecordPage.confirmPatientRecordLab({
           testName: selectedTestName || 'unknown',
+          testItemCode: selectedTestCode || 'unknown',
           status: ExternalLabsStatus.ready,
           navToLabDetailPage: true,
         });

@@ -16,7 +16,9 @@ export const ExternalSelectedTests: React.FC<ExternalSelectedTestsProps> = ({ se
         <ActionsList
           data={selectedLabs}
           getKey={(value, index) => `selected-lab-${index}-${value.lab.labName}-${value.item.itemCode}`}
-          renderItem={(value) => <Typography>{nameLabTest(value.item.itemName, value.lab.labName, false)}</Typography>}
+          renderItem={(value) => (
+            <Typography>{nameLabTest(value.item.itemName, value.item.itemCode, value.lab.labName, false)}</Typography>
+          )}
           renderActions={(lab) => (
             <DeleteIconButton
               onClick={() =>
