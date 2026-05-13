@@ -10,9 +10,9 @@ import {
   CircularProgress,
   FormControl,
   FormControlLabel,
-  Grid,
   InputLabel,
   MenuItem,
+  Paper,
   Select,
   Skeleton,
   TextField,
@@ -553,7 +553,9 @@ function GroupPageContent(): ReactElement {
         ]}
       />
 
-      <Typography variant="h4">Manage the schedule for {group?.name}</Typography>
+      <Typography variant="h3" color="primary.dark" marginTop={1} marginBottom={1}>
+        Manage the schedule for {group?.name}
+      </Typography>
       <Typography variant="body1">
         This is a group schedule. Its availability is made up of the schedules of the provider roles selected below.
         Each role carries its own Location and list of offered services; the group's offered services and locations are
@@ -581,257 +583,263 @@ function GroupPageContent(): ReactElement {
           </Typography>
         </Box>
       )}
-      <form onSubmit={onSubmit}>
-        <Grid container direction="column" spacing={4} sx={{ marginTop: 0 }}>
-          <Grid item xs={6}>
-            <TextField
-              label="Name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              sx={{ width: '400px', mb: 2, display: 'block' }}
-            />
-            <TextField
-              label="Permalink"
-              value={slug}
-              onChange={(event) => {
-                setSlug(event.target.value);
-              }}
-              sx={{ width: '250px' }}
-            />
-            <Typography
-              variant="caption"
-              sx={{ display: 'block', mt: 0.5, color: 'text.secondary', fontFamily: 'monospace' }}
-            >
-              e.g. /prebook/in-person?bookingOn=
-              <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                {slug || 'your-permalink'}
-              </Box>
-              &scheduleType=group
-            </Typography>
-            <Typography variant="body2" sx={{ pt: 1, pb: 0.5, fontWeight: 600, display: slug ? 'block' : 'none' }}>
-              Share booking links:
-            </Typography>
-            <Box sx={{ display: bookingLinks.length > 0 ? 'flex' : 'none', flexDirection: 'column', gap: 0.5, mb: 3 }}>
-              {bookingLinks.map((link) => (
-                <Box key={link.url} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Tooltip
-                    title={copiedLink === link.url ? 'Link copied!' : 'Copy link'}
-                    placement="top"
-                    arrow
-                    onClose={() => {
-                      setTimeout(() => {
-                        if (copiedLink === link.url) setCopiedLink(null);
-                      }, 200);
-                    }}
-                  >
-                    <Button
-                      onClick={() => {
-                        void navigator.clipboard.writeText(link.url);
-                        setCopiedLink(link.url);
-                      }}
-                      sx={{ p: 0, minWidth: 0 }}
-                    >
-                      <ContentCopyRoundedIcon fontSize="small" />
-                    </Button>
-                  </Tooltip>
-                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      {link.label}
-                    </Typography>
-                    <Link to={link.url} target="_blank">
-                      <Typography variant="body2">{link.url}</Typography>
-                    </Link>
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          </Grid>
-          <Grid item xs={6}>
-            <FormControl size="small" sx={{ width: 320 }}>
-              <InputLabel>Assignment Mode</InputLabel>
-              <Select
-                label="Assignment Mode"
-                value={assignmentMode}
-                onChange={(e) => setAssignmentMode(e.target.value as AssignmentMode)}
+      <Paper sx={{ marginTop: 2, padding: 3 }}>
+        <form onSubmit={onSubmit}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 0 }}>
+            <Box>
+              <Typography variant="h4" color="primary.dark" marginBottom={2}>
+                Slug
+              </Typography>
+              <TextField
+                label="Name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                sx={{ width: '400px', mb: 2, display: 'block' }}
+              />
+              <TextField
+                label="Permalink"
+                size="small"
+                value={slug}
+                onChange={(event) => {
+                  setSlug(event.target.value);
+                }}
+                sx={{ width: '250px' }}
+              />
+              <Typography
+                variant="caption"
+                sx={{ display: 'block', mt: 0.5, color: 'text.secondary', fontFamily: 'monospace' }}
               >
-                <MenuItem value="anonymous">Anonymous (pooled — unassigned until claim)</MenuItem>
-                <MenuItem value="provider">Provider (assigned at book time)</MenuItem>
-              </Select>
-            </FormControl>
-            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
-              <strong>Anonymous</strong>: booking round-robin-picks a member and writes them to the Appointment only.
-              The EHR shows the visit unassigned until front-desk confirms.
-              <br />
-              <strong>Provider</strong>: booking writes the picked provider directly to the Encounter. The EHR shows
-              them as the attending immediately.
-            </Typography>
-            <FormControlLabel
-              sx={{ mt: 2, display: 'flex', alignItems: 'flex-start' }}
-              control={
-                <Checkbox
-                  checked={uniformQualifications}
-                  onChange={(e) => setUniformQualifications(e.target.checked)}
-                />
-              }
-              label={
-                <Box sx={{ pt: 0.5 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    Treat all members as qualified for every service this group supports
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {uniformQualifications
-                      ? 'Every member is presumed qualified for every service. Adding a service to the group makes it instantly bookable from all members. Use only when the team is uniformly qualified.'
-                      : "Each member's qualifications are read from their own provider schedule. A patient sees slots only from members whose schedule explicitly lists the requested service."}
-                  </Typography>
+                e.g. /prebook/in-person?bookingOn=
+                <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                  {slug || 'your-permalink'}
                 </Box>
-              }
-            />
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              Services this group supports
-            </Typography>
-            <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary' }}>
-              The patient is allowed to book only the checked services through this group's link. Each row shows which
-              selected members currently offer the service.
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxWidth: 640 }}>
-              {Array.from(categoryByHsId.entries())
-                .sort(([, a], [, b]) => a.name.localeCompare(b.name))
-                .map(([hsId, info]) => {
-                  const isInAllowList = supportedCategoryHsIds.includes(hsId);
-                  // Members of this group whose PR explicitly offers this category.
-                  const offeringNames: string[] = [];
-                  if (practitionerRoles && practitioners) {
-                    const seen = new Set<string>();
-                    for (const role of practitionerRoles) {
-                      if (!role.id || !selectedRoleIds.includes(role.id)) continue;
-                      const offers = role.healthcareService?.some(
-                        (ref) => ref.reference === `HealthcareService/${hsId}`
-                      );
-                      if (!offers) continue;
-                      const pracId = role.practitioner?.reference?.split('/')[1];
-                      const prac = practitioners.find((p) => p.id === pracId);
-                      const name = prac?.name?.[0]
-                        ? oystehr?.fhir.formatHumanName(prac.name[0]) || 'Unknown'
-                        : 'Unknown';
-                      if (!seen.has(name)) {
-                        seen.add(name);
-                        offeringNames.push(name);
+                &scheduleType=group
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="h4" color="primary.dark" marginBottom={2}>
+                Share booking links
+              </Typography>
+              <FormControl size="small" sx={{ width: 320 }}>
+                <InputLabel>Assignment Mode</InputLabel>
+                <Select
+                  label="Assignment Mode"
+                  value={assignmentMode}
+                  onChange={(e) => setAssignmentMode(e.target.value as AssignmentMode)}
+                >
+                  <MenuItem value="anonymous">Anonymous (pooled — unassigned until claim)</MenuItem>
+                  <MenuItem value="provider">Provider (assigned at book time)</MenuItem>
+                </Select>
+              </FormControl>
+              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
+                <strong>Anonymous</strong>: booking round-robin-picks a member and writes them to the Appointment only.
+                The EHR shows the visit unassigned until front-desk confirms.
+                <br />
+                <strong>Provider</strong>: booking writes the picked provider directly to the Encounter. The EHR shows
+                them as the attending immediately.
+              </Typography>
+              <FormControlLabel
+                sx={{ mt: 2, display: 'flex', alignItems: 'flex-start' }}
+                control={
+                  <Checkbox
+                    checked={uniformQualifications}
+                    onChange={(e) => setUniformQualifications(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box sx={{ pt: 0.5 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      Treat all members as qualified for every service this group supports
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {uniformQualifications
+                        ? 'Every member is presumed qualified for every service. Adding a service to the group makes it instantly bookable from all members. Use only when the team is uniformly qualified.'
+                        : "Each member's qualifications are read from their own provider schedule. A patient sees slots only from members whose schedule explicitly lists the requested service."}
+                    </Typography>
+                  </Box>
+                }
+              />
+              <Box
+                sx={{ display: bookingLinks.length > 0 ? 'flex' : 'none', flexDirection: 'column', gap: 0.5, mt: 3 }}
+              >
+                {bookingLinks.map((link) => (
+                  <Box key={link.url} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Tooltip
+                      title={copiedLink === link.url ? 'Link copied!' : 'Copy link'}
+                      placement="top"
+                      arrow
+                      onClose={() => {
+                        setTimeout(() => {
+                          if (copiedLink === link.url) setCopiedLink(null);
+                        }, 200);
+                      }}
+                    >
+                      <Button
+                        onClick={() => {
+                          void navigator.clipboard.writeText(link.url);
+                          setCopiedLink(link.url);
+                        }}
+                        sx={{ p: 0, minWidth: 0 }}
+                      >
+                        <ContentCopyRoundedIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        {link.label}
+                      </Typography>
+                      <Link to={link.url} target="_blank">
+                        <Typography variant="body2">{link.url}</Typography>
+                      </Link>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+            <Box>
+              <Typography variant="h4" color="primary.dark" marginBottom={2}>
+                Services this group supports
+              </Typography>
+              <Typography variant="body1" sx={{ display: 'block', mb: 1, color: 'text.primary' }}>
+                The patient is allowed to book only the checked services through this group's link. Each row shows which
+                selected members currently offer the service.
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxWidth: 640 }}>
+                {Array.from(categoryByHsId.entries())
+                  .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+                  .map(([hsId, info]) => {
+                    const isInAllowList = supportedCategoryHsIds.includes(hsId);
+                    // Members of this group whose PR explicitly offers this category.
+                    const offeringNames: string[] = [];
+                    if (practitionerRoles && practitioners) {
+                      const seen = new Set<string>();
+                      for (const role of practitionerRoles) {
+                        if (!role.id || !selectedRoleIds.includes(role.id)) continue;
+                        const offers = role.healthcareService?.some(
+                          (ref) => ref.reference === `HealthcareService/${hsId}`
+                        );
+                        if (!offers) continue;
+                        const pracId = role.practitioner?.reference?.split('/')[1];
+                        const prac = practitioners.find((p) => p.id === pracId);
+                        const name = prac?.name?.[0]
+                          ? oystehr?.fhir.formatHumanName(prac.name[0]) || 'Unknown'
+                          : 'Unknown';
+                        if (!seen.has(name)) {
+                          seen.add(name);
+                          offeringNames.push(name);
+                        }
                       }
                     }
-                  }
-                  const providerText = uniformQualifications
-                    ? 'all group members'
-                    : offeringNames.length > 0
-                    ? offeringNames.join(', ')
-                    : 'no member offers this service';
-                  const isWarning = !uniformQualifications && offeringNames.length === 0 && isInAllowList;
-                  return (
-                    <Box
-                      key={hsId}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 1,
-                        py: 0.5,
-                      }}
-                    >
-                      <Checkbox
-                        size="small"
-                        checked={isInAllowList}
-                        sx={{ p: 0.5, mt: 0.25 }}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSupportedCategoryHsIds([...supportedCategoryHsIds, hsId]);
-                          } else {
-                            setSupportedCategoryHsIds(supportedCategoryHsIds.filter((x) => x !== hsId));
-                          }
+                    const providerText = uniformQualifications
+                      ? 'all group members'
+                      : offeringNames.length > 0
+                      ? offeringNames.join(', ')
+                      : 'no member offers this service';
+                    const isWarning = !uniformQualifications && offeringNames.length === 0 && isInAllowList;
+                    return (
+                      <Box
+                        key={hsId}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 1,
+                          py: 0.5,
                         }}
-                      />
-                      <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {info.name}
-                          <Typography component="span" variant="caption" sx={{ ml: 0.5, color: 'text.secondary' }}>
-                            ({info.durationMinutes} min)
+                      >
+                        <Checkbox
+                          checked={isInAllowList}
+                          sx={{ p: 0.5, mt: 0.25 }}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSupportedCategoryHsIds([...supportedCategoryHsIds, hsId]);
+                            } else {
+                              setSupportedCategoryHsIds(supportedCategoryHsIds.filter((x) => x !== hsId));
+                            }
+                          }}
+                        />
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {info.name}
+                            <Typography component="span" variant="caption" sx={{ ml: 0.5, color: 'text.secondary' }}>
+                              ({info.durationMinutes} min)
+                            </Typography>
                           </Typography>
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: isWarning ? 'warning.main' : 'text.secondary' }}>
-                          {providerText}
-                        </Typography>
+                          <Typography variant="caption" sx={{ color: isWarning ? 'warning.main' : 'text.secondary' }}>
+                            {providerText}
+                          </Typography>
+                        </Box>
                       </Box>
-                    </Box>
+                    );
+                  })}
+                {categoryByHsId.size === 0 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                    No services defined yet. Create them in Admin → Services.
+                  </Typography>
+                )}
+              </Box>
+              <Typography variant="body1" sx={{ color: 'text.primary', mt: 2, mb: 2 }}>
+                Each provider schedule binds a provider to a location and a set of service categories — created from the
+                Employees admin page. The group's offered service categories and locations are the union of its
+                members'.
+              </Typography>
+              <Autocomplete
+                multiple
+                disableCloseOnSelect
+                size="small"
+                sx={{ width: 640 }}
+                options={roleOptions.map((r) => r.id!).filter((id) => !!id)}
+                value={selectedRoleIds}
+                onChange={(_e, v) => setSelectedRoleIds(v)}
+                isOptionEqualToValue={(option, v) => option === v}
+                getOptionLabel={(id) => {
+                  const role = (practitionerRoles || []).find((r) => r.id === id);
+                  return role ? labelForRole(role) : id;
+                }}
+                renderOption={(props, id) => {
+                  const role = (practitionerRoles || []).find((r) => r.id === id);
+                  const selected = selectedRoleIds.includes(id);
+                  return (
+                    <li {...props} key={id}>
+                      <Checkbox
+                        icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+                        checkedIcon={<CheckBoxIcon fontSize="small" />}
+                        style={{ marginRight: 8 }}
+                        checked={selected}
+                      />
+                      {role ? labelForRole(role) : id}
+                    </li>
                   );
-                })}
-              {categoryByHsId.size === 0 && (
-                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                  No services defined yet. Create them in Admin → Services.
-                </Typography>
-              )}
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Group Members (Provider Schedules)"
+                    placeholder={selectedRoleIds.length === 0 ? 'Add a provider schedule…' : ''}
+                  />
+                )}
+              />
             </Box>
-          </Grid>
-          <Grid item xs={6}>
-            <Autocomplete
-              multiple
-              disableCloseOnSelect
-              size="small"
-              sx={{ width: 640 }}
-              options={roleOptions.map((r) => r.id!).filter((id) => !!id)}
-              value={selectedRoleIds}
-              onChange={(_e, v) => setSelectedRoleIds(v)}
-              isOptionEqualToValue={(option, v) => option === v}
-              getOptionLabel={(id) => {
-                const role = (practitionerRoles || []).find((r) => r.id === id);
-                return role ? labelForRole(role) : id;
-              }}
-              renderOption={(props, id) => {
-                const role = (practitionerRoles || []).find((r) => r.id === id);
-                const selected = selectedRoleIds.includes(id);
-                return (
-                  <li {...props} key={id}>
-                    <Checkbox
-                      icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
-                      checkedIcon={<CheckBoxIcon fontSize="small" />}
-                      style={{ marginRight: 8 }}
-                      checked={selected}
-                    />
-                    {role ? labelForRole(role) : id}
-                  </li>
-                );
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Group Members (Provider Schedules)"
-                  placeholder={selectedRoleIds.length === 0 ? 'Add a provider schedule…' : ''}
-                />
-              )}
-            />
-            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
-              Each provider schedule binds a provider to a location and a set of service categories — created from the
-              Employees admin page. The group's offered service categories and locations are the union of its members'.
-            </Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              Locations from selected members:
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              {derivedMembership.roleRows.length === 0
-                ? 'none'
-                : Array.from(new Set(derivedMembership.roleRows.map((r) => r.locationName))).join(', ')}
-            </Typography>
-            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
-              Locations are derived from membership — change them by selecting different members above.
-            </Typography>
-          </Grid>
-          <Grid item xs={2}>
-            <LoadingButton loading={loading} type="submit" variant="contained">
-              Save
-            </LoadingButton>
-          </Grid>
-        </Grid>
-      </form>
+            <Box>
+              <Typography variant="h4" color="primary.dark" marginBottom={2}>
+                Locations from selected members
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                {derivedMembership.roleRows.length === 0
+                  ? 'none'
+                  : Array.from(new Set(derivedMembership.roleRows.map((r) => r.locationName))).join(', ')}
+              </Typography>
+              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
+                Locations are derived from membership — change them by selecting different members above.
+              </Typography>
+            </Box>
+            <Box>
+              <LoadingButton loading={loading} type="submit" variant="contained" color="primary" size="medium">
+                Save
+              </LoadingButton>
+            </Box>
+          </Box>
+        </form>
+      </Paper>
     </>
   );
 }
