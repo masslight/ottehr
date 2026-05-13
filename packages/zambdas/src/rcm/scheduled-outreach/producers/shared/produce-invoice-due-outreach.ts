@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { Secrets } from 'utils';
@@ -54,10 +55,20 @@ export async function produceInvoiceDueOutreach(
       : DateTime.fromSeconds(invoice.created).toISODate()!;
 
     try {
+      // Look up the Encounter to find its linked Appointment for visit date tracking
+      let appointmentRef: string | undefined;
+      try {
+        const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
+        appointmentRef = encounter.appointment?.find((ref) => ref.reference?.startsWith('Appointment/'))?.reference;
+      } catch (err) {
+        console.warn(`Could not fetch Encounter ${encounterId} for appointment lookup:`, err);
+      }
+
       const result = await produceOutreachTasks({
         triggerEvent: 'invoice-due',
         patient: { reference: `Patient/${patientId}` },
         focus: { reference: `Encounter/${encounterId}` },
+        appointment: appointmentRef ? { reference: appointmentRef } : undefined,
         eventTimestamp: dueDate,
         oystehr,
       });
