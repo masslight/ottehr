@@ -43,7 +43,7 @@ You can use an LLM to help you get up and running with Ottehr for the first time
 Clone the repository, start up Claude Code or similar at the root of the repository, and use a prompt like the one below and replacing the placeholders,
 
 ```md
-I just cloned Ottehr, the open source EHR. I want to get up and running locally so I can kick the tires to check it out. In order to do this I know we'll need these three things: My PROJECT_ID is <PROJECT_ID>, and my M2M Client credentials are Client=<CLIENT_ID>, Secret=<SECRET_KEY>. Use the local terraform backend. Make git configurations so that I never commit the main.tf file. 
+I just cloned Ottehr, the open source EHR. I want to get up and running locally so I can kick the tires to check it out. In order to do this I know we'll need these three things: My PROJECT_ID is <PROJECT_ID>, and my M2M Client credentials are Client=<CLIENT_ID>, Secret=<SECRET_KEY>. Use the local terraform backend.
 ```
 
 ### Prerequisites
