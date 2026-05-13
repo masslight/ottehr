@@ -1022,12 +1022,12 @@ export const fetchLabDocumentPresignedUrls = async (
     return;
   }
 
-  const pdfPromises: Promise<LabDocument | null>[] = [];
+  const filePromises: Promise<LabDocument | null>[] = [];
   for (const docRef of documentReferences) {
     for (const content of docRef.content) {
       const z3Url = content.attachment?.url;
       if (z3Url) {
-        pdfPromises.push(
+        filePromises.push(
           getPresignedURL(z3Url, m2mToken)
             .then((presignedURL) => configLabDocument(docRef, presignedURL))
             .catch((error) => {
@@ -1040,7 +1040,7 @@ export const fetchLabDocumentPresignedUrls = async (
     }
   }
 
-  const pdfs = await Promise.allSettled(pdfPromises);
+  const pdfs = await Promise.allSettled(filePromises);
 
   const { resultPDFs, labelPDF, orderPDFs, abnPDFs, labGeneratedResults } = pdfs
     .filter(
