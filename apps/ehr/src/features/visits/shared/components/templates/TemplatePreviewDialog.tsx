@@ -10,7 +10,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   IconButton,
   Skeleton,
   Stack,
@@ -415,6 +414,7 @@ const SectionCard: React.FC<{
             }}
             disabled={disabled}
             aria-label={`Action for ${descriptor.label}`}
+            sx={{ '& .MuiToggleButton-root': { textTransform: 'none' } }}
           >
             <ToggleButton value="skip" title={ACTION_TOOLTIPS.skip}>
               {ACTION_LABELS.skip}
@@ -531,7 +531,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
         ) : sectionsWithContent.length === 0 ? (
           <Alert severity="info">This template is empty — nothing to apply.</Alert>
         ) : (
-          <Stack spacing={2} divider={<Divider flexItem />}>
+          <Stack spacing={1}>
             {sectionsWithContent.map((section) => (
               <SectionCard
                 key={section.key}
