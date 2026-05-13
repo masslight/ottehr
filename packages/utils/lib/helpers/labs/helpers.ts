@@ -6,12 +6,17 @@ import {
   List,
   Location,
   Organization,
+  Patient,
   ServiceRequest,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { getPatientFirstName, getPatientLastName } from '../../fhir';
 import {
   CreateLabPaymentMethod,
   DEFAULT_OYSTEHR_LABS_HL7_SYSTEM,
-  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
+  DYMO_30334_LABEL_CONFIG,
+  EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE,
+  ExternalLabsLabelConfig,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LAB_DOC_REF_TAG_hl7_TRANSMISSION,
@@ -309,7 +314,8 @@ export const docRefIsLabelPDFAndCurrent = (docRef: DocumentReference): boolean =
   const isCurrent = docRef.status === 'current';
   const isLabelPdf = !!docRef.type?.coding?.find(
     (code) =>
-      code.system === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.system && code.code === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
+      code.system === EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE.system &&
+      code.code === EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE.code
   );
   return isCurrent && isLabelPdf;
 };
@@ -354,6 +360,45 @@ export const getLabListStatus = (list: List): LabSetStatus => {
   } else {
     return LabSetStatus.inactive;
   }
+};
+
+export const makeExternalLabLabelConfig = ({
+  patient,
+  orderNumber,
+  location,
+  labOrganization,
+  specimenCollectionDateTime,
+  userTimezone,
+}: {
+  patient: Patient;
+  orderNumber: string;
+  location: Location | undefined;
+  labOrganization: Organization;
+  specimenCollectionDateTime: DateTime | undefined;
+  userTimezone: string;
+}): ExternalLabsLabelConfig => {
+  const labelConfig: ExternalLabsLabelConfig = {
+    labelConfig: DYMO_30334_LABEL_CONFIG,
+    content: {
+      patientId: patient.id!,
+      patientFirstName: getPatientFirstName(patient) ?? '',
+      patientLastName: getPatientLastName(patient) ?? '',
+      patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
+      sampleCollectionDateAndTimezone: specimenCollectionDateTime
+        ? {
+            sampleCollectionDate: specimenCollectionDateTime,
+            timezone: userTimezone,
+          }
+        : undefined,
+      orderNumber: orderNumber,
+      accountNumber:
+        (labOrganization && location && getAccountNumberFromLocationAndOrganization(location, labOrganization)) || '',
+    },
+    type: 'external-lab',
+  };
+
+  console.log('External labs label config is:', JSON.stringify(labelConfig));
+  return labelConfig;
 };
 
 export const isExternalLabServiceRequest = (resource: ServiceRequest): boolean => {

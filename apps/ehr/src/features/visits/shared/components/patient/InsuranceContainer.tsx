@@ -176,6 +176,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     },
   });
 
+  // left side is claimmd type enum from eligibility
+  // right side is the candid enum -- not candid, availity?
+  // plan type : insurance plan type :: 1:1?
   const insuranceCodeToCandidCode = {
     '12': '16',
     '13': '16',

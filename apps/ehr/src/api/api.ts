@@ -21,6 +21,7 @@ import {
   AdminRenameTemplateOutput,
   AdminUpdateInHouseLabInput,
   AdminUpdateLabSetInput,
+  AdminUpdatePrintingConfigInput,
   AiAssistedEncountersReportZambdaInput,
   AiAssistedEncountersReportZambdaOutput,
   AllergyQuickPickData,
@@ -109,7 +110,8 @@ import {
   GetImmunizationQuickPicksResponse,
   GetInHouseMedicationQuickPicksResponse,
   GetInHouseOrdersParameters,
-  GetLabelPdfParameters,
+  GetLabelPrintingConfigInput,
+  GetLabelPrintingConfigOutput,
   GetLabOrdersParameters,
   GetMedicalConditionQuickPicksResponse,
   GetMedicationHistoryQuickPicksResponse,
@@ -156,6 +158,8 @@ import {
   MedicationHistoryQuickPickData,
   MigrateExamDataInput,
   MigrateExamDataOutput,
+  OnDemandLabelXmlRequestInput,
+  OnDemandLabelXmlRequestOutput,
   PaginatedResponse,
   PaperworkToPDFInput,
   PatientInstructionQuickPickData,
@@ -285,7 +289,6 @@ const UNLOCK_APPOINTMENT_ZAMBDA_ID = 'unlock-appointment';
 const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
 const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
 const UPDATE_NURSING_ORDER = 'update-nursing-order';
-const GET_LABEL_PDF_ZAMBDA_ID = 'get-label-pdf';
 const UPLOAD_AUDIO_RECORDING_ZAMBDA_ID = 'upload-audio-recording';
 const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-audio-recording';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
@@ -337,6 +340,9 @@ const ADMIN_LIST_IN_HOUSE_LABS_ZAMBDA_ID = 'admin-list-in-house-labs';
 const ADMIN_ADD_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-add-in-house-lab';
 const ADMIN_GET_IN_HOUSE_LAB_CONFIG_ZAMBDA_ID = 'admin-get-in-house-lab-config';
 const ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-update-in-house-lab';
+const GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'get-label-printing-config';
+const ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'admin-update-label-printing-config';
+const GENERATE_LABEL_XML_ZAMBDA_ID = 'generate-label-xml';
 const ADMIN_GET_LAB_SETS = 'admin-get-lab-sets';
 const ADMIN_ADD_LAB_SET = 'admin-add-lab-set';
 const ADMIN_UPDATE_LAB_SET_ZAMBDA_ID = 'admin-update-lab-set';
@@ -372,23 +378,6 @@ export const submitLabOrder = async (
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
-    throw error;
-  }
-};
-
-export const getLabelPdf = async (oystehr: Oystehr, parameters: GetLabelPdfParameters): Promise<LabelPdf[]> => {
-  try {
-    if (GET_LABEL_PDF_ZAMBDA_ID == null) {
-      throw new Error('get-label-pdf environment variable could not be loaded');
-    }
-
-    const response = await oystehr.zambda.execute({
-      id: GET_LABEL_PDF_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.error(error);
     throw error;
   }
 };
@@ -2039,6 +2028,63 @@ export const adminUpdateLabSet = async (oystehr: Oystehr, parameters: AdminUpdat
     }
     const response = await oystehr.zambda.execute({
       id: ADMIN_UPDATE_LAB_SET_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getLabelPrintingConfig = async (
+  oystehr: Oystehr,
+  parameters: GetLabelPrintingConfigInput
+): Promise<GetLabelPrintingConfigOutput> => {
+  try {
+    if (GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID == null) {
+      throw new Error('get label printing config environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateLabelPrintingConfig = async (
+  oystehr: Oystehr,
+  parameters: AdminUpdatePrintingConfigInput
+): Promise<void> => {
+  try {
+    if (ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID == null) {
+      throw new Error('admin update label printing config environment variable could not be loaded');
+    }
+    await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID,
+      ...parameters,
+    });
+    return;
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const generateLabelXml = async (
+  oystehr: Oystehr,
+  parameters: OnDemandLabelXmlRequestInput
+): Promise<OnDemandLabelXmlRequestOutput> => {
+  try {
+    if (GENERATE_LABEL_XML_ZAMBDA_ID == null) {
+      throw new Error('generate label xml environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: GENERATE_LABEL_XML_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

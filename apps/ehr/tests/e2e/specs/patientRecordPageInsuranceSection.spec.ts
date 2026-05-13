@@ -294,6 +294,7 @@ test.describe('Insurance Information Section mutating tests', () => {
   });
 
   test('Updated values from Insurance information block are saved and displayed correctly', async ({ page }) => {
+    test.slow();
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     await primaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);

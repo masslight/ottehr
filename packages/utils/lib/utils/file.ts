@@ -17,6 +17,7 @@ export const MIME_TYPES = {
   HEIC: 'image/heic',
   HEIF: 'image/heif',
   TXT: 'text/plain',
+  XML: 'application/xml',
 } as const;
 
 export type MimeType = (typeof MIME_TYPES)[keyof typeof MIME_TYPES];
@@ -28,6 +29,7 @@ const extensionToMime: Record<string, MimeType> = {
   png: MIME_TYPES.PNG,
   gif: MIME_TYPES.GIF,
   webp: MIME_TYPES.WEBP,
+  xml: MIME_TYPES.XML,
   heic: MIME_TYPES.HEIC,
   heif: MIME_TYPES.HEIF,
 };

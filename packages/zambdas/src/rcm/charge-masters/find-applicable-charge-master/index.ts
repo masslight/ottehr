@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
+import { orgIdMatchesReference } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -89,7 +90,7 @@ export const index = wrapHandler(
     // 2. Try payer-specific charge master
     if (payerOrganizationId) {
       const payerSpecific = allChargeMasters.filter(
-        (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${payerOrganizationId}`)
+        (cm) => cm.useContext?.some((uc) => orgIdMatchesReference(uc.valueReference?.reference, payerOrganizationId))
       );
       const payerMatch = findBestOrgMatch(payerSpecific);
       if (payerMatch) {

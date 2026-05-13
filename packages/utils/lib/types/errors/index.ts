@@ -31,6 +31,7 @@ export enum APIErrorCode {
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
   FHIR_RESOURCE_IS_GONE = 4102,
+  PRECONDITION_FAILED = 4120,
   // 42xx
   MISSING_REQUEST_BODY = 4200,
   MISSING_REQUIRED_PARAMETERS = 4201,
@@ -55,6 +56,7 @@ export enum APIErrorCode {
   IN_HOUSE_LAB_GENERAL = 4402,
   MISSING_WC_INFO_FOR_LABS = 4403,
   ADMIN_IN_HOUSE_TEST_EXISTS = 4404,
+  LABEL_PRINTING_GENERAL = 4405,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -459,3 +461,15 @@ export const ADMIN_IN_HOUSE_LAB_TEST_EXISTS_ERROR = (testName?: string): APIErro
     } already exists. Please change the name, or update the existing test`,
   };
 };
+
+export const LABEL_PRINTING_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.LABEL_PRINTING_GENERAL,
+    message,
+  };
+};
+
+export const PRECONDITION_FAILED = (message?: string): APIError => ({
+  code: APIErrorCode.PRECONDITION_FAILED,
+  message: message ?? 'Resource was edited during operation',
+});
