@@ -1,7 +1,9 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { alpha, Box, FormHelperText, List, ListItemButton, ListItemText, Paper, Tab, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { Extension } from '@tiptap/core';
 import Mention from '@tiptap/extension-mention';
+import { Plugin } from '@tiptap/pm/state';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { SuggestionKeyDownProps, SuggestionOptions, SuggestionProps } from '@tiptap/suggestion';
@@ -70,6 +72,34 @@ export function tiptapContentToText(doc: Record<string, unknown>): string {
 }
 
 // ---------------------------------------------------------------------------
+// MaxLength enforcement — reject transactions that would push the rendered
+// plain text past the limit. Counts mentions as their `{{token-id}}` form
+// (via tiptapContentToText) so the cap matches the eventual SMS body length.
+// Filtering at the transaction level preserves cursor position and also
+// blocks programmatic inserts (e.g. clicking a placeholder chip).
+// ---------------------------------------------------------------------------
+
+const MaxLengthExtension = Extension.create<{ getMaxLength: () => number | undefined }>({
+  name: 'templateEditorMaxLength',
+  addOptions() {
+    return { getMaxLength: () => undefined };
+  },
+  addProseMirrorPlugins() {
+    const getMaxLength = this.options.getMaxLength;
+    return [
+      new Plugin({
+        filterTransaction: (transaction) => {
+          const limit = getMaxLength();
+          if (limit === undefined || !transaction.docChanged) return true;
+          const text = tiptapContentToText(transaction.doc.toJSON() as Record<string, unknown>);
+          return text.length <= limit;
+        },
+      }),
+    ];
+  },
+});
+
+// ---------------------------------------------------------------------------
 // Mention suggestion dropdown (rendered via React portal)
 // ---------------------------------------------------------------------------
 
@@ -129,12 +159,14 @@ const MentionList = forwardRef<MentionListRef, SuggestionProps<string>>(function
   );
 });
 
-export function makeSuggestion(): Omit<SuggestionOptions<string>, 'editor'> {
+export function makeSuggestion(
+  tokens: readonly string[] = INVOICE_TOKEN_IDS
+): Omit<SuggestionOptions<string>, 'editor'> {
   return {
     char: '{{',
     items: ({ query }: { query: string }) => {
       const q = query.toLowerCase();
-      return INVOICE_TOKEN_IDS.filter((id) => id.toLowerCase().includes(q));
+      return tokens.filter((id) => id.toLowerCase().includes(q));
     },
     render: () => {
       let container: HTMLDivElement | null = null;
@@ -180,7 +212,7 @@ export function makeSuggestion(): Omit<SuggestionOptions<string>, 'editor'> {
 // ---------------------------------------------------------------------------
 
 export interface TemplateEditorFieldProps {
-  label: string;
+  label?: string;
   value: string;
   onChange: (value: string) => void;
   editorRef: React.MutableRefObject<ReturnType<typeof useEditor> | null>;
@@ -189,6 +221,9 @@ export interface TemplateEditorFieldProps {
   required?: boolean;
   error?: boolean;
   helperText?: string;
+  tokens?: readonly string[];
+  writeFooter?: React.ReactNode;
+  maxLength?: number;
 }
 
 export function TemplateEditorField({
@@ -201,6 +236,9 @@ export function TemplateEditorField({
   required,
   error,
   helperText,
+  tokens = INVOICE_TOKEN_IDS,
+  writeFooter,
+  maxLength,
 }: TemplateEditorFieldProps): ReactElement {
   const theme = useTheme();
   const [tab, setTab] = useState<'write' | 'preview'>('write');
@@ -209,6 +247,8 @@ export function TemplateEditorField({
   const initialContent = useMemo(() => textToTiptapContent(value), []);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const maxLengthRef = useRef(maxLength);
+  maxLengthRef.current = maxLength;
 
   const editor = useEditor({
     editable: !disabled,
@@ -234,8 +274,9 @@ export function TemplateEditorField({
           { ...options.HTMLAttributes, 'data-type': 'mention' },
           `{{${node.attrs.label ?? node.attrs.id}}}`,
         ],
-        suggestion: makeSuggestion(),
+        suggestion: makeSuggestion(tokens),
       }),
+      MaxLengthExtension.configure({ getMaxLength: () => maxLengthRef.current }),
     ],
     content: initialContent,
     onUpdate: ({ editor: ed }) => {
@@ -259,14 +300,16 @@ export function TemplateEditorField({
 
   return (
     <Box>
-      <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-        {label}
-        {required && (
-          <Typography component="span" color="error" sx={{ ml: 0.25 }}>
-            *
-          </Typography>
-        )}
-      </Typography>
+      {label && (
+        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+          {label}
+          {required && (
+            <Typography component="span" color="error" sx={{ ml: 0.25 }}>
+              *
+            </Typography>
+          )}
+        </Typography>
+      )}
       <Box
         sx={{ border: '1px solid', borderColor: error ? 'error.main' : 'divider', borderRadius: 1, overflow: 'hidden' }}
       >
@@ -307,6 +350,7 @@ export function TemplateEditorField({
             >
               <EditorContent editor={editor} />
             </Box>
+            {writeFooter && <Box sx={{ px: 1.5, pb: 1.5 }}>{writeFooter}</Box>}
           </TabPanel>
           <TabPanel value="preview" sx={{ p: 0 }}>
             <Box

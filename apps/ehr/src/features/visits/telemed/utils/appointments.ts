@@ -1,6 +1,6 @@
 import { DocumentReference } from 'fhir/r4b';
 import { Duration } from 'luxon';
-import { BRANDING_CONFIG, PATIENT_PHOTO_CODE, replaceTemplateVariablesArrows, TEXTING_CONFIG } from 'utils';
+import { PATIENT_PHOTO_CODE } from 'utils';
 import { AppointmentResources } from '../../shared/stores/appointment/appointment.store';
 
 export const formatVideoTimerTime = (difference: Duration): string => {
@@ -41,13 +41,4 @@ export const extractPatientConditionPhotoRefsFromAppointmentData = (
     }
   }
   return result;
-};
-
-export const getTelemedQuickTexts = (supportPhone: string): string[] => {
-  const vars = {
-    projectName: BRANDING_CONFIG.projectName,
-    supportPhone,
-  };
-
-  return TEXTING_CONFIG.telemed.quickTexts.map((t) => replaceTemplateVariablesArrows(t, vars));
 };
