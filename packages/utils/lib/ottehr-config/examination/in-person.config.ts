@@ -1538,66 +1538,6 @@ export const InPersonExamConfig: ExamItemConfig = {
             },
           },
         },
-        'skin-location': {
-          label: 'Location',
-          defaultValue: false,
-          type: 'checkbox-with-modal' as const,
-          modal: {
-            location: {
-              label: 'Location(s)',
-              columns: {
-                'single-column': {
-                  groups: {
-                    'head-neck': {
-                      label: 'Head & Neck',
-                      options: {
-                        'skin-loc-scalp': opt('Scalp'),
-                        'skin-loc-face': opt('Face'),
-                        'skin-loc-ears': opt('Ears'),
-                        'skin-loc-lips-perioral': opt('Lips/perioral'),
-                        'skin-loc-neck': opt('Neck'),
-                        'skin-loc-mucous-membranes': opt('Mucous membranes'),
-                      },
-                    },
-                    trunk: {
-                      label: 'Trunk',
-                      options: {
-                        'skin-loc-chest': opt('Chest'),
-                        'skin-loc-abdomen': opt('Abdomen'),
-                        'skin-loc-back': opt('Back'),
-                        'skin-loc-flank': opt('Flank'),
-                        'skin-loc-groin': opt('Groin'),
-                        'skin-loc-genitalia': opt('Genitalia'),
-                      },
-                    },
-                    'upper-extremity': {
-                      label: 'Upper Extremity',
-                      options: {
-                        'skin-loc-shoulder': opt('Shoulder'),
-                        'skin-loc-upper-arm': opt('Upper arm'),
-                        'skin-loc-elbow': opt('Elbow'),
-                        'skin-loc-forearm': opt('Forearm'),
-                        'skin-loc-wrist': opt('Wrist'),
-                        'skin-loc-hand-fingers': opt('Hand/fingers'),
-                      },
-                    },
-                    'lower-extremity': {
-                      label: 'Lower Extremity',
-                      options: {
-                        'skin-loc-hip-buttock': opt('Hip/buttock'),
-                        'skin-loc-thigh': opt('Thigh'),
-                        'skin-loc-knee': opt('Knee'),
-                        'skin-loc-lower-leg': opt('Lower leg'),
-                        'skin-loc-ankle': opt('Ankle'),
-                        'skin-loc-foot-toes': opt('Foot/toes'),
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
         'skin-lesion-characteristics': {
           label: 'Lesion characteristics',
           defaultValue: false,
@@ -1665,6 +1605,119 @@ export const InPersonExamConfig: ExamItemConfig = {
                       options: {
                         'skin-lesion-blanching-yes': opt('Yes'),
                         'skin-lesion-blanching-no': opt('No'),
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        'skin-distribution': {
+          label: 'Distribution pattern',
+          defaultValue: false,
+          type: 'checkbox-with-modal' as const,
+          modal: {
+            distribution: {
+              label: 'Distribution Pattern',
+              columns: {
+                'single-column': {
+                  groups: {
+                    pattern: {
+                      label: 'Pattern',
+                      options: {
+                        'skin-dist-dermatomal': opt('Dermatomal'),
+                        'skin-dist-flexural': opt('Flexural'),
+                        'skin-dist-extensor': opt('Extensor'),
+                        'skin-dist-sun-exposed': opt('Sun-exposed'),
+                        'skin-dist-intertriginous': opt('Intertriginous'),
+                        'skin-dist-palms-soles': opt('Palms/soles'),
+                        'skin-dist-mucous-membranes': opt('Mucous membranes involved'),
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        'skin-side': {
+          label: 'Side',
+          defaultValue: false,
+          type: 'checkbox-with-modal' as const,
+          modal: {
+            side: {
+              label: 'Side',
+              columns: {
+                'single-column': {
+                  groups: {
+                    side: {
+                      label: 'Side',
+                      options: {
+                        'skin-side-r': opt('R'),
+                        'skin-side-l': opt('L'),
+                        'skin-side-bilateral': opt('Bilateral'),
+                        'skin-side-midline': opt('Midline'),
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        'skin-location': {
+          label: 'Location',
+          defaultValue: false,
+          type: 'checkbox-with-modal' as const,
+          modal: {
+            location: {
+              label: 'Location(s)',
+              columns: {
+                'single-column': {
+                  groups: {
+                    'head-neck': {
+                      label: 'Head & Neck',
+                      options: {
+                        'skin-loc-scalp': opt('Scalp'),
+                        'skin-loc-face': opt('Face'),
+                        'skin-loc-ears': opt('Ears'),
+                        'skin-loc-lips-perioral': opt('Lips/perioral'),
+                        'skin-loc-neck': opt('Neck'),
+                        'skin-loc-mucous-membranes': opt('Mucous membranes'),
+                      },
+                    },
+                    trunk: {
+                      label: 'Trunk',
+                      options: {
+                        'skin-loc-chest': opt('Chest'),
+                        'skin-loc-abdomen': opt('Abdomen'),
+                        'skin-loc-back': opt('Back'),
+                        'skin-loc-flank': opt('Flank'),
+                        'skin-loc-groin': opt('Groin'),
+                        'skin-loc-genitalia': opt('Genitalia'),
+                      },
+                    },
+                    'upper-extremity': {
+                      label: 'Upper Extremity',
+                      options: {
+                        'skin-loc-shoulder': opt('Shoulder'),
+                        'skin-loc-upper-arm': opt('Upper arm'),
+                        'skin-loc-elbow': opt('Elbow'),
+                        'skin-loc-forearm': opt('Forearm'),
+                        'skin-loc-wrist': opt('Wrist'),
+                        'skin-loc-hand-fingers': opt('Hand/fingers'),
+                      },
+                    },
+                    'lower-extremity': {
+                      label: 'Lower Extremity',
+                      options: {
+                        'skin-loc-hip-buttock': opt('Hip/buttock'),
+                        'skin-loc-thigh': opt('Thigh'),
+                        'skin-loc-knee': opt('Knee'),
+                        'skin-loc-lower-leg': opt('Lower leg'),
+                        'skin-loc-ankle': opt('Ankle'),
+                        'skin-loc-foot-toes': opt('Foot/toes'),
                       },
                     },
                   },
@@ -1903,43 +1956,6 @@ export const InPersonExamConfig: ExamItemConfig = {
                         'skin-assoc-angioedema': opt('Angioedema'),
                         'skin-assoc-desquamation': opt('Desquamation'),
                         'skin-assoc-nikolsky': opt('Nikolsky sign'),
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        'skin-distribution': {
-          label: 'Distribution pattern',
-          defaultValue: false,
-          type: 'checkbox-with-modal' as const,
-          modal: {
-            distribution: {
-              label: 'Distribution Pattern',
-              columns: {
-                'single-column': {
-                  groups: {
-                    pattern: {
-                      label: 'Pattern',
-                      options: {
-                        'skin-dist-dermatomal': opt('Dermatomal'),
-                        'skin-dist-flexural': opt('Flexural'),
-                        'skin-dist-extensor': opt('Extensor'),
-                        'skin-dist-sun-exposed': opt('Sun-exposed'),
-                        'skin-dist-intertriginous': opt('Intertriginous'),
-                        'skin-dist-palms-soles': opt('Palms/soles'),
-                        'skin-dist-mucous-membranes': opt('Mucous membranes involved'),
-                      },
-                    },
-                    side: {
-                      label: 'Side',
-                      options: {
-                        'skin-side-r': opt('R'),
-                        'skin-side-l': opt('L'),
-                        'skin-side-bilateral': opt('Bilateral'),
-                        'skin-side-midline': opt('Midline'),
                       },
                     },
                   },
