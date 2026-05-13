@@ -122,19 +122,47 @@ export const CreateBillingWorkingCopyInputSchema = z.object({
   overrides: z.record(z.unknown()).optional(),
 });
 
-export const UpdateBillingClaimInputSchema = z.object({
-  resourceId: nonEmptyString,
-  resourceType: z.enum([...ALLOWED_BILLING_RESOURCE_TYPES, 'Claim']).default('Claim'),
-  operations: z
-    .array(
-      z.object({
-        op: z.enum(['add', 'replace', 'remove']),
-        path: z.string().startsWith('/'),
-        value: z.unknown().optional(),
-      })
-    )
-    .min(1),
-});
+export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceType', [
+  z.object({
+    resourceType: z.literal('Patient'),
+    resourceId: nonEmptyString,
+    fields: z.object({
+      firstName: z.string().optional(),
+      lastName: z.string().optional(),
+      dob: z.string().optional(),
+      gender: z.string().optional(),
+    }),
+  }),
+  z.object({
+    resourceType: z.literal('Practitioner'),
+    resourceId: nonEmptyString,
+    fields: z.object({
+      firstName: z.string().optional(),
+      lastName: z.string().optional(),
+    }),
+  }),
+  z.object({
+    resourceType: z.literal('Coverage'),
+    resourceId: nonEmptyString,
+    fields: z.object({
+      subscriberId: z.string().optional(),
+    }),
+  }),
+  z.object({
+    resourceType: z.literal('Location'),
+    resourceId: nonEmptyString,
+    fields: z.object({
+      name: z.string().optional(),
+    }),
+  }),
+  z.object({
+    resourceType: z.literal('Organization'),
+    resourceId: nonEmptyString,
+    fields: z.object({
+      name: z.string().optional(),
+    }),
+  }),
+]);
 
 export type GetClaimDetailInput = z.infer<typeof GetClaimDetailInputSchema>;
 export type GetPatientCoveragesInput = z.infer<typeof GetPatientCoveragesInputSchema>;
@@ -146,5 +174,5 @@ export type SearchBillingLocationsInput = z.infer<typeof SearchBillingLocationsI
 export type SearchBillingOrganizationsInput = z.infer<typeof SearchBillingOrganizationsInputSchema>;
 export type CreateBillingClaimInput = z.infer<typeof CreateBillingClaimInputSchema>;
 export type CreateBillingWorkingCopyInput = z.infer<typeof CreateBillingWorkingCopyInputSchema>;
-export type UpdateBillingClaimInput = z.infer<typeof UpdateBillingClaimInputSchema>;
+export type UpdateBillingResourceInput = z.infer<typeof UpdateBillingResourceInputSchema>;
 export type BillingResourceType = (typeof ALLOWED_BILLING_RESOURCE_TYPES)[number];

@@ -32,13 +32,7 @@ import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { formatCurrency } from '../utils/format';
 
-interface PatchOp {
-  op: 'add' | 'replace' | 'remove';
-  path: string;
-  value?: unknown;
-}
-
-type PatchFn = (type: string, id: string, ops: PatchOp[]) => Promise<string | null>;
+type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
 
 const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
 
@@ -70,15 +64,15 @@ export default function ClaimDetail(): ReactElement {
     void fetchDetail();
   }, [fetchDetail]);
 
-  const patchResource = useCallback(
-    async (resourceType: string, resourceId: string, operations: PatchOp[]): Promise<string | null> => {
+  const updateResource = useCallback(
+    async (resourceType: string, resourceId: string, fields: Record<string, unknown>): Promise<string | null> => {
       if (!oystehrZambda) return 'Client not ready';
       try {
         await oystehrZambda.zambda.execute({
           id: 'update-billing-claim',
           resourceId,
           resourceType,
-          operations,
+          fields,
         });
         await fetchDetail();
         return null;
@@ -171,8 +165,8 @@ export default function ClaimDetail(): ReactElement {
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
-            <PatientSection claim={claim} patchResource={patchResource} />
-            <InsuranceSection claim={claim} patchResource={patchResource} />
+            <PatientSection claim={claim} updateResource={updateResource} />
+            <InsuranceSection claim={claim} updateResource={updateResource} />
             {claim.secondaryPayerName && (
               <ReadOnlySection title="Secondary Insurance">
                 <Row label="Payer" value={claim.secondaryPayerName} />
@@ -180,9 +174,9 @@ export default function ClaimDetail(): ReactElement {
                 <Row label="Member ID" value={claim.secondaryMemberId} />
               </ReadOnlySection>
             )}
-            <RenderingProviderSection claim={claim} patchResource={patchResource} />
-            <FacilitySection claim={claim} patchResource={patchResource} />
-            <BillingProviderSection claim={claim} patchResource={patchResource} />
+            <RenderingProviderSection claim={claim} updateResource={updateResource} />
+            <FacilitySection claim={claim} updateResource={updateResource} />
+            <BillingProviderSection claim={claim} updateResource={updateResource} />
           </TabPanel>
 
           <TabPanel value="2" sx={{ px: 0, pt: 2 }}>
@@ -208,10 +202,10 @@ export default function ClaimDetail(): ReactElement {
 
 function PatientSection({
   claim,
-  patchResource,
+  updateResource,
 }: {
   claim: ClaimDetailResponse;
-  patchResource: PatchFn;
+  updateResource: UpdateFn;
 }): ReactElement {
   const nameParts = claim.patientName.split(', ');
   const [firstName, setFirstName] = useState(nameParts[1] ?? '');
@@ -233,11 +227,12 @@ function PatientSection({
 
   const handleSave = async (): Promise<string | null> => {
     if (!firstName.trim() || !lastName.trim()) return 'First and last name are required';
-    return patchResource('Patient', claim.patientId, [
-      { op: 'add', path: '/name', value: [{ use: 'official', given: [firstName.trim()], family: lastName.trim() }] },
-      { op: 'add', path: '/birthDate', value: dob },
-      { op: 'add', path: '/gender', value: gender },
-    ]);
+    return updateResource('Patient', claim.patientId, {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      dob,
+      gender,
+    });
   };
 
   return (
@@ -296,10 +291,10 @@ function PatientSection({
 
 function InsuranceSection({
   claim,
-  patchResource,
+  updateResource,
 }: {
   claim: ClaimDetailResponse;
-  patchResource: PatchFn;
+  updateResource: UpdateFn;
 }): ReactElement {
   const [memberId, setMemberId] = useState(claim.memberId);
 
@@ -310,7 +305,7 @@ function InsuranceSection({
 
   const handleSave = async (): Promise<string | null> => {
     if (!claim.coverageFhirId) return 'No coverage to edit';
-    return patchResource('Coverage', claim.coverageFhirId, [{ op: 'add', path: '/subscriberId', value: memberId }]);
+    return updateResource('Coverage', claim.coverageFhirId, { subscriberId: memberId });
   };
 
   return (
@@ -339,10 +334,10 @@ function InsuranceSection({
 
 function RenderingProviderSection({
   claim,
-  patchResource,
+  updateResource,
 }: {
   claim: ClaimDetailResponse;
-  patchResource: PatchFn;
+  updateResource: UpdateFn;
 }): ReactElement {
   const nameParts = claim.renderingProvider.split(', ');
   const [firstName, setFirstName] = useState(nameParts[1] ?? '');
@@ -360,9 +355,10 @@ function RenderingProviderSection({
 
   const handleSave = async (): Promise<string | null> => {
     if (!claim.renderingProviderId) return 'No rendering provider to edit';
-    return patchResource('Practitioner', claim.renderingProviderId, [
-      { op: 'add', path: '/name', value: [{ use: 'official', given: [firstName.trim()], family: lastName.trim() }] },
-    ]);
+    return updateResource('Practitioner', claim.renderingProviderId, {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+    });
   };
 
   return (
@@ -398,10 +394,10 @@ function RenderingProviderSection({
 
 function FacilitySection({
   claim,
-  patchResource,
+  updateResource,
 }: {
   claim: ClaimDetailResponse;
-  patchResource: PatchFn;
+  updateResource: UpdateFn;
 }): ReactElement {
   const [name, setName] = useState(claim.serviceFacility);
 
@@ -412,7 +408,7 @@ function FacilitySection({
 
   const handleSave = async (): Promise<string | null> => {
     if (!claim.facilityFhirId) return 'No facility to edit';
-    return patchResource('Location', claim.facilityFhirId, [{ op: 'add', path: '/name', value: name }]);
+    return updateResource('Location', claim.facilityFhirId, { name });
   };
 
   return (
@@ -440,10 +436,10 @@ function FacilitySection({
 
 function BillingProviderSection({
   claim,
-  patchResource,
+  updateResource,
 }: {
   claim: ClaimDetailResponse;
-  patchResource: PatchFn;
+  updateResource: UpdateFn;
 }): ReactElement {
   const [name, setName] = useState(claim.billingProvider);
 
@@ -454,7 +450,7 @@ function BillingProviderSection({
 
   const handleSave = async (): Promise<string | null> => {
     if (!claim.billingProviderFhirId) return 'No billing provider to edit';
-    return patchResource('Organization', claim.billingProviderFhirId, [{ op: 'add', path: '/name', value: name }]);
+    return updateResource('Organization', claim.billingProviderFhirId, { name });
   };
 
   return (
