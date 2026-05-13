@@ -1,16 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  Claim,
-  Coverage,
-  FhirResource,
-  Location,
-  Organization,
-  Patient,
-  Person,
-  Practitioner,
-  Resource,
-} from 'fhir/r4b';
+import { Claim, Coverage, Location, Organization, Patient, Person, Practitioner, Resource } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -32,6 +22,8 @@ import {
   prepareWorkingCopy,
 } from '../shared';
 import { CreateClaimParams, validateRequestParameters } from './validateRequestParameters';
+
+type BillingFhirResource = Patient | Coverage | Practitioner | Organization | Location;
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'create-billing-claim';
@@ -102,7 +94,7 @@ async function createWorkingCopies(
   originals: OriginalResources,
   params: CreateClaimParams
 ): Promise<OriginalResources> {
-  const requests: { method: 'POST'; url: string; resource: FhirResource }[] = [];
+  const requests: { method: 'POST'; url: string; resource: BillingFhirResource }[] = [];
   const order: string[] = [];
 
   let patientCopy = prepareWorkingCopy(originals.patient, originals.patient.id!);
@@ -139,7 +131,7 @@ async function createWorkingCopies(
     order.push('billingProvider');
   }
 
-  const txResult = await oystehr.fhir.transaction<FhirResource>({ requests });
+  const txResult = await oystehr.fhir.transaction<BillingFhirResource>({ requests });
   const entries = (txResult.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
 
   if (entries.length !== order.length) throw InternalError;
