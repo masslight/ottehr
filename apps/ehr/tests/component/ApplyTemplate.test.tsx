@@ -477,6 +477,27 @@ describe('ApplyTemplate', () => {
     });
   });
 
+  it('should render sections collapsed by default with a summary, expanding on click', async () => {
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const examCard = await screen.findByTestId('template-section-examFindings');
+    // Summary is rendered in the header
+    expect(within(examCard).getByText('1 abnormal, 1 normal')).toBeInTheDocument();
+    // Body contents are NOT in the DOM while collapsed (Collapse uses unmountOnExit)
+    expect(within(examCard).queryByText('Throat erythema')).toBeNull();
+
+    // Click the section label to expand
+    await user.click(within(examCard).getByText('Exam Findings'));
+
+    await waitFor(() => {
+      expect(within(examCard).getByText('Throat erythema')).toBeInTheDocument();
+    });
+  });
+
   it('should disable Apply when every section is set to Skip', async () => {
     const user = userEvent.setup();
     mockGetTemplateDetail.mockResolvedValue({

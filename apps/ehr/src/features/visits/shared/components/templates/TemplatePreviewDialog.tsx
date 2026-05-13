@@ -1,14 +1,17 @@
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Box,
   Button,
   Chip,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
+  IconButton,
   Skeleton,
   Stack,
   ToggleButton,
@@ -70,6 +73,69 @@ const ACTION_TOOLTIPS: Record<TemplateSectionAction, string> = {
   skip: "Don't apply this section.",
   append: 'Keep existing content and add the template content.',
   overwrite: 'Replace existing content with the template content.',
+};
+
+const truncate = (s: string, n = 80): string => {
+  const collapsed = s.replace(/\s+/g, ' ').trim();
+  return collapsed.length <= n ? collapsed : `${collapsed.slice(0, n).trim()}…`;
+};
+
+const pluralize = (n: number, singular: string, plural = `${singular}s`): string =>
+  `${n} ${n === 1 ? singular : plural}`;
+
+const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], key: TemplateSectionKey): string => {
+  switch (key) {
+    case 'hpi':
+      return sections.hpiNote ? truncate(sections.hpiNote) : '';
+    case 'moi':
+      return sections.moiNote ? truncate(sections.moiNote) : '';
+    case 'ros': {
+      const parts: string[] = [];
+      if (sections.rosNote) parts.push(`note: "${truncate(sections.rosNote, 40)}"`);
+      if (sections.rosFindings.length > 0) parts.push(pluralize(sections.rosFindings.length, 'finding'));
+      return parts.join(' · ');
+    }
+    case 'examFindings': {
+      const abnormal = sections.examFindings.filter((f) => f.isAbnormal).length;
+      const normal = sections.examFindings.length - abnormal;
+      const parts: string[] = [];
+      if (abnormal) parts.push(`${abnormal} abnormal`);
+      if (normal) parts.push(`${normal} normal`);
+      return parts.join(', ');
+    }
+    case 'mdm':
+      return sections.mdm ? truncate(sections.mdm) : '';
+    case 'diagnoses': {
+      const codes = sections.diagnoses
+        .slice(0, 2)
+        .map((d) => d.code)
+        .join(', ');
+      const extra = sections.diagnoses.length - 2;
+      return extra > 0 ? `${codes} +${extra} more` : codes;
+    }
+    case 'patientInstructions':
+      return pluralize(sections.patientInstructions.length, 'instruction');
+    case 'cptCodes': {
+      const codes = sections.cptCodes
+        .slice(0, 2)
+        .map((c) => c.code)
+        .join(', ');
+      const extra = sections.cptCodes.length - 2;
+      return extra > 0 ? `${codes} +${extra} more` : codes;
+    }
+    case 'emCode':
+      return sections.emCode ? sections.emCode.code : '';
+    case 'accident': {
+      if (!sections.accident) return '';
+      const flags: string[] = [];
+      if (sections.accident.autoAccident) flags.push('Auto');
+      if (sections.accident.employment) flags.push('Employment');
+      if (sections.accident.otherAccident) flags.push('Other');
+      return flags.length > 0 ? flags.join(', ') : 'Yes';
+    }
+    default:
+      return '';
+  }
 };
 
 const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], key: TemplateSectionKey): boolean => {
@@ -268,7 +334,9 @@ const SectionCard: React.FC<{
   disabled: boolean;
 }> = ({ descriptor, sections, action, onActionChange, disabled }) => {
   const theme = useTheme();
+  const [expanded, setExpanded] = useState(false);
   const noAppend = TEMPLATE_SECTIONS_NO_APPEND.has(descriptor.key);
+  const summary = getSectionSummary(sections, descriptor.key);
 
   const previewSx = {
     opacity: action === 'skip' ? 0.5 : 1,
@@ -280,40 +348,96 @@ const SectionCard: React.FC<{
       sx={{
         border: `1px solid ${theme.palette.divider}`,
         borderRadius: 1,
-        p: 2,
+        overflow: 'hidden',
       }}
       data-testid={`template-section-${descriptor.key}`}
     >
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          {descriptor.label}
-        </Typography>
-        <ToggleButtonGroup
-          value={action}
-          exclusive
+      <Box
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        aria-controls={`template-section-${descriptor.key}-body`}
+        onClick={() => setExpanded((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setExpanded((v) => !v);
+          }
+        }}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          px: 1.5,
+          py: 1,
+          cursor: 'pointer',
+          userSelect: 'none',
+          '&:hover': { backgroundColor: theme.palette.action.hover },
+        }}
+      >
+        <IconButton
           size="small"
-          onChange={(_, next: TemplateSectionAction | null) => {
-            if (next) onActionChange(next);
+          aria-label={expanded ? 'Collapse section' : 'Expand section'}
+          sx={{
+            transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 150ms ease-in-out',
           }}
-          disabled={disabled}
-          aria-label={`Action for ${descriptor.label}`}
+          tabIndex={-1}
         >
-          <ToggleButton value="skip" title={ACTION_TOOLTIPS.skip}>
-            {ACTION_LABELS.skip}
-          </ToggleButton>
-          {noAppend ? null : (
-            <ToggleButton value="append" title={ACTION_TOOLTIPS.append}>
-              {ACTION_LABELS.append}
+          <ExpandMoreIcon fontSize="small" />
+        </IconButton>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
+            {descriptor.label}
+          </Typography>
+          {summary ? (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                lineHeight: 1.3,
+              }}
+            >
+              {summary}
+            </Typography>
+          ) : null}
+        </Box>
+        <Box onClick={(e) => e.stopPropagation()} sx={{ flexShrink: 0 }}>
+          <ToggleButtonGroup
+            value={action}
+            exclusive
+            size="small"
+            onChange={(_, next: TemplateSectionAction | null) => {
+              if (next) onActionChange(next);
+            }}
+            disabled={disabled}
+            aria-label={`Action for ${descriptor.label}`}
+          >
+            <ToggleButton value="skip" title={ACTION_TOOLTIPS.skip}>
+              {ACTION_LABELS.skip}
             </ToggleButton>
-          )}
-          <ToggleButton value="overwrite" title={ACTION_TOOLTIPS.overwrite}>
-            {ACTION_LABELS.overwrite}
-          </ToggleButton>
-        </ToggleButtonGroup>
-      </Stack>
-      <Box sx={previewSx}>
-        <SectionPreview sectionKey={descriptor.key} sections={sections} />
+            {noAppend ? null : (
+              <ToggleButton value="append" title={ACTION_TOOLTIPS.append}>
+                {ACTION_LABELS.append}
+              </ToggleButton>
+            )}
+            <ToggleButton value="overwrite" title={ACTION_TOOLTIPS.overwrite}>
+              {ACTION_LABELS.overwrite}
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
       </Box>
+      <Collapse in={expanded} unmountOnExit>
+        <Box
+          id={`template-section-${descriptor.key}-body`}
+          sx={{ px: 2, pb: 2, pt: 0.5, borderTop: `1px solid ${theme.palette.divider}`, ...previewSx }}
+        >
+          <SectionPreview sectionKey={descriptor.key} sections={sections} />
+        </Box>
+      </Collapse>
     </Box>
   );
 };
