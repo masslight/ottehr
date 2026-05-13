@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import {
+  getAllFhirSearchPages,
   PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE,
   PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL,
   UpdateApprovedPatientEducationCodesOutput,
@@ -38,12 +39,15 @@ export const index = wrapHandler(
       }
 
       const incomingIcdSet = new Set(icdCodes.map((c) => c.code));
-      const others = await oystehr.fhir.search<DocumentReference>({
-        resourceType: 'DocumentReference',
-        params: [{ name: 'type', value: PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE }],
-      });
+      const others = await getAllFhirSearchPages<DocumentReference>(
+        {
+          resourceType: 'DocumentReference',
+          params: [{ name: 'type', value: PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE }],
+        },
+        oystehr
+      );
       const conflictingCodes = new Set<string>();
-      for (const other of others.unbundle()) {
+      for (const other of others) {
         if (other.id === documentReferenceId) continue;
         if (!(other.type?.coding ?? []).some((c) => c.code === PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE)) continue;
         for (const code of extractIcdCodes(other)) {

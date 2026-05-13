@@ -49,10 +49,21 @@ export const index = wrapHandler(
           (r.type?.coding ?? []).some((c) => c.code === PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE)
       );
 
+      const docRefsWithAttachment = docRefs.filter((docRef) => {
+        const z3Url = docRef.content?.[0]?.attachment?.url;
+        if (!z3Url) {
+          console.warn(
+            `Skipping approved patient education DocumentReference/${docRef.id} — missing attachment URL`
+          );
+          return false;
+        }
+        return true;
+      });
+
       const items: ApprovedPatientEducationItem[] = await Promise.all(
-        docRefs.map(async (docRef) => {
-          const z3Url = docRef.content?.[0]?.attachment?.url ?? '';
-          const presignedUrl = z3Url ? await getPresignedURL(z3Url, m2mToken) : '';
+        docRefsWithAttachment.map(async (docRef) => {
+          const z3Url = docRef.content![0].attachment!.url!;
+          const presignedUrl = await getPresignedURL(z3Url, m2mToken);
           return {
             documentReferenceId: docRef.id!,
             title: docRef.content?.[0]?.attachment?.title ?? docRef.description ?? '',

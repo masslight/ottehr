@@ -1,7 +1,11 @@
 import { BatchInputDeleteRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, List } from 'fhir/r4b';
-import { DeleteApprovedPatientEducationOutput, PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER } from 'utils';
+import {
+  DeleteApprovedPatientEducationOutput,
+  PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE,
+  PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { deleteZ3Object } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -21,6 +25,12 @@ export const index = wrapHandler(
         resourceType: 'DocumentReference',
         id: documentReferenceId,
       });
+      const isApprovedPatientEducation = (docRef.type?.coding ?? []).some(
+        (c) => c.code === PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE
+      );
+      if (!isApprovedPatientEducation) {
+        throw new Error('DocumentReference is not an approved patient education entry');
+      }
       const z3Url = docRef.content?.[0]?.attachment?.url;
 
       const listSearch = await oystehr.fhir.search<List>({

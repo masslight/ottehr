@@ -173,11 +173,27 @@ export const index = wrapHandler(
         requests.push(createListReq);
       }
 
-      const txnResult = await oystehr.fhir.transaction<DocumentReference | List>({ requests });
+      let txnResult;
+      try {
+        txnResult = await oystehr.fhir.transaction<DocumentReference | List>({ requests });
+      } catch (txnErr) {
+        // FHIR transaction failed — clean up the orphaned Z3 object we uploaded above.
+        try {
+          await deleteZ3Object(z3Url, m2mToken);
+        } catch (cleanupErr) {
+          console.warn('Failed to clean up orphaned Z3 object after transaction failure', z3Url, cleanupErr);
+        }
+        throw txnErr;
+      }
       const createdDocRef = (txnResult.entry ?? [])
         .map((e) => e.resource)
         .find((r): r is DocumentReference => r?.resourceType === 'DocumentReference');
       if (!createdDocRef?.id) {
+        try {
+          await deleteZ3Object(z3Url, m2mToken);
+        } catch (cleanupErr) {
+          console.warn('Failed to clean up orphaned Z3 object after transaction failure', z3Url, cleanupErr);
+        }
         throw new Error('Failed to create DocumentReference for approved patient education');
       }
 

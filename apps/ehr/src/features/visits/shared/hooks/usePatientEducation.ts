@@ -172,6 +172,9 @@ export function usePatientEducation(): UsePatientEducationResult {
       for (const dx of selection) {
         const approved = approvedByCode.get(dx.code);
         if (!approved) continue;
+        if (!approved.pdfPresignedUrl) {
+          throw new Error(`Approved PDF for ${dx.code} is missing a presigned URL.`);
+        }
         const response = await fetch(approved.pdfPresignedUrl);
         if (!response.ok) {
           throw new Error(`Failed to fetch approved PDF for ${dx.code}: ${response.status}`);
