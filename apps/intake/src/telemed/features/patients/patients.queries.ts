@@ -1,7 +1,7 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { OystehrAPIClient } from 'ui-components';
-import { useSuccessQuery } from 'utils';
 import { PromiseReturnType } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 
 export const useGetPatients = (
   apiClient: OystehrAPIClient | null,

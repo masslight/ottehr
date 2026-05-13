@@ -1,7 +1,7 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
-import { AdminGetLabSetDetailOutput, AdminGetLabSetListOutput, LAB_LIST_CODE_CODING } from 'utils';
+import { AdminGetLabSetDetailOutput, AdminGetLabSetListOutput, LAB_LIST_CODING_SYSTEM } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 import { formatLabListDTOs } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -46,12 +46,14 @@ async function getLabSets(
   oystehr: Oystehr,
   labSetId?: string
 ): Promise<AdminGetLabSetListOutput | AdminGetLabSetDetailOutput> {
-  const searchParams: SearchParam[] = labSetId ? [{ name: '_id', value: labSetId }] : [];
+  const searchParams: SearchParam[] = [{ name: '_sort', value: 'title' }];
+
+  if (labSetId) searchParams.push({ name: '_id', value: labSetId });
 
   const lists = (
     await oystehr.fhir.search<List>({
       resourceType: 'List',
-      params: [{ name: 'code', value: `${LAB_LIST_CODE_CODING.inHouse.system}|` }, ...searchParams],
+      params: [{ name: 'code', value: `${LAB_LIST_CODING_SYSTEM}|` }, ...searchParams],
     })
   ).unbundle();
 

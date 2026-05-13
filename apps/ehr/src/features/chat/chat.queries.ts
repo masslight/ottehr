@@ -6,9 +6,8 @@ import {
   QuickTextQuickPickData,
   replaceTemplateVariablesHandlebars,
   SMSRecipient,
-  useErrorQuery,
-  useSuccessQuery,
 } from 'utils';
+import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
 import { getConversation, getQuickTextQuickPicks } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { MessageModel } from './ChatModal';

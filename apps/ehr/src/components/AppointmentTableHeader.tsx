@@ -59,10 +59,10 @@ export default function AppointmentTableHeader({ tab, table }: AppointmentTableH
           </TableCell>
         )}
         <TableCell sx={{ width: VISIT_ICONS_WIDTH_MIN }}>
-          <Typography variant="subtitle2" sx={{ fontSize: '14px', fontWeight: 600 }}>
+          <Typography variant="subtitle2" sx={{ fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap' }}>
             {tab === ApptTab.completed || (tab === ApptTab['in-office'] && table === 'in-exam')
               ? 'Orders'
-              : 'Visit Components'}
+              : 'Visit Comp.'}
           </Typography>
         </TableCell>
         <TableCell sx={{ width: NOTES_WIDTH_MIN }}>

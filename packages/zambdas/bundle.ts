@@ -90,6 +90,7 @@ const buildZambdaChunk = async (zambdas: ZambdaSpec[], outdir: string, isSentryE
       platform: 'node',
       external: ['@aws-sdk/*'],
       treeShaking: true,
+      minify: true,
       plugins: getSentryPlugins(isSentryEnabled),
     });
   } catch (error) {
@@ -122,6 +123,22 @@ const copyAssets = async (from: string, to: string): Promise<void> => {
   }
 };
 
+const runSentryCommandWithRetry = async (label: string, runCommand: () => Promise<unknown>): Promise<boolean> => {
+  try {
+    await runCommand();
+    return true;
+  } catch (error) {
+    console.warn(`Sentry CLI command failed (${label}), retrying once...`, error);
+  }
+  try {
+    await runCommand();
+    return true;
+  } catch (error) {
+    console.warn(`Sentry CLI command failed (${label}) after retry; skipping remaining Sentry steps:`, error);
+    return false;
+  }
+};
+
 const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<void> => {
   if (!process.env.SENTRY_ORG || !process.env.SENTRY_PROJECT || !process.env.SENTRY_AUTH_TOKEN) {
     console.warn('Sentry environment variables are not set');
@@ -141,15 +158,41 @@ const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<void> => {
   };
   const revParse = await $`git rev-parse --verify HEAD`;
   const releaseName = revParse.stdout;
-  await $(shellConfig)`sentry-cli releases new ${releaseName}`;
+  if (
+    !(await runSentryCommandWithRetry(
+      `releases new ${releaseName}`,
+      () => $(shellConfig)`sentry-cli releases new ${releaseName}`
+    ))
+  ) {
+    return;
+  }
+
+  const zambdaDirs = zambdas.map((z) => path.dirname(`.dist/${z.src.substring('src/'.length)}.js`));
 
   console.log(`Injecting source maps for ${zambdas.length} zambdas...`);
-  await $(shellConfig)`sentry-cli sourcemaps inject .dist --quiet --log-level error`;
+  if (
+    !(await runSentryCommandWithRetry(
+      'sourcemaps inject',
+      () => $(shellConfig)`sentry-cli sourcemaps inject ${zambdaDirs} --quiet --log-level error`
+    ))
+  ) {
+    return;
+  }
 
   console.log(`Uploading source maps for ${zambdas.length} zambdas...`);
-  await $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} .dist`;
+  if (
+    !(await runSentryCommandWithRetry(
+      'sourcemaps upload',
+      () => $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} ${zambdaDirs}`
+    ))
+  ) {
+    return;
+  }
 
-  await $(shellConfig)`sentry-cli releases finalize ${releaseName}`;
+  await runSentryCommandWithRetry(
+    `releases finalize ${releaseName}`,
+    () => $(shellConfig)`sentry-cli releases finalize ${releaseName}`
+  );
 };
 
 const zipZambda = async (

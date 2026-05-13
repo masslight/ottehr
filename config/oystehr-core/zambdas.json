@@ -948,7 +948,7 @@
       "src": "src/cron/daily-radiology-report/index",
       "zip": ".dist/zips/daily-radiology-report.zip",
       "schedule": {
-        "expression": "cron(0 9 * * ? *)"
+        "expression": "cron(0 14 * * ? *)"
       }
     },
     "CLEANUP-INVOICE-EXPORTS": {
@@ -1998,6 +1998,27 @@
         "criteria": "Communication?category=https://terminology.fhir.oystehr.com/CodeSystem/notification|erx-notification",
         "reason": "Create Task for eRX notification"
       }
+    },
+    "CREATE-CUSTOM-FOLDER": {
+      "name": "create-custom-folder",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-custom-folder/index",
+      "zip": ".dist/zips/create-custom-folder.zip"
+    },
+    "RENAME-CUSTOM-FOLDER": {
+      "name": "rename-custom-folder",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/rename-custom-folder/index",
+      "zip": ".dist/zips/rename-custom-folder.zip"
+    },
+    "DELETE-CUSTOM-FOLDER": {
+      "name": "delete-custom-folder",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-custom-folder/index",
+      "zip": ".dist/zips/delete-custom-folder.zip"
     }
   },
   "fhirResources": {

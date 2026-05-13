@@ -1,7 +1,8 @@
 {
   "name": "zambdas",
-  "version": "1.33.23",
+  "version": "1.33.26",
   "private": true,
+  "sideEffects": false,
   "scripts": {
     "start": "npm run start:iac",
     "start:local": "ENV=local npm run start",
