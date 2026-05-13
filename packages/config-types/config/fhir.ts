@@ -151,18 +151,29 @@ export const FhirResourceTypeSchema = z.enum([
 export type FhirResourceType = z.infer<typeof FhirResourceTypeSchema>;
 
 /**
- * AnswerOptionSource - Configuration for dynamically loading answer options from FHIR
- *
- * When included, the identifier value with a system matching the prependedIdentifier
- * will be prepended to the display name of the returned resource, separated by ' - '
- * For example, if prependedIdentifier is {system_for_NPIs} and the resourceType is Practitioner,
- * the returned display name will be '{NPI_value} - {practitioner_name}'
+ * AnswerOptionSource - Configuration for dynamically loading answer options from Zambdas
  */
-export const AnswerOptionSourceSchema = z.object({
-  resourceType: FhirResourceTypeSchema,
-  query: z.string(),
-  prependedIdentifier: z.string().optional(),
-});
+export const AnswerOptionSourceSchema = z.discriminatedUnion('zambdaId', [
+  z.object({
+    zambdaId: z.literal('get-answer-options'),
+    resourceType: FhirResourceTypeSchema,
+    query: z.string(),
+    /*
+     * When included, the identifier value with a system matching the prependedIdentifier
+     * will be prepended to the display name of the returned resource, separated by ' - '
+     * For example, if prependedIdentifier is {system_for_NPIs} and the resourceType is Practitioner,
+     * the returned display name will be '{NPI_value} - {practitioner_name}'
+     */
+    prependedIdentifier: z.string().optional(),
+  }),
+  z.object({
+    zambdaId: z.literal('get-all-insurance-payers'),
+    prependIdentifier: z.boolean().optional(),
+  }),
+  z.object({
+    zambdaId: z.literal('get-patient-insurance-payers'),
+  }),
+]);
 
 export type AnswerOptionSource = z.infer<typeof AnswerOptionSourceSchema>;
 
