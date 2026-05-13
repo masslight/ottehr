@@ -3,14 +3,8 @@ import { useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import {
-  ChartDataRequestedFields,
-  GetChartDataResponse,
-  RequestedFields,
-  SearchParams,
-  useErrorQuery,
-  useSuccessQuery,
-} from 'utils';
+import { ChartDataRequestedFields, GetChartDataResponse, RequestedFields, SearchParams } from 'utils';
+import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 import { useGetAppointmentAccessibility } from './useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from './useOystehrAPIClient';

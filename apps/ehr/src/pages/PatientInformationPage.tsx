@@ -321,6 +321,34 @@ const useFormData = (
     }
   }, [defaultFormVals, methods, patientId]);
 
+  const appointmentContextSyncRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!defaultFormVals) return;
+    const nextKey = [
+      defaultFormVals['appointment-service-category'] ?? '',
+      defaultFormVals['appointment-service-mode'] ?? '',
+      defaultFormVals['reason-for-visit'] ?? '',
+    ].join('|');
+    if (appointmentContextSyncRef.current === nextKey) return;
+    appointmentContextSyncRef.current = nextKey;
+
+    methods.setValue('appointment-service-category', defaultFormVals['appointment-service-category'], {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+    methods.setValue('appointment-service-mode', defaultFormVals['appointment-service-mode'], {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+    methods.setValue('reason-for-visit', defaultFormVals['reason-for-visit'], {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+  }, [defaultFormVals, methods]);
+
   const { coveragesFormValues } = useMemo(() => {
     let coveragesFormValues: any;
     if (!coveragesFetching && insuranceData?.coverages && insuranceData?.insuranceOrgs && accountData) {
