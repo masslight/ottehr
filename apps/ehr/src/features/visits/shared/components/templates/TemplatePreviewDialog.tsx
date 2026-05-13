@@ -1,0 +1,441 @@
+import { LoadingButton } from '@mui/lab';
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Skeleton,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+  useTheme,
+} from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import React, { useEffect, useMemo, useState } from 'react';
+import { getTemplateDetail } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
+import {
+  AdminGetTemplateDetailOutput,
+  ExamType,
+  RosFindingState,
+  RosFindingStateLabel,
+  TEMPLATE_SECTION_DEFAULT_ACTIONS,
+  TEMPLATE_SECTIONS_NO_APPEND,
+  TemplateSectionAction,
+  TemplateSectionActions,
+  TemplateSectionKey,
+} from 'utils';
+
+interface TemplatePreviewDialogProps {
+  open: boolean;
+  templateId: string | null;
+  templateName: string;
+  examType: ExamType;
+  isApplying: boolean;
+  onCancel: () => void;
+  onApply: (actions: TemplateSectionActions) => void;
+}
+
+interface SectionDescriptor {
+  key: TemplateSectionKey;
+  label: string;
+}
+
+const SECTIONS_IN_ORDER: readonly SectionDescriptor[] = [
+  { key: 'hpi', label: 'HPI (History of Present Illness)' },
+  { key: 'moi', label: 'MOI (Mechanism of Injury)' },
+  { key: 'ros', label: 'Review of Systems (ROS)' },
+  { key: 'examFindings', label: 'Exam Findings' },
+  { key: 'mdm', label: 'Medical Decision Making (MDM)' },
+  { key: 'diagnoses', label: 'Assessment / ICD-10 Diagnoses' },
+  { key: 'patientInstructions', label: 'Patient Instructions' },
+  { key: 'cptCodes', label: 'CPT Codes' },
+  { key: 'emCode', label: 'E&M Code' },
+  { key: 'accident', label: 'Accident' },
+];
+
+const ACTION_LABELS: Record<TemplateSectionAction, string> = {
+  skip: 'Skip',
+  append: 'Append',
+  overwrite: 'Overwrite',
+};
+
+const ACTION_TOOLTIPS: Record<TemplateSectionAction, string> = {
+  skip: "Don't apply this section.",
+  append: 'Keep existing content and add the template content.',
+  overwrite: 'Replace existing content with the template content.',
+};
+
+const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], key: TemplateSectionKey): boolean => {
+  switch (key) {
+    case 'hpi':
+      return Boolean(sections.hpiNote);
+    case 'moi':
+      return Boolean(sections.moiNote);
+    case 'ros':
+      return Boolean(sections.rosNote) || sections.rosFindings.length > 0;
+    case 'examFindings':
+      return sections.examFindings.length > 0;
+    case 'mdm':
+      return Boolean(sections.mdm);
+    case 'diagnoses':
+      return sections.diagnoses.length > 0;
+    case 'patientInstructions':
+      return sections.patientInstructions.length > 0;
+    case 'cptCodes':
+      return sections.cptCodes.length > 0;
+    case 'emCode':
+      return Boolean(sections.emCode);
+    case 'accident':
+      return Boolean(sections.accident);
+    default:
+      return false;
+  }
+};
+
+const TextBlock: React.FC<{ value: string | null | undefined }> = ({ value }) => {
+  if (!value) return null;
+  return (
+    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'text.primary' }}>
+      {value}
+    </Typography>
+  );
+};
+
+const CodeList: React.FC<{ items: { code: string; display: string }[] }> = ({ items }) => (
+  <Stack spacing={0.5}>
+    {items.map((item, idx) => (
+      <Typography key={`${item.code}-${idx}`} variant="body2" sx={{ color: 'text.primary' }}>
+        <strong>{item.code}</strong>
+        {item.display ? ` — ${item.display}` : ''}
+      </Typography>
+    ))}
+  </Stack>
+);
+
+const SectionPreview: React.FC<{
+  sectionKey: TemplateSectionKey;
+  sections: AdminGetTemplateDetailOutput['sections'];
+}> = ({ sectionKey, sections }) => {
+  switch (sectionKey) {
+    case 'hpi':
+      return <TextBlock value={sections.hpiNote} />;
+    case 'moi':
+      return <TextBlock value={sections.moiNote} />;
+    case 'ros': {
+      const reported = sections.rosFindings.filter((f) => f.findingState === RosFindingState.Reports);
+      const denied = sections.rosFindings.filter((f) => f.findingState === RosFindingState.Denies);
+      return (
+        <Stack spacing={1}>
+          {sections.rosNote ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                Note
+              </Typography>
+              <TextBlock value={sections.rosNote} />
+            </Box>
+          ) : null}
+          {reported.length > 0 ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                {RosFindingStateLabel[RosFindingState.Reports]}
+              </Typography>
+              <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+                {reported.map((f) => (
+                  <Chip key={f.fieldName} label={f.label} size="small" color="warning" />
+                ))}
+              </Stack>
+            </Box>
+          ) : null}
+          {denied.length > 0 ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                {RosFindingStateLabel[RosFindingState.Denies]}
+              </Typography>
+              <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+                {denied.map((f) => (
+                  <Chip key={f.fieldName} label={f.label} size="small" variant="outlined" />
+                ))}
+              </Stack>
+            </Box>
+          ) : null}
+        </Stack>
+      );
+    }
+    case 'examFindings': {
+      const abnormal = sections.examFindings.filter((f) => f.isAbnormal);
+      const normal = sections.examFindings.filter((f) => !f.isAbnormal);
+      return (
+        <Stack spacing={1}>
+          {abnormal.length > 0 ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                Abnormal
+              </Typography>
+              <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                {abnormal.map((f) => (
+                  <Typography key={f.fieldName} variant="body2">
+                    <strong>{f.label}</strong>
+                    {f.note ? `: ${f.note}` : ''}
+                  </Typography>
+                ))}
+              </Stack>
+            </Box>
+          ) : null}
+          {normal.length > 0 ? (
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                Normal
+              </Typography>
+              <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+                {normal.map((f) => (
+                  <Chip key={f.fieldName} label={f.label} size="small" variant="outlined" />
+                ))}
+              </Stack>
+            </Box>
+          ) : null}
+        </Stack>
+      );
+    }
+    case 'mdm':
+      return <TextBlock value={sections.mdm} />;
+    case 'diagnoses':
+      return <CodeList items={sections.diagnoses} />;
+    case 'patientInstructions':
+      return (
+        <Stack spacing={1.5}>
+          {sections.patientInstructions.map((item, idx) => (
+            <Box key={idx}>
+              {item.title ? (
+                <Typography variant="subtitle2" sx={{ color: 'text.primary' }}>
+                  {item.title}
+                </Typography>
+              ) : null}
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'text.primary' }}>
+                {item.text}
+              </Typography>
+            </Box>
+          ))}
+        </Stack>
+      );
+    case 'cptCodes':
+      return <CodeList items={sections.cptCodes} />;
+    case 'emCode':
+      return sections.emCode ? <CodeList items={[sections.emCode]} /> : null;
+    case 'accident': {
+      const accident = sections.accident;
+      if (!accident) return null;
+      const flags: string[] = [];
+      if (accident.autoAccident) flags.push('Auto accident');
+      if (accident.employment) flags.push('Employment');
+      if (accident.otherAccident) flags.push('Other accident');
+      return (
+        <Stack spacing={0.5}>
+          {flags.length > 0 ? (
+            <Typography variant="body2" sx={{ color: 'text.primary' }}>
+              <strong>Type:</strong> {flags.join(', ')}
+            </Typography>
+          ) : null}
+          {accident.date ? (
+            <Typography variant="body2" sx={{ color: 'text.primary' }}>
+              <strong>Date:</strong> {accident.date}
+            </Typography>
+          ) : null}
+          {accident.state ? (
+            <Typography variant="body2" sx={{ color: 'text.primary' }}>
+              <strong>State:</strong> {accident.state}
+            </Typography>
+          ) : null}
+        </Stack>
+      );
+    }
+    default:
+      return null;
+  }
+};
+
+const SectionCard: React.FC<{
+  descriptor: SectionDescriptor;
+  sections: AdminGetTemplateDetailOutput['sections'];
+  action: TemplateSectionAction;
+  onActionChange: (action: TemplateSectionAction) => void;
+  disabled: boolean;
+}> = ({ descriptor, sections, action, onActionChange, disabled }) => {
+  const theme = useTheme();
+  const noAppend = TEMPLATE_SECTIONS_NO_APPEND.has(descriptor.key);
+
+  const previewSx = {
+    opacity: action === 'skip' ? 0.5 : 1,
+    transition: 'opacity 120ms ease-in-out',
+  };
+
+  return (
+    <Box
+      sx={{
+        border: `1px solid ${theme.palette.divider}`,
+        borderRadius: 1,
+        p: 2,
+      }}
+      data-testid={`template-section-${descriptor.key}`}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+          {descriptor.label}
+        </Typography>
+        <ToggleButtonGroup
+          value={action}
+          exclusive
+          size="small"
+          onChange={(_, next: TemplateSectionAction | null) => {
+            if (next) onActionChange(next);
+          }}
+          disabled={disabled}
+          aria-label={`Action for ${descriptor.label}`}
+        >
+          <ToggleButton value="skip" title={ACTION_TOOLTIPS.skip}>
+            {ACTION_LABELS.skip}
+          </ToggleButton>
+          {noAppend ? null : (
+            <ToggleButton value="append" title={ACTION_TOOLTIPS.append}>
+              {ACTION_LABELS.append}
+            </ToggleButton>
+          )}
+          <ToggleButton value="overwrite" title={ACTION_TOOLTIPS.overwrite}>
+            {ACTION_LABELS.overwrite}
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Stack>
+      <Box sx={previewSx}>
+        <SectionPreview sectionKey={descriptor.key} sections={sections} />
+      </Box>
+    </Box>
+  );
+};
+
+export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
+  open,
+  templateId,
+  templateName,
+  isApplying,
+  onCancel,
+  onApply,
+}) => {
+  const { oystehrZambda } = useApiClients();
+  const theme = useTheme();
+  const [actions, setActions] = useState<Record<TemplateSectionKey, TemplateSectionAction>>({
+    ...TEMPLATE_SECTION_DEFAULT_ACTIONS,
+  });
+
+  const detailQuery = useQuery({
+    queryKey: ['admin-get-template-detail', templateId],
+    enabled: open && !!templateId && !!oystehrZambda,
+    queryFn: async () => {
+      if (!oystehrZambda || !templateId) throw new Error('API client or templateId not available');
+      return getTemplateDetail(oystehrZambda, { templateId });
+    },
+  });
+
+  useEffect(() => {
+    if (open) {
+      setActions({ ...TEMPLATE_SECTION_DEFAULT_ACTIONS });
+    }
+  }, [open, templateId]);
+
+  const sectionsWithContent = useMemo(() => {
+    if (!detailQuery.data) return [];
+    return SECTIONS_IN_ORDER.filter((s) => sectionHasContent(detailQuery.data.sections, s.key));
+  }, [detailQuery.data]);
+
+  const handleActionChange = (key: TemplateSectionKey, action: TemplateSectionAction): void => {
+    setActions((prev) => ({ ...prev, [key]: action }));
+  };
+
+  const handleApply = (): void => {
+    // Only send actions for sections the template actually has content for.
+    // Skipping a section the template doesn't carry is a no-op and would clutter the payload.
+    const payload: TemplateSectionActions = {};
+    for (const section of sectionsWithContent) {
+      payload[section.key] = actions[section.key];
+    }
+    onApply(payload);
+  };
+
+  const buttonSx = {
+    fontWeight: 500,
+    textTransform: 'none',
+    borderRadius: 6,
+  };
+
+  const allSkipped = sectionsWithContent.length > 0 && sectionsWithContent.every((s) => actions[s.key] === 'skip');
+
+  return (
+    <Dialog
+      open={open}
+      onClose={isApplying ? undefined : onCancel}
+      disableScrollLock
+      maxWidth="md"
+      fullWidth
+      sx={{
+        '.MuiPaper-root': {
+          padding: 2,
+        },
+      }}
+    >
+      <DialogTitle variant="h4" color="primary.dark">
+        Apply Template: {templateName}
+      </DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mb: 2 }}>
+          Review what will be applied and choose how each section should be merged with the current note.
+        </Typography>
+        {detailQuery.isLoading ? (
+          <Stack spacing={2}>
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} variant="rectangular" height={120} />
+            ))}
+          </Stack>
+        ) : detailQuery.error ? (
+          <Alert severity="error">
+            Failed to load template preview: {(detailQuery.error as Error).message ?? 'Unknown error'}
+          </Alert>
+        ) : sectionsWithContent.length === 0 ? (
+          <Alert severity="info">This template is empty — nothing to apply.</Alert>
+        ) : (
+          <Stack spacing={2} divider={<Divider flexItem />}>
+            {sectionsWithContent.map((section) => (
+              <SectionCard
+                key={section.key}
+                descriptor={section}
+                sections={detailQuery.data!.sections}
+                action={actions[section.key]}
+                onActionChange={(next) => handleActionChange(section.key, next)}
+                disabled={isApplying}
+              />
+            ))}
+          </Stack>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>
+        <Button variant="outlined" onClick={onCancel} size="medium" sx={buttonSx} disabled={isApplying}>
+          Cancel
+        </Button>
+        <LoadingButton
+          variant="contained"
+          onClick={handleApply}
+          size="medium"
+          sx={buttonSx}
+          loading={isApplying}
+          disabled={detailQuery.isLoading || !!detailQuery.error || sectionsWithContent.length === 0 || allSkipped}
+        >
+          Apply Template
+        </LoadingButton>
+      </DialogActions>
+    </Dialog>
+  );
+};

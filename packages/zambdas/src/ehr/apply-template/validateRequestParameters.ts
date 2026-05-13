@@ -1,5 +1,45 @@
-import { ApplyTemplateZambdaInput, ExamType, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
+import {
+  ApplyTemplateZambdaInput,
+  ExamType,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUIRED_PARAMETERS,
+  TEMPLATE_SECTION_DEFAULT_ACTIONS,
+  TEMPLATE_SECTIONS_NO_APPEND,
+  TemplateSectionAction,
+  TemplateSectionActions,
+  TemplateSectionKey,
+} from 'utils';
 import { ZambdaInput } from '../../shared';
+
+const VALID_ACTIONS: readonly TemplateSectionAction[] = ['skip', 'overwrite', 'append'];
+
+const VALID_SECTION_KEYS: ReadonlySet<TemplateSectionKey> = new Set(
+  Object.keys(TEMPLATE_SECTION_DEFAULT_ACTIONS) as TemplateSectionKey[]
+);
+
+const parseSectionActions = (raw: unknown): TemplateSectionActions => {
+  if (raw === undefined) return {};
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw INVALID_INPUT_ERROR('sectionActions must be an object');
+  }
+
+  const result: TemplateSectionActions = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!VALID_SECTION_KEYS.has(key as TemplateSectionKey)) {
+      throw INVALID_INPUT_ERROR(`Unknown template section: ${key}`);
+    }
+    if (typeof value !== 'string' || !VALID_ACTIONS.includes(value as TemplateSectionAction)) {
+      throw INVALID_INPUT_ERROR(
+        `Invalid action for section ${key}: ${String(value)}. Must be one of: ${VALID_ACTIONS.join(', ')}`
+      );
+    }
+    if (value === 'append' && TEMPLATE_SECTIONS_NO_APPEND.has(key as TemplateSectionKey)) {
+      throw INVALID_INPUT_ERROR(`Section ${key} does not support the 'append' action`);
+    }
+    result[key as TemplateSectionKey] = value as TemplateSectionAction;
+  }
+  return result;
+};
 
 export function validateRequestParameters(input: ZambdaInput): ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
@@ -13,7 +53,7 @@ export function validateRequestParameters(input: ZambdaInput): ApplyTemplateZamb
     throw INVALID_INPUT_ERROR('Request body must be a valid JSON object');
   }
 
-  const { examType, templateName, encounterId } = parsedInput as Record<string, unknown>;
+  const { examType, templateName, encounterId, sectionActions } = parsedInput as Record<string, unknown>;
 
   // Validate required parameters
   const missingFields = [];
@@ -49,10 +89,13 @@ export function validateRequestParameters(input: ZambdaInput): ApplyTemplateZamb
     throw new Error('No secrets provided in input');
   }
 
+  const validatedSectionActions = parseSectionActions(sectionActions);
+
   return {
     examType: examType as ExamType,
     templateName,
     encounterId,
+    sectionActions: validatedSectionActions,
     secrets: input.secrets,
   };
 }

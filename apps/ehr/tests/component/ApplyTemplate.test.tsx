@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
@@ -21,12 +21,14 @@ const mockCreateTemplate = vi.fn();
 const mockDeleteTemplate = vi.fn();
 const mockApplyTemplate = vi.fn();
 const mockListTemplates = vi.fn();
+const mockGetTemplateDetail = vi.fn();
 
 vi.mock('src/api/api', () => ({
   createTemplate: (...args: any[]) => mockCreateTemplate(...args),
   deleteTemplate: (...args: any[]) => mockDeleteTemplate(...args),
   applyTemplate: (...args: any[]) => mockApplyTemplate(...args),
   listTemplates: (...args: any[]) => mockListTemplates(...args),
+  getTemplateDetail: (...args: any[]) => mockGetTemplateDetail(...args),
 }));
 
 const mockOystehrZambda = { zambda: { execute: vi.fn() } };
@@ -75,6 +77,12 @@ vi.mock('src/hooks/useEvolveUser', () => ({
   }),
 }));
 
+const mockResetRosObservationsStore = vi.fn();
+
+vi.mock('../../src/features/visits/shared/stores/appointment/reset-ros-observations', () => ({
+  resetRosObservationsStore: (...args: any[]) => mockResetRosObservationsStore(...args),
+}));
+
 // ============================================================================
 // IMPORTS (must come after vi.mock calls)
 // ============================================================================
@@ -91,6 +99,29 @@ const mockTemplatesData = {
     { title: 'Ear Infection', id: 'template-2' },
     { title: 'Well Child Visit', id: 'template-3' },
   ],
+};
+
+const mockTemplateDetail = {
+  templateName: 'Sore Throat',
+  templateId: 'template-1',
+  examVersion: '2025-09-25',
+  isCurrentVersion: true,
+  sections: {
+    hpiNote: 'Patient reports sore throat for 3 days.',
+    moiNote: null,
+    rosNote: 'Negative except as documented.',
+    rosFindings: [],
+    examFindings: [
+      { fieldName: 'throat-erythema', label: 'Throat erythema', isAbnormal: true, note: 'Marked redness' },
+      { fieldName: 'lungs-clear', label: 'Lungs clear', isAbnormal: false, note: '' },
+    ],
+    mdm: 'Streptococcal pharyngitis suspected.',
+    diagnoses: [{ code: 'J02.9', display: 'Acute pharyngitis, unspecified' }],
+    patientInstructions: [{ title: 'Hydration', text: 'Drink plenty of fluids.' }],
+    cptCodes: [{ code: '99213', display: 'Office visit' }],
+    emCode: { code: '99213', display: 'Office visit' },
+    accident: null,
+  },
 };
 
 const createWrapper = () => {
@@ -120,6 +151,7 @@ describe('ApplyTemplate', () => {
     mockCreateTemplate.mockResolvedValue({ templateName: 'New Template', templateId: 'new-id' });
     mockDeleteTemplate.mockResolvedValue({ message: 'Deleted' });
     mockApplyTemplate.mockResolvedValue({ message: 'Applied' });
+    mockGetTemplateDetail.mockResolvedValue(mockTemplateDetail);
   });
 
   it('should render the template select autocomplete', async () => {
@@ -326,7 +358,7 @@ describe('ApplyTemplate', () => {
     });
   });
 
-  it('should show apply confirmation dialog when selecting a regular template', async () => {
+  it('should open the preview dialog with section cards when selecting a regular template', async () => {
     const user = userEvent.setup();
     render(<ApplyTemplate />, { wrapper: createWrapper() });
 
@@ -344,13 +376,21 @@ describe('ApplyTemplate', () => {
     await user.click(screen.getByText('Sore Throat'));
 
     await waitFor(() => {
-      expect(screen.getByText(/Are you sure you want to apply/)).toBeInTheDocument();
-      // Dialog title and confirm button both say "Apply Template"
-      expect(screen.getAllByText('Apply Template').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText('Apply Template: Sore Throat')).toBeInTheDocument();
+      expect(screen.getByText(/Review what will be applied/)).toBeInTheDocument();
     });
+
+    // Only sections with content in the fixture should render. moiNote is null, accident is null.
+    await waitFor(() => {
+      expect(screen.getByTestId('template-section-hpi')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('template-section-mdm')).toBeInTheDocument();
+    expect(screen.getByTestId('template-section-examFindings')).toBeInTheDocument();
+    expect(screen.queryByTestId('template-section-moi')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('template-section-accident')).not.toBeInTheDocument();
   });
 
-  it('should call applyTemplate when confirming apply', async () => {
+  it('should send default actions to applyTemplate when applied without changes', async () => {
     const user = userEvent.setup();
     render(<ApplyTemplate />, { wrapper: createWrapper() });
 
@@ -358,23 +398,18 @@ describe('ApplyTemplate', () => {
       expect(screen.getByLabelText('Select condition')).toBeInTheDocument();
     });
 
-    const autocomplete = screen.getByLabelText('Select condition');
-    await user.click(autocomplete);
-
+    await user.click(screen.getByLabelText('Select condition'));
     await waitFor(() => {
       expect(screen.getByText('Sore Throat')).toBeInTheDocument();
     });
-
     await user.click(screen.getByText('Sore Throat'));
 
     await waitFor(() => {
-      expect(screen.getByText(/Are you sure you want to apply/)).toBeInTheDocument();
+      expect(screen.getByTestId('template-section-hpi')).toBeInTheDocument();
     });
 
-    // Click the "Apply Template" button in the dialog (the second one, in DialogActions)
-    const applyButtons = screen.getAllByText('Apply Template');
-    const confirmButton = applyButtons[applyButtons.length - 1];
-    await user.click(confirmButton);
+    const applyButton = screen.getByRole('button', { name: 'Apply Template' });
+    await user.click(applyButton);
 
     await waitFor(() => {
       expect(mockApplyTemplate).toHaveBeenCalledWith(
@@ -383,9 +418,91 @@ describe('ApplyTemplate', () => {
           encounterId: 'test-encounter-id',
           templateName: 'Sore Throat',
           examType: 'inPerson',
+          sectionActions: {
+            hpi: 'append',
+            ros: 'append',
+            examFindings: 'overwrite',
+            mdm: 'overwrite',
+            diagnoses: 'append',
+            patientInstructions: 'overwrite',
+            cptCodes: 'append',
+            emCode: 'overwrite',
+          },
         })
       );
     });
+  });
+
+  it('should not render an Append button for sections that disallow it', async () => {
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const examCard = await screen.findByTestId('template-section-examFindings');
+    expect(within(examCard).queryByRole('button', { name: 'Append' })).toBeNull();
+    expect(within(examCard).getByRole('button', { name: 'Skip' })).toBeInTheDocument();
+    expect(within(examCard).getByRole('button', { name: 'Overwrite' })).toBeInTheDocument();
+
+    const emCard = screen.getByTestId('template-section-emCode');
+    expect(within(emCard).queryByRole('button', { name: 'Append' })).toBeNull();
+  });
+
+  it('should forward the user-selected per-section actions to applyTemplate', async () => {
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const mdmCard = await screen.findByTestId('template-section-mdm');
+    await user.click(within(mdmCard).getByRole('button', { name: 'Skip' }));
+
+    const hpiCard = screen.getByTestId('template-section-hpi');
+    await user.click(within(hpiCard).getByRole('button', { name: 'Overwrite' }));
+
+    await user.click(screen.getByRole('button', { name: 'Apply Template' }));
+
+    await waitFor(() => {
+      expect(mockApplyTemplate).toHaveBeenCalledWith(
+        mockOystehrZambda,
+        expect.objectContaining({
+          sectionActions: expect.objectContaining({
+            mdm: 'skip',
+            hpi: 'overwrite',
+          }),
+        })
+      );
+    });
+  });
+
+  it('should disable Apply when every section is set to Skip', async () => {
+    const user = userEvent.setup();
+    mockGetTemplateDetail.mockResolvedValue({
+      ...mockTemplateDetail,
+      sections: {
+        ...mockTemplateDetail.sections,
+        rosNote: null,
+        examFindings: [],
+        diagnoses: [],
+        patientInstructions: [],
+        cptCodes: [],
+        emCode: null,
+        mdm: null,
+        // Only HPI has content.
+      },
+    });
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const hpiCard = await screen.findByTestId('template-section-hpi');
+    await user.click(within(hpiCard).getByRole('button', { name: 'Skip' }));
+
+    const applyButton = screen.getByRole('button', { name: 'Apply Template' });
+    expect(applyButton).toBeDisabled();
   });
 
   it('should disable autocomplete when in read-only mode', async () => {
