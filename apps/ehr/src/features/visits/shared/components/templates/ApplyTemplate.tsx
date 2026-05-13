@@ -113,8 +113,9 @@ export const ApplyTemplate: React.FC = () => {
   };
 
   const handleDialogClose = (): void => {
+    // Leave pendingTemplate in place so the dialog body doesn't change while it
+    // animates out. It gets replaced on the next selection or apply.
     setDialogOpen(false);
-    setPendingTemplate(null);
   };
 
   const handleApplyTemplate = async (sectionActions: TemplateSectionActions): Promise<void> => {
@@ -152,7 +153,8 @@ export const ApplyTemplate: React.FC = () => {
     }
     setSelectedTemplate(pendingTemplate);
     setDialogOpen(false);
-    setPendingTemplate(null);
+    // Keep pendingTemplate while the dialog animates out; the next selection
+    // (or another apply) will overwrite it.
   };
 
   const selectTemplateByName = (templateName: string): void => {

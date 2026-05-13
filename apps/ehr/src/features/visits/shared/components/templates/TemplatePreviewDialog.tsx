@@ -5,13 +5,13 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Collapse,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
-  Skeleton,
   Stack,
   ToggleButtonGroup,
   Typography,
@@ -518,11 +518,9 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
           Review what will be applied and choose how each section should be merged with the current note.
         </Typography>
         {detailQuery.isLoading ? (
-          <Stack spacing={2}>
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} variant="rectangular" height={120} />
-            ))}
-          </Stack>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+            <CircularProgress size={32} />
+          </Box>
         ) : detailQuery.error ? (
           <Alert severity="error">
             Failed to load template preview: {(detailQuery.error as Error).message ?? 'Unknown error'}
