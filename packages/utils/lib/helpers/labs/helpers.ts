@@ -38,11 +38,16 @@ import {
   PSC_HOLD_CONFIG,
 } from '../../types';
 
-export const nameLabTest = (testName: string | undefined, labName: string | undefined, isReflex: boolean): string => {
+export const nameLabTest = (
+  testName: string | undefined,
+  itemCode: string | undefined,
+  labName: string | undefined,
+  isReflex: boolean
+): string => {
   if (isReflex) {
-    return `${testName} (reflex)`;
+    return `${itemCode ? `(${itemCode}) ` : ''}${testName} (reflex)`;
   } else {
-    return `${testName} / ${labName}`;
+    return `${itemCode ? `(${itemCode}) ` : ''}${testName} / ${labName}`;
   }
 };
 
@@ -183,24 +188,29 @@ export function createOrderNumber(length = ORDER_NUMBER_LEN): string {
   return result;
 }
 
-export const parseLabInfoFromServiceRequest = (
-  serviceRequest: ServiceRequest
-): { testItem: string; fillerLab: string } => {
-  const activityDefinition = serviceRequest.contained?.find(
-    (resource) => resource.resourceType === 'ActivityDefinition'
-  ) as ActivityDefinition | undefined;
-
-  if (!activityDefinition) {
-    return {
-      testItem: 'Unknown Test',
-      fillerLab: 'Unknown Lab',
-    };
-  }
+export const getTestDetailsFromActivityDefinition = (
+  activityDef: ActivityDefinition | undefined
+): { testName: string; testItemCode: string; fillerLab: string } => {
+  const testCoding = activityDef?.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+  const testName = testCoding?.display ?? 'Unknown Test';
+  const testItemCode = testCoding?.code ?? 'Unknown Code';
+  const fillerLab = activityDef?.publisher ?? 'Unknown Lab';
 
   return {
-    testItem: activityDefinition.title || 'Unknown Test',
-    fillerLab: activityDefinition.publisher || 'Unknown Lab',
+    testName,
+    testItemCode,
+    fillerLab,
   };
+};
+
+export const parseLabInfoFromServiceRequest = (
+  serviceRequest: ServiceRequest
+): { testName: string; fillerLab: string; testItemCode: string } => {
+  const activityDefinition = serviceRequest.contained?.find(
+    (resource): resource is ActivityDefinition => resource.resourceType === 'ActivityDefinition'
+  );
+
+  return getTestDetailsFromActivityDefinition(activityDefinition);
 };
 
 export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
