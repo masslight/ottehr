@@ -417,9 +417,9 @@ export const Header = (): JSX.Element => {
         </Box>
         <Grid container spacing={2} sx={{ padding: '0 18px 0 4px' }}>
           <Grid item xs={12}>
-            <Grid container alignItems="center" justifyContent="space-between">
+            <Grid container alignItems="center" justifyContent="space-between" wrap="nowrap">
               <Grid item>
-                <Grid container alignItems="center" spacing={2}>
+                <Grid container alignItems="center" spacing={2} wrap="nowrap">
                   <Grid item>
                     {isFollowup ? (
                       getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter?.status))

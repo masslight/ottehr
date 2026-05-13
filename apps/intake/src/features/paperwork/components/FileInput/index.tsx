@@ -15,6 +15,9 @@ import UploadComponent from './UploadComponent';
 
 export type AttachmentType = 'image' | 'pdf';
 
+export const COMPRESS_THRESHOLD_MB = 1;
+export const COMPRESS_TARGET_MB = 0.9;
+
 interface FileInputProps {
   fieldName: string;
   fileName: string;
@@ -163,19 +166,15 @@ const FileInput: FC<FileInputProps> = ({
         const rawFile = files[0];
         const file = attachmentType === 'image' ? await convertHeicToJpegIfNeeded(rawFile) : rawFile;
         let finalFile = file;
+        setSaveButtonDisabled(true);
         if (attachmentType === 'image') {
           const fileSizeInMb = file.size / (1024 * 1024);
-          if (fileSizeInMb >= 5) {
-            setSaveButtonDisabled(true);
+          if (fileSizeInMb >= COMPRESS_THRESHOLD_MB) {
             setCompressingImage(true);
-            const options = {
-              maxSizeMB: 4.9,
-            };
             try {
-              finalFile = await imageCompression(file, options);
-              console.log(`compressedFile size ${finalFile.size / 1024 / 1024} MB`); // smaller than maxSizeMB
+              finalFile = await imageCompression(file, { maxSizeMB: COMPRESS_TARGET_MB });
             } catch (error) {
-              console.log('error compressing file', error);
+              console.error('error compressing file', error);
             }
           }
         }
@@ -183,7 +182,6 @@ const FileInput: FC<FileInputProps> = ({
         const tempURL = URL.createObjectURL(finalFile);
         setPreviewUrl(tempURL); // Use this as a temporary image URL until the insurance info form is submitted
         setPendingZ3Upload(finalFile);
-        setSaveButtonDisabled(true);
         setZ3UploadState(UploadState.initial);
         setCompressingImage(false);
         return finalFile.name;
@@ -193,6 +191,8 @@ const FileInput: FC<FileInputProps> = ({
       }
     } catch (error) {
       console.error('Error occurred during file upload:', error);
+      setCompressingImage(false);
+      setSaveButtonDisabled(false);
       return null;
     }
   };

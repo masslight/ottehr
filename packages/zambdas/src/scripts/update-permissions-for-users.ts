@@ -1,5 +1,4 @@
 import fs from 'fs';
-import fetch from 'node-fetch';
 import { getAuth0Token } from '../shared';
 
 const updatePermissionsFromZambdaList = async (zambdaList: string[], config: any): Promise<void> => {

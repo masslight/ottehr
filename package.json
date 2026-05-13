@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.33.24",
+  "version": "1.33.26",
   "private": true,
   "packageManager": "npm@10.9.3",
   "engines": {
@@ -200,7 +200,6 @@
     "@types/jest": "^27.5.2",
     "@types/luxon": "^3.1.0",
     "@types/node": "^18.11.18",
-    "@types/node-fetch": "^2.6.2",
     "@types/parquetjs": "^0.10.6",
     "@types/react": "^18.0.17",
     "@types/react-dom": "^18.0.6",

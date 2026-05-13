@@ -1,6 +1,6 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { useSuccessQuery } from 'utils';
 import { ListPatientPaymentInput, ListPatientPaymentResponse, PromiseReturnType } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { useApiClients } from './useAppClients';
 
 interface GetPatientPaymentsInput extends ListPatientPaymentInput {
