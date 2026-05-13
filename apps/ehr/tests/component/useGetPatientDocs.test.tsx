@@ -51,7 +51,9 @@ const protectedList = (id: string, title: string, display: string, entryCount = 
   })),
 });
 
-const customList = (id: string, internalName: string, display: string, entryCount = 0): List => ({
+// Per-patient List for a custom folder. Mirrors `createCustomPatientDocumentList`:
+// no `display` on the coding — the displayName is resolved from the catalog.
+const customList = (id: string, internalName: string, entryCount = 0): List => ({
   resourceType: 'List',
   id,
   status: 'current',
@@ -59,7 +61,7 @@ const customList = (id: string, internalName: string, display: string, entryCoun
   title: internalName,
   code: {
     coding: [
-      { system: 'https://fhir.zapehr.com/r4/StructureDefinitions', code: 'patient-docs-folder', display },
+      { system: 'https://fhir.zapehr.com/r4/StructureDefinitions', code: 'patient-docs-folder' },
       { system: 'https://fhir.ottehr.com/r4/CodeSystem/folder-kind', code: 'custom' },
     ],
   },
@@ -69,7 +71,7 @@ const customList = (id: string, internalName: string, display: string, entryCoun
   })),
 });
 
-const catalogList = (entries: { internalName: string; displayName: string }[]): List => ({
+const catalogList = (entries: { internalName: string; displayName: string; deleted?: boolean }[]): List => ({
   resourceType: 'List',
   id: 'catalog-1',
   status: 'current',
@@ -77,6 +79,13 @@ const catalogList = (entries: { internalName: string; displayName: string }[]): 
   identifier: [{ value: 'ottehr-custom-folders-catalog' }],
   entry: entries.map((e) => ({
     item: { display: e.displayName, identifier: { value: e.internalName } },
+    ...(e.deleted
+      ? {
+          flag: {
+            coding: [{ system: 'https://fhir.ottehr.com/r4/CodeSystem/custom-folder-entry-flag', code: 'deleted' }],
+          },
+        }
+      : {}),
   })),
 });
 
@@ -85,7 +94,7 @@ const stubBundle = (resources: List[]): any => ({ unbundle: () => resources });
 // configure mockFhirSearch by params: identify catalog vs lists query.
 const setupSearch = (
   perPatientLists: List[],
-  catalogEntries: { internalName: string; displayName: string }[]
+  catalogEntries: { internalName: string; displayName: string; deleted?: boolean }[]
 ): void => {
   mockFhirSearch.mockImplementation(async (req: any) => {
     const params: { name: string; value: string }[] = req?.params ?? [];
@@ -134,34 +143,18 @@ describe('useGetPatientDocs — folders merge', () => {
     expect(synth!.isCustom).toBe(true);
   });
 
-  it('keeps an orphan per-patient List (catalog entry deleted) and resolves folderName from the per-patient coding', async () => {
-    // The catalog has been "soft-deleted" — no entries — but the patient still has a custom List
-    // with one document. The hook should keep the folder and resolve its display from
-    // code.coding[0].display.
-    setupSearch([customList('list-orphan', 'custom-folder-removed', 'Removed Folder', 1)], []);
+  it('drops a custom per-patient List with no matching catalog entry', async () => {
+    // Anomalous state: per-patient List references an internalName the catalog knows
+    // nothing about (not even as a tombstone). Skip rather than render an unnamed folder.
+    setupSearch([customList('list-orphan', 'custom-folder-orphan', 0)], []);
     const folders = renderUseGetPatientDocs();
-    await waitFor(() => expect(folders.current().some((f) => f.internalName === 'custom-folder-removed')).toBe(true));
-    const orphan = folders.current().find((f) => f.internalName === 'custom-folder-removed')!;
-    expect(orphan.id).toBe('list-orphan');
-    expect(orphan.folderName).toBe('Removed Folder');
-    expect(orphan.documentsCount).toBe(1);
-    expect(orphan.isCustom).toBe(true);
-  });
-
-  it('drops an orphan per-patient List when it has no documents (no point keeping an empty deleted folder)', async () => {
-    setupSearch([customList('list-empty-orphan', 'custom-folder-empty', 'Empty Removed', 0)], []);
-    const folders = renderUseGetPatientDocs();
-    // Wait for the query to settle. Because there are no folders to expose, we wait
-    // for at least one render cycle and then assert the orphan is absent.
     await waitFor(() => expect(mockFhirSearch).toHaveBeenCalled());
-    expect(folders.current().some((f) => f.internalName === 'custom-folder-empty')).toBe(false);
+    expect(folders.current().some((f) => f.internalName === 'custom-folder-orphan')).toBe(false);
   });
 
-  it('catalog rename wins over the frozen display on the per-patient List', async () => {
+  it('catalog displayName drives folder name even after rename', async () => {
     setupSearch(
-      // Per-patient List was created when display was "Old Name" (frozen on the coding).
-      [customList('list-renamed', 'custom-folder-renamed', 'Old Name', 2)],
-      // Catalog has been renamed to "New Name".
+      [customList('list-renamed', 'custom-folder-renamed', 2)],
       [{ internalName: 'custom-folder-renamed', displayName: 'New Name' }]
     );
     const folders = renderUseGetPatientDocs();
@@ -172,9 +165,34 @@ describe('useGetPatientDocs — folders merge', () => {
     expect(folder.documentsCount).toBe(2);
   });
 
+  it('soft-deleted catalog entry still resolves the latest displayName for an existing per-patient List', async () => {
+    // Simulates: admin created "Custom Folder", patient uploaded a doc, admin renamed to
+    // "Primary Folder" then deleted. The catalog entry is now a tombstone with the
+    // latest displayName "Primary Folder". The patient docs view must show "Primary Folder".
+    setupSearch(
+      [customList('list-soft-deleted', 'custom-folder-x', 1)],
+      [{ internalName: 'custom-folder-x', displayName: 'Primary Folder', deleted: true }]
+    );
+    const folders = renderUseGetPatientDocs();
+    await waitFor(() => expect(folders.current().some((f) => f.internalName === 'custom-folder-x')).toBe(true));
+    const folder = folders.current().find((f) => f.internalName === 'custom-folder-x')!;
+    expect(folder.folderName).toBe('Primary Folder');
+    expect(folder.documentsCount).toBe(1);
+  });
+
+  it('does not synthesize a folder for a soft-deleted catalog entry when no per-patient List exists', async () => {
+    setupSearch(
+      [protectedList('list-1', PROTECTED_FOLDER.title, PROTECTED_FOLDER.display)],
+      [{ internalName: 'custom-folder-tombstoned', displayName: 'Tombstoned Folder', deleted: true }]
+    );
+    const folders = renderUseGetPatientDocs();
+    await waitFor(() => expect(mockFhirSearch).toHaveBeenCalled());
+    expect(folders.current().some((f) => f.internalName === 'custom-folder-tombstoned')).toBe(false);
+  });
+
   it('deduplicates by internalName when both a per-patient List and a catalog entry exist', async () => {
     setupSearch(
-      [customList('list-dup', 'custom-folder-foo', 'Foo from list', 3)],
+      [customList('list-dup', 'custom-folder-foo', 3)],
       [{ internalName: 'custom-folder-foo', displayName: 'Foo from catalog' }]
     );
     const folders = renderUseGetPatientDocs();
