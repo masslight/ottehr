@@ -8,7 +8,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { wrapHandler, ZambdaInput } from '../../shared';
+import { FIVE_MINUTES, wrapHandler, ZambdaInput } from '../../shared';
 
 interface ValidatedInput {
   secrets: Secrets;
@@ -18,8 +18,6 @@ interface ValidatedInput {
 let cachedToken: CandidToken | undefined;
 let inflightRefresh: Promise<CandidToken> | undefined;
 let candidApiClient: CandidApiClient | undefined;
-
-const FIVE_MINUTES = 5 * 60 * 1000;
 
 const ZAMBDA_NAME = 'get-or-create-candid-api-client';
 
