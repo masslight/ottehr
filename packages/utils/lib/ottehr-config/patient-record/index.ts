@@ -977,16 +977,16 @@ const FormFields: PatientRecordFormFields = {
     },
     triggers: [
       {
-        targetQuestionLinkId: 'reason-for-visit',
+        targetQuestionLinkId: 'appointment-service-category',
         effect: ['enable'],
-        operator: '=',
-        answerString: 'Auto accident',
+        operator: 'exists',
+        answerBoolean: false,
       },
       {
         targetQuestionLinkId: 'reason-for-visit',
         effect: ['enable'],
-        operator: 'exists',
-        answerBoolean: false,
+        operator: '=',
+        answerString: 'Auto accident',
       },
     ],
     enableBehavior: 'any',
@@ -1000,7 +1000,7 @@ const hiddenFormSections: string[] = [];
 const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
   url: 'http://example.org/fhir/Questionnaire/patient-record',
-  version: '1.0.0',
+  version: '1.0.1',
   name: 'PatientRecordQuestionnaire',
   title: 'Patient Record Questionnaire',
   status: 'active',

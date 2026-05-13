@@ -3479,14 +3479,14 @@
     ],
     "enableWhen": [
       {
-        "question": "reason-for-visit",
-        "operator": "=",
-        "answerString": "Auto accident"
+        "question": "appointment-service-category",
+        "operator": "exists",
+        "answerBoolean": false
       },
       {
         "question": "reason-for-visit",
-        "operator": "exists",
-        "answerBoolean": false
+        "operator": "=",
+        "answerString": "Auto accident"
       }
     ],
     "enableBehavior": "any"

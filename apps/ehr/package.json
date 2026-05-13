@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.33.22",
+  "version": "1.33.26",
   "private": true,
   "type": "module",
   "engines": {
@@ -67,7 +67,6 @@
     "dwt": "^19.0.0",
     "fast-json-patch": "^3.1.1",
     "json-diff-ts": "^4.0.1",
-    "node-fetch": "^2.6.1",
     "notistack": "^3.0.1",
     "react-chartjs-2": "^5.2.0",
     "react-draggable": "^4.4.6",

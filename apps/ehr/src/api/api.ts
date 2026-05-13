@@ -69,6 +69,8 @@ import {
   CreatePatientInstructionQuickPickResponse,
   CreateProcedureQuickPickInput,
   CreateProcedureQuickPickResponse,
+  CreateQuickTextQuickPickInput,
+  CreateQuickTextQuickPickResponse,
   CreateRadiologyQuickPickInput,
   CreateRadiologyQuickPickResponse,
   CreateRadiologyZambdaOrderInput,
@@ -120,6 +122,7 @@ import {
   GetPatientLoginPhoneNumbersOutput,
   GetPresignedFileURLInput,
   GetProcedureQuickPicksResponse,
+  GetQuickTextQuickPicksResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
   GetRadiologyQuickPicksResponse,
@@ -161,6 +164,7 @@ import {
   PracticeKpisReportZambdaOutput,
   PresignUploadUrlResponse,
   ProcedureQuickPickData,
+  QuickTextQuickPickData,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
   RadiologyQuickPickData,
@@ -173,6 +177,7 @@ import {
   RemoveMedicationHistoryQuickPickResponse,
   RemovePatientInstructionQuickPickResponse,
   RemoveProcedureQuickPickResponse,
+  RemoveQuickTextQuickPickResponse,
   RemoveRadiologyQuickPickResponse,
   RenameCustomFolderInput,
   RenameCustomFolderOutput,
@@ -203,6 +208,7 @@ import {
   UpdatePatientInstructionQuickPickResponse,
   UpdatePatientLoginPhoneNumbersInput,
   UpdateProcedureQuickPickResponse,
+  UpdateQuickTextQuickPickResponse,
   UpdateRadiologyQuickPickResponse,
   UpdateScheduleParams,
   UpdateUserParams,
@@ -317,6 +323,10 @@ const ADMIN_GET_PATIENT_INSTRUCTION_QUICK_PICKS_ZAMBDA_ID = 'admin-get-patient-i
 const ADMIN_CREATE_PATIENT_INSTRUCTION_QUICK_PICK_ZAMBDA_ID = 'admin-create-patient-instruction-quick-pick';
 const ADMIN_UPDATE_PATIENT_INSTRUCTION_QUICK_PICK_ZAMBDA_ID = 'admin-update-patient-instruction-quick-pick';
 const ADMIN_REMOVE_PATIENT_INSTRUCTION_QUICK_PICK_ZAMBDA_ID = 'admin-remove-patient-instruction-quick-pick';
+const ADMIN_GET_QUICK_TEXT_QUICK_PICKS_ZAMBDA_ID = 'admin-get-quick-text-quick-picks';
+const ADMIN_CREATE_QUICK_TEXT_QUICK_PICK_ZAMBDA_ID = 'admin-create-quick-text-quick-pick';
+const ADMIN_UPDATE_QUICK_TEXT_QUICK_PICK_ZAMBDA_ID = 'admin-update-quick-text-quick-pick';
+const ADMIN_REMOVE_QUICK_TEXT_QUICK_PICK_ZAMBDA_ID = 'admin-remove-quick-text-quick-pick';
 const UPDATE_INVOICE_TASK_ZAMBDA_ID = 'update-invoice-task';
 const GET_PATIENT_BALANCES_ZAMBDA_ID = 'get-patient-balances';
 const ADMIN_CREATE_TEMPLATE_ZAMBDA_ID = 'admin-create-template';
@@ -2690,6 +2700,68 @@ export const deleteCustomFolder = async (
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);
+  }
+};
+
+// ── Quick Text Quick Picks ──
+
+export const getQuickTextQuickPicks = async (oystehr: Oystehr): Promise<GetQuickTextQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: ADMIN_GET_QUICK_TEXT_QUICK_PICKS_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createQuickTextQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreateQuickTextQuickPickInput
+): Promise<CreateQuickTextQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_TEXT_QUICK_PICK_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateQuickTextQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<QuickTextQuickPickData, 'id'>
+): Promise<UpdateQuickTextQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_TEXT_QUICK_PICK_ZAMBDA_ID,
+      quickPickId,
+      quickPick,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const removeQuickTextQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string
+): Promise<RemoveQuickTextQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_REMOVE_QUICK_TEXT_QUICK_PICK_ZAMBDA_ID,
+      quickPickId,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
   }
 };
 
