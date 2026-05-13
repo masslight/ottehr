@@ -1,8 +1,14 @@
 import { MessagingGetMessagingConfigResponse, TransactionalSMSSendResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import { ConversationMessage, SMSRecipient } from 'utils';
+import {
+  BRANDING_CONFIG,
+  ConversationMessage,
+  QuickTextQuickPickData,
+  replaceTemplateVariablesHandlebars,
+  SMSRecipient,
+} from 'utils';
 import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
-import { getConversation } from '../../api/api';
+import { getConversation, getQuickTextQuickPicks } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { MessageModel } from './ChatModal';
 
@@ -80,6 +86,70 @@ export const useSendMessagesMutation = (
 
     onSuccess,
     onError,
+  });
+};
+
+export interface QuickTextsContext {
+  patientAppUrl?: string;
+  patientFirstName?: string;
+  patientLastName?: string;
+  visitId?: string;
+  locationName?: string;
+  bookingTime?: string;
+  officePhone?: string;
+  supportPhone?: string;
+}
+
+export interface ResolvedQuickText {
+  name: string;
+  english: string;
+  spanish?: string;
+}
+
+export const QUICK_TEXT_TOKEN_IDS = [
+  'patient-first-name',
+  'patient-last-name',
+  'paperwork-url',
+  'ai-interview-url',
+  'practice-name',
+  'location-name',
+  'booking-time',
+  'office-phone',
+  'support-phone',
+] as const;
+
+export const buildQuickTextVariables = (ctx: QuickTextsContext): Record<string, string> => ({
+  'patient-first-name': ctx.patientFirstName ?? '',
+  'patient-last-name': ctx.patientLastName ?? '',
+  'paperwork-url': ctx.patientAppUrl && ctx.visitId ? `${ctx.patientAppUrl}/visit/${ctx.visitId}` : '',
+  'ai-interview-url':
+    ctx.patientAppUrl && ctx.visitId ? `${ctx.patientAppUrl}/visit/${ctx.visitId}/ai-interview-start` : '',
+  'practice-name': BRANDING_CONFIG.projectName,
+  'location-name': ctx.locationName ?? '',
+  'booking-time': ctx.bookingTime ?? '',
+  'office-phone': ctx.officePhone ?? '',
+  'support-phone': ctx.supportPhone ?? '',
+});
+
+export const resolveQuickText = (
+  quickPick: QuickTextQuickPickData,
+  vars: Record<string, string>
+): ResolvedQuickText => ({
+  name: quickPick.name,
+  english: replaceTemplateVariablesHandlebars(quickPick.english, vars),
+  spanish: quickPick.spanish ? replaceTemplateVariablesHandlebars(quickPick.spanish, vars) : undefined,
+});
+
+export const useQuickTextsQuery = (): UseQueryResult<QuickTextQuickPickData[], Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['quick-text-quick-picks'],
+    queryFn: async () => {
+      const response = await getQuickTextQuickPicks(oystehrZambda!);
+      return [...response.quickPicks].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    },
+    enabled: !!oystehrZambda,
   });
 };
 
