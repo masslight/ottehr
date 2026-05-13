@@ -51,7 +51,9 @@ If you are setting up in order to try out Ottehr by running locally, start with 
 - Create an Oystehr project in the [Oystehr developer console](https://console.oystehr.com).
 - Create an M2M Client with full access rights in your Oystehr project; you can use the default M2M created during project setup.
 - Choose and configure your terraform backend:
-  - Local backend - Change the terraform backend config to use the 'local' in [main.tf](./main.tf).
+  - Local backend
+    - Change the terraform backend config to use the 'local' in [main.tf](./main.tf).
+    - Create an empty deploy/backend.config file (`touch deploy/backend.config` from the repo root). The terraform-init npm script always passes --backend-config=./backend.config, so the file must exist even though the local backend reads its state path from main.tf and needs no overrides.
   - S3 backend
     - Create an S3 bucket for your terraform state (example: ottehr-terraform-state).
     - Configure your Terraform Backend ([`deploy/backend.config`](/deploy/backend.config.template)).
@@ -68,7 +70,7 @@ If you are setting up in order to try out Ottehr by running locally, start with 
   - prod env: "lab-autolab-lab-id": "713d14ef-c30a-4b9a-a13a-4ad4648ff3ed"
 
 - Change env names in the terraform-setup script in deploy/packages.json for envs that you want to create
-- Run `npm run terraform-setup` to configure terraform remote state and workspaces. :warning: Only run this once. If using the local terraform backend, running this again will wipe your terraform state clean!
+- Run `npm run terraform-setup` once. This creates a local Terraform workspace (and others) that apply.sh requires. ⚠️  Only run this once per project. On a fresh install it's safe; re-running with the local backend wipes your state.
 
 Finally, you're ready to deploy your project. You can either run apply on its own or start the entire application locally, which will apply all needed resource changes:
 
