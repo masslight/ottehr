@@ -1999,6 +1999,48 @@
         "reason": "Create Task for eRX notification"
       }
     },
+    "GET_ALL_INSURANCE_PAYERS": {
+      "name": "get-all-insurance-payers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-all-insurance-payers/index",
+      "zip": ".dist/zips/get-all-insurance-payers.zip"
+    },
+    "GET_PATIENT_INSURANCE_PAYERS": {
+      "name": "get-patient-insurance-payers",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-patient-insurance-payers/index",
+      "zip": ".dist/zips/get-patient-insurance-payers.zip"
+    },
+    "GET_INSURANCE_OVERRIDE_LIST": {
+      "name": "get-insurance-override-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/get-insurance-override-list/index",
+      "zip": ".dist/zips/get-insurance-override-list.zip"
+    },
+    "ADD_PAYER_TO_INSURANCE_OVERRIDE_LIST": {
+      "name": "add-payer-to-insurance-override-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/add-payer-to-insurance-override-list/index",
+      "zip": ".dist/zips/add-payer-to-insurance-override-list.zip"
+    },
+    "REMOVE_PAYER_FROM_INSURANCE_OVERRIDE_LIST": {
+      "name": "remove-payer-from-insurance-override-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/remove-payer-from-insurance-override-list/index",
+      "zip": ".dist/zips/remove-payer-from-insurance-override-list.zip"
+    },
+    "EDIT_PAYER_IN_INSURANCE_OVERRIDE_LIST": {
+      "name": "edit-payer-in-insurance-override-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/edit-payer-in-insurance-override-list/index",
+      "zip": ".dist/zips/edit-payer-in-insurance-override-list.zip"
+    },
     "CREATE-CUSTOM-FOLDER": {
       "name": "create-custom-folder",
       "type": "http_auth",
