@@ -1,9 +1,8 @@
-import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
+import { progressNoteIcon } from '@ehrTheme/icons';
 import CallSplitIcon from '@mui/icons-material/CallSplit';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import LogoutIcon from '@mui/icons-material/Logout';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
 import { LoadingButton } from '@mui/lab';
@@ -43,6 +42,7 @@ import { otherColors } from 'src/themes/ottehr/colors';
 import {
   formatMinutes,
   getAbnormalVitals,
+  getAdmitterPractitionerId,
   getDurationOfStatus,
   getInPersonQuickTexts,
   getPatchBinary,
@@ -54,19 +54,24 @@ import {
   mdyStringFromISOString,
   NON_LOS_STATUSES,
   OrdersForTrackingBoardRow,
+  PRACTITIONER_CODINGS,
   ROOM_EXTENSION_URL,
   VisitStatusHistoryEntry,
+  VisitStatusWithoutUnknown,
 } from 'utils';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { InfoIconsToolTip } from '../features/visits/shared/components/InfoIconsToolTip';
 import { useOystehrAPIClient } from '../features/visits/shared/hooks/useOystehrAPIClient';
+import { usePractitionerActions } from '../features/visits/shared/hooks/usePractitioner';
 import { useSignAppointmentMutation } from '../features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder, isEligibleSupervisor } from '../helpers';
+import { completeIntakeWorkflow } from '../helpers/completeIntakeWorkflow';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
 import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
+import { getTrackingBoardPrimaryAction } from '../helpers/trackingBoardPrimaryAction';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import AppointmentNote from './AppointmentNote';
@@ -196,12 +201,12 @@ export default function AppointmentTableRow({
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
 
-  const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
+  const [primaryActionButtonLoading, setPrimaryActionButtonLoading] = useState(false);
   const [progressNoteButtonLoading, setProgressNoteButtonLoading] = useState(false);
-  const [dischargeButtonLoading, setDischargeButtonLoading] = useState(false);
   const [approveButtonLoading, setApproveButtonLoading] = useState(false);
 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
+  const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'end', PRACTITIONER_CODINGS.Admitter);
 
   const rooms = useMemo(() => {
     return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
@@ -562,43 +567,122 @@ export default function AppointmentTableRow({
     return null;
   }
   const encounterId: string = encounter.id;
+  const primaryAction = getTrackingBoardPrimaryAction(appointment.status);
+  const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
 
-  const handleStartIntakeButton = async (): Promise<void> => {
-    setStartIntakeButtonLoading(true);
+  const handleStatusAction = async (
+    updatedStatus: VisitStatusWithoutUnknown,
+    options?: {
+      navigateTo?: string;
+      successMessage?: string;
+      missingUserMessage?: string;
+    }
+  ): Promise<void> => {
+    setPrimaryActionButtonLoading(true);
+
     if (!user) {
-      enqueueSnackbar('User is not available. Cannot start intake.', { variant: 'error' });
+      enqueueSnackbar(options?.missingUserMessage || 'User is not available. Cannot update visit status.', {
+        variant: 'error',
+      });
+      setPrimaryActionButtonLoading(false);
       return;
     }
+
+    let shouldResetLoadingState = true;
+
     try {
       await handleChangeInPersonVisitStatus(
         {
-          encounterId: encounterId,
-          updatedStatus: 'intake',
+          encounterId,
+          updatedStatus,
         },
         oystehrZambda
       );
-      navigate(getInPersonUrlByAppointmentType(appointment, 'patient-info'));
+
+      if (options?.successMessage) {
+        enqueueSnackbar(options.successMessage, { variant: 'success' });
+      }
+
+      if (options?.navigateTo) {
+        shouldResetLoadingState = false;
+        navigate(options.navigateTo);
+        return;
+      }
+
+      await updateAppointments();
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    } finally {
+      if (shouldResetLoadingState) {
+        setPrimaryActionButtonLoading(false);
+      }
     }
-    setStartIntakeButtonLoading(false);
   };
 
-  const renderStartIntakeButton = (): ReactElement | undefined => {
-    if (appointment.status === 'arrived' || appointment.status === 'ready' || appointment.status === 'intake') {
-      return (
-        <GoToButton
-          text="Start Intake"
-          loading={startIntakeButtonLoading}
-          onClick={handleStartIntakeButton}
-          dataTestId={dataTestIds.dashboard.intakeButton}
-        >
-          <img src={startIntakeIcon} />
-        </GoToButton>
-      );
+  const renderActionButton = (text: string, onClick: () => Promise<void>, dataTestId: string): ReactElement => {
+    return (
+      <LoadingButton
+        data-testid={dataTestId}
+        onClick={() => void onClick()}
+        loading={primaryActionButtonLoading}
+        variant="contained"
+        sx={{
+          borderRadius: 8,
+          textTransform: 'none',
+          fontSize: '15px',
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+          px: 2.5,
+        }}
+      >
+        {text}
+      </LoadingButton>
+    );
+  };
+
+  const handlePrimaryActionButton = async (): Promise<void> => {
+    if (!primaryAction) {
+      return;
     }
-    return undefined;
+
+    if (appointment.status === 'intake') {
+      setPrimaryActionButtonLoading(true);
+
+      try {
+        const completedIntake = await completeIntakeWorkflow({
+          assignedIntakePerformerId,
+          encounterId,
+          endIntakePractitioner: handleUpdatePractitioner,
+          refetch: updateAppointments,
+          zambdaClient: oystehrZambda,
+        });
+
+        if (completedIntake) {
+          enqueueSnackbar('Intake completed', { variant: 'success' });
+        }
+      } finally {
+        setPrimaryActionButtonLoading(false);
+      }
+
+      return;
+    }
+
+    await handleStatusAction(primaryAction.updatedStatus, {
+      missingUserMessage: primaryAction.missingUserMessage,
+      navigateTo: primaryAction.navigateToChart
+        ? getInPersonUrlByAppointmentType(appointment, 'patient-info')
+        : undefined,
+      successMessage: primaryAction.successMessage,
+    });
+  };
+
+  const renderPrimaryActionButton = (): ReactElement | undefined => {
+    if (!primaryAction) {
+      return undefined;
+    }
+
+    return renderActionButton(primaryAction.label, handlePrimaryActionButton, primaryAction.dataTestId);
   };
 
   const handleProgressNoteButton = async (): Promise<void> => {
@@ -614,6 +698,7 @@ export default function AppointmentTableRow({
 
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
+      appointment.status === 'intake' ||
       appointment.status === 'ready for provider' ||
       appointment.status === 'provider' ||
       appointment.status === 'awaiting supervisor approval' ||
@@ -689,45 +774,6 @@ export default function AppointmentTableRow({
           <Typography align="center">Approved</Typography>
           <Typography align="center">{mdyStringFromISOString(appointment.approvalDate)}</Typography>
         </Box>
-      );
-    }
-    return undefined;
-  };
-
-  const handleDischargeButton = async (): Promise<void> => {
-    setDischargeButtonLoading(true);
-    if (!user) {
-      enqueueSnackbar('User is not available. Cannot discharge patient.', { variant: 'error' });
-      return;
-    }
-    try {
-      await handleChangeInPersonVisitStatus(
-        {
-          encounterId: encounterId,
-          updatedStatus: 'discharged',
-        },
-        oystehrZambda
-      );
-      await updateAppointments();
-      enqueueSnackbar('Patient discharged successfully', { variant: 'success' });
-    } catch (error) {
-      console.error(error);
-      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
-    }
-    setDischargeButtonLoading(false);
-  };
-
-  const renderDischargeButton = (): ReactElement | undefined => {
-    if (appointment.status === 'provider') {
-      return (
-        <GoToButton
-          loading={dischargeButtonLoading}
-          text="Discharge"
-          onClick={handleDischargeButton}
-          dataTestId={dataTestIds.dashboard.dischargeButton}
-        >
-          <LogoutIcon />
-        </GoToButton>
       );
     }
     return undefined;
@@ -1012,7 +1058,7 @@ export default function AppointmentTableRow({
         )}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
-        <Stack direction={'row'} spacing={1} alignItems="center">
+        <Stack direction={'row'} spacing={1} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
           <GoToButton
             text="Visit Details"
             onClick={() => navigate(getInPersonVisitDetailsUrl(appointment.id))}
@@ -1020,10 +1066,13 @@ export default function AppointmentTableRow({
           >
             <MedicalInformationIcon />
           </GoToButton>
-          {renderArrivedButton()}
-          {renderStartIntakeButton()}
           {renderProgressNoteButton()}
-          {renderDischargeButton()}
+        </Stack>
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'center' }}>
+        <Stack direction={'row'} spacing={1} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
+          {renderArrivedButton()}
+          {renderPrimaryActionButton()}
           {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && renderSupervisorApproval()}
         </Stack>
       </TableCell>
