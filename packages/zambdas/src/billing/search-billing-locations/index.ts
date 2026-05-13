@@ -25,8 +25,8 @@ async function performEffect(
   const searchParams: { name: string; value: string }[] = [
     { name: '_count', value: '50' },
     { name: '_sort', value: 'name' },
-    EXCLUDE_WORKING_COPIES_PARAM,
   ];
+  if (!params.name) searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
   if (params.name) searchParams.push({ name: 'name', value: params.name });
 
   const response = await oystehr.fhir.search<Location>({ resourceType: 'Location', params: searchParams });
