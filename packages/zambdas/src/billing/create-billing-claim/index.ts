@@ -20,6 +20,7 @@ import {
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
   FHIR_RESOURCE_NOT_FOUND,
+  getResourcesFromBatchInlineRequests,
   InternalError,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -75,19 +76,7 @@ async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promi
   if (params.facilityId) searches.push(`/Location?_id=${params.facilityId}`);
   if (params.billingProviderId) searches.push(`/Organization?_id=${params.billingProviderId}`);
 
-  const batchResult = await oystehr.fhir.batch<FhirResource>({
-    requests: searches.map((url) => ({ method: 'GET' as const, url })),
-  });
-
-  const resources: Resource[] = [];
-  for (const entry of batchResult.entry ?? []) {
-    const bundle = entry.resource as any;
-    if (bundle?.entry) {
-      for (const inner of bundle.entry) {
-        if (inner.resource) resources.push(inner.resource);
-      }
-    }
-  }
+  const resources = await getResourcesFromBatchInlineRequests(oystehr, searches);
 
   const patient = findRef<Patient>(resources, `Patient/${params.patientId}`);
   if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
