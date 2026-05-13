@@ -152,9 +152,7 @@ export const performEffect = async (
           const eduPdfUrl = await createPresignedUrl(m2mToken, z3Url, 'download');
           const eduResponse = await fetch(eduPdfUrl);
           if (!eduResponse.ok) {
-            throw new Error(
-              `Failed to download education PDF: ${eduResponse.status} ${eduResponse.statusText}`
-            );
+            throw new Error(`Failed to download education PDF: ${eduResponse.status} ${eduResponse.statusText}`);
           }
           const eduBytes = new Uint8Array(await eduResponse.arrayBuffer());
           const eduPdf = await PDFDocument.load(eduBytes);
