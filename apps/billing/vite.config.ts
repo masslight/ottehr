@@ -19,10 +19,7 @@ export default ({ mode }: { mode: string }): UserConfig => {
       open: !process.env.VITE_NO_OPEN,
       host: '0.0.0.0',
       port: env.PORT ? parseInt(env.PORT) : 5002,
-      https:
-        tlsCert && tlsKey
-          ? { cert: './env/cert.pem', key: './env/key.pem' }
-          : undefined,
+      https: tlsCert && tlsKey ? { cert: './env/cert.pem', key: './env/key.pem' } : undefined,
     },
     build: {
       outDir: './build',
