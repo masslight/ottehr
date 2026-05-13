@@ -45,6 +45,8 @@ import {
   getCoding,
   getOrderNumber,
   getPresignedURL,
+  getTestDetailsFromActivityDefinition,
+  getTestItemCodeFromDr,
   getTestNameOrCodeFromDr,
   getTimezone,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
@@ -693,14 +695,13 @@ export const makeEncounterLabResults = async (
           const isReflex = diagnosticReportIsReflex(relatedDR);
           const orderNumber = getOrderNumber(sr);
           const activityDef = sr.contained?.find(
-            (resource) => resource.resourceType === 'ActivityDefinition'
-          ) as ActivityDefinition;
-          const testName = activityDef?.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display;
-          const labName = activityDef?.publisher;
-          let formattedName = nameLabTest(testName, labName, false);
+            (resource): resource is ActivityDefinition => resource.resourceType === 'ActivityDefinition'
+          );
+          const { testName, testItemCode, fillerLab: labName } = getTestDetailsFromActivityDefinition(activityDef);
+          let formattedName = nameLabTest(testName, testItemCode, labName, false);
           if (isReflex) {
             const reflexTestName = relatedDR?.code.coding?.[0].display || 'Name missing';
-            formattedName = nameLabTest(reflexTestName, labName, true);
+            formattedName = nameLabTest(reflexTestName, testItemCode, labName, true);
           }
 
           const resultValues = getResultValuesFromObservations(relatedDR, allObservations);
@@ -760,8 +761,8 @@ export const makeEncounterLabResults = async (
   const externalResultsPending = Array.from(activeExternalLabServiceRequestIds).map((srId) => {
     const srRef = `ServiceRequest/${srId}`;
     const serviceRequest = serviceRequestMap[srRef].resource;
-    const { testItem: testName, fillerLab } = parseLabInfoFromServiceRequest(serviceRequest);
-    return `${testName} / ${fillerLab}`;
+    const { testName, testItemCode, fillerLab } = parseLabInfoFromServiceRequest(serviceRequest);
+    return `(${testItemCode}) ${testName} / ${fillerLab}`;
   });
 
   const inHouseResultsPending = Array.from(activeInHouseLabServiceRequestIds).map((srId) => {
@@ -1450,6 +1451,7 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
   console.log('formatting dto');
   const dto: DiagnosticReportLabDetailPageDTO = {
     testItem: getTestNameOrCodeFromDr(diagnosticReport),
+    testItemCode: getTestItemCodeFromDr(diagnosticReport) ?? '',
     fillerLab: labOrg?.name || '',
     orderStatus: parseLabOrderStatusWithSpecificTask(diagnosticReport, task, undefined, null),
     isPSC: false,
