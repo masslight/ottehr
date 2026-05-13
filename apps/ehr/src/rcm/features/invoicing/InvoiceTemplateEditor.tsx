@@ -7,7 +7,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { SuggestionKeyDownProps, SuggestionOptions, SuggestionProps } from '@tiptap/suggestion';
 import React, { forwardRef, ReactElement, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createRoot, Root } from 'react-dom/client';
-import { replaceTemplateVariablesHandlebars } from 'utils';
+import { convertMarkdownLinksToHtml, replaceTemplateVariablesHandlebars } from 'utils';
 
 // ---------------------------------------------------------------------------
 // Token IDs (bare, without braces) — used as Mention node attrs.id
@@ -189,6 +189,8 @@ export interface TemplateEditorFieldProps {
   required?: boolean;
   error?: boolean;
   helperText?: string;
+  /** When true, render markdown links [text](url) as clickable <a> tags in preview. */
+  renderHtmlPreview?: boolean;
 }
 
 export function TemplateEditorField({
@@ -201,6 +203,7 @@ export function TemplateEditorField({
   required,
   error,
   helperText,
+  renderHtmlPreview,
 }: TemplateEditorFieldProps): ReactElement {
   const theme = useTheme();
   const [tab, setTab] = useState<'write' | 'preview'>('write');
@@ -319,9 +322,17 @@ export function TemplateEditorField({
                 borderColor: 'grey.200',
               }}
             >
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                {resolvedPreview}
-              </Typography>
+              {renderHtmlPreview ? (
+                <Typography
+                  variant="body2"
+                  sx={{ whiteSpace: 'pre-wrap', '& a': { color: 'primary.main' } }}
+                  dangerouslySetInnerHTML={{ __html: convertMarkdownLinksToHtml(resolvedPreview) }}
+                />
+              ) : (
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                  {resolvedPreview}
+                </Typography>
+              )}
             </Box>
           </TabPanel>
         </TabContext>

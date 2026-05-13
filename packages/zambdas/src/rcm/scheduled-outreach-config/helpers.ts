@@ -11,15 +11,18 @@ export const OUTREACH_PLAN_DEFINITION_URL = 'https://ottehr.com/r4/PlanDefinitio
 
 export type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due' | 'discharge-time' | 'patient-birthday';
 export type NotificationMedium = 'sms' | 'email' | 'paper-mail';
-export type ActionType = 'charge-card' | 'send-notification' | 'refer-to-collections';
+export type ActionType = 'charge-card' | 'send-notification' | 'refer-to-collections' | 'log';
 export type TimeUnit = 'days' | 'hours' | 'minutes';
 export type TriggerDirection = 'after' | 'before';
+
+export type OutreachStatementType = 'standard' | 'past-due' | 'final-notice';
 
 export interface NotificationConfig {
   enabled: boolean;
   mediums: NotificationMedium[];
   smsTemplate: string;
   emailTemplate: string;
+  statementType?: OutreachStatementType;
 }
 
 export interface ChargeCardConfig {
@@ -33,6 +36,7 @@ export interface SendNotificationConfig {
   mediums: NotificationMedium[];
   smsTemplate: string;
   emailTemplate: string;
+  statementType?: OutreachStatementType;
 }
 
 export interface ReferToCollectionsConfig {
@@ -60,6 +64,7 @@ export interface OutreachAction {
   chargeCardConfig?: ChargeCardConfig;
   sendNotificationConfig?: SendNotificationConfig;
   referToCollectionsConfig?: ReferToCollectionsConfig;
+  logConfig?: Record<string, never>;
 }
 
 // ── Notifications time restriction extension ───────────────────────────────
@@ -105,6 +110,7 @@ const ACTION_TYPE_DISPLAY: Record<ActionType, string> = {
   'charge-card': 'Charge Credit Card on File',
   'send-notification': 'Send Notification',
   'refer-to-collections': 'Refer to Collections',
+  log: 'Log',
 };
 
 const MEDIUM_DISPLAY: Record<NotificationMedium, string> = {
@@ -156,7 +162,8 @@ function buildMediumSubAction(
   suffix: string,
   medium: NotificationMedium,
   template: string,
-  label: string
+  label: string,
+  statementType?: OutreachStatementType
 ): PlanDefinition['action'] extends (infer A)[] | undefined ? A : never {
   const action: any = {
     id: `${parentId}-${suffix}-${medium}`,
@@ -170,6 +177,19 @@ function buildMediumSubAction(
 
   if (medium === 'paper-mail') {
     action.description = "Generate and mail a printed statement to the patient's address on file.";
+    if (statementType) {
+      action.documentation = [
+        {
+          type: 'documentation' as const,
+          label: 'statement-type',
+          document: {
+            contentType: 'text/plain',
+            data: encodeTemplate(statementType),
+            title: 'Statement Type',
+          },
+        },
+      ];
+    }
   } else if (template) {
     action.documentation = [
       {
@@ -193,11 +213,12 @@ function buildNotificationSubActions(
   label: string,
   mediums: NotificationMedium[],
   smsTemplate: string,
-  emailTemplate: string
+  emailTemplate: string,
+  statementType?: OutreachStatementType
 ): any[] {
   return mediums.map((medium) => {
     const template = medium === 'sms' ? smsTemplate : medium === 'email' ? emailTemplate : '';
-    return buildMediumSubAction(parentId, suffix, medium, template, label);
+    return buildMediumSubAction(parentId, suffix, medium, template, label, statementType);
   });
 }
 
@@ -230,7 +251,8 @@ function buildChargeCardFhirAction(uiAction: OutreachAction): any {
         'Success',
         cfg.onSuccess.mediums,
         cfg.onSuccess.smsTemplate,
-        cfg.onSuccess.emailTemplate
+        cfg.onSuccess.emailTemplate,
+        cfg.onSuccess.statementType
       ),
     });
   }
@@ -260,7 +282,8 @@ function buildChargeCardFhirAction(uiAction: OutreachAction): any {
         'Failure',
         cfg.onFailure.mediums,
         cfg.onFailure.smsTemplate,
-        cfg.onFailure.emailTemplate
+        cfg.onFailure.emailTemplate,
+        cfg.onFailure.statementType
       ),
     });
   }
@@ -309,7 +332,8 @@ function buildSendNotificationFhirAction(uiAction: OutreachAction): any {
       'Notification',
       cfg.mediums,
       cfg.smsTemplate,
-      cfg.emailTemplate
+      cfg.emailTemplate,
+      cfg.statementType
     ),
   };
 }
@@ -379,6 +403,26 @@ function buildReferToCollectionsFhirAction(uiAction: OutreachAction): any {
   };
 }
 
+function buildLogFhirAction(uiAction: OutreachAction): any {
+  return {
+    id: uiAction.id,
+    title: ACTION_TYPE_DISPLAY['log'],
+    code: [
+      {
+        coding: [
+          {
+            system: ACTION_TYPE_SYSTEM,
+            code: 'log',
+            display: ACTION_TYPE_DISPLAY['log'],
+          },
+        ],
+      },
+    ],
+    trigger: [{ type: 'named-event', name: uiAction.trigger.event }],
+    ...(buildRelatedAction(uiAction.trigger) ? { relatedAction: buildRelatedAction(uiAction.trigger) } : {}),
+  };
+}
+
 function uiActionToFhirAction(uiAction: OutreachAction): any {
   switch (uiAction.actionType) {
     case 'charge-card':
@@ -387,6 +431,8 @@ function uiActionToFhirAction(uiAction: OutreachAction): any {
       return buildSendNotificationFhirAction(uiAction);
     case 'refer-to-collections':
       return buildReferToCollectionsFhirAction(uiAction);
+    case 'log':
+      return buildLogFhirAction(uiAction);
   }
 }
 
@@ -502,30 +548,39 @@ function extractMediumsAndTemplates(subActions: any[]): {
   mediums: NotificationMedium[];
   smsTemplate: string;
   emailTemplate: string;
+  statementType?: OutreachStatementType;
 } {
   const mediums: NotificationMedium[] = [];
   let smsTemplate = '';
   let emailTemplate = '';
+  let statementType: OutreachStatementType | undefined;
 
   for (const sa of subActions || []) {
     const medium = sa.code?.[0]?.coding?.[0]?.code as NotificationMedium | undefined;
     if (!medium) continue;
     mediums.push(medium);
-    const docData = sa.documentation?.[0]?.document?.data;
-    if (docData) {
-      const decoded = decodeTemplate(docData);
-      if (medium === 'sms') smsTemplate = decoded;
-      if (medium === 'email') emailTemplate = decoded;
+    if (medium === 'paper-mail') {
+      const stDoc = sa.documentation?.find((d: any) => d.label === 'statement-type');
+      if (stDoc?.document?.data) {
+        statementType = decodeTemplate(stDoc.document.data) as OutreachStatementType;
+      }
+    } else {
+      const docData = sa.documentation?.[0]?.document?.data;
+      if (docData) {
+        const decoded = decodeTemplate(docData);
+        if (medium === 'sms') smsTemplate = decoded;
+        if (medium === 'email') emailTemplate = decoded;
+      }
     }
   }
 
-  return { mediums, smsTemplate, emailTemplate };
+  return { mediums, smsTemplate, emailTemplate, ...(statementType ? { statementType } : {}) };
 }
 
 function parseNotificationConfig(outcomeAction: any): NotificationConfig {
   if (!outcomeAction) return { enabled: false, mediums: [], smsTemplate: '', emailTemplate: '' };
-  const { mediums, smsTemplate, emailTemplate } = extractMediumsAndTemplates(outcomeAction.action);
-  return { enabled: true, mediums, smsTemplate, emailTemplate };
+  const { mediums, smsTemplate, emailTemplate, statementType } = extractMediumsAndTemplates(outcomeAction.action);
+  return { enabled: true, mediums, smsTemplate, emailTemplate, ...(statementType ? { statementType } : {}) };
 }
 
 function parseChargeCardAction(fhirAction: any): OutreachAction {
@@ -550,12 +605,17 @@ function parseChargeCardAction(fhirAction: any): OutreachAction {
 }
 
 function parseSendNotificationAction(fhirAction: any): OutreachAction {
-  const { mediums, smsTemplate, emailTemplate } = extractMediumsAndTemplates(fhirAction.action);
+  const { mediums, smsTemplate, emailTemplate, statementType } = extractMediumsAndTemplates(fhirAction.action);
   return {
     id: fhirAction.id || String(Date.now()),
     trigger: extractTrigger(fhirAction),
     actionType: 'send-notification',
-    sendNotificationConfig: { mediums, smsTemplate, emailTemplate },
+    sendNotificationConfig: {
+      mediums,
+      smsTemplate,
+      emailTemplate,
+      ...(statementType ? { statementType } : {}),
+    },
   };
 }
 
@@ -574,6 +634,14 @@ function parseReferToCollectionsAction(fhirAction: any): OutreachAction {
   };
 }
 
+function parseLogAction(fhirAction: any): OutreachAction {
+  return {
+    id: fhirAction.id || String(Date.now()),
+    trigger: extractTrigger(fhirAction),
+    actionType: 'log',
+  };
+}
+
 export function parsePlanDefinitionToActions(planDef: PlanDefinition): OutreachAction[] {
   if (!planDef.action) return [];
   return planDef.action.map((fhirAction: any) => {
@@ -585,6 +653,8 @@ export function parsePlanDefinitionToActions(planDef: PlanDefinition): OutreachA
         return parseSendNotificationAction(fhirAction);
       case 'refer-to-collections':
         return parseReferToCollectionsAction(fhirAction);
+      case 'log':
+        return parseLogAction(fhirAction);
       default:
         return parseSendNotificationAction(fhirAction);
     }

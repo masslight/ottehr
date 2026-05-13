@@ -7,6 +7,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Accordion,
@@ -46,6 +47,7 @@ import {
 import { useEditor } from '@tiptap/react';
 import React, { ReactElement, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { TemplateEditorField } from 'src/rcm/features/invoicing/InvoiceTemplateEditor';
 import {
   useGetOutreachConfigQuery,
@@ -60,17 +62,20 @@ type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due' | 'discha
 
 type NotificationMedium = 'sms' | 'email' | 'paper-mail';
 
-type ActionType = 'charge-card' | 'send-notification' | 'refer-to-collections';
+type ActionType = 'charge-card' | 'send-notification' | 'refer-to-collections' | 'log';
 
 type TimeUnit = 'days' | 'hours' | 'minutes';
 
 type TriggerDirection = 'after' | 'before';
+
+type OutreachStatementType = 'standard' | 'past-due' | 'final-notice';
 
 interface NotificationConfig {
   enabled: boolean;
   mediums: NotificationMedium[];
   smsTemplate: string;
   emailTemplate: string;
+  statementType?: OutreachStatementType;
 }
 
 interface ChargeCardConfig {
@@ -84,6 +89,7 @@ interface SendNotificationConfig {
   mediums: NotificationMedium[];
   smsTemplate: string;
   emailTemplate: string;
+  statementType?: OutreachStatementType;
 }
 
 interface ReferToCollectionsConfig {
@@ -104,6 +110,7 @@ interface OutreachAction {
   chargeCardConfig?: ChargeCardConfig;
   sendNotificationConfig?: SendNotificationConfig;
   referToCollectionsConfig?: ReferToCollectionsConfig;
+  logConfig?: Record<string, never>;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -118,11 +125,11 @@ const TRIGGER_EVENT_LABELS: Record<TriggerEvent, string> = {
 
 /** Which action types are allowed for each trigger event. */
 const ALLOWED_ACTIONS: Record<TriggerEvent, ActionType[]> = {
-  'date-of-visit': ['charge-card', 'send-notification', 'refer-to-collections'],
-  'invoice-issued': ['charge-card', 'send-notification', 'refer-to-collections'],
-  'invoice-due': ['charge-card', 'send-notification', 'refer-to-collections'],
-  'discharge-time': ['send-notification'],
-  'patient-birthday': ['send-notification'],
+  'date-of-visit': ['charge-card', 'send-notification', 'refer-to-collections', 'log'],
+  'invoice-issued': ['charge-card', 'send-notification', 'refer-to-collections', 'log'],
+  'invoice-due': ['charge-card', 'send-notification', 'refer-to-collections', 'log'],
+  'discharge-time': ['send-notification', 'log'],
+  'patient-birthday': ['send-notification', 'log'],
 };
 
 /** Which time units are available for each trigger event. */
@@ -158,6 +165,7 @@ const ACTION_TYPE_LABELS: Record<ActionType, string> = {
   'charge-card': 'Charge Credit Card on File',
   'send-notification': 'Send Notification',
   'refer-to-collections': 'Refer to Collections',
+  log: 'Log',
 };
 
 const MEDIUM_LABELS: Record<NotificationMedium, string> = {
@@ -166,10 +174,26 @@ const MEDIUM_LABELS: Record<NotificationMedium, string> = {
   'paper-mail': 'Mail Statement',
 };
 
+const STATEMENT_TYPE_LABELS: Record<OutreachStatementType, string> = {
+  standard: 'Standard',
+  'past-due': 'Past Due',
+  'final-notice': 'Final Notice',
+};
+
+/** Returns the medium keys available to the current environment. */
+function getAvailableMediums(): NotificationMedium[] {
+  const mediums: NotificationMedium[] = ['sms', 'email'];
+  if (FEATURE_FLAGS.MAILING_PAPER_STATEMENTS_ENABLED) {
+    mediums.push('paper-mail');
+  }
+  return mediums;
+}
+
 const ACTION_CHIP_COLORS: Record<ActionType, string> = {
   'charge-card': '#e65100',
   'send-notification': '#2e7d32',
   'refer-to-collections': '#b71c1c',
+  log: '#546e7a',
 };
 
 const MEDIUM_CHIP_COLORS: Record<NotificationMedium, string> = {
@@ -264,9 +288,9 @@ const SAMPLE_INPUT: InvoicePlaceholderInput = {
 const SAMPLE_PREVIEW_VALUES = buildInvoicePlaceholders(SAMPLE_INPUT);
 
 const DEFAULT_SMS_TEMPLATE =
-  'Hi {{patient-full-name}}, you have an outstanding balance of {{amount}} for your visit at {{clinic}}. Pay now: {{invoice-link}}';
+  'Hello {{patient-full-name}}, thank you for visiting {{clinic}} at {{location}} on {{visit-date}} and entrusting us with your care. You can view your information in the Patient Portal: {{patient-portal-link}}';
 const DEFAULT_EMAIL_TEMPLATE =
-  'Dear {{patient-full-name}},\n\nThis is a reminder that you have an outstanding balance of {{amount}} for your visit on {{visit-date}} at {{clinic}}.\n\nPlease pay by {{due-date}} to avoid further action.\n\nPay online: {{invoice-link}}\n\nThank you,\n{{clinic}}';
+  'Hello {{patient-full-name}},\n\nThank you for visiting {{clinic}} at {{location}} on {{visit-date}} and entrusting us with your care.\n\nYou can view your information in the [Patient Portal]({{patient-portal-link}}).\n\nThank you,\n{{clinic}}';
 
 function defaultNotificationConfig(): NotificationConfig {
   return {
@@ -315,6 +339,8 @@ function buildDefaultConfig(actionType: ActionType): Partial<OutreachAction> {
           includePaymentHistory: false,
         },
       };
+    case 'log':
+      return {};
   }
 }
 
@@ -325,10 +351,12 @@ function OutreachTemplateField({
   label,
   value,
   onChange,
+  renderHtmlPreview,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  renderHtmlPreview?: boolean;
 }): ReactElement {
   const editorRef = useRef<ReturnType<typeof useEditor> | null>(null);
   return (
@@ -338,7 +366,8 @@ function OutreachTemplateField({
       onChange={onChange}
       editorRef={editorRef}
       previewValues={SAMPLE_PREVIEW_VALUES}
-      helperText="Type {{ to insert a placeholder"
+      helperText="Type {{ to insert a placeholder. Use [link text]({{url-placeholder}}) for clickable links."
+      renderHtmlPreview={renderHtmlPreview}
     />
   );
 }
@@ -355,7 +384,7 @@ function MediumCheckboxes({
   };
   return (
     <FormGroup row>
-      {(Object.keys(MEDIUM_LABELS) as NotificationMedium[]).map((m) => (
+      {getAvailableMediums().map((m) => (
         <FormControlLabel
           key={m}
           control={<Checkbox size="small" checked={selected.includes(m)} onChange={() => toggle(m)} />}
@@ -386,7 +415,12 @@ function MediumTemplateEditors({
         <OutreachTemplateField label="SMS Template" value={smsTemplate} onChange={onSmsChange} />
       )}
       {mediums.includes('email') && (
-        <OutreachTemplateField label="Email Template" value={emailTemplate} onChange={onEmailChange} />
+        <OutreachTemplateField
+          label="Email Template"
+          value={emailTemplate}
+          onChange={onEmailChange}
+          renderHtmlPreview
+        />
       )}
     </Stack>
   );
@@ -406,7 +440,17 @@ function ChannelTabs({
 
   const toggleMedium = (m: NotificationMedium, enabled: boolean): void => {
     const mediums = enabled ? [...config.mediums, m] : config.mediums.filter((x) => x !== m);
-    onChange({ ...config, mediums });
+    const updated = { ...config, mediums };
+    if (enabled && m === 'sms' && !updated.smsTemplate) {
+      updated.smsTemplate = DEFAULT_SMS_TEMPLATE;
+    }
+    if (enabled && m === 'email' && !updated.emailTemplate) {
+      updated.emailTemplate = DEFAULT_EMAIL_TEMPLATE;
+    }
+    if (enabled && m === 'paper-mail' && !updated.statementType) {
+      updated.statementType = 'standard';
+    }
+    onChange(updated);
   };
 
   return (
@@ -418,7 +462,7 @@ function ChannelTabs({
             sx={{ minHeight: 36 }}
             aria-label="Notification channel tabs"
           >
-            {(Object.keys(MEDIUM_LABELS) as NotificationMedium[]).map((m) => (
+            {getAvailableMediums().map((m) => (
               <Tab
                 key={m}
                 value={m}
@@ -435,7 +479,7 @@ function ChannelTabs({
             ))}
           </TabList>
         </Box>
-        {(Object.keys(MEDIUM_LABELS) as NotificationMedium[]).map((m) => (
+        {getAvailableMediums().map((m) => (
           <TabPanel key={m} value={m} sx={{ p: 2 }}>
             <Stack spacing={2}>
               <FormControlLabel
@@ -464,12 +508,31 @@ function ChannelTabs({
                   label="Email Template"
                   value={config.emailTemplate}
                   onChange={(emailTemplate) => onChange({ ...config, emailTemplate })}
+                  renderHtmlPreview
                 />
               )}
               {isMediumEnabled(m) && m === 'paper-mail' && (
-                <Typography variant="body2" color="text.secondary">
-                  A printed statement will be generated and mailed to the patient's address on file.
-                </Typography>
+                <Stack spacing={2}>
+                  <Typography variant="body2" color="text.secondary">
+                    A printed statement will be generated and mailed to the patient&apos;s address on file.
+                  </Typography>
+                  <FormControl size="small" sx={{ maxWidth: 250 }}>
+                    <InputLabel>Statement Type</InputLabel>
+                    <Select
+                      value={config.statementType || 'standard'}
+                      label="Statement Type"
+                      onChange={(e: SelectChangeEvent) =>
+                        onChange({ ...config, statementType: e.target.value as OutreachStatementType })
+                      }
+                    >
+                      {(Object.keys(STATEMENT_TYPE_LABELS) as OutreachStatementType[]).map((st) => (
+                        <MenuItem key={st} value={st}>
+                          {STATEMENT_TYPE_LABELS[st]}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Stack>
               )}
             </Stack>
           </TabPanel>
@@ -571,7 +634,22 @@ function SendNotificationConfigEditor({
         <FormLabel component="legend" sx={{ fontSize: '0.8rem', mb: 0.5 }}>
           Notification channels
         </FormLabel>
-        <MediumCheckboxes selected={config.mediums} onChange={(mediums) => onChange({ ...config, mediums })} />
+        <MediumCheckboxes
+          selected={config.mediums}
+          onChange={(mediums) => {
+            const updated = { ...config, mediums };
+            if (mediums.includes('sms') && !updated.smsTemplate) {
+              updated.smsTemplate = DEFAULT_SMS_TEMPLATE;
+            }
+            if (mediums.includes('email') && !updated.emailTemplate) {
+              updated.emailTemplate = DEFAULT_EMAIL_TEMPLATE;
+            }
+            if (mediums.includes('paper-mail') && !updated.statementType) {
+              updated.statementType = 'standard';
+            }
+            onChange(updated);
+          }}
+        />
       </Box>
       <MediumTemplateEditors
         mediums={config.mediums}
@@ -580,56 +658,72 @@ function SendNotificationConfigEditor({
         onSmsChange={(smsTemplate) => onChange({ ...config, smsTemplate })}
         onEmailChange={(emailTemplate) => onChange({ ...config, emailTemplate })}
       />
+      {config.mediums.includes('paper-mail') && (
+        <Stack spacing={1}>
+          <Typography variant="body2" color="text.secondary">
+            A printed statement will be generated and mailed to the patient&apos;s address on file.
+          </Typography>
+          <FormControl size="small" sx={{ maxWidth: 250 }}>
+            <InputLabel>Statement Type</InputLabel>
+            <Select
+              value={config.statementType || 'standard'}
+              label="Statement Type"
+              onChange={(e: SelectChangeEvent) =>
+                onChange({ ...config, statementType: e.target.value as OutreachStatementType })
+              }
+            >
+              {(Object.keys(STATEMENT_TYPE_LABELS) as OutreachStatementType[]).map((st) => (
+                <MenuItem key={st} value={st}>
+                  {STATEMENT_TYPE_LABELS[st]}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Stack>
+      )}
     </Stack>
   );
 }
 
 function CollectionsConfigEditor({
-  config,
-  onChange,
+  config: _config,
+  onChange: _onChange,
 }: {
   config: ReferToCollectionsConfig;
   onChange: (c: ReferToCollectionsConfig) => void;
 }): ReactElement {
   return (
     <Stack spacing={2}>
-      <FormControl size="small" sx={{ maxWidth: 350 }}>
-        <InputLabel>Collections Agency</InputLabel>
-        <Select
-          value={config.agency}
-          label="Collections Agency"
-          onChange={(e: SelectChangeEvent) => onChange({ ...config, agency: e.target.value })}
-        >
-          <MenuItem value="National Recovery Agency">National Recovery Agency</MenuItem>
-          <MenuItem value="IC System">IC System</MenuItem>
-          <MenuItem value="Transworld Systems">Transworld Systems</MenuItem>
-          <MenuItem value="">— None —</MenuItem>
-        </Select>
-      </FormControl>
-      <TextField
-        label="Minimum Balance ($)"
-        type="number"
-        size="small"
-        value={config.minimumBalance}
-        onChange={(e) =>
-          onChange({
-            ...config,
-            minimumBalance: e.target.value === '' ? 0 : Math.max(0, parseFloat(e.target.value) || 0),
-          })
-        }
-        sx={{ width: 200 }}
-        inputProps={{ min: 0, step: 5, ...numericFieldProps }}
-      />
-      <FormControlLabel
-        control={
-          <Checkbox
+      <Alert severity="warning" icon={<WarningAmberIcon fontSize="inherit" />}>
+        Automated referral to collections action is not yet available.
+      </Alert>
+      <Box sx={{ opacity: 0.4, pointerEvents: 'none' }}>
+        <Stack spacing={2}>
+          <FormControl size="small" sx={{ maxWidth: 350 }} disabled>
+            <InputLabel>Collections Agency</InputLabel>
+            <Select value="" label="Collections Agency" onChange={() => {}}>
+              <MenuItem value="National Recovery Agency">National Recovery Agency</MenuItem>
+              <MenuItem value="IC System">IC System</MenuItem>
+              <MenuItem value="Transworld Systems">Transworld Systems</MenuItem>
+              <MenuItem value="">— None —</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField
+            label="Minimum Balance ($)"
+            type="number"
             size="small"
-            checked={config.includePaymentHistory}
-            onChange={(e) => onChange({ ...config, includePaymentHistory: e.target.checked })}
+            value={0}
+            disabled
+            sx={{ width: 200 }}
+            inputProps={{ min: 0, step: 5, ...numericFieldProps }}
           />
-        }
-        label="Include payment history with referral"
-      />
+          <FormControlLabel
+            control={<Checkbox size="small" checked={false} disabled />}
+            label="Include payment history with referral"
+            disabled
+          />
+        </Stack>
+      </Box>
     </Stack>
   );
 }
@@ -662,6 +756,12 @@ function ActionConfigEditor({
           config={action.referToCollectionsConfig!}
           onChange={(referToCollectionsConfig) => onChange({ ...action, referToCollectionsConfig })}
         />
+      );
+    case 'log':
+      return (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 1, fontStyle: 'italic' }}>
+          This action will log that it was executed. No additional configuration is needed.
+        </Typography>
       );
   }
 }

@@ -81,12 +81,14 @@ const ACTION_TYPE_LABELS: Record<string, string> = {
   'send-notification': 'Send Notification',
   'charge-card': 'Charge Card',
   'refer-to-collections': 'Refer to Collections',
+  log: 'Log',
 };
 
 const ACTION_CHIP_COLORS: Record<string, string> = {
   'charge-card': '#e65100',
   'send-notification': '#2e7d32',
   'refer-to-collections': '#b71c1c',
+  log: '#546e7a',
 };
 
 const MEDIUM_LABELS: Record<string, string> = {

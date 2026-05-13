@@ -201,6 +201,12 @@ export function buildTaskInput(action: OutreachAction): Task['input'] {
         valueString: cfg.emailTemplate,
       });
     }
+    if (cfg.statementType) {
+      inputs.push({
+        type: { text: 'statement-type' },
+        valueString: cfg.statementType,
+      });
+    }
   }
 
   if (action.actionType === 'charge-card' && action.chargeCardConfig) {
@@ -231,6 +237,7 @@ function actionTypeDisplay(actionType: ActionType): string {
     'charge-card': 'Charge Credit Card on File',
     'send-notification': 'Send Notification',
     'refer-to-collections': 'Refer to Collections',
+    log: 'Log',
   };
   return displays[actionType];
 }

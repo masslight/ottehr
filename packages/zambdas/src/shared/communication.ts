@@ -7,6 +7,7 @@ import {
   EmailTemplate,
   ErrorReportTemplateData,
   FEATURE_FLAGS_CONFIG,
+  GenericOutreachTemplateData,
   getPatientContactEmail,
   getRelatedPersonsForPatient,
   getSecret,
@@ -225,6 +226,10 @@ class EmailClient {
 
   async sendOrderResultAlert(to: string | string[], templateData: OrderResultAlertTemplateData): Promise<void> {
     await this.sendEmail(to, this.config.templates.orderResultAlert, templateData);
+  }
+
+  async sendGenericOutreachEmail(to: string | string[], templateData: GenericOutreachTemplateData): Promise<void> {
+    await this.sendEmail(to, this.config.templates.genericOutreach, templateData);
   }
 }
 

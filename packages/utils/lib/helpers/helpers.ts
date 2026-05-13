@@ -1704,3 +1704,25 @@ export function replaceTemplateVariablesHandlebars(template: string, variables: 
     return template;
   }
 }
+
+/**
+ * Converts markdown-style links `[text](url)` in a string to HTML `<a>` tags.
+ */
+export function convertMarkdownLinksToHtml(text: string): string {
+  return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+}
+
+/**
+ * Converts plain-text outreach content (with optional markdown-style links)
+ * into HTML suitable for the generic outreach email template.
+ *
+ * - `[text](url)` → `<a href="url">text</a>`
+ * - Newlines → `<br>`
+ * - Wraps in a `<p>` tag
+ */
+export function convertOutreachTextToHtml(text: string): string {
+  if (!text) return '';
+  const withLinks = convertMarkdownLinksToHtml(text);
+  const withBreaks = withLinks.replace(/\n/g, '<br>');
+  return `<p>${withBreaks}</p>`;
+}

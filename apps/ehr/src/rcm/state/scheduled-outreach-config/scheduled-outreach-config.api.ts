@@ -22,15 +22,18 @@ export interface OutreachConfigResponse {
 
 export type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due' | 'discharge-time' | 'patient-birthday';
 export type NotificationMedium = 'sms' | 'email' | 'paper-mail';
-export type ActionType = 'charge-card' | 'send-notification' | 'refer-to-collections';
+export type ActionType = 'charge-card' | 'send-notification' | 'refer-to-collections' | 'log';
 export type TimeUnit = 'days' | 'hours' | 'minutes';
 export type TriggerDirection = 'after' | 'before';
+
+export type OutreachStatementType = 'standard' | 'past-due' | 'final-notice';
 
 export interface NotificationConfigDTO {
   enabled: boolean;
   mediums: NotificationMedium[];
   smsTemplate: string;
   emailTemplate: string;
+  statementType?: OutreachStatementType;
 }
 
 export interface ChargeCardConfigDTO {
@@ -44,6 +47,7 @@ export interface SendNotificationConfigDTO {
   mediums: NotificationMedium[];
   smsTemplate: string;
   emailTemplate: string;
+  statementType?: OutreachStatementType;
 }
 
 export interface ReferToCollectionsConfigDTO {
@@ -64,6 +68,7 @@ export interface OutreachActionDTO {
   chargeCardConfig?: ChargeCardConfigDTO;
   sendNotificationConfig?: SendNotificationConfigDTO;
   referToCollectionsConfig?: ReferToCollectionsConfigDTO;
+  logConfig?: Record<string, never>;
 }
 
 export interface SaveOutreachConfigInput {

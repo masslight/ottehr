@@ -1951,6 +1951,13 @@
       "src": "src/rcm/scheduled-outreach/executors/sub-outreach-refer-to-collections/index",
       "zip": ".dist/zips/sub-outreach-refer-to-collections.zip"
     },
+    "SUB-OUTREACH-LOG": {
+      "name": "sub-outreach-log",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/executors/sub-outreach-log/index",
+      "zip": ".dist/zips/sub-outreach-log.zip"
+    },
     "ADMIN_LIST_IN_HOUSE_LABS": {
       "name": "admin-list-in-house-labs",
       "type": "http_auth",
@@ -2457,6 +2464,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-REFER-TO-COLLECTIONS/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_LOG_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach log",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|log&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-LOG/id}"
         },
         "extension": [
           {

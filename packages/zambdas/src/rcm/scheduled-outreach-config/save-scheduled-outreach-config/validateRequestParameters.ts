@@ -5,6 +5,7 @@ import {
   NotificationMedium,
   NotificationsTimeRestriction,
   OutreachAction,
+  OutreachStatementType,
   TimeUnit,
   TriggerDirection,
   TriggerEvent,
@@ -16,7 +17,7 @@ export interface SaveOutreachConfigInput {
   secrets: Record<string, string>;
 }
 
-const VALID_ACTION_TYPES: ActionType[] = ['charge-card', 'send-notification', 'refer-to-collections'];
+const VALID_ACTION_TYPES: ActionType[] = ['charge-card', 'send-notification', 'refer-to-collections', 'log'];
 const VALID_TRIGGER_EVENTS: TriggerEvent[] = [
   'date-of-visit',
   'invoice-issued',
@@ -25,10 +26,11 @@ const VALID_TRIGGER_EVENTS: TriggerEvent[] = [
   'patient-birthday',
 ];
 const VALID_MEDIUMS: NotificationMedium[] = ['sms', 'email', 'paper-mail'];
+const VALID_STATEMENT_TYPES: OutreachStatementType[] = ['standard', 'past-due', 'final-notice'];
 const VALID_TIME_UNITS: TimeUnit[] = ['days', 'hours', 'minutes'];
 const VALID_DIRECTIONS: TriggerDirection[] = ['after', 'before'];
 
-/** Events that only allow send-notification. */
+/** Events that only allow send-notification or log. */
 const NOTIFICATION_ONLY_EVENTS: TriggerEvent[] = ['discharge-time', 'patient-birthday'];
 
 function validateAction(action: unknown, index: number): OutreachAction {
@@ -70,9 +72,9 @@ function validateAction(action: unknown, index: number): OutreachAction {
   const triggerEvent = trigger.event as TriggerEvent;
   const actionType = a.actionType as ActionType;
 
-  if (NOTIFICATION_ONLY_EVENTS.includes(triggerEvent) && actionType !== 'send-notification') {
+  if (NOTIFICATION_ONLY_EVENTS.includes(triggerEvent) && actionType !== 'send-notification' && actionType !== 'log') {
     throw INVALID_INPUT_ERROR(
-      `actions[${index}].actionType must be 'send-notification' for trigger event '${triggerEvent}'`
+      `actions[${index}].actionType must be 'send-notification' or 'log' for trigger event '${triggerEvent}'`
     );
   }
 
@@ -100,6 +102,13 @@ function validateAction(action: unknown, index: number): OutreachAction {
     for (const m of cfg.mediums) {
       if (!VALID_MEDIUMS.includes(m as NotificationMedium)) {
         throw INVALID_INPUT_ERROR(`actions[${index}].sendNotificationConfig.mediums contains invalid value: ${m}`);
+      }
+    }
+    if (cfg.mediums.includes('paper-mail') && cfg.statementType != null) {
+      if (!VALID_STATEMENT_TYPES.includes(cfg.statementType as OutreachStatementType)) {
+        throw INVALID_INPUT_ERROR(
+          `actions[${index}].sendNotificationConfig.statementType must be one of: ${VALID_STATEMENT_TYPES.join(', ')}`
+        );
       }
     }
   }

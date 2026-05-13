@@ -1,13 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Patient, Task } from 'fhir/r4b';
+import { Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { fillInvoiceTemplate, getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  convertOutreachTextToHtml,
+  fillInvoiceTemplate,
+  getFullestAvailableName,
+  getPatientContactEmail,
+  getSecret,
+  getTaskResource,
+  Secrets,
+  SecretsKeys,
+  TaskIndicator,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  getEmailClient,
   resolveTemplatePlaceholders,
   sendSmsForPatient,
+  StatementType,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -71,13 +83,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             results.push({ medium, success: true });
             break;
           case 'email':
-            await sendEmail(patientRef!, emailTemplate || '', input.secrets);
+            await sendOutreachEmail(task, emailTemplate || '', oystehr, input.secrets);
             results.push({ medium, success: true });
             break;
-          case 'paper-mail':
-            await sendPaperMail(patientRef!, input.secrets);
+          case 'paper-mail': {
+            const statementType = extractInputValue(task, 'statement-type') || 'standard';
+            await sendPaperMail(task, statementType, oystehr, input.secrets);
             results.push({ medium, success: true });
             break;
+          }
         }
       } catch (err: any) {
         console.error(`Failed to send ${medium} notification:`, err.message);
@@ -173,19 +187,111 @@ async function sendOutreachSms(task: Task, template: string, oystehr: Oystehr, s
   await sendSmsForPatient(resolvedMessage, oystehr, patient, ENVIRONMENT);
 }
 
-async function sendEmail(_patientRef: string, _template: string, _secrets: any): Promise<void> {
-  // TODO: Integrate with email provider (e.g., SendGrid)
-  // 1. Resolve patient email from FHIR
-  // 2. Resolve template placeholders
-  // 3. Send via provider
-  console.log(`[PLACEHOLDER] Would send email to patient ${_patientRef}`);
-  console.log(`[PLACEHOLDER] Email body: ${_template}`);
+async function sendOutreachEmail(
+  task: Task,
+  template: string,
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<void> {
+  const patientId = task.for?.reference?.replace('Patient/', '');
+  if (!patientId) throw new Error('Task has no patient reference');
+
+  const patient = await oystehr.fhir.get<Patient>({
+    resourceType: 'Patient',
+    id: patientId,
+  });
+
+  const email = getPatientContactEmail(patient);
+  if (!email) {
+    throw new Error(`Patient ${patientId} has no contact email address`);
+  }
+
+  const placeholderInput = await resolveTemplatePlaceholders({
+    patient,
+    encounterRef: task.focus?.reference,
+    oystehr,
+    secrets,
+  });
+  const resolvedMessage = fillInvoiceTemplate(template, placeholderInput);
+
+  // Check for unresolved placeholders
+  const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);
+  if (unresolved) {
+    const unique = [...new Set(unresolved)];
+    throw new Error(`Unresolved template placeholders: ${unique.join(', ')}`);
+  }
+
+  const htmlContent = convertOutreachTextToHtml(resolvedMessage);
+
+  const emailClient = getEmailClient(secrets);
+  await emailClient.sendGenericOutreachEmail(email, {
+    content: htmlContent,
+    'subject-text': 'Important information about your visit',
+  });
 }
 
-async function sendPaperMail(_patientRef: string, _secrets: any): Promise<void> {
-  // TODO: Integrate with mail provider (e.g., Lob)
-  // 1. Resolve patient mailing address from FHIR
-  // 2. Generate statement PDF
-  // 3. Send via provider
-  console.log(`[PLACEHOLDER] Would send paper mail to patient ${_patientRef}`);
+const MAIL_STATEMENT_TASK_INPUT_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/patient-statement-mail-task-input';
+
+async function sendPaperMail(
+  task: Task,
+  statementType: string,
+  oystehr: Oystehr,
+  _secrets: Secrets | null
+): Promise<void> {
+  const patientId = task.for?.reference?.replace('Patient/', '');
+  if (!patientId) throw new Error('Task has no patient reference');
+
+  const encounterRef = task.focus?.reference;
+  const encounterId = encounterRef?.replace('Encounter/', '');
+  if (!encounterId) throw new Error('Task has no encounter focus reference');
+
+  const encounter = await oystehr.fhir.get<Encounter>({
+    resourceType: 'Encounter',
+    id: encounterId,
+  });
+
+  const appointmentRef = encounter.appointment?.[0]?.reference;
+  const appointmentId = appointmentRef?.split('/')[1];
+  if (!appointmentId) throw new Error(`No appointment reference in Encounter/${encounterId}`);
+
+  const [patient, appointment] = await Promise.all([
+    oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
+    oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id: appointmentId }),
+  ]);
+
+  const patientName = getFullestAvailableName(patient);
+  const appointmentDate = appointment.start
+    ? DateTime.fromISO(appointment.start, { setZone: true }).toFormat('yyyy-MM-dd')
+    : 'unknown-date';
+
+  const validType = (['standard', 'past-due', 'final-notice'] as StatementType[]).includes(
+    statementType as StatementType
+  )
+    ? (statementType as StatementType)
+    : 'standard';
+
+  const mailTaskInputs: TaskInput[] = [
+    {
+      type: { coding: [{ system: MAIL_STATEMENT_TASK_INPUT_SYSTEM, code: 'statementType' }] },
+      valueString: validType,
+    },
+    {
+      type: { coding: [{ system: MAIL_STATEMENT_TASK_INPUT_SYSTEM, code: 'color' }] },
+      valueString: 'false',
+    },
+  ];
+
+  const mailTask: Task = {
+    ...getTaskResource(
+      TaskIndicator.sendPatientStatementByMail,
+      `Send statement by mail for ${patientName} visit on ${appointmentDate} (outreach)`,
+      appointmentId,
+      encounterId
+    ),
+    for: { reference: `Patient/${patientId}` },
+    input: mailTaskInputs,
+  };
+
+  const created = await oystehr.fhir.create<Task>(mailTask);
+  console.log(`Created mail statement task ${created.id} (type: ${validType}) for patient ${patientId}`);
 }
