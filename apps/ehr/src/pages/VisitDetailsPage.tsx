@@ -1190,7 +1190,9 @@ export default function VisitDetailsPage(): ReactElement {
                         loading={loading}
                         patientDetails={{
                           'Service category': serviceCategoryLabel,
-                          'Reason for visit': `${reasonForVisit} ${additionalDetails ? `- ${additionalDetails}` : ''}`,
+                          'Reason for visit': reasonForVisit
+                            ? `${reasonForVisit}${additionalDetails ? ` - ${additionalDetails}` : ''}`
+                            : undefined,
                           'Authorized non-legal guardian(s)': patient?.extension?.find(
                             (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
                           )?.valueString || <></>,
