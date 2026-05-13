@@ -3104,8 +3104,12 @@ async function phase13_5_backdateStatusHistory(ctx: SynthesisContext): Promise<v
 
   // Index existing entries by their ottehr-visit-status extension code so we
   // can preserve each entry's FHIR status + extension shape while replacing
-  // its period.
-  const OTT_EXT_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/ottehr-encounter-status-history';
+  // its period. Must match `FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url`
+  // in packages/utils/lib/fhir/constants.ts — that's what `getVisitStatusHistory`
+  // looks up. Writing a different URL here makes the EHR fall through to a
+  // legacy fallback that emits multiple derived entries per real entry,
+  // producing 28-entry dashboard rows that render garbage durations.
+  const OTT_EXT_URL = 'https://extensions.fhir.zapehr.com/visit-status';
   const byOttStatus = new Map<string, (typeof existing)[number]>();
   for (const entry of existing) {
     const code = entry.extension?.find((e) => e.url === OTT_EXT_URL)?.valueCode;
