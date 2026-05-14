@@ -753,14 +753,7 @@ function CollectionsConfigEditor({
 
 const selectAllOnFocus = (e: React.FocusEvent<HTMLInputElement>): void => e.target.select();
 
-const numericOnly = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-  if (
-    !/^[0-9]$/.test(e.key) &&
-    !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'].includes(e.key)
-  ) {
-    e.preventDefault();
-  }
-};
+const stripNonNumeric = (val: string): string => val.replace(/[^0-9]/g, '');
 
 function BirthdayConfigEditor({
   config,
@@ -770,6 +763,35 @@ function BirthdayConfigEditor({
   onChange: (c: BirthdayConfig) => void;
 }): ReactElement {
   const hasAgeFilter = config.ageMode != null;
+  const [ageText, setAgeText] = React.useState(String(config.age ?? ''));
+  const [maxAgeText, setMaxAgeText] = React.useState(String(config.maxAge ?? 100));
+
+  // Sync local text when config changes externally (e.g. mode toggle)
+  React.useEffect(() => {
+    setAgeText(String(config.age ?? ''));
+  }, [config.age]);
+  React.useEffect(() => {
+    setMaxAgeText(String(config.maxAge ?? 100));
+  }, [config.maxAge]);
+
+  const commitAge = (raw: string): void => {
+    const num = parseInt(raw, 10);
+    if (!raw || isNaN(num)) {
+      onChange({ ...config, age: undefined });
+    } else {
+      onChange({ ...config, age: Math.max(1, Math.min(100, num)) });
+    }
+  };
+
+  const commitMaxAge = (raw: string): void => {
+    const num = parseInt(raw, 10);
+    if (!raw || isNaN(num)) {
+      onChange({ ...config, maxAge: undefined });
+    } else {
+      onChange({ ...config, maxAge: Math.max(config.age ?? 1, Math.min(150, num)) });
+    }
+  };
+
   return (
     <Stack spacing={2}>
       <FormControlLabel
@@ -810,15 +832,10 @@ function BirthdayConfigEditor({
           <TextField
             label="Age"
             size="small"
-            value={config.age ?? ''}
+            value={ageText}
             onFocus={selectAllOnFocus}
-            onKeyDown={numericOnly}
-            onChange={(e) =>
-              onChange({
-                ...config,
-                age: e.target.value === '' ? undefined : Math.max(1, Math.min(100, parseInt(e.target.value) || 1)),
-              })
-            }
+            onChange={(e) => setAgeText(stripNonNumeric(e.target.value))}
+            onBlur={() => commitAge(ageText)}
             sx={{ width: 100 }}
             inputProps={{ inputMode: 'numeric' }}
           />
@@ -826,18 +843,10 @@ function BirthdayConfigEditor({
             <TextField
               label="Max Age"
               size="small"
-              value={config.maxAge ?? 100}
+              value={maxAgeText}
               onFocus={selectAllOnFocus}
-              onKeyDown={numericOnly}
-              onChange={(e) =>
-                onChange({
-                  ...config,
-                  maxAge:
-                    e.target.value === ''
-                      ? undefined
-                      : Math.max(config.age ?? 1, Math.min(150, parseInt(e.target.value) || 100)),
-                })
-              }
+              onChange={(e) => setMaxAgeText(stripNonNumeric(e.target.value))}
+              onBlur={() => commitMaxAge(maxAgeText)}
               sx={{ width: 120 }}
               inputProps={{ inputMode: 'numeric' }}
             />
