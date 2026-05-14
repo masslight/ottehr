@@ -2,9 +2,13 @@ import {
   FHIR_EXTENSION,
   formatDateForDisplay,
   genderMap,
+  getCoding,
   getFormattedPatientFullName,
   getNameSuffix,
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
+  getReasonForVisitOptionsForServiceCategory,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
+  SERVICE_CATEGORY_SYSTEM,
   standardizePhoneNumber,
 } from 'utils';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
@@ -18,7 +22,15 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
   const id = patient.id ?? '';
   const phone = standardizePhoneNumber(patient.telecom?.find((telecom) => telecom.system === 'phone')?.value) ?? '';
-  const reasonForVisit = appointment.description ?? '';
+  const { reasonForVisit: firstComplaint, additionalDetails } =
+    getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  const isValidReasonForVisit =
+    !!firstComplaint &&
+    getReasonForVisitOptionsForServiceCategory(serviceCategory ?? '').some((option) => option.value === firstComplaint);
+  const reasonForVisit = isValidReasonForVisit
+    ? `${firstComplaint}${additionalDetails ? ` - ${additionalDetails}` : ''}`
+    : '';
   const authorizedNonlegalGuardians =
     patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ||
     'none';

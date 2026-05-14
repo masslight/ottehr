@@ -3,35 +3,9 @@ import z from 'zod';
 /**
  * Texting Configuration Types
  *
- * These types define the contract for SMS texting configurations,
- * including invoicing messages, telemed invites, and quick text templates.
+ * Defines the contract for SMS texting configurations,
+ * including invoicing messages and telemed invites.
  */
-
-/**
- * Conditional display configuration for quick texts
- */
-export interface QuickTextWhen {
-  appointmentTypes?: string[];
-}
-
-/**
- * Internationalized quick text with English and optional Spanish
- */
-export interface I18nQuickText {
-  english: string;
-  spanish?: string;
-  when?: QuickTextWhen;
-}
-
-export const I18nQuickTextSchema: z.ZodType<I18nQuickText, z.ZodTypeDef, unknown> = z.object({
-  english: z.string(),
-  spanish: z.string().optional(),
-  when: z
-    .object({
-      appointmentTypes: z.array(z.string()).optional(),
-    })
-    .optional(),
-});
 
 /**
  * Invoicing SMS configuration
@@ -47,14 +21,6 @@ export interface TextingInvoicingConfig {
  */
 export interface TextingTelemedConfig {
   inviteSms: string;
-  quickTexts: string[];
-}
-
-/**
- * In-person texting configuration
- */
-export interface TextingInPersonConfig {
-  quickTexts: I18nQuickText[];
 }
 
 /**
@@ -63,7 +29,6 @@ export interface TextingInPersonConfig {
 export interface TextingConfig {
   invoicing: TextingInvoicingConfig;
   telemed: TextingTelemedConfig;
-  inPerson: TextingInPersonConfig;
 }
 
 export const TextingConfigSchema: z.ZodType<TextingConfig, z.ZodTypeDef, unknown> = z.object({
@@ -74,9 +39,5 @@ export const TextingConfigSchema: z.ZodType<TextingConfig, z.ZodTypeDef, unknown
   }),
   telemed: z.object({
     inviteSms: z.string(),
-    quickTexts: z.array(z.string()),
-  }),
-  inPerson: z.object({
-    quickTexts: z.array(I18nQuickTextSchema),
   }),
 });

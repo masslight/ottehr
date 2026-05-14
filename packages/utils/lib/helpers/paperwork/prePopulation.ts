@@ -47,7 +47,8 @@ import {
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   REASON_FOR_VISIT_SEPARATOR,
 } from '../../types';
-import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId } from '../helpers';
+import { uuidRegex } from '../../validation';
+import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from '../helpers';
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
 interface PrePopulationInput {
@@ -814,7 +815,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
     if (payerId && org) {
       primaryInsurancePlanReference = {
-        reference: `Organization/${org.id}`,
+        reference: org.id!.match(uuidRegex) ? `Organization/${org.id!}` : getPayerUrl(org.id!),
         display: org.name,
       };
     }
@@ -825,12 +826,13 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
     if (payerId && org) {
       secondaryInsurancePlanReference = {
-        reference: `Organization/${org.id}`,
+        reference: org.id!.match(uuidRegex) ? `Organization/${org.id!}` : getPayerUrl(org.id!),
         display: org.name,
       };
     }
   }
 
+  // These checks are brittle if there is drift between payor and identifier
   if (primary) {
     primaryMemberId =
       primary.identifier?.find(
@@ -1087,11 +1089,13 @@ const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): 
         if (coverage) {
           const payerId = coverage.class?.[0].value;
           const org = insuranceOrgs?.find((tempOrg) => getPayerId(tempOrg) === payerId);
-          const coverageReference: Reference = {
-            reference: `Organization/${org?.id}`,
-            display: org?.name,
-          };
-          answer = makeAnswer(coverageReference, 'Reference');
+          if (org) {
+            const coverageReference: Reference = {
+              reference: `Organization/${org.id!}`,
+              display: org?.name,
+            };
+            answer = makeAnswer(coverageReference, 'Reference');
+          }
         }
         break;
       case 'workers-comp-insurance-member-id':

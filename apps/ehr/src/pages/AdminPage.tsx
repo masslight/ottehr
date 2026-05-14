@@ -4,12 +4,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
+import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
+import AdminCustomFoldersPage from './AdminCustomFoldersPage';
 import MedicationsConfigurationPage from './configuration/MedicationsConfiguration';
 import EmployeesPage, { EmployeeTypes } from './Employees';
 import SchedulesPage from './Schedules';
@@ -24,12 +26,14 @@ enum PageTab {
   billing = 'billing',
   'quick-picks' = 'quick-picks',
   'in-house-labs' = 'in-house-labs',
+  'label-printing-config' = 'label-printing-config',
   'em-codes' = 'em-codes',
   'lab-sets' = 'lab-sets',
+  'docs-folders' = 'docs-folders',
 }
 
 export function AdminPage(): JSX.Element {
-  const { adminTab, billingTab } = useParams();
+  const { adminTab, billingTab, insuranceTab } = useParams();
   const navigate = useNavigate();
 
   const pageTab = billingTab ? PageTab.billing : (adminTab as PageTab) || PageTab.schedules;
@@ -107,6 +111,18 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['lab-sets']}`)}
                 />
+                <Tab
+                  label="Label Printing Config"
+                  value={PageTab['label-printing-config']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['label-printing-config']}`)}
+                />
+                <Tab
+                  label="Docs Folders"
+                  value={PageTab['docs-folders']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['docs-folders']}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -135,7 +151,7 @@ export function AdminPage(): JSX.Element {
             <MedicationsConfigurationPage />
           </TabPanel>
           <TabPanel value={PageTab.billing} sx={{ padding: 0 }}>
-            <BillingConfiguration billingTab={billingTab} />
+            <BillingConfiguration billingTab={billingTab} insuranceTab={insuranceTab} />
           </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />
@@ -151,6 +167,12 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['lab-sets']} sx={{ padding: 0 }}>
             <LabSetsAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['label-printing-config']} sx={{ padding: 0 }}>
+            <AdminPrintingConfig />
+          </TabPanel>
+          <TabPanel value={PageTab['docs-folders']} sx={{ padding: 0 }}>
+            <AdminCustomFoldersPage />
           </TabPanel>
         </TabContext>
       </Box>

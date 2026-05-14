@@ -223,7 +223,6 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
       }
       schemaTemp = schema;
     } else {
-      // const { query, resourceType } = answerSource;
       let referenceSchema = Yup.object({
         valueReference: makeReferenceValueSchema(required),
       });

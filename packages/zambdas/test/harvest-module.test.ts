@@ -206,7 +206,7 @@ describe('Harvest Module', () => {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
             value: 'FafOneJwgNdkOetWwe6',
             assigner: {
-              reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+              reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
               display: 'Aetna',
             },
           },
@@ -214,7 +214,7 @@ describe('Harvest Module', () => {
         contained: [expectedPrimaryPolicyHolderFromQR1],
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-        payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
+        payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/60054' }],
         subscriberId: 'FafOneJwgNdkOetWwe6',
         subscriber: {
           reference: `#coverageSubscriber`,
@@ -268,7 +268,7 @@ describe('Harvest Module', () => {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
             value: 'FdfDfdFdfDfh7897',
             assigner: {
-              reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+              reference: 'https://rcm-api.zapehr.com/v1/payer/J1859',
               display: 'United Heartland',
             },
           },
@@ -276,7 +276,7 @@ describe('Harvest Module', () => {
         contained: [expectedSecondaryPolicyHolderFromQR1],
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-        payor: [{ reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884' }],
+        payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/J1859' }],
         subscriberId: 'FdfDfdFdfDfh7897',
         subscriber: { reference: '#coverageSubscriber' },
         relationship: {
@@ -454,7 +454,7 @@ describe('Harvest Module', () => {
       id: uuidV4(),
       status: 'active',
       beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-      payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
+      payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/60054' }],
       subscriberId: 'FafOneJwgNdkOetWwe6',
       subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
       order: 1,
@@ -463,7 +463,7 @@ describe('Harvest Module', () => {
           ...COVERAGE_MEMBER_IDENTIFIER_BASE,
           value: 'FafOneJwgNdkOetWwe6',
           assigner: {
-            reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+            reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
             display: 'Aetna',
           },
         },
@@ -548,7 +548,7 @@ describe('Harvest Module', () => {
       id: uuidV4(),
       status: 'active',
       beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-      payor: [{ reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884' }],
+      payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/J1859' }],
       subscriberId: 'FdfDfdFdfDfh7897',
       subscriber: { reference: 'RelatedPerson/36ef99c3-43fa-40f4-bf9c-d9ea12c2bf63' },
       order: 1,
@@ -557,7 +557,7 @@ describe('Harvest Module', () => {
           ...COVERAGE_MEMBER_IDENTIFIER_BASE,
           value: 'FdfDfdFdfDfh7897',
           assigner: {
-            reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+            reference: 'https://rcm-api.zapehr.com/v1/payer/J1859',
             display: 'United Heartland',
           },
         },
@@ -2007,7 +2007,7 @@ describe('Harvest Module', () => {
         id: uuidV4(),
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-        payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
+        payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/60054' }],
         subscriberId: 'FafOneJwgNdkOetWwe6',
         subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
         order: 1,
@@ -2016,7 +2016,7 @@ describe('Harvest Module', () => {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE,
             value: 'FafOneJwgNdkOetWwe6',
             assigner: {
-              reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+              reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
               display: 'Aetna',
             },
           },
@@ -2138,7 +2138,7 @@ describe('Harvest Module', () => {
         id: uuidV4(),
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-        payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
+        payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/60054' }],
         subscriberId: 'FafOneJwgDdkOet1234',
         subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
         order: 1,
@@ -2147,7 +2147,7 @@ describe('Harvest Module', () => {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE,
             value: 'FafOneJwgDdkOet1234',
             assigner: {
-              reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+              reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
               display: 'Aetna',
             },
           },
@@ -2172,7 +2172,7 @@ describe('Harvest Module', () => {
                 },
               ],
             },
-            value: 'Organization/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+            value: '60054',
           },
         ],
         type: {
@@ -2254,7 +2254,7 @@ describe('Harvest Module', () => {
         id: uuidV4(),
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
-        payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
+        payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/60054' }],
         subscriberId: 'FafOneJwgDdkOet1234',
         subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
         order: 1,
@@ -2263,7 +2263,7 @@ describe('Harvest Module', () => {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE,
             value: 'FafOneJwgDdkOet1234',
             assigner: {
-              reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+              reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
               display: 'Aetna',
             },
           },
@@ -2584,7 +2584,7 @@ describe('Harvest Module', () => {
           ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
           value: 'FdfDfdFdfDfh7897',
           assigner: {
-            reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+            reference: 'https://rcm-api.zapehr.com/v1/payer/J1859',
             display: 'United Heartland',
           },
         },
@@ -2592,7 +2592,7 @@ describe('Harvest Module', () => {
       // contained: [expectedSecondaryPolicyHolderFromQR1],
       status: 'active',
       beneficiary: { reference: `Patient/${bundle1Patient}`, type: 'Patient' },
-      payor: [{ reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884' }],
+      payor: [{ reference: 'https://rcm-api.zapehr.com/v1/payer/J1859' }],
       subscriberId: 'FdfDfdFdfDfh7897',
       subscriber: { reference: `RelatedPerson/${bundle1RP1.id}` },
       relationship: {
@@ -3207,7 +3207,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
           answer: [
             {
               valueReference: {
-                reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+                reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
                 display: 'Aetna',
               },
             },
@@ -3376,7 +3376,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
               answer: [
                 {
                   valueReference: {
-                    reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+                    reference: 'https://rcm-api.zapehr.com/v1/payer/J1859',
                     display: 'United Heartland',
                   },
                 },
@@ -3628,7 +3628,7 @@ const insurancePlans1: InsurancePlan[] = [
       lastUpdated: '2024-12-12T10:02:42.725Z',
     },
     ownedBy: {
-      reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+      reference: 'https://rcm-api.zapehr.com/v1/payer/J1859',
     },
     status: 'active',
     extension: [
@@ -3689,7 +3689,7 @@ const insurancePlans1: InsurancePlan[] = [
       lastUpdated: '2024-12-12T10:01:13.104Z',
     },
     ownedBy: {
-      reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
+      reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
     },
     status: 'active',
     extension: [
@@ -3760,11 +3760,12 @@ const organizations1: Organization[] = [
         type: {
           coding: [
             {
-              code: 'XX',
+              code: 'PAYERID',
               system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
             },
           ],
         },
+        system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id',
         value: 'J1859',
       },
     ],
@@ -3783,7 +3784,7 @@ const organizations1: Organization[] = [
         valueString: 'workerscomp',
       },
     ],
-    id: 'a9bada42-935a-45fa-ba8e-aa3b29478884',
+    id: 'J1859',
     meta: {
       versionId: 'adc6c2ad-26e6-4ca1-b053-b0f4bf60ae04',
       lastUpdated: '2024-12-12T10:02:42.483Z',
@@ -3808,11 +3809,12 @@ const organizations1: Organization[] = [
         type: {
           coding: [
             {
-              code: 'XX',
+              code: 'PAYERID',
               system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
             },
           ],
         },
+        system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id',
         value: '60054',
       },
     ],
@@ -3830,7 +3832,7 @@ const organizations1: Organization[] = [
         valueString: 'commercial',
       },
     ],
-    id: 'db875d9d-5726-4c45-a689-e11a7bbdf176',
+    id: '60054',
     meta: {
       versionId: '7bd10109-093f-413a-978d-d97d146ddc95',
       lastUpdated: '2024-12-12T10:01:12.820Z',
@@ -4055,7 +4057,7 @@ const bundle1Coverage: Coverage = {
   payor: [
     {
       type: 'Organization',
-      reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
+      reference: 'https://rcm-api.zapehr.com/v1/payer/60054',
     },
   ],
   meta: {

@@ -1,29 +1,37 @@
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Box,
   Button,
+  capitalize,
   Chip,
+  FormControlLabel,
   FormLabel,
   Grid,
   Paper,
   Skeleton,
+  Switch,
   TextField,
   Typography,
   useTheme,
 } from '@mui/material';
-import { Address, ChargeItemDefinition, Identifier, Organization } from 'fhir/r4b';
+import { useQuery } from '@tanstack/react-query';
+import { Address, ChargeItemDefinition, Identifier, List, Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { BILLING_URL, CHARGE_MASTERS_URL, FEE_SCHEDULES_URL, INSURANCES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import Loading from 'src/components/Loading';
+import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
 import { useListChargeMastersQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
 import { useListFeeSchedulesQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
-import { CASE_RATE_CODE, FHIR_EXTENSION, INSURANCE_SETTINGS_MAP, RCM_TAG_SYSTEM } from 'utils';
-import { useInsuranceMutation, useInsuranceOrganizationsQuery, useInsurancesQuery } from './admin.queries';
+import { CASE_RATE_CODE, FHIR_EXTENSION, getPayerId, getPayerUrl, INSURANCE_SETTINGS_MAP, RCM_TAG_SYSTEM } from 'utils';
+import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { useInsuranceMutation, useInsurancesQuery } from './admin.queries';
 
 // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
 // const INSURANCE_SETTINGS_CHECKBOXES: Array<
@@ -53,6 +61,7 @@ export type InsuranceData = InsuranceSettingsBooleans & {
   payor?: PayorOrg;
   displayName: string;
   active: Organization['active'];
+  showInPaperwork: boolean;
   identifier?: Identifier[];
   address?: Address[];
   notes?: string;
@@ -63,35 +72,77 @@ type InsuranceForm = Omit<InsuranceData, 'id' | 'active'>;
 export default function EditInsurance(): JSX.Element {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { insurance: insuranceIdParam } = useParams();
+  const { oystehrZambda } = useApiClients();
+  const { insuranceTab, insurance: insuranceIdParam } = useParams();
   const isNew = insuranceIdParam === 'new';
   const insuranceId = isNew ? undefined : insuranceIdParam;
   const [error, setError] = useState('');
-  const didSetInsuranceDetailsForm = useRef(false);
 
-  const { control, getValues, reset } = useForm<InsuranceForm>({
+  const { control, getValues, reset, setValue, watch } = useForm<InsuranceForm>({
     defaultValues: {
       payor: undefined,
       displayName: '',
+      showInPaperwork: false,
 
       // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
       // ...INSURANCE_SETTINGS_DEFAULTS,
     },
   });
 
-  const { isFetching: insuranceOrgsFetching, data: insuranceOrgsData } = useInsuranceOrganizationsQuery();
-  const insurancePayorOrgs: PayorOrg[] = insuranceOrgsData?.map((org) => ({ name: org.name, id: org.id })) || [
-    { id: '', name: '' },
-  ];
-
   const {
     data: insuranceData,
     isFetching: insuranceDataLoading,
     refetch: refetchInsuranceData,
-  } = useInsurancesQuery(insuranceId, insuranceId !== undefined);
-  const insuranceDetails = isNew ? undefined : insuranceData?.[0];
-  const isActive = insuranceDetails?.active ?? true;
+  } = useInsurancesQuery(insuranceId ? [insuranceId] : undefined, true);
+  const insuranceDetails = insuranceData?.[0];
+  const payerId = getPayerId(insuranceDetails) ?? '';
 
+  const { data: patientInsuranceOverrideList, refetch: refetchPatientOverrideList } = useQuery({
+    queryKey: ['insurance-override-list', 'patient'],
+    queryFn: async () => {
+      if (!oystehrZambda) return undefined;
+      const result = await oystehrZambda.zambda.execute({
+        id: 'get-insurance-override-list',
+        listName: 'patient',
+      });
+      return result.output as List;
+    },
+    enabled: !!oystehrZambda,
+  });
+
+  const patientOverrideListEntry = patientInsuranceOverrideList?.entry
+    ?.find((e) => e.item.reference === getPayerUrl(payerId))
+    ?.extension?.find((ext) => ext.url === ottehrExtensionUrl('insurance-override-name'));
+  const nameOverride = patientOverrideListEntry?.valueString;
+  const displayName = useMemo(() => {
+    return nameOverride ?? insuranceDetails?.name;
+  }, [nameOverride, insuranceDetails]);
+  const [disableDisplayName, setDisableDisplayName] = useState(!patientOverrideListEntry);
+  useEffect(() => {
+    setDisableDisplayName(!patientOverrideListEntry);
+  }, [patientOverrideListEntry]);
+
+  const { data: ehrInsuranceOverrideList, refetch: refetchEhrOverrideList } = useQuery({
+    queryKey: ['insurance-override-list', 'ehr'],
+    queryFn: async () => {
+      if (!oystehrZambda) return undefined;
+      const result = await oystehrZambda.zambda.execute({
+        id: 'get-insurance-override-list',
+        listName: 'ehr',
+      });
+      return result.output as List;
+    },
+    enabled: !!oystehrZambda,
+  });
+  const note = useMemo(
+    () =>
+      ehrInsuranceOverrideList?.entry
+        ?.find((e) => e.item.reference === getPayerUrl(payerId))
+        ?.extension?.find((ext) => ext.url === ottehrExtensionUrl('insurance-override-note'))?.valueString,
+    [ehrInsuranceOverrideList, payerId]
+  );
+
+  // No list, empty list, is on list
   const [payerNameInputValue, setPayerNameInputValue] = useState('');
 
   const { data: feeSchedules, isFetching: feeSchedulesFetching } = useListFeeSchedulesQuery();
@@ -158,70 +209,53 @@ export default function EditInsurance(): JSX.Element {
       settingsMap[settingExt.url as keyof typeof INSURANCE_SETTINGS_MAP] = settingExt.valueBoolean || false;
     });
 
-  if (insuranceDetails && !didSetInsuranceDetailsForm.current) {
-    const alias = insuranceDetails.alias?.[0];
-
+  useEffect(() => {
+    if (isNew) {
+      return;
+    }
     reset({
       payor: insuranceDetails,
-      displayName: alias || insuranceDetails.name,
-      notes: insuranceDetails.extension?.find((ext) => ext.url === FHIR_EXTENSION.InsurancePlan.notes.url)?.valueString,
+      displayName,
+      notes: note,
+      showInPaperwork: !!patientOverrideListEntry,
       // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
       // ...settingsMap,
     });
-    didSetInsuranceDetailsForm.current = true;
-  }
+  }, [insuranceDetails, displayName, note, reset, isNew, patientOverrideListEntry]);
 
-  const { mutateAsync: mutateInsurance, isPending: mutationPending } = useInsuranceMutation(insuranceDetails);
+  const mutationId = isNew ? watch('payor')?.id ?? '' : payerId;
+  const { mutateAsync: mutateInsurance, isPending: mutationPending } = useInsuranceMutation(mutationId);
 
-  const onSubmit = async (event: any): Promise<void> => {
+  const onSubmit = async (): Promise<void> => {
     setError('');
-    event.preventDefault();
     const formData = getValues();
-    const insurance = insuranceOrgsData?.find((org) => org.id === formData.payor?.id);
-    const data: InsuranceData = {
-      id: insuranceId,
-      active: insuranceDetails?.active ?? true,
-      ...formData,
-      identifier: insurance?.identifier,
-      address: insurance?.address,
-    };
-    const submitSnackbarText = isNew
-      ? `${data.displayName} was successfully created`
-      : `${data.displayName} was updated successfully`;
+    const submitSnackbarText = `${formData.displayName} was updated successfully`;
 
     try {
-      const mutateResp = await mutateInsurance(data);
+      await mutateInsurance({
+        existingName: isNew ? undefined : nameOverride,
+        name: formData.displayName,
+        existingNote: isNew ? undefined : note,
+        note: formData.notes,
+        showInPaperwork: formData.showInPaperwork,
+      });
       enqueueSnackbar(`${submitSnackbarText}`, {
         variant: 'success',
       });
-      const mutateInsuranceId = mutateResp.id ? mutateResp.id : '';
-      navigate(INSURANCES_URL + `/${mutateInsuranceId}`);
+      void refetchPatientOverrideList();
+      void refetchEhrOverrideList();
+      enqueueSnackbar(`${insuranceDetails!.name || 'Insurance'} status was updated successfully`, {
+        variant: 'success',
+      });
+      if (isNew) {
+        navigate(`${INSURANCES_URL}${insuranceTab ? `/${insuranceTab}` : ''}/${mutationId}`);
+      } else {
+        await refetchInsuranceData();
+      }
     } catch {
       const submitErrorString = 'Error trying to save insurance configuration. Please, try again';
       setError(`${submitErrorString}`);
       enqueueSnackbar(`${submitErrorString}`, {
-        variant: 'error',
-      });
-    }
-  };
-
-  const handleStatusChange = async (newStatus: InsuranceData['active']): Promise<void> => {
-    try {
-      await mutateInsurance({
-        id: insuranceId,
-        payor: insuranceDetails,
-        displayName: insuranceDetails?.alias?.[0] || insuranceDetails?.name || '',
-        ...settingsMap,
-        active: newStatus,
-      });
-      await refetchInsuranceData();
-      enqueueSnackbar(`${insuranceDetails!.name || 'Insurance'} status was updated successfully`, {
-        variant: 'success',
-      });
-    } catch {
-      const statusErrorString = 'Error trying to change insurance configuration status. Please, try again';
-      setError(`${statusErrorString}`);
-      enqueueSnackbar(`${statusErrorString}`, {
         variant: 'error',
       });
     }
@@ -236,10 +270,18 @@ export default function EditInsurance(): JSX.Element {
               { link: '/admin', children: 'Admin' },
               { link: BILLING_URL, children: 'Billing Configuration' },
               { link: `${BILLING_URL}/insurance`, children: 'Insurance' },
+              ...(insuranceTab
+                ? [
+                    {
+                      link: `${BILLING_URL}/insurance/${insuranceTab}`,
+                      children: `${capitalize(insuranceTab ?? '')} List`,
+                    },
+                  ]
+                : []),
               {
                 link: '#',
                 children: isNew ? (
-                  'New insurance'
+                  'Add list entry'
                 ) : insuranceDataLoading ? (
                   <Skeleton width={150} />
                 ) : (
@@ -255,7 +297,7 @@ export default function EditInsurance(): JSX.Element {
             marginBottom={2}
             sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', fontWeight: '600 !important' }}
           >
-            {insuranceDataLoading ? <Skeleton width={250} /> : insuranceDetails?.name || (isNew ? 'New' : '')}
+            {isNew ? <></> : insuranceDataLoading ? <Skeleton width={250} /> : insuranceDetails?.name || ''}
           </Typography>
           {insuranceId && insuranceDataLoading ? (
             <Skeleton height={550} sx={{ marginY: -5 }} />
@@ -263,18 +305,24 @@ export default function EditInsurance(): JSX.Element {
             <Paper sx={{ padding: 3 }}>
               {/* Breadcrumbs */}
 
-              <form onSubmit={onSubmit}>
+              <form
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  await onSubmit();
+                }}
+              >
                 <FormLabel
                   sx={{
                     ...theme.typography.h4,
                     color: theme.palette.primary.dark,
                     mb: 2,
                     fontWeight: '600 !important',
-                    display: 'block',
+                    display: 'inline-block',
                   }}
                 >
                   Insurance settings
                 </FormLabel>
+                <Box sx={{ display: 'inline-block', ml: 2 }}>{insuranceDataLoading ? <Loading /> : <></>}</Box>
                 <Controller
                   name="payor"
                   control={control}
@@ -282,9 +330,9 @@ export default function EditInsurance(): JSX.Element {
                     return (
                       <Autocomplete
                         value={value || null}
-                        disabled={insuranceOrgsFetching}
+                        disabled={!isNew || insuranceDataLoading}
                         getOptionLabel={(option) => option.name || ''}
-                        loading={insuranceOrgsFetching}
+                        loading={insuranceDataLoading}
                         isOptionEqualToValue={(option, value) => {
                           return option.id === value.id;
                         }}
@@ -293,7 +341,11 @@ export default function EditInsurance(): JSX.Element {
                         }}
                         inputValue={payerNameInputValue}
                         onInputChange={(_, newValue) => setPayerNameInputValue(newValue)}
-                        options={insurancePayorOrgs}
+                        options={
+                          isNew
+                            ? insuranceData?.map((d) => ({ id: d.id, name: d.name })) ?? []
+                            : [{ id: insuranceDetails?.id, name: insuranceDetails?.name }]
+                        }
                         renderOption={(props, option) => {
                           return (
                             <li {...props} key={option.id}>
@@ -310,12 +362,55 @@ export default function EditInsurance(): JSX.Element {
                   }}
                 />
                 <Controller
+                  name="showInPaperwork"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={field.value}
+                          disabled={insuranceDataLoading}
+                          onChange={(_, newValue) => {
+                            field.onChange(newValue);
+                            setValue('displayName', getValues('payor')?.name ?? '');
+                            setDisableDisplayName(!newValue);
+                          }}
+                        />
+                      }
+                      label="Show in Patient Paperwork"
+                    />
+                  )}
+                />
+                {!patientInsuranceOverrideList?.entry?.length && getValues('showInPaperwork') === false && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 1.5,
+                      backgroundColor: 'info.light',
+                      color: 'info.dark',
+                      borderRadius: 1,
+                      px: 2,
+                      py: 1.5,
+                      mb: 2,
+                      fontSize: '0.875rem',
+                    }}
+                  >
+                    <InfoOutlinedIcon sx={{ fontSize: '1.25rem', mt: '2px', flexShrink: 0 }} />
+                    <Typography variant="body2" color="inherit">
+                      All insurance payers are currently shown in patient paperwork. Choose specific insurance payers to
+                      show to patients to limit the list in patient paperwork.
+                    </Typography>
+                  </Box>
+                )}
+                <Controller
                   name="displayName"
                   control={control}
                   render={({ field: { onChange, value } }) => (
                     <TextField
                       id="outlined-read-only-input"
                       label="Display name"
+                      disabled={insuranceDataLoading || disableDisplayName}
                       value={value || ''}
                       onChange={onChange}
                       sx={{ marginTop: 2, marginBottom: 1, width: '100%' }}
@@ -413,38 +508,9 @@ export default function EditInsurance(): JSX.Element {
               </form>
             </Paper>
           )}
-          {insuranceId !== 'new' &&
-            (insuranceDataLoading ? (
-              <Skeleton height={300} sx={{ marginTop: -8 }} />
-            ) : (
-              <Paper sx={{ padding: 3, marginTop: 3 }}>
-                <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-                  {isActive ? 'Deactivate insurance' : 'Activate insurance'}
-                </Typography>
-                <Typography variant="body1" marginTop={1}>
-                  {isActive
-                    ? 'When you deactivate this insurance, patients will not be able to select it.'
-                    : 'Activate this license.'}
-                </Typography>
-
-                <LoadingButton
-                  variant="contained"
-                  color={isActive ? 'error' : 'primary'}
-                  sx={{
-                    textTransform: 'none',
-                    borderRadius: 28,
-                    marginTop: 4,
-                    fontWeight: 'bold',
-                    marginRight: 1,
-                  }}
-                  loading={mutationPending}
-                  onClick={() => handleStatusChange(!isActive)}
-                >
-                  {isActive ? 'Deactivate' : 'Activate'}
-                </LoadingButton>
-              </Paper>
-            ))}
-          {!isNew && (
+          {isNew ? (
+            <></>
+          ) : (
             <Paper sx={{ padding: 3, marginTop: 3 }}>
               <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
                 Applicable Fee Schedule
@@ -517,7 +583,9 @@ export default function EditInsurance(): JSX.Element {
               )}
             </Paper>
           )}
-          {!isNew && (
+          {isNew ? (
+            <></>
+          ) : (
             <Paper sx={{ padding: 3, marginTop: 3 }}>
               <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
                 Applicable Charge Master

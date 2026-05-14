@@ -130,7 +130,7 @@ export const LabsTableRow = ({
         return (
           <Box>
             <Box data-testid={dataTestIds.externalLabs.labsTable.bundleRowCellTestType} sx={{ fontWeight: 'bold' }}>
-              {lab.testItem}
+              ({lab.testItemCode}) {lab.testItem}
             </Box>
           </Box>
         );
