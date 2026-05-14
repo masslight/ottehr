@@ -216,10 +216,10 @@ export default function OutreachTasksReport(): ReactElement {
   const [selectedActionTypes, setSelectedActionTypes] = useState<ActionTypeFilterValue[]>([]);
   const [selectedMediums, setSelectedMediums] = useState<MediumFilterValue[]>([]);
   const [selectedTriggerEvents, setSelectedTriggerEvents] = useState<TriggerEventFilterValue[]>([]);
-  const [dueDatePreset, setDueDatePreset] = useState<DateRangePreset>('all');
+  const [dueDatePreset, setDueDatePreset] = useState<DateRangePreset>('today');
   const [dueDateCustomStart, setDueDateCustomStart] = useState('');
   const [dueDateCustomEnd, setDueDateCustomEnd] = useState('');
-  const [createdPreset, setCreatedPreset] = useState<DateRangePreset>('all');
+  const [createdPreset, setCreatedPreset] = useState<DateRangePreset>('today');
   const [createdCustomStart, setCreatedCustomStart] = useState('');
   const [createdCustomEnd, setCreatedCustomEnd] = useState('');
   const [page, setPage] = useState(0);
