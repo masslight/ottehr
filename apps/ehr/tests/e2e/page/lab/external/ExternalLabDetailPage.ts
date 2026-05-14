@@ -172,19 +172,20 @@ export class ExternalLabDetailPage {
       const popupTimeout = expectIntegratedFallback ? 15_000 : 35_000;
       const popupPromise = this.#page.waitForEvent('popup', { timeout: popupTimeout }).catch(() => null);
 
-      await markAsReadyBtn.click();
+      const snackbar = this.#page.locator('div[id=notistack-snackbar]').filter({ hasText: 'printer' });
+      const [popup] = await Promise.all([
+        popupPromise,
+        markAsReadyBtn.click(),
+        ...(expectIntegratedFallback
+          ? [
+              expect(snackbar, 'Confirming Dymo Connect warning snackbar appears').toBeVisible({ timeout: 15_000 }),
+              expect(snackbar, 'Confirming snackbar message describes missing printers').toContainText(
+                'No connected available printers detected. Ensure your printer is connected and refresh the page, or print manually from the browser.'
+              ),
+            ]
+          : []),
+      ]);
 
-      if (expectIntegratedFallback) {
-        // Integrated mode without a connected printer: the hook shows a warning snackbar
-        // and then falls back to opening the PDF manually after a short delay.
-        const snackbar = this.#page.locator('div[id=notistack-snackbar]').filter({ hasText: 'printer' });
-        await expect(snackbar, 'Confirming Dymo Connect warning snackbar appears').toBeVisible({ timeout: 15_000 });
-        await expect(snackbar, 'Confirming snackbar message describes missing printers').toContainText(
-          'No connected available printers detected. Ensure your printer is connected and refresh the page, or print manually from the browser.'
-        );
-      }
-
-      const popup = await popupPromise;
       expect(popup, 'Confirming label PDF opened in a new tab (via fallback to manual)').toBeTruthy();
 
       const openedUrl = await this.#page.evaluate(() => (window as any).lastOpenUrl || '');
