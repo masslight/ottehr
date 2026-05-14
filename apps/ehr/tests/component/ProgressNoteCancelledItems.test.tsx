@@ -16,7 +16,6 @@ vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
 
 vi.mock('../../src/features/visits/shared/stores/tracking-board/tracking-board.queries', () => ({
   useSignAppointmentMutation: vi.fn(),
-  useChangeTelemedAppointmentStatusMutation: vi.fn(),
 }));
 
 vi.mock('../../src/hooks/useEvolveUser', () => ({
@@ -123,10 +122,7 @@ import {
   useAppointmentData,
   useChartData,
 } from '../../src/features/visits/shared/stores/appointment/appointment.store';
-import {
-  useChangeTelemedAppointmentStatusMutation,
-  useSignAppointmentMutation,
-} from '../../src/features/visits/shared/stores/tracking-board/tracking-board.queries';
+import { useSignAppointmentMutation } from '../../src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import useEvolveUser from '../../src/hooks/useEvolveUser';
 
 const mockUseAppointmentData = vi.mocked(useAppointmentData);
@@ -139,7 +135,6 @@ const mockUsePatientInstructionsVisibility = vi.mocked(usePatientInstructionsVis
 const mockUseNavigate = vi.mocked(useNavigate);
 const mockUseEvolveUser = vi.mocked(useEvolveUser);
 const mockUseSignAppointmentMutation = vi.mocked(useSignAppointmentMutation);
-const mockUseChangeTelemedAppointmentStatusMutation = vi.mocked(useChangeTelemedAppointmentStatusMutation);
 const mockProceduresContainer = vi.mocked(ProceduresContainer);
 const mockPatientInstructionsContainer = vi.mocked(PatientInstructionsContainer);
 
@@ -196,13 +191,6 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
     } as any);
 
     mockUseSignAppointmentMutation.mockReturnValue({
-      mutateAsync: vi.fn(),
-      isPending: false,
-      isError: false,
-      isSuccess: false,
-    } as any);
-
-    mockUseChangeTelemedAppointmentStatusMutation.mockReturnValue({
       mutateAsync: vi.fn(),
       isPending: false,
       isError: false,

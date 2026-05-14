@@ -1,6 +1,6 @@
 import { Box, SxProps, Typography, useTheme } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { BundleEntry, Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Organization, Patient, Questionnaire, QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -28,7 +28,6 @@ import {
   CoverageWithPriority,
   extractFirstValueFromAnswer,
   flattenItems,
-  InsurancePlanDTO,
   OrderedCoveragesWithSubscribers,
   PATIENT_RECORD_CONFIG,
   PATIENT_RECORD_QUESTIONNAIRE,
@@ -40,14 +39,12 @@ import { CustomDialog } from '../components/dialogs';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import {
-  useGetInsurancePlans,
   useGetPatient,
   useGetPatientAccount,
   useGetPatientCoverages,
   useRemovePatientCoverage,
   useUpdatePatientAccount,
 } from '../hooks/useGetPatient';
-import { createInsurancePlanDto, usePatientStore } from '../state/patient.store';
 
 const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2'];
 const ANSWER_TYPES: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = [
@@ -69,12 +66,45 @@ const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   return undefined;
 };
 
+// Build a linkId -> form item type lookup so empty form fields can default to a
+// type-appropriate value. Without this, undefined defaults make RHF treat
+// "type then clear" as dirty, since MUI inputs emit '' (or false/null for
+// checkboxes/references) and that never strict-equals undefined.
+//
+// Reference fields are emitted as FHIR type 'choice' but tagged with the
+// answer-loading-options extension; surface them as 'reference' so they get a
+// null default that matches what the Autocomplete clears to.
+const ANSWER_LOADING_OPTIONS_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options';
+const isReferenceItem = (item: QuestionnaireItem): boolean =>
+  item.type === 'choice' && (item.extension?.some((ext) => ext.url === ANSWER_LOADING_OPTIONS_URL) ?? false);
+
+const buildLinkIdTypeMap = (q: Questionnaire): Map<string, string> => {
+  const map = new Map<string, string>();
+  const walk = (items?: QuestionnaireItem[]): void => {
+    if (!items) return;
+    for (const item of items) {
+      if (item.linkId && item.type) {
+        map.set(item.linkId, isReferenceItem(item) ? 'reference' : item.type);
+      }
+      walk(item.item);
+    }
+  };
+  walk(q.item);
+  return map;
+};
+const linkIdTypes = buildLinkIdTypeMap(questionnaire);
+
+const emptyDefaultForType = (type: string | undefined): any => {
+  if (type === 'boolean') return false;
+  if (type === 'reference' || type === 'attachment') return null;
+  return '';
+};
+
 const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): Record<string, any> => {
   const flattened = flattenItems(currentItemValues);
-  // console.log('Flattened items for form defaults:', flattened);
   return flattened.reduce((acc: Record<string, any>, item: QuestionnaireResponseItem) => {
     const value = getAnyAnswer(item);
-    acc[item.linkId] = value;
+    acc[item.linkId] = value === undefined ? emptyDefaultForType(linkIdTypes.get(item.linkId)) : value;
     return acc;
   }, {});
 };
@@ -111,32 +141,6 @@ const makePrepopulatedCoveragesFormDefaults = ({
   });
 
   return makeFormDefaults(prepopulatedItems);
-};
-
-const transformInsurancePlans = (bundleEntries: BundleEntry[]): InsurancePlanDTO[] => {
-  const organizations = bundleEntries
-    .filter((bundleEntry) => bundleEntry.resource?.resourceType === 'Organization')
-    .map((bundleEntry) => bundleEntry.resource as Organization);
-
-  const transformedPlans = organizations
-    .map((organization) => {
-      try {
-        return createInsurancePlanDto(organization);
-      } catch (err) {
-        console.error(err);
-        console.error('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
-        return {} as InsurancePlanDTO;
-      }
-    })
-    .filter((insurancePlan) => insurancePlan.id !== undefined)
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const insurancePlanMap: Record<string, InsurancePlanDTO> = {};
-  transformedPlans.forEach((plan) => {
-    insurancePlanMap[plan.name ?? ''] = plan;
-  });
-
-  return Object.values(insurancePlanMap);
 };
 
 const usePatientData = (
@@ -198,8 +202,8 @@ const usePatientData = (
     if (accountData && questionnaire) {
       const prepopulatedForm = prepopulatePatientRecordItems({
         ...accountData,
-        coverages: {},
-        insuranceOrgs: [],
+        coverages: insuranceData?.coverages ?? {},
+        insuranceOrgs: insuranceData?.insuranceOrgs ?? [],
         questionnaire,
         appointmentContext,
       });
@@ -207,7 +211,7 @@ const usePatientData = (
     }
 
     return { patient, isFetching, defaultFormVals };
-  }, [accountData, accountFetching, appointmentContext]);
+  }, [accountData, accountFetching, appointmentContext, insuranceData?.coverages, insuranceData?.insuranceOrgs]);
 
   return {
     accountData,
@@ -271,14 +275,42 @@ const useFormData = (
     resolver: createDynamicValidationResolver({ renderedSectionCounts }),
   });
 
-  // Populate form when data first loads (defaultValues only applies at mount time,
-  // and the form mounts before data is available)
-  const initializedRef = useRef(false);
+  // Populate form when data loads, and re-populate when navigating to a different
+  // patient on the same mounted component (defaultValues only applies at mount time).
+  const initializedForPatientRef = useRef<string | null>(null);
   useEffect(() => {
-    if (defaultFormVals && !initializedRef.current) {
+    if (defaultFormVals && initializedForPatientRef.current !== (patientId ?? null)) {
       methods.reset(defaultFormVals);
-      initializedRef.current = true;
+      initializedForPatientRef.current = patientId ?? null;
     }
+  }, [defaultFormVals, methods, patientId]);
+
+  const appointmentContextSyncRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!defaultFormVals) return;
+    const nextKey = [
+      defaultFormVals['appointment-service-category'] ?? '',
+      defaultFormVals['appointment-service-mode'] ?? '',
+      defaultFormVals['reason-for-visit'] ?? '',
+    ].join('|');
+    if (appointmentContextSyncRef.current === nextKey) return;
+    appointmentContextSyncRef.current = nextKey;
+
+    methods.setValue('appointment-service-category', defaultFormVals['appointment-service-category'], {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+    methods.setValue('appointment-service-mode', defaultFormVals['appointment-service-mode'], {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+    methods.setValue('reason-for-visit', defaultFormVals['reason-for-visit'], {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
   }, [defaultFormVals, methods]);
 
   const { coveragesFormValues } = useMemo(() => {
@@ -360,7 +392,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   appointmentContext,
 }) => {
   const navigate = useNavigate();
-  const { setInsurancePlans } = usePatientStore();
 
   const { accountData, insuranceData, coverages, patient, isFetching, defaultFormVals, coveragesFetching } =
     usePatientData(id, appointmentContext);
@@ -385,15 +416,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   const { otherPatientsWithSameName, setOtherPatientsWithSameName } = useGetPatient(id);
 
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
-  useGetInsurancePlans((data) => {
-    if (!data) return;
-
-    const bundleEntries = data.entry;
-    if (bundleEntries) {
-      const uniquePlans = transformInsurancePlans(bundleEntries);
-      setInsurancePlans(uniquePlans);
-    }
-  });
 
   const { handleSubmit, formState } = methods;
   const { dirtyFields } = formState;

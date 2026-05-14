@@ -291,15 +291,8 @@ export type {
 } from './medical-history';
 
 // Texting config types
-export { I18nQuickTextSchema, TextingConfigSchema } from './texting';
-export type {
-  QuickTextWhen,
-  I18nQuickText,
-  TextingInvoicingConfig,
-  TextingTelemedConfig,
-  TextingInPersonConfig,
-  TextingConfig,
-} from './texting';
+export { TextingConfigSchema } from './texting';
+export type { TextingInvoicingConfig, TextingTelemedConfig, TextingConfig } from './texting';
 
 // Forms config types
 export { FormItemSchema, FormsConfigSchema } from './forms';
@@ -317,7 +310,7 @@ export { PromptsConfigSchema } from './prompts';
 export type { PromptsConfig } from './prompts';
 
 // Provider config types
-export { ProviderConfigSchema, EmCodeOptionsSchema, EmCodeOptionSchema } from './provider';
+export { ProviderConfigSchema } from './provider';
 export type { ProviderConfig } from './provider';
 
 // Feature flags config types

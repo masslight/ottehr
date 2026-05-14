@@ -57,7 +57,20 @@ export const structureQuestionnaireResponse = (
         } else {
           // Normal processing
           const effectiveValue = value === null ? undefined : value;
-          const answer = effectiveValue != undefined ? makeQRResponseItem(effectiveValue, qItem) : undefined;
+          // Boolean form fields are seeded with `false` defaults so RHF can
+          // detect "toggle on then off" as not dirty. But that means an
+          // unrendered section (e.g. the inactive insurance slots) still
+          // carries a `false` for any boolean child. Emitting that as
+          // `{valueBoolean: false}` would survive pruneEmptySections and
+          // surface the section to the backend, which then rejects it for
+          // missing required fields. Skip non-dirty `false` so synthetic
+          // defaults don't leak into the QR; the backend leaves prior data
+          // alone when the field is absent.
+          const isUnchangedFalseBoolean = effectiveValue === false && qItem?.type === 'boolean' && !isFieldDirty;
+          const answer =
+            effectiveValue != undefined && !isUnchangedFalseBoolean
+              ? makeQRResponseItem(effectiveValue, qItem)
+              : undefined;
           if (answer) {
             pageItems.push(answer);
             pageDict.set(parentItem.linkId, pageItems);

@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
+import { orgIdMatchesReference } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -16,7 +17,7 @@ export const index = wrapHandler('disassociate-payer', async (input: ZambdaInput
   });
 
   const updatedUseContext = (existing.useContext || []).filter((uc) => {
-    if (organizationId && uc.valueReference?.reference === `Organization/${organizationId}`) {
+    if (organizationId && orgIdMatchesReference(uc.valueReference?.reference, organizationId)) {
       return false;
     }
     if (locationId && uc.code?.code === 'venue' && uc.valueReference?.reference === `Location/${locationId}`) {

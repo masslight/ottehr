@@ -336,16 +336,17 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
-      await queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
-      await queryClient.invalidateQueries({ queryKey: ['useGetPatientPatientResources'] });
-      await queryClient.invalidateQueries({ queryKey: ['otherPatientsWithSameNameResources'] });
-      enqueueSnackbar('Patients merged successfully', { variant: 'success' });
+      // Merge is now async — the merge actually runs in a subscription zambda.
+      // Refresh the active-merge-task query so the parent page shows the
+      // in-progress banner immediately. Patient/account/coverage queries will
+      // be invalidated when the task transitions to a terminal state.
+      await queryClient.invalidateQueries({ queryKey: ['active-merge-task'] });
+      enqueueSnackbar('Patients merge started', { variant: 'success' });
       onSuccess?.();
       close();
     },
     onError: (error) => {
-      const message = error instanceof Error && error.message ? error.message : 'Failed to merge patients';
+      const message = error instanceof Error && error.message ? error.message : 'Failed to start merge';
       enqueueSnackbar(message, { variant: 'error' });
     },
   });
@@ -374,6 +375,15 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
       const patientVals = formValsByPatient[selectedPatientId];
       if (patientVals) {
         mergedFormValues[linkId] = patientVals[linkId];
+      }
+    }
+
+    // Copy hidden logical fields (e.g. should-display-ssn-field) from main so the
+    // server-side enableWhen filter doesn't strip dependent answers like patient-ssn.
+    for (const linkId of HIDDEN_LINK_IDS) {
+      const value = mainFormVals[linkId] ?? otherFormVals[linkId];
+      if (value !== undefined) {
+        mergedFormValues[linkId] = value;
       }
     }
 

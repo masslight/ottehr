@@ -5,7 +5,8 @@ import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { parseCommaSeparatedTags, RoleType, setupSentry } from 'utils';
+import { parseCommaSeparatedTags, RoleType } from 'utils';
+import { setupSentry } from 'utils/lib/frontend';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
 import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
@@ -30,6 +31,8 @@ import ImmunizationQuickPickDetailPage from './features/visits/telemed/component
 import AdminAddInHouseLab from './features/visits/telemed/components/admin/in-house-labs/AdminAddInHouseLab';
 import AdminInHouseLabDetails from './features/visits/telemed/components/admin/in-house-labs/AdminInHouseLabDetails';
 import InHouseMedicationQuickPickDetailPage from './features/visits/telemed/components/admin/InHouseMedicationQuickPickDetailPage';
+import AdminAddLabSet from './features/visits/telemed/components/admin/lab-sets/AdminAddLabSet';
+import AdminLabSetDetails from './features/visits/telemed/components/admin/lab-sets/AdminLabSetDetails';
 import ProcedureQuickPickDetailPage from './features/visits/telemed/components/admin/ProcedureQuickPickDetailPage';
 import RadiologyQuickPickDetailPage from './features/visits/telemed/components/admin/RadiologyQuickPickDetailPage';
 import { useApiClients } from './hooks/useAppClients';
@@ -59,6 +62,7 @@ import {
   DataExports,
   IncompleteEncounters,
   InvoiceablePatients,
+  MailedStatements,
   PracticeKpis,
   RecentPatients,
   VisitsOverview,
@@ -84,6 +88,7 @@ export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
 export const CHARGE_MASTERS_URL = '/admin/charge-masters';
 export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
 export const BILLING_URL = '/admin/billing';
+export const BILLING_INSURANCE_URL = '/admin/billing/insurance';
 export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';
 export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 
@@ -205,6 +210,7 @@ function App(): ReactElement {
                 <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 <Route path="/reports/recent-patients" element={<RecentPatients />} />
                 <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
+                <Route path="/reports/mailed-statements" element={<MailedStatements />} />
               </>
             )}
             {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) && (
@@ -224,8 +230,10 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                 )}
                 <Route path="/admin" element={<AdminPage />} />
-                <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
+                <Route path={`${BILLING_URL}/:billingTab`} element={<AdminPage />} />
+                <Route path={`${BILLING_URL}/:billingTab/:insuranceTab`} element={<AdminPage />} />
                 <Route path="/admin/:adminTab" element={<AdminPage />} />
+                <Route path="/admin/:adminTab/:subTab" element={<AdminPage />} />
                 <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
                 <Route path="/admin/quick-picks/radiology/:quickPickId" element={<RadiologyQuickPickDetailPage />} />
                 <Route
@@ -245,13 +253,16 @@ function App(): ReactElement {
                 <Route path="/admin/medications/add" element={<AddMedicationPage />} />
                 <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
                 <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
-                <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
+                <Route path={`${INSURANCES_URL}/:insuranceTab/:insurance`} element={<EditInsurance />} />
+                <Route path={`${BILLING_URL}/:billingTab/:insuranceTab/:insurance`} element={<EditInsurance />} />
                 <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
                 <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
                 <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />
                 <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                 <Route path="/admin/in-house-labs/add" element={<AdminAddInHouseLab />} />
                 <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
+                <Route path="/admin/lab-sets/add" element={<AdminAddLabSet />} />
+                <Route path="/admin/lab-sets/:listId" element={<AdminLabSetDetails />} />
                 {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                 <Route path="/tasks" element={<Tasks />} />
                 <Route path="*" element={<Navigate to={'/'} />} />

@@ -75,8 +75,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { presignedUrls, reviewedLabResultsUrls } = await getPatientPortalPresignedURLs(
       oystehr,
       oystehrToken,
-      encounter?.id,
-      secrets
+      encounter?.id
     );
     documents = presignedUrls;
     reviewedLabResults = reviewedLabResultsUrls;
@@ -104,7 +103,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
 
       const sortedFollowups = allEncounters
-        .filter((e) => isFollowupEncounter(e))
+        .filter((e) => isFollowupEncounter(e) && e.id !== encounter.id)
         .sort((a, b) => getEncounterSortValue(a) - getEncounterSortValue(b));
 
       followUps = await Promise.all(
@@ -115,8 +114,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               const { presignedUrls } = await getPatientPortalPresignedURLs(
                 oystehr,
                 oystehrToken,
-                followupEncounter.id,
-                secrets
+                followupEncounter.id
               );
               followupDocuments = presignedUrls;
             }

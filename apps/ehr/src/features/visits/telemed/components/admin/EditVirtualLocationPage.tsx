@@ -25,7 +25,8 @@ import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
-import { AllStates, isLocationVirtual, useSuccessQuery } from 'utils';
+import { AllStates, isLocationVirtual } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 
 const displayStates = AllStates.map((state) => state.value);
 

@@ -32,6 +32,14 @@ export class VisitsPage {
     await intakeButton.click();
   }
 
+  async clickReadyButton(appointmentId: string): Promise<void> {
+    const readyButton = this.#page
+      .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
+      .getByTestId(dataTestIds.dashboard.readyButton);
+    await readyButton.waitFor({ state: 'visible', timeout: 60000 });
+    await readyButton.click();
+  }
+
   async clickVisitDetailsButton(appointmentId: string): Promise<void> {
     const visitDetailsButton = this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))

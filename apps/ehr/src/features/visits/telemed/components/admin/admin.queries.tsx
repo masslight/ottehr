@@ -1,21 +1,29 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { RcmListPayersResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { Extension, Location, Organization } from 'fhir/r4b';
+import { Location, Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import {
   adminAddInHouseLab,
+  adminAddLabSet,
   adminGetInHouseLabConfig,
+  adminGetLabSets,
   adminListInHouseLabs,
   adminUpdateInHouseLab,
+  adminUpdateLabelPrintingConfig,
+  adminUpdateLabSet,
   bulkUpdateInsuranceStatus,
+  createEmCode,
+  deleteEmCode,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
+  getLabelPrintingConfig,
   getProcedureQuickPicks,
   getRadiologyQuickPicks,
   removeImmunizationQuickPick,
   removeInHouseMedicationQuickPick,
   removeProcedureQuickPick,
   removeRadiologyQuickPick,
+  updateEmCode,
   updateImmunizationQuickPick,
   updateInHouseMedicationQuickPick,
   updateProcedureQuickPick,
@@ -25,25 +33,33 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
+  AdminAddLabSetInput,
+  AdminAddLabSetOutput,
   AdminGetInHouseLabConfigInput,
+  AdminGetLabSetDetailInput,
+  AdminGetLabSetDetailOutput,
+  AdminGetLabSetListOutput,
   AdminInHouseLabConfigOutput,
   AdminListInHouseLabsOutput,
   AdminUpdateInHouseLabInput,
+  AdminUpdateLabSetInput,
+  AdminUpdatePrintingConfigInput,
   APIError,
   BulkUpdateInsuranceStatusInput,
-  FHIR_EXTENSION,
+  CreateEmCodeInput,
+  DeleteEmCodeInput,
+  EmCodeOption,
+  GetLabelPrintingConfigInput,
+  GetLabelPrintingConfigOutput,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
-  INSURANCE_SETTINGS_MAP,
   isApiError,
   isLocationVirtual,
-  ORG_TYPE_CODE_SYSTEM,
-  ORG_TYPE_PAYER_CODE,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
+  UpdateEmCodeInput,
 } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
-import { InsuranceData } from './EditInsurance';
 
 export const useVirtualLocationsQuery = (): UseQueryResult<Location[], Error> => {
   const { oystehr } = useApiClients();
@@ -76,58 +92,36 @@ export const useVirtualLocationsQuery = (): UseQueryResult<Location[], Error> =>
   });
 };
 
-export const useInsurancesQuery = (id?: string, enabled?: boolean): UseQueryResult<Organization[], Error> => {
+export const useInsurancesQuery = (ids?: string[], enabled?: boolean): UseQueryResult<Organization[], Error> => {
   const { oystehr } = useApiClients();
 
   return useQuery({
-    queryKey: ['insurances', id],
+    queryKey: ['insurances', ids],
 
     queryFn: async () => {
-      const searchParams = [];
-      let offset = 0;
-      if (id) {
-        searchParams.push({
-          name: '_id',
-          value: id,
-        });
+      if (!oystehr) {
+        throw new Error('Oystehr client is not defined');
       }
-      searchParams.push(
-        {
-          name: '_count',
-          value: '1000',
-        },
-        {
-          name: 'type',
-          value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
-        },
-        {
-          name: '_offset',
-          value: offset,
+      if (ids) {
+        if (!ids.length) {
+          return [];
         }
-      );
-      let plans: Organization[] = [];
-      let resources = await oystehr!.fhir.search<Organization>({
-        resourceType: 'Organization',
-        params: searchParams,
-      });
-      plans = plans.concat(resources.unbundle());
-      while (resources.link?.find((link) => link.relation === 'next')) {
-        resources = await oystehr!.fhir.search<Organization>({
-          resourceType: 'Organization',
-          params: searchParams.map((param) => {
-            if (param.name === '_offset') {
-              return {
-                ...param,
-                value: (offset += 1000),
-              };
-            }
-            return param;
-          }),
-        });
-        plans = plans.concat(resources.unbundle());
+        const payers = await Promise.all(ids.map((id) => oystehr.rcm.getPayer({ id })));
+        return payers;
       }
-
-      return plans;
+      const payers = [];
+      let hasMore = true;
+      let nextCursor: string | null = null;
+      while (hasMore) {
+        const result: RcmListPayersResponse = await oystehr.rcm.listPayers({
+          limit: 200,
+          cursor: nextCursor ?? undefined,
+        });
+        payers.push(...result.data);
+        nextCursor = result.metadata.nextCursor;
+        hasMore = !!nextCursor;
+      }
+      return payers;
     },
     enabled: enabled && !!oystehr,
     gcTime: 0,
@@ -135,124 +129,79 @@ export const useInsurancesQuery = (id?: string, enabled?: boolean): UseQueryResu
 };
 
 export const useInsuranceMutation = (
-  insurancePlan?: Organization
-): UseMutationResult<Organization, Error, InsuranceData> => {
-  const { oystehr } = useApiClients();
+  payerId: string
+): UseMutationResult<
+  void,
+  Error,
+  {
+    existingName?: string;
+    name?: string;
+    existingNote?: string;
+    note?: string;
+    showInPaperwork?: boolean;
+  }
+> => {
+  const { oystehrZambda } = useApiClients();
 
   return useMutation({
-    mutationKey: ['insurances', insurancePlan?.id],
+    mutationKey: ['insurances', payerId],
 
-    mutationFn: async (data: InsuranceData) => {
-      const resourceExtensions = insurancePlan?.extension || [];
-      const requirementSettingsExistingExtensions = resourceExtensions.find(
-        (ext) => ext.url === FHIR_EXTENSION.InsurancePlan.insuranceRequirements.url
-      )?.extension;
-      const requirementSettingsNewExtensions = requirementSettingsExistingExtensions || [];
-
-      Object.keys(INSURANCE_SETTINGS_MAP).map((setting) => {
-        if (data[setting as keyof typeof INSURANCE_SETTINGS_MAP] === undefined) {
-          return;
+    mutationFn: async (data: {
+      existingName?: string;
+      name?: string;
+      existingNote?: string;
+      note?: string;
+      showInPaperwork?: boolean;
+    }) => {
+      if (data.showInPaperwork) {
+        if (!data.existingName && data.name) {
+          await oystehrZambda?.zambda.execute({
+            id: 'add-payer-to-insurance-override-list',
+            listName: 'patient',
+            payerId,
+            payerNameOverride: data.name,
+          });
         }
-        const currentSettingExt: Extension = {
-          url: setting,
-          valueBoolean: data[setting as keyof typeof INSURANCE_SETTINGS_MAP],
-        };
-
-        const existingExtIndex = requirementSettingsNewExtensions.findIndex((ext) => ext.url === currentSettingExt.url);
-        if (existingExtIndex >= 0) {
-          requirementSettingsNewExtensions[existingExtIndex] = currentSettingExt;
-        } else {
-          requirementSettingsNewExtensions.push(currentSettingExt);
-        }
-      });
-
-      const resource: Organization = {
-        resourceType: 'Organization',
-        active: data.active ?? true,
-        name: insurancePlan?.name || data.payor?.name,
-        alias: data.displayName ? [data.displayName] : undefined,
-        type: [
-          {
-            coding: [
-              {
-                system: ORG_TYPE_CODE_SYSTEM,
-                code: ORG_TYPE_PAYER_CODE,
-              },
-            ],
-          },
-        ],
-        identifier: insurancePlan?.identifier || data?.identifier,
-        address: insurancePlan?.address || data?.address,
-      };
-
-      if (data.notes) {
-        const noteExt = {
-          url: FHIR_EXTENSION.InsurancePlan.notes.url,
-          valueString: data.notes,
-        };
-
-        const existingExtIndex = resourceExtensions.findIndex(
-          (ext) => ext.url === FHIR_EXTENSION.InsurancePlan.notes.url
-        );
-        if (existingExtIndex >= 0) {
-          resourceExtensions[existingExtIndex] = noteExt;
-        } else {
-          resourceExtensions.push(noteExt);
+        if (data.existingName && data.existingName !== data.name) {
+          await oystehrZambda?.zambda.execute({
+            id: 'edit-payer-in-insurance-override-list',
+            listName: 'patient',
+            payerId,
+            payerNameOverride: data.name,
+          });
         }
       }
-      if (data.notes && data.notes === '') {
-        const existingExtIndex = resourceExtensions.findIndex(
-          (ext) => ext.url === FHIR_EXTENSION.InsurancePlan.notes.url
-        );
-        if (existingExtIndex >= 0) {
-          resourceExtensions.splice(existingExtIndex, 1);
-        }
+      if (!data.showInPaperwork) {
+        await oystehrZambda?.zambda.execute({
+          id: 'remove-payer-from-insurance-override-list',
+          listName: 'patient',
+          payerId,
+        });
       }
-
-      // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
-      // if (!requirementSettingsExistingExtensions) {
-      //   resourceExtensions?.push({
-      //     url: FHIR_EXTENSION.InsurancePlan.insuranceRequirements.url,
-      //     extension: requirementSettingsNewExtensions,
-      //   });
-      // }
-      resource.extension = resourceExtensions;
-
-      if (!oystehr) throw new Error('Oystehr is not defined');
-      let prom: Promise<Organization>;
-      if (data.id) {
-        resource.id = data.id;
-        prom = oystehr.fhir.update<Organization>(resource);
-      } else {
-        prom = oystehr.fhir.create<Organization>(resource);
+      if (!data.existingNote && data.note) {
+        await oystehrZambda?.zambda.execute({
+          id: 'add-payer-to-insurance-override-list',
+          listName: 'ehr',
+          payerId,
+          payerNote: data.note,
+        });
       }
-      const response = await prom;
-      return response;
+      if (data.existingNote && data.note && data.existingNote !== data.note) {
+        await oystehrZambda?.zambda.execute({
+          id: 'edit-payer-in-insurance-override-list',
+          listName: 'ehr',
+          payerId,
+          payerNote: data.note,
+        });
+      }
+      if (data.existingNote && !data.note) {
+        await oystehrZambda?.zambda.execute({
+          id: 'remove-payer-from-insurance-override-list',
+          listName: 'ehr',
+          payerId,
+        });
+      }
     },
-  });
-};
-
-export const useInsuranceOrganizationsQuery = (): UseQueryResult<Organization[], Error> => {
-  const { oystehr } = useApiClients();
-
-  return useQuery({
-    queryKey: ['insurance-organizations'],
-
-    queryFn: async () => {
-      const resources = await oystehr!.fhir.search<Organization>({
-        resourceType: 'Organization',
-        params: [
-          {
-            name: 'type',
-            value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
-          },
-        ],
-      });
-
-      return resources.unbundle();
-    },
-
-    enabled: !!oystehr,
   });
 };
 
@@ -470,6 +419,216 @@ export const useAdminUpdateInHouseLab = (
       // send to sentry
       safelyCaptureException(error);
       let message = 'Something went wrong! In-house lab update could not be made.';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminCreateEmCodeMutation = (): UseMutationResult<EmCodeOption[], Error, CreateEmCodeInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['em-codes', 'create'],
+    mutationFn: async (data: CreateEmCodeInput) => {
+      if (!oystehrZambda) throw new Error('Oystehr client is not defined');
+      const result = await createEmCode(oystehrZambda, data);
+      return result.codes;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
+    },
+    onError: () => {
+      enqueueSnackbar('Failed to create E&M code', { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminUpdateEmCodeMutation = (): UseMutationResult<EmCodeOption[], Error, UpdateEmCodeInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['em-codes', 'update'],
+    mutationFn: async (data: UpdateEmCodeInput) => {
+      if (!oystehrZambda) throw new Error('Oystehr client is not defined');
+      const result = await updateEmCode(oystehrZambda, data);
+      return result.codes;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
+    },
+    onError: () => {
+      enqueueSnackbar('Failed to update E&M code', { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminDeleteEmCodeMutation = (): UseMutationResult<EmCodeOption[], Error, DeleteEmCodeInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['em-codes', 'delete'],
+    mutationFn: async (data: DeleteEmCodeInput) => {
+      if (!oystehrZambda) throw new Error('Oystehr client is not defined');
+      const result = await deleteEmCode(oystehrZambda, data);
+      return result.codes;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
+    },
+    onError: () => {
+      enqueueSnackbar('Failed to delete E&M code', { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminGetLabSetsList = (): UseQueryResult<AdminGetLabSetListOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-get-lab-sets'],
+    queryFn: async () => {
+      return adminGetLabSets(oystehrZambda!);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
+  });
+};
+
+export const useAdminGetLabSetDetail = (
+  input: AdminGetLabSetDetailInput
+): UseQueryResult<AdminGetLabSetDetailOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-get-lab-sets', input.labSetId],
+    queryFn: async () => {
+      return adminGetLabSets(oystehrZambda!, input);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
+  });
+};
+
+export const useAdminAddLabSet = (): UseMutationResult<AdminAddLabSetOutput, Error, AdminAddLabSetInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-add-lab-set'],
+    mutationFn: async (input: AdminAddLabSetInput) => {
+      console.log('mutation for add in house lab called');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return adminAddLabSet(oystehrZambda!, input);
+    },
+    onSuccess: async (_data, _variables) => {
+      // invalidate so the list page re-loads correctly
+      await queryClient.invalidateQueries({
+        queryKey: ['admin-get-lab-sets'],
+      });
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! Lab set could not be created :(';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminUpdateLabSet = (labSetId: string): UseMutationResult<void, Error, AdminUpdateLabSetInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-update-lab-set', labSetId],
+    mutationFn: async (input: AdminUpdateLabSetInput) => {
+      console.log('mutation for update in house lab called');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return adminUpdateLabSet(oystehrZambda!, input);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['admin-get-lab-sets'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['external lab resource search'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['inhouse lab resource search'],
+        }),
+      ]);
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! The lab set update could not be made.';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminGetLabelPrintingConfig = (
+  input: GetLabelPrintingConfigInput
+): UseQueryResult<GetLabelPrintingConfigOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+  const { deviceId } = input;
+
+  return useQuery({
+    queryKey: ['admin-get-label-printing-config', deviceId],
+    queryFn: async () => {
+      return getLabelPrintingConfig(oystehrZambda!, input);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
+    refetchOnMount: 'always', // refetch every mount
+    refetchOnWindowFocus: true, // refetch when you tab back
+  });
+};
+
+export const useAdminUpdateLabelPrintingConfig = (
+  mutatingDeviceId: string | undefined
+): UseMutationResult<void, Error, AdminUpdatePrintingConfigInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  console.log('in hook query for update printing config');
+
+  return useMutation({
+    mutationKey: ['admin-update-label-printing-config', mutatingDeviceId],
+    mutationFn: async (input: AdminUpdatePrintingConfigInput) => {
+      console.log('mutation for update printing config');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      await adminUpdateLabelPrintingConfig(oystehrZambda!, input);
+      console.log('finished call to update printing config in hook');
+    },
+    onSuccess: async (_data, variables) => {
+      await queryClient.invalidateQueries({
+        queryKey: ['admin-get-label-printing-config', variables.deviceId],
+      });
+      enqueueSnackbar('Successfully updated printing config', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! Printing config update could not be made.';
       if (isApiError(error)) {
         message = (error as APIError).message;
       }

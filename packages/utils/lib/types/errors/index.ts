@@ -25,10 +25,13 @@ export enum APIErrorCode {
   USER_ALREADY_EXISTS = 4020,
   PATIENT_PHONE_NOT_FOUND = 4021,
   RESOURCE_INCOMPLETE_FOR_OPERATION = 4022,
+  ALREADY_EXISTS = 4023,
+  CONCURRENT_UPDATE = 4024,
   // 41xx
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
   FHIR_RESOURCE_IS_GONE = 4102,
+  PRECONDITION_FAILED = 4120,
   // 42xx
   MISSING_REQUEST_BODY = 4200,
   MISSING_REQUIRED_PARAMETERS = 4201,
@@ -53,6 +56,7 @@ export enum APIErrorCode {
   IN_HOUSE_LAB_GENERAL = 4402,
   MISSING_WC_INFO_FOR_LABS = 4403,
   ADMIN_IN_HOUSE_TEST_EXISTS = 4404,
+  LABEL_PRINTING_GENERAL = 4405,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -387,6 +391,20 @@ export const RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR = (message: string): APIErr
   };
 };
 
+export const ALREADY_EXISTS_WITH_MESSAGE = (message: string): APIError => {
+  return {
+    code: APIErrorCode.ALREADY_EXISTS,
+    message,
+  };
+};
+
+export const CONCURRENT_UPDATE_WITH_MESSAGE = (message: string): APIError => {
+  return {
+    code: APIErrorCode.CONCURRENT_UPDATE,
+    message,
+  };
+};
+
 export const GENERIC_STRIPE_PAYMENT_ERROR = {
   code: APIErrorCode.STRIPE_PAYMENT_ERROR_GENERIC,
   message: 'The card payment was not successful. Try a different card',
@@ -443,3 +461,15 @@ export const ADMIN_IN_HOUSE_LAB_TEST_EXISTS_ERROR = (testName?: string): APIErro
     } already exists. Please change the name, or update the existing test`,
   };
 };
+
+export const LABEL_PRINTING_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.LABEL_PRINTING_GENERAL,
+    message,
+  };
+};
+
+export const PRECONDITION_FAILED = (message?: string): APIError => ({
+  code: APIErrorCode.PRECONDITION_FAILED,
+  message: message ?? 'Resource was edited during operation',
+});

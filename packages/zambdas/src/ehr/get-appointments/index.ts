@@ -32,7 +32,6 @@ import {
   getPatientFirstName,
   getPatientLastName,
   getSMSNumberForIndividual,
-  getUnconfirmedDOBForAppointment,
   getVisitStatusHistory,
   InPersonAppointmentInformation,
   INSURANCE_CARD_CODE,
@@ -425,6 +424,35 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
   console.timeEnd('get_all_doc_refs + get_all_communications + practitioners + signatures');
 
+  // For follow-up appointments, the parent encounter is typically not in the current search results.
+  // Batch-fetch any parent encounters that are referenced via partOf but missing from apptRefToEncounterMap.
+  const existingEncounterRefs = new Set(Object.values(apptRefToEncounterMap).map((enc) => `Encounter/${enc.id}`));
+  const missingParentEncounterRefs = [
+    ...new Set(
+      Object.values(apptRefToEncounterMap)
+        .filter((enc) => enc.partOf?.reference && !existingEncounterRefs.has(enc.partOf.reference))
+        .map((enc) => enc.partOf!.reference!)
+    ),
+  ];
+
+  const parentEncounterToApptIdMap: Record<string, string> = {};
+  if (missingParentEncounterRefs.length > 0) {
+    const ids = missingParentEncounterRefs.map((ref) => ref.replace('Encounter/', '')).join(',');
+    const parentEncounters =
+      (
+        await oystehr.fhir.search<Encounter>({
+          resourceType: 'Encounter',
+          params: [{ name: '_id', value: ids }],
+        })
+      )?.unbundle() ?? [];
+    parentEncounters.forEach((enc) => {
+      const apptRef = enc.appointment?.[0]?.reference;
+      if (enc.id && apptRef) {
+        parentEncounterToApptIdMap[`Encounter/${enc.id}`] = apptRef.replace('Appointment/', '');
+      }
+    });
+  }
+
   // because the related person tied to the user's account has been excluded from the graph of persons
   // connected to patient resources, while the Zap sms creates communications with sender reference based on
   // the user's profile-linked resource, it is necessary to do this cross-referencing to map from the sender resource
@@ -499,6 +527,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       supervisorApprovalEnabled,
       encounterSignatures,
       locationIdToResourceMap,
+      parentEncounterToApptIdMap,
     };
 
     preBooked = appointmentQueues.prebooked
@@ -602,6 +631,7 @@ interface AppointmentInformationInputs {
   supervisorApprovalEnabled: boolean;
   encounterSignatures: Provenance[];
   locationIdToResourceMap: Record<string, Location>;
+  parentEncounterToApptIdMap: Record<string, string>;
 }
 
 const makeAppointmentInformation = (
@@ -623,6 +653,7 @@ const makeAppointmentInformation = (
     supervisorApprovalEnabled,
     encounterSignatures,
     locationIdToResourceMap,
+    parentEncounterToApptIdMap,
   } = input;
 
   const patientRef = appointment.participant.find((appt) => appt.actor?.reference?.startsWith('Patient/'))?.actor
@@ -703,8 +734,6 @@ const makeAppointmentInformation = (
   const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
   const status = getInPersonVisitStatus(appointment, encounter, supervisorApprovalEnabled);
 
-  const unconfirmedDOB = getUnconfirmedDOBForAppointment(appointment);
-
   const waitingMinutesString = appointment.meta?.tag?.find((tag) => tag.system === 'waiting-minutes-estimate')?.code;
   const waitingMinutes = waitingMinutesString ? parseInt(waitingMinutesString) : undefined;
 
@@ -749,7 +778,6 @@ const makeAppointmentInformation = (
     smsModel,
     reasonForVisit: appointment.description || 'Unknown',
     comment: appointment.comment,
-    unconfirmedDOB: unconfirmedDOB ?? '',
     appointmentType: appointmentTypeForAppointment(appointment),
     appointmentAttendanceType: appointmentAttendanceTypeAppointment(appointment),
     appointmentStatus: appointment.status,
@@ -770,7 +798,6 @@ const makeAppointmentInformation = (
     participants,
     next,
     visitStatusHistory: getVisitStatusHistory(encounter),
-    needsDOBConfirmation: !!unconfirmedDOB,
     waitingMinutes,
     serviceCategory: appointment.serviceCategory
       ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])
@@ -778,10 +805,10 @@ const makeAppointmentInformation = (
     location: locationIdToResourceMap[encounter.location?.[0]?.location?.reference ?? ''],
     isFollowUp: !!encounter.partOf,
     parentEncounterId: encounter.partOf?.reference?.replace('Encounter/', ''),
-    parentAppointmentId: encounter.partOf
+    parentAppointmentId: encounter.partOf?.reference
       ? Object.entries(apptRefToEncounterMap)
           .find(([, enc]) => `Encounter/${enc.id}` === encounter.partOf?.reference)?.[0]
-          ?.replace('Appointment/', '')
+          ?.replace('Appointment/', '') ?? parentEncounterToApptIdMap[encounter.partOf.reference]
       : undefined,
   };
 };
