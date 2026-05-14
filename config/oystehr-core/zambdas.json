@@ -1813,13 +1813,6 @@
       "src": "src/rcm/charge-masters/list-charge-masters/index",
       "zip": ".dist/zips/list-charge-masters.zip"
     },
-    "GET-OR-CREATE-CANDID-API-CLIENT": {
-      "name": "get-or-create-candid-api-client",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/rcm/get-or-create-candid-api-client/index",
-      "zip": ".dist/zips/get-or-create-candid-api-client.zip"
-    },
     "CREATE-EMPLOYER": {
       "name": "create-employer",
       "type": "http_auth",
