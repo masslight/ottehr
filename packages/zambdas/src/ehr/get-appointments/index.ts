@@ -25,6 +25,7 @@ import {
   flattenItems,
   GetAppointmentsZambdaInput,
   getAttendingPractitionerId,
+  getAttestedConsentFromEncounter,
   getChatContainsUnreadMessages,
   getCoding,
   getInPersonVisitStatus,
@@ -38,6 +39,7 @@ import {
   isAnnotationFollowupEncounter,
   isInPersonAppointment,
   isNonPaperworkQuestionnaireResponse,
+  isPatientDemographicsComplete,
   isTruthy,
   PHOTO_ID_CARD_CODE,
   PRIVATE_EXTENSION_BASE_URL,
@@ -748,7 +750,11 @@ const makeAppointmentInformation = (
   }
 
   // if the QR has been updated at least once, this tag will not be present
-  const paperworkHasBeenSubmitted = !!questionnaireResponse?.authored;
+  const demographicsByPaperworkSubmission = !!questionnaireResponse?.authored;
+
+  const demographicsByPatientResource = isPatientDemographicsComplete(patient);
+  const consentByPaperworkSignatures = !!consentComplete;
+  const consentByStaffAttestation = !!(encounter && getAttestedConsentFromEncounter(encounter));
 
   const participants = parseEncounterParticipants(encounter, practitionerIdToResourceMap);
   const attenderProviderType = parseAttenderProviderType(encounter, practitionerIdToResourceMap);
@@ -789,10 +795,10 @@ const makeAppointmentInformation = (
     group: group ? group.name : undefined,
     room: room,
     paperwork: {
-      demographics: paperworkHasBeenSubmitted,
+      demographics: demographicsByPaperworkSubmission || demographicsByPatientResource,
       photoID: idCard,
       insuranceCard: insuranceCard,
-      consent: consentComplete ? true : false,
+      consent: consentByPaperworkSignatures || consentByStaffAttestation,
       ovrpInterest: Boolean(ovrpInterest && ovrpInterest.startsWith('Yes')),
     },
     participants,
