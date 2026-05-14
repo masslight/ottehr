@@ -24,7 +24,9 @@ import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryTog
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminGetTemplateDetailOutput,
+  buildExamFieldToSectionMap,
   ExamType,
+  InPersonExamConfig,
   RosFindingState,
   RosFindingStateLabel,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
@@ -33,6 +35,13 @@ import {
   TemplateSectionActions,
   TemplateSectionKey,
 } from 'utils';
+
+// Static once-per-module: maps every exam field name to the body-system section it
+// belongs to (e.g. "abdomen-soft" -> { sectionLabel: "Abdomen" }). Used to render
+// exam-finding chips under their owning section so they're meaningful on their own.
+const EXAM_FIELD_TO_SECTION = buildExamFieldToSectionMap(InPersonExamConfig);
+const EXAM_SECTION_KEYS_IN_ORDER = Object.keys(InPersonExamConfig);
+const EXAM_OTHER_SECTION_KEY = '__other__';
 
 interface TemplatePreviewDialogProps {
   open: boolean;
@@ -238,37 +247,50 @@ const SectionPreview: React.FC<{
       );
     }
     case 'examFindings': {
-      const abnormal = sections.examFindings.filter((f) => f.isAbnormal);
-      const normal = sections.examFindings.filter((f) => !f.isAbnormal);
+      // Group findings by body-system section so each chip is anchored under a
+      // header like "Abdomen". Anything whose fieldName isn't in the exam config
+      // (e.g. comment fields with custom keys) falls into an "Other" bucket.
+      const groupedByKey = new Map<string, typeof sections.examFindings>();
+      for (const finding of sections.examFindings) {
+        const info = EXAM_FIELD_TO_SECTION.get(finding.fieldName);
+        const key = info?.sectionKey ?? EXAM_OTHER_SECTION_KEY;
+        const existing = groupedByKey.get(key);
+        if (existing) existing.push(finding);
+        else groupedByKey.set(key, [finding]);
+      }
+
+      const orderedKeys = [
+        ...EXAM_SECTION_KEYS_IN_ORDER.filter((k) => groupedByKey.has(k)),
+        ...(groupedByKey.has(EXAM_OTHER_SECTION_KEY) ? [EXAM_OTHER_SECTION_KEY] : []),
+      ];
+
       return (
-        <Stack spacing={1}>
-          {abnormal.length > 0 ? (
-            <Box>
-              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
-                Abnormal
-              </Typography>
-              <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-                {abnormal.map((f) => (
-                  <Typography key={f.fieldName} variant="body2">
-                    <strong>{f.label}</strong>
-                    {f.note ? `: ${f.note}` : ''}
-                  </Typography>
-                ))}
-              </Stack>
-            </Box>
-          ) : null}
-          {normal.length > 0 ? (
-            <Box>
-              <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
-                Normal
-              </Typography>
-              <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
-                {normal.map((f) => (
-                  <Chip key={f.fieldName} label={f.label} size="small" variant="outlined" />
-                ))}
-              </Stack>
-            </Box>
-          ) : null}
+        <Stack spacing={1.5}>
+          {orderedKeys.map((key) => {
+            const findings = groupedByKey.get(key)!;
+            const label =
+              key === EXAM_OTHER_SECTION_KEY
+                ? 'Other'
+                : EXAM_FIELD_TO_SECTION.get(findings[0].fieldName)?.sectionLabel ?? key;
+            return (
+              <Box key={key}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
+                  {label}
+                </Typography>
+                <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+                  {findings.map((f) => (
+                    <Chip
+                      key={f.fieldName}
+                      label={f.note ? `${f.label}: ${f.note}` : f.label}
+                      size="small"
+                      color={f.isAbnormal ? 'warning' : undefined}
+                      variant={f.isAbnormal ? 'filled' : 'outlined'}
+                    />
+                  ))}
+                </Stack>
+              </Box>
+            );
+          })}
         </Stack>
       );
     }

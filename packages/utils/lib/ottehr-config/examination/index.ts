@@ -2,6 +2,8 @@ import { createSimpleHash, validateExamConfig } from '../../config-helpers/exami
 import { InPersonExamConfig, NORMAL_LABELS } from './in-person.config';
 import { TelemedExamConfig } from './telemed.config';
 
+export { InPersonExamConfig, NORMAL_LABELS, TelemedExamConfig };
+
 export const ExamConfig = {
   telemed: {
     default: {

@@ -112,8 +112,8 @@ const mockTemplateDetail = {
     rosNote: 'Negative except as documented.',
     rosFindings: [],
     examFindings: [
-      { fieldName: 'throat-erythema', label: 'Throat erythema', isAbnormal: true, note: 'Marked redness' },
-      { fieldName: 'lungs-clear', label: 'Lungs clear', isAbnormal: false, note: '' },
+      { fieldName: 'tender', label: 'Tender', isAbnormal: true, note: 'RLQ' },
+      { fieldName: 'soft', label: 'Soft', isAbnormal: false, note: '' },
     ],
     mdm: 'Streptococcal pharyngitis suspected.',
     diagnoses: [{ code: 'J02.9', display: 'Acute pharyngitis, unspecified' }],
@@ -488,14 +488,18 @@ describe('ApplyTemplate', () => {
     // Summary is rendered in the header
     expect(within(examCard).getByText('1 abnormal, 1 normal')).toBeInTheDocument();
     // Body contents are NOT in the DOM while collapsed (Collapse uses unmountOnExit)
-    expect(within(examCard).queryByText('Throat erythema')).toBeNull();
+    expect(within(examCard).queryByText('Abdomen')).toBeNull();
 
     // Click the section label to expand
     await user.click(within(examCard).getByText('Exam Findings'));
 
     await waitFor(() => {
-      expect(within(examCard).getByText('Throat erythema')).toBeInTheDocument();
+      // Body-system grouping renders the section header
+      expect(within(examCard).getByText('Abdomen')).toBeInTheDocument();
     });
+    // And the chips appear underneath the header
+    expect(within(examCard).getByText('Tender: RLQ')).toBeInTheDocument();
+    expect(within(examCard).getByText('Soft')).toBeInTheDocument();
   });
 
   it('should disable Apply when every section is set to Skip', async () => {
