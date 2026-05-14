@@ -44,6 +44,7 @@ const TEMPLATE_SECTIONS = [
   'Patient Instructions',
   'CPT Codes',
   'E&M Code',
+  'In-House Lab Orders',
 ];
 
 const ADD_OR_UPDATE_LABEL = '+ Add or Update Template From Note';
