@@ -1,21 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { CandidApiClient } from 'candidhealth';
-import {
-  CandidToken,
-  chooseJson,
-  createCandidApiClient,
-  getOptionalSecret,
-  GetOrCreateCandidApiClientZambdaOutput,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+import { CandidToken, createCandidApiClient, getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils';
 
 export const FIVE_MINUTES = 5 * 60 * 1000;
-const GET_OR_CREATE_CANDID_API_CLIENT_ZAMBDA_ID = 'get-or-create-candid-api-client';
+const CANDID_OAUTH_TOKEN_CACHE_SECRET = 'CANDID_OAUTH_TOKEN_CACHE';
 
 // Lifting these to module scope keeps them in memory across warm lambda invocations.
-let cachedToken: CandidToken | undefined;
-let inflightTokenFetch: Promise<CandidToken> | undefined;
+let inflightRefresh: Promise<CandidToken> | undefined;
 let cachedCandidApiClient: CandidApiClient | undefined;
 
 export async function getOrCreateCandidApiClientIfConfigured(
@@ -33,35 +24,76 @@ export async function getOrCreateCandidApiClient(oystehr: Oystehr, secrets: Secr
 
   const client = createCandidApiClient(secrets);
   // The Candid SDK constructs a private _oauthTokenProvider that calls /auth/v2/token on demand.
-  // Replace its getToken so every authenticated request in this lambda routes through the
-  // central get-or-create-candid-api-client zambda's cache instead of hitting Candid auth
-  // directly. SDK internal refresh() is never invoked.
+  // Replace its getToken so every authenticated request fetches the secret first
   (client as unknown as { _oauthTokenProvider: { getToken: () => Promise<string> } })._oauthTokenProvider.getToken =
-    () => getToken(oystehr);
+    async () => (await getOrCreateToken(oystehr, secrets)).accessToken;
 
   cachedCandidApiClient = client;
   return cachedCandidApiClient;
 }
 
-async function getToken(oystehr: Oystehr): Promise<string> {
-  if (!cachedToken || cachedToken.expiresAt.getTime() - FIVE_MINUTES <= Date.now()) {
-    cachedToken = await fetchTokenFromCentralZambda(oystehr);
-  }
-  return cachedToken.accessToken;
+async function getOrCreateToken(oystehr: Oystehr, secrets: Secrets | null): Promise<CandidToken> {
+  if (inflightRefresh) return inflightRefresh;
+
+  inflightRefresh = (async () => {
+    const stored = await readTokenFromOystehrSecret(oystehr);
+    if (stored && isStillFresh(stored)) {
+      return stored;
+    }
+
+    const fresh = await fetchTokenFromCandid(secrets);
+    await writeTokenToOystehrSecret(oystehr, fresh);
+    return fresh;
+  })().finally(() => {
+    inflightRefresh = undefined;
+  });
+  return inflightRefresh;
 }
 
-async function fetchTokenFromCentralZambda(oystehr: Oystehr): Promise<CandidToken> {
-  if (inflightTokenFetch) return inflightTokenFetch;
+function isStillFresh(token: CandidToken): boolean {
+  return token.expiresAt.getTime() - FIVE_MINUTES > Date.now();
+}
 
-  inflightTokenFetch = (async () => {
-    const response = await oystehr.zambda.execute({ id: GET_OR_CREATE_CANDID_API_CLIENT_ZAMBDA_ID });
-    const body = chooseJson(response) as GetOrCreateCandidApiClientZambdaOutput;
+async function readTokenFromOystehrSecret(oystehr: Oystehr): Promise<CandidToken | undefined> {
+  try {
+    const response = await oystehr.secret.get({ name: CANDID_OAUTH_TOKEN_CACHE_SECRET });
+    if (!response?.value) return undefined;
+    const parsed = JSON.parse(response.value) as { accessToken: string; expiresAt: string };
     return {
-      accessToken: body.accessToken,
-      expiresAt: new Date(body.expiresAt),
+      accessToken: parsed.accessToken,
+      expiresAt: new Date(parsed.expiresAt),
     };
-  })().finally(() => {
-    inflightTokenFetch = undefined;
+  } catch (err) {
+    console.log(`${CANDID_OAUTH_TOKEN_CACHE_SECRET} secret unavailable, refreshing from Candid:`, err);
+    return undefined;
+  }
+}
+
+async function writeTokenToOystehrSecret(oystehr: Oystehr, token: CandidToken): Promise<void> {
+  try {
+    await oystehr.secret.set({
+      name: CANDID_OAUTH_TOKEN_CACHE_SECRET,
+      value: JSON.stringify({
+        accessToken: token.accessToken,
+        expiresAt: token.expiresAt.toISOString(),
+      }),
+    });
+  } catch (err) {
+    console.error(`failed to persist ${CANDID_OAUTH_TOKEN_CACHE_SECRET} secret:`, err);
+  }
+}
+
+async function fetchTokenFromCandid(secrets: Secrets | null): Promise<CandidToken> {
+  const apiClient = createCandidApiClient(secrets);
+  const response = await apiClient.auth.default.getToken({
+    clientId: getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets),
+    clientSecret: getSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets),
   });
-  return inflightTokenFetch;
+  if (!response.ok) {
+    throw new Error(`Failed to fetch Candid OAuth token: ${JSON.stringify(response.error)}`);
+  }
+  return {
+    accessToken: response.body.accessToken,
+    expiresAt: new Date(Date.now() + response.body.expiresIn * 1000),
+  };
 }
