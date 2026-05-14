@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, List, Patient } from 'fhir/r4b';
+import { Encounter, List, Patient, ServiceRequest } from 'fhir/r4b';
 import {
   AdminCreateTemplateInput,
   AdminCreateTemplateOutput,
@@ -8,6 +8,7 @@ import {
   examConfig,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
+  IN_HOUSE_TEST_CODE_SYSTEM,
   SecretsKeys,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
@@ -180,6 +181,45 @@ const performEffect = async (
       item: {
         reference: `#${anonymizedResource.id}`,
       },
+    });
+  }
+
+  // Collect in-house lab orders on the encounter as "plan" ServiceRequests in the
+  // template. We don't store the materialized order resources (those are tightly
+  // coupled to the in-house lab feature's current implementation and would rot if
+  // that code changes); we store just enough information that at apply time the
+  // live create-in-house-lab-order flow can re-create a fresh order from the
+  // ActivityDefinition reference, reason codes, and notes.
+  const inHouseLabOrders = (encounterBundle ?? []).filter(
+    (resource): resource is ServiceRequest =>
+      resource.resourceType === 'ServiceRequest' &&
+      (resource as ServiceRequest).code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) === true
+  );
+
+  for (const order of inHouseLabOrders) {
+    const planId = uuidV4();
+    const plan: ServiceRequest = {
+      resourceType: 'ServiceRequest',
+      id: planId,
+      status: 'active',
+      intent: 'plan',
+      subject: { reference: `#${stubPatient.id}` },
+      code: order.code,
+      ...(order.instantiatesCanonical ? { instantiatesCanonical: order.instantiatesCanonical } : {}),
+      ...(order.reasonCode ? { reasonCode: order.reasonCode } : {}),
+      ...(order.note ? { note: order.note } : {}),
+      meta: {
+        tag: [
+          {
+            system: chartDataTagSystem('in-house-lab-template-plan'),
+            code: 'in-house-lab-template-plan',
+          },
+        ],
+      },
+    };
+    listToCreate.contained!.push(plan);
+    listToCreate.entry!.push({
+      item: { reference: `#${planId}` },
     });
   }
 

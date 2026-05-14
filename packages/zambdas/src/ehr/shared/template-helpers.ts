@@ -8,6 +8,7 @@ import {
   Observation,
   Procedure,
   Resource,
+  ServiceRequest,
 } from 'fhir/r4b';
 import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils';
 
@@ -144,7 +145,8 @@ export type TemplateEncounterResource =
   | ClinicalImpression
   | Communication
   | Condition
-  | Procedure;
+  | Procedure
+  | ServiceRequest;
 
 export const getTemplateEncounterBundle = async (
   oystehr: Oystehr,

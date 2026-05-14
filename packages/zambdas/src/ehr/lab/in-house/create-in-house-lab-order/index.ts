@@ -32,13 +32,13 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
-import { accountIsPatientBill, getPrimaryInsurance } from '../../shared/labs';
 import {
   CreateInHouseLabResources,
   makeRequestsForCreateInHouseLabs,
   TestItemRequestData,
   TestItemResources,
-} from './helpers';
+} from '../../../../shared/in-house-lab/build-order';
+import { accountIsPatientBill, getPrimaryInsurance } from '../../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

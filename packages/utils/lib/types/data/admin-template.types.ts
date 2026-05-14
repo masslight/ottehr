@@ -67,6 +67,27 @@ export interface TemplateAccidentInfo {
   state?: string;
 }
 
+// Each in-house lab plan saved on a template carries the inputs the create-order
+// flow needs at apply time: which test to order (referenced canonically by the
+// ActivityDefinition so the live test definition is used), what to record as the
+// reason for ordering, and any free-text notes the provider wrote when the
+// template was saved.
+//
+// `missing: true` indicates the ActivityDefinition the plan references is not
+// available on this environment - the admin UI can surface this so a human can
+// fix the template; apply-template skips the plan with a warning.
+export interface TemplateInHouseLabPlan {
+  // ServiceRequest.id of the plan inside the template's contained resources.
+  // Useful as a stable React key and for "remove this plan" admin flows.
+  planId: string;
+  testName: string;
+  activityDefinitionRef: string;
+  code: string;
+  diagnoses: TemplateCodeInfo[];
+  notes: string[];
+  missing: boolean;
+}
+
 export interface AdminGetTemplateDetailOutput {
   templateName: string;
   templateId: string;
@@ -84,5 +105,6 @@ export interface AdminGetTemplateDetailOutput {
     cptCodes: TemplateCodeInfo[];
     emCode: TemplateCodeInfo | null;
     accident: TemplateAccidentInfo | null;
+    inHouseLabs: TemplateInHouseLabPlan[];
   };
 }
