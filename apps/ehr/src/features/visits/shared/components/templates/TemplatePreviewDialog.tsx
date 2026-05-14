@@ -164,11 +164,15 @@ const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], k
   }
 };
 
+// Strip leading/trailing whitespace so section bodies render flush with the top of
+// the collapse area regardless of how a provider entered the template text.
+const stripOuterWhitespace = (s: string): string => s.replace(/^\s+|\s+$/g, '');
+
 const TextBlock: React.FC<{ value: string | null | undefined }> = ({ value }) => {
   if (!value) return null;
   return (
     <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'text.primary' }}>
-      {value}
+      {stripOuterWhitespace(value)}
     </Typography>
   );
 };
@@ -283,7 +287,7 @@ const SectionPreview: React.FC<{
                 </Typography>
               ) : null}
               <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'text.primary' }}>
-                {item.text}
+                {stripOuterWhitespace(item.text)}
               </Typography>
             </Box>
           ))}
@@ -386,7 +390,7 @@ const SectionCard: React.FC<{
           <ExpandMoreIcon fontSize="small" />
         </IconButton>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.3, color: 'primary.dark' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.3, color: 'primary.dark' }}>
             {descriptor.label}
           </Typography>
           {summary ? (
@@ -450,7 +454,6 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   onApply,
 }) => {
   const { oystehrZambda } = useApiClients();
-  const theme = useTheme();
   const [actions, setActions] = useState<Record<TemplateSectionKey, TemplateSectionAction>>({
     ...TEMPLATE_SECTION_DEFAULT_ACTIONS,
   });
@@ -514,7 +517,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
         Apply Template: {templateName}
       </DialogTitle>
       <DialogContent>
-        <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mb: 2 }}>
+        <Typography variant="body1" sx={{ color: 'text.primary', mb: 2 }}>
           Review what will be applied and choose how each section should be merged with the current note.
         </Typography>
         {detailQuery.isLoading ? (
