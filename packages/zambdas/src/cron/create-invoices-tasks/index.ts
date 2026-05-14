@@ -6,7 +6,6 @@ import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/re
 import { Encounter, Resource, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  createCandidApiClient,
   createReference,
   getCandidInventoryPages,
   getResourcesFromBatchInlineRequests,
@@ -26,12 +25,12 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
+  getOrCreateCandidApiClient,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
 
 let m2mToken: string;
-let candid: CandidApiClient | undefined;
 
 const ZAMBDA_NAME = 'create-invoices-tasks';
 const readyTaskStatus = mapDisplayToInvoiceTaskStatus('ready');
@@ -57,9 +56,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { secrets } = input;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
-  if (!candid) {
-    candid = createCandidApiClient(secrets);
-  }
+  const candid = await getOrCreateCandidApiClient(oystehr, secrets);
 
   console.log('Fetching invoicing config from FHIR');
   const { questionnaireResponse } = await getOrCreateInvoicingConfig(oystehr);
