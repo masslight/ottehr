@@ -1,6 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ClinicalImpression, Communication, Condition, List, Procedure, Resource } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  ClinicalImpression,
+  Communication,
+  Condition,
+  List,
+  Procedure,
+  Resource,
+  ServiceRequest,
+} from 'fhir/r4b';
 import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
@@ -14,10 +23,12 @@ import {
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   ICD_10_CODE_SYSTEM,
+  IN_HOUSE_TEST_CODE_SYSTEM,
   SecretsKeys,
   TemplateAccidentInfo,
   TemplateCodeInfo,
   TemplateExamFinding,
+  TemplateInHouseLabPlan,
   TemplateRosFinding,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
@@ -279,6 +290,68 @@ const performEffect = async (
       }
     : null;
 
+  // Parse in-house lab plans. Each plan is a ServiceRequest with intent 'plan'
+  // and the in-house-lab-template-plan meta tag; we resolve its canonical
+  // ActivityDefinition reference to a human-readable test name and surface a
+  // missing flag when the AD isn't available in this environment.
+  const inHouseLabPlanTagSystem = chartDataTagSystem('in-house-lab-template-plan');
+  const inHouseLabPlans = contained.filter(
+    (r): r is ServiceRequest =>
+      r.resourceType === 'ServiceRequest' &&
+      (r as ServiceRequest).intent === 'plan' &&
+      hasTag(r, inHouseLabPlanTagSystem)
+  );
+
+  const canonicalRefs = Array.from(
+    new Set(inHouseLabPlans.flatMap((p) => p.instantiatesCanonical ?? []).filter((ref): ref is string => Boolean(ref)))
+  );
+
+  // Map canonical URL (with or without the |version suffix) -> AD so we can resolve
+  // each plan back to its test name.
+  const adByCanonical = new Map<string, ActivityDefinition>();
+  if (canonicalRefs.length > 0) {
+    const urlsToSearch = Array.from(new Set(canonicalRefs.map((ref) => ref.split('|')[0])));
+    try {
+      const ads = (
+        await oystehr.fhir.search<ActivityDefinition>({
+          resourceType: 'ActivityDefinition',
+          params: [{ name: 'url', value: urlsToSearch.join(',') }],
+        })
+      ).unbundle() as ActivityDefinition[];
+      for (const ad of ads) {
+        if (ad.url) {
+          adByCanonical.set(ad.url, ad);
+          if (ad.version) adByCanonical.set(`${ad.url}|${ad.version}`, ad);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not resolve ActivityDefinitions for in-house lab plans:', err);
+    }
+  }
+
+  const inHouseLabs: TemplateInHouseLabPlan[] = inHouseLabPlans.map((plan) => {
+    const canonical = plan.instantiatesCanonical?.[0] ?? '';
+    const ad = adByCanonical.get(canonical) ?? adByCanonical.get(canonical.split('|')[0]);
+    const inHouseCoding = plan.code?.coding?.find((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM);
+    const diagnoses: TemplateCodeInfo[] = (plan.reasonCode ?? [])
+      .map((rc) => {
+        const icd = rc.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM) ?? rc.coding?.[0];
+        return { code: icd?.code ?? '', display: icd?.display ?? rc.text ?? '' };
+      })
+      .filter((d) => d.code || d.display);
+    const notes = (plan.note ?? []).map((n) => n.text ?? '').filter((t) => t.length > 0);
+
+    return {
+      planId: plan.id ?? '',
+      testName: ad?.name ?? ad?.title ?? plan.code?.text ?? inHouseCoding?.display ?? 'Unknown test',
+      activityDefinitionRef: canonical,
+      code: inHouseCoding?.code ?? '',
+      diagnoses,
+      notes,
+      missing: !ad,
+    };
+  });
+
   return {
     templateName: templateList.title ?? '',
     templateId: templateList.id!,
@@ -296,6 +369,7 @@ const performEffect = async (
       cptCodes,
       emCode,
       accident,
+      inHouseLabs,
     },
   };
 };
