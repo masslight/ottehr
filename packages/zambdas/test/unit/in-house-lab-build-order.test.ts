@@ -1,4 +1,4 @@
-import { ActivityDefinition, Coverage, Encounter, Location, Patient, ServiceRequest } from 'fhir/r4b';
+import { ActivityDefinition, Coverage, Encounter, Location, Patient, Provenance, ServiceRequest, Task } from 'fhir/r4b';
 import { DiagnosisDTO } from 'utils';
 import { describe, expect, test } from 'vitest';
 import { CreateInHouseLabResources, makeRequestsForCreateInHouseLabs } from '../../src/shared/in-house-lab/build-order';
@@ -57,11 +57,17 @@ const buildBaseResources = (overrides: Partial<CreateInHouseLabResources> = {}):
 });
 
 // Pick the POST request for a given resourceType out of the helper's mixed output.
-const pickRequestByType = <T extends string>(
+// Returns a loosely-typed shape (the runtime narrows by resourceType but the helper's
+// declared union doesn't narrow at compile time on its .resource branch).
+type AnyPostRequest = ReturnType<typeof makeRequestsForCreateInHouseLabs>[number] & {
+  resource: { resourceType: string };
+  fullUrl?: string;
+};
+const pickRequestByType = (
   requests: ReturnType<typeof makeRequestsForCreateInHouseLabs>,
-  resourceType: T
-): Array<Extract<(typeof requests)[number], { resource: { resourceType: T } }>> => {
-  return requests.filter((r) => r.resource.resourceType === resourceType) as never;
+  resourceType: string
+): AnyPostRequest[] => {
+  return (requests as AnyPostRequest[]).filter((r) => r.resource.resourceType === resourceType);
 };
 
 describe('makeRequestsForCreateInHouseLabs', () => {
@@ -131,18 +137,18 @@ describe('makeRequestsForCreateInHouseLabs', () => {
   test('Task.basedOn and Provenance.target reference the new ServiceRequest by its fullUrl', () => {
     const requests = makeRequestsForCreateInHouseLabs(buildBaseResources());
     const srRequest = pickRequestByType(requests, 'ServiceRequest')[0];
-    const taskRequest = pickRequestByType(requests, 'Task')[0];
-    const provRequest = pickRequestByType(requests, 'Provenance')[0];
+    const task = pickRequestByType(requests, 'Task')[0].resource as Task;
+    const provenance = pickRequestByType(requests, 'Provenance')[0].resource as Provenance;
 
     // Cross-references must point at the SR's urn:uuid so the transaction can resolve them.
     expect(srRequest.fullUrl).toMatch(/^urn:uuid:/);
-    expect(taskRequest.resource.basedOn?.[0]?.reference).toBe(srRequest.fullUrl);
-    expect(provRequest.resource.target?.[0]?.reference).toBe(srRequest.fullUrl);
+    expect(task.basedOn?.[0]?.reference).toBe(srRequest.fullUrl);
+    expect(provenance.target?.[0]?.reference).toBe(srRequest.fullUrl);
   });
 
   test('Provenance records the current user (agent.who) and the attending (agent.onBehalfOf)', () => {
     const requests = makeRequestsForCreateInHouseLabs(buildBaseResources());
-    const provenance = pickRequestByType(requests, 'Provenance')[0].resource;
+    const provenance = pickRequestByType(requests, 'Provenance')[0].resource as Provenance;
     const agent = provenance.agent?.[0];
     expect(agent?.who?.reference).toBe('Practitioner/prac-user');
     expect(agent?.who?.display).toBe('Dr. User');
