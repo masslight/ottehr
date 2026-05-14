@@ -6,12 +6,17 @@ import {
   List,
   Location,
   Organization,
+  Patient,
   ServiceRequest,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { getPatientFirstName, getPatientLastName } from '../../fhir';
 import {
   CreateLabPaymentMethod,
   DEFAULT_OYSTEHR_LABS_HL7_SYSTEM,
-  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
+  DYMO_30334_LABEL_CONFIG,
+  EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE,
+  ExternalLabsLabelConfig,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LAB_DOC_REF_TAG_hl7_TRANSMISSION,
@@ -33,11 +38,16 @@ import {
   PSC_HOLD_CONFIG,
 } from '../../types';
 
-export const nameLabTest = (testName: string | undefined, labName: string | undefined, isReflex: boolean): string => {
+export const nameLabTest = (
+  testName: string | undefined,
+  itemCode: string | undefined,
+  labName: string | undefined,
+  isReflex: boolean
+): string => {
   if (isReflex) {
-    return `${testName} (reflex)`;
+    return `${itemCode ? `(${itemCode}) ` : ''}${testName} (reflex)`;
   } else {
-    return `${testName} / ${labName}`;
+    return `${itemCode ? `(${itemCode}) ` : ''}${testName} / ${labName}`;
   }
 };
 
@@ -178,24 +188,29 @@ export function createOrderNumber(length = ORDER_NUMBER_LEN): string {
   return result;
 }
 
-export const parseLabInfoFromServiceRequest = (
-  serviceRequest: ServiceRequest
-): { testItem: string; fillerLab: string } => {
-  const activityDefinition = serviceRequest.contained?.find(
-    (resource) => resource.resourceType === 'ActivityDefinition'
-  ) as ActivityDefinition | undefined;
-
-  if (!activityDefinition) {
-    return {
-      testItem: 'Unknown Test',
-      fillerLab: 'Unknown Lab',
-    };
-  }
+export const getTestDetailsFromActivityDefinition = (
+  activityDef: ActivityDefinition | undefined
+): { testName: string; testItemCode: string; fillerLab: string } => {
+  const testCoding = activityDef?.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+  const testName = testCoding?.display ?? 'Unknown Test';
+  const testItemCode = testCoding?.code ?? 'Unknown Code';
+  const fillerLab = activityDef?.publisher ?? 'Unknown Lab';
 
   return {
-    testItem: activityDefinition.title || 'Unknown Test',
-    fillerLab: activityDefinition.publisher || 'Unknown Lab',
+    testName,
+    testItemCode,
+    fillerLab,
   };
+};
+
+export const parseLabInfoFromServiceRequest = (
+  serviceRequest: ServiceRequest
+): { testName: string; fillerLab: string; testItemCode: string } => {
+  const activityDefinition = serviceRequest.contained?.find(
+    (resource): resource is ActivityDefinition => resource.resourceType === 'ActivityDefinition'
+  );
+
+  return getTestDetailsFromActivityDefinition(activityDefinition);
 };
 
 export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
@@ -299,7 +314,8 @@ export const docRefIsLabelPDFAndCurrent = (docRef: DocumentReference): boolean =
   const isCurrent = docRef.status === 'current';
   const isLabelPdf = !!docRef.type?.coding?.find(
     (code) =>
-      code.system === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.system && code.code === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
+      code.system === EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE.system &&
+      code.code === EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE.code
   );
   return isCurrent && isLabelPdf;
 };
@@ -344,6 +360,45 @@ export const getLabListStatus = (list: List): LabSetStatus => {
   } else {
     return LabSetStatus.inactive;
   }
+};
+
+export const makeExternalLabLabelConfig = ({
+  patient,
+  orderNumber,
+  location,
+  labOrganization,
+  specimenCollectionDateTime,
+  userTimezone,
+}: {
+  patient: Patient;
+  orderNumber: string;
+  location: Location | undefined;
+  labOrganization: Organization;
+  specimenCollectionDateTime: DateTime | undefined;
+  userTimezone: string;
+}): ExternalLabsLabelConfig => {
+  const labelConfig: ExternalLabsLabelConfig = {
+    labelConfig: DYMO_30334_LABEL_CONFIG,
+    content: {
+      patientId: patient.id!,
+      patientFirstName: getPatientFirstName(patient) ?? '',
+      patientLastName: getPatientLastName(patient) ?? '',
+      patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
+      sampleCollectionDateAndTimezone: specimenCollectionDateTime
+        ? {
+            sampleCollectionDate: specimenCollectionDateTime,
+            timezone: userTimezone,
+          }
+        : undefined,
+      orderNumber: orderNumber,
+      accountNumber:
+        (labOrganization && location && getAccountNumberFromLocationAndOrganization(location, labOrganization)) || '',
+    },
+    type: 'external-lab',
+  };
+
+  console.log('External labs label config is:', JSON.stringify(labelConfig));
+  return labelConfig;
 };
 
 export const isExternalLabServiceRequest = (resource: ServiceRequest): boolean => {

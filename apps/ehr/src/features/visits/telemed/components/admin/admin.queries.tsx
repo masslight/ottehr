@@ -9,12 +9,14 @@ import {
   adminGetLabSets,
   adminListInHouseLabs,
   adminUpdateInHouseLab,
+  adminUpdateLabelPrintingConfig,
   adminUpdateLabSet,
   bulkUpdateInsuranceStatus,
   createEmCode,
   deleteEmCode,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
+  getLabelPrintingConfig,
   getProcedureQuickPicks,
   getRadiologyQuickPicks,
   removeImmunizationQuickPick,
@@ -41,11 +43,14 @@ import {
   AdminListInHouseLabsOutput,
   AdminUpdateInHouseLabInput,
   AdminUpdateLabSetInput,
+  AdminUpdatePrintingConfigInput,
   APIError,
   BulkUpdateInsuranceStatusInput,
   CreateEmCodeInput,
   DeleteEmCodeInput,
   EmCodeOption,
+  GetLabelPrintingConfigInput,
+  GetLabelPrintingConfigOutput,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
   isApiError,
@@ -436,8 +441,13 @@ export const useAdminCreateEmCodeMutation = (): UseMutationResult<EmCodeOption[]
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
     },
-    onError: () => {
-      enqueueSnackbar('Failed to create E&M code', { variant: 'error' });
+    onError: (error: any) => {
+      safelyCaptureException(error);
+      let message = 'Failed to create E&M code';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
     },
   });
 };
@@ -456,8 +466,13 @@ export const useAdminUpdateEmCodeMutation = (): UseMutationResult<EmCodeOption[]
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
     },
-    onError: () => {
-      enqueueSnackbar('Failed to update E&M code', { variant: 'error' });
+    onError: (error: any) => {
+      safelyCaptureException(error);
+      let message = 'Failed to update E&M code';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
     },
   });
 };
@@ -476,8 +491,13 @@ export const useAdminDeleteEmCodeMutation = (): UseMutationResult<EmCodeOption[]
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
     },
-    onError: () => {
-      enqueueSnackbar('Failed to delete E&M code', { variant: 'error' });
+    onError: (error: any) => {
+      safelyCaptureException(error);
+      let message = 'Failed to delete E&M code';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
     },
   });
 };
@@ -571,6 +591,59 @@ export const useAdminUpdateLabSet = (labSetId: string): UseMutationResult<void, 
       // send to sentry
       safelyCaptureException(error);
       let message = 'Something went wrong! The lab set update could not be made.';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminGetLabelPrintingConfig = (
+  input: GetLabelPrintingConfigInput
+): UseQueryResult<GetLabelPrintingConfigOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+  const { deviceId } = input;
+
+  return useQuery({
+    queryKey: ['admin-get-label-printing-config', deviceId],
+    queryFn: async () => {
+      return getLabelPrintingConfig(oystehrZambda!, input);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec staletime
+    refetchOnMount: 'always', // refetch every mount
+    refetchOnWindowFocus: true, // refetch when you tab back
+  });
+};
+
+export const useAdminUpdateLabelPrintingConfig = (
+  mutatingDeviceId: string | undefined
+): UseMutationResult<void, Error, AdminUpdatePrintingConfigInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  console.log('in hook query for update printing config');
+
+  return useMutation({
+    mutationKey: ['admin-update-label-printing-config', mutatingDeviceId],
+    mutationFn: async (input: AdminUpdatePrintingConfigInput) => {
+      console.log('mutation for update printing config');
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      await adminUpdateLabelPrintingConfig(oystehrZambda!, input);
+      console.log('finished call to update printing config in hook');
+    },
+    onSuccess: async (_data, variables) => {
+      await queryClient.invalidateQueries({
+        queryKey: ['admin-get-label-printing-config', variables.deviceId],
+      });
+      enqueueSnackbar('Successfully updated printing config', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Something went wrong! Printing config update could not be made.';
       if (isApiError(error)) {
         message = (error as APIError).message;
       }
