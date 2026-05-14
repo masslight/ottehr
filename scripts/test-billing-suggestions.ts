@@ -20,7 +20,7 @@ const ZAMBDA_URL = 'http://localhost:3000/local/zambda/recommend-billing-suggest
 
 const envFlag = process.argv.indexOf('--env');
 const env = envFlag !== -1 ? process.argv[envFlag + 1] : 'local';
-const envFilePath = path.resolve(__dirname, '../packages/zambdas/.env', `${env}.json`);
+const envFilePath = path.resolve(__dirname, '../packages/zambdas/.env', `zambda-secrets-${env}.json`);
 const envConfig = JSON.parse(fs.readFileSync(envFilePath, 'utf8'));
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
