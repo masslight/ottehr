@@ -69,8 +69,6 @@ export default function LegacyDataPage(): ReactElement {
     return { bg: '#E6E8EE', text: '#616161' };
   };
 
-  // console.log('record files', JSON.stringify(searchMutation?.data?.results));
-
   return (
     <PageContainer>
       <Box sx={{ p: 3 }}>

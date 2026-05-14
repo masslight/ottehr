@@ -38,7 +38,7 @@
 
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import Oystehr from '@oystehr/sdk';
-import parse from 'csv-parse';
+import { parse } from 'csv-parse';
 import { createReadStream, readdirSync, readFileSync, statSync } from 'fs';
 import { basename, dirname, join } from 'path';
 import { fileURLToPath } from 'url';

@@ -2,7 +2,7 @@
  * Script to analyze / summarize legacy EHR data.
  *
  * Usage:
- *   npx tsx scripts/summarize-legacy-data-types.ts --data-dir [path to dir with  1 or more csv files]
+ *   npx tsx scripts/legacy-data/summarize-legacy-data-types.ts --data-dir [path to dir with 1 or more csv files]
  *
  * Mapping Csv Files:
  *   Should have the expected headers:
@@ -13,7 +13,7 @@
  *
  */
 
-import parse from 'csv-parse';
+import { parse } from 'csv-parse';
 import * as fs from 'fs';
 
 // ── Types ──────────────────────────────────────────────────────────
