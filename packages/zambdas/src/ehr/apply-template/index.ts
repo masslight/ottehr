@@ -8,7 +8,9 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { ClinicalImpression, Communication, Condition, Encounter, List, Observation, Procedure } from 'fhir/r4b';
 import {
+  ApplyTemplateWarning,
   ApplyTemplateZambdaInput,
+  ApplyTemplateZambdaOutput,
   chartDataTagSystem,
   chunkThings,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
@@ -21,6 +23,7 @@ import {
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { applyInHouseLabPlans } from './apply-in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 interface ComplexValidationOutput {
@@ -41,10 +44,11 @@ export const index = wrapHandler('apply-template', async (input: ZambdaInput): P
   const oystehr = createOystehrClient(m2mToken, secrets);
 
   const { templateList, encounter } = await complexValidation(validatedInput, oystehr);
-  await performEffect(validatedInput, templateList, encounter, oystehr);
+  const result = await performEffect(validatedInput, templateList, encounter, oystehr);
+  const body: ApplyTemplateZambdaOutput = result.warnings.length > 0 ? { warnings: result.warnings } : {};
   return {
     statusCode: 200,
-    body: JSON.stringify({}),
+    body: JSON.stringify(body),
   };
 });
 
@@ -131,13 +135,25 @@ const getSectionForResource = (resource: FhirResource): TemplateSectionKey | nul
 };
 
 const performEffect = async (
-  validatedInput: ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'>,
+  validatedInput: ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'> & { userToken: string },
   templateList: List,
   encounter: Encounter,
   oystehr: Oystehr
-): Promise<void> => {
+): Promise<{ warnings: ApplyTemplateWarning[] }> => {
   const { encounterId, sectionActions } = validatedInput;
   const actions = resolveSectionActions(sectionActions);
+
+  // Kick off in-house lab plan application in parallel with the chart-data
+  // batches below - the two are independent (different resources, different
+  // transactions) so we don't need to await before starting the rest.
+  const inHouseLabsPromise = applyInHouseLabPlans({
+    templateList,
+    encounterId,
+    userToken: validatedInput.userToken,
+    secrets: validatedInput.secrets,
+    oystehr,
+    action: actions.inHouseLabs,
+  });
 
   const encounterBundle = (
     await oystehr.fhir.search({
@@ -199,14 +215,14 @@ const performEffect = async (
     requests: miniTransactionRequests,
   });
 
-  const bundles = await Promise.all([
-    ...deleteBatches,
-    ...createObservationBatches,
-    ...createProcedureBatches,
-    miniTransactionPromise,
+  const [bundles, inHouseLabsResult] = await Promise.all([
+    Promise.all([...deleteBatches, ...createObservationBatches, ...createProcedureBatches, miniTransactionPromise]),
+    inHouseLabsPromise,
   ]);
 
   console.log('Outcome bundles, ', JSON.stringify(bundles));
+
+  return { warnings: inHouseLabsResult.warnings };
 };
 
 // Decide whether an existing chart-data resource on the encounter should be deleted

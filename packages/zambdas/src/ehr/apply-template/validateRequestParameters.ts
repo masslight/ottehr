@@ -5,6 +5,7 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TEMPLATE_SECTIONS_NO_APPEND,
+  TEMPLATE_SECTIONS_NO_OVERWRITE,
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionKey,
@@ -36,12 +37,17 @@ const parseSectionActions = (raw: unknown): TemplateSectionActions => {
     if (value === 'append' && TEMPLATE_SECTIONS_NO_APPEND.has(key as TemplateSectionKey)) {
       throw INVALID_INPUT_ERROR(`Section ${key} does not support the 'append' action`);
     }
+    if (value === 'overwrite' && TEMPLATE_SECTIONS_NO_OVERWRITE.has(key as TemplateSectionKey)) {
+      throw INVALID_INPUT_ERROR(`Section ${key} does not support the 'overwrite' action`);
+    }
     result[key as TemplateSectionKey] = value as TemplateSectionAction;
   }
   return result;
 };
 
-export function validateRequestParameters(input: ZambdaInput): ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'> {
+export function validateRequestParameters(
+  input: ZambdaInput
+): ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'> & { userToken: string } {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -89,6 +95,15 @@ export function validateRequestParameters(input: ZambdaInput): ApplyTemplateZamb
     throw new Error('No secrets provided in input');
   }
 
+  const authHeader = input.headers?.Authorization;
+  if (!authHeader) {
+    throw new Error('No Authorization header provided');
+  }
+  const userToken = authHeader.replace('Bearer ', '');
+  if (!userToken) {
+    throw new Error('No user token provided');
+  }
+
   const validatedSectionActions = parseSectionActions(sectionActions);
 
   return {
@@ -97,5 +112,6 @@ export function validateRequestParameters(input: ZambdaInput): ApplyTemplateZamb
     encounterId,
     sectionActions: validatedSectionActions,
     secrets: input.secrets,
+    userToken,
   };
 }
