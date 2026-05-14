@@ -48,8 +48,14 @@ export function AdminPage(): JSX.Element {
       <Box sx={{ width: '100%', marginTop: 3 }}>
         <TabContext value={pageTab}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-            <Box sx={{ flex: 1, borderBottom: 1, borderColor: 'divider' }}>
-              <TabList onChange={() => {}} aria-label={`${pageTab} page`}>
+            <Box sx={{ flex: 1, minWidth: 0, borderBottom: 1, borderColor: 'divider' }}>
+              <TabList
+                onChange={() => {}}
+                aria-label={`${pageTab} page`}
+                variant="scrollable"
+                scrollButtons="auto"
+                allowScrollButtonsMobile
+              >
                 <Tab
                   label="Schedules"
                   value={PageTab.schedules}

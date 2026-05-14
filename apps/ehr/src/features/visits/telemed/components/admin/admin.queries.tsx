@@ -441,8 +441,13 @@ export const useAdminCreateEmCodeMutation = (): UseMutationResult<EmCodeOption[]
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
     },
-    onError: () => {
-      enqueueSnackbar('Failed to create E&M code', { variant: 'error' });
+    onError: (error: any) => {
+      safelyCaptureException(error);
+      let message = 'Failed to create E&M code';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
     },
   });
 };
@@ -461,8 +466,13 @@ export const useAdminUpdateEmCodeMutation = (): UseMutationResult<EmCodeOption[]
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
     },
-    onError: () => {
-      enqueueSnackbar('Failed to update E&M code', { variant: 'error' });
+    onError: (error: any) => {
+      safelyCaptureException(error);
+      let message = 'Failed to update E&M code';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
     },
   });
 };
@@ -481,8 +491,13 @@ export const useAdminDeleteEmCodeMutation = (): UseMutationResult<EmCodeOption[]
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['em-codes'] });
     },
-    onError: () => {
-      enqueueSnackbar('Failed to delete E&M code', { variant: 'error' });
+    onError: (error: any) => {
+      safelyCaptureException(error);
+      let message = 'Failed to delete E&M code';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
     },
   });
 };

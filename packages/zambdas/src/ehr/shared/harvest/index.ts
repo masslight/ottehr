@@ -2842,8 +2842,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
           ];
           updatedWorkersCompCoverage.subscriberId = workersCompMemberId;
         }
-        if (workersCompInsuranceOrg) {
-          updatedWorkersCompCoverage.payor = [{ reference: `Organization/${workersCompInsuranceOrg.id}` }];
+        if (workersCompInsuranceOrg && payerId) {
+          updatedWorkersCompCoverage.payor = [{ reference: getPayerUrl(payerId) }];
           updatedWorkersCompCoverage.class = [
             {
               type: {
@@ -2854,8 +2854,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
                   },
                 ],
               },
-              value: payerId ?? '',
-              name: `${workersCompInsuranceOrg?.name ?? ''}`,
+              value: payerId,
+              name: `${workersCompInsuranceOrg.name ?? ''}`,
             },
           ];
         }
@@ -2880,7 +2880,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
             reference: `Patient/${patient.id}`,
           },
           type: { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: 'WC' }] },
-          payor: [{ reference: `Organization/${workersCompInsuranceOrg?.id}` }],
+          payor: [{ reference: getPayerUrl(payerId) }],
           relationship: {
             coding: [
               {

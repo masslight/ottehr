@@ -8,7 +8,7 @@ import {
   getSecret,
   INVALID_INPUT_ERROR,
   NOT_AUTHORIZED,
-  parseCustomFoldersCatalog,
+  parseCustomFoldersCatalogIncludingDeleted,
   SecretsKeys,
 } from 'utils';
 import {
@@ -69,7 +69,7 @@ const performEffect = async (folderName: string, oystehr: Oystehr): Promise<Crea
   }
 
   const catalog = await loadCustomFoldersCatalog(oystehr);
-  const existingDefs = parseCustomFoldersCatalog(catalog);
+  const allDefs = parseCustomFoldersCatalogIncludingDeleted(catalog);
 
   const internalName = deriveInternalFolderName(folderName);
   if (!internalName) {
@@ -77,27 +77,47 @@ const performEffect = async (folderName: string, oystehr: Oystehr): Promise<Crea
   }
 
   const lowerName = folderName.toLowerCase().trim();
-  if (existingDefs.some((d) => d.displayName.toLowerCase().trim() === lowerName)) {
+  const visibleDefs = allDefs.filter((d) => !d.deleted);
+  if (visibleDefs.some((d) => d.displayName.toLowerCase().trim() === lowerName)) {
     throw { ...INVALID_INPUT_ERROR(`A folder named "${folderName}" already exists`), statusCode: 409 };
   }
-  if (existingDefs.some((d) => d.internalName === internalName)) {
+
+  const sameInternal = allDefs.find((d) => d.internalName === internalName);
+  if (sameInternal && !sameInternal.deleted) {
     throw {
       ...INVALID_INPUT_ERROR(`A folder with a similar name already exists`),
       statusCode: 409,
     };
   }
 
-  const newEntry = {
-    item: {
-      display: folderName,
-      identifier: { value: internalName },
-    },
-  };
-
+  // Either insert a new entry, or clear the tombstone on an existing soft-deleted
+  // entry with the same internalName (refreshing its display to the newly-supplied
+  // folderName so any case/punctuation tweak the admin made on re-create is honored).
   await writeCustomFoldersCatalog({
     oystehr,
     initialCatalog: catalog,
-    mutate: (current) => ({ ...current, entry: [...(current.entry ?? []), newEntry] }),
+    mutate: (current) => {
+      const entries = current.entry ?? [];
+      const existingIdx = entries.findIndex((e) => e.item?.identifier?.value === internalName);
+      if (existingIdx >= 0) {
+        const existing = entries[existingIdx];
+        // Strip the soft-delete tombstone marker (entry.flag) when resurrecting.
+        const { flag: _flag, ...rest } = existing;
+        void _flag;
+        const updated = {
+          ...rest,
+          item: { ...existing.item, display: folderName, identifier: { value: internalName } },
+        };
+        return { ...current, entry: entries.map((e, i) => (i === existingIdx ? updated : e)) };
+      }
+      const newEntry = {
+        item: {
+          display: folderName,
+          identifier: { value: internalName },
+        },
+      };
+      return { ...current, entry: [...entries, newEntry] };
+    },
     tag: 'create-custom-folder',
     createIfMissing: true,
   });
