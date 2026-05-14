@@ -174,7 +174,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       authoredOn: task.authoredOn || '',
       completedDateTime: task.executionPeriod?.end,
       description: task.description || '',
-      mediums: extractInput(task, 'mediums'),
+      mediums: extractInput(task, 'mediums') || extractChargeCardMediums(task),
       errorMessage: extractErrorMessage(task),
       chargeResult: extractJsonOutput(task, 'charge-result'),
       notificationResults: extractJsonOutput(task, 'notification-results'),
@@ -190,6 +190,27 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 function extractInput(task: Task, key: string): string | undefined {
   return task.input?.find((i) => i.type?.text === key)?.valueString;
+}
+
+function extractChargeCardMediums(task: Task): string | undefined {
+  const configStr = extractInput(task, 'charge-card-config');
+  if (!configStr) return undefined;
+  try {
+    const config = JSON.parse(configStr) as {
+      onSuccess?: { enabled?: boolean; mediums?: string[] };
+      onFailure?: { enabled?: boolean; mediums?: string[] };
+    };
+    const mediums = new Set<string>();
+    if (config.onSuccess?.enabled) {
+      config.onSuccess.mediums?.forEach((m) => mediums.add(m));
+    }
+    if (config.onFailure?.enabled) {
+      config.onFailure.mediums?.forEach((m) => mediums.add(m));
+    }
+    return mediums.size > 0 ? Array.from(mediums).join(',') : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function extractErrorMessage(task: Task): string | undefined {

@@ -637,7 +637,7 @@ function TaskTable({
             <TableCell>Completed</TableCell>
             <TableCell>Visit Date</TableCell>
             <TableCell>Mediums</TableCell>
-            {onCancel && <TableCell sx={{ width: 60 }}>Actions</TableCell>}
+            {onCancel && <TableCell sx={{ width: 60 }}>Controls</TableCell>}
           </TableRow>
         </TableHead>
         <TableBody>
@@ -784,21 +784,41 @@ function TaskTable({
                 <TableCell>
                   {task.mediums ? (
                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {task.mediums.split(',').map((m) => (
-                        <Chip
-                          key={m}
-                          label={MEDIUM_LABELS[m.trim()] || m.trim()}
-                          size="small"
-                          variant="outlined"
-                          sx={{
-                            bgcolor: '#fff',
-                            color: MEDIUM_CHIP_COLORS[m.trim()] || 'text.primary',
-                            borderColor: MEDIUM_CHIP_COLORS[m.trim()] || 'divider',
-                            fontWeight: 500,
-                            fontSize: '0.75rem',
-                          }}
-                        />
-                      ))}
+                      {task.mediums.split(',').map((m) => {
+                        const medium = m.trim();
+                        const results = task.notificationResults || [];
+                        const result = results.find((r) => r.medium === medium);
+                        const sent = result?.success === true;
+                        const failed = result?.success === false;
+                        return (
+                          <Tooltip
+                            key={medium}
+                            title={
+                              sent ? 'Sent successfully' : failed ? `Failed: ${result?.error || 'unknown error'}` : ''
+                            }
+                            disableHoverListener={!result}
+                          >
+                            <Chip
+                              label={MEDIUM_LABELS[medium] || medium}
+                              size="small"
+                              variant={sent ? 'filled' : 'outlined'}
+                              icon={sent ? <CheckIcon sx={{ fontSize: 14 }} /> : undefined}
+                              sx={{
+                                bgcolor: sent ? MEDIUM_CHIP_COLORS[medium] || '#757575' : failed ? '#FFEBEE' : '#fff',
+                                color: sent
+                                  ? '#fff'
+                                  : failed
+                                  ? '#B71C1C'
+                                  : MEDIUM_CHIP_COLORS[medium] || 'text.primary',
+                                borderColor: failed ? '#B71C1C' : MEDIUM_CHIP_COLORS[medium] || 'divider',
+                                fontWeight: 500,
+                                fontSize: '0.75rem',
+                                '& .MuiChip-icon': { color: '#fff' },
+                              }}
+                            />
+                          </Tooltip>
+                        );
+                      })}
                     </Box>
                   ) : (
                     '—'

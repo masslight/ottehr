@@ -102,6 +102,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             notificationConfig.smsTemplate,
             notificationConfig.emailTemplate,
             notificationConfig.statementType,
+            chargeResult,
             oystehr,
             input.secrets
           );
@@ -181,6 +182,7 @@ interface ChargeResult {
   transactionId?: string;
   error?: string;
   amountCents?: number;
+  invoiceLink?: string;
 }
 
 /**
@@ -254,12 +256,14 @@ async function chargeCard(
         success: true,
         transactionId: typeof paidInvoice.charge === 'string' ? paidInvoice.charge : paidInvoice.charge?.id,
         amountCents: stripeInvoice.amount_due,
+        invoiceLink: stripeInvoice.hosted_invoice_url ?? undefined,
       };
     } else {
       return {
         success: false,
         error: `Invoice payment returned status: ${paidInvoice.status}`,
         amountCents: stripeInvoice.amount_due,
+        invoiceLink: stripeInvoice.hosted_invoice_url ?? undefined,
       };
     }
   } catch (err: any) {
@@ -268,6 +272,7 @@ async function chargeCard(
       success: false,
       error: err.message || 'Unknown Stripe error',
       amountCents: stripeInvoice.amount_due,
+      invoiceLink: stripeInvoice.hosted_invoice_url ?? undefined,
     };
   }
 }
@@ -281,6 +286,7 @@ async function sendNotificationForMedium(
   smsTemplate: string,
   emailTemplate: string,
   statementType: string | undefined,
+  chargeResult: ChargeResult,
   oystehr: Oystehr,
   secrets: Secrets | null
 ): Promise<void> {
@@ -297,6 +303,10 @@ async function sendNotificationForMedium(
     encounterRef: task.focus?.reference,
     oystehr,
     secrets,
+    overrides: {
+      amountCents: chargeResult.amountCents,
+      invoiceLink: chargeResult.invoiceLink,
+    },
   });
 
   if (medium === 'sms') {
