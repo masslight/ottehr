@@ -1,3 +1,11 @@
+/**
+ * Tests on legacy data util helpers that format file paths into the shape:
+ *   {lastName}_{firstName}_{dob}/{patientId}/{relative/subpath}
+ *
+ * To run: npx vitest run scripts/legacy-data/legacy-data-utils.test.ts
+ *
+ */
+
 import { describe, expect, it } from 'vitest';
 import { buildPatientFolder, type CsvRow, parseFolderName } from './legacy-data-utils.js';
 

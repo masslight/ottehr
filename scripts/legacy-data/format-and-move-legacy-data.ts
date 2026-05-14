@@ -228,8 +228,7 @@ async function getS3FileAndFormatIntoFileUpload(row: CsvRow, s3Client: S3Client 
     })
   );
 
-  // console.log('Done.');
-  // console.log('');
+  // console.log('Done.\n');
 
   if (!sourceObject.Body) {
     throw new Error(`no sourceObject.Body returned for row: ${JSON.stringify(row)}`);
@@ -258,12 +257,9 @@ async function main(): Promise<void> {
   console.log('═'.repeat(60));
   console.log('Legacy EHR Data Import Script v2');
   console.log('═'.repeat(60));
-  console.log(`Dry run: ${isDryRun}`);
-  console.log('');
-  console.log(`Using default data: ${useDefaultData}`);
-  console.log('');
-  console.log(`Mapping directory: ${mappingDir}`);
-  console.log('');
+  console.log(`Dry run: ${isDryRun}\n`);
+  console.log(`Using default data: ${useDefaultData}\n`);
+  console.log(`Mapping directory: ${mappingDir}\n`);
 
   // Verify data dir exists
   try {
@@ -315,11 +311,9 @@ async function main(): Promise<void> {
     });
   }
 
-  console.log(`Total rows read: ${totalRowsRead}`);
-  console.log('');
+  console.log(`Total rows read: ${totalRowsRead}\n`);
   console.log(`Migrating the following doc types: ${DOC_TYPES_TO_MIGRATE}`);
   console.log(`Total documents to be migrated: ${rows.length}`);
-  console.log('');
 
   let sourceS3Client: S3Client | undefined;
 
@@ -331,14 +325,21 @@ async function main(): Promise<void> {
 
   for (let i = 0; i < rows.length; i += CONCURRENCY) {
     const batch = rows.slice(i, i + CONCURRENCY);
-    const batchFiles = await Promise.all(
-      batch.map((row) =>
-        useDefaultData
-          ? Promise.resolve(formatDefaultDataIntoFileUpload(row))
-          : getS3FileAndFormatIntoFileUpload(row, sourceS3Client)
-      )
+    const batchResults = await Promise.all(
+      batch.map(async (row) => {
+        try {
+          return useDefaultData
+            ? formatDefaultDataIntoFileUpload(row)
+            : await getS3FileAndFormatIntoFileUpload(row, sourceS3Client);
+        } catch (err) {
+          console.error(`  ✗ Failed to prepare file for row: ${JSON.stringify(row)}`);
+          console.error(`    Error: ${err instanceof Error ? err.message : String(err)}\n`);
+          summary.errors++;
+          return null;
+        }
+      })
     );
-    allFiles.push(...batchFiles);
+    allFiles.push(...batchResults.filter((f): f is FileToUpload => f !== null));
   }
 
   console.log('');
@@ -374,8 +375,8 @@ async function main(): Promise<void> {
           });
           summary.uploaded++;
         } catch (err) {
-          console.error(`  ✗ Failed:   ${file.objectPath}`);
-          console.error(`    Error: ${err instanceof Error ? err.message : String(err)}`);
+          console.error(`  ✗ Failed to upload:   ${file.objectPath}`);
+          console.error(`    Error: ${err instanceof Error ? err.message : String(err)}\n`);
           summary.errors++;
         }
       })
@@ -384,7 +385,7 @@ async function main(): Promise<void> {
 
   console.log('');
   console.log('═'.repeat(60));
-  console.log(`Upload complete. Summary of actions: `);
+  console.log(`Script complete. Summary of actions: `);
   console.log(`  docs uploaded: ${summary.uploaded}`);
   console.log(`  docs with errors: ${summary.errors}`);
   console.log(`  unique patients: ${summary.uniquePatients.size}`);
