@@ -31,14 +31,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     resourceType: 'Task',
     params: [
       { name: '_tag', value: `${OUTREACH_TASK_TAG_SYSTEM}|` },
-      { name: 'status', value: 'draft' },
+      { name: 'status', value: 'draft,requested' },
       { name: 'period', value: `le${now}` },
       { name: '_count', value: '100' },
     ],
   });
 
   const tasks = draftTasks.unbundle();
-  console.log(`${ZAMBDA_NAME}: Found ${tasks.length} draft outreach tasks due for promotion`);
+  console.log(`${ZAMBDA_NAME}: Found ${tasks.length} draft/requested outreach tasks due for promotion`);
 
   let promoted = 0;
   let blocked = 0;
@@ -48,6 +48,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (taskUsesSms(task) && !isWithinNotificationsWindow(notificationsRestriction)) {
       console.log(`Task ${task.id} blocked by SMS time window`);
       blocked++;
+      continue;
+    }
+
+    // Already requested — nothing to do
+    if (task.status === 'requested') {
       continue;
     }
 
