@@ -133,7 +133,8 @@ export type QuestionnaireData = {
 // todo maybe to improve - why do we have diagnosesDTO & diagnoses
 export type LabOrderListPageDTO = {
   serviceRequestId: string; // ServiceRequest.id
-  testItem: string; // ServiceRequest.contained[0](ActivityDefinition).title
+  testItem: string; // ServiceRequest.contained[0](ActivityDefinition).coding.display
+  testItemCode: string; // ServiceRequest.contained[0](ActivityDefinition).coding.code
   fillerLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
   orderAddedDate: string; // Task PST authoredOn
   orderSubmittedDate: string | undefined; // Prov.recorded where activity.coding === PROVENANCE_ACTIVITY_CODING_ENTITY.submit
