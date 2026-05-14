@@ -1,5 +1,5 @@
 /**
- * Import script to migrate legacy EHR data into the Z3 'legacy-data' bucket.
+ * Import script to migrate v2 legacy EHR data into the Z3 'legacy-data' bucket.
  *
  * Files are stored under keys structured as:
  *   {lastName}_{firstName}_{dob}/{patientId}/{relative/subpath}
@@ -42,17 +42,9 @@ import { parse } from 'csv-parse';
 import { createReadStream, readdirSync, readFileSync, statSync } from 'fs';
 import { basename, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { buildPatientFolder, type CsvRow, stripDateFromDescription } from './legacy-data-utils.js';
 
 // ── Types ──────────────────────────────────────────────────────────
-type CsvRow = {
-  lastName: string;
-  firstName: string;
-  dob: string;
-  patientId: string;
-  path: string;
-  documentType: string;
-  description: string;
-};
 
 type Summary = {
   uploaded: number;
@@ -163,59 +155,6 @@ function makeSourceS3Client(): S3Client {
 }
 
 // ── File walking ──────────────────────────────────────────────────────────────
-
-/**
- * Many common descriptions in the mapping file contain dates, to get the base file description, remove the date
- * Example:
- * description passed: Imported Chart 11/11/2021
- * description returned: Imported Chart
- */
-function stripDateFromDescription(description: string): string {
-  return (
-    description
-      // eslint-disable-next-line no-useless-escape
-      .replace(/\b\d{2}[\/-]\d{2}[\/-]\d{4}\b/g, '')
-      .trim()
-      .replace(/\s+/g, ' ')
-  );
-}
-
-/**
- * Removes leading and trailing spaces
- * Replaces any space within the string with a "_" ex: mary jane -> mary_jane
- * Removes any any character that is NOT a letter, number, underscore, or hyphen
- * " hello   world! @2026 " -> "hello_world_2026"
- * @param value any string
- * @returns "sanitized" version of that string
- */
-function sanitize(value: string): string {
-  return value
-    .trim()
-    .replace(/\s+/g, '_')
-    .replace(/[^A-Za-z0-9_-]/g, '');
-}
-
-/**
- * Expects dob input in the format YYYY-MM-DD
- * Returns dob in the format MM-DD-YYYY, which is the expected format for z3 key
- */
-function formatDob(dob: string): string {
-  const [year, month, day] = dob.split('-');
-  return `${month}-${day}-${year}`;
-}
-
-/**
- * Parse a CsvRow
- * Returns the Z3 prefix: {lastName}_{firstName}_{dob}/{patientId}
- */
-function buildPatientFolder(row: CsvRow): string {
-  return (
-    `${sanitize(row.lastName.toLowerCase())}_` +
-    `${sanitize(row.firstName.toLowerCase())}_` +
-    `${sanitize(formatDob(row.dob))}/` +
-    `${sanitize(row.patientId)}`
-  );
-}
 
 /**
  * File these under ProgressNotes so that the front end shows them with the correct tag

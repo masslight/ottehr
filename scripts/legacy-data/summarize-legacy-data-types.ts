@@ -1,5 +1,5 @@
 /**
- * Script to analyze / summarize legacy EHR data.
+ * Script to analyze / summarize v2 legacy EHR data.
  *
  * Usage:
  *   npx tsx scripts/legacy-data/summarize-legacy-data-types.ts --data-dir [path to dir with 1 or more csv files]
@@ -15,18 +15,9 @@
 
 import { parse } from 'csv-parse';
 import * as fs from 'fs';
+import { buildPatientFolder, type CsvRow, stripDateFromDescription } from './legacy-data-utils';
 
 // ── Types ──────────────────────────────────────────────────────────
-type CsvRow = {
-  lastName: string;
-  firstName: string;
-  dob: string;
-  patientId: string;
-  path: string;
-  documentType: string;
-  description: string;
-};
-
 // example: { Patient Document: { vitals: 8; insurance: 12; imported chart: 5 } }
 type DocumentMap = Record<string, Record<string, number>>;
 
@@ -63,22 +54,6 @@ const dataDirIdx = args.indexOf('--data-dir');
 const dataDir = dataDirIdx !== -1 && args[dataDirIdx + 1] ? args[dataDirIdx + 1] : undefined;
 
 // ── Helpers ──────────────────────────────────────────────────────────
-function sanitize(value: string): string {
-  return value
-    .trim()
-    .replace(/\s+/g, '_')
-    .replace(/[^A-Za-z0-9_-]/g, '');
-}
-
-function buildPatientFolder(row: CsvRow): string {
-  return (
-    `${sanitize(row.lastName)}_` +
-    `${sanitize(row.firstName)}_` +
-    `${sanitize(row.dob)}/` +
-    `${sanitize(row.patientId)}`
-  );
-}
-
 function getFileType(path: string): string | null {
   const fileName = path.split('/').pop();
 
@@ -87,16 +62,6 @@ function getFileType(path: string): string | null {
   const extension = fileName.split('.').pop();
 
   return extension ? extension.toLowerCase() : null;
-}
-
-function stripDateFromDescription(description: string): string {
-  return (
-    description
-      // eslint-disable-next-line no-useless-escape
-      .replace(/\b\d{2}[\/-]\d{2}[\/-]\d{4}\b/g, '')
-      .trim()
-      .replace(/\s+/g, ' ')
-  );
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
