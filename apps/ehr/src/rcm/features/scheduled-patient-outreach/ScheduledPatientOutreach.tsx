@@ -47,8 +47,8 @@ import {
 import { useEditor } from '@tiptap/react';
 import React, { ReactElement, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { INVOICE_TOKEN_IDS, TemplateEditorField } from 'src/components/template-editor-field/TemplateEditorField';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { INVOICE_TOKEN_IDS, TemplateEditorField } from 'src/rcm/features/invoicing/InvoiceTemplateEditor';
 import {
   useGetOutreachConfigQuery,
   useSaveOutreachConfigMutation,
@@ -383,7 +383,7 @@ function OutreachTemplateField({
       previewValues={SAMPLE_PREVIEW_VALUES}
       helperText="Type {{ to insert a placeholder. Use [link text]({{url-placeholder}}) for clickable links."
       renderHtmlPreview={renderHtmlPreview}
-      tokenIds={OUTREACH_TOKEN_IDS}
+      tokens={OUTREACH_TOKEN_IDS}
     />
   );
 }
@@ -1077,7 +1077,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
           <TabList
             onChange={(_, v) => {
               const urlTab = v === 'tasks-report' ? 'tracker' : 'configuration';
-              navigate(`/admin/billing/patient-outreach/${urlTab}`);
+              navigate(`/admin/outreach/patient-outreach/${urlTab}`);
             }}
             aria-label="Outreach page tabs"
           >

@@ -13,7 +13,7 @@ import PageContainer from '../layout/PageContainer';
 import AdminCustomFoldersPage from './AdminCustomFoldersPage';
 import MedicationsConfigurationPage from './configuration/MedicationsConfiguration';
 import EmployeesPage, { EmployeeTypes } from './Employees';
-import { InvoiceablePatients } from './reports/index';
+import OutreachTab from './OutreachTab';
 import SchedulesPage from './Schedules';
 
 enum PageTab {
@@ -26,7 +26,7 @@ enum PageTab {
   billing = 'billing',
   'quick-picks' = 'quick-picks',
   'in-house-labs' = 'in-house-labs',
-  invoices = 'invoices',
+  outreach = 'outreach',
   'label-printing-config' = 'label-printing-config',
   'em-codes' = 'em-codes',
   'lab-sets' = 'lab-sets',
@@ -34,10 +34,14 @@ enum PageTab {
 }
 
 export function AdminPage(): JSX.Element {
-  const { adminTab, billingTab, outreachTab, insuranceTab } = useParams();
+  const { adminTab, billingTab, outreachSubTab, outreachDetailTab, insuranceTab } = useParams();
   const navigate = useNavigate();
 
-  const pageTab = billingTab ? PageTab.billing : (adminTab as PageTab) || PageTab.schedules;
+  const pageTab = billingTab
+    ? PageTab.billing
+    : outreachSubTab
+    ? PageTab.outreach
+    : (adminTab as PageTab) || PageTab.schedules;
 
   return (
     <PageContainer>
@@ -101,10 +105,10 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab['in-house-labs']}`)}
                 />
                 <Tab
-                  label="Invoices"
-                  value={PageTab.invoices}
+                  label="Outreach"
+                  value={PageTab.outreach}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab.invoices}`)}
+                  onClick={() => navigate(`/admin/${PageTab.outreach}`)}
                 />
                 <Tab
                   label="Lab Sets"
@@ -152,7 +156,7 @@ export function AdminPage(): JSX.Element {
             <MedicationsConfigurationPage />
           </TabPanel>
           <TabPanel value={PageTab.billing} sx={{ padding: 0 }}>
-            <BillingConfiguration billingTab={billingTab} outreachTab={outreachTab} insuranceTab={insuranceTab} />
+            <BillingConfiguration billingTab={billingTab} insuranceTab={insuranceTab} />
           </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />
@@ -163,8 +167,8 @@ export function AdminPage(): JSX.Element {
           <TabPanel value={PageTab['in-house-labs']} sx={{ padding: 0 }}>
             <InHouseLabAdminPage />
           </TabPanel>
-          <TabPanel value={PageTab.invoices} sx={{ padding: 0 }}>
-            <InvoiceablePatients />
+          <TabPanel value={PageTab.outreach} sx={{ padding: 0 }}>
+            <OutreachTab outreachSubTab={outreachSubTab} outreachDetailTab={outreachDetailTab} />
           </TabPanel>
           <TabPanel value={PageTab['lab-sets']} sx={{ padding: 0 }}>
             <LabSetsAdminPage />

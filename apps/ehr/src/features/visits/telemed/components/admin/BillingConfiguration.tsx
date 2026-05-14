@@ -20,7 +20,6 @@ import React, { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BILLING_URL, PAYMENT_LOCATIONS_URL } from 'src/App';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
-import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
 import { PaymentLocation } from 'src/rcm/state/payments/payments.api';
 import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
 import FeeSchedule from './ChargeItemList';
@@ -35,7 +34,6 @@ type BillingSubTab =
   | 'employers'
   | 'payment-locations'
   | 'invoicing'
-  | 'patient-outreach'
   | 'em-codes';
 
 function PaymentLocationsList(): ReactElement {
@@ -150,11 +148,9 @@ function PaymentLocationsList(): ReactElement {
 
 export default function BillingConfiguration({
   billingTab,
-  outreachTab,
   insuranceTab,
 }: {
   billingTab?: string;
-  outreachTab?: string;
   insuranceTab?: string;
 }): ReactElement {
   const navigate = useNavigate();
@@ -176,7 +172,6 @@ export default function BillingConfiguration({
             <Tab label="Employers" value="employers" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Payment Locations" value="payment-locations" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Invoicing" value="invoicing" sx={{ textTransform: 'none', fontWeight: 500 }} />
-            <Tab label="Patient Outreach" value="patient-outreach" sx={{ textTransform: 'none', fontWeight: 500 }} />
           </TabList>
         </Box>
         <TabPanel value="em-codes" sx={{ padding: 0 }}>
@@ -199,9 +194,6 @@ export default function BillingConfiguration({
         </TabPanel>
         <TabPanel value="invoicing" sx={{ padding: 0 }}>
           <Invoicing />
-        </TabPanel>
-        <TabPanel value="patient-outreach" sx={{ padding: 0 }}>
-          <ScheduledPatientOutreach outreachTab={outreachTab} />
         </TabPanel>
       </TabContext>
     </Box>

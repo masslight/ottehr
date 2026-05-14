@@ -89,6 +89,7 @@ export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
 export const BILLING_URL = '/admin/billing';
 export const BILLING_INSURANCE_URL = '/admin/billing/insurance';
 export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';
+export const OUTREACH_URL = '/admin/outreach';
 export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
@@ -230,6 +231,8 @@ function App(): ReactElement {
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path={`${BILLING_URL}/:billingTab`} element={<AdminPage />} />
                 <Route path={`${BILLING_URL}/:billingTab/:insuranceTab`} element={<AdminPage />} />
+                <Route path={`${OUTREACH_URL}/:outreachSubTab`} element={<AdminPage />} />
+                <Route path={`${OUTREACH_URL}/:outreachSubTab/:outreachDetailTab`} element={<AdminPage />} />
                 <Route path="/admin/:adminTab" element={<AdminPage />} />
                 <Route path="/admin/:adminTab/:subTab" element={<AdminPage />} />
                 <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />

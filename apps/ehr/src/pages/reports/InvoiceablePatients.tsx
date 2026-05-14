@@ -822,7 +822,7 @@ export default function InvoiceablePatients(): React.ReactElement {
             setChatAppointmentMessaging(undefined);
           }}
           onMarkAllRead={() => {}}
-          quickTexts={[]}
+          quickTextsContext={{}}
         />
       )}
     </Box>

@@ -33,7 +33,7 @@ export const index = wrapHandler('cancel-outreach-task', async (input: ZambdaInp
     };
   }
 
-  const operations: { op: string; path: string; value: string }[] = [
+  const operations: { op: 'replace' | 'add'; path: string; value: string }[] = [
     { op: 'replace', path: '/status', value: 'cancelled' },
   ];
 
