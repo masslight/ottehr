@@ -33,6 +33,7 @@ describe('Apply Template - validateRequestParameters', () => {
       cptCodes: 'overwrite',
       emCode: 'skip',
       accident: 'overwrite',
+      inHouseLabs: 'append',
     };
     const result = validateRequestParameters(createInput({ ...baseBody, sectionActions }));
     expect(result.sectionActions).toEqual(sectionActions);
@@ -61,6 +62,20 @@ describe('Apply Template - validateRequestParameters', () => {
   test("rejects 'append' for accident", () => {
     const input = createInput({ ...baseBody, sectionActions: { accident: 'append' } });
     expect(() => validateRequestParameters(input)).toThrow(/does not support the 'append' action/);
+  });
+
+  test("rejects 'overwrite' for inHouseLabs", () => {
+    const input = createInput({ ...baseBody, sectionActions: { inHouseLabs: 'overwrite' } });
+    expect(() => validateRequestParameters(input)).toThrow(/does not support the 'overwrite' action/);
+  });
+
+  test("accepts 'skip' and 'append' for inHouseLabs", () => {
+    expect(() =>
+      validateRequestParameters(createInput({ ...baseBody, sectionActions: { inHouseLabs: 'skip' } }))
+    ).not.toThrow();
+    expect(() =>
+      validateRequestParameters(createInput({ ...baseBody, sectionActions: { inHouseLabs: 'append' } }))
+    ).not.toThrow();
   });
 
   test('rejects sectionActions that is not an object', () => {

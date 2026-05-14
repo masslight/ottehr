@@ -121,6 +121,26 @@ const mockTemplateDetail = {
     cptCodes: [{ code: '99213', display: 'Office visit' }],
     emCode: { code: '99213', display: 'Office visit' },
     accident: null,
+    inHouseLabs: [
+      {
+        planId: 'plan-1',
+        testName: 'Strep test',
+        activityDefinitionRef: 'http://example.com/ad/strep|1',
+        code: 'strep',
+        diagnoses: [{ code: 'J02.9', display: 'Acute pharyngitis, unspecified' }],
+        notes: [],
+        missing: false,
+      },
+      {
+        planId: 'plan-2',
+        testName: 'Retired Test',
+        activityDefinitionRef: 'http://example.com/ad/retired|1',
+        code: 'retired',
+        diagnoses: [],
+        notes: [],
+        missing: true,
+      },
+    ],
   },
 };
 
@@ -432,6 +452,7 @@ describe('ApplyTemplate', () => {
             cptCodes: 'append',
             emCode: 'overwrite',
             accident: 'skip',
+            inHouseLabs: 'append',
           },
         })
       );
@@ -507,6 +528,52 @@ describe('ApplyTemplate', () => {
     expect(within(examCard).getByText('Soft')).toBeInTheDocument();
   });
 
+  it('should render the in-house lab plans, hide Overwrite, and mark missing ADs', async () => {
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const labCard = await screen.findByTestId('template-section-inHouseLabs');
+    // Summary calls out the missing-AD count in addition to the test names.
+    expect(within(labCard).getByText(/Strep test/)).toBeInTheDocument();
+    expect(within(labCard).getByText(/1 unavailable/)).toBeInTheDocument();
+
+    // In-house labs are append-or-skip only; the Overwrite toggle should not render.
+    expect(within(labCard).queryByRole('button', { name: 'Overwrite' })).toBeNull();
+    expect(within(labCard).getByRole('button', { name: 'Skip' })).toBeInTheDocument();
+    expect(within(labCard).getByRole('button', { name: 'Append' })).toBeInTheDocument();
+
+    await user.click(within(labCard).getByTestId('template-section-inHouseLabs-header'));
+
+    // Both plans appear in the expanded preview, with the missing one flagged.
+    await waitFor(() => {
+      expect(within(labCard).getByText('Retired Test')).toBeInTheDocument();
+    });
+    expect(within(labCard).getByText(/unavailable in this environment/)).toBeInTheDocument();
+  });
+
+  it('should surface zambda warnings as snackbars after apply', async () => {
+    const user = userEvent.setup();
+    mockApplyTemplate.mockResolvedValue({
+      warnings: [{ section: 'inHouseLabs', message: 'Skipped "Retired Test" — definition not found.' }],
+    });
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+    await screen.findByTestId('template-section-inHouseLabs');
+    await user.click(screen.getByRole('button', { name: 'Apply Template' }));
+
+    await waitFor(() => {
+      expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Template applied successfully!', { variant: 'success' });
+    });
+    expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Skipped "Retired Test" — definition not found.', {
+      variant: 'warning',
+    });
+  });
+
   it('should disable Apply when every section is set to Skip', async () => {
     const user = userEvent.setup();
     mockGetTemplateDetail.mockResolvedValue({
@@ -520,6 +587,7 @@ describe('ApplyTemplate', () => {
         cptCodes: [],
         emCode: null,
         mdm: null,
+        inHouseLabs: [],
         // Only HPI has content.
       },
     });

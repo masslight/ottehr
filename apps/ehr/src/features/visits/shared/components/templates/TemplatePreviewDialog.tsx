@@ -33,6 +33,8 @@ import {
   TelemedExamConfig,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TEMPLATE_SECTIONS_NO_APPEND,
+  TEMPLATE_SECTIONS_NO_OVERWRITE,
+  TemplateInHouseLabPlan,
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionKey,
@@ -81,6 +83,7 @@ const SECTIONS_IN_ORDER: readonly SectionDescriptor[] = [
   { key: 'cptCodes', label: 'CPT Codes' },
   { key: 'emCode', label: 'E&M Code' },
   { key: 'accident', label: 'Accident' },
+  { key: 'inHouseLabs', label: 'In-House Lab Orders' },
 ];
 
 const ACTION_LABELS: Record<TemplateSectionAction, string> = {
@@ -167,6 +170,16 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
       if (sections.accident.otherAccident) flags.push('Other');
       return flags.length > 0 ? flags.join(', ') : 'Yes';
     }
+    case 'inHouseLabs': {
+      const names = sections.inHouseLabs
+        .slice(0, 2)
+        .map((p) => p.testName)
+        .join(', ');
+      const extra = sections.inHouseLabs.length - 2;
+      const summary = extra > 0 ? `${names} +${extra} more` : names;
+      const missing = sections.inHouseLabs.filter((p) => p.missing).length;
+      return missing > 0 ? `${summary} (${missing} unavailable)` : summary;
+    }
     default:
       return '';
   }
@@ -194,6 +207,8 @@ const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], k
       return Boolean(sections.emCode);
     case 'accident':
       return Boolean(sections.accident);
+    case 'inHouseLabs':
+      return sections.inHouseLabs.length > 0;
     default:
       return false;
   }
@@ -375,10 +390,53 @@ const SectionPreview: React.FC<{
         </Stack>
       );
     }
+    case 'inHouseLabs':
+      return <InHouseLabPlansList plans={sections.inHouseLabs} />;
     default:
       return null;
   }
 };
+
+// Each plan renders as a row with the test name and any reasonCode ICDs as
+// little chips below. Plans whose ActivityDefinition couldn't be resolved on
+// this environment render muted so the provider knows they'll be skipped at
+// apply-time.
+const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlan[] }> = ({ plans }) => (
+  <Stack spacing={1.5}>
+    {plans.map((plan) => (
+      <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.55 : 1 }}>
+        <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 500 }}>
+          {plan.testName}
+          {plan.missing ? (
+            <Typography component="span" variant="caption" sx={{ ml: 1, color: 'warning.main', fontStyle: 'italic' }}>
+              unavailable in this environment — will be skipped
+            </Typography>
+          ) : null}
+        </Typography>
+        {plan.diagnoses.length > 0 ? (
+          <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+            {plan.diagnoses.map((d, idx) => (
+              <Chip
+                key={`${plan.planId}-dx-${idx}`}
+                size="small"
+                variant="outlined"
+                label={d.display ? `${d.code} — ${d.display}` : d.code}
+              />
+            ))}
+          </Stack>
+        ) : null}
+        {plan.notes.length > 0 ? (
+          <Typography
+            variant="caption"
+            sx={{ display: 'block', mt: 0.5, color: 'text.secondary', whiteSpace: 'pre-wrap' }}
+          >
+            {plan.notes.join('\n\n')}
+          </Typography>
+        ) : null}
+      </Box>
+    ))}
+  </Stack>
+);
 
 const SectionCard: React.FC<{
   descriptor: SectionDescriptor;
@@ -391,6 +449,7 @@ const SectionCard: React.FC<{
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const noAppend = TEMPLATE_SECTIONS_NO_APPEND.has(descriptor.key);
+  const noOverwrite = TEMPLATE_SECTIONS_NO_OVERWRITE.has(descriptor.key);
   const summary = getSectionSummary(sections, descriptor.key);
 
   const previewSx = {
@@ -483,9 +542,11 @@ const SectionCard: React.FC<{
                 {ACTION_LABELS.append}
               </ContainedPrimaryToggleButton>
             )}
-            <ContainedPrimaryToggleButton value="overwrite" title={getActionTooltip(descriptor.key, 'overwrite')}>
-              {ACTION_LABELS.overwrite}
-            </ContainedPrimaryToggleButton>
+            {noOverwrite ? null : (
+              <ContainedPrimaryToggleButton value="overwrite" title={getActionTooltip(descriptor.key, 'overwrite')}>
+                {ACTION_LABELS.overwrite}
+              </ContainedPrimaryToggleButton>
+            )}
           </ToggleButtonGroup>
         </Box>
       </Box>
