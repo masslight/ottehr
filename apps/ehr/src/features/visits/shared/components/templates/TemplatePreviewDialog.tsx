@@ -390,7 +390,10 @@ const SectionCard: React.FC<{
           <ExpandMoreIcon fontSize="small" />
         </IconButton>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.3, color: 'primary.dark' }}>
+          <Typography
+            variant="subtitle1"
+            sx={{ fontWeight: 600, fontSize: '0.9375rem', lineHeight: 1.3, color: 'primary.dark' }}
+          >
             {descriptor.label}
           </Typography>
           {summary ? (
@@ -436,7 +439,7 @@ const SectionCard: React.FC<{
       <Collapse in={expanded} unmountOnExit>
         <Box
           id={`template-section-${descriptor.key}-body`}
-          sx={{ px: 2, pb: 2, pt: 0.5, borderTop: `1px solid ${theme.palette.divider}`, ...previewSx }}
+          sx={{ px: 2, pb: 2, pt: 2, borderTop: `1px solid ${theme.palette.divider}`, ...previewSx }}
         >
           <SectionPreview sectionKey={descriptor.key} sections={sections} />
         </Box>
