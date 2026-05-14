@@ -420,6 +420,10 @@ describe('ApplyTemplate', () => {
           examType: 'inPerson',
           sectionActions: {
             hpi: 'append',
+            // moi section is hidden because the template carries no MOI content; the
+            // client sends 'skip' explicitly so the server doesn't fall back to its
+            // per-section default and silently touch existing chart data.
+            moi: 'skip',
             ros: 'append',
             examFindings: 'overwrite',
             mdm: 'overwrite',
@@ -427,6 +431,7 @@ describe('ApplyTemplate', () => {
             patientInstructions: 'overwrite',
             cptCodes: 'append',
             emCode: 'overwrite',
+            accident: 'skip',
           },
         })
       );
@@ -490,8 +495,8 @@ describe('ApplyTemplate', () => {
     // Body contents are NOT in the DOM while collapsed (Collapse uses unmountOnExit)
     expect(within(examCard).queryByText('Abdomen')).toBeNull();
 
-    // Click the section label to expand
-    await user.click(within(examCard).getByText('Exam Findings'));
+    // Click the section header to expand (stable testid - resilient to label copy changes)
+    await user.click(within(examCard).getByTestId('template-section-examFindings-header'));
 
     await waitFor(() => {
       // Body-system grouping renders the section header

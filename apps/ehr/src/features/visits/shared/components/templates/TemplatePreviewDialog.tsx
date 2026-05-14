@@ -25,10 +25,12 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminGetTemplateDetailOutput,
   buildExamFieldToSectionMap,
+  ExamFieldSectionInfo,
   ExamType,
   InPersonExamConfig,
   RosFindingState,
   RosFindingStateLabel,
+  TelemedExamConfig,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TEMPLATE_SECTIONS_NO_APPEND,
   TemplateSectionAction,
@@ -36,11 +38,21 @@ import {
   TemplateSectionKey,
 } from 'utils';
 
-// Static once-per-module: maps every exam field name to the body-system section it
-// belongs to (e.g. "abdomen-soft" -> { sectionLabel: "Abdomen" }). Used to render
-// exam-finding chips under their owning section so they're meaningful on their own.
-const EXAM_FIELD_TO_SECTION = buildExamFieldToSectionMap(InPersonExamConfig);
-const EXAM_SECTION_KEYS_IN_ORDER = Object.keys(InPersonExamConfig);
+// Maps an exam field name (e.g. "soft", "tender") to the body-system section it
+// belongs to ("Abdomen"). Computed once per exam type at module load so the preview
+// can group finding chips under their owning section header. Picking by ExamType
+// keeps telemed templates from grouping every chip into "Other".
+// TelemedExamConfig isn't declared with the ExamItemConfig type (its items carry an
+// extra `code` field), so we cast through unknown. buildExamFieldToSectionMap only
+// reads the standard fields it shares with ExamItemConfig.
+const EXAM_FIELD_TO_SECTION_BY_TYPE: Record<ExamType, Map<string, ExamFieldSectionInfo>> = {
+  [ExamType.IN_PERSON]: buildExamFieldToSectionMap(InPersonExamConfig),
+  [ExamType.TELEMED]: buildExamFieldToSectionMap(TelemedExamConfig as unknown as typeof InPersonExamConfig),
+};
+const EXAM_SECTION_KEYS_IN_ORDER_BY_TYPE: Record<ExamType, string[]> = {
+  [ExamType.IN_PERSON]: Object.keys(InPersonExamConfig),
+  [ExamType.TELEMED]: Object.keys(TelemedExamConfig),
+};
 const EXAM_OTHER_SECTION_KEY = '__other__';
 
 interface TemplatePreviewDialogProps {
@@ -82,6 +94,20 @@ const ACTION_TOOLTIPS: Record<TemplateSectionAction, string> = {
   append: 'Keep existing content and add the template content.',
   overwrite: 'Replace existing content with the template content.',
 };
+
+// Per-section overrides for the action tooltips. Used when a section's append/overwrite
+// semantics diverge from the generic copy - e.g. ROS append keeps the existing note text
+// but still replaces the structured findings, which the default tooltip doesn't convey.
+const SECTION_ACTION_TOOLTIP_OVERRIDES: Partial<
+  Record<TemplateSectionKey, Partial<Record<TemplateSectionAction, string>>>
+> = {
+  ros: {
+    append: 'Add the template note to your existing note. Structured ROS findings will be replaced by the template.',
+  },
+};
+
+const getActionTooltip = (sectionKey: TemplateSectionKey, action: TemplateSectionAction): string =>
+  SECTION_ACTION_TOOLTIP_OVERRIDES[sectionKey]?.[action] ?? ACTION_TOOLTIPS[action];
 
 const truncate = (s: string, n = 80): string => {
   const collapsed = s.replace(/\s+/g, ' ').trim();
@@ -200,7 +226,10 @@ const CodeList: React.FC<{ items: { code: string; display: string }[] }> = ({ it
 const SectionPreview: React.FC<{
   sectionKey: TemplateSectionKey;
   sections: AdminGetTemplateDetailOutput['sections'];
-}> = ({ sectionKey, sections }) => {
+  examType: ExamType;
+}> = ({ sectionKey, sections, examType }) => {
+  const examFieldToSection = EXAM_FIELD_TO_SECTION_BY_TYPE[examType];
+  const examSectionKeysInOrder = EXAM_SECTION_KEYS_IN_ORDER_BY_TYPE[examType];
   switch (sectionKey) {
     case 'hpi':
       return <TextBlock value={sections.hpiNote} />;
@@ -252,7 +281,7 @@ const SectionPreview: React.FC<{
       // (e.g. comment fields with custom keys) falls into an "Other" bucket.
       const groupedByKey = new Map<string, typeof sections.examFindings>();
       for (const finding of sections.examFindings) {
-        const info = EXAM_FIELD_TO_SECTION.get(finding.fieldName);
+        const info = examFieldToSection.get(finding.fieldName);
         const key = info?.sectionKey ?? EXAM_OTHER_SECTION_KEY;
         const existing = groupedByKey.get(key);
         if (existing) existing.push(finding);
@@ -260,7 +289,7 @@ const SectionPreview: React.FC<{
       }
 
       const orderedKeys = [
-        ...EXAM_SECTION_KEYS_IN_ORDER.filter((k) => groupedByKey.has(k)),
+        ...examSectionKeysInOrder.filter((k) => groupedByKey.has(k)),
         ...(groupedByKey.has(EXAM_OTHER_SECTION_KEY) ? [EXAM_OTHER_SECTION_KEY] : []),
       ];
 
@@ -271,7 +300,7 @@ const SectionPreview: React.FC<{
             const label =
               key === EXAM_OTHER_SECTION_KEY
                 ? 'Other'
-                : EXAM_FIELD_TO_SECTION.get(findings[0].fieldName)?.sectionLabel ?? key;
+                : examFieldToSection.get(findings[0].fieldName)?.sectionLabel ?? key;
             return (
               <Box key={key}>
                 <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
@@ -357,7 +386,8 @@ const SectionCard: React.FC<{
   action: TemplateSectionAction;
   onActionChange: (action: TemplateSectionAction) => void;
   disabled: boolean;
-}> = ({ descriptor, sections, action, onActionChange, disabled }) => {
+  examType: ExamType;
+}> = ({ descriptor, sections, action, onActionChange, disabled, examType }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const noAppend = TEMPLATE_SECTIONS_NO_APPEND.has(descriptor.key);
@@ -382,6 +412,7 @@ const SectionCard: React.FC<{
         tabIndex={0}
         aria-expanded={expanded}
         aria-controls={`template-section-${descriptor.key}-body`}
+        data-testid={`template-section-${descriptor.key}-header`}
         onClick={() => setExpanded((v) => !v)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -444,15 +475,15 @@ const SectionCard: React.FC<{
             disabled={disabled}
             aria-label={`Action for ${descriptor.label}`}
           >
-            <ContainedPrimaryToggleButton value="skip" title={ACTION_TOOLTIPS.skip}>
+            <ContainedPrimaryToggleButton value="skip" title={getActionTooltip(descriptor.key, 'skip')}>
               {ACTION_LABELS.skip}
             </ContainedPrimaryToggleButton>
             {noAppend ? null : (
-              <ContainedPrimaryToggleButton value="append" title={ACTION_TOOLTIPS.append}>
+              <ContainedPrimaryToggleButton value="append" title={getActionTooltip(descriptor.key, 'append')}>
                 {ACTION_LABELS.append}
               </ContainedPrimaryToggleButton>
             )}
-            <ContainedPrimaryToggleButton value="overwrite" title={ACTION_TOOLTIPS.overwrite}>
+            <ContainedPrimaryToggleButton value="overwrite" title={getActionTooltip(descriptor.key, 'overwrite')}>
               {ACTION_LABELS.overwrite}
             </ContainedPrimaryToggleButton>
           </ToggleButtonGroup>
@@ -463,7 +494,7 @@ const SectionCard: React.FC<{
           id={`template-section-${descriptor.key}-body`}
           sx={{ px: 2, pb: 2, pt: 2, borderTop: `1px solid ${theme.palette.divider}`, ...previewSx }}
         >
-          <SectionPreview sectionKey={descriptor.key} sections={sections} />
+          <SectionPreview sectionKey={descriptor.key} sections={sections} examType={examType} />
         </Box>
       </Collapse>
     </Box>
@@ -474,6 +505,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   open,
   templateId,
   templateName,
+  examType,
   isApplying,
   onCancel,
   onApply,
@@ -508,11 +540,16 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   };
 
   const handleApply = (): void => {
-    // Only send actions for sections the template actually has content for.
-    // Skipping a section the template doesn't carry is a no-op and would clutter the payload.
+    // Build a complete action map covering every known section key. Sections the
+    // template doesn't carry content for - and therefore weren't shown to the user -
+    // are explicitly set to 'skip'. Without this, the server's default action map
+    // would fill those keys with their per-section defaults (e.g. examFindings,
+    // patientInstructions, accident default to 'overwrite'), which would silently
+    // delete the user's existing chart data for sections they never saw a control for.
     const payload: TemplateSectionActions = {};
-    for (const section of sectionsWithContent) {
-      payload[section.key] = actions[section.key];
+    const visibleKeys = new Set(sectionsWithContent.map((s) => s.key));
+    for (const key of Object.keys(TEMPLATE_SECTION_DEFAULT_ACTIONS) as TemplateSectionKey[]) {
+      payload[key] = visibleKeys.has(key) ? actions[key] : 'skip';
     }
     onApply(payload);
   };
@@ -565,6 +602,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
                 action={actions[section.key]}
                 onActionChange={(next) => handleActionChange(section.key, next)}
                 disabled={isApplying}
+                examType={examType}
               />
             ))}
           </Stack>
