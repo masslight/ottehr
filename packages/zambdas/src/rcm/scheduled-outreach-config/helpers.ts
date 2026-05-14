@@ -45,6 +45,17 @@ export interface ReferToCollectionsConfig {
   includePaymentHistory: boolean;
 }
 
+export type BirthdayAgeMode = 'at' | 'after';
+
+export interface BirthdayConfig {
+  /** 'at' = only on this exact age; 'after' = from this age onward (up to maxAge). */
+  ageMode?: BirthdayAgeMode;
+  /** The target age (required when ageMode is set). */
+  age?: number;
+  /** Upper bound when ageMode is 'after'. Defaults to 100 if not specified. */
+  maxAge?: number;
+}
+
 export interface NotificationsTimeRestriction {
   enabled: boolean;
   windowStart: string; // HH:mm
@@ -65,6 +76,7 @@ export interface OutreachAction {
   sendNotificationConfig?: SendNotificationConfig;
   referToCollectionsConfig?: ReferToCollectionsConfig;
   logConfig?: Record<string, never>;
+  birthdayConfig?: BirthdayConfig;
 }
 
 // ── Notifications time restriction extension ───────────────────────────────
@@ -98,6 +110,35 @@ export function parseNotificationsTimeRestriction(planDef: PlanDefinition): Noti
   const windowEnd = (sub.find((e) => e.url === 'window-end')?.valueTime ?? '21:00:00').substring(0, 5);
   const timezone = sub.find((e) => e.url === 'timezone')?.valueString ?? 'America/New_York';
   return { enabled, windowStart, windowEnd, timezone };
+}
+
+// ── Birthday config extension ──────────────────────────────────────────────
+
+const BIRTHDAY_CONFIG_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/outreach-birthday-config`;
+
+function buildBirthdayConfigExtension(config: BirthdayConfig): any {
+  const extensions: any[] = [];
+  if (config.ageMode) {
+    extensions.push({ url: 'age-mode', valueCode: config.ageMode });
+  }
+  if (config.age != null) {
+    extensions.push({ url: 'age', valueInteger: config.age });
+  }
+  if (config.maxAge != null) {
+    extensions.push({ url: 'max-age', valueInteger: config.maxAge });
+  }
+  return { url: BIRTHDAY_CONFIG_EXTENSION_URL, extension: extensions };
+}
+
+function parseBirthdayConfig(fhirAction: any): BirthdayConfig | undefined {
+  const ext = fhirAction.extension?.find((e: any) => e.url === BIRTHDAY_CONFIG_EXTENSION_URL);
+  if (!ext) return undefined;
+  const subs = ext.extension || [];
+  const ageMode = subs.find((e: any) => e.url === 'age-mode')?.valueCode as BirthdayAgeMode | undefined;
+  const age = subs.find((e: any) => e.url === 'age')?.valueInteger as number | undefined;
+  const maxAge = subs.find((e: any) => e.url === 'max-age')?.valueInteger as number | undefined;
+  if (!ageMode && age == null) return undefined;
+  return { ageMode, age, maxAge };
 }
 
 // ── FHIR code systems ──────────────────────────────────────────────────────
@@ -326,6 +367,7 @@ function buildSendNotificationFhirAction(uiAction: OutreachAction): any {
     ],
     trigger: [{ type: 'named-event', name: uiAction.trigger.event }],
     ...(buildRelatedAction(uiAction.trigger) ? { relatedAction: buildRelatedAction(uiAction.trigger) } : {}),
+    ...(uiAction.birthdayConfig ? { extension: [buildBirthdayConfigExtension(uiAction.birthdayConfig)] } : {}),
     action: buildNotificationSubActions(
       uiAction.id,
       'notify',
@@ -420,6 +462,7 @@ function buildLogFhirAction(uiAction: OutreachAction): any {
     ],
     trigger: [{ type: 'named-event', name: uiAction.trigger.event }],
     ...(buildRelatedAction(uiAction.trigger) ? { relatedAction: buildRelatedAction(uiAction.trigger) } : {}),
+    ...(uiAction.birthdayConfig ? { extension: [buildBirthdayConfigExtension(uiAction.birthdayConfig)] } : {}),
   };
 }
 
@@ -606,6 +649,7 @@ function parseChargeCardAction(fhirAction: any): OutreachAction {
 
 function parseSendNotificationAction(fhirAction: any): OutreachAction {
   const { mediums, smsTemplate, emailTemplate, statementType } = extractMediumsAndTemplates(fhirAction.action);
+  const bConfig = parseBirthdayConfig(fhirAction);
   return {
     id: fhirAction.id || String(Date.now()),
     trigger: extractTrigger(fhirAction),
@@ -616,6 +660,7 @@ function parseSendNotificationAction(fhirAction: any): OutreachAction {
       emailTemplate,
       ...(statementType ? { statementType } : {}),
     },
+    ...(bConfig ? { birthdayConfig: bConfig } : {}),
   };
 }
 
@@ -635,10 +680,12 @@ function parseReferToCollectionsAction(fhirAction: any): OutreachAction {
 }
 
 function parseLogAction(fhirAction: any): OutreachAction {
+  const bConfig = parseBirthdayConfig(fhirAction);
   return {
     id: fhirAction.id || String(Date.now()),
     trigger: extractTrigger(fhirAction),
     actionType: 'log',
+    ...(bConfig ? { birthdayConfig: bConfig } : {}),
   };
 }
 

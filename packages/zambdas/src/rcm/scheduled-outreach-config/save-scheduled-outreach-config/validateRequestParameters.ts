@@ -119,6 +119,22 @@ function validateAction(action: unknown, index: number): OutreachAction {
     }
   }
 
+  if (a.birthdayConfig !== undefined) {
+    if (typeof a.birthdayConfig !== 'object' || a.birthdayConfig === null) {
+      throw INVALID_INPUT_ERROR(`actions[${index}].birthdayConfig must be an object`);
+    }
+    const bc = a.birthdayConfig as Record<string, unknown>;
+    if (bc.ageMode !== undefined && bc.ageMode !== 'at' && bc.ageMode !== 'after') {
+      throw INVALID_INPUT_ERROR(`actions[${index}].birthdayConfig.ageMode must be 'at' or 'after'`);
+    }
+    if (bc.age !== undefined && (typeof bc.age !== 'number' || bc.age < 1 || bc.age > 150)) {
+      throw INVALID_INPUT_ERROR(`actions[${index}].birthdayConfig.age must be a number between 1 and 150`);
+    }
+    if (bc.maxAge !== undefined && (typeof bc.maxAge !== 'number' || bc.maxAge < 1 || bc.maxAge > 150)) {
+      throw INVALID_INPUT_ERROR(`actions[${index}].birthdayConfig.maxAge must be a number between 1 and 150`);
+    }
+  }
+
   return a as unknown as OutreachAction;
 }
 

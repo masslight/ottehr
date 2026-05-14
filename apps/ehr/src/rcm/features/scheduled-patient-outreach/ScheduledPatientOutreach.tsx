@@ -98,6 +98,15 @@ interface ReferToCollectionsConfig {
   includePaymentHistory: boolean;
 }
 
+interface BirthdayConfig {
+  /** 'at' = only on this exact age; 'after' = from this age onward (up to maxAge). */
+  ageMode?: 'at' | 'after';
+  /** The target age (required when ageMode is set). */
+  age?: number;
+  /** Upper bound when ageMode is 'after'. Defaults to 100 if not specified. */
+  maxAge?: number;
+}
+
 interface OutreachAction {
   id: string;
   trigger: {
@@ -111,6 +120,7 @@ interface OutreachAction {
   sendNotificationConfig?: SendNotificationConfig;
   referToCollectionsConfig?: ReferToCollectionsConfig;
   logConfig?: Record<string, never>;
+  birthdayConfig?: BirthdayConfig;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -381,22 +391,26 @@ function OutreachTemplateField({
 function MediumCheckboxes({
   selected,
   onChange,
+  excludeMediums = [],
 }: {
   selected: NotificationMedium[];
   onChange: (mediums: NotificationMedium[]) => void;
+  excludeMediums?: NotificationMedium[];
 }): ReactElement {
   const toggle = (m: NotificationMedium): void => {
     onChange(selected.includes(m) ? selected.filter((x) => x !== m) : [...selected, m]);
   };
   return (
     <FormGroup row>
-      {getAvailableMediums().map((m) => (
-        <FormControlLabel
-          key={m}
-          control={<Checkbox size="small" checked={selected.includes(m)} onChange={() => toggle(m)} />}
-          label={MEDIUM_LABELS[m]}
-        />
-      ))}
+      {getAvailableMediums()
+        .filter((m) => !excludeMediums.includes(m))
+        .map((m) => (
+          <FormControlLabel
+            key={m}
+            control={<Checkbox size="small" checked={selected.includes(m)} onChange={() => toggle(m)} />}
+            label={MEDIUM_LABELS[m]}
+          />
+        ))}
     </FormGroup>
   );
 }
@@ -630,9 +644,11 @@ function ChargeCardConfigEditor({
 function SendNotificationConfigEditor({
   config,
   onChange,
+  excludeMediums = [],
 }: {
   config: SendNotificationConfig;
   onChange: (c: SendNotificationConfig) => void;
+  excludeMediums?: NotificationMedium[];
 }): ReactElement {
   return (
     <Stack spacing={2}>
@@ -642,6 +658,7 @@ function SendNotificationConfigEditor({
         </FormLabel>
         <MediumCheckboxes
           selected={config.mediums}
+          excludeMediums={excludeMediums}
           onChange={(mediums) => {
             const updated = { ...config, mediums };
             if (mediums.includes('sms') && !updated.smsTemplate) {
@@ -734,6 +751,103 @@ function CollectionsConfigEditor({
   );
 }
 
+const selectAllOnFocus = (e: React.FocusEvent<HTMLInputElement>): void => e.target.select();
+
+const numericOnly = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+  if (
+    !/^[0-9]$/.test(e.key) &&
+    !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'].includes(e.key)
+  ) {
+    e.preventDefault();
+  }
+};
+
+function BirthdayConfigEditor({
+  config,
+  onChange,
+}: {
+  config: BirthdayConfig;
+  onChange: (c: BirthdayConfig) => void;
+}): ReactElement {
+  const hasAgeFilter = config.ageMode != null;
+  return (
+    <Stack spacing={2}>
+      <FormControlLabel
+        control={
+          <Switch
+            checked={hasAgeFilter}
+            onChange={(e) => {
+              if (e.target.checked) {
+                onChange({ ...config, ageMode: 'at', age: 1 });
+              } else {
+                onChange({ ageMode: undefined, age: undefined, maxAge: undefined });
+              }
+            }}
+          />
+        }
+        label="Filter by age"
+      />
+      {hasAgeFilter && (
+        <Stack direction="row" spacing={2} alignItems="center">
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Mode</InputLabel>
+            <Select
+              value={config.ageMode || 'at'}
+              label="Mode"
+              onChange={(e: SelectChangeEvent) => {
+                const mode = e.target.value as 'at' | 'after';
+                onChange({
+                  ...config,
+                  ageMode: mode,
+                  maxAge: mode === 'after' ? config.maxAge ?? 100 : undefined,
+                });
+              }}
+            >
+              <MenuItem value="at">At age</MenuItem>
+              <MenuItem value="after">After age</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField
+            label="Age"
+            size="small"
+            value={config.age ?? ''}
+            onFocus={selectAllOnFocus}
+            onKeyDown={numericOnly}
+            onChange={(e) =>
+              onChange({
+                ...config,
+                age: e.target.value === '' ? undefined : Math.max(1, Math.min(100, parseInt(e.target.value) || 1)),
+              })
+            }
+            sx={{ width: 100 }}
+            inputProps={{ inputMode: 'numeric' }}
+          />
+          {config.ageMode === 'after' && (
+            <TextField
+              label="Max Age"
+              size="small"
+              value={config.maxAge ?? 100}
+              onFocus={selectAllOnFocus}
+              onKeyDown={numericOnly}
+              onChange={(e) =>
+                onChange({
+                  ...config,
+                  maxAge:
+                    e.target.value === ''
+                      ? undefined
+                      : Math.max(config.age ?? 1, Math.min(150, parseInt(e.target.value) || 100)),
+                })
+              }
+              sx={{ width: 120 }}
+              inputProps={{ inputMode: 'numeric' }}
+            />
+          )}
+        </Stack>
+      )}
+    </Stack>
+  );
+}
+
 function ActionConfigEditor({
   action,
   onChange,
@@ -754,6 +868,7 @@ function ActionConfigEditor({
         <SendNotificationConfigEditor
           config={action.sendNotificationConfig!}
           onChange={(sendNotificationConfig) => onChange({ ...action, sendNotificationConfig })}
+          excludeMediums={action.trigger.event === 'patient-birthday' ? ['paper-mail'] : []}
         />
       );
     case 'refer-to-collections':
@@ -1338,6 +1453,12 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                                   </Select>
                                 </FormControl>
                               </Stack>
+                              {action.trigger.event === 'patient-birthday' && (
+                                <BirthdayConfigEditor
+                                  config={action.birthdayConfig || {}}
+                                  onChange={(birthdayConfig) => updateAction({ ...action, birthdayConfig })}
+                                />
+                              )}
                               <Divider />
                               <Typography variant="subtitle2" color="text.secondary">
                                 Action Configuration

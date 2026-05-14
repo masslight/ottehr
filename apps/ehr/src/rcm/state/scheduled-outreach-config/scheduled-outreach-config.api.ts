@@ -57,6 +57,12 @@ export interface ReferToCollectionsConfigDTO {
   includePaymentHistory: boolean;
 }
 
+export interface BirthdayConfigDTO {
+  ageMode?: 'at' | 'after';
+  age?: number;
+  maxAge?: number;
+}
+
 export interface OutreachActionDTO {
   id: string;
   trigger: {
@@ -70,6 +76,7 @@ export interface OutreachActionDTO {
   sendNotificationConfig?: SendNotificationConfigDTO;
   referToCollectionsConfig?: ReferToCollectionsConfigDTO;
   logConfig?: Record<string, never>;
+  birthdayConfig?: BirthdayConfigDTO;
 }
 
 export interface SaveOutreachConfigInput {

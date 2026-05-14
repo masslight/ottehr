@@ -1927,6 +1927,16 @@
         "expression": "cron(0 6 * * ? *)"
       }
     },
+    "CRON-OUTREACH-BIRTHDAY": {
+      "name": "cron-outreach-birthday",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/cron-outreach-birthday/index",
+      "zip": ".dist/zips/cron-outreach-birthday.zip",
+      "schedule": {
+        "expression": "cron(0 6 * * ? *)"
+      }
+    },
     "CRON-OUTREACH-TASK-PROMOTER": {
       "name": "cron-outreach-task-promoter",
       "type": "cron",

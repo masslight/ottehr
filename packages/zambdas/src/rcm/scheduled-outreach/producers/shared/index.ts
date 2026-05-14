@@ -9,3 +9,6 @@ export type { ProduceInvoiceIssuedOutreachParams } from './produce-invoice-issue
 
 export { produceInvoiceDueOutreach } from './produce-invoice-due-outreach';
 export type { ProduceInvoiceDueOutreachResult } from './produce-invoice-due-outreach';
+
+export { produceBirthdayOutreach } from './produce-birthday-outreach';
+export type { ProduceBirthdayOutreachResult } from './produce-birthday-outreach';

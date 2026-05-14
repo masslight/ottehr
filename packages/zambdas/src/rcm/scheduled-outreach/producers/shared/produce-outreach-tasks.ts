@@ -23,6 +23,8 @@ export interface ProduceOutreachTasksParams {
   appointment?: Reference; // Appointment linked to the triggering event
   eventTimestamp: string; // ISO datetime the event occurred/is scheduled
   oystehr: Oystehr;
+  /** Optional filter to only produce tasks for specific actions. If omitted, all matching actions are produced. */
+  actionFilter?: (action: OutreachAction) => boolean;
 }
 
 export interface OutreachTaskResult {
@@ -36,12 +38,15 @@ export interface OutreachTaskResult {
  * matching action with executionPeriod.start calculated from event time + offset.
  */
 export async function produceOutreachTasks(params: ProduceOutreachTasksParams): Promise<OutreachTaskResult> {
-  const { triggerEvent, patient, focus, appointment, eventTimestamp, oystehr } = params;
+  const { triggerEvent, patient, focus, appointment, eventTimestamp, oystehr, actionFilter } = params;
 
   const planDefinition = await getOrCreateOutreachConfig(oystehr);
   const actions = parsePlanDefinitionToActions(planDefinition);
 
-  const matchingActions = actions.filter((a) => a.trigger.event === triggerEvent);
+  let matchingActions = actions.filter((a) => a.trigger.event === triggerEvent);
+  if (actionFilter) {
+    matchingActions = matchingActions.filter(actionFilter);
+  }
 
   if (matchingActions.length === 0) {
     console.log(`No outreach actions configured for trigger event "${triggerEvent}"`);
