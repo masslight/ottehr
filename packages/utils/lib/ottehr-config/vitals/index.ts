@@ -315,9 +315,26 @@ export const VitalsConfigData = {
     alertThresholds: [
       {
         rules: [
-          { type: 'min', units: '', value: 94 },
-          { type: 'max', units: '', value: 101 },
+          { type: 'min', units: '', value: 88, criticality: 'critical' },
+          { type: 'min', units: '', value: 91 },
         ],
+        minAge: { unit: 'months', value: 0 },
+        maxAge: { unit: 'months', value: 12 },
+      },
+      {
+        rules: [
+          { type: 'min', units: '', value: 89, criticality: 'critical' },
+          { type: 'min', units: '', value: 92 },
+        ],
+        minAge: { unit: 'months', value: 12 },
+        maxAge: { unit: 'years', value: 18 },
+      },
+      {
+        rules: [
+          { type: 'min', units: '', value: 90, criticality: 'critical' },
+          { type: 'min', units: '', value: 95 },
+        ],
+        minAge: { unit: 'years', value: 18 },
       },
     ],
   },
