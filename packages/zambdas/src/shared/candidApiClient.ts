@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { CandidApiClient } from 'candidhealth';
-import { createCandidApiClient, getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils';
+import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
+import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils';
 
 const CANDID_OAUTH_TOKEN_CACHE_SECRET = 'CANDID_OAUTH_TOKEN_CACHE';
 
@@ -108,4 +108,16 @@ async function fetchTokenFromCandid(secrets: Secrets | null): Promise<CandidToke
     accessToken: response.body.accessToken,
     expiresAt: new Date(Date.now() + response.body.expiresIn * 1000),
   };
+}
+
+// not exporting so other zambdas must use getOrCreateCandidApiClient to share the cached token
+function createCandidApiClient(secrets: Secrets | null): CandidApiClient {
+  return new CandidApiClient({
+    clientId: getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets),
+    clientSecret: getSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets),
+    environment:
+      getSecret(SecretsKeys.CANDID_ENV, secrets) === 'PROD'
+        ? CandidApiEnvironment.Production
+        : CandidApiEnvironment.Staging,
+  });
 }

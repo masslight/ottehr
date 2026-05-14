@@ -2,14 +2,21 @@ import { Address, Organization } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetOptionalSecret = vi.fn();
-const mockCreateCandidApiClient = vi.fn();
+const mockGetOrCreateCandidApiClient = vi.fn();
 
 vi.mock('utils', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     getOptionalSecret: mockGetOptionalSecret,
-    createCandidApiClient: mockCreateCandidApiClient,
+  };
+});
+
+vi.mock('../../src/shared', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    getOrCreateCandidApiClient: mockGetOrCreateCandidApiClient,
   };
 });
 
@@ -85,8 +92,6 @@ describe('RCM candid-sync', () => {
   const createSpy = vi.fn();
   const updateSpy = vi.fn();
   const toggleSpy = vi.fn();
-  // _oauthTokenProvider is required because getOrCreateCandidApiClient monkey-patches
-  // its getToken to route through the central zambda.
   const candidClient = {
     nonInsurancePayers: {
       v1: {
@@ -95,20 +100,19 @@ describe('RCM candid-sync', () => {
         toggleEnablement: toggleSpy,
       },
     },
-    _oauthTokenProvider: { getToken: vi.fn() },
   } as any;
 
   const mockOystehr = {} as any;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCreateCandidApiClient.mockReturnValue(candidClient);
+    mockGetOrCreateCandidApiClient.mockResolvedValue(candidClient);
   });
 
   it('returns null candid client when CANDID_CLIENT_ID is missing', async () => {
     mockGetOptionalSecret.mockReturnValue(undefined);
     expect(await createCandidClientIfConfigured(mockOystehr, null)).toBeNull();
-    expect(mockCreateCandidApiClient).not.toHaveBeenCalled();
+    expect(mockGetOrCreateCandidApiClient).not.toHaveBeenCalled();
   });
 
   it('creates candid client when CANDID_CLIENT_ID is configured', async () => {

@@ -1,19 +1,6 @@
-import { CandidApi, CandidApiClient, CandidApiEnvironment } from 'candidhealth';
+import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InventoryRecord } from 'candidhealth/api/resources/patientAr/resources/v1';
 import { DateTime } from 'luxon';
-import { getSecret, Secrets, SecretsKeys } from '../secrets';
-
-export function createCandidApiClient(secrets: Secrets | null): CandidApiClient {
-  const candidApiClient: CandidApiClient = new CandidApiClient({
-    clientId: getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets),
-    clientSecret: getSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets),
-    environment:
-      getSecret(SecretsKeys.CANDID_ENV, secrets) === 'PROD'
-        ? CandidApiEnvironment.Production
-        : CandidApiEnvironment.Staging,
-  });
-  return candidApiClient;
-}
 
 export async function findClaimsBy(input: {
   candid: CandidApiClient;
