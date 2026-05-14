@@ -2,6 +2,7 @@ import AddPhotoAlternateOutlinedIcon from '@mui/icons-material/AddPhotoAlternate
 import CloseSharpIcon from '@mui/icons-material/CloseSharp';
 import { Box, Button, IconButton, Typography } from '@mui/material';
 import { ChangeEvent, FC, useContext, useState } from 'react';
+import { convertHeicToJpegIfNeeded } from 'ui-components';
 import { FileURLs, PATIENT_PHOTOS_MAX_COUNT_TELEMED } from 'utils';
 import { IntakeThemeContext } from '../../contexts';
 import { findMissingNumber } from '../../helpers/form';
@@ -34,11 +35,12 @@ export const PhotosUpload: FC<PatientPhotoUploadProps> = ({ name, label, default
     );
   });
 
-  const handleInputChange = (event: ChangeEvent<HTMLInputElement>): void => {
+  const handleInputChange = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const { files } = event.target;
 
     if (files) {
-      const fileArr: File[] = Array.from(files).slice(0, maxPhotos - Object.keys(images).length);
+      const rawArr: File[] = Array.from(files).slice(0, maxPhotos - Object.keys(images).length);
+      const fileArr = await Promise.all(rawArr.map((f) => convertHeicToJpegIfNeeded(f)));
       const indexes = Object.keys(images)
         .map((str) => str.split('-').at(-1))
         .filter((str) => !!str)
@@ -122,10 +124,10 @@ export const PhotosUpload: FC<PatientPhotoUploadProps> = ({ name, label, default
           >
             Upload new photo
             <VisuallyHiddenInput
-              onChange={(e) => handleInputChange(e)}
+              onChange={(e) => void handleInputChange(e)}
               multiple
               type="file"
-              accept="image/png, image/jpeg, image/jpg"
+              accept="image/png, image/jpeg, image/jpg, image/heic, image/heif, .heic, .heif"
             />
           </Button>
         </Box>

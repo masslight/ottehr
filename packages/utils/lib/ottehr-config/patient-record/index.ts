@@ -249,9 +249,8 @@ const FormFields: PatientRecordFormFields = {
           label: 'Insurance carrier',
           dataSource: {
             answerSource: {
-              resourceType: 'Organization',
-              query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
-              prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+              zambdaId: 'get-all-insurance-payers',
+              prependIdentifier: true,
             },
           },
         },
@@ -383,9 +382,8 @@ const FormFields: PatientRecordFormFields = {
           label: 'Insurance carrier',
           dataSource: {
             answerSource: {
-              resourceType: 'Organization',
-              query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
-              prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+              zambdaId: 'get-all-insurance-payers',
+              prependIdentifier: true,
             },
           },
         },
@@ -886,9 +884,8 @@ const FormFields: PatientRecordFormFields = {
         label: 'Insurance carrier',
         dataSource: {
           answerSource: {
-            resourceType: 'Organization',
-            query: `type=http://terminology.hl7.org/CodeSystem/organization-type|pay`,
-            prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+            zambdaId: 'get-all-insurance-payers',
+            prependIdentifier: true,
           },
         },
         triggers: [
@@ -939,6 +936,7 @@ const FormFields: PatientRecordFormFields = {
         label: 'Employer name',
         dataSource: {
           answerSource: {
+            zambdaId: 'get-answer-options',
             resourceType: 'Organization',
             query: `active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer`,
             prependedIdentifier: '1',
@@ -977,16 +975,16 @@ const FormFields: PatientRecordFormFields = {
     },
     triggers: [
       {
-        targetQuestionLinkId: 'reason-for-visit',
+        targetQuestionLinkId: 'appointment-service-category',
         effect: ['enable'],
-        operator: '=',
-        answerString: 'Auto accident',
+        operator: 'exists',
+        answerBoolean: false,
       },
       {
         targetQuestionLinkId: 'reason-for-visit',
         effect: ['enable'],
-        operator: 'exists',
-        answerBoolean: false,
+        operator: '=',
+        answerString: 'Auto accident',
       },
     ],
     enableBehavior: 'any',
@@ -1000,7 +998,7 @@ const hiddenFormSections: string[] = [];
 const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
   url: 'http://example.org/fhir/Questionnaire/patient-record',
-  version: '1.0.0',
+  version: '1.0.1',
   name: 'PatientRecordQuestionnaire',
   title: 'Patient Record Questionnaire',
   status: 'active',

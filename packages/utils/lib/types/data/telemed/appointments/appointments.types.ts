@@ -35,6 +35,10 @@ export interface GetAnswerOptionsRequest {
   valueSet?: string;
 }
 
+export type GetPatientInsuranceOptionsRequest = object;
+
+export type GetAllInsuranceOptionsRequest = object;
+
 export interface PrescribedMedication {
   resourceId?: string;
   name?: string;

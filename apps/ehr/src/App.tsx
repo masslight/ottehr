@@ -5,7 +5,8 @@ import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { parseCommaSeparatedTags, RoleType, setupSentry } from 'utils';
+import { parseCommaSeparatedTags, RoleType } from 'utils';
+import { setupSentry } from 'utils/lib/frontend';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
 import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
@@ -87,6 +88,7 @@ export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
 export const CHARGE_MASTERS_URL = '/admin/charge-masters';
 export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
 export const BILLING_URL = '/admin/billing';
+export const BILLING_INSURANCE_URL = '/admin/billing/insurance';
 export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';
 export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 
@@ -228,7 +230,8 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                 )}
                 <Route path="/admin" element={<AdminPage />} />
-                <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
+                <Route path={`${BILLING_URL}/:billingTab`} element={<AdminPage />} />
+                <Route path={`${BILLING_URL}/:billingTab/:insuranceTab`} element={<AdminPage />} />
                 <Route path="/admin/:adminTab" element={<AdminPage />} />
                 <Route path="/admin/:adminTab/:subTab" element={<AdminPage />} />
                 <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
@@ -250,7 +253,8 @@ function App(): ReactElement {
                 <Route path="/admin/medications/add" element={<AddMedicationPage />} />
                 <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
                 <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
-                <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
+                <Route path={`${INSURANCES_URL}/:insuranceTab/:insurance`} element={<EditInsurance />} />
+                <Route path={`${BILLING_URL}/:billingTab/:insuranceTab/:insurance`} element={<EditInsurance />} />
                 <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
                 <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
                 <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />

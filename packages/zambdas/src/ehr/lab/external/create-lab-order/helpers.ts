@@ -39,10 +39,11 @@ export type CreateLabCoverageDetails =
   | { type: LabPaymentMethod.SelfPay }
   | { type: LabPaymentMethod.WorkersComp; workersCompInsurance: Coverage };
 
-type TestsByLabGuid = {
-  [labGuid: string]: {
+type TestsByGroupingKey = {
+  [groupingKey: string]: {
     tests: OrderableItemSearchResult[];
     labName: string;
+    labGuid: string;
   };
 };
 
@@ -77,19 +78,25 @@ export type ResourcesForRequestFormatting = Omit<GetCreateOrderResourcesReturn, 
   clinicalInfoNoteByUser: string | undefined;
 };
 
-export const groupTestsByLabGuid = (orderableItems: OrderableItemSearchResult[]): TestsByLabGuid => {
-  const testsGroupedByLabGuid: TestsByLabGuid = {};
+export const groupTestsByKey = (orderableItems: OrderableItemSearchResult[]): TestsByGroupingKey => {
+  const testsGroupedByLabGuid: TestsByGroupingKey = {};
   orderableItems.forEach((oi) => {
     const labGuid = oi.lab.labGuid;
+    const labName = oi.lab.labName;
 
-    if (testsGroupedByLabGuid[labGuid]) {
-      testsGroupedByLabGuid[labGuid].tests.push(oi);
+    // these need to group by lab name and lab guid for the generic compendium cases
+    // the labName is already unique coming from the UI since we expanded for generic
+    const groupingKey = labGuid === STATIC_COMPENDIUM_LAB_GUID ? `${labGuid}-${labName}` : labGuid;
+
+    if (testsGroupedByLabGuid[groupingKey]) {
+      testsGroupedByLabGuid[groupingKey].tests.push(oi);
     } else {
       const value = {
         tests: [oi],
         labName: oi.lab.labName,
+        labGuid,
       };
-      testsGroupedByLabGuid[labGuid] = value;
+      testsGroupedByLabGuid[groupingKey] = value;
     }
   });
 

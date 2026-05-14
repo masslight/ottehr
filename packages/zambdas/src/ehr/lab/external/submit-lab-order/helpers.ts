@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
 import {
   Account,
+  ActivityDefinition,
   Coverage,
   DocumentReference,
   Encounter,
@@ -21,12 +22,12 @@ import {
   EXTERNAL_LAB_ERROR,
   getOrderNumber,
   getPresignedURL,
+  getTestDetailsFromActivityDefinition,
   getTimezone,
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LabPaymentMethod,
   ORDER_ITEM_UNKNOWN,
-  OYSTEHR_LAB_OI_CODE_SYSTEM,
   paymentMethodFromCoverage,
   PaymentResources,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
@@ -63,6 +64,7 @@ export type testDataForOrderForm = {
   serviceRequest: ServiceRequest;
   serviceRequestCreatedDate: string;
   testName: string;
+  testItemCode: string;
   testAssessments: { code: string; name: string }[]; // dx
   testPriority: string;
   aoeAnswers?: AOEDisplayForOrderForm[];
@@ -451,13 +453,17 @@ function getTestDataForOrderForm(
   mostRecentSampleCollectionDate?: DateTime<true>
 ): testDataForOrderForm {
   if (!sr.reasonCode) throw Error('ServiceRequest is missing a reasonCode to specify diagnosis');
+  const activityDefinition = sr.contained?.find(
+    (res): res is ActivityDefinition => res.resourceType === 'ActivityDefinition'
+  );
+  const { testName, testItemCode } = getTestDetailsFromActivityDefinition(activityDefinition);
 
   const data: testDataForOrderForm = {
     serviceRequestID: sr.id || ORDER_ITEM_UNKNOWN,
     serviceRequest: sr,
     serviceRequestCreatedDate: sr.authoredOn || '',
-    testName:
-      sr.code?.coding?.find((coding) => coding.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display || ORDER_ITEM_UNKNOWN,
+    testName,
+    testItemCode,
     testAssessments: sr.reasonCode?.map((code) => ({
       code: code.coding?.[0].code || ORDER_ITEM_UNKNOWN,
       name: code.text || ORDER_ITEM_UNKNOWN,

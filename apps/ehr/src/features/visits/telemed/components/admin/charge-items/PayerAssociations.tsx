@@ -44,7 +44,7 @@ import {
   useAssociatePayerMutation,
   useDisassociatePayerMutation,
 } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
-import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils';
+import { extractPayerIdFromUrl, isPayerUrl, ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils';
 import { useInsurancesQuery } from '../admin.queries';
 import { ChargeItemMode } from '../ChargeItemList';
 
@@ -131,8 +131,14 @@ export default function PayerAssociations({
   const associatedOrgIds = useMemo(() => {
     if (!feeSchedule?.useContext) return [];
     return feeSchedule.useContext
-      .filter((uc) => uc.valueReference?.reference?.startsWith('Organization/'))
-      .map((uc) => uc.valueReference!.reference!.replace('Organization/', ''));
+      .filter(
+        (uc) => uc.valueReference?.reference?.startsWith('Organization/') || isPayerUrl(uc.valueReference?.reference)
+      )
+      .map(
+        (uc) =>
+          extractPayerIdFromUrl(uc.valueReference?.reference) ??
+          uc.valueReference!.reference!.replace('Organization/', '')
+      );
   }, [feeSchedule?.useContext]);
 
   // Build list of associated orgs with names from the merged orgs list

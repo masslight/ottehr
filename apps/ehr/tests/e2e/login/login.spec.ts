@@ -31,7 +31,7 @@ test('Should log in', async ({ page, context, browser }) => {
   console.log('Waiting for /visits or ZapEHR modal...');
 
   const result = await Promise.race([
-    page.waitForURL('/visits', { timeout: 35000 }).then(() => 'visits'),
+    page.waitForURL((url) => url.pathname === '/visits', { timeout: 35000 }).then(() => 'visits'),
     page
       .getByText(/continue with zapehr/i)
       .waitFor({ timeout: 35000 })
@@ -44,7 +44,7 @@ test('Should log in', async ({ page, context, browser }) => {
     console.log('ZapEHR modal detected, clicking...');
     await page.getByText(/continue with zapehr/i).click();
     console.log('Waiting for /visits after modal...');
-    await page.waitForURL('/visits');
+    await page.waitForURL((url) => url.pathname === '/visits');
   }
 
   console.log('Reached /visits');
