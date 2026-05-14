@@ -143,6 +143,17 @@ const performEffect = async (
     return !isDuplicate;
   });
 
+  // Capture in-house lab orders on the encounter BEFORE the TEMPLATE_TAG_SYSTEMS
+  // filter runs. In-house lab ServiceRequests aren't marked with any chart-data
+  // meta tag; they're identified by their code system, so the tag-based filter
+  // below strips them out. We keep a reference here so we can still convert them
+  // into template plans further down.
+  const inHouseLabOrders = (encounterBundle ?? []).filter(
+    (resource): resource is ServiceRequest =>
+      resource?.resourceType === 'ServiceRequest' &&
+      (resource as ServiceRequest).code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) === true
+  );
+
   // Filter to only resources relevant to template sections
   const diagnosesRefFromEncounterSet = new Set(
     oldEncounter.diagnosis?.map((dx) => dx.condition.reference).filter((elm) => elm !== undefined) ?? []
@@ -184,18 +195,11 @@ const performEffect = async (
     });
   }
 
-  // Collect in-house lab orders on the encounter as "plan" ServiceRequests in the
-  // template. We don't store the materialized order resources (those are tightly
-  // coupled to the in-house lab feature's current implementation and would rot if
-  // that code changes); we store just enough information that at apply time the
-  // live create-in-house-lab-order flow can re-create a fresh order from the
-  // ActivityDefinition reference, reason codes, and notes.
-  const inHouseLabOrders = (encounterBundle ?? []).filter(
-    (resource): resource is ServiceRequest =>
-      resource.resourceType === 'ServiceRequest' &&
-      (resource as ServiceRequest).code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) === true
-  );
-
+  // Materialize each captured in-house lab order as a "plan" ServiceRequest on
+  // the template. We don't store the live SR/Task/Procedure/Provenance bundle
+  // (that's tightly coupled to the in-house lab feature's current
+  // implementation and would rot if it changes); the plan carries just enough
+  // information that apply-template can re-run the live create-order flow.
   for (const order of inHouseLabOrders) {
     const planId = uuidV4();
     const plan: ServiceRequest = {
