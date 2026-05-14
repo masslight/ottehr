@@ -26,7 +26,7 @@ import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.querie
 import FeeSchedule from './ChargeItemList';
 import EMCodesAdminPage from './EMCodesAdminPage';
 import EmployersTab from './employers/EmployersTab';
-import Insurances from './Insurance';
+import InsuranceConfiguration from './InsuranceConfiguration';
 
 type BillingSubTab =
   | 'insurance'
@@ -151,9 +151,11 @@ function PaymentLocationsList(): ReactElement {
 export default function BillingConfiguration({
   billingTab,
   outreachTab,
+  insuranceTab,
 }: {
   billingTab?: string;
   outreachTab?: string;
+  insuranceTab?: string;
 }): ReactElement {
   const navigate = useNavigate();
   const subTab: BillingSubTab = (billingTab as BillingSubTab) || 'em-codes';
@@ -181,7 +183,7 @@ export default function BillingConfiguration({
           <EMCodesAdminPage />
         </TabPanel>
         <TabPanel value="insurance" sx={{ padding: 0 }}>
-          <Insurances />
+          <InsuranceConfiguration insuranceTab={insuranceTab} />
         </TabPanel>
         <TabPanel value="fee-schedules" sx={{ padding: 0 }}>
           <FeeSchedule />

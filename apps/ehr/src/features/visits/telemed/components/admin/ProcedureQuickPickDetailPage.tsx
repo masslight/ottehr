@@ -72,7 +72,7 @@ export default function ProcedureQuickPickDetailPage(): ReactElement {
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', py: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <IconButton onClick={() => navigate('/admin/quick-picks')} size="small">
+        <IconButton onClick={() => navigate('/admin/quick-picks/procedures')} size="small">
           <ArrowBackIcon />
         </IconButton>
         <Typography variant="h4" color={theme.palette.primary.dark}>

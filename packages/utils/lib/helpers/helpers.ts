@@ -1547,12 +1547,40 @@ export const checkResourceHasSlug = (resource: ScheduleOwnerFhirResource, slug: 
 };
 
 export const getPayerId = (org: Organization | undefined): string | undefined => {
-  const payerId = org?.identifier?.find(
-    (identifier) =>
-      identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
+  // First look for Oystehr payer ID by system
+  let payerId = org?.identifier?.find(
+    (identifier) => identifier.system === 'https://identifiers.fhir.oystehr.com/rcm-payer-id'
   )?.value;
+  if (!payerId) {
+    // Second look at coding using PAYERID code
+    payerId = org?.identifier?.find(
+      (identifier) =>
+        identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'PAYERID')
+    )?.value;
+  }
+  if (!payerId) {
+    // Third look at coding using XX (Organization identifier) code
+    payerId = org?.identifier?.find(
+      (identifier) =>
+        identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
+    )?.value;
+  }
   return payerId;
 };
+
+export function getPayerUrl(payerId: string): string {
+  const oystehr = new Oystehr({}); // get access to static helper
+  return oystehr.rcm.constructPayerUrl({ id: payerId });
+}
+
+export function isPayerUrl(maybeUrl?: string): boolean {
+  return !!maybeUrl && maybeUrl.startsWith('https://rcm-api.zapehr.com/v1/payer/');
+}
+
+export function extractPayerIdFromUrl(maybeUrl?: string): string | undefined {
+  if (!maybeUrl || !isPayerUrl(maybeUrl)) return undefined;
+  return maybeUrl.replace('https://rcm-api.zapehr.com/v1/payer/', '');
+}
 
 export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirResource): string | undefined => {
   let location: string | undefined;
@@ -1706,6 +1734,7 @@ export function replaceTemplateVariablesHandlebars(template: string, variables: 
 }
 
 /**
+/**
  * Converts markdown-style links `[text](url)` in a string to HTML `<a>` tags.
  */
 export function convertMarkdownLinksToHtml(text: string): string {
@@ -1725,4 +1754,20 @@ export function convertOutreachTextToHtml(text: string): string {
   const withLinks = convertMarkdownLinksToHtml(text);
   const withBreaks = withLinks.replace(/\n/g, '<br>');
   return `<p>${withBreaks}</p>`;
+}
+
+/**
+ * Pulls Organization matching reference out of a list of orgs
+ * @param reference payer url or internal FHIR reference
+ * @param organizations list of payer organizations
+ */
+export function findOrgMatchingReference(reference?: string, organizations?: Organization[]): Organization | undefined {
+  if (!reference) return undefined;
+  return (organizations ?? []).find((organization) => orgIdMatchesReference(reference, organization.id!));
+}
+
+export function orgIdMatchesReference(reference: string | undefined, orgId: string): boolean {
+  if (!reference) return false;
+  const oystehr = new Oystehr({}); // get access to static helper
+  return orgId === reference.replace('Organization/', '') || oystehr.rcm.constructPayerUrl({ id: orgId }) === reference;
 }

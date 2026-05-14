@@ -56,9 +56,6 @@ export const FHIR_EXTENSION = {
     additionalInfo: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/additional-information`,
     },
-    unconfirmedDateOfBirth: {
-      url: `${PRIVATE_EXTENSION_BASE_URL}/date-of-birth-not-confirmed`,
-    },
     bookedBy: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/visit-booked-by`,
     },
@@ -397,6 +394,7 @@ export const BUCKET_NAMES = {
   DISCHARGE_SUMMARIES: 'discharge-summaries',
   STATEMENTS: 'statements',
   REPORTS: 'invoiceable-patients-reports',
+  CUSTOM_FOLDERS: 'patient-docs-custom-folders',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -554,6 +552,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/answer-loading-options`,
     strategy: `${PRIVATE_EXTENSION_BASE_URL}/strategy`,
     source: `${PRIVATE_EXTENSION_BASE_URL}/source`,
+    expression: `${PRIVATE_EXTENSION_BASE_URL}/expression`,
   },
   complexValidation: {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/complex-validation`,

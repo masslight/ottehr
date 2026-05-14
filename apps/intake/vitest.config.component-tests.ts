@@ -14,6 +14,19 @@ export default defineConfig({
     include: ['**/*.test.tsx'],
     setupFiles: ['./tests/component/setup.ts'],
     environment: 'happy-dom',
+    coverage: {
+      provider: 'v8',
+      reporter: ['lcov', 'text-summary', 'json'],
+      reportsDirectory: './coverage/component',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/**/*.spec.{ts,tsx}',
+        'src/**/*.d.ts',
+        'src/**/types/**',
+        'src/**/__mocks__/**',
+      ],
+    },
   },
   plugins: [tsconfigPaths(), react()],
 });

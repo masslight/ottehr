@@ -64,6 +64,7 @@ import {
   FHIR_EXTENSION,
   FileDocDataForDocReference,
   filterHiddenRemovableFields,
+  findOrgMatchingReference,
   flattenIntakeQuestionnaireItems,
   flattenItems,
   formatPhoneNumber,
@@ -79,6 +80,7 @@ import {
   getPatchOperationToAddOrUpdatePreferredName,
   getPatchOperationToRemovePreferredLanguage,
   getPayerId,
+  getPayerUrl,
   getPhoneNumberForIndividual,
   getSecret,
   getTaxID,
@@ -91,6 +93,7 @@ import {
   IntakeQuestionnaireItem,
   isFieldExplicitlyCleared,
   isoStringFromDateComponents,
+  isPayerUrl,
   isValidUUID,
   makeSSNIdentifier,
   mapBirthSexToGender,
@@ -131,6 +134,7 @@ import {
 } from 'utils';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
+import { getInsuranceOverrideList, ListName } from '../../../rcm/get-insurance-override-list/handler';
 import { createPdfBytes } from '../../../shared';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
@@ -1610,31 +1614,16 @@ export async function searchInsuranceInformation(
   oystehr: Oystehr,
   insuranceOrgRefs: string[]
 ): Promise<Organization[]> {
-  const orgIds = insuranceOrgRefs
-    .map((ref) => {
-      const [resType, id] = ref.split('/');
-      if (resType === 'Organization' && id) {
-        return id;
-      }
-      return '';
-    })
-    .filter((id) => !!id);
-  if (orgIds.length !== insuranceOrgRefs.length) {
-    console.log('searchInsuranceInformation: some Organization references were invalid:', insuranceOrgRefs);
-  }
-  if (orgIds.length === 0) {
+  if (insuranceOrgRefs.length === 0) {
     return [];
   }
-  const searchResults = await oystehr.fhir.search<Organization>({
-    resourceType: 'Organization',
-    params: [
-      {
-        name: '_id',
-        value: orgIds.join(','),
-      },
-    ],
-  });
-  return searchResults.unbundle();
+  return await Promise.all(
+    insuranceOrgRefs.map((ref) =>
+      isPayerUrl(ref)
+        ? oystehr.rcm.getPayerByUrl({ url: ref })
+        : oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: ref.split('/')[1] })
+    )
+  );
 }
 
 const getCoverageGroups = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[][] => {
@@ -1932,7 +1921,7 @@ function getInsuranceDetailsFromAnswers(
     ?.valueReference;
   if (!insuranceOrgReference) return undefined;
 
-  const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insuranceOrgReference.reference);
+  const org = findOrgMatchingReference(insuranceOrgReference.reference, organizations);
   if (!org) return undefined;
 
   const qType = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]?.valueString;
@@ -2350,10 +2339,10 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   const memberId = policyHolder.memberId;
 
   const payerId = getPayerId(org);
-
   if (!payerId) {
     throw new Error('payerId unexpectedly missing from insuranceOrg');
   }
+  const payerUrl = new Oystehr({}).rcm.constructPayerUrl({ id: payerId });
 
   const policyHolderId = 'coverageSubscriber';
   const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
@@ -2401,7 +2390,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       reference: `Patient/${patientId}`,
     },
     type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
-    payor: [{ reference: `Organization/${org.id}` }],
+    payor: [{ reference: payerUrl }],
     subscriberId: policyHolder.memberId,
     relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
     class: [
@@ -2841,9 +2830,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       let workersCompCoverage: Coverage | undefined = undefined;
       const workersCompInsurance = employerInformation.workersCompInsurance;
       const workersCompMemberId = employerInformation.workersCompMemberId;
-      const workersCompInsuranceOrg = organizationResources.find(
-        (org) => `${org.resourceType}/${org.id}` === workersCompInsurance
-      );
+      const workersCompInsuranceOrg = findOrgMatchingReference(workersCompInsurance, organizationResources);
       const payerId = getPayerId(workersCompInsuranceOrg);
       if (existingCoverages.workersComp) {
         workersCompCoverage = existingCoverages.workersComp;
@@ -3945,9 +3932,42 @@ export const getAccountAndCoverageResourcesForPatient = async (
     throw PATIENT_NOT_FOUND_ERROR;
   }
 
+  const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
+  const insuranceOrgsFromFhir = resources.filter((res): res is Organization => res.resourceType === 'Organization');
+  const resourcesWithoutInsuranceOrgsFromFhir = resources.filter((res) => res.resourceType !== 'Organization');
+
+  // Get payer info for coverages
+  const insuranceOrgs: Organization[] = (
+    await Promise.all(
+      coverageResources
+        .flatMap<string | undefined>((cov) => cov.payor.map((ref) => ref.reference))
+        .filter<string>((ref): ref is string => !!ref)
+        .map(async (ref): Promise<Organization | undefined> => {
+          if (ref.startsWith('https://rcm-api.zapehr.com')) {
+            return oystehr.rcm.getPayerByUrl({ url: ref });
+          }
+          const orgFromFhir = findOrgMatchingReference(ref, insuranceOrgsFromFhir);
+          if (orgFromFhir) {
+            return orgFromFhir;
+          }
+          return undefined;
+        })
+    )
+  ).filter<Organization>((org): org is Organization => !!org);
+
+  // Get EHR-facing payer notes
+  const ehrPayerList = await getInsuranceOverrideList(oystehr, ListName.EHR);
+  for (const org of insuranceOrgs) {
+    const override = ehrPayerList.entry?.find((override) => override.item.reference === getPayerUrl(org.id!));
+    if (override) {
+      const extensions = [...(org.extension ?? []), ...(override.extension ?? [])];
+      org.extension = extensions;
+    }
+  }
+
   return getCoverageUpdateResourcesFromUnbundled({
     patient: patientResource,
-    resources: [...resources],
+    resources: [...resourcesWithoutInsuranceOrgsFromFhir, ...insuranceOrgs],
   });
 };
 

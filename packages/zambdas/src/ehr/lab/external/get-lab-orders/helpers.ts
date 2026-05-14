@@ -226,7 +226,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
 
   const appointmentId = parseAppointmentIdForServiceRequest(serviceRequest, encounters) || '';
   const appointment = appointments.find((a) => a.id === appointmentId);
-  const { testItem, fillerLab } = parseLabInfoFromServiceRequest(serviceRequest);
+  const { testName, fillerLab, testItemCode } = parseLabInfoFromServiceRequest(serviceRequest);
   const orderStatus = parseLabOrderStatus(serviceRequest, tasks, results, cache);
   console.log('external lab orderStatus parsed', orderStatus);
 
@@ -247,7 +247,8 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
 
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
-    testItem,
+    testItem: testName,
+    testItemCode,
     fillerLab,
     serviceRequestId: serviceRequest.id,
     accessionNumbers: parseAccessionNumbers(serviceRequest, results),

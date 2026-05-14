@@ -5,7 +5,6 @@ import {
   alpha,
   Box,
   Button,
-  Chip,
   CircularProgress,
   FormHelperText,
   Paper,
@@ -22,6 +21,13 @@ import StarterKit from '@tiptap/starter-kit';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { PlaceholderChips } from 'src/components/template-editor-field/PlaceholderChips';
+import {
+  INVOICE_TOKEN_IDS,
+  makeSuggestion,
+  textToTiptapContent,
+  tiptapContentToText,
+} from 'src/components/template-editor-field/TemplateEditorField';
 import {
   useGetInvoiceConfigQuery,
   useSaveInvoiceConfigMutation,
@@ -34,7 +40,6 @@ import {
   InvoicePlaceholderInput,
   parseInvoiceConfigFromQR,
 } from 'utils';
-import { INVOICE_TOKEN_IDS, makeSuggestion, textToTiptapContent, tiptapContentToText } from './InvoiceTemplateEditor';
 
 const SAMPLE_INPUT: InvoicePlaceholderInput = {
   patientFullName: 'Jane Smith',
@@ -141,38 +146,6 @@ function TemplateEditor({
     >
       <EditorContent editor={editor} />
     </Box>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// PlaceholderChips — clickable chip row for inserting tokens
-// ---------------------------------------------------------------------------
-
-function PlaceholderChips({
-  tokens,
-  onInsert,
-}: {
-  tokens: readonly string[];
-  onInsert: (tokenId: string) => void;
-}): ReactElement {
-  return (
-    <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
-      {tokens.map((id) => (
-        <Chip
-          key={id}
-          label={`{{${id}}}`}
-          size="small"
-          variant="outlined"
-          onClick={() => onInsert(id)}
-          sx={(t) => ({
-            cursor: 'pointer',
-            color: 'info.main',
-            borderColor: 'transparent',
-            bgcolor: alpha(t.palette.info.main, 0.1),
-          })}
-        />
-      ))}
-    </Stack>
   );
 }
 

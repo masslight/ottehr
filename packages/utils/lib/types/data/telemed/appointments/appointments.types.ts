@@ -11,7 +11,6 @@ export interface CancelAppointmentRequestParams {
 export interface UpdateAppointmentRequestParams {
   appointmentId: string;
   patient: PatientInfo;
-  unconfirmedDateOfBirth?: string;
   locationState?: string;
 }
 
@@ -35,6 +34,10 @@ export interface GetAnswerOptionsRequest {
   answerSource?: AnswerOptionSource;
   valueSet?: string;
 }
+
+export type GetPatientInsuranceOptionsRequest = object;
+
+export type GetAllInsuranceOptionsRequest = object;
 
 export interface PrescribedMedication {
   resourceId?: string;

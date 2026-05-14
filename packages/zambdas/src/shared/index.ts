@@ -6,6 +6,7 @@ export * from './chart-data';
 export * from './communication';
 export * from './constants';
 export * from './coverage';
+export * from './custom-folders';
 export * from './errors';
 export * from './encounter';
 export * from './encounters';

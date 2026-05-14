@@ -60,7 +60,7 @@ export const ProviderNotifications: FC = memo(() => {
             ? DateTime.fromISO(notification.communication.sent).toRelative()!
             : 'N/A',
           timestamp: notification.communication.sent,
-          link: notification.appointmentID ? `/telemed/appointments/${notification.appointmentID}` : undefined,
+          link: notification.appointmentID ? `/visit/${notification.appointmentID}` : undefined,
         };
       }) || []
     ).sort((a, b) => {

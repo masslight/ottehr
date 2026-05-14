@@ -4,6 +4,7 @@ import { ChiefComplaintSection } from '../../shared/components/ChiefComplaintSec
 import { PageTitle } from '../../shared/components/PageTitle';
 import GeneralInfoCard from '../../shared/components/patient-info/GeneralInfoCard';
 import { VerifiedPatientInfo } from '../../shared/components/patient-info/VerifiedPatientInfo';
+import { PatientConditionPhotosCard } from '../../shared/components/PatientConditionPhotosCard';
 
 export const ChiefComplaintAndIntakeNotes: React.FC = () => {
   return (
@@ -15,6 +16,8 @@ export const ChiefComplaintAndIntakeNotes: React.FC = () => {
       <VerifiedPatientInfo />
 
       <ChiefComplaintSection />
+
+      <PatientConditionPhotosCard />
     </Stack>
   );
 };

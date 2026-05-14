@@ -20,17 +20,14 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  DYMO_30334_LABEL_CONFIG,
-  getAccountNumberFromLocationAndOrganization,
   getFullestAvailableName,
   getOrderNumber,
   getPatchBinary,
-  getPatientFirstName,
-  getPatientLastName,
   getSecret,
   getTestNameFromDr,
   isPSCOrder,
   LAB_ORDER_UPDATE_RESOURCES_EVENTS,
+  makeExternalLabLabelConfig,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SaveOrderCollectionData,
   Secrets,
@@ -46,7 +43,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
-import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../../../shared/pdf/external-labs-label-pdf';
+import { createExternalLabsLabelPDF } from '../../../../shared/pdf/external-labs-label-pdf';
 import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
@@ -93,8 +90,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
-  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-  const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
+  const practitionerIdFromCurrentUser = await getMyPractitionerId(
+    validatedParameters.userToken,
+    validatedParameters.secrets
+  );
 
   switch (validatedParameters.event) {
     case 'reviewed': {
@@ -305,12 +304,6 @@ const handleReviewedEvent = async ({
     throw new Error(`ServiceRequest/${serviceRequestId} not found for diagnostic report, ${diagnosticReportId}`);
   }
 
-  const observationId = diagnosticReport.result?.[0]?.reference?.split('/').pop();
-
-  if (!observationId) {
-    throw new Error(`Observation Id not found in DiagnosticReport/${diagnosticReportId}`);
-  }
-
   let location: Location | undefined;
   const locationReference = serviceRequest?.locationReference?.[0];
   if (locationReference) {
@@ -326,13 +319,25 @@ const handleReviewedEvent = async ({
 
   const tempProvenanceUuid = `urn:uuid:${crypto.randomUUID()}`;
 
-  const target: Reference[] = [
-    { reference: `DiagnosticReport/${diagnosticReport.id}` },
-    { reference: `Observation/${observationId}` },
-  ];
+  const observationId = diagnosticReport.result?.[0]?.reference?.split('/').pop();
+
+  if (!observationId) {
+    console.warn(
+      `Observation Id not found in DiagnosticReport/${diagnosticReportId}. Will not add to provenance target`
+    );
+    await sendErrors(
+      `Observation Id not found in DiagnosticReport/${diagnosticReportId}. Ensure HL7 corroborates that`,
+      getSecret(SecretsKeys.ENVIRONMENT, secrets)
+    );
+  }
+
+  const target: Reference[] = [{ reference: `DiagnosticReport/${diagnosticReport.id}` }];
+  if (observationId) target.push({ reference: `Observation/${observationId}` });
   if (serviceRequest) {
     target.push({ reference: `ServiceRequest/${serviceRequest.id}` });
   }
+
+  console.log('Provenance target is: ', JSON.stringify(target));
 
   const provenanceRequest: BatchInputPostRequest<Provenance> = {
     method: 'POST',
@@ -551,7 +556,7 @@ const handleSaveCollectionData = async (
     requests.push(qrPatchRequest);
   }
 
-  let presignedLabelURL: string | undefined = undefined;
+  let presignedLabelPdfUrl: string | undefined = undefined;
   // update pst task to complete, add agent and relevant history (provenance created)
   // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask
   const pstCompletedRequests = await makePstCompletePatchRequests(
@@ -565,27 +570,17 @@ const handleSaveCollectionData = async (
 
   // make specimen label
   if (!isPSCOrder(serviceRequest)) {
-    const labelConfig: ExternalLabsLabelConfig = {
-      labelConfig: DYMO_30334_LABEL_CONFIG,
-      content: {
-        patientId: patient.id!,
-        patientFirstName: getPatientFirstName(patient) ?? '',
-        patientLastName: getPatientLastName(patient) ?? '',
-        patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
-        sampleCollectionDateAndTimezone: mostRecentSampleCollectionDate
-          ? {
-              sampleCollectionDate: mostRecentSampleCollectionDate,
-              timezone: userTimezone,
-            }
-          : undefined,
-        orderNumber: orderNumber,
-        accountNumber:
-          (labOrganization && location && getAccountNumberFromLocationAndOrganization(location, labOrganization)) || '',
-      },
-    };
+    const labelConfig = makeExternalLabLabelConfig({
+      patient,
+      orderNumber,
+      location,
+      labOrganization,
+      specimenCollectionDateTime: mostRecentSampleCollectionDate,
+      userTimezone,
+    });
 
     console.log('creating labs order label and getting url');
-    presignedLabelURL = (
+    presignedLabelPdfUrl = (
       await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mToken, oystehr)
     ).presignedURL;
   }
@@ -593,5 +588,5 @@ const handleSaveCollectionData = async (
   console.log('making fhir requests');
   await oystehr.fhir.transaction({ requests });
 
-  return { presignedLabelURL };
+  return { presignedLabelURL: presignedLabelPdfUrl };
 };

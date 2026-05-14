@@ -1,0 +1,21 @@
+import { INVALID_INPUT_ERROR, QuickTextQuickPickData } from 'utils';
+import { QUICK_TEXT_QUICK_PICK_CATEGORY } from '../shared/quick-pick-categories';
+import { makeCreateHandler } from '../shared/quick-pick-zambda';
+
+export const index = makeCreateHandler('admin-create-quick-text-quick-pick', QUICK_TEXT_QUICK_PICK_CATEGORY, (body) => {
+  const parsed = JSON.parse(body) as Record<string, unknown>;
+  const quickPick = parsed.quickPick as Record<string, unknown> | undefined;
+  if (!quickPick || typeof quickPick !== 'object') {
+    throw INVALID_INPUT_ERROR('quickPick must be an object');
+  }
+  if (!quickPick.name || typeof quickPick.name !== 'string') {
+    throw INVALID_INPUT_ERROR('quickPick.name is required and must be a string');
+  }
+  if (!quickPick.english || typeof quickPick.english !== 'string') {
+    throw INVALID_INPUT_ERROR('quickPick.english is required and must be a string');
+  }
+  if (quickPick.spanish !== undefined && typeof quickPick.spanish !== 'string') {
+    throw INVALID_INPUT_ERROR('quickPick.spanish must be a string when provided');
+  }
+  return { quickPick: quickPick as Omit<QuickTextQuickPickData, 'id'> };
+});
