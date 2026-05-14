@@ -148,10 +148,22 @@ const performEffect = async (
   // meta tag; they're identified by their code system, so the tag-based filter
   // below strips them out. We keep a reference here so we can still convert them
   // into template plans further down.
+
+  // Orders the provider canceled or marked as a mistake live on as
+  // status='revoked' / 'entered-in-error' ServiceRequests on the encounter even
+  // though they're hidden from the chart UI. Skip them so a saved template
+  // doesn't accidentally carry deleted orders forward.
+  const TEMPLATE_INCLUDABLE_SR_STATUSES = new Set<ServiceRequest['status']>([
+    'draft',
+    'active',
+    'on-hold',
+    'completed',
+  ]);
   const inHouseLabOrders = (encounterBundle ?? []).filter(
     (resource): resource is ServiceRequest =>
       resource?.resourceType === 'ServiceRequest' &&
-      (resource as ServiceRequest).code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) === true
+      (resource as ServiceRequest).code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) === true &&
+      TEMPLATE_INCLUDABLE_SR_STATUSES.has((resource as ServiceRequest).status)
   );
 
   // Filter to only resources relevant to template sections
