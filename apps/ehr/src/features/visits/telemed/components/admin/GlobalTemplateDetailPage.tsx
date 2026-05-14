@@ -411,6 +411,46 @@ export default function GlobalTemplateDetailPage(): ReactElement {
               <NotIncluded />
             )}
           </SectionCard>
+
+          {/* In-House Lab Orders */}
+          <SectionCard title="In-House Lab Orders">
+            {sections.inHouseLabs.length > 0 ? (
+              <Stack spacing={2}>
+                {sections.inHouseLabs.map((plan) => (
+                  <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.6 : 1 }}>
+                    <Stack direction="row" alignItems="baseline" spacing={1}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                        {plan.testName}
+                      </Typography>
+                      {plan.missing ? (
+                        <Typography variant="caption" color="warning.main" fontStyle="italic">
+                          activity definition not found in this environment — applies will skip this lab
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                    {plan.activityDefinitionRef ? (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        {plan.activityDefinitionRef}
+                      </Typography>
+                    ) : null}
+                    {plan.diagnoses.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>Diagnoses:</strong>{' '}
+                        {plan.diagnoses.map((d) => (d.display ? `${d.code} — ${d.display}` : d.code)).join('; ')}
+                      </Typography>
+                    ) : null}
+                    {plan.notes.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
+                        <strong>Notes:</strong> {plan.notes.join('\n\n')}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
         </Stack>
       </Box>
     </PageContainer>
