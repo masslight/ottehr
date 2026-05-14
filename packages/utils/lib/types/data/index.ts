@@ -2,7 +2,6 @@ export * from './account';
 export * from './admin-template.types';
 export * from './apply-template.types';
 export * from './appointments';
-export * from './candid.types';
 export * from './custom-folder.types';
 export * from './delete-patient-document.types';
 export * from './documents';

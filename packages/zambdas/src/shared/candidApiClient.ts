@@ -1,9 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { CandidApiClient } from 'candidhealth';
-import { CandidToken, createCandidApiClient, getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils';
+import { createCandidApiClient, getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils';
 
-export const FIVE_MINUTES = 5 * 60 * 1000;
 const CANDID_OAUTH_TOKEN_CACHE_SECRET = 'CANDID_OAUTH_TOKEN_CACHE';
+
+interface CandidToken {
+  accessToken: string;
+  expiresAt: Date;
+}
 
 // Lifting these to module scope keeps them in memory across warm lambda invocations.
 let inflightRefresh: Promise<CandidToken> | undefined;
@@ -14,7 +18,14 @@ export async function getOrCreateCandidApiClientIfConfigured(
   secrets: Secrets | null
 ): Promise<CandidApiClient | null> {
   const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
-  if (!candidClientId) return null;
+  const candidClientSecret = getOptionalSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets);
+  const candidEnv = getOptionalSecret(SecretsKeys.CANDID_ENV, secrets);
+  if (!candidClientId || !candidClientSecret || !candidEnv) {
+    console.warn(
+      'Candid API client not configured, missing at least one of CANDID_CLIENT_ID, CANDID_CLIENT_SECRET, or CANDID_ENV secrets'
+    );
+    return null;
+  }
 
   return getOrCreateCandidApiClient(oystehr, secrets);
 }
@@ -51,7 +62,8 @@ async function getOrCreateToken(oystehr: Oystehr, secrets: Secrets | null): Prom
 }
 
 function isStillFresh(token: CandidToken): boolean {
-  return token.expiresAt.getTime() - FIVE_MINUTES > Date.now();
+  // 5 minute buffer
+  return token.expiresAt.getTime() - 5 * 60 * 1000 > Date.now();
 }
 
 async function readTokenFromOystehrSecret(oystehr: Oystehr): Promise<CandidToken | undefined> {
