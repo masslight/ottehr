@@ -12,7 +12,7 @@ export const VitalsConfigData = {
           { type: 'max', units: 'celsius', value: 39, criticality: 'critical' },
         ],
         minAge: { unit: 'months', value: 0 },
-        maxAge: { unit: 'months', value: 23 },
+        maxAge: { unit: 'months', value: 24 },
       },
       {
         rules: [
@@ -35,7 +35,7 @@ export const VitalsConfigData = {
           { type: 'max', units: 'bpm', value: 181, criticality: 'critical' },
         ],
         minAge: { unit: 'months', value: 0 },
-        maxAge: { unit: 'months', value: 2 },
+        maxAge: { unit: 'months', value: 3 },
       },
       {
         rules: [
@@ -44,7 +44,7 @@ export const VitalsConfigData = {
           { type: 'max', units: 'bpm', value: 167 },
           { type: 'max', units: 'bpm', value: 175, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 2 },
+        minAge: { unit: 'months', value: 3 },
         maxAge: { unit: 'months', value: 6 },
       },
       {
@@ -94,8 +94,8 @@ export const VitalsConfigData = {
           { type: 'max', units: 'bpm', value: 135 },
           { type: 'max', units: 'bpm', value: 142, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 24 },
-        maxAge: { unit: 'months', value: 36 },
+        minAge: { unit: 'years', value: 2 },
+        maxAge: { unit: 'years', value: 3 },
       },
       {
         rules: [
@@ -104,8 +104,8 @@ export const VitalsConfigData = {
           { type: 'max', units: 'bpm', value: 130 },
           { type: 'max', units: 'bpm', value: 136, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 36 },
-        maxAge: { unit: 'months', value: 48 },
+        minAge: { unit: 'years', value: 3 },
+        maxAge: { unit: 'years', value: 4 },
       },
       {
         rules: [
@@ -114,8 +114,8 @@ export const VitalsConfigData = {
           { type: 'max', units: 'bpm', value: 124 },
           { type: 'max', units: 'bpm', value: 131, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 48 },
-        maxAge: { unit: 'months', value: 72 },
+        minAge: { unit: 'years', value: 4 },
+        maxAge: { unit: 'years', value: 6 },
       },
       {
         rules: [
@@ -124,8 +124,8 @@ export const VitalsConfigData = {
           { type: 'max', units: 'bpm', value: 117 },
           { type: 'max', units: 'bpm', value: 123, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 72 },
-        maxAge: { unit: 'months', value: 96 },
+        minAge: { unit: 'years', value: 6 },
+        maxAge: { unit: 'years', value: 8 },
       },
       {
         rules: [
@@ -134,8 +134,8 @@ export const VitalsConfigData = {
           { type: 'max', units: 'bpm', value: 109 },
           { type: 'max', units: 'bpm', value: 115, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 96 },
-        maxAge: { unit: 'months', value: 144 },
+        minAge: { unit: 'years', value: 8 },
+        maxAge: { unit: 'years', value: 12 },
       },
       {
         rules: [
@@ -144,8 +144,8 @@ export const VitalsConfigData = {
           { type: 'max', units: 'bpm', value: 102 },
           { type: 'max', units: 'bpm', value: 108, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 144 },
-        maxAge: { unit: 'months', value: 180 },
+        minAge: { unit: 'years', value: 12 },
+        maxAge: { unit: 'years', value: 15 },
       },
       {
         rules: [
@@ -154,8 +154,8 @@ export const VitalsConfigData = {
           { type: 'max', units: 'bpm', value: 100 },
           { type: 'max', units: 'bpm', value: 115, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 180 },
-        maxAge: { unit: 'months', value: 216 },
+        minAge: { unit: 'years', value: 15 },
+        maxAge: { unit: 'years', value: 18 },
       },
       {
         rules: [
@@ -164,7 +164,7 @@ export const VitalsConfigData = {
           { type: 'max', units: 'bpm', value: 100 },
           { type: 'max', units: 'bpm', value: 115, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 216 },
+        minAge: { unit: 'years', value: 18 },
       },
     ],
   },
@@ -172,114 +172,142 @@ export const VitalsConfigData = {
     alertThresholds: [
       {
         rules: [
-          { type: 'min', units: '', value: 25 },
+          { type: 'min', units: '', value: 25, criticality: 'critical' },
+          { type: 'min', units: '', value: 30 },
           { type: 'max', units: '', value: 60 },
+          { type: 'max', units: '', value: 66, criticality: 'critical' },
         ],
         minAge: { unit: 'months', value: 0 },
-        maxAge: { unit: 'months', value: 2 },
+        maxAge: { unit: 'months', value: 3 },
       },
       {
         rules: [
+          { type: 'min', units: '', value: 24, criticality: 'critical' },
           { type: 'min', units: '', value: 28 },
           { type: 'max', units: '', value: 52 },
+          { type: 'max', units: '', value: 64, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 2 },
-        maxAge: { unit: 'months', value: 5 },
+        minAge: { unit: 'months', value: 3 },
+        maxAge: { unit: 'months', value: 6 },
       },
       {
         rules: [
+          { type: 'min', units: '', value: 23, criticality: 'critical' },
           { type: 'min', units: '', value: 26 },
           { type: 'max', units: '', value: 49 },
+          { type: 'max', units: '', value: 61, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 5 },
-        maxAge: { unit: 'months', value: 8 },
+        minAge: { unit: 'months', value: 6 },
+        maxAge: { unit: 'months', value: 9 },
       },
       {
         rules: [
+          { type: 'min', units: '', value: 22, criticality: 'critical' },
           { type: 'min', units: '', value: 24 },
           { type: 'max', units: '', value: 46 },
+          { type: 'max', units: '', value: 58, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 8 },
-        maxAge: { unit: 'months', value: 11 },
+        minAge: { unit: 'months', value: 9 },
+        maxAge: { unit: 'months', value: 12 },
       },
       {
         rules: [
+          { type: 'min', units: '', value: 21, criticality: 'critical' },
           { type: 'min', units: '', value: 23 },
           { type: 'max', units: '', value: 43 },
+          { type: 'max', units: '', value: 53, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 11 },
-        maxAge: { unit: 'months', value: 17 },
+        minAge: { unit: 'months', value: 12 },
+        maxAge: { unit: 'months', value: 18 },
       },
       {
         rules: [
+          { type: 'min', units: '', value: 19, criticality: 'critical' },
           { type: 'min', units: '', value: 21 },
           { type: 'max', units: '', value: 40 },
+          { type: 'max', units: '', value: 46, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 17 },
-        maxAge: { unit: 'months', value: 23 },
+        minAge: { unit: 'months', value: 18 },
+        maxAge: { unit: 'months', value: 24 },
       },
       {
         rules: [
+          { type: 'min', units: '', value: 18, criticality: 'critical' },
           { type: 'min', units: '', value: 20 },
-          { type: 'max', units: '', value: 37 },
+          { type: 'max', units: '', value: 36 },
+          { type: 'max', units: '', value: 38, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 23 },
-        maxAge: { unit: 'months', value: 35 },
+        minAge: { unit: 'years', value: 2 },
+        maxAge: { unit: 'years', value: 3 },
       },
       {
         rules: [
+          { type: 'min', units: '', value: 17, criticality: 'critical' },
           { type: 'min', units: '', value: 19 },
-          { type: 'max', units: '', value: 35 },
-        ],
-        minAge: { unit: 'months', value: 35 },
-        maxAge: { unit: 'months', value: 47 },
-      },
-      {
-        rules: [
-          { type: 'min', units: '', value: 18 },
-          { type: 'max', units: '', value: 33 },
-        ],
-        minAge: { unit: 'months', value: 47 },
-        maxAge: { unit: 'months', value: 71 },
-      },
-      {
-        rules: [
-          { type: 'min', units: '', value: 17 },
           { type: 'max', units: '', value: 31 },
+          { type: 'max', units: '', value: 33, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 71 },
-        maxAge: { unit: 'months', value: 95 },
+        minAge: { unit: 'years', value: 4 },
+        maxAge: { unit: 'years', value: 6 },
       },
       {
         rules: [
-          { type: 'min', units: '', value: 16 },
+          { type: 'min', units: '', value: 17, criticality: 'critical' },
+          { type: 'min', units: '', value: 18 },
           { type: 'max', units: '', value: 28 },
+          { type: 'max', units: '', value: 29, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 95 },
-        maxAge: { unit: 'months', value: 143 },
+        minAge: { unit: 'years', value: 4 },
+        maxAge: { unit: 'years', value: 6 },
       },
       {
         rules: [
-          { type: 'min', units: '', value: 15 },
+          { type: 'min', units: '', value: 16, criticality: 'critical' },
+          { type: 'min', units: '', value: 17 },
           { type: 'max', units: '', value: 25 },
+          { type: 'max', units: '', value: 27, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 143 },
-        maxAge: { unit: 'months', value: 179 },
+        minAge: { unit: 'years', value: 6 },
+        maxAge: { unit: 'years', value: 8 },
       },
       {
         rules: [
-          { type: 'min', units: '', value: 14 },
+          { type: 'min', units: '', value: 14, criticality: 'critical' },
+          { type: 'min', units: '', value: 16 },
           { type: 'max', units: '', value: 23 },
+          { type: 'max', units: '', value: 25, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 179 },
-        maxAge: { unit: 'months', value: 215 },
+        minAge: { unit: 'years', value: 8 },
+        maxAge: { unit: 'years', value: 12 },
       },
       {
         rules: [
+          { type: 'min', units: '', value: 12, criticality: 'critical' },
+          { type: 'min', units: '', value: 15 },
+          { type: 'max', units: '', value: 22 },
+          { type: 'max', units: '', value: 25, criticality: 'critical' },
+        ],
+        minAge: { unit: 'years', value: 12 },
+        maxAge: { unit: 'years', value: 15 },
+      },
+      {
+        rules: [
+          { type: 'min', units: '', value: 11, criticality: 'critical' },
+          { type: 'min', units: '', value: 14 },
+          { type: 'max', units: '', value: 21 },
+          { type: 'max', units: '', value: 25, criticality: 'critical' },
+        ],
+        minAge: { unit: 'years', value: 15 },
+        maxAge: { unit: 'years', value: 18 },
+      },
+      {
+        rules: [
+          { type: 'min', units: '', value: 8, criticality: 'critical' },
           { type: 'min', units: '', value: 11 },
           { type: 'max', units: '', value: 21 },
+          { type: 'max', units: '', value: 25, criticality: 'critical' },
         ],
-        minAge: { unit: 'months', value: 215 },
+        minAge: { unit: 'years', value: 18 },
       },
     ],
   },
@@ -646,7 +674,12 @@ const AlertThresholdSchema = z
             if (rule.type === 'max' && otherRule.type === 'min' && 'value' in rule && 'value' in otherRule) {
               return rule.units === otherRule.units && rule.value < otherRule.value;
             }
-            if (rule.type === otherRule.type && 'value' in rule && 'value' in otherRule) {
+            if (
+              rule.type === otherRule.type &&
+              'value' in rule &&
+              'value' in otherRule &&
+              rule.criticality === otherRule.criticality
+            ) {
               return rule.units === otherRule.units && rule.value !== otherRule.value;
             }
             return false;
