@@ -80,22 +80,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         switch (medium) {
           case 'sms':
             await sendOutreachSms(task, smsTemplate || '', oystehr, input.secrets);
+            console.log(`[SMS] Successfully sent SMS notification for task ${task.id}, patient ${patientRef}`);
             results.push({ medium, success: true });
             break;
           case 'email':
             await sendOutreachEmail(task, emailTemplate || '', oystehr, input.secrets);
+            console.log(`[Email] Successfully sent email notification for task ${task.id}, patient ${patientRef}`);
             results.push({ medium, success: true });
             break;
           case 'paper-mail': {
             const statementType = extractInputValue(task, 'statement-type') || 'standard';
             await sendPaperMail(task, statementType, oystehr, input.secrets);
+            console.log(`[Paper Mail] Successfully created paper mail task for task ${task.id}, patient ${patientRef}`);
             results.push({ medium, success: true });
             break;
           }
         }
       } catch (err: any) {
-        console.error(`Failed to send ${medium} notification:`, err.message);
-        results.push({ medium, success: false, error: err.message });
+        const errorDetail = err.response?.body ? JSON.stringify(err.response.body) : err.message;
+        console.error(
+          `[${medium.toUpperCase()}] Failed to send ${medium} notification for task ${
+            task.id
+          }, patient ${patientRef}: ${errorDetail}`
+        );
+        results.push({ medium, success: false, error: errorDetail });
       }
     }
 

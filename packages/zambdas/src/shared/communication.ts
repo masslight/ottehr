@@ -73,7 +73,7 @@ class EmailClient {
     const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
     let templateId = '';
     try {
-      templateId = getSecret(templateIdSecretName, this.secrets);
+      templateId = getSecret(templateIdSecretName, this.secrets).trim();
     } catch (error) {
       if (!this.featureFlag || template.disabled) {
         console.log(`${templateIdSecretName} not found but email sending is disabled, continuing`);
@@ -147,9 +147,10 @@ class EmailClient {
         )}`
       );
     } catch (error) {
-      const errorMessage = `Error sending email ${templateIdSecretName} to ${to} (${projectName}})`;
+      const errorMessage = `Error sending email ${templateIdSecretName} to ${to} (${projectName})`;
       console.error(`${errorMessage}: ${error}`);
       void sendErrors(errorMessage, ENVIRONMENT);
+      throw error;
     }
   }
 
