@@ -4,6 +4,7 @@ import { FRIENDLY_PATIENT_ID_SYSTEM_BASE, PRIVATE_EXTENSION_BASE_URL } from 'uti
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
+const OUTREACH_ACTION_TYPE_SYSTEM = 'https://ottehr.com/CodeSystem/outreach-action-type';
 
 let m2mToken: string;
 
@@ -42,44 +43,81 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const statusFilter = params.status || 'draft,requested,in-progress,completed,on-hold,cancelled';
   const pageSize = Math.min(Math.max(Number(params.pageSize) || 25, 1), 100);
   const offset = Math.max(Number(params.offset) || 0, 0);
+  const actionTypeFilter = params.actionType as string | undefined;
+  const mediumFilter = params.medium as string | undefined;
+  const mediumFilterSet = mediumFilter ? new Set(mediumFilter.split(',')) : undefined;
+  const triggerEventFilter = params.triggerEvent as string | undefined;
 
-  // First, get total count with _summary=count
-  const countBundle = await oystehr.fhir.search<Task>({
-    resourceType: 'Task',
-    params: [
-      { name: '_tag', value: `${OUTREACH_TASK_TAG_SYSTEM}|` },
-      { name: 'status', value: statusFilter },
-      { name: '_summary', value: 'count' },
-      ...(params.dueDateFrom ? [{ name: 'period', value: `ge${params.dueDateFrom}` }] : []),
-      ...(params.dueDateTo ? [{ name: 'period', value: `le${params.dueDateTo}` }] : []),
-      ...(params.createdFrom ? [{ name: 'authored-on', value: `ge${params.createdFrom}` }] : []),
-      ...(params.createdTo ? [{ name: 'authored-on', value: `le${params.createdTo}` }] : []),
-    ],
-  });
-  const totalCount = countBundle.total ?? 0;
-
-  const searchParams: { name: string; value: string }[] = [
+  // Build base search params shared between count and data queries
+  const baseSearchParams: { name: string; value: string }[] = [
     { name: '_tag', value: `${OUTREACH_TASK_TAG_SYSTEM}|` },
     { name: 'status', value: statusFilter },
-    { name: '_count', value: String(pageSize) },
-    { name: '_offset', value: String(offset) },
-    { name: '_sort', value: '-_lastUpdated' },
-    { name: '_include', value: 'Task:patient' },
   ];
 
-  if (params.dueDateFrom) searchParams.push({ name: 'period', value: `ge${params.dueDateFrom}` });
-  if (params.dueDateTo) searchParams.push({ name: 'period', value: `le${params.dueDateTo}` });
-  if (params.createdFrom) searchParams.push({ name: 'authored-on', value: `ge${params.createdFrom}` });
-  if (params.createdTo) searchParams.push({ name: 'authored-on', value: `le${params.createdTo}` });
+  if (actionTypeFilter) {
+    const codeTokens = actionTypeFilter.split(',').map((at) => `${OUTREACH_ACTION_TYPE_SYSTEM}|${at}`);
+    baseSearchParams.push({ name: 'code', value: codeTokens.join(',') });
+  }
 
-  const bundle = await oystehr.fhir.search<Task | Patient>({
-    resourceType: 'Task',
-    params: searchParams,
-  });
+  if (triggerEventFilter) {
+    const tagTokens = triggerEventFilter.split(',').map((te) => `${OUTREACH_TASK_TAG_SYSTEM}|${te}`);
+    baseSearchParams.push({ name: '_tag', value: tagTokens.join(',') });
+  }
 
-  const resources = bundle.unbundle();
-  const tasks = resources.filter((r): r is Task => r.resourceType === 'Task');
-  const patients = resources.filter((r): r is Patient => r.resourceType === 'Patient');
+  if (params.dueDateFrom) baseSearchParams.push({ name: 'period', value: `ge${params.dueDateFrom}` });
+  if (params.dueDateTo) baseSearchParams.push({ name: 'period', value: `le${params.dueDateTo}` });
+  if (params.createdFrom) baseSearchParams.push({ name: 'authored-on', value: `ge${params.createdFrom}` });
+  if (params.createdTo) baseSearchParams.push({ name: 'authored-on', value: `le${params.createdTo}` });
+
+  let tasks: Task[];
+  let patients: Patient[];
+  let totalCount: number;
+
+  if (mediumFilterSet) {
+    // Medium is stored in Task.input — requires post-filtering.
+    // Fetch a larger set, filter, then manually paginate.
+    const bundle = await oystehr.fhir.search<Task | Patient>({
+      resourceType: 'Task',
+      params: [
+        ...baseSearchParams,
+        { name: '_count', value: '1000' },
+        { name: '_sort', value: '-_lastUpdated' },
+        { name: '_include', value: 'Task:patient' },
+      ],
+    });
+    const resources = bundle.unbundle();
+    const allTasks = resources.filter((r): r is Task => r.resourceType === 'Task');
+    patients = resources.filter((r): r is Patient => r.resourceType === 'Patient');
+
+    const filteredTasks = allTasks.filter((task) => {
+      const mediums = task.input?.find((i) => i.type?.text === 'mediums')?.valueString;
+      if (!mediums) return false;
+      return mediums.split(',').some((m) => mediumFilterSet.has(m));
+    });
+    totalCount = filteredTasks.length;
+    tasks = filteredTasks.slice(offset, offset + pageSize);
+  } else {
+    // Standard FHIR-level pagination
+    const countBundle = await oystehr.fhir.search<Task>({
+      resourceType: 'Task',
+      params: [...baseSearchParams, { name: '_summary', value: 'count' }],
+    });
+    totalCount = countBundle.total ?? 0;
+
+    const bundle = await oystehr.fhir.search<Task | Patient>({
+      resourceType: 'Task',
+      params: [
+        ...baseSearchParams,
+        { name: '_count', value: String(pageSize) },
+        { name: '_offset', value: String(offset) },
+        { name: '_sort', value: '-_lastUpdated' },
+        { name: '_include', value: 'Task:patient' },
+      ],
+    });
+    const resources = bundle.unbundle();
+    tasks = resources.filter((r): r is Task => r.resourceType === 'Task');
+    patients = resources.filter((r): r is Patient => r.resourceType === 'Patient');
+  }
 
   const patientMap = new Map<string, Patient>();
   for (const p of patients) {

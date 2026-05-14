@@ -129,12 +129,14 @@ const MentionList = forwardRef<MentionListRef, SuggestionProps<string>>(function
   );
 });
 
-export function makeSuggestion(): Omit<SuggestionOptions<string>, 'editor'> {
+export function makeSuggestion(
+  tokenIds: readonly string[] = INVOICE_TOKEN_IDS
+): Omit<SuggestionOptions<string>, 'editor'> {
   return {
     char: '{{',
     items: ({ query }: { query: string }) => {
       const q = query.toLowerCase();
-      return INVOICE_TOKEN_IDS.filter((id) => id.toLowerCase().includes(q));
+      return tokenIds.filter((id) => id.toLowerCase().includes(q));
     },
     render: () => {
       let container: HTMLDivElement | null = null;
@@ -191,6 +193,8 @@ export interface TemplateEditorFieldProps {
   helperText?: string;
   /** When true, render markdown links [text](url) as clickable <a> tags in preview. */
   renderHtmlPreview?: boolean;
+  /** Custom token IDs for the suggestion dropdown. Defaults to INVOICE_TOKEN_IDS. */
+  tokenIds?: readonly string[];
 }
 
 export function TemplateEditorField({
@@ -204,6 +208,7 @@ export function TemplateEditorField({
   error,
   helperText,
   renderHtmlPreview,
+  tokenIds,
 }: TemplateEditorFieldProps): ReactElement {
   const theme = useTheme();
   const [tab, setTab] = useState<'write' | 'preview'>('write');
@@ -237,7 +242,7 @@ export function TemplateEditorField({
           { ...options.HTMLAttributes, 'data-type': 'mention' },
           `{{${node.attrs.label ?? node.attrs.id}}}`,
         ],
-        suggestion: makeSuggestion(),
+        suggestion: makeSuggestion(tokenIds),
       }),
     ],
     content: initialContent,

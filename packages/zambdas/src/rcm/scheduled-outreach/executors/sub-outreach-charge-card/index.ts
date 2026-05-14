@@ -4,7 +4,6 @@ import { Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   convertOutreachTextToHtml,
-  fillInvoiceTemplate,
   getFullestAvailableName,
   getPatientContactEmail,
   getSecret,
@@ -18,6 +17,7 @@ import { getAccountAndCoverageResourcesForPatient } from '../../../../ehr/shared
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  fillOutreachTemplate,
   getEmailClient,
   getStripeClient,
   resolveTemplatePlaceholders,
@@ -300,7 +300,7 @@ async function sendNotificationForMedium(
   });
 
   if (medium === 'sms') {
-    const resolvedMessage = fillInvoiceTemplate(smsTemplate, placeholderInput);
+    const resolvedMessage = fillOutreachTemplate(smsTemplate, placeholderInput);
 
     const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);
     if (unresolved) {
@@ -317,7 +317,7 @@ async function sendNotificationForMedium(
       throw new Error(`Patient ${patientId} has no contact email address`);
     }
 
-    const resolvedMessage = fillInvoiceTemplate(emailTemplate, placeholderInput);
+    const resolvedMessage = fillOutreachTemplate(emailTemplate, placeholderInput);
 
     const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);
     if (unresolved) {

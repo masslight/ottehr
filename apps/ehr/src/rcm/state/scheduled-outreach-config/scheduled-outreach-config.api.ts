@@ -139,6 +139,9 @@ export interface ListOutreachTasksResponse {
 
 export interface ListOutreachTasksInput {
   status?: string;
+  actionType?: string;
+  medium?: string;
+  triggerEvent?: string;
   dueDateFrom?: string;
   dueDateTo?: string;
   createdFrom?: string;

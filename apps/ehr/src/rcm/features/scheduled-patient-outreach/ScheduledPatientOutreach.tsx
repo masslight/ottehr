@@ -48,7 +48,7 @@ import { useEditor } from '@tiptap/react';
 import React, { ReactElement, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { TemplateEditorField } from 'src/rcm/features/invoicing/InvoiceTemplateEditor';
+import { INVOICE_TOKEN_IDS, TemplateEditorField } from 'src/rcm/features/invoicing/InvoiceTemplateEditor';
 import {
   useGetOutreachConfigQuery,
   useSaveOutreachConfigMutation,
@@ -285,7 +285,12 @@ const SAMPLE_INPUT: InvoicePlaceholderInput = {
   patientPortalLink: 'https://patient.ottehr.com/',
 };
 
-const SAMPLE_PREVIEW_VALUES = buildInvoicePlaceholders(SAMPLE_INPUT);
+const OUTREACH_TOKEN_IDS = [...INVOICE_TOKEN_IDS, 'location-review-link'] as const;
+
+const SAMPLE_PREVIEW_VALUES: Record<string, string> = {
+  ...buildInvoicePlaceholders(SAMPLE_INPUT),
+  'location-review-link': 'https://g.page/r/example-clinic/review',
+};
 
 const DEFAULT_SMS_TEMPLATE =
   'Hello {{patient-full-name}}, thank you for visiting {{clinic}} at {{location}} on {{visit-date}} and entrusting us with your care. You can view your information in the Patient Portal: {{patient-portal-link}}';
@@ -368,6 +373,7 @@ function OutreachTemplateField({
       previewValues={SAMPLE_PREVIEW_VALUES}
       helperText="Type {{ to insert a placeholder. Use [link text]({{url-placeholder}}) for clickable links."
       renderHtmlPreview={renderHtmlPreview}
+      tokenIds={OUTREACH_TOKEN_IDS}
     />
   );
 }

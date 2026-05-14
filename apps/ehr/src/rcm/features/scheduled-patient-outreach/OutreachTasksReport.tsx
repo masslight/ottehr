@@ -93,10 +93,23 @@ const ACTION_CHIP_COLORS: Record<string, string> = {
   log: '#546e7a',
 };
 
+const ACTION_FILTER_LABELS: Record<string, string> = {
+  'send-notification': 'Notification',
+  'charge-card': 'Charge',
+  'refer-to-collections': 'Collections',
+  log: 'Log',
+};
+
 const MEDIUM_LABELS: Record<string, string> = {
   sms: 'SMS',
   email: 'Email',
   'paper-mail': 'Mail Statement',
+};
+
+const MEDIUM_FILTER_LABELS: Record<string, string> = {
+  sms: 'SMS',
+  email: 'Email',
+  'paper-mail': 'Mail',
 };
 
 const MEDIUM_CHIP_COLORS: Record<string, string> = {
@@ -112,6 +125,9 @@ const TRIGGER_EVENT_LABELS: Record<string, string> = {
   'invoice-due': 'Invoice Due',
   'patient-birthday': 'Patient Birthday',
 };
+
+const TRIGGER_EVENT_FILTER_OPTIONS = Object.keys(TRIGGER_EVENT_LABELS) as TriggerEventFilterValue[];
+type TriggerEventFilterValue = keyof typeof TRIGGER_EVENT_LABELS;
 
 type DateRangePreset =
   | 'all'
@@ -189,8 +205,17 @@ function getDateRangeValues(
 
 // ── Component ──────────────────────────────────────────────────────────────
 
+const ACTION_TYPE_FILTER_OPTIONS = Object.keys(ACTION_TYPE_LABELS) as ActionTypeFilterValue[];
+type ActionTypeFilterValue = keyof typeof ACTION_TYPE_LABELS;
+
+const MEDIUM_FILTER_OPTIONS = Object.keys(MEDIUM_LABELS) as MediumFilterValue[];
+type MediumFilterValue = keyof typeof MEDIUM_LABELS;
+
 export default function OutreachTasksReport(): ReactElement {
   const [selectedStatuses, setSelectedStatuses] = useState<StatusFilterValue[]>([...STATUS_FILTER_OPTIONS]);
+  const [selectedActionTypes, setSelectedActionTypes] = useState<ActionTypeFilterValue[]>([]);
+  const [selectedMediums, setSelectedMediums] = useState<MediumFilterValue[]>([]);
+  const [selectedTriggerEvents, setSelectedTriggerEvents] = useState<TriggerEventFilterValue[]>([]);
   const [dueDatePreset, setDueDatePreset] = useState<DateRangePreset>('all');
   const [dueDateCustomStart, setDueDateCustomStart] = useState('');
   const [dueDateCustomEnd, setDueDateCustomEnd] = useState('');
@@ -203,6 +228,9 @@ export default function OutreachTasksReport(): ReactElement {
   const retryMutation = useRetryOutreachTaskMutation();
 
   const statusFilter = selectedStatuses.join(',');
+  const actionTypeFilter = selectedActionTypes.length > 0 ? selectedActionTypes.join(',') : undefined;
+  const mediumFilter = selectedMediums.length > 0 ? selectedMediums.join(',') : undefined;
+  const triggerEventFilter = selectedTriggerEvents.length > 0 ? selectedTriggerEvents.join(',') : undefined;
   const dueRange = getDateRangeValues(dueDatePreset, dueDateCustomStart, dueDateCustomEnd);
   const createdRange = getDateRangeValues(createdPreset, createdCustomStart, createdCustomEnd);
 
@@ -211,6 +239,9 @@ export default function OutreachTasksReport(): ReactElement {
     setPage(0);
   }, [
     statusFilter,
+    actionTypeFilter,
+    mediumFilter,
+    triggerEventFilter,
     dueDatePreset,
     dueDateCustomStart,
     dueDateCustomEnd,
@@ -221,6 +252,9 @@ export default function OutreachTasksReport(): ReactElement {
 
   const { data, isLoading, error, refetch, isFetching } = useListOutreachTasksQuery({
     status: statusFilter,
+    actionType: actionTypeFilter,
+    medium: mediumFilter,
+    triggerEvent: triggerEventFilter,
     dueDateFrom: dueRange.from,
     dueDateTo: dueRange.to,
     createdFrom: createdRange.from,
@@ -242,7 +276,7 @@ export default function OutreachTasksReport(): ReactElement {
 
   return (
     <Box>
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap', rowGap: 1 }}>
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1, flexWrap: 'wrap', rowGap: 1 }}>
         <Autocomplete
           multiple
           size="small"
@@ -252,7 +286,7 @@ export default function OutreachTasksReport(): ReactElement {
           value={selectedStatuses}
           onChange={(_, newValue) => setSelectedStatuses(newValue as StatusFilterValue[])}
           disableCloseOnSelect
-          renderInput={(params) => <TextField {...params} label="Filter by status" placeholder="Status" />}
+          renderInput={(params) => <TextField {...params} label="Status" placeholder="Status" />}
           renderOption={(props, option, { selected }) => (
             <li {...props}>
               <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
@@ -299,7 +333,166 @@ export default function OutreachTasksReport(): ReactElement {
             })
           }
           getLimitTagsText={(more) => `+${more} more`}
-          sx={{ width: 500 }}
+          sx={{
+            width: 560,
+            '& .MuiInputBase-root': { height: 68, overflow: 'hidden', alignItems: 'flex-start', paddingTop: '4px' },
+          }}
+        />
+        <Autocomplete
+          multiple
+          size="small"
+          limitTags={3}
+          options={ACTION_TYPE_FILTER_OPTIONS}
+          getOptionLabel={(opt) => ACTION_FILTER_LABELS[opt] || opt}
+          value={selectedActionTypes}
+          onChange={(_, newValue) => setSelectedActionTypes(newValue as ActionTypeFilterValue[])}
+          disableCloseOnSelect
+          renderInput={(params) => <TextField {...params} label="Action" placeholder="Action" />}
+          renderOption={(props, option, { selected }) => {
+            const borderColor = ACTION_CHIP_COLORS[option] || '#757575';
+            return (
+              <li {...props}>
+                <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
+                <Chip
+                  label={ACTION_FILTER_LABELS[option] || option}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    borderRadius: '4px',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    height: '20px',
+                    borderColor,
+                    color: borderColor,
+                    backgroundColor: '#fff',
+                  }}
+                />
+              </li>
+            );
+          }}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => {
+              const borderColor = ACTION_CHIP_COLORS[option] || '#757575';
+              return (
+                <Chip
+                  {...getTagProps({ index })}
+                  key={option}
+                  label={ACTION_FILTER_LABELS[option] || option}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    borderRadius: '4px',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    height: '22px',
+                    borderColor,
+                    color: borderColor,
+                    backgroundColor: '#fff',
+                    '& .MuiChip-deleteIcon': {
+                      color: borderColor,
+                      opacity: 0.7,
+                      '&:hover': { opacity: 1 },
+                    },
+                  }}
+                />
+              );
+            })
+          }
+          getLimitTagsText={(more) => `+${more} more`}
+          sx={{
+            width: 340,
+            '& .MuiInputBase-root': { height: 68, overflow: 'hidden', alignItems: 'flex-start', paddingTop: '4px' },
+          }}
+        />
+        <Autocomplete
+          multiple
+          size="small"
+          limitTags={3}
+          options={MEDIUM_FILTER_OPTIONS}
+          getOptionLabel={(opt) => MEDIUM_FILTER_LABELS[opt] || opt}
+          value={selectedMediums}
+          onChange={(_, newValue) => setSelectedMediums(newValue as MediumFilterValue[])}
+          disableCloseOnSelect
+          renderInput={(params) => <TextField {...params} label="Medium" placeholder="Medium" />}
+          renderOption={(props, option, { selected }) => {
+            const borderColor = MEDIUM_CHIP_COLORS[option] || '#757575';
+            return (
+              <li {...props}>
+                <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
+                <Chip
+                  label={MEDIUM_FILTER_LABELS[option] || option}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    borderRadius: '4px',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    height: '20px',
+                    borderColor,
+                    color: borderColor,
+                    backgroundColor: '#fff',
+                  }}
+                />
+              </li>
+            );
+          }}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => {
+              const borderColor = MEDIUM_CHIP_COLORS[option] || '#757575';
+              return (
+                <Chip
+                  {...getTagProps({ index })}
+                  key={option}
+                  label={MEDIUM_FILTER_LABELS[option] || option}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    borderRadius: '4px',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    height: '22px',
+                    borderColor,
+                    color: borderColor,
+                    backgroundColor: '#fff',
+                    '& .MuiChip-deleteIcon': {
+                      color: borderColor,
+                      opacity: 0.7,
+                      '&:hover': { opacity: 1 },
+                    },
+                  }}
+                />
+              );
+            })
+          }
+          getLimitTagsText={(more) => `+${more} more`}
+          sx={{
+            width: 300,
+            '& .MuiInputBase-root': { height: 68, overflow: 'hidden', alignItems: 'flex-start', paddingTop: '4px' },
+          }}
+        />
+      </Stack>
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap', rowGap: 1 }}>
+        <Autocomplete
+          multiple
+          size="small"
+          limitTags={3}
+          options={TRIGGER_EVENT_FILTER_OPTIONS}
+          getOptionLabel={(opt) => TRIGGER_EVENT_LABELS[opt] || opt}
+          value={selectedTriggerEvents}
+          onChange={(_, newValue) => setSelectedTriggerEvents(newValue as TriggerEventFilterValue[])}
+          disableCloseOnSelect
+          renderInput={(params) => <TextField {...params} label="Trigger" placeholder="Trigger" />}
+          renderOption={(props, option, { selected }) => (
+            <li {...props}>
+              <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
+              {TRIGGER_EVENT_LABELS[option] || option}
+            </li>
+          )}
+          sx={{ width: 300 }}
         />
         <FormControl size="small" sx={{ minWidth: 160 }}>
           <InputLabel>Due Date</InputLabel>

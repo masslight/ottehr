@@ -4,7 +4,6 @@ import { Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   convertOutreachTextToHtml,
-  fillInvoiceTemplate,
   getFullestAvailableName,
   getPatientContactEmail,
   getSecret,
@@ -16,6 +15,7 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  fillOutreachTemplate,
   getEmailClient,
   resolveTemplatePlaceholders,
   sendSmsForPatient,
@@ -174,7 +174,7 @@ async function sendOutreachSms(task: Task, template: string, oystehr: Oystehr, s
     oystehr,
     secrets,
   });
-  const resolvedMessage = fillInvoiceTemplate(template, placeholderInput);
+  const resolvedMessage = fillOutreachTemplate(template, placeholderInput);
 
   // Check for unresolved placeholders — any remaining {{key}} means data is missing
   const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);
@@ -212,7 +212,7 @@ async function sendOutreachEmail(
     oystehr,
     secrets,
   });
-  const resolvedMessage = fillInvoiceTemplate(template, placeholderInput);
+  const resolvedMessage = fillOutreachTemplate(template, placeholderInput);
 
   // Check for unresolved placeholders
   const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);

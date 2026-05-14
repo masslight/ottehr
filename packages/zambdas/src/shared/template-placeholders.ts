@@ -4,10 +4,12 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   BRANDING_CONFIG,
-  fillInvoiceTemplate,
+  buildInvoicePlaceholders,
   getFullName,
   getSecret,
   InvoicePlaceholderInput,
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
+  replaceTemplateVariablesHandlebars,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -16,6 +18,14 @@ import { getStripeClient } from './stripeIntegration';
 // ---------------------------------------------------------------------------
 // Shared template placeholder resolution
 // ---------------------------------------------------------------------------
+
+/**
+ * Extended placeholder input for outreach notifications.
+ * Adds outreach-specific fields on top of the base invoice placeholders.
+ */
+export interface OutreachPlaceholderInput extends InvoicePlaceholderInput {
+  locationReviewLink?: string;
+}
 
 export interface ResolveTemplatePlaceholdersParams {
   /** Patient resource — used for patient name. */
@@ -28,22 +38,23 @@ export interface ResolveTemplatePlaceholdersParams {
    * Pre-resolved values that take precedence over FHIR/Stripe lookups.
    * Any field provided here will skip the corresponding remote lookup.
    */
-  overrides?: Partial<InvoicePlaceholderInput>;
+  overrides?: Partial<OutreachPlaceholderInput>;
 }
 
 /**
  * Resolves template placeholder values from FHIR resources and Stripe.
  *
  * Gathers patient name, clinic branding, patient portal link, visit date,
- * location, invoice amount/due date/link. Use `overrides` to supply
- * pre-fetched values and skip unnecessary remote lookups.
+ * location, invoice amount/due date/link, and outreach-specific fields
+ * like location review link. Use `overrides` to supply pre-fetched values
+ * and skip unnecessary remote lookups.
  */
 export async function resolveTemplatePlaceholders(
   params: ResolveTemplatePlaceholdersParams
-): Promise<InvoicePlaceholderInput> {
+): Promise<OutreachPlaceholderInput> {
   const { patient, encounterRef, oystehr, secrets, overrides } = params;
 
-  const input: InvoicePlaceholderInput = {
+  const input: OutreachPlaceholderInput = {
     patientFullName: overrides?.patientFullName ?? getFullName(patient),
     clinic: overrides?.clinic ?? BRANDING_CONFIG.projectName,
     patientPortalLink: overrides?.patientPortalLink ?? getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets),
@@ -73,6 +84,12 @@ export async function resolveTemplatePlaceholders(
       }
       if (!input.location && location?.name) {
         input.location = location.name;
+      }
+      if (!input.locationReviewLink && location) {
+        const reviewExt = location.extension?.find((e) => e.url === LOCATION_REVIEW_LINK_EXTENSION_URL);
+        if (reviewExt?.valueUrl) {
+          input.locationReviewLink = reviewExt.valueUrl;
+        }
       }
     } catch (err) {
       console.warn('Failed to resolve encounter details for placeholders:', err);
@@ -104,17 +121,31 @@ export async function resolveTemplatePlaceholders(
 }
 
 /**
+ * Fills a template string with outreach placeholder values, including
+ * both base invoice placeholders and outreach-specific ones like
+ * {{location-review-link}}.
+ */
+export function fillOutreachTemplate(template: string, input: OutreachPlaceholderInput): string {
+  const placeholders = buildInvoicePlaceholders(input);
+  // Add outreach-specific placeholders
+  if (input.locationReviewLink) {
+    placeholders['location-review-link'] = input.locationReviewLink;
+  }
+  return replaceTemplateVariablesHandlebars(template, placeholders);
+}
+
+/**
  * Resolves a template string by gathering placeholder data from FHIR/Stripe
  * and performing {{key}} substitution.
  *
- * Convenience wrapper around `resolveTemplatePlaceholders` + `fillInvoiceTemplate`.
+ * Convenience wrapper around `resolveTemplatePlaceholders` + `fillOutreachTemplate`.
  */
 export async function resolveAndFillTemplate(
   template: string,
   params: ResolveTemplatePlaceholdersParams
 ): Promise<string> {
   const placeholders = await resolveTemplatePlaceholders(params);
-  return fillInvoiceTemplate(template, placeholders);
+  return fillOutreachTemplate(template, placeholders);
 }
 
 /**

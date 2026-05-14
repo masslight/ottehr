@@ -57,6 +57,9 @@ export const useListOutreachTasksQuery = (
     queryKey: [
       ...OUTREACH_TASKS_QUERY_KEY,
       params?.status,
+      params?.actionType,
+      params?.medium,
+      params?.triggerEvent,
       params?.dueDateFrom,
       params?.dueDateTo,
       params?.createdFrom,

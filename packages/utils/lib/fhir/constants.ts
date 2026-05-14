@@ -33,6 +33,7 @@ export const FHIR_ZAPEHR_URL = 'https://fhir.zapehr.com';
 const TERMINOLOGY_BASE_URL = 'http://terminology.hl7.org/CodeSystem';
 
 export const SCHEDULE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
+export const LOCATION_REVIEW_LINK_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/review-link`;
 export const PROVIDER_TYPE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/provider-type';
 const RCM_TERMINOLOGY_BASE_URL = 'https://terminology.zapehr.com/rcm/cms1500';
 
