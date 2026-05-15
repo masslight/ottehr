@@ -2843,7 +2843,13 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
           updatedWorkersCompCoverage.subscriberId = workersCompMemberId;
         }
         if (workersCompInsuranceOrg && payerId) {
-          updatedWorkersCompCoverage.payor = [{ reference: getPayerUrl(payerId) }];
+          updatedWorkersCompCoverage.payor = [
+            {
+              reference: isValidUUID(workersCompInsuranceOrg.id ?? '')
+                ? `Organization/${workersCompInsuranceOrg.id}`
+                : getPayerUrl(workersCompInsuranceOrg.id!),
+            },
+          ];
           updatedWorkersCompCoverage.class = [
             {
               type: {
@@ -2880,7 +2886,13 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
             reference: `Patient/${patient.id}`,
           },
           type: { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: 'WC' }] },
-          payor: [{ reference: getPayerUrl(payerId) }],
+          payor: [
+            {
+              reference: isValidUUID(workersCompInsuranceOrg.id ?? '')
+                ? `Organization/${workersCompInsuranceOrg.id}`
+                : getPayerUrl(workersCompInsuranceOrg.id!),
+            },
+          ],
           relationship: {
             coding: [
               {
