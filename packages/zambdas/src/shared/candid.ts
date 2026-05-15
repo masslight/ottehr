@@ -40,6 +40,7 @@ import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resourc
 import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
 import { RelatedCausesCode } from 'candidhealth/api/resources/relatedCauses/resources/v1';
 import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
+import { APIResponse } from 'candidhealth/core';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -1039,13 +1040,36 @@ export async function createEncounterFromAppointment(
   const request = await candidCreateEncounterFromAppointmentRequest(createEncounterInput, candidApiClient);
   console.log('Candid request:' + JSON.stringify(request, null, 2));
   console.log(`[CLAIM SUBMISSION] Sending encounter to candid`);
-  const response = await candidApiClient.encounters.v4.createFromPreEncounterPatient(request);
+  const response = await retryCandidCall(() => candidApiClient.encounters.v4.createFromPreEncounterPatient(request));
   console.log(`[CLAIM SUBMISSION] Encounter sent to candid, response from candid ${JSON.stringify(response)}`);
+
+  let candidEncounterId: CandidApi.EncounterId | undefined;
   if (!response.ok) {
-    throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
+    if (response.rawResponse.status === 422) {
+      const fhirEncounterId = visitResources.encounter.id!;
+      console.log(
+        `[CLAIM SUBMISSION] EncounterExternalIdUniquenessError occurred during encounter creation with ${fhirEncounterId} external id`
+      );
+      const existing = await candidApiClient.encounters.v4.getAll({
+        externalId: EncounterExternalId(fhirEncounterId),
+        limit: 1,
+      });
+      if (!existing.ok || existing.body.items.length === 0) {
+        throw new Error(
+          `EncounterExternalIdUniquenessError: encounter with externalId ${fhirEncounterId} exists but lookup failed: ${JSON.stringify(
+            existing
+          )}`
+        );
+      }
+      candidEncounterId = existing.body.items.find((item) => item.externalId === fhirEncounterId)?.encounterId;
+      console.log(`[CLAIM SUBMISSION] Recovered existing Candid encounter: ${candidEncounterId}`);
+    } else {
+      throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
+    }
+  } else {
+    candidEncounterId = response.body.encounterId;
+    console.log('Created Candid encounter:' + JSON.stringify(response.body));
   }
-  const encounter = response.body;
-  console.log('Created Candid encounter:' + JSON.stringify(encounter));
 
   // here we're setting claim type (self-pay or insurance-pay), if nothing provided it'll be insurance-pay
   const packageEncounter = visitResources.encounter;
@@ -1054,10 +1078,12 @@ export async function createEncounterFromAppointment(
     paymentVariantFromEncounter && paymentVariantFromEncounter === PaymentVariant.selfPay
       ? ResponsiblePartyType.SelfPay
       : ResponsiblePartyType.InsurancePay;
-  if (candidResponsibleParty) {
-    const updateResponse = await candidApiClient.encounters.v4.update(encounter.encounterId, {
-      responsibleParty: candidResponsibleParty,
-    });
+  if (candidResponsibleParty && candidEncounterId) {
+    const updateResponse = await retryCandidCall(() =>
+      candidApiClient.encounters.v4.update(candidEncounterId, {
+        responsibleParty: candidResponsibleParty,
+      })
+    );
     if (!updateResponse.ok) {
       throw new Error(`Error updating a Candid encounter. Response body: ${JSON.stringify(updateResponse.error)}`);
     } else {
@@ -1065,7 +1091,36 @@ export async function createEncounterFromAppointment(
     }
   }
 
-  return encounter.encounterId;
+  return candidEncounterId?.toString();
+}
+
+async function retryCandidCall<T, E>(
+  fn: () => Promise<APIResponse<T, E>>,
+  maxRetries = 3,
+  baseDelayMs = 500
+): Promise<APIResponse<T, E>> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    let response;
+    try {
+      response = await fn();
+      // Rate-limit may come back as a non-ok response with no HTTP status; detect by error name.
+      const isResponseRateLimited = !response.ok && (response.error as any)?.errorName === 'TooManyRequestsError';
+      if (response.ok || (!isResponseRateLimited && !response.ok) || attempt === maxRetries) return response;
+    } catch (error: any) {
+      if (attempt === maxRetries) throw error;
+      // "Too many requests" arrives as a thrown exception with no statusCode.
+      const isRetryable =
+        error?.body?.errorName === 'TooManyRequestsError' ||
+        error?.message?.toLowerCase().includes('too many requests');
+      if (!isRetryable) throw error;
+    }
+    const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 100;
+    console.warn(
+      `Candid request ok: ${response?.ok}, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`
+    );
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  return fn();
 }
 
 async function candidCreateEncounterFromAppointmentRequest(
