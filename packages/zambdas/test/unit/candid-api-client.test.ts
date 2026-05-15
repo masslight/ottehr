@@ -144,6 +144,27 @@ describe('getOrCreateCandidApiClient — monkey-patch and client cache', () => {
 
     expect(client1).toBe(client2);
   });
+
+  it('serves repeated getToken calls from the in-memory cache without re-reading the Oystehr secret', async () => {
+    const { getOrCreateCandidApiClient } = await freshHelper();
+    const oystehr = makeMockOystehr();
+    oystehr.secret.get.mockResolvedValue({
+      name: 'CANDID_OAUTH_TOKEN_CACHE',
+      value: JSON.stringify({ accessToken: 'stored-token', expiresAt: futureExpiry() }),
+    });
+
+    const client = await getOrCreateCandidApiClient(oystehr as any, {} as any);
+    const t1 = await (client as any)._oauthTokenProvider.getToken();
+    const t2 = await (client as any)._oauthTokenProvider.getToken();
+    const t3 = await (client as any)._oauthTokenProvider.getToken();
+
+    expect(t1).toBe('stored-token');
+    expect(t2).toBe('stored-token');
+    expect(t3).toBe('stored-token');
+    // First call populates cachedToken from the Oystehr secret; subsequent calls must hit memory only.
+    expect(oystehr.secret.get).toHaveBeenCalledTimes(1);
+    expect(mockGetToken).not.toHaveBeenCalled();
+  });
 });
 
 describe('getOrCreateCandidApiClient — concurrency', () => {
