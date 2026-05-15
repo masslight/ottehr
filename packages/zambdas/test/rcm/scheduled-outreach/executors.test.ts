@@ -150,7 +150,7 @@ describe('sub-outreach-refer-to-collections', () => {
     handler = mod.index as ZambdaHandler;
   });
 
-  it('marks task as in-progress then completed', async () => {
+  it('marks task as in-progress then cancelled (not yet implemented)', async () => {
     const task = makeTaskInput({
       input: [
         { type: { text: 'action-type' }, valueString: 'refer-to-collections' },
@@ -164,7 +164,8 @@ describe('sub-outreach-refer-to-collections', () => {
     const result = await handler(makeZambdaInput(task));
 
     expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body).status).toBe('completed');
+    expect(JSON.parse(result.body).status).toBe('cancelled');
+    expect(JSON.parse(result.body).reason).toBe('not-yet-implemented');
     expect(mockPatch).toHaveBeenCalledTimes(2);
   });
 

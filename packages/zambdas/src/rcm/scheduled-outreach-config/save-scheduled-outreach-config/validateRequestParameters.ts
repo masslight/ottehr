@@ -33,6 +33,30 @@ const VALID_DIRECTIONS: TriggerDirection[] = ['after', 'before'];
 /** Events that only allow send-notification or log. */
 const NOTIFICATION_ONLY_EVENTS: TriggerEvent[] = ['discharge-time', 'patient-birthday'];
 
+function validateNotificationSubConfig(config: unknown, path: string): void {
+  if (!config || typeof config !== 'object') {
+    throw MISSING_REQUIRED_PARAMETERS([path]);
+  }
+  const c = config as Record<string, unknown>;
+  if (typeof c.enabled !== 'boolean') {
+    throw INVALID_INPUT_ERROR(`${path}.enabled must be a boolean`);
+  }
+  if (!Array.isArray(c.mediums)) {
+    throw INVALID_INPUT_ERROR(`${path}.mediums must be an array`);
+  }
+  for (const m of c.mediums) {
+    if (!VALID_MEDIUMS.includes(m as NotificationMedium)) {
+      throw INVALID_INPUT_ERROR(`${path}.mediums contains invalid value: ${m}`);
+    }
+  }
+  if (typeof c.smsTemplate !== 'string') {
+    throw INVALID_INPUT_ERROR(`${path}.smsTemplate must be a string`);
+  }
+  if (typeof c.emailTemplate !== 'string') {
+    throw INVALID_INPUT_ERROR(`${path}.emailTemplate must be a string`);
+  }
+}
+
 function validateAction(action: unknown, index: number): OutreachAction {
   if (!action || typeof action !== 'object') {
     throw INVALID_INPUT_ERROR(`actions[${index}] must be an object`);
@@ -89,6 +113,8 @@ function validateAction(action: unknown, index: number): OutreachAction {
     if (typeof cfg.retryIntervalDays !== 'number' || cfg.retryIntervalDays < 1) {
       throw INVALID_INPUT_ERROR(`actions[${index}].chargeCardConfig.retryIntervalDays must be a positive number`);
     }
+    validateNotificationSubConfig(cfg.onSuccess, `actions[${index}].chargeCardConfig.onSuccess`);
+    validateNotificationSubConfig(cfg.onFailure, `actions[${index}].chargeCardConfig.onFailure`);
   }
 
   if (actionType === 'send-notification') {

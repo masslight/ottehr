@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { BatchInputRequest } from '@oystehr/sdk';
 import { PlanDefinition, Reference, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { FEATURE_FLAGS_CONFIG, PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { getPatchBinary } from '../../../../shared/helpers';
 import {
   ActionType,
@@ -39,6 +39,11 @@ export interface OutreachTaskResult {
  */
 export async function produceOutreachTasks(params: ProduceOutreachTasksParams): Promise<OutreachTaskResult> {
   const { triggerEvent, patient, focus, appointment, eventTimestamp, oystehr, actionFilter } = params;
+
+  if (!FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled) {
+    console.log('produceOutreachTasks: automatedPatientOutreachEnabled is disabled, skipping');
+    return { created: [], skipped: [] };
+  }
 
   const planDefinition = await getOrCreateOutreachConfig(oystehr);
   const actions = parsePlanDefinitionToActions(planDefinition);
@@ -332,6 +337,40 @@ export async function reconcileDraftTasksWithConfig(
       const newInputJson = JSON.stringify(newInput);
       if (oldInputJson !== newInputJson) {
         patchOps.push({ op: 'replace', path: '/input', value: newInput });
+      }
+
+      // Action type or trigger event change: update code, description, and meta tags
+      if (oldAction.actionType !== newAction.actionType) {
+        patchOps.push({
+          op: 'replace',
+          path: '/code',
+          value: {
+            coding: [
+              {
+                system: OUTREACH_ACTION_TYPE_SYSTEM,
+                code: newAction.actionType,
+                display: actionTypeDisplay(newAction.actionType),
+              },
+            ],
+          },
+        });
+      }
+
+      if (oldAction.actionType !== newAction.actionType || oldAction.trigger.event !== newAction.trigger.event) {
+        patchOps.push({
+          op: 'replace',
+          path: '/description',
+          value: `Outreach: ${actionTypeDisplay(newAction.actionType)} triggered by ${newAction.trigger.event}`,
+        });
+      }
+
+      if (oldAction.trigger.event !== newAction.trigger.event) {
+        const newTags = [
+          { system: `${PRIVATE_EXTENSION_BASE_URL}/rcm`, code: 'rcm' },
+          { system: OUTREACH_TASK_TAG_SYSTEM, code: newAction.trigger.event },
+          { system: `${OUTREACH_TASK_TAG_SYSTEM}/action-id`, code: newAction.id },
+        ];
+        patchOps.push({ op: 'replace', path: '/meta/tag', value: newTags });
       }
 
       if (patchOps.length > 0) {

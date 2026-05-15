@@ -56,6 +56,7 @@ describe('cancel-outreach-task', () => {
       status: 'draft',
       intent: 'order',
       executionPeriod: { start: '2024-01-01T00:00:00Z' },
+      meta: { tag: [{ system: 'https://fhir.zapehr.com/r4/StructureDefinitions/outreach-task', code: 'invoice-due' }] },
     };
     mockGet.mockResolvedValue(task);
     mockPatch.mockResolvedValue({});
@@ -77,6 +78,7 @@ describe('cancel-outreach-task', () => {
       status: 'requested',
       intent: 'order',
       executionPeriod: { start: '2024-01-01T00:00:00Z' },
+      meta: { tag: [{ system: 'https://fhir.zapehr.com/r4/StructureDefinitions/outreach-task', code: 'invoice-due' }] },
     };
     mockGet.mockResolvedValue(task);
     mockPatch.mockResolvedValue({});

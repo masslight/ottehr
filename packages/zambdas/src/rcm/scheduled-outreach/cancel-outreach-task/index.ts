@@ -1,11 +1,17 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, MISSING_REQUIRED_PARAMETERS } from 'utils';
+import {
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
+  PRIVATE_EXTENSION_BASE_URL,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 let m2mToken: string;
 
+const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
 const CANCELLABLE_STATUSES = ['draft', 'requested'];
 
 export const index = wrapHandler('cancel-outreach-task', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -21,6 +27,17 @@ export const index = wrapHandler('cancel-outreach-task', async (input: ZambdaInp
   const oystehr = createOystehrClient(m2mToken, secrets);
 
   const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
+
+  // Verify this is a scheduled outreach task before allowing cancellation
+  const isOutreachTask = task.meta?.tag?.some((t) => t.system === OUTREACH_TASK_TAG_SYSTEM);
+  if (!isOutreachTask) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        error: 'Task is not a scheduled outreach task and cannot be cancelled via this endpoint.',
+      }),
+    };
+  }
 
   if (!CANCELLABLE_STATUSES.includes(task.status)) {
     return {

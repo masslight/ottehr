@@ -91,8 +91,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const filteredTasks = allTasks.filter((task) => {
       const mediums = task.input?.find((i) => i.type?.text === 'mediums')?.valueString;
-      if (!mediums) return false;
-      return mediums.split(',').some((m) => mediumFilterSet.has(m));
+      if (mediums && mediums.split(',').some((m) => mediumFilterSet.has(m))) return true;
+      // Also check charge-card tasks whose notification mediums are stored in the config
+      const chargeCardMediums = extractChargeCardMediums(task);
+      if (chargeCardMediums && chargeCardMediums.split(',').some((m) => mediumFilterSet.has(m))) return true;
+      return false;
     });
     totalCount = filteredTasks.length;
     tasks = filteredTasks.slice(offset, offset + pageSize);

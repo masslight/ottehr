@@ -149,7 +149,14 @@ describe('cron-outreach-task-promoter with SMS time restriction', () => {
   });
 
   it('blocks SMS tasks when outside notification window', async () => {
-    // Enable restriction with a very narrow window that won't match current time
+    // Mock DateTime.now() to a fixed time outside the narrow window to avoid flakiness
+    const { DateTime } = await import('luxon');
+    const realNow = DateTime.now;
+    vi.spyOn(DateTime, 'now').mockImplementation(() =>
+      realNow.call(DateTime).set({ hour: 12, minute: 0, second: 0, millisecond: 0 })
+    );
+
+    // Enable restriction with a very narrow window that won't match the mocked time (12:00 UTC)
     (parseNotificationsTimeRestriction as any).mockReturnValue({
       enabled: true,
       windowStart: '03:00',

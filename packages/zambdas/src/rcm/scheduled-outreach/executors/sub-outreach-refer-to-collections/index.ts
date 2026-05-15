@@ -49,32 +49,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log(`[Include payment history]: ${config.includePaymentHistory || false}`);
     console.log('--- END COLLECTIONS REFERRAL CONFIG ---');
 
-    // TODO: Implement collections referral integration
-    // 1. Gather patient demographics, balance, payment history from FHIR
-    // 2. Format data per agency requirements
-    // 3. Submit via agency API (SFTP, REST, etc.)
-    // 4. Record referral in FHIR (e.g., ServiceRequest or flag on Account)
-
+    // Collections referral integration is not yet implemented.
+    // Mark the task as cancelled rather than completed to avoid falsely reporting success.
     await oystehr.fhir.patch<Task>({
       resourceType: 'Task',
       id: task.id!,
       operations: [
-        { op: 'replace', path: '/status', value: 'completed' },
+        { op: 'replace', path: '/status', value: 'cancelled' },
         { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
         {
           op: 'add',
           path: '/output',
           value: [
             {
-              type: { text: 'execution-result' },
-              valueString: JSON.stringify({ placeholder: true, agency: config.agency }),
+              type: { text: 'error' },
+              valueString: 'Collections referral integration is not yet implemented.',
             },
           ],
         },
       ],
     });
 
-    return { statusCode: 200, body: JSON.stringify({ status: 'completed', placeholder: true }) };
+    return { statusCode: 200, body: JSON.stringify({ status: 'cancelled', reason: 'not-yet-implemented' }) };
   } catch (err: any) {
     console.error(`Unexpected error executing task ${task.id}:`, err.message);
 

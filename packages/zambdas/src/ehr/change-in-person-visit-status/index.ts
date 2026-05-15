@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
 import {
@@ -92,11 +93,16 @@ export const performEffect = async (
 
   await changeInPersonVisitStatusIfPossible(oystehr, { encounter, appointment }, user, updatedStatus);
 
-  // Produce outreach tasks triggered by discharge (fire-and-forget)
+  // Produce outreach tasks triggered by discharge
   if (updatedStatus === 'discharged') {
-    produceDischargeOutreach({ encounter, oystehr }).catch((err) => {
+    try {
+      await produceDischargeOutreach({ encounter, oystehr });
+    } catch (err) {
       console.error('Failed to produce discharge outreach tasks:', err);
-    });
+      captureException(err, {
+        extra: { encounterId: encounter.id, updatedStatus },
+      });
+    }
   }
 
   // handle not completed AI interview to give provider required data, completed AI Interview triggers resource creation via subscription

@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { FEATURE_FLAGS_CONFIG, PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   getOrCreateOutreachConfig,
@@ -17,6 +17,11 @@ const ZAMBDA_NAME = 'cron-outreach-task-promoter';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   if (!input.secrets) throw new Error('Secrets are not defined');
+
+  if (!FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled) {
+    console.log(`${ZAMBDA_NAME}: automatedPatientOutreachEnabled is disabled, skipping`);
+    return { statusCode: 200, body: JSON.stringify({ promoted: 0, blocked: 0, total: 0, disabled: true }) };
+  }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   const oystehr = createOystehrClient(m2mToken, input.secrets);
