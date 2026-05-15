@@ -321,7 +321,13 @@ const performEffect = async (
       const ads = (
         await oystehr.fhir.search<ActivityDefinition>({
           resourceType: 'ActivityDefinition',
-          params: [{ name: 'url', value: urlsToSearch.join(',') }],
+          // Active-only - retired ADs can outrank active ones by semver and
+          // would otherwise show up as the "current" definition on the admin
+          // detail page even though apply-template would reject them.
+          params: [
+            { name: 'url', value: urlsToSearch.join(',') },
+            { name: 'status', value: 'active' },
+          ],
         })
       ).unbundle() as ActivityDefinition[];
       adByUrl = indexLatestActivityDefinitionsByUrl(ads);

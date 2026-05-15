@@ -103,7 +103,16 @@ export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Pr
       : (oystehr.fhir
           .search<ActivityDefinition>({
             resourceType: 'ActivityDefinition',
-            params: [{ name: 'url', value: uniqueCanonicalUrls.join(',') }],
+            // Match only active ADs - retired/draft entries can have a higher
+            // semver (e.g. a future version that was published and later
+            // retracted) and would otherwise win the latest-pick below and
+            // then trip the "lab definition is not active" warning further
+            // down. Filtering at the search means the picker only ever sees
+            // currently-usable ADs.
+            params: [
+              { name: 'url', value: uniqueCanonicalUrls.join(',') },
+              { name: 'status', value: 'active' },
+            ],
           })
           .then((res) => res.unbundle()) as Promise<ActivityDefinition[]>),
   ]);
