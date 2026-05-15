@@ -1,15 +1,16 @@
 import Oystehr from '@oystehr/sdk';
-import { Encounter } from 'fhir/r4b';
+import { Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { Secrets } from 'utils';
 import { getStripeClient } from '../../../../shared';
-import { produceOutreachTasks } from './produce-outreach-tasks';
+import { OUTREACH_TASK_TAG_SYSTEM, produceOutreachTasks } from './produce-outreach-tasks';
 
 export interface ProduceInvoiceDueOutreachResult {
   invoicesEvaluated: number;
   tasksCreated: number;
   tasksSkipped: number;
+  tasksCancelled: number;
   errors: number;
 }
 
@@ -32,6 +33,9 @@ export async function produceInvoiceDueOutreach(
 
   console.log(`produceInvoiceDueOutreach: Found ${pastDueInvoices.length} past-due Stripe invoices to evaluate`);
 
+  // Collect encounter IDs that still have open invoices so we can cancel stale tasks
+  const openEncounterIds = new Set<string>();
+
   let tasksCreated = 0;
   let tasksSkipped = 0;
   let errors = 0;
@@ -49,6 +53,8 @@ export async function produceInvoiceDueOutreach(
       console.warn(`Stripe invoice ${invoice.id} has no oystehr_encounter_id in metadata, skipping`);
       continue;
     }
+
+    openEncounterIds.add(encounterId);
 
     const dueDate = invoice.due_date
       ? DateTime.fromSeconds(invoice.due_date).toISODate()!
@@ -85,10 +91,16 @@ export async function produceInvoiceDueOutreach(
     `produceInvoiceDueOutreach: Created ${tasksCreated} tasks, skipped ${tasksSkipped} (already existing), errors ${errors}`
   );
 
+  // Cancel any pending invoice-due tasks for encounters whose invoices have been paid
+  const tasksCancelled = await cancelTasksForPaidInvoices(oystehr, openEncounterIds);
+
+  console.log(`produceInvoiceDueOutreach: Cancelled ${tasksCancelled} stale tasks for paid invoices`);
+
   return {
     invoicesEvaluated: pastDueInvoices.length,
     tasksCreated,
     tasksSkipped,
+    tasksCancelled,
     errors,
   };
 }
@@ -118,4 +130,53 @@ async function findPastDueStripeInvoices(stripe: Stripe, dueDateLteUnix: number)
   }
 
   return invoices;
+}
+
+/**
+ * Cancel any pending (draft/requested) invoice-due outreach tasks whose
+ * encounter is no longer associated with an open Stripe invoice (i.e. the
+ * invoice has been paid since the task was created).
+ */
+async function cancelTasksForPaidInvoices(oystehr: Oystehr, openEncounterIds: Set<string>): Promise<number> {
+  const pendingTasks = await oystehr.fhir.search<Task>({
+    resourceType: 'Task',
+    params: [
+      { name: '_tag', value: `${OUTREACH_TASK_TAG_SYSTEM}|invoice-due` },
+      { name: 'status', value: 'draft,requested' },
+      { name: '_count', value: '500' },
+    ],
+  });
+
+  const tasks = pendingTasks.unbundle();
+  let cancelled = 0;
+
+  for (const task of tasks) {
+    const encounterId = task.focus?.reference?.replace('Encounter/', '');
+    if (!encounterId) continue;
+
+    if (!openEncounterIds.has(encounterId)) {
+      console.log(
+        `Cancelling invoice-due task ${task.id} for Encounter/${encounterId} — invoice is no longer open (paid or voided)`
+      );
+      try {
+        await oystehr.fhir.patch<Task>({
+          resourceType: 'Task',
+          id: task.id!,
+          operations: [
+            { op: 'replace', path: '/status', value: 'cancelled' },
+            {
+              op: 'add',
+              path: '/statusReason',
+              value: { text: 'Invoice is no longer open — paid or voided' },
+            },
+          ],
+        });
+        cancelled++;
+      } catch (err) {
+        console.error(`Failed to cancel stale task ${task.id}:`, err);
+      }
+    }
+  }
+
+  return cancelled;
 }
