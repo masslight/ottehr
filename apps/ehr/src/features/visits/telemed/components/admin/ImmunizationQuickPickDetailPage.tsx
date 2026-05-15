@@ -48,8 +48,8 @@ export default function ImmunizationQuickPickDetailPage(): ReactElement {
       </Box>
 
       <Stack spacing={2}>
-        <Section title="Vaccine Information">
-          <Row label="Vaccine">
+        <Section title="Immunization Information">
+          <Row label="Immunization">
             <ValueDisplay value={quickPick.vaccine?.name} />
           </Row>
           <Row label="Dose">
