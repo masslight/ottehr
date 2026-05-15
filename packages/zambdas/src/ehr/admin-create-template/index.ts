@@ -247,7 +247,14 @@ const performEffect = async (
       intent: 'plan',
       subject: { reference: `#${stubPatient.id}` },
       code: order.code,
-      ...(order.instantiatesCanonical ? { instantiatesCanonical: order.instantiatesCanonical } : {}),
+      // Strip the |version suffix when saving the plan so a global template
+      // floats forward to the current ActivityDefinition as new versions are
+      // published. apply-template and admin-get-template-detail look up the
+      // AD by url (ignoring any version segment) and pick the highest semver
+      // version among the matches.
+      ...(order.instantiatesCanonical
+        ? { instantiatesCanonical: order.instantiatesCanonical.map((ref) => ref.split('|')[0]) }
+        : {}),
       ...(order.reasonCode ? { reasonCode: order.reasonCode } : {}),
       ...(order.note ? { note: order.note } : {}),
       meta: {
