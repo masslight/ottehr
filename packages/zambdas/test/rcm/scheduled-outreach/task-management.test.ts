@@ -149,12 +149,15 @@ describe('retry-outreach-task', () => {
     handler = mod.index as ZambdaHandler;
   });
 
+  const outreachTag = { system: 'https://fhir.zapehr.com/r4/StructureDefinitions/outreach-task', code: 'invoice-due' };
+
   it('resets a failed task to requested status', async () => {
     const task: Task = {
       resourceType: 'Task',
       id: 'task-1',
       status: 'failed',
       intent: 'order',
+      meta: { tag: [outreachTag] },
       executionPeriod: { start: '2024-01-01T00:00:00Z', end: '2024-01-02T00:00:00Z' },
       output: [{ type: { text: 'error' }, valueString: 'Payment failed' }],
     };
@@ -177,12 +180,46 @@ describe('retry-outreach-task', () => {
     );
   });
 
+  it('only removes executionPeriod/end and output when they exist', async () => {
+    const task: Task = {
+      resourceType: 'Task',
+      id: 'task-1b',
+      status: 'failed',
+      intent: 'order',
+      meta: { tag: [outreachTag] },
+    };
+    mockGet.mockResolvedValue(task);
+    mockPatch.mockResolvedValue({});
+
+    const result = await handler(makeInput({ taskId: 'task-1b' }));
+
+    expect(result.statusCode).toBe(200);
+    const ops = mockPatch.mock.calls[0][0].operations;
+    expect(ops).toEqual([{ op: 'replace', path: '/status', value: 'requested' }]);
+  });
+
+  it('returns 400 for non-outreach tasks', async () => {
+    const task: Task = {
+      resourceType: 'Task',
+      id: 'task-not-outreach',
+      status: 'failed',
+      intent: 'order',
+    };
+    mockGet.mockResolvedValue(task);
+
+    const result = await handler(makeInput({ taskId: 'task-not-outreach' }));
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body).error).toContain('not a scheduled outreach task');
+    expect(mockPatch).not.toHaveBeenCalled();
+  });
+
   it('returns 400 for draft tasks', async () => {
     const task: Task = {
       resourceType: 'Task',
       id: 'task-2',
       status: 'draft',
       intent: 'order',
+      meta: { tag: [outreachTag] },
     };
     mockGet.mockResolvedValue(task);
 
@@ -199,6 +236,7 @@ describe('retry-outreach-task', () => {
       id: 'task-3',
       status: 'completed',
       intent: 'order',
+      meta: { tag: [outreachTag] },
     };
     mockGet.mockResolvedValue(task);
 
@@ -212,6 +250,7 @@ describe('retry-outreach-task', () => {
       id: 'task-4',
       status: 'requested',
       intent: 'order',
+      meta: { tag: [outreachTag] },
     };
     mockGet.mockResolvedValue(task);
 

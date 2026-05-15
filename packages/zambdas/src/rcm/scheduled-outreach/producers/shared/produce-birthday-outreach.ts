@@ -137,7 +137,9 @@ async function findPatientsWithUpcomingBirthdays(oystehr: Oystehr, targetMonthDa
   const allPatients: Patient[] = [];
   const seenIds = new Set<string>();
   const pageSize = 200;
+  const maxPages = 50; // Safety limit: 50 pages × 200 = 10,000 patients max
   let offset = 0;
+  let page = 0;
 
   // FHIR date search doesn't support month-day matching directly.
   // We search for all active patients and filter by birthDate month-day.
@@ -151,11 +153,21 @@ async function findPatientsWithUpcomingBirthdays(oystehr: Oystehr, targetMonthDa
       { name: '_elements', value: 'id,birthDate,name' },
     ],
   });
+  page++;
 
   let patients = searchBundle.unbundle();
   collectMatchingPatients(patients, targetMonthDays, seenIds, allPatients);
 
   while (searchBundle.link?.find((l) => l.relation === 'next')) {
+    if (page >= maxPages) {
+      console.warn(
+        `findPatientsWithUpcomingBirthdays: Reached max page limit (${maxPages} pages, ${
+          offset + pageSize
+        } patients scanned). ` +
+          `Some patients may not have been evaluated. Consider increasing maxPages if this is expected.`
+      );
+      break;
+    }
     offset += pageSize;
     searchBundle = await oystehr.fhir.search<Patient>({
       resourceType: 'Patient',
@@ -167,6 +179,7 @@ async function findPatientsWithUpcomingBirthdays(oystehr: Oystehr, targetMonthDa
         { name: '_elements', value: 'id,birthDate,name' },
       ],
     });
+    page++;
     patients = searchBundle.unbundle();
     collectMatchingPatients(patients, targetMonthDays, seenIds, allPatients);
   }
