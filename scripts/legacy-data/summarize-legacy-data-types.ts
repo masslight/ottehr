@@ -25,6 +25,9 @@ type Summary = {
   totalDocuments: number;
 
   uniquePatients: Set<string>; // based on first, last, dob, patient id
+  patientsWithMultipleNames: Set<string>; // example: Mary Jane (first name) Vaughan Williams (last name)
+
+  rowPrepFailures: number;
 
   documentTypeSummary: DocumentMap;
   fileTypeSummary: Record<string, number>;
@@ -35,6 +38,9 @@ const summary: Summary = {
   totalDocuments: 0,
 
   uniquePatients: new Set(),
+  patientsWithMultipleNames: new Set(),
+
+  rowPrepFailures: 0,
 
   documentTypeSummary: {},
   fileTypeSummary: {},
@@ -62,6 +68,15 @@ function getFileType(path: string): string | null {
   const extension = fileName.split('.').pop();
 
   return extension ? extension.toLowerCase() : null;
+}
+
+/**
+ * checks if first name or last name contains spaces or hyphens
+ */
+function checkForMultipleNames(row: CsvRow): Set<string> {
+  const names = [row.firstName, row.lastName];
+
+  return new Set(names.filter((name) => name.includes('-') || name.includes(' ')));
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -104,6 +119,7 @@ async function main(): Promise<void> {
                 patientId: data['Patient Number'],
                 documentType: data['Document Type'],
                 description,
+                file,
               });
             }
           } else {
@@ -115,6 +131,7 @@ async function main(): Promise<void> {
               patientId: data['Patient Number'],
               documentType: data['Document Type'],
               description,
+              file,
             });
           }
         })
@@ -126,7 +143,20 @@ async function main(): Promise<void> {
   for (const row of rows) {
     summary.totalDocuments += 1;
 
-    const patientFolder = buildPatientFolder(row);
+    for (const name of checkForMultipleNames(row)) {
+      summary.patientsWithMultipleNames.add(name);
+    }
+
+    let patientFolder: string | undefined;
+
+    try {
+      patientFolder = buildPatientFolder(row);
+    } catch (err) {
+      console.error(`  ✗ Failed to prepare file for row: ${JSON.stringify(row)}`);
+      console.error(`    Error: ${err instanceof Error ? err.message : String(err)}\n`);
+      summary.rowPrepFailures++;
+      continue;
+    }
 
     summary.uniquePatients.add(patientFolder);
 
@@ -201,6 +231,22 @@ async function main(): Promise<void> {
   }
 
   console.log('');
+
+  console.log('========== MULTIPLE NAMES ==========');
+
+  if (summary.patientsWithMultipleNames.size > 0) {
+    console.log(`Total unique multiple names: ${summary.patientsWithMultipleNames.size}\n`);
+    // console.log(`Names with hyphens or spaces: ${[...summary.patientsWithMultipleNames].join(', ')}\n`);
+  } else {
+    console.log('No names with hyphens or spaces found\n');
+  }
+
+  console.log('========== FAILURES ==========');
+  if (summary.rowPrepFailures === 0) {
+    console.log('none');
+  } else {
+    console.log(`Row prep failures: ${summary.rowPrepFailures}\n`);
+  }
 }
 
 main().catch((err) => {

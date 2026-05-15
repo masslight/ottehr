@@ -32,6 +32,7 @@ export type CsvRow = {
   path: string;
   documentType: string;
   description: string;
+  file: string;
 };
 
 /**
@@ -51,7 +52,7 @@ function sanitize(value: string): string {
  * If the value is already MM-DD-YYYY it is returned unchanged.
  * Throws for any other format.
  */
-export function formatDob(dob: string): string {
+export function formatDob(dob: string, row: CsvRow): string {
   if (/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
     const [year, month, day] = dob.split('-');
     return `${month}-${day}-${year}`;
@@ -59,7 +60,9 @@ export function formatDob(dob: string): string {
   if (/^\d{2}-\d{2}-\d{4}$/.test(dob)) {
     return dob;
   }
-  throw new Error(`Unexpected dob format: "${dob}". Expected YYYY-MM-DD or MM-DD-YYYY.`);
+  throw new Error(
+    `Unexpected dob format: "${dob}". Expected YYYY-MM-DD or MM-DD-YYYY.\nRow with error: ${JSON.stringify(row)}`
+  );
 }
 
 /**
@@ -70,7 +73,7 @@ export function buildPatientFolder(row: CsvRow): string {
   return (
     `${sanitize(row.lastName.toLowerCase())}_` +
     `${sanitize(row.firstName.toLowerCase())}_` +
-    `${sanitize(formatDob(row.dob))}/` +
+    `${sanitize(formatDob(row.dob, row))}/` +
     `${sanitize(row.patientId)}`
   );
 }

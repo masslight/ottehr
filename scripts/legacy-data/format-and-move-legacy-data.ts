@@ -251,6 +251,16 @@ async function getS3FileAndFormatIntoFileUpload(row: CsvRow, s3Client: S3Client 
   return fileDetails;
 }
 
+function logSummary(summaryData: Summary): void {
+  console.log('');
+  console.log('═'.repeat(60));
+  console.log(`Script complete. Summary of actions: `);
+  console.log(`  docs uploaded: ${summaryData.uploaded}`);
+  console.log(`  docs with errors: ${summaryData.errors}`);
+  console.log(`  unique patients: ${summaryData.uniquePatients.size}`);
+  console.log('═'.repeat(60));
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -303,6 +313,7 @@ async function main(): Promise<void> {
               patientId: data['Patient Number'],
               documentType: data['Document Type'],
               description: sanitizedDescription,
+              file,
             });
           }
         })
@@ -313,7 +324,7 @@ async function main(): Promise<void> {
 
   console.log(`Total rows read: ${totalRowsRead}\n`);
   console.log(`Migrating the following doc types: ${DOC_TYPES_TO_MIGRATE}`);
-  console.log(`Total documents to be migrated: ${rows.length}`);
+  console.log(`Total documents to be migrated: ${rows.length}\n`);
 
   let sourceS3Client: S3Client | undefined;
 
@@ -347,8 +358,8 @@ async function main(): Promise<void> {
 
   if (isDryRun) {
     console.log('');
-    console.log('Dry run — no files uploaded.');
-    console.log('');
+    console.log('Dry run — no files uploaded.\n');
+    logSummary(summary);
     return;
   }
 
@@ -383,13 +394,7 @@ async function main(): Promise<void> {
     );
   }
 
-  console.log('');
-  console.log('═'.repeat(60));
-  console.log(`Script complete. Summary of actions: `);
-  console.log(`  docs uploaded: ${summary.uploaded}`);
-  console.log(`  docs with errors: ${summary.errors}`);
-  console.log(`  unique patients: ${summary.uniquePatients.size}`);
-  console.log('═'.repeat(60));
+  logSummary(summary);
 
   if (summary.errors > 0) {
     process.exit(1);

@@ -18,6 +18,7 @@ function makeRow(overrides: Partial<CsvRow> = {}): CsvRow {
     path: '',
     documentType: '',
     description: '',
+    file: 'test.csv',
     ...overrides,
   };
 }
