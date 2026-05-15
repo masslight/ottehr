@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Accuracy Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; margin: 0; padding: 2rem; color: #1e293b; }
+    h1 { margin: 0 0 0.25rem; }
+    .subtitle { color: #64748b; margin: 0 0 2rem; font-size: 0.9rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 1.5rem; }
+    .card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; }
+    .card-title { margin: 0 0 0.25rem; font-size: 1rem; font-weight: 600; }
+    .card-meta { font-size: 0.8rem; color: #64748b; margin: 0 0 1rem; }
+    canvas { max-height: 260px; }
+    #status { color: #64748b; padding: 2rem 0; }
+  </style>
+</head>
+<body>
+  <h1>AI Accuracy Dashboard</h1>
+  <p class="subtitle">Pass rate per test suite over time</p>
+  <div id="status">Loading...</div>
+  <div id="grid" class="grid"></div>
+  <script>
+    const SUITE_LABELS = {
+      'billing-suggestions': 'Billing Suggestions',
+      'billing-codes': 'Billing Codes',
+      'ai-suggestion-notes': 'AI Suggestion Notes',
+      'ai-chatbot': 'AI Chatbot',
+    };
+
+    const PALETTE = ['#2563eb', '#16a34a', '#dc2626', '#d97706', '#7c3aed', '#0891b2'];
+
+    async function main() {
+      const manifest = await fetch('manifest.json').then(r => r.json());
+
+      const suiteData = {};
+      await Promise.all(manifest.map(async (file) => {
+        try {
+          const { suite, timestamp, passed, total } = await fetch(file).then(r => r.json());
+          if (!suite || !total) return;
+          (suiteData[suite] ??= []).push({ ts: new Date(timestamp), passed, total });
+        } catch {}
+      }));
+
+      const status = document.getElementById('status');
+      const grid = document.getElementById('grid');
+
+      const suites = Object.keys(suiteData).sort();
+      if (suites.length === 0) {
+        status.textContent = 'No results found.';
+        return;
+      }
+      status.remove();
+
+      suites.forEach((suite, i) => {
+        const points = suiteData[suite].sort((a, b) => a.ts - b.ts);
+        const latest = points[points.length - 1];
+        const latestPct = Math.round((latest.passed / latest.total) * 100);
+        const color = PALETTE[i % PALETTE.length];
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <p class="card-title">${SUITE_LABELS[suite] ?? suite}</p>
+          <p class="card-meta">Latest: ${latestPct}% (${latest.passed}/${latest.total}) &mdash; ${latest.ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+          <canvas id="c${i}"></canvas>
+        `;
+        grid.appendChild(card);
+
+        new Chart(document.getElementById(`c${i}`), {
+          type: 'line',
+          data: {
+            labels: points.map(p => p.ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+            datasets: [{
+              data: points.map(p => Math.round((p.passed / p.total) * 100)),
+              borderColor: color,
+              backgroundColor: color + '18',
+              fill: true,
+              tension: 0.3,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+            }],
+          },
+          options: {
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { min: 0, max: 100, ticks: { callback: v => v + '%' } },
+              x: { ticks: { maxTicksLimit: 10 } },
+            },
+            interaction: { mode: 'index' },
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  label: ctx => {
+                    const p = points[ctx.dataIndex];
+                    return `${ctx.parsed.y}% — ${p.passed}/${p.total} passed`;
+                  },
+                },
+              },
+            },
+          },
+        });
+      });
+    }
+
+    main().catch(e => {
+      document.getElementById('status').textContent = 'Error: ' + e.message;
+    });
+  </script>
+</body>
+</html>

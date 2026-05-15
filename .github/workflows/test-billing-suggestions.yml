@@ -9,9 +9,10 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest-4-cores
-    timeout-minutes: 15
+    timeout-minutes: 30
     permissions:
       id-token: write
+      contents: write
     steps:
       - name: Install SSH Client
         uses: webfactory/ssh-agent@836c84ec59a0e7bc0eabc79988384eb567561ee2 # v0.7.0
@@ -74,10 +75,54 @@ jobs:
       - name: Wait for zambda server
         run: npx wait-on tcp:localhost:3000 --timeout 60000
 
-      - name: Run billing suggestions accuracy test
-        run: npx tsx scripts/test-billing-suggestions.ts --env local
+      - name: Run billing suggestions test
+        continue-on-error: true
+        run: npx tsx scripts/test-billing-suggestions.ts --env local --json-out /tmp/results-billing-suggestions.json
+
+      - name: Run billing codes test
+        continue-on-error: true
+        run: npx tsx scripts/test-billing-codes.ts --env local --json-out /tmp/results-billing-codes.json
+
+      - name: Run AI suggestion notes test
+        continue-on-error: true
+        run: npx tsx scripts/test-ai-suggestion-note.ts --env local --json-out /tmp/results-ai-suggestion-notes.json
+
+      - name: Run AI chatbot test
+        continue-on-error: true
+        run: npx tsx scripts/test-ai-chatbot.ts --env local --json-out /tmp/results-ai-chatbot.json
+
+      - name: Publish results to test-results branch
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
+          RESULTS_DIR=/tmp/results-publish
+
+          if git ls-remote --exit-code origin test-results 2>/dev/null; then
+            git fetch origin test-results --depth=200
+            git worktree add "$RESULTS_DIR" origin/test-results
+          else
+            git worktree add --orphan -b test-results "$RESULTS_DIR"
+          fi
+
+          cd "$RESULTS_DIR"
+          mkdir -p data
+
+          for f in /tmp/results-*.json; do
+            [ -f "$f" ] || continue
+            suite=$(basename "$f" | sed 's/^results-//' | sed 's/\.json$//')
+            cp "$f" "data/${TIMESTAMP}-${suite}.json"
+          done
+
+          find data -name "*.json" | sort | jq -R . | jq -s . > manifest.json
+          cp "$GITHUB_WORKSPACE/scripts/ai-accuracy-dashboard.html" index.html
+
+          git add .
+          git diff --staged --quiet || git commit -m "results: ${TIMESTAMP} (run #${{ github.run_number }})"
+          git push origin HEAD:test-results
 
       - name: Print zambda server logs
         if: always()
         run: cat /tmp/zambda.log
-

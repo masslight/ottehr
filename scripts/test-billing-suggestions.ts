@@ -20,6 +20,8 @@ const ZAMBDA_URL = 'http://localhost:3000/local/zambda/recommend-billing-suggest
 
 const envFlag = process.argv.indexOf('--env');
 const env = envFlag !== -1 ? process.argv[envFlag + 1] : 'local';
+const jsonOutFlag = process.argv.indexOf('--json-out');
+const jsonOutPath = jsonOutFlag !== -1 ? process.argv[jsonOutFlag + 1] : null;
 const envFilePath = path.resolve(__dirname, '../packages/zambdas/.env', `zambda-secrets-${env}.json`);
 const envConfig = JSON.parse(fs.readFileSync(envFilePath, 'utf8'));
 
@@ -206,6 +208,18 @@ async function main(): Promise<void> {
   console.log(`  CPT:    ${overallAvgCpt}% avg score`);
   console.log(`  E&M:    ${totalEmPassed}/${totalRuns} passed`);
   console.log('═'.repeat(60));
+
+  if (jsonOutPath) {
+    fs.writeFileSync(
+      jsonOutPath,
+      JSON.stringify({
+        suite: 'billing-suggestions',
+        timestamp: new Date().toISOString(),
+        passed: totalPassed,
+        total: totalRuns,
+      })
+    );
+  }
 
   if (totalPassed < totalRuns) {
     process.exit(1);
