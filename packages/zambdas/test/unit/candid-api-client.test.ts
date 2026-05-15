@@ -145,6 +145,28 @@ describe('getOrCreateCandidApiClient — monkey-patch and client cache', () => {
     expect(client1).toBe(client2);
   });
 
+  it('throws a clear error if the Candid SDK no longer exposes _oauthTokenProvider.getToken', async () => {
+    // Simulate a future candidhealth SDK that has dropped/renamed the private field we patch.
+    const candidhealth = await import('candidhealth');
+    const prevImpl = vi.mocked(candidhealth.CandidApiClient).getMockImplementation();
+    vi.mocked(candidhealth.CandidApiClient).mockImplementationOnce(
+      () =>
+        ({
+          auth: { default: { getToken: mockGetToken } },
+          // _oauthTokenProvider intentionally absent
+        }) as any
+    );
+
+    const { getOrCreateCandidApiClient } = await freshHelper();
+    const oystehr = makeMockOystehr();
+
+    await expect(getOrCreateCandidApiClient(oystehr as any, {} as any)).rejects.toThrow(
+      /candidhealth SDK shape changed/
+    );
+
+    if (prevImpl) vi.mocked(candidhealth.CandidApiClient).mockImplementation(prevImpl);
+  });
+
   it('serves repeated getToken calls from the in-memory cache without re-reading the Oystehr secret', async () => {
     const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();

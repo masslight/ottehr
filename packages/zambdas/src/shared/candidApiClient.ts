@@ -37,8 +37,14 @@ export async function getOrCreateCandidApiClient(oystehr: Oystehr, secrets: Secr
   const client = createCandidApiClient(secrets);
   // The Candid SDK constructs a private _oauthTokenProvider that calls /auth/v2/token on demand.
   // Replace its getToken so every authenticated request fetches the secret first
-  (client as unknown as { _oauthTokenProvider: { getToken: () => Promise<string> } })._oauthTokenProvider.getToken =
-    async () => (await getOrCreateToken(oystehr, secrets)).accessToken;
+  const internals = client as unknown as { _oauthTokenProvider?: { getToken?: unknown } };
+  // Assert the shape up front — if a candidhealth SDK upgrade renames this field, fail loudly here
+  // rather than silently letting the SDK fetch its own tokens and reintroducing the 429s.
+  if (typeof internals._oauthTokenProvider?.getToken !== 'function') {
+    throw new Error('candidhealth SDK shape changed: expected client._oauthTokenProvider.getToken to be a function');
+  }
+  (internals._oauthTokenProvider as { getToken: () => Promise<string> }).getToken = async () =>
+    (await getOrCreateToken(oystehr, secrets)).accessToken;
 
   cachedCandidApiClient = client;
   return cachedCandidApiClient;
