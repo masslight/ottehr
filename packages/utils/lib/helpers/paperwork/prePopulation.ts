@@ -1089,9 +1089,9 @@ const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): 
         if (coverage) {
           const payerId = coverage.class?.[0].value;
           const org = insuranceOrgs?.find((tempOrg) => getPayerId(tempOrg) === payerId);
-          if (org) {
+          if (payerId && org) {
             const coverageReference: Reference = {
-              reference: `Organization/${org.id!}`,
+              reference: org.id!.match(uuidRegex) ? `Organization/${org.id!}` : getPayerUrl(org.id!),
               display: org?.name,
             };
             answer = makeAnswer(coverageReference, 'Reference');
