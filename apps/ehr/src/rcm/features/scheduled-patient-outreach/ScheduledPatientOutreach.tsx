@@ -4,6 +4,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
@@ -34,6 +35,7 @@ import {
   InputLabel,
   MenuItem,
   Paper,
+  Popover,
   Select,
   SelectChangeEvent,
   Snackbar,
@@ -212,6 +214,116 @@ const MEDIUM_CHIP_COLORS: Record<NotificationMedium, string> = {
   email: '#0277bd',
   'paper-mail': '#4e342e',
 };
+
+// ── Cron Schedule Info ────────────────────────────────────────────────────
+
+interface CronZambdaInfo {
+  name: string;
+  displayName: string;
+  description: string;
+  expression: string;
+  humanReadableUtc: string;
+  intervalMs: number;
+  getNextRun: () => Date;
+}
+
+function getNextCronRun(minutes: number[], hours: number[] | null): Date {
+  const now = new Date();
+  const utcNow = new Date(now.toISOString());
+
+  if (hours === null) {
+    // Runs at specific minutes every hour
+    const currentMinute = utcNow.getUTCMinutes();
+    const nextMinute = minutes.find((m) => m > currentMinute);
+    const next = new Date(utcNow);
+    if (nextMinute !== undefined) {
+      next.setUTCMinutes(nextMinute, 0, 0);
+    } else {
+      next.setUTCHours(utcNow.getUTCHours() + 1, minutes[0], 0, 0);
+    }
+    return next;
+  }
+
+  // Runs at specific hour(s) and minute(s) daily
+  const next = new Date(utcNow);
+  next.setUTCHours(hours[0], minutes[0], 0, 0);
+  if (next <= utcNow) {
+    next.setUTCDate(next.getUTCDate() + 1);
+  }
+  return next;
+}
+
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  if (diffMs < 0) return 'running now';
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'less than a minute';
+  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? '' : 's'}`;
+  const diffHrs = Math.floor(diffMin / 60);
+  const remainMin = diffMin % 60;
+  if (diffHrs < 24) {
+    return remainMin > 0
+      ? `${diffHrs} hour${diffHrs === 1 ? '' : 's'}, ${remainMin} min`
+      : `${diffHrs} hour${diffHrs === 1 ? '' : 's'}`;
+  }
+  const diffDays = Math.floor(diffHrs / 24);
+  return `${diffDays} day${diffDays === 1 ? '' : 's'}, ${diffHrs % 24} hr`;
+}
+
+function getShortTimezone(): string {
+  return (
+    new Date().toLocaleTimeString(undefined, { timeZoneName: 'short' }).split(' ').pop() ||
+    Intl.DateTimeFormat().resolvedOptions().timeZone
+  );
+}
+
+function formatCronLocalSchedule(hours: number[] | null, minutes: number[]): string {
+  if (hours === null) {
+    return `Every 15 minutes`;
+  }
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const ref = new Date();
+  ref.setUTCHours(hours[0], minutes[0], 0, 0);
+  const localTime = ref.toLocaleTimeString(undefined, {
+    timeZone: tz,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  const shortTz = getShortTimezone();
+  return `Daily at ${localTime} ${shortTz}`;
+}
+
+const OUTREACH_CRON_ZAMBDAS: CronZambdaInfo[] = [
+  {
+    name: 'cron-outreach-invoice-due',
+    displayName: 'Invoice Due Monitor',
+    description: 'Scans for past-due invoices and creates outreach tasks',
+    expression: 'cron(0 6 * * ? *)',
+    humanReadableUtc: 'Daily at 6:00 AM UTC',
+    intervalMs: 24 * 60 * 60 * 1000,
+    getNextRun: () => getNextCronRun([0], [6]),
+  },
+  {
+    name: 'cron-outreach-birthday',
+    displayName: 'Birthday Monitor',
+    description: 'Scans for upcoming patient birthdays and creates outreach tasks',
+    expression: 'cron(0 6 * * ? *)',
+    humanReadableUtc: 'Daily at 6:00 AM UTC',
+    intervalMs: 24 * 60 * 60 * 1000,
+    getNextRun: () => getNextCronRun([0], [6]),
+  },
+  {
+    name: 'cron-outreach-task-promoter',
+    displayName: 'Clinic Events Monitor',
+    description: 'Continuously monitors clinic events to initiate and advance outreach workflows',
+    expression: 'cron(0,15,30,45 * * * ? *)',
+    humanReadableUtc: 'Every 15 minutes',
+    intervalMs: 15 * 60 * 1000,
+    getNextRun: () => getNextCronRun([0, 15, 30, 45], null),
+  },
+];
 
 /** Normalise a trigger offset to a day-equivalent value for colour selection. */
 function triggerToDayEquivalent(trigger: OutreachAction['trigger']): number {
@@ -958,6 +1070,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
     message: '',
     severity: 'success',
   });
+  const [cronInfoAnchor, setCronInfoAnchor] = React.useState<HTMLElement | null>(null);
 
   // Load actions and settings from server when data arrives
   React.useEffect(() => {
@@ -1076,6 +1189,13 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
             order of days from the trigger event.
           </Typography>
         </Box>
+        {pageTab === 'tasks-report' && (
+          <Tooltip title="Cron schedule info">
+            <IconButton onClick={(e) => setCronInfoAnchor(e.currentTarget)} sx={{ color: 'primary.main' }}>
+              <InfoOutlinedIcon />
+            </IconButton>
+          </Tooltip>
+        )}
         {pageTab === 'configuration' && (
           <Stack direction="row" spacing={1}>
             <IconButton
@@ -1121,6 +1241,70 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
           </TabList>
         </TabContext>
       </Box>
+
+      {/* ── Cron Info Popover ──────────────────────────────────────────── */}
+      <Popover
+        open={Boolean(cronInfoAnchor)}
+        anchorEl={cronInfoAnchor}
+        onClose={() => setCronInfoAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{ paper: { sx: { p: 2.5, maxWidth: 420 } } }}
+      >
+        <Typography variant="subtitle1" sx={{ mb: 1.5, fontWeight: 600, color: 'primary.dark' }}>
+          Event Monitoring Schedules
+        </Typography>
+        <Stack spacing={2}>
+          {OUTREACH_CRON_ZAMBDAS.map((z) => {
+            const nextRun = z.getNextRun();
+            const shortTz = getShortTimezone();
+            const nextLocal = nextRun.toLocaleString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            });
+            const localSchedule =
+              z.intervalMs < 60 * 60 * 1000
+                ? formatCronLocalSchedule(null, [0, 15, 30, 45])
+                : formatCronLocalSchedule([6], [0]);
+            const showUtc = localSchedule !== z.humanReadableUtc;
+            return (
+              <Box key={z.name} sx={{ borderLeft: '3px solid', borderColor: 'primary.main', pl: 1.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.dark' }}>
+                  {z.displayName}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  {z.description}
+                </Typography>
+                <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+                  {localSchedule}
+                  {showUtc ? ` (${z.humanReadableUtc})` : ''}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{ display: 'block', mt: 0.5, color: 'success.main', fontWeight: 500 }}
+                >
+                  Next run: {nextLocal} {shortTz} — in {formatRelativeTime(nextRun)}
+                </Typography>
+                <Typography
+                  sx={{
+                    display: 'block',
+                    mt: 1.5,
+                    fontSize: '0.65rem',
+                    color: 'text.disabled',
+                    fontFamily: 'monospace',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {z.name} · {z.expression}
+                </Typography>
+              </Box>
+            );
+          })}
+        </Stack>
+      </Popover>
 
       {pageTab === 'tasks-report' && <OutreachTasksReport />}
 
