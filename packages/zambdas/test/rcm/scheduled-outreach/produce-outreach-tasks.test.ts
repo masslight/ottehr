@@ -138,8 +138,8 @@ function mockBundle(resources: any[]): { unbundle: () => any[]; total: number; l
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('produce-outreach-tasks', () => {
-  let produceOutreachTasks: typeof import('../../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').produceOutreachTasks;
-  let buildTaskInput: typeof import('../../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').buildTaskInput;
+  let produceOutreachTasks: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').produceOutreachTasks;
+  let buildTaskInput: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').buildTaskInput;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -188,7 +188,7 @@ describe('produce-outreach-tasks', () => {
       });
       const inputs = buildTaskInput(action);
 
-      const configInput = inputs!.find((i) => i.type?.text === 'charge-card-config');
+      const configInput = inputs!.find((i: any) => i.type?.text === 'charge-card-config');
       expect(configInput).toBeDefined();
       const parsed = JSON.parse(configInput!.valueString!);
       expect(parsed.retryAttempts).toBe(2);
@@ -204,7 +204,7 @@ describe('produce-outreach-tasks', () => {
       });
       const inputs = buildTaskInput(action);
 
-      const configInput = inputs!.find((i) => i.type?.text === 'refer-to-collections-config');
+      const configInput = inputs!.find((i: any) => i.type?.text === 'refer-to-collections-config');
       expect(configInput).toBeDefined();
       const parsed = JSON.parse(configInput!.valueString!);
       expect(parsed.agency).toBe('IC System');
@@ -371,7 +371,7 @@ describe('produce-outreach-tasks', () => {
         focus: { reference: 'Encounter/enc-1' },
         eventTimestamp: '2025-01-15T10:00:00.000Z',
         oystehr: mockOystehrClient as any,
-        actionFilter: (a) => a.id === 'a1',
+        actionFilter: (a: any) => a.id === 'a1',
       });
 
       expect(result.created).toHaveLength(1);

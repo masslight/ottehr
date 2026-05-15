@@ -36,7 +36,7 @@ function defaultOutreachResult(): { created: never[]; skipped: never[] } {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('produceDischargeOutreach', () => {
-  let produceDischargeOutreach: typeof import('../../../../src/rcm/scheduled-outreach/producers/shared/produce-discharge-outreach').produceDischargeOutreach;
+  let produceDischargeOutreach: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-discharge-outreach').produceDischargeOutreach;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -112,7 +112,7 @@ describe('produceDischargeOutreach', () => {
 });
 
 describe('produceInvoiceIssuedOutreach', () => {
-  let produceInvoiceIssuedOutreach: typeof import('../../../../src/rcm/scheduled-outreach/producers/shared/produce-invoice-issued-outreach').produceInvoiceIssuedOutreach;
+  let produceInvoiceIssuedOutreach: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-invoice-issued-outreach').produceInvoiceIssuedOutreach;
 
   beforeEach(async () => {
     vi.clearAllMocks();
