@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Patient, Task } from 'fhir/r4b';
-import { FRIENDLY_PATIENT_ID_SYSTEM_BASE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { FRIENDLY_PATIENT_ID_SYSTEM_BASE, MISSING_REQUEST_SECRETS, PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
@@ -34,7 +34,7 @@ export interface OutreachTaskSummary {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  if (!input.secrets) throw new Error('Secrets are not defined');
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   const oystehr = createOystehrClient(m2mToken, input.secrets);

@@ -1,7 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApiClient } from 'candidhealth';
-import { createCandidApiClient, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
+import {
+  createCandidApiClient,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
+  Secrets,
+} from 'utils';
 import {
   createOystehrClient,
   getAuth0Token,
@@ -31,12 +38,12 @@ function validateRequestParameters(input: ZambdaInput): GetStatementTypeInput {
 
   const statementType = body.statementType;
   if (typeof statementType !== 'string' || !validStatementTypes.has(statementType as StatementType)) {
-    throw new Error('statementType must be one of: standard, past-due, final-notice');
+    throw INVALID_INPUT_ERROR('statementType must be one of: standard, past-due, final-notice');
   }
 
   const encounterId = body.encounterId;
   if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {
-    throw new Error('encounterId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['encounterId']);
   }
 
   return {
