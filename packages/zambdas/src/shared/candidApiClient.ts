@@ -12,6 +12,7 @@ interface CandidToken {
 // Lifting these to module scope keeps them in memory across warm lambda invocations.
 let inflightRefresh: Promise<CandidToken> | undefined;
 let cachedCandidApiClient: CandidApiClient | undefined;
+let cachedToken: CandidToken | undefined;
 
 export async function getOrCreateCandidApiClientIfConfigured(
   oystehr: Oystehr,
@@ -44,16 +45,19 @@ export async function getOrCreateCandidApiClient(oystehr: Oystehr, secrets: Secr
 }
 
 async function getOrCreateToken(oystehr: Oystehr, secrets: Secrets | null): Promise<CandidToken> {
+  if (cachedToken && isStillFresh(cachedToken)) return cachedToken;
   if (inflightRefresh) return inflightRefresh;
 
   inflightRefresh = (async () => {
     const stored = await readTokenFromOystehrSecret(oystehr);
     if (stored && isStillFresh(stored)) {
+      cachedToken = stored;
       return stored;
     }
 
     const fresh = await fetchTokenFromCandid(secrets);
     await writeTokenToOystehrSecret(oystehr, fresh);
+    cachedToken = fresh;
     return fresh;
   })().finally(() => {
     inflightRefresh = undefined;
