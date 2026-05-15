@@ -5,11 +5,13 @@ import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedB
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
 import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
+import { RoleType } from 'utils';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
+import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 import AdminCustomFoldersPage from './AdminCustomFoldersPage';
 import MedicationsConfigurationPage from './configuration/MedicationsConfiguration';
@@ -35,6 +37,8 @@ enum PageTab {
 export function AdminPage(): JSX.Element {
   const { adminTab, billingTab, insuranceTab } = useParams();
   const navigate = useNavigate();
+  const evolveUser = useEvolveUser();
+  const isAdmin = evolveUser?.hasRole([RoleType.Administrator]) ?? false;
 
   const pageTab = billingTab ? PageTab.billing : (adminTab as PageTab) || PageTab.schedules;
 
@@ -123,12 +127,14 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['label-printing-config']}`)}
                 />
-                <Tab
-                  label="Docs Folders"
-                  value={PageTab['docs-folders']}
-                  sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab['docs-folders']}`)}
-                />
+                {isAdmin && (
+                  <Tab
+                    label="Docs Folders"
+                    value={PageTab['docs-folders']}
+                    sx={{ textTransform: 'none', fontWeight: 500 }}
+                    onClick={() => navigate(`/admin/${PageTab['docs-folders']}`)}
+                  />
+                )}
               </TabList>
             </Box>
             <ButtonRounded
@@ -177,9 +183,11 @@ export function AdminPage(): JSX.Element {
           <TabPanel value={PageTab['label-printing-config']} sx={{ padding: 0 }}>
             <AdminPrintingConfig />
           </TabPanel>
-          <TabPanel value={PageTab['docs-folders']} sx={{ padding: 0 }}>
-            <AdminCustomFoldersPage />
-          </TabPanel>
+          {isAdmin && (
+            <TabPanel value={PageTab['docs-folders']} sx={{ padding: 0 }}>
+              <AdminCustomFoldersPage />
+            </TabPanel>
+          )}
         </TabContext>
       </Box>
     </PageContainer>
