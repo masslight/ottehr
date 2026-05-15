@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { BundleEntry, Condition, Encounter, List, Patient, Procedure, ServiceRequest } from 'fhir/r4b';
+import { BundleEntry, Condition, Encounter, List, Patient, ServiceRequest } from 'fhir/r4b';
 import {
   AdminCreateTemplateInput,
   AdminCreateTemplateOutput,
@@ -169,31 +169,14 @@ const performEffect = async (
     'on-hold',
     'completed',
   ]);
-  const allInHouseLabServiceRequests = (encounterBundle.entry ?? [])
+  const inHouseLabOrders = (encounterBundle.entry ?? [])
     .map((entry) => entry.resource)
     .filter(
       (resource): resource is ServiceRequest =>
         resource?.resourceType === 'ServiceRequest' &&
-        (resource as ServiceRequest).code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) === true
+        (resource as ServiceRequest).code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) === true &&
+        TEMPLATE_INCLUDABLE_SR_STATUSES.has((resource as ServiceRequest).status)
     );
-  const inHouseLabOrders = allInHouseLabServiceRequests.filter((sr) => TEMPLATE_INCLUDABLE_SR_STATUSES.has(sr.status));
-
-  // delete-in-house-lab-order revokes the lab's ServiceRequest but leaves the
-  // CPT Procedure that came with it intact. That orphan Procedure still carries
-  // the cpt-code meta tag, so without intervention it would survive the
-  // template-relevant filter below and a deleted lab's CPT code would end up in
-  // the saved template's CPT Codes section. Collect the CPT codes belonging to
-  // revoked in-house lab orders so we can drop those Procedures further down.
-  const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
-  const orphanedInHouseCptCodes = new Set<string>();
-  for (const sr of allInHouseLabServiceRequests) {
-    if (TEMPLATE_INCLUDABLE_SR_STATUSES.has(sr.status)) continue;
-    for (const coding of sr.code?.coding ?? []) {
-      if (coding.system === CPT_CODE_SYSTEM && coding.code) {
-        orphanedInHouseCptCodes.add(coding.code);
-      }
-    }
-  }
 
   // Filter to only resources relevant to template sections
   const TEMPLATE_TAG_SYSTEMS = new Set([
@@ -216,17 +199,6 @@ const performEffect = async (
       (entry.resource as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
     ) {
       return true;
-    }
-    // Drop CPT Procedures that came from an in-house lab order the provider
-    // already deleted (see orphanedInHouseCptCodes above).
-    if (
-      entry.resource.resourceType === 'Procedure' &&
-      entry.resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('cpt-code')) &&
-      (entry.resource as Procedure).code?.coding?.some(
-        (c) => c.system === CPT_CODE_SYSTEM && c.code !== undefined && orphanedInHouseCptCodes.has(c.code)
-      )
-    ) {
-      return false;
     }
     // Keep resources with a template-relevant meta tag
     return entry.resource.meta?.tag?.some((tag) => tag.system && TEMPLATE_TAG_SYSTEMS.has(tag.system));
