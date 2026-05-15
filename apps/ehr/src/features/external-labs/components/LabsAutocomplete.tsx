@@ -89,7 +89,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
         blurOnSelect
         size="small"
         options={labs}
-        getOptionLabel={(option) => nameLabTest(option.item.itemName, option.lab.labName, false)}
+        getOptionLabel={(option) => nameLabTest(option.item.itemName, option.item.itemCode, option.lab.labName, false)}
         getOptionKey={(lab) => `${lab.item.uniqueName}${lab.lab.labName}`}
         noOptionsText={
           debouncedLabSearchTerm && labs.length === 0 ? 'No labs based on input' : 'Start typing to load labs'
