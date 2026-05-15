@@ -247,8 +247,8 @@ export const VitalsConfigData = {
           { type: 'max', units: '', value: 31 },
           { type: 'max', units: '', value: 33, criticality: 'critical' },
         ],
-        minAge: { unit: 'years', value: 4 },
-        maxAge: { unit: 'years', value: 6 },
+        minAge: { unit: 'years', value: 3 },
+        maxAge: { unit: 'years', value: 4 },
       },
       {
         rules: [
