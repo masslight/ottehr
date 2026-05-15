@@ -190,13 +190,14 @@ const STATEMENT_TYPE_LABELS: Record<OutreachStatementType, string> = {
   'final-notice': 'Final Notice',
 };
 
-/** Returns the medium keys available to the current environment. */
+/** Returns all medium keys (paper-mail is always listed but may be disabled). */
 function getAvailableMediums(): NotificationMedium[] {
-  const mediums: NotificationMedium[] = ['sms', 'email'];
-  if (FEATURE_FLAGS.MAILING_PAPER_STATEMENTS_ENABLED) {
-    mediums.push('paper-mail');
-  }
-  return mediums;
+  return ['sms', 'email', 'paper-mail'];
+}
+
+/** Whether paper-mail controls should be shown as disabled. */
+function isPaperMailDisabled(): boolean {
+  return !FEATURE_FLAGS.MAILING_PAPER_STATEMENTS_ENABLED;
 }
 
 const ACTION_CHIP_COLORS: Record<ActionType, string> = {
@@ -404,13 +405,25 @@ function MediumCheckboxes({
     <FormGroup row>
       {getAvailableMediums()
         .filter((m) => !excludeMediums.includes(m))
-        .map((m) => (
-          <FormControlLabel
-            key={m}
-            control={<Checkbox size="small" checked={selected.includes(m)} onChange={() => toggle(m)} />}
-            label={MEDIUM_LABELS[m]}
-          />
-        ))}
+        .map((m) => {
+          const disabled = m === 'paper-mail' && isPaperMailDisabled();
+          return (
+            <Tooltip key={m} title={disabled ? 'Paper mail statements feature is not enabled' : ''} placement="top">
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={selected.includes(m)}
+                    onChange={() => toggle(m)}
+                    disabled={disabled}
+                  />
+                }
+                label={MEDIUM_LABELS[m]}
+                disabled={disabled}
+              />
+            </Tooltip>
+          );
+        })}
     </FormGroup>
   );
 }
@@ -459,6 +472,7 @@ function ChannelTabs({
   const isMediumEnabled = (m: NotificationMedium): boolean => config.mediums.includes(m);
 
   const toggleMedium = (m: NotificationMedium, enabled: boolean): void => {
+    if (m === 'paper-mail' && isPaperMailDisabled()) return;
     const mediums = enabled ? [...config.mediums, m] : config.mediums.filter((x) => x !== m);
     const updated = { ...config, mediums };
     if (enabled && m === 'sms' && !updated.smsTemplate) {
@@ -482,81 +496,96 @@ function ChannelTabs({
             sx={{ minHeight: 36 }}
             aria-label="Notification channel tabs"
           >
-            {getAvailableMediums().map((m) => (
-              <Tab
-                key={m}
-                value={m}
-                sx={{ textTransform: 'none', minHeight: 36, py: 0.5 }}
-                label={
-                  <Stack direction="row" alignItems="center" spacing={0.5}>
-                    <Typography variant="body2">{MEDIUM_LABELS[m]}</Typography>
-                    {isMediumEnabled(m) && (
-                      <Chip label="On" size="small" color="success" sx={{ height: 18, fontSize: '0.7rem' }} />
-                    )}
-                  </Stack>
-                }
-              />
-            ))}
+            {getAvailableMediums().map((m) => {
+              const disabled = m === 'paper-mail' && isPaperMailDisabled();
+              return (
+                <Tab
+                  key={m}
+                  value={m}
+                  sx={{ textTransform: 'none', minHeight: 36, py: 0.5, opacity: disabled ? 0.5 : 1 }}
+                  label={
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <Typography variant="body2">{MEDIUM_LABELS[m]}</Typography>
+                      {disabled && (
+                        <Chip label="N/A" size="small" sx={{ height: 18, fontSize: '0.7rem', bgcolor: 'grey.300' }} />
+                      )}
+                      {!disabled && isMediumEnabled(m) && (
+                        <Chip label="On" size="small" color="success" sx={{ height: 18, fontSize: '0.7rem' }} />
+                      )}
+                    </Stack>
+                  }
+                />
+              );
+            })}
           </TabList>
         </Box>
-        {getAvailableMediums().map((m) => (
-          <TabPanel key={m} value={m} sx={{ p: 2 }}>
-            <Stack spacing={2}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    size="small"
-                    checked={isMediumEnabled(m)}
-                    onChange={(e) => toggleMedium(m, e.target.checked)}
+        {getAvailableMediums().map((m) => {
+          const disabled = m === 'paper-mail' && isPaperMailDisabled();
+          return (
+            <TabPanel key={m} value={m} sx={{ p: 2 }}>
+              <Stack spacing={2}>
+                {disabled && (
+                  <Alert severity="info" sx={{ mb: 1 }}>
+                    Paper mail statements feature is not enabled. Enable it in feature flags to use this channel.
+                  </Alert>
+                )}
+                <FormControlLabel
+                  control={
+                    <Switch
+                      size="small"
+                      checked={isMediumEnabled(m)}
+                      onChange={(e) => toggleMedium(m, e.target.checked)}
+                      disabled={disabled}
+                    />
+                  }
+                  label={
+                    <Typography variant="subtitle2">
+                      {isMediumEnabled(m) ? `${MEDIUM_LABELS[m]} enabled` : `${MEDIUM_LABELS[m]} disabled`}
+                    </Typography>
+                  }
+                />
+                {isMediumEnabled(m) && m === 'sms' && (
+                  <OutreachTemplateField
+                    label="SMS Template"
+                    value={config.smsTemplate}
+                    onChange={(smsTemplate) => onChange({ ...config, smsTemplate })}
                   />
-                }
-                label={
-                  <Typography variant="subtitle2">
-                    {isMediumEnabled(m) ? `${MEDIUM_LABELS[m]} enabled` : `${MEDIUM_LABELS[m]} disabled`}
-                  </Typography>
-                }
-              />
-              {isMediumEnabled(m) && m === 'sms' && (
-                <OutreachTemplateField
-                  label="SMS Template"
-                  value={config.smsTemplate}
-                  onChange={(smsTemplate) => onChange({ ...config, smsTemplate })}
-                />
-              )}
-              {isMediumEnabled(m) && m === 'email' && (
-                <OutreachTemplateField
-                  label="Email Template"
-                  value={config.emailTemplate}
-                  onChange={(emailTemplate) => onChange({ ...config, emailTemplate })}
-                  renderHtmlPreview
-                />
-              )}
-              {isMediumEnabled(m) && m === 'paper-mail' && (
-                <Stack spacing={2}>
-                  <Typography variant="body2" color="text.secondary">
-                    A printed statement will be generated and mailed to the patient&apos;s address on file.
-                  </Typography>
-                  <FormControl size="small" sx={{ maxWidth: 250 }}>
-                    <InputLabel>Statement Type</InputLabel>
-                    <Select
-                      value={config.statementType || 'standard'}
-                      label="Statement Type"
-                      onChange={(e: SelectChangeEvent) =>
-                        onChange({ ...config, statementType: e.target.value as OutreachStatementType })
-                      }
-                    >
-                      {(Object.keys(STATEMENT_TYPE_LABELS) as OutreachStatementType[]).map((st) => (
-                        <MenuItem key={st} value={st}>
-                          {STATEMENT_TYPE_LABELS[st]}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Stack>
-              )}
-            </Stack>
-          </TabPanel>
-        ))}
+                )}
+                {isMediumEnabled(m) && m === 'email' && (
+                  <OutreachTemplateField
+                    label="Email Template"
+                    value={config.emailTemplate}
+                    onChange={(emailTemplate) => onChange({ ...config, emailTemplate })}
+                    renderHtmlPreview
+                  />
+                )}
+                {isMediumEnabled(m) && m === 'paper-mail' && (
+                  <Stack spacing={2}>
+                    <Typography variant="body2" color="text.secondary">
+                      A printed statement will be generated and mailed to the patient&apos;s address on file.
+                    </Typography>
+                    <FormControl size="small" sx={{ maxWidth: 250 }}>
+                      <InputLabel>Statement Type</InputLabel>
+                      <Select
+                        value={config.statementType || 'standard'}
+                        label="Statement Type"
+                        onChange={(e: SelectChangeEvent) =>
+                          onChange({ ...config, statementType: e.target.value as OutreachStatementType })
+                        }
+                      >
+                        {(Object.keys(STATEMENT_TYPE_LABELS) as OutreachStatementType[]).map((st) => (
+                          <MenuItem key={st} value={st}>
+                            {STATEMENT_TYPE_LABELS[st]}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Stack>
+                )}
+              </Stack>
+            </TabPanel>
+          );
+        })}
       </TabContext>
     </Box>
   );
@@ -903,6 +932,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
   const pageTab = (outreachTab === 'tracker' ? 'tasks-report' : 'configuration') as 'configuration' | 'tasks-report';
   const { data: outreachConfigData, isLoading, error: loadError } = useGetOutreachConfigQuery();
   const saveMutation = useSaveOutreachConfigMutation();
+  const outreachEnabled = FEATURE_FLAGS.AUTOMATED_PATIENT_OUTREACH_ENABLED;
   const [actions, setActions] = React.useState<OutreachAction[]>([]);
   const [hasLoadedFromServer, setHasLoadedFromServer] = React.useState(false);
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
@@ -1048,13 +1078,18 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
         </Box>
         {pageTab === 'configuration' && (
           <Stack direction="row" spacing={1}>
-            <IconButton onClick={() => setSettingsDialogOpen(true)} sx={{ color: 'primary.main' }}>
+            <IconButton
+              onClick={() => setSettingsDialogOpen(true)}
+              sx={{ color: 'primary.main' }}
+              disabled={!outreachEnabled}
+            >
               <SettingsOutlinedIcon />
             </IconButton>
             <Button
               variant="outlined"
               startIcon={<AddIcon />}
               onClick={() => setAddDialogOpen(true)}
+              disabled={!outreachEnabled}
               sx={{ textTransform: 'none', borderRadius: 100 }}
             >
               Add Action
@@ -1062,7 +1097,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
             <Button
               variant="contained"
               onClick={handleSave}
-              disabled={saveMutation.isPending}
+              disabled={!outreachEnabled || saveMutation.isPending}
               sx={{ textTransform: 'none', borderRadius: 100 }}
             >
               {saveMutation.isPending ? <CircularProgress size={18} color="inherit" /> : 'Save'}
@@ -1091,6 +1126,13 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
 
       {pageTab === 'configuration' && (
         <>
+          {!outreachEnabled && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Automated patient outreach is not available for your organization. To enable this feature, please contact
+              your Customer Success team.
+            </Alert>
+          )}
+
           {/* ── Event Type Filter & Controls ──────────────────────────────── */}
           {sortedActions.length > 0 && (
             <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
@@ -1736,7 +1778,12 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
               <Button onClick={() => setAddDialogOpen(false)} sx={{ textTransform: 'none' }}>
                 Cancel
               </Button>
-              <Button variant="contained" onClick={handleAddAction} sx={{ textTransform: 'none' }}>
+              <Button
+                variant="contained"
+                onClick={handleAddAction}
+                disabled={!outreachEnabled}
+                sx={{ textTransform: 'none' }}
+              >
                 Add
               </Button>
             </DialogActions>

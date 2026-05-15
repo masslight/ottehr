@@ -4,6 +4,7 @@ import { Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   convertOutreachTextToHtml,
+  FEATURE_FLAGS_CONFIG,
   getFullestAvailableName,
   getPatientContactEmail,
   getSecret,
@@ -89,6 +90,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             results.push({ medium, success: true });
             break;
           case 'paper-mail': {
+            if (!FEATURE_FLAGS_CONFIG.mailingPaperStatementsEnabled) {
+              console.error(
+                `[Paper Mail] Paper mail statements feature is disabled but task ${task.id} requested paper-mail for patient ${patientRef}. Marking medium as failed.`
+              );
+              results.push({ medium, success: false, error: 'Paper mail statements feature is disabled' });
+              break;
+            }
             const statementType = extractInputValue(task, 'statement-type') || 'standard';
             await sendPaperMail(task, statementType, oystehr, input.secrets);
             console.log(`[Paper Mail] Successfully created paper mail task for task ${task.id}, patient ${patientRef}`);
