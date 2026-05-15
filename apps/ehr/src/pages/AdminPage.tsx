@@ -5,6 +5,7 @@ import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedB
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
 import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
+import SupportDialogAdminPage from 'src/features/visits/telemed/components/admin/support-dialog/SupportDialogAdminPage';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
@@ -30,6 +31,7 @@ enum PageTab {
   'em-codes' = 'em-codes',
   'lab-sets' = 'lab-sets',
   'docs-folders' = 'docs-folders',
+  'support-dialog' = 'support-dialog',
 }
 
 export function AdminPage(): JSX.Element {
@@ -43,8 +45,14 @@ export function AdminPage(): JSX.Element {
       <Box sx={{ width: '100%', marginTop: 3 }}>
         <TabContext value={pageTab}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-            <Box sx={{ flex: 1, borderBottom: 1, borderColor: 'divider' }}>
-              <TabList onChange={() => {}} aria-label={`${pageTab} page`}>
+            <Box sx={{ flex: 1, minWidth: 0, borderBottom: 1, borderColor: 'divider' }}>
+              <TabList
+                onChange={() => {}}
+                aria-label={`${pageTab} page`}
+                variant="scrollable"
+                scrollButtons="auto"
+                allowScrollButtonsMobile
+              >
                 <Tab
                   label="Schedules"
                   value={PageTab.schedules}
@@ -123,6 +131,12 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['docs-folders']}`)}
                 />
+                <Tab
+                  label="Support Dialog"
+                  value={PageTab['support-dialog']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['support-dialog']}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -173,6 +187,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['docs-folders']} sx={{ padding: 0 }}>
             <AdminCustomFoldersPage />
+          </TabPanel>
+          <TabPanel value={PageTab['support-dialog']} sx={{ padding: 0 }}>
+            <SupportDialogAdminPage />
           </TabPanel>
         </TabContext>
       </Box>

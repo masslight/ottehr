@@ -30,6 +30,7 @@ export interface ScheduleOwnerListItem {
   name: string;
   address?: string;
   hours?: string;
+  supportPhoneNumber?: string;
 }
 
 export interface ScheduleListItem {

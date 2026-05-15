@@ -29,6 +29,17 @@ const LOCATION_DATA: LocationConfig = {
 
 export const LOCATION_CONFIG = Object.freeze(LOCATION_DATA);
 
+let runtimeSupportPhoneOverrides: Record<string, string> | undefined;
+let runtimeDefaultSupportPhone: string | undefined;
+
+export function setLocationSupportPhoneOverrides(
+  phonesByLocationName: Record<string, string>,
+  defaultSupportPhone?: string
+): void {
+  runtimeSupportPhoneOverrides = phonesByLocationName;
+  runtimeDefaultSupportPhone = defaultSupportPhone;
+}
+
 function getNormalizedSupportScheduleGroups(): Array<{ hoursLines: string[]; locations: string[] }> {
   return (LOCATION_CONFIG.supportScheduleGroups ?? []).map((group) => ({
     hoursLines: group.hoursLines ?? [group.hours ?? DEFAULT_SUPPORT_HOURS],
@@ -99,14 +110,17 @@ function resolveSupportDialogRows(
 
 export function getSupportPhoneFor(locationName?: string): string | undefined {
   const { locationSupportPhoneNumberMap, supportPhoneNumber } = LOCATION_CONFIG;
+  const defaultPhone = runtimeDefaultSupportPhone ?? supportPhoneNumber;
 
   if (!locationName) {
-    return supportPhoneNumber;
+    return defaultPhone;
   }
 
-  const phoneFromMap = locationSupportPhoneNumberMap?.[locationName];
+  const phoneFromOverrides = runtimeSupportPhoneOverrides?.[locationName];
+  if (phoneFromOverrides) return phoneFromOverrides;
 
-  return phoneFromMap || supportPhoneNumber;
+  const phoneFromMap = locationSupportPhoneNumberMap?.[locationName];
+  return phoneFromMap || defaultPhone;
 }
 
 export function getSupportDialog(): ResolvedSupportDialog {

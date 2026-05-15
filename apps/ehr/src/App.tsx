@@ -37,6 +37,7 @@ import ProcedureQuickPickDetailPage from './features/visits/telemed/components/a
 import RadiologyQuickPickDetailPage from './features/visits/telemed/components/admin/RadiologyQuickPickDetailPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
+import { useHydrateLocationSupportPhones } from './hooks/useHydrateLocationSupportPhones';
 import AddEmployeePage from './pages/AddEmployeePage';
 import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
@@ -101,6 +102,7 @@ export const showEnvironmentBanner = import.meta.env.VITE_APP_ENV !== 'productio
 
 function App(): ReactElement {
   useApiClients();
+  useHydrateLocationSupportPhones();
   const currentUser = useEvolveUser();
   const currentTab = useNavStore((state) => state.currentTab) || 'In Person';
   const [isModalOpen, setIsModalOpen] = useState(false);
