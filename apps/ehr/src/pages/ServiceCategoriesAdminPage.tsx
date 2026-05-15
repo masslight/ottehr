@@ -121,7 +121,11 @@ const ServiceCategoryDialog: FC<{
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{initial?.id ? 'Edit Service' : 'New Service'}</DialogTitle>
+      <DialogTitle>
+        <Typography variant="h4" color="primary.dark">
+          {initial?.id ? 'Edit Service' : 'New Service'}
+        </Typography>
+      </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           <TextField
@@ -165,7 +169,7 @@ const ServiceCategoryDialog: FC<{
               }));
             }}
             error={value.config.durationMinutes < 1}
-            helperText={value.config.durationMinutes < 1 ? 'Must be at least 1 minute' : ' '}
+            helperText={value.config.durationMinutes < 1 ? 'Must be at least 1 minute' : undefined}
             size="small"
             fullWidth
           />
@@ -376,9 +380,11 @@ export const ServiceCategoriesAdminPage: FC = () => {
   }, [data?.serviceCategories]);
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h5">Services</Typography>
+    <Paper sx={{ padding: 2, marginTop: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: '8px' }}>
+        <Typography variant="h4" color="primary.dark">
+          Services
+        </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -408,7 +414,7 @@ export const ServiceCategoriesAdminPage: FC = () => {
           </Typography>
         </Paper>
       ) : (
-        <TableContainer component={Paper}>
+        <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
@@ -449,14 +455,18 @@ export const ServiceCategoriesAdminPage: FC = () => {
                     {sc.systemManaged ? '—' : sc.config.cadenceMinutes ? `${sc.config.cadenceMinutes} min` : 'default'}
                   </TableCell>
                   <TableCell>
-                    {sc.config.serviceModes.map((m) => (
-                      <Chip key={m} label={m} size="small" sx={{ mr: 0.5 }} />
-                    ))}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {sc.config.serviceModes.map((m) => (
+                        <Chip key={m} label={m} size="small" sx={{ textTransform: 'capitalize' }} />
+                      ))}
+                    </Box>
                   </TableCell>
                   <TableCell>
-                    {sc.config.visitTypes.map((t) => (
-                      <Chip key={t} label={t} size="small" sx={{ mr: 0.5 }} />
-                    ))}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {sc.config.visitTypes.map((t) => (
+                        <Chip key={t} label={t} size="small" sx={{ textTransform: 'capitalize' }} />
+                      ))}
+                    </Box>
                   </TableCell>
                   <TableCell align="center">
                     {sc.systemManaged ? (
@@ -465,9 +475,9 @@ export const ServiceCategoriesAdminPage: FC = () => {
                       </Tooltip>
                     ) : (
                       <Chip
-                        label={sc.active ? 'active' : 'inactive'}
+                        label={sc.active ? 'Active' : 'Inactive'}
                         size="small"
-                        color={sc.active ? 'success' : 'default'}
+                        color={sc.active ? 'success' : 'error'}
                       />
                     )}
                   </TableCell>
@@ -511,7 +521,7 @@ export const ServiceCategoriesAdminPage: FC = () => {
         }}
         onSubmit={handleSubmit}
       />
-    </Box>
+    </Paper>
   );
 };
 
