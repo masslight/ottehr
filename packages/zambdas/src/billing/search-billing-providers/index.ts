@@ -54,6 +54,7 @@ async function performEffect(
     EXCLUDE_WORKING_COPIES_PARAM,
   ];
 
+  // TODO: rendering providers may need to support Organization in addition to Practitioner
   if (params.providerType === 'rendering') {
     const bundle = await oystehr.fhir.search<Practitioner>({ resourceType: 'Practitioner', params: searchParams });
     const items = bundle.unbundle().map(mapPractitioner);

@@ -5,6 +5,18 @@ import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../sha
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, fhirName, formatAddress } from '../shared';
 import { SearchBillingPatientsParams, validateRequestParameters } from './validateRequestParameters';
 
+interface PatientSearchItem {
+  id: string | undefined;
+  name: string;
+  firstName: string;
+  lastName: string;
+  dob: string;
+  gender: string;
+  address: string;
+  mrn: string;
+  identifiers: { system: string | undefined; value: string | undefined }[];
+}
+
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-patients';
 
@@ -17,7 +29,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: SearchBillingPatientsParams): Promise<{ patients: unknown[] }> {
+async function performEffect(
+  oystehr: Oystehr,
+  params: SearchBillingPatientsParams
+): Promise<{ patients: PatientSearchItem[] }> {
   const hasSearch = params.name || params.dob || params.identifier || params.uuid;
 
   const searchParams: { name: string; value: string }[] = [

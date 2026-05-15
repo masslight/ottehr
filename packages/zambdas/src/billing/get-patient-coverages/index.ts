@@ -6,6 +6,15 @@ import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../sha
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM } from '../shared';
 import { GetPatientCoveragesParams, validateRequestParameters } from './validateRequestParameters';
 
+interface CoverageItem {
+  id: string | undefined;
+  status: string;
+  subscriberId: string;
+  payorName: string;
+  payorId: string;
+  payorFhirId: string;
+}
+
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-patient-coverages';
 
@@ -19,7 +28,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 // TODO: Coverage.payor will move to external Oystehr payer refs (#6603)
-async function performEffect(oystehr: Oystehr, params: GetPatientCoveragesParams): Promise<{ coverages: unknown[] }> {
+async function performEffect(
+  oystehr: Oystehr,
+  params: GetPatientCoveragesParams
+): Promise<{ coverages: CoverageItem[] }> {
   const response = await oystehr.fhir.search<Coverage | Organization>({
     resourceType: 'Coverage',
     params: [

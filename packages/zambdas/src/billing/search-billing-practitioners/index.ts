@@ -6,6 +6,15 @@ import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../sha
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, fhirName } from '../shared';
 import { SearchBillingPractitionersParams, validateRequestParameters } from './validateRequestParameters';
 
+interface PractitionerSearchItem {
+  id: string | undefined;
+  name: string;
+  firstName: string;
+  lastName: string;
+  npi: string;
+  taxonomy: string;
+}
+
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-practitioners';
 
@@ -21,7 +30,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingPractitionersParams
-): Promise<{ practitioners: unknown[] }> {
+): Promise<{ practitioners: PractitionerSearchItem[] }> {
   const searchParams: { name: string; value: string }[] = [
     { name: '_count', value: '50' },
     { name: '_sort', value: 'family' },

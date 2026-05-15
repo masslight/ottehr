@@ -6,6 +6,13 @@ import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../sha
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, formatAddress } from '../shared';
 import { SearchBillingLocationsParams, validateRequestParameters } from './validateRequestParameters';
 
+interface LocationSearchItem {
+  id: string | undefined;
+  name: string;
+  npi: string;
+  address: string;
+}
+
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-locations';
 
@@ -21,7 +28,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingLocationsParams
-): Promise<{ locations: unknown[] }> {
+): Promise<{ locations: LocationSearchItem[] }> {
+  // TODO: add pagination support
   const searchParams: { name: string; value: string }[] = [
     { name: '_count', value: '50' },
     { name: '_sort', value: 'name' },
