@@ -33,6 +33,7 @@ import {
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   Secrets,
 } from 'utils';
+import { validate } from 'uuid';
 import {
   createExternalLabsOrderFormPDF,
   getOrderFormDataConfig,
@@ -306,7 +307,7 @@ function makeLocationPromise(
     .then((location) => ({ serviceRequestID, location }));
 }
 
-function makeCoveragePromise(
+async function makeCoveragePromise(
   oystehr: Oystehr,
   serviceRequestID: string,
   patientIDToValidate: string | undefined,
@@ -318,50 +319,112 @@ function makeCoveragePromise(
   }
 
   const coverageIDs = insuranceRefs.map((ref) => ref.replace('Coverage/', ''));
-  return oystehr.fhir
-    .search<Coverage | Organization | Patient>({
-      resourceType: 'Coverage',
-      params: [
-        { name: '_id', value: coverageIDs.join(',') || 'UNKNOWN' },
-        { name: '_include', value: 'Coverage:payor' },
-        { name: '_include', value: 'Coverage:beneficiary' },
-      ],
-    })
-    .then((bundle) => {
-      const unbundledResults = bundle.unbundle();
-      const coverages = unbundledResults.filter((resource) => resource.resourceType === 'Coverage');
-      if (!coverages.length) throw EXTERNAL_LAB_ERROR('no coverage found');
+  const coveragesAndOrgs = (
+    await Promise.all(
+      coverageIDs.map(async (coverageId) => {
+        const unbundledResults = (
+          await oystehr.fhir.search<Coverage | Organization | Patient>({
+            resourceType: 'Coverage',
+            params: [
+              { name: '_id', value: coverageId || 'UNKNOWN' },
+              { name: '_include', value: 'Coverage:payor' },
+              { name: '_include', value: 'Coverage:beneficiary' },
+            ],
+          })
+        ).unbundle();
+        const coverage = unbundledResults.filter((resource) => resource.resourceType === 'Coverage')[0];
+        if (!coverage) throw EXTERNAL_LAB_ERROR(`no coverage found for id ${coverageId}`);
 
-      const insuranceOrganizations = unbundledResults.filter((resource) => resource.resourceType === 'Organization');
-      if (!insuranceOrganizations.length) throw EXTERNAL_LAB_ERROR('organizations for insurance were not found');
-      const payorRefToOrgMap = new Map<string, Organization>(
-        insuranceOrganizations.map((org) => [`Organization/${org.id}`, org])
-      );
+        const coveragePatients = unbundledResults.filter((resource) => resource.resourceType === 'Patient');
+        if (coveragePatients.length !== 1)
+          throw EXTERNAL_LAB_ERROR('Found multiple patients when querying insurance info');
+        const coveragePatient = coveragePatients[0];
 
-      const coveragePatients = unbundledResults.filter((resource) => resource.resourceType === 'Patient');
-      if (coveragePatients.length !== 1)
-        throw EXTERNAL_LAB_ERROR('Found multiple patients when querying insurance info');
-      const coveragePatient = coveragePatients[0];
+        if (!coveragePatient || coveragePatient?.id !== patientIDToValidate) {
+          throw Error(
+            `The coverage beneficiary does not match the patient from the service request. Coverage patient id: ${coveragePatient?.id}. ServiceRequest patient id: ${patientIDToValidate} `
+          );
+        }
 
-      if (!coveragePatient || coveragePatient?.id !== patientIDToValidate) {
-        throw Error(
-          `The coverage beneficiary does not match the patient from the service request. Coverage patient id: ${coveragePatient?.id}. ServiceRequest patient id: ${patientIDToValidate} `
-        );
-      }
+        // map the coverage to its payor
+        let payorOrg: Organization | undefined;
+        const payorReference = coverage.payor[0].reference;
+        if (!payorReference) throw EXTERNAL_LAB_ERROR(`No payor reference found for Coverage/${coverage.id}`);
+        const payorReferenceMaybeUuid = payorReference.replace('Organization/', '');
+        if (validate(payorReferenceMaybeUuid)) {
+          payorOrg = unbundledResults.find(
+            (res): res is Organization => res.resourceType === 'Organization' && res.id === payorReferenceMaybeUuid
+          );
+        } else {
+          // grab the rcm reference
+          try {
+            console.log(`querying rcm for payor at url`, payorReference);
+            payorOrg = await oystehr.rcm.getPayerByUrl({ url: payorReference });
+          } catch (error) {
+            console.error(`Unable to query rcm payor at url ${payorReference}. Error: `, error);
+            throw EXTERNAL_LAB_ERROR(
+              `Unable to query rcm payor at url ${payorReference} for Coverage/${coverageId}. Ensure the payor is properly configured `
+            );
+          }
+        }
 
-      // map the coverage to its payor
-      const coveragesAndOrgs = coverages.map((coverage) => {
-        const orgRef = coverage.payor.length ? coverage.payor[0].reference : '';
-        const org = payorRefToOrgMap.get(orgRef ?? '');
-        if (!org) throw EXTERNAL_LAB_ERROR(`No payor found for Coverage/${coverage.id}`);
+        if (!payorOrg)
+          throw EXTERNAL_LAB_ERROR(`Payor organization for insurance were not found, Coverage/${coverageId}`);
+
         return {
           coverage,
-          payorOrg: org,
+          payorOrg,
         };
-      });
+      })
+    )
+  ).flatMap((arr) => arr);
 
-      return { serviceRequestID, coveragesAndOrgs };
-    });
+  return { serviceRequestID, coveragesAndOrgs };
+
+  // return oystehr.fhir
+  //   .search<Coverage | Organization | Patient>({
+  //     resourceType: 'Coverage',
+  //     params: [
+  //       { name: '_id', value: coverageIDs.join(',') || 'UNKNOWN' },
+  //       { name: '_include', value: 'Coverage:payor' },
+  //       { name: '_include', value: 'Coverage:beneficiary' },
+  //     ],
+  //   })
+  //   .then((bundle) => {
+  //     const unbundledResults = bundle.unbundle();
+  //     const coverages = unbundledResults.filter((resource) => resource.resourceType === 'Coverage');
+  //     if (!coverages.length) throw EXTERNAL_LAB_ERROR('no coverage found');
+
+  //     const insuranceOrganizations = unbundledResults.filter((resource) => resource.resourceType === 'Organization');
+  //     if (!insuranceOrganizations.length) throw EXTERNAL_LAB_ERROR('organizations for insurance were not found');
+  //     const payorRefToOrgMap = new Map<string, Organization>(
+  //       insuranceOrganizations.map((org) => [`Organization/${org.id}`, org])
+  //     );
+
+  //     const coveragePatients = unbundledResults.filter((resource) => resource.resourceType === 'Patient');
+  //     if (coveragePatients.length !== 1)
+  //       throw EXTERNAL_LAB_ERROR('Found multiple patients when querying insurance info');
+  //     const coveragePatient = coveragePatients[0];
+
+  //     if (!coveragePatient || coveragePatient?.id !== patientIDToValidate) {
+  //       throw Error(
+  //         `The coverage beneficiary does not match the patient from the service request. Coverage patient id: ${coveragePatient?.id}. ServiceRequest patient id: ${patientIDToValidate} `
+  //       );
+  //     }
+
+  //     // map the coverage to its payor
+  //     const coveragesAndOrgs = coverages.map((coverage) => {
+  //       const orgRef = coverage.payor.length ? coverage.payor[0].reference : '';
+  //       const org = payorRefToOrgMap.get(orgRef ?? '');
+  //       if (!org) throw EXTERNAL_LAB_ERROR(`No payor found for Coverage/${coverage.id}`);
+  //       return {
+  //         coverage,
+  //         payorOrg: org,
+  //       };
+  //     });
+
+  //     return { serviceRequestID, coveragesAndOrgs };
+  //   });
 }
 
 function makeQuestionnairePromise(
