@@ -159,29 +159,12 @@ const performEffect = async (
     'on-hold',
     'completed',
   ]);
-  const allInHouseLabServiceRequests = (encounterBundle ?? []).filter(
+  const inHouseLabOrders = (encounterBundle ?? []).filter(
     (resource): resource is ServiceRequest =>
       resource?.resourceType === 'ServiceRequest' &&
-      (resource as ServiceRequest).code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) === true
+      (resource as ServiceRequest).code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) === true &&
+      TEMPLATE_INCLUDABLE_SR_STATUSES.has((resource as ServiceRequest).status)
   );
-  const inHouseLabOrders = allInHouseLabServiceRequests.filter((sr) => TEMPLATE_INCLUDABLE_SR_STATUSES.has(sr.status));
-
-  // delete-in-house-lab-order revokes the lab's ServiceRequest but leaves the
-  // CPT Procedure that came with it intact. That orphan Procedure still carries
-  // the cpt-code meta tag, so without intervention it would survive the
-  // template-relevant filter below and a deleted lab's CPT code would end up in
-  // the saved template's CPT Codes section. Collect the CPT codes belonging to
-  // revoked in-house lab orders so we can drop those Procedures further down.
-  const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
-  const orphanedInHouseCptCodes = new Set<string>();
-  for (const sr of allInHouseLabServiceRequests) {
-    if (TEMPLATE_INCLUDABLE_SR_STATUSES.has(sr.status)) continue;
-    for (const coding of sr.code?.coding ?? []) {
-      if (coding.system === CPT_CODE_SYSTEM && coding.code) {
-        orphanedInHouseCptCodes.add(coding.code);
-      }
-    }
-  }
 
   // Filter to only resources relevant to template sections
   const diagnosesRefFromEncounterSet = new Set(
@@ -194,7 +177,7 @@ const performEffect = async (
 
   // Keep only the Encounter and resources tagged as template content. See TEMPLATE_TAG_SYSTEMS for the allow-list.
   encounterBundle = filterEntriesToTemplateContent(encounterBundle, diagnosesRefFromEncounterSet);
-  // ATHENA TODO: need to add this procedure and cpt stuff to the filterEntriesToTemplateContent
+  // ATHENA TODO: need to add this procedure and cpt stuff to the filterEntriesToTemplateContent jk that got reverted so maybe not
   // encounterBundle.entry = encounterBundle.entry.filter((entry) => {
   //   if (!entry.resource || entry.resource.resourceType === 'Encounter') return true;
   //   // Keep ICD-10 Conditions (Assessment / Diagnoses)
