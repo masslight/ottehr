@@ -33,6 +33,10 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import {
+  indexLatestActivityDefinitionsByUrl,
+  urlFromInstantiatesCanonical,
+} from '../../shared/in-house-lab/resolve-activity-definition';
 import { analyzeTemplateVersionData, isDiagnosisCondition, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -289,15 +293,17 @@ const performEffect = async (
       resourceHasTagSystem(r, inHouseLabPlanTagSystem)
   );
 
+  // Saved plans store the AD canonical without a version suffix so templates
+  // float forward as new AD versions are published. Older templates may carry
+  // a versioned canonical; we strip the version for the search either way and
+  // pick the latest semver match below.
   const canonicalRefs = Array.from(
     new Set(inHouseLabPlans.flatMap((p) => p.instantiatesCanonical ?? []).filter((ref): ref is string => Boolean(ref)))
   );
 
-  // Map canonical URL (with or without the |version suffix) -> AD so we can resolve
-  // each plan back to its test name.
-  const adByCanonical = new Map<string, ActivityDefinition>();
+  let adByUrl = new Map<string, ActivityDefinition>();
   if (canonicalRefs.length > 0) {
-    const urlsToSearch = Array.from(new Set(canonicalRefs.map((ref) => ref.split('|')[0])));
+    const urlsToSearch = Array.from(new Set(canonicalRefs.map(urlFromInstantiatesCanonical)));
     try {
       const ads = (
         await oystehr.fhir.search<ActivityDefinition>({
@@ -305,12 +311,7 @@ const performEffect = async (
           params: [{ name: 'url', value: urlsToSearch.join(',') }],
         })
       ).unbundle() as ActivityDefinition[];
-      for (const ad of ads) {
-        if (ad.url) {
-          adByCanonical.set(ad.url, ad);
-          if (ad.version) adByCanonical.set(`${ad.url}|${ad.version}`, ad);
-        }
-      }
+      adByUrl = indexLatestActivityDefinitionsByUrl(ads);
     } catch (err) {
       console.warn('Could not resolve ActivityDefinitions for in-house lab plans:', err);
     }
@@ -318,7 +319,7 @@ const performEffect = async (
 
   const inHouseLabs: TemplateInHouseLabPlan[] = inHouseLabPlans.map((plan) => {
     const canonical = plan.instantiatesCanonical?.[0] ?? '';
-    const ad = adByCanonical.get(canonical) ?? adByCanonical.get(canonical.split('|')[0]);
+    const ad = canonical ? adByUrl.get(urlFromInstantiatesCanonical(canonical)) : undefined;
     const inHouseCoding = plan.code?.coding?.find((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM);
     const diagnoses: TemplateCodeInfo[] = (plan.reasonCode ?? [])
       .map((rc) => {

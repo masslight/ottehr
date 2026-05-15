@@ -11,6 +11,10 @@ import {
 } from 'utils';
 import { makeRequestsForCreateInHouseLabs } from '../../shared/in-house-lab/build-order';
 import { gatherInHouseLabOrderContext } from '../../shared/in-house-lab/gather-context';
+import {
+  indexLatestActivityDefinitionsByUrl,
+  urlFromInstantiatesCanonical,
+} from '../../shared/in-house-lab/resolve-activity-definition';
 
 const PLAN_TAG_SYSTEM = chartDataTagSystem('in-house-lab-template-plan');
 
@@ -78,12 +82,16 @@ export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Pr
   );
   if (plans.length === 0) return { warnings: [] };
 
+  // Canonical references on saved plans are version-less (newer templates) or
+  // versioned (older templates). Either way we look up by url only and select
+  // the latest semver below, so the global template floats forward as the AD
+  // gets new versions.
   const uniqueCanonicalUrls = Array.from(
     new Set(
       plans
         .flatMap((p) => p.instantiatesCanonical ?? [])
         .filter((ref): ref is string => Boolean(ref))
-        .map((ref) => ref.split('|')[0])
+        .map(urlFromInstantiatesCanonical)
     )
   );
 
@@ -100,20 +108,14 @@ export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Pr
           .then((res) => res.unbundle()) as Promise<ActivityDefinition[]>),
   ]);
 
-  const adByCanonical = new Map<string, ActivityDefinition>();
-  for (const ad of adResults) {
-    if (ad.url) {
-      adByCanonical.set(ad.url, ad);
-      if (ad.version) adByCanonical.set(`${ad.url}|${ad.version}`, ad);
-    }
-  }
+  const adByUrl = indexLatestActivityDefinitionsByUrl(adResults);
 
   const warnings: ApplyTemplateWarning[] = [];
   const transactionRequests: ReturnType<typeof makeRequestsForCreateInHouseLabs> = [];
 
   for (const plan of plans) {
     const canonical = plan.instantiatesCanonical?.[0];
-    const ad = canonical ? adByCanonical.get(canonical) ?? adByCanonical.get(canonical.split('|')[0]) : undefined;
+    const ad = canonical ? adByUrl.get(urlFromInstantiatesCanonical(canonical)) : undefined;
 
     if (!ad || !ad.id || !ad.url) {
       warnings.push({

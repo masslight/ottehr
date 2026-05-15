@@ -428,11 +428,6 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                         </Typography>
                       ) : null}
                     </Stack>
-                    {plan.activityDefinitionRef ? (
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                        {plan.activityDefinitionRef}
-                      </Typography>
-                    ) : null}
                     {plan.diagnoses.length > 0 ? (
                       <Typography variant="body2" sx={{ mt: 0.5 }}>
                         <strong>Diagnoses:</strong>{' '}
