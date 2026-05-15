@@ -92,9 +92,8 @@ jobs:
 
       - name: Upload results to S3
         if: always()
-        env:
-          BUCKET: ${{ vars.AI_METRICS_BUCKET }}
         run: |
+          BUCKET="ottehr-ai-accuracy"
           TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
 
           for f in /tmp/results-*.json; do
