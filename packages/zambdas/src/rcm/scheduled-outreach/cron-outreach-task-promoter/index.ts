@@ -61,6 +61,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       continue;
     }
 
+    // Stagger promotions with a randomized delay to avoid thundering-herd on executors
+    if (promoted > 0) {
+      const delayMs = Math.floor(Math.random() * 1250) + 250; // 250–1500ms
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
     // Promote: draft → requested
     await oystehr.fhir.patch<Task>({
       resourceType: 'Task',

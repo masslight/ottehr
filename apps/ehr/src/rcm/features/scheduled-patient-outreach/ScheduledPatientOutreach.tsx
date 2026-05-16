@@ -1181,9 +1181,23 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
     <Box sx={{ mt: 2 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h3" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-            Patient Outreach, Collections and Automation
-          </Typography>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Typography variant="h3" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+              Patient Outreach, Collections and Automation
+            </Typography>
+            <Chip
+              label="Beta"
+              size="small"
+              sx={{
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                height: 22,
+                bgcolor: '#e3f2fd',
+                color: '#1565c0',
+                letterSpacing: '0.05em',
+              }}
+            />
+          </Stack>
           <Typography variant="body2" color="text.secondary">
             Configure automated outreach and collection actions triggered relative to billing events. Actions execute in
             order of days from the trigger event.
