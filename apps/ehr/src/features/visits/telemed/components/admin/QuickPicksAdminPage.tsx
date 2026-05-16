@@ -34,6 +34,7 @@ import {
   useICD10SearchNew,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useMergedInsuranceQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import {
   AllergyQuickPickData,
   InsuranceQuickPickData,
@@ -285,7 +286,13 @@ const InsuranceSearchField: React.FC<{
     staleTime: 5 * 60 * 1000,
   });
 
-  const options = payers ?? [];
+  const { quickPicks: existingPicks, loading: existingLoading } = useMergedInsuranceQuickPicks();
+  const existingReferences = useMemo(() => new Set(existingPicks.map((p) => p.organizationReference)), [existingPicks]);
+
+  const options = useMemo(
+    () => (payers ?? []).filter((p) => !existingReferences.has(p.reference ?? '')),
+    [payers, existingReferences]
+  );
   const selectedOption = value
     ? options.find((opt) => opt.display === value) ?? ({ display: value } as Reference)
     : null;
@@ -312,9 +319,9 @@ const InsuranceSearchField: React.FC<{
       getOptionLabel={(option) => option.display ?? ''}
       isOptionEqualToValue={(option, val) => option.reference === val.reference}
       options={options}
-      loading={isFetching}
+      loading={isFetching || existingLoading}
       fullWidth
-      noOptionsText={isFetching ? 'Loading payers…' : 'No matching payers'}
+      noOptionsText={isFetching || existingLoading ? 'Loading payers…' : 'No matching payers'}
       renderInput={(params) => (
         <TextField
           {...params}
