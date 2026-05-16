@@ -22,6 +22,7 @@ export const InsuranceCarrierQuickPicks: FC<InsuranceCarrierQuickPicksProps> = (
       getLabel={(pick) => pick.name}
       onSelect={handleSelect}
       searchable
+      label="Insurance Carrier Quick Picks"
     />
   );
 };

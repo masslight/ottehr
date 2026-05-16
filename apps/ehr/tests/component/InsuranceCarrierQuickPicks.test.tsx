@@ -48,7 +48,7 @@ describe('InsuranceCarrierQuickPicks', () => {
       </Harness>
     );
 
-    expect(screen.queryByRole('button', { name: /quick picks/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /insurance carrier quick picks/i })).not.toBeInTheDocument();
   });
 
   it('sets the carrier field to a Reference when a quick pick is selected', async () => {
@@ -61,7 +61,7 @@ describe('InsuranceCarrierQuickPicks', () => {
       </Harness>
     );
 
-    await user.click(screen.getByRole('button', { name: /quick picks/i }));
+    await user.click(screen.getByRole('button', { name: /insurance carrier quick picks/i }));
     await user.click(screen.getByRole('menuitem', { name: 'AET-002 - Aetna' }));
 
     expect(screen.getByTestId('form-value').textContent).toBe(
