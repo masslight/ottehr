@@ -1,3 +1,4 @@
+import { Box } from '@mui/material';
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useMergedInsuranceQuickPicks } from 'src/hooks/useMergedQuickPicks';
@@ -17,12 +18,15 @@ export const InsuranceCarrierQuickPicks: FC<InsuranceCarrierQuickPicksProps> = (
   };
 
   return (
-    <QuickPicksButton<InsuranceQuickPickData>
-      quickPicks={quickPicks}
-      getLabel={(pick) => pick.name}
-      onSelect={handleSelect}
-      searchable
-      label="Insurance Carrier Quick Picks"
-    />
+    // Pull the button visually closer to the Insurance carrier field it controls.
+    <Box sx={{ mb: -1.5 }}>
+      <QuickPicksButton<InsuranceQuickPickData>
+        quickPicks={quickPicks}
+        getLabel={(pick) => pick.name}
+        onSelect={handleSelect}
+        searchable
+        label="Insurance Carrier Quick Picks"
+      />
+    </Box>
   );
 };
