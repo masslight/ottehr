@@ -18,15 +18,19 @@ export const InsuranceCarrierQuickPicks: FC<InsuranceCarrierQuickPicksProps> = (
   };
 
   return (
-    // Pull the button visually closer to the Insurance carrier field it controls.
-    <Box sx={{ mb: -1.5 }}>
-      <QuickPicksButton<InsuranceQuickPickData>
-        quickPicks={quickPicks}
-        getLabel={(pick) => pick.name}
-        onSelect={handleSelect}
-        searchable
-        label="Insurance Carrier Quick Picks"
-      />
+    // Mirror the form's Row layout (30% label / 70% input + 5px gap) so the
+    // button aligns with the Insurance carrier input column it controls.
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px', mb: -1.5 }}>
+      <Box sx={{ flex: '0 1 30%' }} />
+      <Box sx={{ flex: '1 1 70%' }}>
+        <QuickPicksButton<InsuranceQuickPickData>
+          quickPicks={quickPicks}
+          getLabel={(pick) => pick.name}
+          onSelect={handleSelect}
+          searchable
+          label="Insurance Carrier Quick Picks"
+        />
+      </Box>
     </Box>
   );
 };
