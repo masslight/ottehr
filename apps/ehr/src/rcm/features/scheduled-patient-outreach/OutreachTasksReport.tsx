@@ -130,7 +130,6 @@ const TRIGGER_EVENT_FILTER_OPTIONS = Object.keys(TRIGGER_EVENT_LABELS) as Trigge
 type TriggerEventFilterValue = keyof typeof TRIGGER_EVENT_LABELS;
 
 type DateRangePreset =
-  | 'all'
   | 'today'
   | 'last7days'
   | 'last30days'
@@ -141,7 +140,6 @@ type DateRangePreset =
   | 'custom';
 
 const DATE_RANGE_OPTIONS: { value: DateRangePreset; label: string }[] = [
-  { value: 'all', label: 'All Time' },
   { value: 'today', label: 'Today' },
   { value: 'last7days', label: 'Last 7 Days' },
   { value: 'last30days', label: 'Last 30 Days' },
@@ -159,8 +157,6 @@ function getDateRangeValues(
 ): { from?: string; to?: string } {
   const now = DateTime.now();
   switch (preset) {
-    case 'all':
-      return {};
     case 'today':
       return { from: now.startOf('day').toISO() ?? undefined, to: now.endOf('day').toISO() ?? undefined };
     case 'last7days':
