@@ -84,11 +84,16 @@ async function getCandidInventoryPageRecursive(input: {
   if (maxPages && pageCount >= maxPages) return { claims, pageCount };
 
   console.log(`📄 Fetching page ${pageCount}`);
-  const inventoryResponse = await candid.patientAr.v1.listInventory({
-    limit: limitPerPage,
-    since: since?.toJSDate(),
-    pageToken: pageToken ? CandidApi.PageToken(pageToken) : undefined,
-  });
+  const inventoryResponse = await candid.patientAr.v1.listInventory(
+    {
+      limit: limitPerPage,
+      since: since?.toJSDate(),
+      pageToken: pageToken ? CandidApi.PageToken(pageToken) : undefined,
+    },
+    {
+      maxRetries: 5,
+    }
+  );
 
   if (inventoryResponse && inventoryResponse.ok && inventoryResponse.body) {
     const allRecords = inventoryResponse.body.records as InventoryRecord[];

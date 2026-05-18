@@ -4,6 +4,15 @@ import { Secrets } from '../../secrets';
 export type CustomFolderDefinition = {
   internalName: string;
   displayName: string;
+  // Parsed view of the soft-delete tombstone marker on the catalog entry. The
+  // storage is `entry.flag` with a coding `{ system: CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM,
+  // code: CUSTOM_FOLDER_DELETED_FLAG_CODE }` (FHIR's `entry.deleted` is disallowed by
+  // invariant lst-2 on Lists with mode='working'). True means the entry has been
+  // soft-deleted by an admin: excluded from the admin catalog UI and from the
+  // synthetic-folder listing patients see for catalog entries with no per-patient
+  // List yet, but kept as a tombstone so existing per-patient Lists still resolve
+  // their displayName from the catalog (preserves renames performed before delete).
+  deleted?: boolean;
 };
 
 // Sentinel prefix for a folder id that refers to a custom folder which exists
