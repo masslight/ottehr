@@ -1,4 +1,3 @@
-import { MISSING_REQUEST_SECRETS } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
@@ -16,6 +15,8 @@ vi.mock('candidhealth', () => {
   return { CandidApiClient, CandidApiEnvironment };
 });
 
+// candidApi.ts imports getOptionalSecret/getSecret from the 'utils' package entrypoint, so the
+// mock target stays 'utils' even though this test now lives inside the utils package.
 vi.mock('utils', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
@@ -38,9 +39,9 @@ function makeMockOystehr(): { secret: { get: ReturnType<typeof vi.fn>; set: Retu
 
 // Each test imports the helper fresh so the module-scope `cachedCandidApiClient`,
 // `inflightRefresh` state doesn't leak between cases.
-async function freshHelper(): Promise<typeof import('utils/lib/helpers/candidApi')> {
+async function freshHelper(): Promise<typeof import('./candidApi')> {
   vi.resetModules();
-  return import('utils/lib/helpers/candidApi');
+  return import('./candidApi');
 }
 
 function futureExpiry(): string {
@@ -300,6 +301,9 @@ describe('getOrCreateCandidApiClient', () => {
 
     const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
+    // Re-read MISSING_REQUEST_SECRETS from the post-reset module graph so this matches the exact
+    // instance candidApi throws (resetModules creates a fresh copy of every transitive module).
+    const { MISSING_REQUEST_SECRETS } = await import('utils');
     await expect(getOrCreateCandidApiClient(oystehr as any, {} as any)).rejects.toBe(MISSING_REQUEST_SECRETS);
   });
 
