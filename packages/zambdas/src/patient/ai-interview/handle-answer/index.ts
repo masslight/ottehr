@@ -31,7 +31,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     id: questionnaireResponseId,
   });
   if (questionnaireResponse.status === 'completed') {
-    throw new Error('QuestionnaireResponse is completed.');
+    console.log(`QuestionnaireResponse ${questionnaireResponseId} is already completed, returning existing response`);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(questionnaireResponse),
+    };
   }
   questionnaireResponse.item?.push({
     linkId,
