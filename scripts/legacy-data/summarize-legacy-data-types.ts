@@ -26,8 +26,10 @@ type Summary = {
 
   uniquePatients: Set<string>; // based on first, last, dob, patient id
   patientsWithMultipleNames: Set<string>; // example: Mary Jane (first name) Vaughan Williams (last name)
+  namesWithSpecialChars: Set<string>; // example: Mary Jane (first name) Vaughan Williams (last name)
 
   rowPrepFailures: number;
+  missingDob: number;
 
   documentTypeSummary: DocumentMap;
   fileTypeSummary: Record<string, number>;
@@ -39,8 +41,10 @@ const summary: Summary = {
 
   uniquePatients: new Set(),
   patientsWithMultipleNames: new Set(),
+  namesWithSpecialChars: new Set(),
 
   rowPrepFailures: 0,
+  missingDob: 0,
 
   documentTypeSummary: {},
   fileTypeSummary: {},
@@ -79,11 +83,17 @@ function checkForMultipleNames(row: CsvRow): Set<string> {
   return new Set(names.filter((name) => name.includes('-') || name.includes(' ')));
 }
 
+function checkForInvalidCharsInNames(row: CsvRow): Set<string> {
+  const names = [row.firstName, row.lastName];
+
+  return new Set(names.filter((name) => !/^[A-Za-z0-9+!_\-'.()@$\s]+$/.test(name)));
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
   console.log('═'.repeat(60));
-  console.log('Reading legacy data and summarizing types');
+  console.log('Reading and summarizing legacy data');
   console.log('═'.repeat(60));
   if (!dataDir) {
     console.error('Missing --data-dir argument');
@@ -147,9 +157,14 @@ async function main(): Promise<void> {
       summary.patientsWithMultipleNames.add(name);
     }
 
+    for (const name of checkForInvalidCharsInNames(row)) {
+      summary.namesWithSpecialChars.add(name);
+    }
+
     let patientFolder: string | undefined;
 
     try {
+      if (row.dob === '') summary.missingDob++;
       patientFolder = buildPatientFolder(row);
     } catch (err) {
       console.error(`  ✗ Failed to prepare file for row: ${JSON.stringify(row)}`);
@@ -232,7 +247,7 @@ async function main(): Promise<void> {
 
   console.log('');
 
-  console.log('========== MULTIPLE NAMES ==========');
+  console.log('========== NAMES ==========');
 
   if (summary.patientsWithMultipleNames.size > 0) {
     console.log(`Total unique multiple names: ${summary.patientsWithMultipleNames.size}\n`);
@@ -241,11 +256,21 @@ async function main(): Promise<void> {
     console.log('No names with hyphens or spaces found\n');
   }
 
+  if (summary.namesWithSpecialChars.size > 0) {
+    console.log(`Total unique names with special characters: ${summary.namesWithSpecialChars.size}\n`);
+    // console.log(`Names with special characters: ${[...summary.namesWithSpecialChars].join('; ')}\n`);
+  } else {
+    console.log('No names with special characters found\n');
+  }
+
   console.log('========== FAILURES ==========');
   if (summary.rowPrepFailures === 0) {
     console.log('none');
   } else {
     console.log(`Row prep failures: ${summary.rowPrepFailures}\n`);
+  }
+  if (summary.missingDob > 0) {
+    console.log(`Rows missing dob: ${summary.missingDob}\n`);
   }
 }
 

@@ -23,7 +23,6 @@ export function parseFolderName(folderName: string): { z3Prefix: string; patient
 }
 
 // ── V2 data ──────────────────────────────────────────────────────────
-
 export type CsvRow = {
   lastName: string;
   firstName: string;
@@ -37,14 +36,15 @@ export type CsvRow = {
 
 /**
  * Removes leading/trailing spaces, replaces inner whitespace with "_",
- * and strips any character that is not a letter, digit, underscore, or hyphen.
- * " hello   world! @2026 " -> "hello_world_2026"
+ * Strips any character that is not accepted in z3 object naming.
+ * Characters accepted: letters, numbers, plus (+), exclamation point (!), hyphen (-), underscore (_), single quote ('),
+ * open parenthesis ((), closed parenthesis ()), period (.), at sign (@), dollar sign ($)
  */
-function sanitize(value: string): string {
+function sanitizeForZ3(value: string): string {
   return value
     .trim()
     .replace(/\s+/g, '_')
-    .replace(/[^A-Za-z0-9_-]/g, '');
+    .replace(/[^A-Za-z0-9+!_\-'.()@$]/g, '');
 }
 
 /**
@@ -71,10 +71,10 @@ export function formatDob(dob: string, row: CsvRow): string {
  */
 export function buildPatientFolder(row: CsvRow): string {
   return (
-    `${sanitize(row.lastName.toLowerCase())}_` +
-    `${sanitize(row.firstName.toLowerCase())}_` +
-    `${sanitize(formatDob(row.dob, row))}/` +
-    `${sanitize(row.patientId)}`
+    `${sanitizeForZ3(row.lastName.toLowerCase())}_` +
+    `${sanitizeForZ3(row.firstName.toLowerCase())}_` +
+    `${sanitizeForZ3(formatDob(row.dob, row))}/` +
+    `${sanitizeForZ3(row.patientId)}`
   );
 }
 
