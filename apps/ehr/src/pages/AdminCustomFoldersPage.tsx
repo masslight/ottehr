@@ -20,7 +20,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { List } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo, useState } from 'react';
-import { Navigate } from 'react-router-dom';
 import { createCustomFolder, deleteCustomFolder, renameCustomFolder } from 'src/api/api';
 import Loading from 'src/components/Loading';
 import { RoundedButton } from 'src/components/RoundedButton';
@@ -31,10 +30,8 @@ import {
   CustomFolderDefinition,
   FOLDERS_CONFIG,
   parseCustomFoldersCatalog,
-  RoleType,
 } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
-import useEvolveUser from '../hooks/useEvolveUser';
 import { QUERY_KEYS } from '../hooks/useGetPatientDocs';
 
 type DialogState =
@@ -44,7 +41,6 @@ type DialogState =
   | null;
 
 const AdminCustomFoldersPage: FC = () => {
-  const evolveUser = useEvolveUser();
   const { oystehr, oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
@@ -111,10 +107,6 @@ const AdminCustomFoldersPage: FC = () => {
     },
     []
   );
-
-  if (!evolveUser?.hasRole([RoleType.Administrator])) {
-    return <Navigate to="/" replace />;
-  }
 
   const allFolderDisplayNames = [...FOLDERS_CONFIG.map((f) => f.display), ...(folders ?? []).map((f) => f.displayName)];
 

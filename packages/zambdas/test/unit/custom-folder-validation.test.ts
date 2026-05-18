@@ -1,9 +1,12 @@
 import { List } from 'fhir/r4b';
 import {
+  CUSTOM_FOLDER_DELETED_FLAG_CODE,
+  CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM,
   CUSTOM_FOLDER_INTERNAL_NAME_PREFIX,
   deriveInternalFolderName,
   isCustomFolderList,
   parseCustomFoldersCatalog,
+  parseCustomFoldersCatalogIncludingDeleted,
 } from 'utils';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters as validateCreate } from '../../src/ehr/create-custom-folder/validateRequestParameters';
@@ -129,6 +132,50 @@ describe('parseCustomFoldersCatalog', () => {
       'custom-folder-after-visit-care',
       'custom-folder-patient-education',
     ]);
+  });
+
+  test('filters out soft-deleted entries by default', () => {
+    const catalog: List = {
+      resourceType: 'List',
+      status: 'current',
+      mode: 'working',
+      entry: [
+        { item: { display: 'Active', identifier: { value: 'custom-folder-active' } } },
+        {
+          flag: {
+            coding: [{ system: CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM, code: CUSTOM_FOLDER_DELETED_FLAG_CODE }],
+          },
+          item: { display: 'Tombstoned', identifier: { value: 'custom-folder-tombstoned' } },
+        },
+      ],
+    };
+    const defs = parseCustomFoldersCatalog(catalog);
+    expect(defs).toHaveLength(1);
+    expect(defs[0].internalName).toBe('custom-folder-active');
+    expect(defs[0].deleted).toBeFalsy();
+  });
+});
+
+describe('parseCustomFoldersCatalogIncludingDeleted', () => {
+  test('returns soft-deleted entries with deleted=true', () => {
+    const catalog: List = {
+      resourceType: 'List',
+      status: 'current',
+      mode: 'working',
+      entry: [
+        { item: { display: 'Active', identifier: { value: 'custom-folder-active' } } },
+        {
+          flag: {
+            coding: [{ system: CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM, code: CUSTOM_FOLDER_DELETED_FLAG_CODE }],
+          },
+          item: { display: 'Tombstoned', identifier: { value: 'custom-folder-tombstoned' } },
+        },
+      ],
+    };
+    const defs = parseCustomFoldersCatalogIncludingDeleted(catalog);
+    expect(defs).toHaveLength(2);
+    expect(defs.find((d) => d.internalName === 'custom-folder-tombstoned')?.deleted).toBe(true);
+    expect(defs.find((d) => d.internalName === 'custom-folder-active')?.deleted).toBe(false);
   });
 });
 

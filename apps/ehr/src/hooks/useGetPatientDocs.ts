@@ -14,9 +14,10 @@ import {
   isCustomFolderList,
   isSyntheticFolderId,
   makeSyntheticFolderId,
-  parseCustomFoldersCatalog,
+  parseCustomFoldersCatalogIncludingDeleted,
 } from 'utils';
 import { useSuccessQuery } from 'utils/lib/frontend';
+import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
 
@@ -368,8 +369,11 @@ const useGetPatientDocsFolders = (
       ]);
 
       return {
+        // Include soft-deleted catalog entries: per-patient Lists that reference them
+        // are still shown to users and must resolve display names from the catalog.
+        // Synthetic folders for soft-deleted entries are filtered out below.
         lists: listsBundle.unbundle() as List[],
-        catalogDefs: parseCustomFoldersCatalog(catalogBundle.unbundle()[0]),
+        catalogDefs: parseCustomFoldersCatalogIncludingDeleted(catalogBundle.unbundle()[0]),
       };
     },
   });
@@ -390,19 +394,29 @@ const useGetPatientDocsFolders = (
       const internalName = list.title;
       if (!internalName) continue;
       const isCustom = isCustomFolderList(list);
-      // Custom folder displayName is owned by the catalog when present. If the catalog
-      // entry has been deleted, the List is an orphan (soft-delete read path): keep the
-      // folder so the patient still sees their existing documents, and fall back to the
-      // display frozen on the per-patient List itself at lazy-create time.
+      // Custom folder displayName is owned by the catalog (active or soft-deleted).
+      // A per-patient List with no matching catalog entry is unreachable through supported
+      // flows (deletes are soft); skip it and report the invariant so it can be remediated.
       const catalogDef = isCustom ? catalogDefs.find((d) => d.internalName === internalName) : undefined;
+      if (isCustom && !catalogDef) {
+        safelyCaptureMessage('Custom-folder List has no matching catalog entry (invariant violation)', {
+          level: 'error',
+          tags: {
+            invariant: 'custom-folder-list:has-catalog-entry',
+            site: 'useGetPatientDocsFolders',
+            patientId,
+            listId: list.id ?? '',
+            internalName,
+          },
+        });
+        continue;
+      }
+
       const docRefs: DocRef[] = (list.entry ?? []).map((entry) => ({ reference: entry.item }) as DocRef);
 
-      if (isCustom && !catalogDef && docRefs.length === 0) continue;
-
-      const folderName =
-        isCustom && catalogDef
-          ? catalogDef.displayName
-          : list.code?.coding?.find((c) => c.code === PATIENT_FOLDERS_CODE)?.display ?? '';
+      const folderName = isCustom
+        ? catalogDef!.displayName
+        : list.code?.coding?.find((c) => c.code === PATIENT_FOLDERS_CODE)?.display ?? '';
 
       byInternalName.set(internalName, {
         id: list.id!,
@@ -415,8 +429,10 @@ const useGetPatientDocsFolders = (
     }
 
     // Synthesize folders for catalog entries that don't have a per-patient List yet.
-    // The List is created lazily on first upload.
+    // The List is created lazily on first upload. Soft-deleted entries are skipped:
+    // patients who never used the folder shouldn't see it appear after admin deletes it.
     for (const def of catalogDefs) {
+      if (def.deleted) continue;
       if (byInternalName.has(def.internalName)) continue;
       byInternalName.set(def.internalName, {
         id: makeSyntheticFolderId(def.internalName),
