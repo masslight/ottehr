@@ -565,7 +565,7 @@ export default function AppointmentTableRow({
     return null;
   }
   const encounterId: string = encounter.id;
-  const primaryAction = getTrackingBoardPrimaryAction(appointment.status);
+  const primaryAction = getTrackingBoardPrimaryAction(appointment.status, { isVirtualVisit: isVirtual(appointment) });
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
   const assignedProviderId = getAttendingPractitionerId(encounter);
 
@@ -669,6 +669,11 @@ export default function AppointmentTableRow({
 
     if (appointment.status === 'ready for provider' && !assignedProviderId) {
       enqueueSnackbar('Please assign provider', { variant: 'error' });
+      return;
+    }
+
+    if (primaryAction.skipStatusUpdate && primaryAction.navigateToChart) {
+      navigate(getInPersonUrlByAppointmentType(appointment, 'patient-info'));
       return;
     }
 
