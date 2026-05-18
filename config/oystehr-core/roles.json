@@ -533,6 +533,8 @@
           "action": ["RCM:SearchPayer", "RCM:GetPayer"],
           "effect": "Allow",
           "resource": ["RCM:Payer"]
+        },
+        {
           "action": ["eRx:SearchMedication"],
           "effect": "Allow",
           "resource": ["eRx:Medication"]
