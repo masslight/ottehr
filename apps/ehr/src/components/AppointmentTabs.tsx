@@ -22,7 +22,7 @@ export enum ApptTab {
   'cancelled' = 'cancelled',
 }
 
-const SELECTED_TAB_STORAGE_KEY = 'selectedAppointmentTab';
+export const SELECTED_TAB_STORAGE_KEY = 'selectedAppointmentTab';
 
 const getStoredTab = (): ApptTab | undefined => {
   const stored = localStorage.getItem(SELECTED_TAB_STORAGE_KEY);
