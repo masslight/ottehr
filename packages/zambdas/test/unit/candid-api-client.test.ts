@@ -146,6 +146,29 @@ describe('getOrCreateCandidApiClient — monkey-patch and client cache', () => {
     expect(client1).toBe(client2);
   });
 
+  it('uses the latest oystehr/secrets on warm invocations rather than the ones from the cold start', async () => {
+    const { getOrCreateCandidApiClient } = await freshHelper();
+
+    const oystehr1 = makeMockOystehr();
+    oystehr1.secret.get.mockRejectedValue(new Error('expired M2M token'));
+    oystehr1.secret.set.mockRejectedValue(new Error('expired M2M token'));
+
+    const oystehr2 = makeMockOystehr();
+    oystehr2.secret.get.mockResolvedValue({
+      name: 'CANDID_OAUTH_TOKEN_CACHE',
+      value: JSON.stringify({ accessToken: 'token-from-oystehr2', expiresAt: futureExpiry() }),
+    });
+
+    // cold start binds oystehr1 and warm invocation passes oystehr2
+    await getOrCreateCandidApiClient(oystehr1 as any, {} as any);
+    const client = await getOrCreateCandidApiClient(oystehr2 as any, {} as any);
+    const token = await (client as any)._oauthTokenProvider.getToken();
+
+    expect(token).toBe('token-from-oystehr2');
+    expect(oystehr2.secret.get).toHaveBeenCalled();
+    expect(oystehr1.secret.get).not.toHaveBeenCalled();
+  });
+
   it('throws a clear error if the Candid SDK no longer exposes _oauthTokenProvider.getToken', async () => {
     // Simulate a future candidhealth SDK that has dropped/renamed the private field we patch.
     const candidhealth = await import('candidhealth');

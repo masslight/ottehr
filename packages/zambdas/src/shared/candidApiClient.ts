@@ -13,8 +13,13 @@ interface CandidToken {
 let inflightRefresh: Promise<CandidToken> | undefined;
 let cachedCandidApiClient: CandidApiClient | undefined;
 let cachedToken: CandidToken | undefined;
+let latestOystehr: Oystehr | undefined;
+let latestSecrets: Secrets | null = null;
 
 export async function getOrCreateCandidApiClient(oystehr: Oystehr, secrets: Secrets | null): Promise<CandidApiClient> {
+  latestOystehr = oystehr;
+  latestSecrets = secrets;
+
   if (cachedCandidApiClient) return cachedCandidApiClient;
 
   const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
@@ -33,8 +38,10 @@ export async function getOrCreateCandidApiClient(oystehr: Oystehr, secrets: Secr
   if (typeof internals._oauthTokenProvider?.getToken !== 'function') {
     throw new Error('candidhealth SDK shape changed: expected client._oauthTokenProvider.getToken to be a function');
   }
-  (internals._oauthTokenProvider as { getToken: () => Promise<string> }).getToken = async () =>
-    (await getOrCreateToken(oystehr, secrets)).accessToken;
+  (internals._oauthTokenProvider as { getToken: () => Promise<string> }).getToken = async () => {
+    if (!latestOystehr) throw new Error('candid client invoked before getOrCreateCandidApiClient populated oystehr');
+    return (await getOrCreateToken(latestOystehr, latestSecrets)).accessToken;
+  };
 
   cachedCandidApiClient = client;
   return cachedCandidApiClient;
