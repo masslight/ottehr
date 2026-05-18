@@ -1,17 +1,20 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
-import { SERVICE_CATEGORIES_AVAILABLE, SLUG_SYSTEM } from 'utils';
-import { SERVICE_CATEGORY_TAG, ServiceCategoryRecord, toRecord } from '../../../ehr/admin-service-categories/helpers';
+import { MISSING_REQUEST_SECRETS, SERVICE_CATEGORIES_AVAILABLE, SLUG_SYSTEM } from 'utils';
+import {
+  SERVICE_CATEGORY_SYSTEM,
+  SERVICE_CATEGORY_TAG,
+  ServiceCategoryRecord,
+  toRecord,
+} from '../../../ehr/admin-service-categories/helpers';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 let m2mToken: string;
 
-const SERVICE_CATEGORY_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/service-category';
-
 export const index = wrapHandler(
   'get-service-categories',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    if (!input.secrets) throw new Error('No secrets provided');
+    if (!input.secrets) throw MISSING_REQUEST_SECRETS;
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
     const oystehr = createOystehrClient(m2mToken, input.secrets);
 

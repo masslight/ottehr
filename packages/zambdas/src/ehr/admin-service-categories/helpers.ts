@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { CodeableConcept, HealthcareService } from 'fhir/r4b';
+import { MISSING_REQUEST_SECRETS } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../shared';
 
 /** Tag identifying a HealthcareService as a bookable service category. */
@@ -45,7 +46,7 @@ export interface ServiceCategoryRecord {
 let m2mToken: string;
 
 export async function getClient(input: ZambdaInput): Promise<Oystehr> {
-  if (!input.secrets) throw new Error('No secrets provided');
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   return createOystehrClient(m2mToken, input.secrets);
 }

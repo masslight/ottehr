@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Schedule } from 'fhir/r4b';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 
 interface AdminDeletePractitionerRoleInput {
@@ -15,11 +16,11 @@ let m2mToken: string;
 // list query filters by active=true, so deactivated rows disappear from the UI
 // but historical references remain valid.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  if (!input.body) throw new Error('No request body provided');
-  if (!input.secrets) throw new Error('No secrets provided');
+  if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
   const parsed = JSON.parse(input.body) as Partial<AdminDeletePractitionerRoleInput>;
   if (!parsed.roleId || typeof parsed.roleId !== 'string') {
-    throw new Error('roleId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['roleId']);
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);

@@ -362,7 +362,7 @@ export const MISCONFIGURED_ENVIRONMENT_ERROR = (message: string): APIError => {
 
 export const SLOT_UNAVAILABLE_ERROR = {
   code: APIErrorCode.SLOT_UNAVAILABLE,
-  message: 'The requested slot is unavailable',
+  message: 'This time slot is no longer available. Please pick another time.',
 };
 
 export const USER_ALREADY_EXISTS_ERROR = {

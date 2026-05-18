@@ -1,16 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
-import { BOOKING_CONFIG } from 'utils';
+import { BOOKING_CONFIG, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
 import { getClient, ServiceCategoryRecord, toFhirResource, toRecord } from '../admin-service-categories/helpers';
 
 export const index = wrapHandler(
   'admin-update-service-category',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    if (!input.body) throw new Error('No request body provided');
+    if (!input.body) throw MISSING_REQUEST_BODY;
     const oystehr = await getClient(input);
     const { serviceCategory } = JSON.parse(input.body) as { serviceCategory: ServiceCategoryRecord };
-    if (!serviceCategory?.id) throw new Error('serviceCategory.id is required for update');
+    if (!serviceCategory?.id) throw MISSING_REQUIRED_PARAMETERS(['serviceCategory.id']);
 
     // Reject if the post-update code collides with the compiled catalog. See
     // admin-create-service-category for the rationale (D14 precedence).

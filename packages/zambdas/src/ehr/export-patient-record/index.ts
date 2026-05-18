@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/aws-serverless';
 import archiver from 'archiver';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
@@ -449,7 +450,10 @@ export const index = wrapHandler(
           docIndex++;
         }
       } catch (err) {
+        // Non-fatal: skip an unreachable attachment rather than failing the
+        // whole export. Report so a silently-incomplete record is traceable.
         console.error(`Failed to download document ${doc.id}:`, err);
+        captureException(err);
       }
     }
 

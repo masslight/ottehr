@@ -1,6 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, PractitionerRole } from 'fhir/r4b';
-import { SCHEDULE_DISPLAY_NAME_EXTENSION_URL } from 'utils';
+import {
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
+  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { checkPractitionerRoleConflict } from '../admin-practitioner-role-shared/check-conflict';
 
@@ -22,18 +28,20 @@ const ZAMBDA_NAME = 'admin-update-practitioner-role';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  if (!input.body) throw new Error('No request body provided');
-  if (!input.secrets) throw new Error('No secrets provided');
+  if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
   const parsed = JSON.parse(input.body) as Partial<AdminUpdatePractitionerRoleInput>;
 
   if (!parsed.roleId || typeof parsed.roleId !== 'string') {
-    throw new Error('roleId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['roleId']);
   }
   const hasCategories = Array.isArray(parsed.categoryHealthcareServiceIds);
   const hasLocation = typeof parsed.locationId === 'string' && parsed.locationId.length > 0;
   const hasDisplayName = typeof parsed.displayName === 'string';
   if (!hasCategories && !hasLocation && !hasDisplayName) {
-    throw new Error('At least one of categoryHealthcareServiceIds, locationId, or displayName must be provided');
+    throw INVALID_INPUT_ERROR(
+      'At least one of categoryHealthcareServiceIds, locationId, or displayName must be provided'
+    );
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);

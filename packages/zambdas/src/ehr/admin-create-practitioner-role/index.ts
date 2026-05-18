@@ -4,6 +4,10 @@ import { randomUUID } from 'crypto';
 import { HealthcareService, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
   BLANK_SCHEDULE_JSON_TEMPLATE,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
   SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
   SCHEDULE_EXTENSION_URL,
   TIMEZONE_EXTENSION_URL,
@@ -34,21 +38,21 @@ const ZAMBDA_NAME = 'admin-create-practitioner-role';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  if (!input.body) throw new Error('No request body provided');
-  if (!input.secrets) throw new Error('No secrets provided');
+  if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
   const parsed = JSON.parse(input.body) as Partial<AdminCreatePractitionerRoleInput>;
 
   if (!parsed.practitionerId || typeof parsed.practitionerId !== 'string') {
-    throw new Error('practitionerId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['practitionerId']);
   }
   if (!parsed.locationId || typeof parsed.locationId !== 'string') {
-    throw new Error('locationId is required');
+    throw MISSING_REQUIRED_PARAMETERS(['locationId']);
   }
   if (!Array.isArray(parsed.categoryHealthcareServiceIds)) {
-    throw new Error('categoryHealthcareServiceIds must be an array');
+    throw INVALID_INPUT_ERROR('categoryHealthcareServiceIds must be an array');
   }
   if (!parsed.timezone || typeof parsed.timezone !== 'string') {
-    throw new Error('timezone is required');
+    throw MISSING_REQUIRED_PARAMETERS(['timezone']);
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);

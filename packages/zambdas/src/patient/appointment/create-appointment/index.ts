@@ -1,4 +1,5 @@
 import Oystehr, { BatchInput, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Account,
@@ -56,6 +57,7 @@ import {
   Secrets,
   SERVICE_CATEGORY_SYSTEM,
   ServiceMode,
+  SLOT_UNAVAILABLE_ERROR,
   TaskIndicator,
   User,
   VisitType,
@@ -236,7 +238,10 @@ async function resolveGroupMemberSchedules(
       ).unbundle();
       all.push(...results);
     } catch (err) {
+      // Non-fatal: a failed member search just shrinks the group's slot pool.
+      // Log + report so a systematic failure is observable, then continue.
       console.warn(`Failed to fetch schedules for member ${ref}:`, err);
+      captureException(err);
     }
   }
   return all;
@@ -681,7 +686,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     }
 
     if (!available) {
-      throw new Error('This time slot is no longer available. Please pick another time.');
+      throw SLOT_UNAVAILABLE_ERROR;
     }
     memberScheduleForAssignment = targetSchedule;
   }
@@ -716,7 +721,10 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       }
     }
   } catch (err) {
+    // Non-fatal: fall back to an unassigned Encounter. Report so a systematic
+    // failure (e.g. malformed group characteristic) is observable.
     console.warn('Unable to resolve group assignment mode; falling back to unassigned Encounter:', err);
+    captureException(err);
   }
 
   // Direct PractitionerRole booking: the attending is known at book time (the
