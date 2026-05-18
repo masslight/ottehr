@@ -738,6 +738,8 @@ test.describe('External labs page', async () => {
     await labelConfigPage.waitForFormLoaded();
     await labelConfigPage.selectMode('manual');
     await labelConfigPage.submitAndWaitForSuccess();
+    // Navigate back to the appointment so subsequent describe blocks (e.g. Nursing Orders) start on the right page.
+    await page.goto(`in-person/${resourceHandler.appointment.id}`);
   });
 
   test('External labs. Tests Various Functionality.', async () => {
