@@ -49,7 +49,7 @@ export class ClaudeClient {
 let chatbot: ChatAnthropic;
 // let chatbotVertexAI: ChatVertexAI;
 
-function getPrompt(patientInfoDetails: string, fields: string): string {
+export function getPrompt(patientInfoDetails: string, fields: string): string {
   return `I'll give you a transcript of a chat between a healthcare provider and a patient.
 Patient details: ${patientInfoDetails}
 Please generate ${fields} based on the transcript.

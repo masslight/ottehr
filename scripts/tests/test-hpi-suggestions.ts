@@ -1,20 +1,23 @@
 /**
- * Manual test script for the recommend-billing-codes zambda.
+ * Manual test script for the ai-suggestion-notes zambda — missing-hpi type only.
  *
  * Requires the local zambda server to be running on port 3000:
  *   npm run zambdas:start
  *
  * Usage:
- *   npx tsx scripts/test-billing-codes.ts [--env local]
+ *   npx tsx scripts/test-hpi-suggestions.ts [--env local]
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { ProcedureDetail, ProcedureSuggestion } from 'utils';
-import { ScenarioChecks, TEST_SCENARIOS } from './test-billing-codes-config';
+import { AISuggestionNotes, AISuggestionNotesInput } from 'utils';
+import { getToken } from './shared';
+import { TEST_SCENARIOS, TestScenario } from './test-hpi-suggestions-config';
 
 const RUNS_PER_SCENARIO = 1;
-const ZAMBDA_URL = 'http://localhost:3000/local/zambda/recommend-billing-codes/execute';
+const ZAMBDA_URL = 'http://localhost:3000/local/zambda/ai-suggestion-notes/execute';
+
+const HPI_SCENARIOS = TEST_SCENARIOS;
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -22,32 +25,12 @@ const envFlag = process.argv.indexOf('--env');
 const env = envFlag !== -1 ? process.argv[envFlag + 1] : 'local';
 const jsonOutFlag = process.argv.indexOf('--json-out');
 const jsonOutPath = jsonOutFlag !== -1 ? process.argv[jsonOutFlag + 1] : null;
-const envFilePath = path.resolve(__dirname, '../packages/zambdas/.env', `zambda-secrets-${env}.json`);
+const envFilePath = path.resolve(__dirname, '../../packages/zambdas/.env', `zambda-secrets-${env}.json`);
 const envConfig = JSON.parse(fs.readFileSync(envFilePath, 'utf8'));
-
-// ── Auth ──────────────────────────────────────────────────────────────────────
-
-async function getToken(): Promise<string> {
-  const response = await fetch(envConfig.AUTH0_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      client_id: envConfig.AUTH0_CLIENT,
-      client_secret: envConfig.AUTH0_SECRET,
-      audience: envConfig.AUTH0_AUDIENCE,
-    }),
-  });
-  if (!response.ok) {
-    throw new Error(`Auth0 token request failed: ${response.status} ${await response.text()}`);
-  }
-  const data = (await response.json()) as { access_token: string };
-  return data.access_token;
-}
 
 // ── Zambda call ───────────────────────────────────────────────────────────────
 
-async function callBillingCodes(token: string, input: ProcedureDetail): Promise<ProcedureSuggestion[]> {
+async function callAISuggestionNotes(token: string, input: AISuggestionNotesInput): Promise<AISuggestionNotes> {
   const response = await fetch(ZAMBDA_URL, {
     method: 'POST',
     headers: {
@@ -59,7 +42,7 @@ async function callBillingCodes(token: string, input: ProcedureDetail): Promise<
   if (!response.ok) {
     throw new Error(`Zambda call failed: ${response.status} ${await response.text()}`);
   }
-  const wrapper = (await response.json()) as { status: number; output: ProcedureSuggestion[] };
+  const wrapper = (await response.json()) as { status: number; output: AISuggestionNotes };
   if (wrapper.status !== 200) {
     throw new Error(`Zambda returned status ${wrapper.status}: ${JSON.stringify(wrapper.output)}`);
   }
@@ -71,46 +54,49 @@ async function callBillingCodes(token: string, input: ProcedureDetail): Promise<
 interface TestResult {
   run: number;
   passed: boolean;
-  suggestedCodes: string[];
+  suggestions: string[];
   error?: string;
 }
 
-function checkCodes(suggestions: ProcedureSuggestion[], expectAnyCodes: string[]): boolean {
-  return suggestions.some((s) => expectAnyCodes.includes(s.code));
+function checkSuggestions(suggestions: string[], scenario: TestScenario): boolean {
+  if (scenario.expectEmpty) return suggestions.length === 0;
+  const combined = suggestions.join(' ').toLowerCase();
+  return scenario.expectContains.every((phrase) => combined.includes(phrase.toLowerCase()));
 }
 
-async function runScenario(
-  token: string,
-  label: string,
-  input: ProcedureDetail,
-  checks: ScenarioChecks
-): Promise<TestResult[]> {
+async function runScenario(token: string, scenario: TestScenario): Promise<TestResult[]> {
+  const { label, input, expectContains, expectEmpty } = scenario;
   console.log(`\n${'─'.repeat(60)}`);
   console.log(`Scenario: ${label} (${RUNS_PER_SCENARIO} runs)`);
+  if (expectEmpty) {
+    console.log('Expecting: empty suggestions');
+  } else {
+    console.log(`Expecting one of: ${expectContains.map((s) => `"${s}"`).join(', ')}`);
+  }
   console.log('─'.repeat(60));
 
   const results: TestResult[] = [];
 
   for (let run = 1; run <= RUNS_PER_SCENARIO; run++) {
     let passed = false;
-    let suggestedCodes: string[] = [];
+    let suggestions: string[] = [];
     let error: string | undefined;
 
     try {
-      const output = await callBillingCodes(token, input);
-      suggestedCodes = output.map((s) => s.code);
-      passed = checkCodes(output, checks.expectAnyCodes);
+      const output = await callAISuggestionNotes(token, input);
+      suggestions = output.suggestions;
+      passed = checkSuggestions(suggestions, scenario);
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
 
     const icon = passed ? '✓' : '✗';
-    const codeList = suggestedCodes.length ? suggestedCodes.join(', ') : '(none)';
-    let line = `  Run ${run}: ${icon}  (expected ${checks.expected}): ${codeList}`;
+    const suggestionText = suggestions.length ? suggestions.join(' | ') : '(none)';
+    let line = `  Run ${run}: ${icon}  ${suggestionText}`;
     if (error) line += `  ERROR: ${error}`;
     console.log(line);
 
-    results.push({ run, passed, suggestedCodes, error });
+    results.push({ run, passed, suggestions, error });
   }
 
   const passCount = results.filter((r) => r.passed).length;
@@ -122,17 +108,17 @@ async function runScenario(
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  console.log('Billing Codes – Accuracy Check');
+  console.log('HPI Suggestions – Accuracy Check');
   console.log(`Environment: ${env}`);
   console.log(`Zambda URL:  ${ZAMBDA_URL}`);
 
   console.log('\nAuthenticating...');
-  const token = await getToken();
+  const token = await getToken(envConfig);
   console.log('Authenticated.');
 
   const allResults: TestResult[] = [];
-  for (const scenario of TEST_SCENARIOS) {
-    const results = await runScenario(token, scenario.label, scenario.input, scenario.checks);
+  for (const scenario of HPI_SCENARIOS) {
+    const results = await runScenario(token, scenario);
     allResults.push(...results);
   }
 
@@ -147,7 +133,7 @@ async function main(): Promise<void> {
     fs.writeFileSync(
       jsonOutPath,
       JSON.stringify({
-        suite: 'billing-codes',
+        suite: 'hpi-suggestions',
         timestamp: new Date().toISOString(),
         passed: totalPassed,
         total: totalRuns,

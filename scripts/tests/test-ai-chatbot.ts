@@ -11,14 +11,11 @@
  *   npx tsx scripts/test-ai-chatbot.ts [--env local]
  */
 
-import { Location, QuestionnaireResponse, Schedule, Slot } from 'fhir/r4b';
+import { QuestionnaireResponse } from 'fhir/r4b';
 import * as fs from 'fs';
-import { DateTime } from 'luxon';
 import * as path from 'path';
-import { CreateAppointmentResponse, createOystehrClient, CreateSlotParams, ServiceMode } from 'utils';
+import { callGemini, callZambda, createTestAppointment, deleteTestResources, getToken } from './shared';
 import { TEST_SCENARIO } from './test-ai-chatbot-config';
-
-const BASE_URL = 'http://localhost:3000/local/zambda';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -26,109 +23,8 @@ const envFlag = process.argv.indexOf('--env');
 const env = envFlag !== -1 ? process.argv[envFlag + 1] : 'local';
 const jsonOutFlag = process.argv.indexOf('--json-out');
 const jsonOutPath = jsonOutFlag !== -1 ? process.argv[jsonOutFlag + 1] : null;
-const envFilePath = path.resolve(__dirname, '../packages/zambdas/.env', `zambda-secrets-${env}.json`);
+const envFilePath = path.resolve(__dirname, '../../packages/zambdas/.env', `zambda-secrets-${env}.json`);
 const envConfig = JSON.parse(fs.readFileSync(envFilePath, 'utf8'));
-
-// ── Auth ──────────────────────────────────────────────────────────────────────
-
-async function getToken(): Promise<string> {
-  const response = await fetch(envConfig.AUTH0_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      client_id: envConfig.AUTH0_CLIENT,
-      client_secret: envConfig.AUTH0_SECRET,
-      audience: envConfig.AUTH0_AUDIENCE,
-    }),
-  });
-  if (!response.ok) throw new Error(`Auth0 token request failed: ${response.status} ${await response.text()}`);
-  const data = (await response.json()) as { access_token: string };
-  return data.access_token;
-}
-
-// ── Zambda call helper ────────────────────────────────────────────────────────
-
-const OPEN_ZAMBDAS = new Set(['create-slot']);
-
-async function callZambda<T>(name: string, token: string, body: object): Promise<T> {
-  const endpoint = OPEN_ZAMBDAS.has(name) ? 'execute-public' : 'execute';
-  const response = await fetch(`${BASE_URL}/${name}/${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) throw new Error(`${name} failed: ${response.status} ${await response.text()}`);
-  const wrapper = (await response.json()) as { status: number; output: T };
-  if (wrapper.status !== 200)
-    throw new Error(`${name} returned status ${wrapper.status}: ${JSON.stringify(wrapper.output)}`);
-  return wrapper.output;
-}
-
-// ── Appointment setup / teardown ──────────────────────────────────────────────
-
-async function createTestAppointment(token: string): Promise<{ appointmentId: string; resourceIds: string[] }> {
-  const oystehr = createOystehrClient(token, envConfig.FHIR_API, envConfig.PROJECT_API);
-
-  const fhirResources = (
-    await oystehr.fhir.search<Location | Schedule>({
-      resourceType: 'Location',
-      params: [
-        { name: 'status', value: 'active' },
-        { name: '_count', value: '20' },
-        { name: '_revinclude', value: 'Schedule:actor:Location' },
-      ],
-    })
-  ).unbundle();
-
-  const schedule = fhirResources.find((r) => r.resourceType === 'Schedule') as Schedule | undefined;
-  if (!schedule?.id) throw new Error('No active schedule found in FHIR');
-
-  const slot = await callZambda<Slot>('create-slot', token, {
-    scheduleId: schedule.id,
-    startISO: DateTime.now().toISO(),
-    lengthInMinutes: 15,
-    serviceModality: ServiceMode['in-person'],
-    walkin: true,
-    serviceCategoryCode: 'urgent-care',
-  } satisfies CreateSlotParams);
-
-  const appt = await callZambda<CreateAppointmentResponse>('create-appointment', token, {
-    slotId: slot.id!,
-    patient: {
-      newPatient: true,
-      firstName: 'Test',
-      lastName: 'AiChatbot',
-      dateOfBirth: '1990-01-01',
-      sex: 'female',
-      email: 'test.aichatbot@example.com',
-      reasonForVisit: 'Sore throat and fever',
-    },
-    language: 'en',
-  });
-
-  return {
-    appointmentId: appt.appointmentId,
-    resourceIds: [
-      `Encounter/${appt.encounterId}`,
-      `Appointment/${appt.appointmentId}`,
-      `QuestionnaireResponse/${appt.questionnaireResponseId}`,
-      `RelatedPerson/${appt.relatedPersonId}`,
-      `Patient/${appt.fhirPatientId}`,
-      `Slot/${slot.id}`,
-    ],
-  };
-}
-
-async function deleteTestResources(token: string, resourceIds: string[]): Promise<void> {
-  const oystehr = createOystehrClient(token, envConfig.FHIR_API, envConfig.PROJECT_API);
-  await Promise.allSettled(
-    resourceIds.map((ref) => {
-      const [resourceType, id] = ref.split('/');
-      return oystehr.fhir.delete({ resourceType: resourceType as any, id });
-    })
-  );
-}
 
 // ── Chatbot helpers ───────────────────────────────────────────────────────────
 
@@ -171,29 +67,14 @@ ${historyText}
 
 Is the AI's last response a good medical intake response given the conversation so far?`;
 
-  const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`;
-  const response = await fetch(url, {
-    method: 'POST',
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'OBJECT',
-          properties: {
-            passed: { type: 'BOOLEAN' },
-            reason: { type: 'STRING' },
-          },
-          required: ['passed', 'reason'],
-        },
-      },
-    }),
+  const text = await callGemini(prompt, projectId, apiKey, {
+    type: 'OBJECT',
+    properties: {
+      passed: { type: 'BOOLEAN' },
+      reason: { type: 'STRING' },
+    },
+    required: ['passed', 'reason'],
   });
-
-  if (!response.ok) throw new Error(`LLM eval failed: ${response.status} ${await response.text()}`);
-  const data = (await response.json()) as { candidates: { content: { parts: { text: string }[] } }[] };
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
 
   try {
     const parsed = JSON.parse(text) as { passed?: boolean; reason?: string };
@@ -211,7 +92,7 @@ async function main(): Promise<void> {
   console.log(`Scenario:    ${TEST_SCENARIO.label}`);
 
   console.log('\nAuthenticating...');
-  const token = await getToken();
+  const token = await getToken(envConfig);
   console.log('Authenticated.');
 
   const projectId: string = envConfig.GOOGLE_CLOUD_PROJECT_ID;
@@ -220,7 +101,7 @@ async function main(): Promise<void> {
   if (!apiKey) throw new Error('GOOGLE_CLOUD_API_KEY not found in env config');
 
   console.log('\nCreating test appointment...');
-  const { appointmentId, resourceIds } = await createTestAppointment(token);
+  const { appointmentId, resourceIds } = await createTestAppointment(token, envConfig, 'AiChatbot');
   console.log(`  Appointment ID: ${appointmentId}`);
 
   let checksPassed = 0;
@@ -275,7 +156,7 @@ async function main(): Promise<void> {
     }
   } finally {
     console.log('\nCleaning up test resources...');
-    await deleteTestResources(token, resourceIds);
+    await deleteTestResources(token, envConfig, resourceIds);
     console.log('Done.');
   }
 

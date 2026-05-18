@@ -5,12 +5,13 @@
  *   npm run zambdas:start
  *
  * Usage:
- *   npx tsx scripts/test-billing-suggestions.ts [--env local]
+ *   npx tsx scripts/tests/test-billing-suggestions.ts [--env local]
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { BillingSuggestionInput, BillingSuggestionOutput } from 'utils';
+import { getToken } from './shared';
 import { ScenarioChecks, TEST_SCENARIOS } from './test-billing-suggestions-config';
 
 const RUNS_PER_SCENARIO = 1;
@@ -22,28 +23,8 @@ const envFlag = process.argv.indexOf('--env');
 const env = envFlag !== -1 ? process.argv[envFlag + 1] : 'local';
 const jsonOutFlag = process.argv.indexOf('--json-out');
 const jsonOutPath = jsonOutFlag !== -1 ? process.argv[jsonOutFlag + 1] : null;
-const envFilePath = path.resolve(__dirname, '../packages/zambdas/.env', `zambda-secrets-${env}.json`);
+const envFilePath = path.resolve(__dirname, '../../packages/zambdas/.env', `zambda-secrets-${env}.json`);
 const envConfig = JSON.parse(fs.readFileSync(envFilePath, 'utf8'));
-
-// ── Auth ──────────────────────────────────────────────────────────────────────
-
-async function getToken(): Promise<string> {
-  const response = await fetch(envConfig.AUTH0_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      client_id: envConfig.AUTH0_CLIENT,
-      client_secret: envConfig.AUTH0_SECRET,
-      audience: envConfig.AUTH0_AUDIENCE,
-    }),
-  });
-  if (!response.ok) {
-    throw new Error(`Auth0 token request failed: ${response.status} ${await response.text()}`);
-  }
-  const data = (await response.json()) as { access_token: string };
-  return data.access_token;
-}
 
 // ── Zambda call ───────────────────────────────────────────────────────────────
 
@@ -187,7 +168,7 @@ async function main(): Promise<void> {
   console.log(`Zambda URL:  ${ZAMBDA_URL}`);
 
   console.log('\nAuthenticating...');
-  const token = await getToken();
+  const token = await getToken(envConfig);
   console.log('Authenticated.');
 
   const allResults: TestResult[] = [];
