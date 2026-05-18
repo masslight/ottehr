@@ -1,3 +1,4 @@
+import { MISSING_REQUEST_SECRETS } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
@@ -265,32 +266,28 @@ describe('getOrCreateCandidApiClient — error tolerance', () => {
   });
 });
 
-describe('getOrCreateCandidApiClientIfConfigured', () => {
+describe('getOrCreateCandidApiClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('returns null when any CANDID_* secret is missing', async () => {
+  it('throws when any CANDID_* secret is missing', async () => {
     const utils = await import('utils');
     vi.mocked(utils.getOptionalSecret).mockReturnValueOnce(undefined);
 
-    const { getOrCreateCandidApiClientIfConfigured } = await freshHelper();
+    const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
-    const client = await getOrCreateCandidApiClientIfConfigured(oystehr as any, {} as any);
-
-    expect(client).toBeNull();
+    await expect(getOrCreateCandidApiClient(oystehr as any, {} as any)).rejects.toBe(MISSING_REQUEST_SECRETS);
   });
 
   it('builds the client when all CANDID_* secrets are configured', async () => {
-    const { getOrCreateCandidApiClientIfConfigured } = await freshHelper();
+    const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
     oystehr.secret.get.mockResolvedValue({
       name: 'CANDID_OAUTH_TOKEN_CACHE',
       value: JSON.stringify({ accessToken: 'stored-token', expiresAt: futureExpiry() }),
     });
 
-    const client = await getOrCreateCandidApiClientIfConfigured(oystehr as any, {} as any);
-
-    expect(client).not.toBeNull();
+    await expect(getOrCreateCandidApiClient(oystehr as any, {} as any)).resolves.toBeDefined();
   });
 });

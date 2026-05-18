@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
-import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils';
+import { getOptionalSecret, getSecret, MISSING_REQUEST_SECRETS, Secrets, SecretsKeys } from 'utils';
 
 const CANDID_OAUTH_TOKEN_CACHE_SECRET = 'CANDID_OAUTH_TOKEN_CACHE';
 
@@ -14,25 +14,15 @@ let inflightRefresh: Promise<CandidToken> | undefined;
 let cachedCandidApiClient: CandidApiClient | undefined;
 let cachedToken: CandidToken | undefined;
 
-export async function getOrCreateCandidApiClientIfConfigured(
-  oystehr: Oystehr,
-  secrets: Secrets | null
-): Promise<CandidApiClient | null> {
+export async function getOrCreateCandidApiClient(oystehr: Oystehr, secrets: Secrets | null): Promise<CandidApiClient> {
+  if (cachedCandidApiClient) return cachedCandidApiClient;
+
   const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
   const candidClientSecret = getOptionalSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets);
   const candidEnv = getOptionalSecret(SecretsKeys.CANDID_ENV, secrets);
   if (!candidClientId || !candidClientSecret || !candidEnv) {
-    console.warn(
-      'Candid API client not configured, missing at least one of CANDID_CLIENT_ID, CANDID_CLIENT_SECRET, or CANDID_ENV secrets'
-    );
-    return null;
+    throw MISSING_REQUEST_SECRETS;
   }
-
-  return getOrCreateCandidApiClient(oystehr, secrets);
-}
-
-export async function getOrCreateCandidApiClient(oystehr: Oystehr, secrets: Secrets | null): Promise<CandidApiClient> {
-  if (cachedCandidApiClient) return cachedCandidApiClient;
 
   const client = createCandidApiClient(secrets);
   // The Candid SDK constructs a private _oauthTokenProvider that calls /auth/v2/token on demand.
