@@ -237,6 +237,7 @@ export interface LabResultsData
     | 'isManualOrder'
   > {
   testName: string;
+  testItemCode: string;
   resultStatus: string;
   abnormalResult?: boolean;
   patientVisitNote?: string;
