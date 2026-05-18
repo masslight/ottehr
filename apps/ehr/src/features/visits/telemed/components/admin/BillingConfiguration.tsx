@@ -24,7 +24,7 @@ import { PaymentLocation } from 'src/rcm/state/payments/payments.api';
 import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
 import FeeSchedule from './ChargeItemList';
 import EmployersTab from './employers/EmployersTab';
-import Insurances from './Insurance';
+import InsuranceConfiguration from './InsuranceConfiguration';
 
 type BillingSubTab = 'insurance' | 'fee-schedules' | 'charge-masters' | 'employers' | 'payment-locations' | 'invoicing';
 
@@ -138,7 +138,13 @@ function PaymentLocationsList(): ReactElement {
   );
 }
 
-export default function BillingConfiguration({ billingTab }: { billingTab?: string }): ReactElement {
+export default function BillingConfiguration({
+  billingTab,
+  insuranceTab,
+}: {
+  billingTab?: string;
+  insuranceTab?: string;
+}): ReactElement {
   const navigate = useNavigate();
   const subTab: BillingSubTab = (billingTab as BillingSubTab) || 'insurance';
 
@@ -160,7 +166,7 @@ export default function BillingConfiguration({ billingTab }: { billingTab?: stri
           </TabList>
         </Box>
         <TabPanel value="insurance" sx={{ padding: 0 }}>
-          <Insurances />
+          <InsuranceConfiguration insuranceTab={insuranceTab} />
         </TabPanel>
         <TabPanel value="fee-schedules" sx={{ padding: 0 }}>
           <FeeSchedule />

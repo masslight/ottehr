@@ -11,7 +11,11 @@ import {
   MIME_TYPES,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import { createVisitLabelPDF, VISIT_LABEL_DOC_REF_DOCTYPE, VisitLabelConfig } from '../../shared/pdf/visit-label-pdf';
+import {
+  createVisitLabelPDF,
+  VISIT_LABEL_PDF_DOC_REF_DOCTYPE,
+  VisitLabelConfig,
+} from '../../shared/pdf/visit-label-pdf';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -36,7 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       params: [
         { name: 'encounter', value: `Encounter/${encounterId}` },
         { name: 'status', value: 'current' },
-        { name: 'type', value: VISIT_LABEL_DOC_REF_DOCTYPE.code },
+        { name: 'type', value: VISIT_LABEL_PDF_DOC_REF_DOCTYPE.code },
       ],
     })
   ).unbundle();
@@ -104,9 +108,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         visitDate: appointments[0].start ? DateTime.fromISO(appointments[0].start) : undefined,
         visitTimeZone: schedules[0] ? getTimezone(schedules[0]) : undefined,
       },
+      type: 'visit',
     };
 
-    const { presignedURL, docRef: documentReference } = await createVisitLabelPDF(
+    const { presignedURL, documentReference } = await createVisitLabelPDF(
       labelConfig,
       encounterId,
       secrets,

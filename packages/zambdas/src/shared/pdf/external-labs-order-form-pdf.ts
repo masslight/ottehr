@@ -263,7 +263,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
   data.testDetails.forEach((detail, idx) => {
     const lastTest = idx + 1 === data.testDetails.length;
 
-    pdfClient.drawTextSequential(detail.testName.toUpperCase(), {
+    pdfClient.drawTextSequential(`(${detail.testItemCode}) ${detail.testName.toUpperCase()}`, {
       ...textStyles.textBold,
       fontSize: SUB_HEADER_FONT_SIZE,
     });

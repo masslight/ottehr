@@ -23,17 +23,19 @@ export class PatientRecordPage {
 
   async confirmPatientRecordLab(input: {
     testName: string;
+    testItemCode: string;
     status: ExternalLabsStatus;
     navToLabDetailPage: boolean;
   }): Promise<void> {
-    const { testName, status, navToLabDetailPage } = input;
+    const { testName, testItemCode, status, navToLabDetailPage } = input;
     const tableTestIds = dataTestIds.externalLabs.labsTable;
 
     // confirm test is in the table
+    const expectedTestTitle = `(${testItemCode}) ${testName}`;
     const patientRecordLabsTable = this.#page.getByTestId(tableTestIds.patientRecordExternalLabsPage);
     const testRow = patientRecordLabsTable.getByTestId(configBundleRowTestId(testName));
     const testNameCell = testRow.getByTestId(tableTestIds.bundleRowCellTestType);
-    await expect(testNameCell, `Confirming ${testName} is present in the table`).toHaveText(testName);
+    await expect(testNameCell, `Confirming ${expectedTestTitle} is present in the table`).toHaveText(expectedTestTitle);
 
     // confirm status
     const statusChip = testRow.getByTestId(dataTestIds.externalLabs.labsStatusChip);

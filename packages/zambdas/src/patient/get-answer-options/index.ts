@@ -53,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<QuestionnaireItemAnswerOption[]> => {
   const { type } = input;
-  if (type === 'query') {
+  if (type === 'query' && input.answerSource.zambdaId === 'get-answer-options') {
     const { resourceType, query, prependedIdentifier } = input.answerSource;
     const paramsObject = new URLSearchParams(query);
     let offset = 0;

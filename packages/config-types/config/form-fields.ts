@@ -24,7 +24,7 @@ export type DynamicPopulation = z.infer<typeof DynamicPopulationSchema>;
 
 /**
  * ReferenceDataSource - Configuration for loading reference data
- * Either answerSource (FHIR query) or valueSet must be provided
+ * Either answerSource (dynamic Zambda call) or valueSet must be provided
  */
 export const ReferenceDataSourceSchema = z
   .object({
