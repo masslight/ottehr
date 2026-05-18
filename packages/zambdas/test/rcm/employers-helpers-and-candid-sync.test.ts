@@ -1,16 +1,8 @@
 import { Address, Organization } from 'fhir/r4b';
+import { MISSING_REQUEST_SECRETS } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockGetOptionalSecret = vi.fn();
 const mockGetOrCreateCandidApiClient = vi.fn();
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    getOptionalSecret: mockGetOptionalSecret,
-  };
-});
 
 vi.mock('../../src/shared', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -109,14 +101,18 @@ describe('RCM candid-sync', () => {
     mockGetOrCreateCandidApiClient.mockResolvedValue(candidClient);
   });
 
-  it('returns null candid client when CANDID_CLIENT_ID is missing', async () => {
-    mockGetOptionalSecret.mockReturnValue(undefined);
+  it('returns null when getOrCreateCandidApiClient rejects with MISSING_REQUEST_SECRETS', async () => {
+    mockGetOrCreateCandidApiClient.mockRejectedValue(MISSING_REQUEST_SECRETS);
     expect(await createCandidClientIfConfigured(mockOystehr, null)).toBeNull();
-    expect(mockGetOrCreateCandidApiClient).not.toHaveBeenCalled();
   });
 
-  it('creates candid client when CANDID_CLIENT_ID is configured', async () => {
-    mockGetOptionalSecret.mockReturnValue('configured-client-id');
+  it('rethrows non-MISSING_REQUEST_SECRETS errors from getOrCreateCandidApiClient', async () => {
+    const boom = new Error('unexpected');
+    mockGetOrCreateCandidApiClient.mockRejectedValue(boom);
+    await expect(createCandidClientIfConfigured(mockOystehr, null)).rejects.toBe(boom);
+  });
+
+  it('returns the candid client when getOrCreateCandidApiClient resolves', async () => {
     const client = await createCandidClientIfConfigured(mockOystehr, null);
     expect(client).toBe(candidClient);
   });

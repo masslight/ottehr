@@ -41,7 +41,7 @@ export async function createCandidClientIfConfigured(
   secrets: Secrets | null
 ): Promise<CandidApiClient | null> {
   try {
-    return getOrCreateCandidApiClient(oystehr, secrets);
+    return await getOrCreateCandidApiClient(oystehr, secrets);
   } catch (error) {
     if (error !== MISSING_REQUEST_SECRETS) throw error;
     console.log('Candid not configured, skipping candid sync.');
