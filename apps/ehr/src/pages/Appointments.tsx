@@ -178,6 +178,22 @@ export default function Appointments(): ReactElement {
   }, [navigate, queryParams]);
 
   useEffect(() => {
+    const stored = localStorage.getItem('selectedServiceCategories');
+    if (!stored) return;
+    try {
+      const parsed: unknown = JSON.parse(stored);
+      if (!Array.isArray(parsed)) return;
+      const filtered = parsed.filter((k): k is string => typeof k === 'string');
+      const next = filtered.join(',');
+      if (queryParams.get('serviceCategories') === next) return;
+      queryParams.set('serviceCategories', next);
+      navigate(`?${queryParams.toString()}`);
+    } catch {
+      // malformed storage, ignore
+    }
+  }, [navigate, queryParams]);
+
+  useEffect(() => {
     if (localStorage.getItem('selectedGroups')) {
       queryParams?.set('groups', JSON.parse(localStorage.getItem('selectedGroups') ?? '') ?? '');
       navigate(`?${queryParams?.toString()}`);
