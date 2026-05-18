@@ -1,3 +1,4 @@
+import { MISSING_REQUEST_SECRETS } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
@@ -5,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockCreateEncounterFromAppointment = vi.fn();
 const mockGetAuth0Token = vi.fn().mockResolvedValue('test-token');
 const mockCreateOystehrClient = vi.fn();
+const mockGetOrCreateCandidApiClient = vi.fn();
 
 const mockFhirPatch = vi.fn();
 const mockFhirSearch = vi.fn();
@@ -27,18 +29,9 @@ vi.mock('../../src/shared', async (importOriginal) => {
     createEncounterFromAppointment: mockCreateEncounterFromAppointment,
     getAuth0Token: mockGetAuth0Token,
     createOystehrClient: mockCreateOystehrClient,
+    getOrCreateCandidApiClient: mockGetOrCreateCandidApiClient,
     wrapHandler: (_name: string, handler: any) => handler,
     CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM: 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id',
-  };
-});
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    getOptionalSecret: vi.fn().mockReturnValue('candid-client-id-value'),
-    // tests don't drive real candid traffic, so any non-empty string is fine
-    getSecret: vi.fn().mockReturnValue('test-value'),
   };
 });
 
@@ -125,6 +118,8 @@ describe('sub-send-claim', () => {
     vi.clearAllMocks();
     mockCreateOystehrClient.mockReturnValue(mockOystehrClient);
     mockFhirPatch.mockResolvedValue({ resourceType: 'Task', id: 'task-1', status: 'completed' });
+    // candid is configured by default, tests override to skip when needed
+    mockGetOrCreateCandidApiClient.mockResolvedValue({} as any);
   });
 
   it('creates a Candid encounter and patches FHIR Encounter with the Candid ID', async () => {
@@ -183,10 +178,8 @@ describe('sub-send-claim', () => {
     expect(mockCreateEncounterFromAppointment).not.toHaveBeenCalled();
   });
 
-  it('skips Candid when CANDID_CLIENT_ID secret is not set', async () => {
-    // Override the getOptionalSecret mock to return null
-    const utils = await import('utils');
-    vi.mocked(utils.getOptionalSecret).mockReturnValue(null as any);
+  it('skips Candid when getOrCreateCandidApiClient rejects with MISSING_REQUEST_SECRETS', async () => {
+    mockGetOrCreateCandidApiClient.mockRejectedValueOnce(MISSING_REQUEST_SECRETS);
 
     setupValidatedParams('task-3', 'appt-3');
     const visitResources = makeVisitResources({ encounterId: 'enc-3' });
@@ -202,9 +195,6 @@ describe('sub-send-claim', () => {
 
     expect(result.statusCode).toBe(200);
     expect(mockCreateEncounterFromAppointment).not.toHaveBeenCalled();
-
-    // Restore mock
-    vi.mocked(utils.getOptionalSecret).mockReturnValue('candid-client-id-value' as any);
   });
 
   it('uses /identifier (array) when encounter has no existing identifiers', async () => {
