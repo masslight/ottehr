@@ -3945,8 +3945,16 @@ export const getAccountAndCoverageResourcesForPatient = async (
   }
 
   const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
-  const insuranceOrgsFromFhir = resources.filter((res): res is Organization => res.resourceType === 'Organization');
-  const resourcesWithoutInsuranceOrgsFromFhir = resources.filter((res) => res.resourceType !== 'Organization');
+  const insuranceOrgsFromFhir = resources.filter(
+    (res): res is Organization =>
+      res.resourceType === 'Organization' &&
+      organizationMatchesType(res, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url))
+  );
+  const resourcesWithoutInsuranceOrgsFromFhir = resources.filter(
+    (res) =>
+      res.resourceType !== 'Organization' ||
+      !organizationMatchesType(res, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url))
+  );
 
   // Get payer info for coverages
   const insuranceOrgs: Organization[] = (
