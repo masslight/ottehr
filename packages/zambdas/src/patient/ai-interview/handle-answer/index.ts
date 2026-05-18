@@ -2,7 +2,14 @@ import { BaseMessageLike } from '@langchain/core/messages';
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { createOystehrClient, getSecret, HandleAnswerInput, Secrets, SecretsKeys } from 'utils';
+import {
+  createOystehrClient,
+  getSecret,
+  HandleAnswerInput,
+  QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import {
   assertDefined,
   getAuth0Token,
@@ -31,11 +38,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     id: questionnaireResponseId,
   });
   if (questionnaireResponse.status === 'completed') {
-    console.log(`QuestionnaireResponse ${questionnaireResponseId} is already completed, returning existing response`);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(questionnaireResponse),
-    };
+    throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('QuestionnaireResponse is already completed.');
   }
   questionnaireResponse.item?.push({
     linkId,
