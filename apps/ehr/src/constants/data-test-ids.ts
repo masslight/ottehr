@@ -729,6 +729,16 @@ export const dataTestIds = {
     },
   },
 
+  adminLabelPrintingConfig: {
+    form: 'label-printing-config-form',
+    modeSelect: 'label-printing-config-mode-select',
+    manufacturerSelect: 'label-printing-config-manufacturer-select',
+    labelTypeSelect: 'label-printing-config-label-type-select',
+    orientationSelect: 'label-printing-config-orientation-select',
+    openPdfOnPrintCheckbox: 'label-printing-config-open-pdf-checkbox',
+    submitButton: 'label-printing-config-submit-button',
+  },
+
   reviewOfSystemsPage: {
     rosTableContainer: 'review-of-systems-table-container',
     rosTable: 'review-of-systems-table',
