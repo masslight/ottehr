@@ -244,7 +244,7 @@ export default function ProceduresNew(): ReactElement {
   // instead of appearing empty on a fast first click.
   const { quickPicks: mergedQuickPicks, loading: mergedQuickPicksLoading } = useMergedProcedureQuickPicks();
   const sortedMergedQuickPicks = useMemo(
-    () => [...mergedQuickPicks].sort((a, b) => a.name.localeCompare(b.name)),
+    () => [...mergedQuickPicks].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
     [mergedQuickPicks]
   );
 
@@ -486,7 +486,7 @@ export default function ProceduresNew(): ReactElement {
       setExistingQuickPicks(response.quickPicks);
     } catch (error) {
       console.error('Failed to load existing quick picks:', error);
-      setExistingQuickPicks(mergedQuickPicks);
+      setExistingQuickPicks(sortedMergedQuickPicks);
     }
     // Suggest name: procedure name | site location | side of body | complications | cpt codes
     const parts: string[] = [];
