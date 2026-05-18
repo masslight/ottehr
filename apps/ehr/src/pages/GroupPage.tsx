@@ -234,17 +234,19 @@ function GroupPageContent(): ReactElement {
     const links: Array<{ label: string; url: string }> = [];
 
     // Category picker fast-paths. Emitted per (location × mode × flow) when
-    // ≥2 services qualify for that combination at a single-location group.
+    // ≥2 services qualify for that combination. The picker URL pins a single
+    // atLocation, so a multi-location group simply gets one picker link per
+    // location rather than no picker at all.
     for (const loc of locs) {
       for (const mode of ['in-person', 'virtual'] as const) {
         for (const flow of ['prebook', 'walk-in'] as const) {
           const flowCats = (flow === 'prebook' ? prebookCats : walkinCats).filter((c) => c.serviceModes.includes(mode));
-          if (flowCats.length >= 2 && locs.length === 1) {
+          if (flowCats.length >= 2) {
             const modeLabel = mode === 'virtual' ? 'Virtual' : 'In-person';
-            const flowLabel = flow === 'walk-in' ? 'walk-in' : 'category';
+            const flowLabel = flow === 'walk-in' ? 'walk-in' : 'prebook';
             const flowRoot = flow === 'walk-in' ? 'walkin' : 'prebook';
             links.push({
-              label: `${modeLabel} ${flowLabel} picker — ${loc.name}`,
+              label: `${modeLabel} ${flowLabel} service picker — ${loc.name}`,
               url: `${INTAKE_URL}/${flowRoot}/${mode}/select-service-category?${groupParams}&atLocation=${encodeURIComponent(
                 loc.slug
               )}`,
@@ -638,27 +640,6 @@ function GroupPageContent(): ReactElement {
                 <strong>Provider</strong>: booking writes the picked provider directly to the Encounter. The EHR shows
                 them as the attending immediately.
               </Typography>
-              <FormControlLabel
-                sx={{ mt: 2, display: 'flex', alignItems: 'flex-start' }}
-                control={
-                  <Checkbox
-                    checked={uniformQualifications}
-                    onChange={(e) => setUniformQualifications(e.target.checked)}
-                  />
-                }
-                label={
-                  <Box sx={{ pt: 0.5 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      Treat all members as qualified for every service this group supports
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {uniformQualifications
-                        ? 'Every member is presumed qualified for every service. Adding a service to the group makes it instantly bookable from all members. Use only when the team is uniformly qualified.'
-                        : "Each member's qualifications are read from their own provider schedule. A patient sees slots only from members whose schedule explicitly lists the requested service."}
-                    </Typography>
-                  </Box>
-                }
-              />
               <Box
                 sx={{ display: bookingLinks.length > 0 ? 'flex' : 'none', flexDirection: 'column', gap: 0.5, mt: 3 }}
               >
@@ -700,6 +681,27 @@ function GroupPageContent(): ReactElement {
               <Typography variant="h4" color="primary.dark" marginBottom={2}>
                 Services this group supports
               </Typography>
+              <FormControlLabel
+                sx={{ mb: 2, display: 'flex', alignItems: 'flex-start' }}
+                control={
+                  <Checkbox
+                    checked={uniformQualifications}
+                    onChange={(e) => setUniformQualifications(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box sx={{ pt: 0.5 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      Treat all members as qualified for every service this group supports
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {uniformQualifications
+                        ? 'Every member is presumed qualified for every service. Adding a service to the group makes it instantly bookable from all members. Use only when the team is uniformly qualified.'
+                        : "Each member's qualifications are read from their own provider schedule. A patient sees slots only from members whose schedule explicitly lists the requested service."}
+                    </Typography>
+                  </Box>
+                }
+              />
               <Typography variant="body1" sx={{ display: 'block', mb: 1, color: 'text.primary' }}>
                 The patient is allowed to book only the checked services through this group's link. Each row shows which
                 selected members currently offer the service.
