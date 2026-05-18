@@ -100,6 +100,38 @@ const MaxLengthExtension = Extension.create<{ getMaxLength: () => number | undef
 });
 
 // ---------------------------------------------------------------------------
+// AsciiOnly enforcement — reject transactions that would introduce non-ASCII
+// characters (emoji, accented letters, etc.) in text nodes. Mention nodes
+// (template placeholders) are excluded from the check.
+// ---------------------------------------------------------------------------
+
+export const AsciiOnlyExtension = Extension.create<{ isEnabled: () => boolean }>({
+  name: 'templateEditorAsciiOnly',
+  addOptions() {
+    return { isEnabled: () => false };
+  },
+  addProseMirrorPlugins() {
+    const isEnabled = this.options.isEnabled;
+    return [
+      new Plugin({
+        filterTransaction: (transaction) => {
+          if (!isEnabled() || !transaction.docChanged) return true;
+          let hasNonAscii = false;
+          transaction.doc.descendants((node) => {
+            if (hasNonAscii) return false;
+            if (node.isText && node.text && /[^\x20-\x7E\n\r\t]/.test(node.text)) {
+              hasNonAscii = true;
+            }
+            return !hasNonAscii;
+          });
+          return !hasNonAscii;
+        },
+      }),
+    ];
+  },
+});
+
+// ---------------------------------------------------------------------------
 // Mention suggestion dropdown (rendered via React portal)
 // ---------------------------------------------------------------------------
 
@@ -226,6 +258,8 @@ export interface TemplateEditorFieldProps {
   tokens?: readonly string[];
   writeFooter?: React.ReactNode;
   maxLength?: number;
+  /** When true, reject any input containing non-ASCII characters (emoji, accented letters, etc.). */
+  stripNonAscii?: boolean;
 }
 
 export function TemplateEditorField({
@@ -242,6 +276,7 @@ export function TemplateEditorField({
   tokens = INVOICE_TOKEN_IDS,
   writeFooter,
   maxLength,
+  stripNonAscii,
 }: TemplateEditorFieldProps): ReactElement {
   const theme = useTheme();
   const [tab, setTab] = useState<'write' | 'preview'>('write');
@@ -252,6 +287,8 @@ export function TemplateEditorField({
   onChangeRef.current = onChange;
   const maxLengthRef = useRef(maxLength);
   maxLengthRef.current = maxLength;
+  const stripNonAsciiRef = useRef(stripNonAscii);
+  stripNonAsciiRef.current = stripNonAscii;
 
   const editor = useEditor({
     editable: !disabled,
@@ -280,6 +317,7 @@ export function TemplateEditorField({
         suggestion: makeSuggestion(tokens),
       }),
       MaxLengthExtension.configure({ getMaxLength: () => maxLengthRef.current }),
+      AsciiOnlyExtension.configure({ isEnabled: () => !!stripNonAsciiRef.current }),
     ],
     content: initialContent,
     onUpdate: ({ editor: ed }) => {

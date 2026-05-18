@@ -49,6 +49,7 @@ import {
 import { useEditor } from '@tiptap/react';
 import React, { ReactElement, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { SmsCharacterCounter } from 'src/components/template-editor-field/SmsCharacterCounter';
 import { INVOICE_TOKEN_IDS, TemplateEditorField } from 'src/components/template-editor-field/TemplateEditorField';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import {
@@ -415,6 +416,13 @@ const SAMPLE_PREVIEW_VALUES: Record<string, string> = {
   'location-review-link': 'https://g.page/r/example-clinic/review',
 };
 
+/** Sample values used for SMS character counting — uses a realistic-length Stripe invoice URL. */
+const SMS_SAMPLE_PREVIEW_VALUES: Record<string, string> = {
+  ...SAMPLE_PREVIEW_VALUES,
+  'invoice-link':
+    'https://invoice.stripe.com/i/acct_1RMBK7QOl2MSLK9p/test_YWNjdF8xUk1CSzdRT2wyTVNMSzlwLF9VV014QzRwYnloekVGcVp4R0JZdE1Od1pZRnBna2N3LDE2OTUxNjgyOA0200OsKWP9C9?s=ap',
+};
+
 const DEFAULT_SMS_TEMPLATE =
   'Hello {{patient-full-name}}, thank you for visiting {{clinic}} at {{location}} on {{visit-date}} and entrusting us with your care. You can view your information in the Patient Portal: {{patient-portal-link}}';
 const DEFAULT_EMAIL_TEMPLATE =
@@ -480,11 +488,13 @@ function OutreachTemplateField({
   value,
   onChange,
   renderHtmlPreview,
+  isSms,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   renderHtmlPreview?: boolean;
+  isSms?: boolean;
 }): ReactElement {
   const editorRef = useRef<ReturnType<typeof useEditor> | null>(null);
   return (
@@ -494,9 +504,15 @@ function OutreachTemplateField({
       onChange={onChange}
       editorRef={editorRef}
       previewValues={SAMPLE_PREVIEW_VALUES}
-      helperText="Type {{ to insert a placeholder. Use [link text]({{url-placeholder}}) for clickable links."
+      helperText={
+        isSms
+          ? 'Type {{ to insert a placeholder.'
+          : 'Type {{ to insert a placeholder. Use [link text]({{url-placeholder}}) for clickable links.'
+      }
       renderHtmlPreview={renderHtmlPreview}
       tokens={OUTREACH_TOKEN_IDS}
+      stripNonAscii={isSms}
+      writeFooter={isSms ? <SmsCharacterCounter value={value} sampleValues={SMS_SAMPLE_PREVIEW_VALUES} /> : undefined}
     />
   );
 }
@@ -557,7 +573,7 @@ function MediumTemplateEditors({
   return (
     <Stack spacing={2} sx={{ mt: 1 }}>
       {mediums.includes('sms') && (
-        <OutreachTemplateField label="SMS Template" value={smsTemplate} onChange={onSmsChange} />
+        <OutreachTemplateField label="SMS Template" value={smsTemplate} onChange={onSmsChange} isSms />
       )}
       {mediums.includes('email') && (
         <OutreachTemplateField
@@ -661,6 +677,7 @@ function ChannelTabs({
                     label="SMS Template"
                     value={config.smsTemplate}
                     onChange={(smsTemplate) => onChange({ ...config, smsTemplate })}
+                    isSms
                   />
                 )}
                 {isMediumEnabled(m) && m === 'email' && (
