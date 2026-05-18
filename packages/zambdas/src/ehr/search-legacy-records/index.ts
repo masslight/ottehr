@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, MISSING_REQUIRED_PARAMETERS, sanitizeForZ3Path, Secrets, SecretsKeys } from 'utils';
+import { getSecret, MISSING_REQUIRED_PARAMETERS, Secrets, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 
 const ZAMBDA_NAME = 'ehr-search-legacy-records';
@@ -121,8 +121,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   for (const [patientFolder, { patientId, keys }] of pageFolderEntries) {
     const folderParts = patientFolder.split('_');
     const displayLastName = folderParts[0] ? capitalize(folderParts[0]) : '';
-    const displayFirstName = folderParts[1] ? capitalize(folderParts[1]) : '';
-    const displayDob = folderParts.slice(2).join('-');
+    const firstNameParts = folderParts.slice(1, -1);
+    const displayFirstName = firstNameParts.map(capitalize).join(' ');
+    const displayDob = folderParts[folderParts.length - 1] || '';
     const displayName = `${displayLastName}, ${displayFirstName}${displayDob ? ` (DOB: ${displayDob})` : ''}`;
 
     const cappedKeys = keys.slice(0, maxFilesPerRecord);
@@ -163,6 +164,19 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+/**
+ * Removes leading/trailing spaces, replaces inner whitespace with "_",
+ * Strips any character that is not accepted in z3 object naming.
+ * Characters accepted: letters, numbers, plus (+), exclamation point (!), hyphen (-), underscore (_), single quote ('),
+ * open parenthesis ((), closed parenthesis ()), period (.), at sign (@), dollar sign ($)
+ */
+function sanitizeForZ3Path(value: string): string {
+  // this logic matches what was used to push data in the v2 migration
+  return value
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^A-Za-z0-9+!_\-'.()@$]/g, '');
+}
 interface ValidatedParameters {
   secrets: Secrets | null;
   lastName: string;

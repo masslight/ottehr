@@ -145,13 +145,6 @@ export function getBucketAndObjectFromZ3URL(z3URL: string, projectAPI: string): 
   return { bucket, object };
 }
 
-// Z3 object names allow only: letters, numbers, + ! - _ ' ( ) . @ $
-// Replace any other character (e.g. spaces, accents) with '-' so user-supplied
-// strings like "Da Vinci" can be safely embedded in a Z3 path.
-export function sanitizeForZ3Path(value: string): string {
-  return value.replace(/[^a-zA-Z0-9+!\-_'().@$]/g, '-');
-}
-
 export const isPostalCodeValid = (postalCode: string | undefined): boolean => {
   if (!postalCode) {
     return false;
