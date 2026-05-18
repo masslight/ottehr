@@ -38,9 +38,9 @@ function makeMockOystehr(): { secret: { get: ReturnType<typeof vi.fn>; set: Retu
 
 // Each test imports the helper fresh so the module-scope `cachedCandidApiClient`,
 // `inflightRefresh` state doesn't leak between cases.
-async function freshHelper(): Promise<typeof import('../../src/shared/candidApiClient')> {
+async function freshHelper(): Promise<typeof import('utils/lib/helpers/candidApi')> {
   vi.resetModules();
-  return import('../../src/shared/candidApiClient');
+  return import('utils/lib/helpers/candidApi');
 }
 
 function futureExpiry(): string {

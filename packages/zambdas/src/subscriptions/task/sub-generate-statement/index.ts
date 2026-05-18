@@ -6,7 +6,14 @@ import Handlebars from 'handlebars';
 import { DateTime } from 'luxon';
 import path from 'path';
 import pdfmakeModule from 'pdfmake';
-import { BUCKET_NAMES, createFilesDocumentReferences, OTTEHR_MODULE, Secrets, STATEMENT_CODE } from 'utils';
+import {
+  BUCKET_NAMES,
+  createFilesDocumentReferences,
+  getOrCreateCandidApiClient,
+  OTTEHR_MODULE,
+  Secrets,
+  STATEMENT_CODE,
+} from 'utils';
 import {
   assertDefined,
   checkOrCreateM2MClientToken,
@@ -14,7 +21,6 @@ import {
   createPresignedUrl,
   getAuth0Token,
   getJSONStatementTemplate,
-  getOrCreateCandidApiClient,
   getStatementDetails,
   uploadObjectToZ3,
   validateJsonBody,

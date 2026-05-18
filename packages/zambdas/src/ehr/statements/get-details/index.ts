@@ -1,10 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
+import { getOrCreateCandidApiClient, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
 import {
   createOystehrClient,
   getAuth0Token,
-  getOrCreateCandidApiClient,
   getStatementDetails,
   StatementType,
   wrapHandler,

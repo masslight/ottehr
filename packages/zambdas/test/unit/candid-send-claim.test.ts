@@ -29,9 +29,16 @@ vi.mock('../../src/shared', async (importOriginal) => {
     createEncounterFromAppointment: mockCreateEncounterFromAppointment,
     getAuth0Token: mockGetAuth0Token,
     createOystehrClient: mockCreateOystehrClient,
-    getOrCreateCandidApiClient: mockGetOrCreateCandidApiClient,
     wrapHandler: (_name: string, handler: any) => handler,
     CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM: 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id',
+  };
+});
+
+vi.mock('utils', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    getOrCreateCandidApiClient: mockGetOrCreateCandidApiClient,
   };
 });
 

@@ -3,12 +3,19 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Communication, Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { generateStatement, getSecret, RCM_TASK_SYSTEM, Secrets, SecretsKeys, TaskIndicator } from 'utils';
+import {
+  generateStatement,
+  getOrCreateCandidApiClient,
+  getSecret,
+  RCM_TASK_SYSTEM,
+  Secrets,
+  SecretsKeys,
+  TaskIndicator,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getHTMLStatementTemplate,
-  getOrCreateCandidApiClient,
   getStatementDetails,
   MAIL_VENDOR_EXTENSION_URL,
   sendPostGridLetter,

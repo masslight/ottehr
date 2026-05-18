@@ -8,6 +8,7 @@ import { DateTime } from 'luxon';
 import {
   createReference,
   getCandidInventoryPages,
+  getOrCreateCandidApiClient,
   getResourcesFromBatchInlineRequests,
   InvoiceTaskInput,
   mapDisplayToInvoiceTaskStatus,
@@ -25,7 +26,6 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
-  getOrCreateCandidApiClient,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';

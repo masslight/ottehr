@@ -3,12 +3,11 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils';
+import { getOrCreateCandidApiClient, getStripeAccountForAppointmentOrEncounter } from 'utils';
 import {
   createOystehrClient,
   createPatientPaymentReceiptPdf,
   getAuth0Token,
-  getOrCreateCandidApiClient,
   getStripeClient,
   performCandidPreEncounterSync,
   STRIPE_PAYMENT_ID_SYSTEM,

@@ -3,12 +3,11 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { chunkThings, GetPatientBalancesZambdaOutput } from 'utils';
+import { chunkThings, getOrCreateCandidApiClient, GetPatientBalancesZambdaOutput } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  getOrCreateCandidApiClient,
   lambdaResponse,
   wrapHandler,
   ZambdaInput,

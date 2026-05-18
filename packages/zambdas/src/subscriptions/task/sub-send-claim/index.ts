@@ -3,13 +3,12 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApiClient } from 'candidhealth';
 import { Operation } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
-import { MISSING_REQUEST_SECRETS } from 'utils';
+import { getOrCreateCandidApiClient, MISSING_REQUEST_SECRETS } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   createEncounterFromAppointment,
   createOystehrClient,
   getAuth0Token,
-  getOrCreateCandidApiClient,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';

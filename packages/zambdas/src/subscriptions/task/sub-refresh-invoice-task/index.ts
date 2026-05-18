@@ -9,6 +9,7 @@ import {
   createInvoiceTaskInput,
   findClaimsBy,
   getLatestTaskOutput,
+  getOrCreateCandidApiClient,
   getStartTimeFromEncounterStatusHistory,
   mapDisplayToInvoiceTaskStatus,
   ZERO_BALANCE_BUSINESS_STATUS,
@@ -17,7 +18,6 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
-  getOrCreateCandidApiClient,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';

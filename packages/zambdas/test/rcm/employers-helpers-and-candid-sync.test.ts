@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetOrCreateCandidApiClient = vi.fn();
 
-vi.mock('../../src/shared', async (importOriginal) => {
+vi.mock('utils', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
