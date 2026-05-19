@@ -6,7 +6,7 @@ import {
   getSecret,
   INVALID_INPUT_ERROR,
   NOT_AUTHORIZED,
-  parseCustomFoldersCatalog,
+  parseCustomFoldersCatalogIncludingDeleted,
   RenameCustomFolderInputValidated,
   RenameCustomFolderOutput,
   SecretsKeys,
@@ -70,20 +70,27 @@ const performEffect = async (
   console.log(`rename-custom-folder: starting "${internalName}" → "${newName}"`);
 
   const catalog = await loadCustomFoldersCatalog(oystehr, { required: true });
-  const defs = parseCustomFoldersCatalog(catalog);
+  const defs = parseCustomFoldersCatalogIncludingDeleted(catalog);
 
-  if (!defs.some((d) => d.internalName === internalName)) {
+  const target = defs.find((d) => d.internalName === internalName);
+  if (!target) {
+    throw { ...FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Custom folder "${internalName}" not found`), statusCode: 404 };
+  }
+  // Soft-deleted (tombstoned) entries are read-only — admin must re-create the
+  // folder (which clears the tombstone) before they can rename it.
+  if (target.deleted) {
     throw { ...FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Custom folder "${internalName}" not found`), statusCode: 404 };
   }
 
-  // Uniqueness check: newName must not match any system folder display or another custom folder
+  // Uniqueness check: newName must not match any system folder display or another
+  // active custom folder. Soft-deleted entries don't reserve display names.
   const systemDisplayNames = FOLDERS_CONFIG.map((f) => f.display.toLowerCase().trim());
   if (systemDisplayNames.includes(newName.toLowerCase().trim())) {
     throw { ...INVALID_INPUT_ERROR(`A folder named "${newName}" already exists`), statusCode: 409 };
   }
 
   const otherCustomNames = defs
-    .filter((d) => d.internalName !== internalName)
+    .filter((d) => d.internalName !== internalName && !d.deleted)
     .map((d) => d.displayName.toLowerCase().trim());
   if (otherCustomNames.includes(newName.toLowerCase().trim())) {
     throw { ...INVALID_INPUT_ERROR(`A folder named "${newName}" already exists`), statusCode: 409 };

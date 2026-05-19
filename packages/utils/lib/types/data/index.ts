@@ -1,4 +1,5 @@
 export * from './account';
+export * from './billing';
 export * from './appointments';
 export * from './documents';
 export * from './get-schedule.types';

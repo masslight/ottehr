@@ -1,12 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
+  CUSTOM_FOLDER_DELETED_FLAG_CODE,
+  CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM,
   DeleteCustomFolderInputValidated,
   DeleteCustomFolderOutput,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getSecret,
+  isCustomFolderCatalogEntryDeleted,
   NOT_AUTHORIZED,
-  parseCustomFoldersCatalog,
+  parseCustomFoldersCatalogIncludingDeleted,
   SecretsKeys,
 } from 'utils';
 import {
@@ -64,27 +67,45 @@ const performEffect = async (internalName: string, oystehr: Oystehr): Promise<De
   console.log(`delete-custom-folder: starting for "${internalName}"`);
 
   const catalog = await loadCustomFoldersCatalog(oystehr, { required: true });
-  const defs = parseCustomFoldersCatalog(catalog);
-  if (!defs.some((d) => d.internalName === internalName)) {
+  const defs = parseCustomFoldersCatalogIncludingDeleted(catalog);
+  const existing = defs.find((d) => d.internalName === internalName);
+  if (!existing) {
     throw { ...FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Custom folder "${internalName}" not found`), statusCode: 404 };
+  }
+  // Idempotent: if the entry is already soft-deleted, treat as success without rewriting.
+  if (existing.deleted) {
+    console.log(`delete-custom-folder: "${internalName}" already soft-deleted — no-op`);
+    return { internalName };
   }
 
   await writeCustomFoldersCatalog({
     oystehr,
     initialCatalog: catalog,
+    // Soft-delete via `entry.flag`. Keeps the latest displayName accessible
+    // to the patient docs read path so existing per-patient Lists resolve to the
+    // current name.
     mutate: (current) => ({
       ...current,
-      entry: (current.entry ?? []).filter((entry) => entry.item?.identifier?.value !== internalName),
+      entry: (current.entry ?? []).map((entry) =>
+        entry.item?.identifier?.value === internalName
+          ? {
+              ...entry,
+              flag: { coding: [{ system: CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM, code: CUSTOM_FOLDER_DELETED_FLAG_CODE }] },
+            }
+          : entry
+      ),
     }),
     tag: 'delete-custom-folder',
-    // If a concurrent writer already removed the entry, treat as success.
-    onConflictRefetched: (refetched) =>
-      !(refetched.entry ?? []).some((e) => e.item?.identifier?.value === internalName),
+    // If a concurrent writer already soft-deleted (or removed) the entry, treat as success.
+    onConflictRefetched: (refetched) => {
+      const e = (refetched.entry ?? []).find((x) => x.item?.identifier?.value === internalName);
+      return !e || isCustomFolderCatalogEntryDeleted(e);
+    },
   });
 
   // Per-patient List instances and stored objects in the shared CUSTOM_FOLDERS bucket
-  // are deliberately left intact. The read path picks them up as orphans and resolves
-  // the display name from each per-patient List's own coding. Re-creating a folder with
-  // the same display (and therefore same internal name) re-adopts the orphans.
+  // are deliberately left intact. The catalog entry stays as a tombstone so reads keep
+  // resolving to the latest displayName; creating a folder with the same displayName
+  // (and therefore same internalName) clears the tombstone and re-adopts the documents.
   return { internalName };
 };

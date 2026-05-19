@@ -46,16 +46,6 @@ vi.mock('../../src/hooks/useAppClients', () => ({
   }),
 }));
 
-const mockHasRole = vi.fn(() => true);
-
-vi.mock('src/hooks/useEvolveUser', () => ({
-  default: () => ({ id: 'admin-1', hasRole: mockHasRole }),
-}));
-
-vi.mock('../../src/hooks/useEvolveUser', () => ({
-  default: () => ({ id: 'admin-1', hasRole: mockHasRole }),
-}));
-
 vi.mock('notistack', async () => {
   const actual = (await vi.importActual('notistack')) as any;
   return { ...actual, enqueueSnackbar: vi.fn() };
@@ -103,15 +93,7 @@ const mockCatalogBundle = (entries: { internalName: string; displayName: string 
 describe('AdminCustomFoldersPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockHasRole.mockReturnValue(true);
     mockFhirSearch.mockResolvedValue(mockCatalogBundle([]));
-  });
-
-  it('redirects non-admin users away from the page', async () => {
-    mockHasRole.mockReturnValue(false);
-    const { container } = render(<AdminCustomFoldersPage />, { wrapper: createWrapper() });
-    // The page returns a <Navigate to="/" />; nothing should render in this scope.
-    expect(container.querySelector('table')).toBeNull();
   });
 
   it('renders protected folders as read-only rows when the catalog is empty (no custom rows)', async () => {

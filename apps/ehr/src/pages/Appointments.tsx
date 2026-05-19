@@ -2,7 +2,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { Autocomplete, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { VisitType } from 'config-types';
-import { HealthcareService, Practitioner } from 'fhir/r4b';
+import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
@@ -11,13 +11,7 @@ import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetVitalsForEncounters } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useGetOrdersForTrackingBoard } from 'src/hooks/useGetOrdersForTrackingBoard';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import {
-  AppointmentType,
-  BOOKING_CONFIG,
-  GetVitalsForListOfEncountersResponseData,
-  InPersonAppointmentInformation,
-  OrdersForTrackingBoardTable,
-} from 'utils';
+import { AppointmentType, BOOKING_CONFIG, InPersonAppointmentInformation } from 'utils';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
@@ -76,7 +70,6 @@ export default function Appointments(): ReactElement {
   const [locationSelected, setLocationSelected] = useState<LocationWithWalkinSchedule | undefined>(undefined);
   const [loadingState, setLoadingState] = useState<LoadingState>({ status: 'initial' });
   const [practitioners, setPractitioners] = useState<Practitioner[] | undefined>(undefined);
-  const [healthcareServices, setHealthcareServices] = useState<HealthcareService[] | undefined>(undefined);
   const [appointmentDate, setAppointmentDate] = useState<DateTime | null>(DateTime.local());
   const [editingComment, setEditingComment] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<AppointmentSearchResultData | null>(null);
@@ -217,30 +210,8 @@ export default function Appointments(): ReactElement {
       }
     }
 
-    async function getHealthcareServices(oystehrClient: Oystehr): Promise<void> {
-      if (!oystehrZambda) {
-        return;
-      }
-
-      try {
-        const healthcareServicesTemp: HealthcareService[] = (
-          await oystehrClient.fhir.search<HealthcareService>({
-            resourceType: 'HealthcareService',
-            params: [
-              { name: '_count', value: '1000' },
-              // { name: 'name:missing', value: 'false' },
-            ],
-          })
-        ).unbundle();
-        setHealthcareServices(healthcareServicesTemp);
-      } catch (e) {
-        console.error('error loading HealthcareServices', e);
-      }
-    }
-
     if (oystehrZambda) {
       void getPractitioners(oystehrZambda);
-      void getHealthcareServices(oystehrZambda);
     }
   }, [oystehrZambda]);
 
@@ -316,80 +287,6 @@ export default function Appointments(): ReactElement {
   }, []);
 
   return (
-    <AppointmentsBody
-      loadingState={loadingState}
-      queryParams={queryParams}
-      handleSubmit={handleSubmit}
-      visitType={visitType}
-      visitTypeToLabel={visitTypeToLabel}
-      providers={providers}
-      serviceCategories={serviceCategories}
-      preBookedAppointments={preBookedAppointments}
-      completedAppointments={completedAppointments}
-      cancelledAppointments={cancelledAppointments}
-      inOfficeAppointments={inOfficeAppointments}
-      orders={orders}
-      vitals={vitals}
-      locationSelected={locationSelected}
-      setLocationSelected={setLocationSelected}
-      practitioners={practitioners}
-      healthcareServices={healthcareServices}
-      appointmentDate={appointmentDate}
-      setAppointmentDate={setAppointmentDate}
-      updateAppointments={updateAppointments}
-      setEditingComment={setEditingComment}
-    />
-  );
-}
-
-interface AppointmentsBodyProps {
-  loadingState: LoadingState;
-  preBookedAppointments: InPersonAppointmentInformation[];
-  completedAppointments: InPersonAppointmentInformation[];
-  cancelledAppointments: InPersonAppointmentInformation[];
-  inOfficeAppointments: InPersonAppointmentInformation[];
-  appointmentDate: DateTime | null;
-  locationSelected: LocationWithWalkinSchedule | undefined;
-  handleSubmit: CustomFormEventHandler;
-  queryParams?: URLSearchParams;
-  visitType: string[];
-  visitTypeToLabel: Record<string, string>;
-  providers: string[];
-  serviceCategories: string[];
-  setLocationSelected: (location: LocationWithWalkinSchedule | undefined) => void;
-  practitioners: Practitioner[] | undefined;
-  healthcareServices: HealthcareService[] | undefined;
-  setAppointmentDate: (date: DateTime | null) => void;
-  updateAppointments: () => void;
-  setEditingComment: (editingComment: boolean) => void;
-  orders: OrdersForTrackingBoardTable;
-  vitals?: GetVitalsForListOfEncountersResponseData;
-}
-function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
-  const {
-    loadingState,
-    preBookedAppointments,
-    completedAppointments,
-    cancelledAppointments,
-    inOfficeAppointments,
-    locationSelected,
-    setLocationSelected,
-    appointmentDate,
-    visitType,
-    visitTypeToLabel,
-    providers,
-    serviceCategories,
-    practitioners,
-    setAppointmentDate,
-    queryParams,
-    handleSubmit,
-    updateAppointments,
-    setEditingComment,
-    orders,
-    vitals,
-  } = props;
-
-  return (
     <form>
       <PageContainer>
         <>
@@ -427,7 +324,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                   value={visitType}
                   options={Object.keys(visitTypeToLabel)}
                   getOptionLabel={(option) => {
-                    return visitTypeToLabel[option];
+                    return (visitTypeToLabel as Record<string, string>)[option];
                   }}
                   onChange={(event, value) => {
                     if (value) {
