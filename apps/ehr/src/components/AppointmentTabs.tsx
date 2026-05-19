@@ -22,6 +22,22 @@ export enum ApptTab {
   'cancelled' = 'cancelled',
 }
 
+export const SELECTED_TAB_STORAGE_KEY = 'selectedAppointmentTab';
+
+const getStoredTab = (): ApptTab | undefined => {
+  const stored = localStorage.getItem(SELECTED_TAB_STORAGE_KEY);
+  if (!stored) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    if (typeof parsed === 'string' && (Object.values(ApptTab) as string[]).includes(parsed)) {
+      return parsed as ApptTab;
+    }
+  } catch {
+    // malformed storage value, fall through
+  }
+  return undefined;
+};
+
 interface AppointmentsTabProps {
   location: LocationWithWalkinSchedule | undefined;
   providers: string[] | undefined;
@@ -52,13 +68,14 @@ export default function AppointmentTabs({
   vitals,
 }: AppointmentsTabProps): ReactElement {
   const routeLocation = useLocation();
-  const initialTab = (routeLocation.state?.tab as ApptTab) || ApptTab['in-office'];
+  const initialTab = (routeLocation.state?.tab as ApptTab) || getStoredTab() || ApptTab['in-office'];
 
   const [value, setValue] = useState<ApptTab>(initialTab);
   const [now, setNow] = useState<DateTime>(DateTime.now());
 
   const handleChange = (event: any, newValue: ApptTab): any => {
     setValue(newValue);
+    localStorage.setItem(SELECTED_TAB_STORAGE_KEY, JSON.stringify(newValue));
   };
 
   React.useEffect(() => {

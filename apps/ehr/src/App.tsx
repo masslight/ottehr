@@ -102,7 +102,7 @@ export const showEnvironmentBanner = import.meta.env.VITE_APP_ENV !== 'productio
 function App(): ReactElement {
   useApiClients();
   const currentUser = useEvolveUser();
-  const currentTab = useNavStore((state) => state.currentTab) || 'In Person';
+  const currentTab = useNavStore((state) => state.currentTab) || 'Tracking Board';
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
 
