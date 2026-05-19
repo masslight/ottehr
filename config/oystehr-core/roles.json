@@ -540,9 +540,9 @@
           "resource": ["eRx:Medication"]
         },
         {
-          "action": ["eRx:SearchAllergy"],
+          "action": ["eRx:SearchAllergen"],
           "effect": "Allow",
-          "resource": ["eRx:Allergy"]
+          "resource": ["eRx:Allergen"]
         }
       ]
     },
