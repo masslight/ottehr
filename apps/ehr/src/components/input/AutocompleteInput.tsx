@@ -60,7 +60,8 @@ export function AutocompleteInput<Value>({
           field.value &&
           !options?.find((option) =>
             isOptionEqualToValue ? isOptionEqualToValue(option, field.value) : option === field.value
-          )
+          ) &&
+          !multiple
         ) {
           optionsToUse = [...optionsToUse, field.value];
         }

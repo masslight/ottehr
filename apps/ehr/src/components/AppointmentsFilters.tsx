@@ -1,9 +1,9 @@
 import AddIcon from '@mui/icons-material/Add';
 import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import { VisitType } from 'config-types';
-import { ReactElement, useMemo } from 'react';
+import { ReactElement, useEffect, useMemo } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PROVIDERS_FILTER } from 'src/shared/utils';
 import { AppointmentType, BOOKING_CONFIG } from 'utils';
@@ -11,10 +11,6 @@ import { DateInput } from './input/DateInput';
 import { EmployeeSelectInput } from './input/EmployeeSelectInput';
 import { LocationSelectInput } from './input/LocationSelectInput';
 import { SelectInput } from './input/SelectInput';
-
-interface Props {
-  s: string;
-}
 
 // keys are the appointment-type strings get-appointments uses:
 // `${'in-person' | 'virtual'}-${AppointmentType}`
@@ -46,10 +42,65 @@ const getVisitTypeToLabel = (): Partial<typeof ALL_VISIT_TYPE_LABELS> => {
   );
 };
 
-export default function AppointmentsFilters({ _s }: Props): ReactElement {
+const LOCAL_STORAGE_FILTERS_KEY = 'appointments.filters';
+
+export default function AppointmentsFilters(): ReactElement {
   const visitTypeToLabel = useMemo(() => getVisitTypeToLabel(), []);
 
   const methods = useForm();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const values = {
+      location:
+        searchParams
+          .get('location')
+          ?.split(',')
+          .map((id) => ({ id })) ?? [],
+      visitType: searchParams.get('visitType')?.split(',') ?? [],
+      serviceCategory: searchParams.get('serviceCategory')?.split(',') ?? [],
+      date: searchParams.get('date'),
+      provider:
+        searchParams
+          .get('provider')
+          ?.split(',')
+          .map((id) => ({ id })) ?? [],
+    };
+    methods.reset(values);
+  }, [searchParams, methods]);
+
+  useEffect(() => {
+    const callback = methods.subscribe({
+      formState: {
+        values: true,
+      },
+      callback: ({ values }) => {
+        const queryParams = new URLSearchParams();
+        for (const key in values) {
+          const value = Array.isArray(values[key])
+            ? values[key].map((val) => val.id ?? val).join(',')
+            : values[key]?.id ?? values[key];
+          if (value) {
+            queryParams.set(key, value);
+          }
+        }
+        setSearchParams(queryParams);
+        if (values) {
+          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(values));
+        } else {
+          localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
+        }
+      },
+    });
+    return () => callback();
+  }, [methods, setSearchParams]);
+
+  useEffect(() => {
+    const persistedValues = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
+    if (searchParams.size === 0 && persistedValues) {
+      methods.reset(JSON.parse(persistedValues));
+    }
+  }, [methods, searchParams]);
 
   return (
     <FormProvider {...methods}>
