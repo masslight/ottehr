@@ -62,6 +62,9 @@ interface FileToUpload {
 const LEGACY_DATA_BUCKET_SUFFIX = 'legacy-data';
 const CONCURRENCY = 25;
 
+// Set to a number to cap how many rows are migrated (e.g. 5 for a smoke test). undefined = no limit.
+const MAX_ROWS: number | undefined = undefined;
+
 const DOC_TYPES_TO_MIGRATE = ['Composite', 'Patient Documentation'];
 
 const summary: Summary = {
@@ -234,6 +237,8 @@ async function getS3FileAndFormatIntoFileUpload(row: CsvRow, s3Client: S3Client 
     throw new Error(`no sourceObject.Body returned for row: ${JSON.stringify(row)}`);
   }
 
+  // console.log('sourceObject details for', fileName, sourceObject.ContentType, sourceObject.ETag);
+
   const bytes = await sourceObject.Body.transformToByteArray();
 
   const fileBlob = new Blob([bytes as Uint8Array<ArrayBuffer>], {
@@ -326,6 +331,11 @@ async function main(): Promise<void> {
   console.log(`Migrating the following doc types: ${DOC_TYPES_TO_MIGRATE}`);
   console.log(`Total documents to be migrated: ${rows.length}\n`);
 
+  if (MAX_ROWS !== undefined) {
+    rows.splice(MAX_ROWS);
+    console.log(`MAX_ROWS set — limiting migration to ${MAX_ROWS} rows.\n`);
+  }
+
   let sourceS3Client: S3Client | undefined;
 
   if (!useDefaultData) {
@@ -350,6 +360,9 @@ async function main(): Promise<void> {
         }
       })
     );
+
+    console.log(`Finished reading batch ${i} - ${i + CONCURRENCY}`);
+
     allFiles.push(...batchResults.filter((f): f is FileToUpload => f !== null));
   }
 
@@ -392,6 +405,8 @@ async function main(): Promise<void> {
         }
       })
     );
+
+    console.log(`Finished uploading batch ${i} - ${i + CONCURRENCY}`);
   }
 
   logSummary(summary);

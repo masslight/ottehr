@@ -33,6 +33,7 @@ type Summary = {
 
   documentTypeSummary: DocumentMap;
   fileTypeSummary: Record<string, number>;
+  fileNameCounts: Map<string, number>;
 };
 
 // ── Consts ──────────────────────────────────────────────────────────
@@ -48,14 +49,15 @@ const summary: Summary = {
 
   documentTypeSummary: {},
   fileTypeSummary: {},
+  fileNameCounts: new Map(),
 };
 
 const INDENT = '  ';
 
 const COUNT_TO_PRINT = 5000;
 
-// const DOC_TYPES_TO_ANALYZE: string[] = ['Composite', 'Patient Documentation'];
-const DOC_TYPES_TO_ANALYZE: string[] = [];
+const DOC_TYPES_TO_ANALYZE: string[] = ['Composite', 'Patient Documentation'];
+// const DOC_TYPES_TO_ANALYZE: string[] = [];
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -177,6 +179,9 @@ async function main(): Promise<void> {
 
     const { path, documentType, description } = row;
 
+    const fileName = path.split('/').pop() ?? path;
+    summary.fileNameCounts.set(fileName, (summary.fileNameCounts.get(fileName) ?? 0) + 1);
+
     if (summary.documentTypeSummary[documentType]) {
       if (summary.documentTypeSummary[documentType][description]) {
         summary.documentTypeSummary[documentType][description] += 1;
@@ -261,6 +266,19 @@ async function main(): Promise<void> {
     // console.log(`Names with special characters: ${[...summary.namesWithSpecialChars].join('; ')}\n`);
   } else {
     console.log('No names with special characters found\n');
+  }
+
+  console.log('========== DUPLICATE FILE NAMES ==========');
+  const duplicates = [...summary.fileNameCounts.entries()].filter(([, count]) => count > 1);
+  if (duplicates.length === 0) {
+    console.log('No duplicate file names\n');
+  } else {
+    duplicates.sort((a, b) => b[1] - a[1]);
+    console.log(`Total duplicate file names: ${duplicates.length}\n`);
+    for (const [name, count] of duplicates) {
+      console.log(`${INDENT}${name}: ${count}`);
+    }
+    console.log('');
   }
 
   console.log('========== FAILURES ==========');
