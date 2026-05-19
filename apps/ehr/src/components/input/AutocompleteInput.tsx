@@ -44,7 +44,7 @@ export function AutocompleteInput<Value>({
 }: AutocompleteInputProps<Value>): React.JSX.Element {
   const { control } = useFormContext();
   if (loading && !options) {
-    return <Skeleton variant="rectangular" width="100%" height={40} />;
+    return <Skeleton variant="rectangular" width="100%" height={size === 'medium' ? 56 : 40} />;
   }
   return (
     <Controller
