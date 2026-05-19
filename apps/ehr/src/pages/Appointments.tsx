@@ -7,6 +7,7 @@ import { DateTime } from 'luxon';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import AppointmentsFilters from 'src/components/AppointmentsFilters';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetVitalsForEncounters } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useGetOrdersForTrackingBoard } from 'src/hooks/useGetOrdersForTrackingBoard';
@@ -225,11 +226,11 @@ export default function Appointments(): ReactElement {
         Array.isArray(visitType)
       ) {
         const searchResults = await getAppointments(client, {
-          locationID: locationID || locationSelected?.id || undefined,
           searchDate,
-          visitType: visitType,
-          providerIDs: providers,
-          serviceCategories: serviceCategories,
+          locationIds: [locationID],
+          providerIds: providers,
+          serviceCategories,
+          visitType,
           supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
         });
 
@@ -300,6 +301,7 @@ export default function Appointments(): ReactElement {
               width: '100%',
             }}
           >
+            <AppointmentsFilters s={''} />
             <Paper sx={{ padding: 2 }}>
               <Stack direction="row" spacing={2} alignItems="flex-start">
                 <Box style={{ flex: 1 }}>
@@ -431,9 +433,7 @@ export default function Appointments(): ReactElement {
             }}
           >
             <AppointmentTabs
-              location={locationSelected}
-              providers={providers}
-              serviceCategories={serviceCategories}
+              showSelectFiltersMessage={!locationSelected && providers?.length === 0 && serviceCategories?.length === 0}
               preBookedAppointments={preBookedAppointments}
               cancelledAppointments={cancelledAppointments}
               completedAppointments={completedAppointments}

@@ -19,6 +19,7 @@ export type AutocompleteInputProps<Value> = {
   getOptionLabel?: (option: Value) => string;
   isOptionEqualToValue?: (option: Value, value: Value) => boolean;
   dataTestId?: string;
+  multiple?: boolean;
 };
 
 export function AutocompleteInput<Value>({
@@ -37,6 +38,7 @@ export function AutocompleteInput<Value>({
   getOptionLabel,
   isOptionEqualToValue,
   dataTestId,
+  multiple,
 }: AutocompleteInputProps<Value>): React.JSX.Element {
   const { control } = useFormContext();
   if (loading && !options) {
@@ -62,8 +64,8 @@ export function AutocompleteInput<Value>({
         }
         return (
           <Box sx={{ width: '100%' }}>
-            <Autocomplete<Value, false, false, boolean>
-              value={field.value ?? null}
+            <Autocomplete<Value, boolean | undefined, false, boolean>
+              value={field.value ?? (multiple ? [] : null)}
               options={optionsToUse}
               // MUI types getOptionKey/getOptionLabel as (option: Value | string) => ... when FreeSolo
               // is boolean rather than false, but our props already enforce the correct type for callers.
@@ -87,7 +89,7 @@ export function AutocompleteInput<Value>({
                 <TextField
                   {...params}
                   label={label + (required ? '*' : '')}
-                  placeholder={label}
+                  placeholder={!multiple ? label : undefined}
                   inputProps={{ ...params.inputProps, readOnly: selectOnly }}
                   error={error != null}
                   size="small"
@@ -97,6 +99,7 @@ export function AutocompleteInput<Value>({
               )}
               loading={loading}
               disabled={disabled}
+              multiple={multiple}
               fullWidth
             />
             {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}

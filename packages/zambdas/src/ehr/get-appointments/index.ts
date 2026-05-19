@@ -91,7 +91,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   // We should use the appointment's timezone to request the correct appointments.
   // The approach: use date without timezone from client and convert it to Zulu (UTC)
   // with the appointment's timezone.
-  const { visitType, searchDate, locationID, providerIDs, serviceCategories, supervisorApprovalEnabled, secrets } =
+  const { visitType, searchDate, locationIds, providerIds, serviceCategories, supervisorApprovalEnabled, secrets } =
     validatedParameters;
 
   console.groupEnd();
@@ -108,13 +108,15 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   }[] = (() => {
     const resources: { resourceId: string; resourceType: 'Location' | 'Practitioner' }[] = [];
 
-    if (locationID) {
-      resources.push({ resourceId: locationID, resourceType: 'Location' });
+    if (locationIds) {
+      resources.push(
+        ...locationIds.map((locationId) => ({ resourceId: locationId, resourceType: 'Location' }) as const)
+      );
     }
 
-    if (providerIDs) {
+    if (providerIds) {
       resources.push(
-        ...providerIDs.map((providerID) => ({ resourceId: providerID, resourceType: 'Practitioner' }) as const)
+        ...providerIds.map((providerId) => ({ resourceId: providerId, resourceType: 'Practitioner' }) as const)
       );
     }
 

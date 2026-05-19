@@ -7,10 +7,11 @@ import { AutocompleteInput } from './AutocompleteInput';
 type Props = {
   name: string;
   label: string;
+  multiple?: boolean;
   required?: boolean;
 };
 
-export const LocationSelectInput: React.FC<Props> = ({ name, label, required }) => {
+export const LocationSelectInput: React.FC<Props> = ({ name, label, multiple, required }) => {
   const { oystehr } = useApiClients();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [options, setOptions] = useState<{ id: string; name: string }[] | undefined>(undefined);
@@ -56,6 +57,7 @@ export const LocationSelectInput: React.FC<Props> = ({ name, label, required }) 
       getOptionLabel={(option) => option.name ?? options?.find((opt) => opt.id === option.id)?.name ?? option.id}
       getOptionKey={(option) => option.id}
       isOptionEqualToValue={(option, value) => option.id === value.id}
+      multiple={multiple}
     />
   );
 };

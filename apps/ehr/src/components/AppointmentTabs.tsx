@@ -5,7 +5,6 @@ import { Box, Grid, Tab, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useCallback, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import {
   GetVitalsForListOfEncountersResponseData,
   InPersonAppointmentInformation,
@@ -23,9 +22,7 @@ export enum ApptTab {
 }
 
 interface AppointmentsTabProps {
-  location: LocationWithWalkinSchedule | undefined;
-  providers: string[] | undefined;
-  serviceCategories: string[] | undefined;
+  showSelectFiltersMessage: boolean;
   preBookedAppointments: InPersonAppointmentInformation[];
   completedAppointments: InPersonAppointmentInformation[];
   cancelledAppointments: InPersonAppointmentInformation[];
@@ -38,9 +35,7 @@ interface AppointmentsTabProps {
 }
 
 export default function AppointmentTabs({
-  location,
-  providers,
-  serviceCategories,
+  showSelectFiltersMessage,
   preBookedAppointments,
   completedAppointments,
   cancelledAppointments,
@@ -73,7 +68,7 @@ export default function AppointmentTabs({
     return () => clearInterval(timeInterval);
   }, []);
 
-  const selectLocationMsg = !location && providers?.length === 0 && serviceCategories?.length === 0 && (
+  const selectLocationMsg = showSelectFiltersMessage && (
     <Grid container sx={{ width: '100%' }} padding={4}>
       <Grid item>
         <FmdBadOutlinedIcon
@@ -109,7 +104,6 @@ export default function AppointmentTabs({
           appointments={appointments}
           orders={orders}
           vitals={vitals}
-          location={location}
           tab={value}
           now={now}
           updateAppointments={updateAppointments}
@@ -117,7 +111,7 @@ export default function AppointmentTabs({
         />
       );
     },
-    [orders, vitals, location, value, now, updateAppointments, setEditingComment]
+    [orders, vitals, value, now, updateAppointments, setEditingComment]
   );
 
   return (

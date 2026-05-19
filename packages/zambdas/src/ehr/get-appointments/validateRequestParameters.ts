@@ -27,25 +27,28 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
   }
   const searchDate = body.searchDate;
 
-  // Safely extract and validate locationID (optional string)
-  let locationID: string | undefined;
-  if (body.locationID !== undefined) {
-    if (typeof body.locationID !== 'string') {
-      throw new Error('locationID must be a string if provided');
+  // Safely extract and validate locationIds (optional string)
+  let locationIds: string[] | undefined;
+  if (body.locationIds !== undefined) {
+    if (!Array.isArray(body.locationIds)) {
+      throw new Error('locationIds must be an array if provided');
     }
-    locationID = body.locationID;
+    if (!body.locationIds.every((id): id is string => typeof id === 'string')) {
+      throw new Error('All locationIds must be strings');
+    }
+    locationIds = body.locationIds;
   }
 
-  // Safely extract and validate providerIDs (optional string array)
-  let providerIDs: string[] | undefined;
-  if (body.providerIDs !== undefined) {
-    if (!Array.isArray(body.providerIDs)) {
-      throw new Error('providerIDs must be an array if provided');
+  // Safely extract and validate providerIds (optional string array)
+  let providerIds: string[] | undefined;
+  if (body.providerIds !== undefined) {
+    if (!Array.isArray(body.providerIds)) {
+      throw new Error('providerIds must be an array if provided');
     }
-    if (!body.providerIDs.every((id): id is string => typeof id === 'string')) {
-      throw new Error('All providerIDs must be strings');
+    if (!body.providerIds.every((id): id is string => typeof id === 'string')) {
+      throw new Error('All providerIds must be strings');
     }
-    providerIDs = body.providerIDs;
+    providerIds = body.providerIds;
   }
 
   // Safely extract and validate serviceCategories (optional string array)
@@ -70,8 +73,8 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
   const visitType = body.visitType;
 
   // Validate business logic constraints
-  if (locationID === undefined && providerIDs === undefined && serviceCategories === undefined) {
-    throw new Error('Either "locationID" or "providerIDs" or "serviceCategories" is required');
+  if (locationIds === undefined && providerIds === undefined && serviceCategories === undefined) {
+    throw new Error('Either "locationIds" or "providerIds" or "serviceCategories" is required');
   }
 
   const supervisorApprovalEnabled =
@@ -79,8 +82,8 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
 
   return {
     searchDate,
-    locationID,
-    providerIDs,
+    locationIds,
+    providerIds,
     serviceCategories,
     visitType,
     supervisorApprovalEnabled,
