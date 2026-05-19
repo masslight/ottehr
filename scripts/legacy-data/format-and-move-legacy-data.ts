@@ -60,7 +60,7 @@ interface FileToUpload {
 
 // ── Consts ──────────────────────────────────────────────────────────
 const LEGACY_DATA_BUCKET_SUFFIX = 'legacy-data';
-const CONCURRENCY = 25;
+const CONCURRENCY = 100;
 
 // Set to a number to cap how many rows are migrated (e.g. 5 for a smoke test). undefined = no limit.
 const MAX_ROWS: number | undefined = undefined;
@@ -259,11 +259,12 @@ async function getS3FileAndFormatIntoFileUpload(row: CsvRow, s3Client: S3Client 
 function logSummary(summaryData: Summary): void {
   console.log('');
   console.log('═'.repeat(60));
-  console.log(`Script complete. Summary of actions: `);
+  console.log(`Batch complete. Summary of actions: `);
   console.log(`  docs uploaded: ${summaryData.uploaded}`);
   console.log(`  docs with errors: ${summaryData.errors}`);
   console.log(`  unique patients: ${summaryData.uniquePatients.size}`);
   console.log('═'.repeat(60));
+  console.log('');
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -292,8 +293,6 @@ async function main(): Promise<void> {
   console.log(`Target bucket: ${bucketName}`);
   console.log('');
 
-  // Collect all files to upload
-  const allFiles: FileToUpload[] = [];
   const rows: CsvRow[] = [];
   let totalRowsRead = 0;
 
@@ -336,6 +335,11 @@ async function main(): Promise<void> {
     console.log(`MAX_ROWS set — limiting migration to ${MAX_ROWS} rows.\n`);
   }
 
+  if (rows.length === 0) {
+    console.log('No rows to upload. Exiting.');
+    return;
+  }
+
   let sourceS3Client: S3Client | undefined;
 
   if (!useDefaultData) {
@@ -344,9 +348,16 @@ async function main(): Promise<void> {
     console.log('Done.');
   }
 
+  // Create authenticated Oystehr client
+  console.log('');
+  console.log('Authenticating with Auth0...');
+  const oystehr = await createOystehrClient();
+  console.log('Authenticated.\n');
+
   for (let i = 0; i < rows.length; i += CONCURRENCY) {
     const batch = rows.slice(i, i + CONCURRENCY);
-    const batchResults = await Promise.all(
+
+    const files = await Promise.all(
       batch.map(async (row) => {
         try {
           return useDefaultData
@@ -361,36 +372,18 @@ async function main(): Promise<void> {
       })
     );
 
+    const validFiles = files.filter((f): f is FileToUpload => f !== null);
+
     console.log(`Finished reading batch ${i} - ${i + CONCURRENCY}`);
 
-    allFiles.push(...batchResults.filter((f): f is FileToUpload => f !== null));
-  }
+    if (isDryRun) {
+      console.log('');
+      console.log('Dry run — no files uploaded.\n');
+      continue;
+    }
 
-  console.log('');
-  console.log(`Total files to upload: ${allFiles.length}`);
-
-  if (isDryRun) {
-    console.log('');
-    console.log('Dry run — no files uploaded.\n');
-    logSummary(summary);
-    return;
-  }
-
-  if (allFiles.length === 0) {
-    console.log('No files found to upload. Exiting.');
-    return;
-  }
-
-  // Create authenticated Oystehr client
-  console.log('');
-  console.log('Authenticating with Auth0...');
-  const oystehr = await createOystehrClient();
-  console.log('Authenticated.');
-
-  for (let i = 0; i < allFiles.length; i += CONCURRENCY) {
-    const batch = allFiles.slice(i, i + CONCURRENCY);
     await Promise.all(
-      batch.map(async (file) => {
+      validFiles.map(async (file) => {
         try {
           await oystehr.z3.uploadFile({
             bucketName,
@@ -406,7 +399,7 @@ async function main(): Promise<void> {
       })
     );
 
-    console.log(`Finished uploading batch ${i} - ${i + CONCURRENCY}`);
+    console.log(`Finished uploading batch ${i} - ${i + CONCURRENCY}\n`);
   }
 
   logSummary(summary);
