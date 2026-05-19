@@ -290,8 +290,8 @@ const InsuranceSearchField: React.FC<{
   const existingReferences = useMemo(() => new Set(existingPicks.map((p) => p.organizationReference)), [existingPicks]);
 
   const options = useMemo(
-    () => (payers ?? []).filter((p) => !existingReferences.has(p.reference ?? '')),
-    [payers, existingReferences]
+    () => (existingLoading ? [] : (payers ?? []).filter((p) => !existingReferences.has(p.reference ?? ''))),
+    [existingLoading, payers, existingReferences]
   );
   const selectedOption = value
     ? options.find((opt) => opt.display === value) ?? ({ display: value } as Reference)
