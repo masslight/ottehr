@@ -844,6 +844,22 @@ export function makeDispositionDTO(
   const reasonForTransfer = filterCodeableConcepts(followUp.orderDetail, 'reason-for-transfer')[0];
   const specialtyTransfer = filterCodeableConcepts(followUp.orderDetail, 'specialty-transfer')[0];
 
+  // BUG (subspecialty follow-up "other" / "lurie-ct"): this reverse lookup
+  // resolves the follow-up type purely from performerType.coding[0].code, but
+  // followUpToPerformerMap stores both 'other' and 'lurie-ct' as coding-less
+  // CodeableConcepts (text only). So when save-chart-data was called with a
+  // disposition.followUp of type 'other', performerCode here is undefined and
+  // the .find() matches the FIRST coding-less map entry — 'lurie-ct' — instead
+  // of 'other'. 'lurie-ct' is then absent from dispositionCheckboxOptions
+  // (commented out), so PatientInstructionsContainer's `.find(...)!.label`
+  // throws and the Review & Sign page hard-crashes.
+  // This is unreachable from the EHR — DispositionCard never offers the pcp/
+  // ip-lab disposition types that surface the subspecialty follow-up section
+  // (true since the repo's first commit), so the only way to create such data
+  // is calling save-chart-data directly (synth, scripts, imports). Fixing it
+  // properly means disambiguating 'other' vs 'lurie-ct' via performerType.text
+  // here, and replacing the non-null assertion in PatientInstructionsContainer
+  // with a safe fallback.
   const followUpArr = subFollowUp?.map((element) => {
     const performerCode = element.performerType?.coding?.[0].code;
     const followUpType = Object.keys(followUpToPerformerMap).find(
