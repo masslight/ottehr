@@ -2,7 +2,10 @@ import { Address, Organization } from 'fhir/r4b';
 import { MISSING_REQUEST_SECRETS } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockGetOrCreateCandidApiClient = vi.fn();
+// hoisted to avoid dependency issues
+const { mockGetOrCreateCandidApiClient } = vi.hoisted(() => ({
+  mockGetOrCreateCandidApiClient: vi.fn(),
+}));
 
 vi.mock('utils', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();

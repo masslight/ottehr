@@ -52,6 +52,8 @@ vi.mock('utils', async (importOriginal) => {
     getOptionalSecret: vi.fn().mockReturnValue('candid-client-id-value'),
     // tests don't drive real candid traffic, so any non-empty string is fine
     getSecret: vi.fn().mockReturnValue('test-value'),
+    // stub to avoid reading the unmocked secret, skipping performCandidPreEncounterSync
+    getOrCreateCandidApiClient: vi.fn().mockResolvedValue({}),
   };
 });
 

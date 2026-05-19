@@ -6,7 +6,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockCreateEncounterFromAppointment = vi.fn();
 const mockGetAuth0Token = vi.fn().mockResolvedValue('test-token');
 const mockCreateOystehrClient = vi.fn();
-const mockGetOrCreateCandidApiClient = vi.fn();
+// hoisted to avoid dependency issues
+const { mockGetOrCreateCandidApiClient } = vi.hoisted(() => ({
+  mockGetOrCreateCandidApiClient: vi.fn(),
+}));
 
 const mockFhirPatch = vi.fn();
 const mockFhirSearch = vi.fn();
