@@ -677,7 +677,17 @@ function makePaymentResourceConfig(
   } else if (selfPayCoverage && coveragesAndOrgs.length === 1) {
     return { type: LabPaymentMethod.SelfPay, coverage: selfPayCoverage.coverage };
   } else if (workersCompCoverage && coveragesAndOrgs.length === 1) {
-    return { type: LabPaymentMethod.WorkersComp, coverage: workersCompCoverage.coverage };
+    // for the moment ottehr only supports one insurance for worker's comp
+    return {
+      type: LabPaymentMethod.WorkersComp,
+      coverageAndOrgs: [
+        {
+          coverage: workersCompCoverage.coverage,
+          payorOrg: workersCompCoverage.payorOrg,
+          coverageRank: 1,
+        },
+      ],
+    };
   } else {
     const coverageIdWithPaymentMethod = coveragesAndOrgs.map((data) => ({
       coverageId: data.coverage.id,
