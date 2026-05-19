@@ -42,6 +42,7 @@ import {
   formatMinutes,
   getAbnormalVitals,
   getAdmitterPractitionerId,
+  getAttendingPractitionerId,
   getDurationOfStatus,
   getPatchBinary,
   getSupportPhoneFor,
@@ -564,8 +565,9 @@ export default function AppointmentTableRow({
     return null;
   }
   const encounterId: string = encounter.id;
-  const primaryAction = getTrackingBoardPrimaryAction(appointment.status);
+  const primaryAction = getTrackingBoardPrimaryAction(appointment.status, { isVirtualVisit: isVirtual(appointment) });
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
+  const assignedProviderId = getAttendingPractitionerId(encounter);
 
   const handleStatusAction = async (
     updatedStatus: VisitStatusWithoutUnknown,
@@ -662,6 +664,16 @@ export default function AppointmentTableRow({
         setPrimaryActionButtonLoading(false);
       }
 
+      return;
+    }
+
+    if (appointment.status === 'ready for provider' && !assignedProviderId) {
+      enqueueSnackbar('Please assign provider', { variant: 'error' });
+      return;
+    }
+
+    if (primaryAction.skipStatusUpdate && primaryAction.navigateToChart) {
+      navigate(getInPersonUrlByAppointmentType(appointment, 'patient-info'));
       return;
     }
 
