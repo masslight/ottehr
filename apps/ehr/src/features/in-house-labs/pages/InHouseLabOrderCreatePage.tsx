@@ -7,6 +7,7 @@ import {
   FormControl,
   Grid,
   InputLabel,
+  ListItemText,
   MenuItem,
   Paper,
   Select,
@@ -51,6 +52,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [selectedTests, setSelectedTests] = useState<DataEntryTestItem[]>([]);
+  const [pendingTestNames, setPendingTestNames] = useState<string[]>([]);
   const [notes, setNotes] = useState<string>('');
   const [error, setError] = useState<string[] | undefined>(undefined);
 
@@ -221,28 +223,41 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     }
   };
 
-  const handleTestSelection = (selectedTest: string): void => {
+  // Keep pendingTestNames in sync when tests are added/removed externally
+  // (e.g. via lab sets, prefill, or the delete button in the table)
+  useEffect(() => {
+    setPendingTestNames(selectedTests.map((t) => t.name));
+  }, [selectedTests]);
+
+  const handleTestDropdownChange = (newSelectedNames: string[]): void => {
+    setPendingTestNames(newSelectedNames);
+  };
+
+  const handleTestDropdownClose = (): void => {
     if (!availableTests?.length) {
       return;
     }
 
-    const foundEntry = availableTests.find((test) => test.name === selectedTest);
+    const pendingSet = new Set(pendingTestNames);
 
-    if (!foundEntry) {
-      return;
-    }
+    setSelectedTests((currentTests) => {
+      const existingNames = new Set(currentTests.map((t) => t.name));
 
-    const alreadySelected = selectedTests.find((tempLab) => {
-      return tempLab.name === selectedTest;
-    });
+      // Add newly checked tests
+      const testsToAdd = pendingTestNames
+        .filter((name) => !existingNames.has(name))
+        .map((name) => availableTests.find((test) => test.name === name))
+        .filter((test): test is DataEntryTestItem => test !== undefined);
 
-    if (!alreadySelected) {
-      setSelectedTests([...selectedTests, foundEntry]);
-    } else {
-      enqueueSnackbar('This lab has already been selected', {
-        variant: 'error',
+      // Remove tests that were unchecked in the dropdown
+      // Only remove tests that are present in availableTests (i.e. came from the dropdown)
+      const testsAfterRemovals = currentTests.filter((t) => {
+        const isAvailableTest = availableTests.some((at) => at.name === t.name);
+        return !isAvailableTest || pendingSet.has(t.name);
       });
-    }
+
+      return [...testsAfterRemovals, ...testsToAdd];
+    });
   };
 
   const handleSetSelectedLabsViaLabSets = async (labSet: LabSetDTO): Promise<void> => {
@@ -285,7 +300,57 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
             <form onSubmit={handleSubmit}>
               <Grid container spacing={3}>
                 <Grid item xs={12}>
-                  <InHouseLabSelect availableTests={availableTests} handleTestSelection={handleTestSelection} />
+                  <FormControl fullWidth>
+                    <InputLabel id="test-type-label">Test</InputLabel>
+                    <Select
+                      labelId="test-type-label"
+                      id="test-type"
+                      data-testid={dataTestIds.orderInHouseLabPage.testTypeField}
+                      multiple
+                      value={pendingTestNames}
+                      label="Test"
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        handleTestDropdownChange(Array.isArray(value) ? value : [value]);
+                      }}
+                      onClose={handleTestDropdownClose}
+                      renderValue={(selected) =>
+                        selected.length === 0 ? '' : `${selected.length} test${selected.length > 1 ? 's' : ''} selected`
+                      }
+                      MenuProps={{
+                        autoFocus: false,
+                        disableAutoFocusItem: true,
+                        PaperProps: {
+                          'data-testid': dataTestIds.orderInHouseLabPage.testTypeList,
+                        },
+                      }}
+                    >
+                      {availableTests.map((test) => {
+                        const isChecked = pendingTestNames.includes(test.name);
+                        return (
+                          <MenuItem
+                            key={`${test.name}-${test.adId}`}
+                            value={test.name}
+                            sx={{
+                              backgroundColor: isChecked ? 'primary.light' : undefined,
+                              '&:hover': {
+                                backgroundColor: isChecked ? 'primary.light' : undefined,
+                              },
+                              '&.Mui-selected': {
+                                backgroundColor: 'primary.light',
+                              },
+                              '&.Mui-selected:hover': {
+                                backgroundColor: 'primary.light',
+                              },
+                            }}
+                          >
+                            <Checkbox checked={isChecked} size="small" sx={{ mr: 1, p: 0.5 }} />
+                            <ListItemText primary={test.name} />
+                          </MenuItem>
+                        );
+                      })}
+                    </Select>
+                  </FormControl>
 
                   {labSets && <LabSets labSets={labSets} setSelectedLabs={handleSetSelectedLabsViaLabSets} />}
 
