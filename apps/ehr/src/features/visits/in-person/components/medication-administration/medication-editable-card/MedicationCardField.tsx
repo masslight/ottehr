@@ -308,6 +308,12 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
     );
   }
 
+  const isDoseField = field === 'dose';
+  const isDoseInvalid = isDoseField && value !== undefined && value !== '' && Number(value) <= 0;
+  const isFieldEmpty = !value && value !== 0;
+  const hasError = showError && required && (isFieldEmpty || isDoseInvalid);
+  const errorMessage = isDoseInvalid ? 'Dose must be greater than 0' : REQUIRED_FIELD_ERROR_MESSAGE;
+
   return (
     <StyledTextField
       data-testid={dataTestIds.orderMedicationPage.inputField(field)}
@@ -319,13 +325,13 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
       value={value ?? ''}
       onChange={(e) => handleChange(e.target.value)}
       type={type}
-      {...(type === 'number' ? { inputProps: { min: 0 } } : {})}
+      {...(type === 'number' ? { inputProps: { min: isDoseField ? 0.001 : 0 } } : {})}
       multiline={isInstruction}
       rows={isInstruction ? 3 : undefined}
       InputLabelProps={type === 'datetime' || isInstruction ? { shrink: true } : undefined}
       required={required}
-      error={showError && required && !value}
-      helperText={showError && required && !value ? REQUIRED_FIELD_ERROR_MESSAGE : ''}
+      error={hasError}
+      helperText={hasError ? errorMessage : ''}
       // https://github.com/mui/material-ui/issues/7960#issuecomment-1858083123
       {...(type === 'number'
         ? { onFocus: (e) => e.target.addEventListener('wheel', (e) => e.preventDefault(), { passive: false }) }
