@@ -7,13 +7,13 @@ import { SectionList } from 'src/features/visits/shared/components/SectionList';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import {
   dispositionCheckboxOptions,
+  followUpInOptions,
   mapDispositionTypeToLabel,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_LABEL,
 } from 'utils';
-import { followUpInOptions } from 'utils';
 import { useChartFields } from '../../../hooks/useChartFields';
 import { usePatientInstructionsVisibility } from '../../../hooks/usePatientInstructionsVisibility';
 import { useChartData } from '../../../stores/appointment/appointment.store';
