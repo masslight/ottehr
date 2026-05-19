@@ -4,7 +4,6 @@ import { ServiceRequest } from 'fhir/r4b';
 import {
   FHIR_EXTENSION,
   getPatchOperationToUpdateExtension,
-  Secrets,
   UpdateRadiologyOrderConsentZambdaOutput,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
