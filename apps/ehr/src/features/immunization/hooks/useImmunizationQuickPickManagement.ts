@@ -33,7 +33,8 @@ export const useImmunizationQuickPickManagement = ({
   applyOrderDetails,
 }: UseImmunizationQuickPickManagementProps): UseImmunizationQuickPickManagementReturn => {
   const { oystehrZambda } = useApiClients();
-  const { quickPicks: mergedQuickPicks, refetch: refetchQuickPicks } = useMergedImmunizationQuickPicks();
+  const { quickPicks: rawQuickPicks, refetch: refetchQuickPicks } = useMergedImmunizationQuickPicks();
+  const mergedQuickPicks = [...rawQuickPicks].sort((a, b) => a.name.localeCompare(b.name));
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<ImmunizationQuickPickData[]>([]);
