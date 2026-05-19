@@ -57,7 +57,7 @@ export const PatientInstructionsContainer: FC = () => {
           {disposition?.specialty && disposition.specialty.length > 0 && (
             <Typography>{disposition.specialty}</Typography>
           )}
-          {disposition?.note && <Typography>{disposition?.note}</Typography>}
+          {disposition?.note && <Typography sx={{ whiteSpace: 'pre-wrap' }}>{disposition?.note}</Typography>}
           {disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] && <Typography>{NOTHING_TO_EAT_OR_DRINK_LABEL}</Typography>}
           {disposition?.[REFUSAL_OF_EMS_TRANSPORT_FIELD] && <Typography>{REFUSAL_OF_EMS_TRANSPORT_LABEL}</Typography>}
           {disposition?.labService && disposition.labService.length > 0 && (

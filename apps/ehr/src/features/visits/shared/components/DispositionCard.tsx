@@ -369,7 +369,7 @@ export const DispositionCard: FC = () => {
 
           {isReadOnly ? (
             getValues('note') ? (
-              <Typography>{getValues('note')}</Typography>
+              <Typography sx={{ whiteSpace: 'pre-wrap' }}>{getValues('note')}</Typography>
             ) : (
               <Typography color="secondary.light">Note not provided</Typography>
             )
