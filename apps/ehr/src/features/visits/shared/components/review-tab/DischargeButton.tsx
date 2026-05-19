@@ -4,11 +4,11 @@ import { LoadingButton } from '@mui/lab';
 import { Box, ButtonGroup, IconButton, Skeleton, Tooltip } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
-import { getInPersonVisitStatus } from 'utils';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { getInPersonVisitStatus } from 'utils';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { DischargeAndPrintDialog } from './DischargeAndPrintDialog';
 
