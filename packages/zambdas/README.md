@@ -1,33 +1,17 @@
 # Ottehr Backend
 
-Backend endpoints for the urgent care application.
+Backend endpoints for Ottehr, deployed on [Oystehr Zambda](https://docs.oystehr.com/oystehr/services/zambda/).
 
 ## Setup
 
-Before you can run locally or deploy, you must copy in the env files from the [ottehr-secrets](https://github.com/masslight/ottehr-secrets) repository. These should be copied into [`.env/`](.env) (e.g. dev: [`.env/dev.json`](.env/dev.json)).
+Before you can run locally or deploy, you must have the necessary .env files in the `/config/.env` directory. Learn more in the [config README](./apps/intake/README.md).
 
 ## Run Locally
 
 The backend is run locally using a [small Express server](/packages/zambdas/src/local-server/index.ts).
 
-Start up the local API Gateway + Zambda emulator with:
+Start up the local Zambda service emulator with:
 
 ```[bash]
 npm run start
 ```
-
-## In Case of Emergency
-
-### Single Zambda Deployment Process
-
-These steps are kept here in case you need to deploy an individual zambda manually.
-
-1. Run `npm run bundle`. This will put deployment zips ready to be uploaded to the oystehr platform into the `.dist/` folder.
-2. Go to the console you want to deploy to (i.e. [console](https://console.oystehr.com/)).
-3. Log in with the appropriate account previously used for 'One Time Setup'.
-4. Navigate to /zambdas on the console (i.e. [console](https://console.oystehr.com/zambdas)).
-5. Click on the zambda you are trying to update
-6. Click the button "Upload zambda.zip"
-7. Select the appropriate zip from the [`.dist/` directory](.dist).
-8. Click "Deploy using {zambda-name}.zip"
-9. Click the refresh icon and make sure the status is "Active"

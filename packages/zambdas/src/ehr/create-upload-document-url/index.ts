@@ -264,7 +264,9 @@ async function findOrCreatePatientCustomFolderList(args: {
   // folder concurrently. Worst case is two Lists with the same title; the read path
   // de-dupes by internalName so the user sees one folder, but one of the two upload
   // entries can be briefly hidden until reconciled. Acceptable for now.
-  const created = await oystehr.fhir.create<List>(createCustomPatientDocumentList(`Patient/${patientId}`, def));
+  const created = await oystehr.fhir.create<List>(
+    createCustomPatientDocumentList(`Patient/${patientId}`, def.internalName)
+  );
   logIt(`findOrCreatePatientCustomFolderList: created List ${created.id} for "${internalName}"`);
   return created;
 }
