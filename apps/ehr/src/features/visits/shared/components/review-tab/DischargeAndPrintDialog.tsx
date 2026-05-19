@@ -195,7 +195,12 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
         </FormGroup>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={isLoading} variant="outlined" sx={{ borderRadius: 100, textTransform: 'none' }}>
+        <Button
+          onClick={onClose}
+          disabled={isLoading}
+          variant="outlined"
+          sx={{ borderRadius: 100, textTransform: 'none' }}
+        >
           Cancel
         </Button>
         <Button
