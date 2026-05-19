@@ -11,6 +11,7 @@ import {
   adminUpdateInHouseLab,
   adminUpdateLabelPrintingConfig,
   adminUpdateLabSet,
+  adminUpdateProgressNoteConfig,
   bulkUpdateInsuranceStatus,
   createEmCode,
   deleteEmCode,
@@ -18,6 +19,7 @@ import {
   getInHouseMedicationQuickPicks,
   getLabelPrintingConfig,
   getProcedureQuickPicks,
+  getProgressNoteConfig,
   getRadiologyQuickPicks,
   removeImmunizationQuickPick,
   removeInHouseMedicationQuickPick,
@@ -39,11 +41,13 @@ import {
   AdminGetLabSetDetailInput,
   AdminGetLabSetDetailOutput,
   AdminGetLabSetListOutput,
+  AdminGetProgressNoteConfigOutput,
   AdminInHouseLabConfigOutput,
   AdminListInHouseLabsOutput,
   AdminUpdateInHouseLabInput,
   AdminUpdateLabSetInput,
   AdminUpdatePrintingConfigInput,
+  AdminUpdateProgressNoteConfigInput,
   APIError,
   BulkUpdateInsuranceStatusInput,
   CreateEmCodeInput,
@@ -644,6 +648,52 @@ export const useAdminUpdateLabelPrintingConfig = (
       // send to sentry
       safelyCaptureException(error);
       let message = 'Something went wrong! Printing config update could not be made.';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminGetProgressNoteConfig = (): UseQueryResult<AdminGetProgressNoteConfigOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-get-progress-note-config'],
+    queryFn: async () => {
+      return getProgressNoteConfig(oystehrZambda!);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  });
+};
+
+export const useAdminUpdateProgressNoteConfig = (): UseMutationResult<
+  void,
+  Error,
+  AdminUpdateProgressNoteConfigInput
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-update-progress-note-config'],
+    mutationFn: async (input: AdminUpdateProgressNoteConfigInput) => {
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      await adminUpdateProgressNoteConfig(oystehrZambda, input);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-get-progress-note-config'] });
+      enqueueSnackbar('Successfully updated progress note defaults', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      safelyCaptureException(error);
+      let message = 'Something went wrong! Progress note config could not be saved.';
       if (isApiError(error)) {
         message = (error as APIError).message;
       }

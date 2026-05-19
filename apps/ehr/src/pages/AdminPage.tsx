@@ -5,6 +5,7 @@ import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedB
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
 import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
+import AdminProgressNoteConfigPage from 'src/features/visits/telemed/components/admin/progress-note-config/AdminProgressNoteConfigPage';
 import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
 import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
@@ -30,6 +31,7 @@ enum PageTab {
   'em-codes' = 'em-codes',
   'lab-sets' = 'lab-sets',
   'docs-folders' = 'docs-folders',
+  'progress-note-config' = 'progress-note-config',
 }
 
 export function AdminPage(): JSX.Element {
@@ -129,6 +131,12 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['docs-folders']}`)}
                 />
+                <Tab
+                  label="Progress Note Config"
+                  value={PageTab['progress-note-config']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['progress-note-config']}`)}
+                />
               </TabList>
             </Box>
             <ButtonRounded
@@ -179,6 +187,9 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab['docs-folders']} sx={{ padding: 0 }}>
             <AdminCustomFoldersPage />
+          </TabPanel>
+          <TabPanel value={PageTab['progress-note-config']} sx={{ padding: 0 }}>
+            <AdminProgressNoteConfigPage />
           </TabPanel>
         </TabContext>
       </Box>

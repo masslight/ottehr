@@ -2097,6 +2097,20 @@
       "src": "src/ehr/generate-label-xml/index",
       "zip": ".dist/zips/generate-label-xml.zip"
     },
+    "GET-PROGRESS-NOTE-CONFIG": {
+      "name": "get-progress-note-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/progress-note-config/get-progress-note-config/index",
+      "zip": ".dist/zips/get-progress-note-config.zip"
+    },
+    "ADMIN-UPDATE-PROGRESS-NOTE-CONFIG": {
+      "name": "admin-update-progress-note-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/progress-note-config/admin-update-progress-note-config/index",
+      "zip": ".dist/zips/admin-update-progress-note-config.zip"
+    },
     "GET_ALL_INSURANCE_PAYERS": {
       "name": "get-all-insurance-payers",
       "type": "http_auth",
