@@ -334,6 +334,13 @@ const useFormData = (
   // Re-run when the set of coverages changes (e.g. primary removed) so removed
   // coverages' fields get cleared; keying on coverage IDs avoids clobbering
   // in-progress edits on unrelated refetches.
+  //
+  // For a coverage that *just appeared* (per-section save → refetch), preserve
+  // any existing non-empty form value when the refetch's mapping would clobber
+  // it with empty. The backend round-trip for some field types (choice, date,
+  // reference) can come back without a value before resources are fully
+  // indexed; without this guard, the user's just-saved values get wiped and
+  // the form reports phantom "required" errors.
   const coveragesInitKeyRef = useRef<string>('');
   useEffect(() => {
     if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
@@ -343,9 +350,29 @@ const useFormData = (
       insuranceData?.coverages?.secondary?.id ?? 'none',
     ].join(':');
     if (coveragesInitKeyRef.current === coverageKey) return;
+    const previousKey = coveragesInitKeyRef.current;
     coveragesInitKeyRef.current = coverageKey;
 
+    const parts = (k: string): string[] => k.split(':');
+    const prev = previousKey ? parts(previousKey) : ['', 'none', 'none'];
+    const curr = parts(coverageKey);
+    const patientChanged = prev[0] !== curr[0];
+    const primaryAdded = !patientChanged && prev[1] === 'none' && curr[1] !== 'none';
+    const secondaryAdded = !patientChanged && prev[2] === 'none' && curr[2] !== 'none';
+
+    const isEmpty = (v: unknown): boolean =>
+      v === undefined ||
+      v === null ||
+      v === '' ||
+      (typeof v === 'object' && v !== null && Object.keys(v as object).length === 0);
+
     Object.entries(coveragesFormValues).forEach(([key, value]) => {
+      const isSecondaryKey = key.endsWith('-2');
+      const isAdd = (isSecondaryKey && secondaryAdded) || (!isSecondaryKey && primaryAdded);
+      if (isAdd && !isEmpty(methods.getValues(key)) && isEmpty(value)) {
+        // Keep the value the user just saved; mapping returned nothing for it.
+        return;
+      }
       methods.resetField(key, { defaultValue: value });
     });
   }, [coveragesFormValues, methods, insuranceData?.coverages, patientId]);
@@ -447,6 +474,17 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
         methods.resetField(field.key, { defaultValue: undefined });
       });
     }
+  };
+
+  // Close the inline add form WITHOUT clearing field values. Used after a
+  // successful section save: the values the user just saved must stay in the
+  // form (the new coverage container will display them); only the inline form
+  // slot itself needs to disappear so its Controllers cleanly unmount before
+  // a coverage container mounts and claims the same field names — without
+  // this, the inline form's name change (e.g. "insurance-priority" →
+  // "insurance-priority-2") wipes the just-saved values out of form state.
+  const handleCloseAddInsurance = (): void => {
+    setIsAddingInsurance(false);
   };
 
   const handleDiscardChanges = (): void => {
@@ -566,6 +604,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     isAddingInsurance={isAddingInsurance}
                     onStartAddInsurance={handleStartAddInsurance}
                     onCancelAddInsurance={handleCancelAddInsurance}
+                    onCloseAddInsurance={handleCloseAddInsurance}
                     newInsuranceOrdinal={newInsuranceOrdinal}
                     encounterId={appointmentContext?.encounterId}
                   />
