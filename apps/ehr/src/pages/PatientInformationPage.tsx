@@ -14,6 +14,10 @@ import { ContactContainer } from 'src/features/visits/shared/components/patient/
 import { EmergencyContactContainer } from 'src/features/visits/shared/components/patient/EmergencyContactContainer';
 import { EmployerInformationContainer } from 'src/features/visits/shared/components/patient/EmployerInformationContainer';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
+import {
+  buildInsuranceSectionCounts,
+  useCoverageFormRehydration,
+} from 'src/features/visits/shared/components/patient/insuranceFormHelpers';
 import { InsuranceSection } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { OccupationalMedicineEmployerInformationContainer } from 'src/features/visits/shared/components/patient/OccupationalMedicineEmployerContainer';
 import { PatientDetailsContainer } from 'src/features/visits/shared/components/patient/PatientDetailsContainer';
@@ -236,37 +240,14 @@ const useFormData = (
   methods: ReturnType<typeof useForm>;
   coveragesFormValues: any;
 } => {
-  // Build a map of section IDs to their rendered counts for sections with conditional rendering
-  const renderedSectionCounts: Record<string, number> = {};
-
-  // Insurance sections are only rendered based on actual coverage data
-  // The count represents the maximum index + 1 that should be validated
-  // e.g., if only secondary exists (index 1), count should be 2 to validate indices 0 and 1
-  if (insuranceData?.coverages) {
-    // Determine the highest insurance index that will be rendered
-    let maxInsuranceIndex = Math.max(
-      insuranceData.coverages.primary ? 0 : -1,
-      insuranceData.coverages.secondary ? 1 : -1
-    );
-    // Account for the inline add form
-    if (isAddingInsurance && newInsuranceOrdinal !== undefined) {
-      maxInsuranceIndex = Math.max(maxInsuranceIndex, newInsuranceOrdinal - 1);
-    }
-    // Count is max index + 1 (to validate all indices from 0 to maxIndex)
-    const insuranceCount = maxInsuranceIndex + 1;
-    renderedSectionCounts['insurance-section'] = insuranceCount;
-    renderedSectionCounts['insurance-section-2'] = insuranceCount;
-  } else {
-    // Even with no existing coverages, account for inline add
-    if (isAddingInsurance && newInsuranceOrdinal !== undefined) {
-      const insuranceCount = newInsuranceOrdinal;
-      renderedSectionCounts['insurance-section'] = insuranceCount;
-      renderedSectionCounts['insurance-section-2'] = insuranceCount;
-    } else {
-      renderedSectionCounts['insurance-section'] = 0;
-      renderedSectionCounts['insurance-section-2'] = 0;
-    }
-  }
+  // The dynamic resolver needs to know how many insurance ordinals are
+  // actually rendered so it doesn't validate hidden ones.
+  const renderedSectionCounts = buildInsuranceSectionCounts({
+    hasPrimary: Boolean(insuranceData?.coverages?.primary),
+    hasSecondary: Boolean(insuranceData?.coverages?.secondary),
+    isAddingInsurance,
+    newInsuranceOrdinal,
+  });
 
   const methods = useForm({
     defaultValues: defaultFormVals,
@@ -328,54 +309,13 @@ const useFormData = (
     return { coveragesFormValues };
   }, [accountData, coveragesFetching, insuranceData?.coverages, insuranceData?.insuranceOrgs]);
 
-  // Use resetField (not setValue) so the loaded coverage values become the form's
-  // defaultValues. Without this, RHF's dirty comparison (value vs defaultValue)
-  // marks fields dirty whenever masked inputs re-emit their value on mount.
-  // Re-run when the set of coverages changes (e.g. primary removed) so removed
-  // coverages' fields get cleared; keying on coverage IDs avoids clobbering
-  // in-progress edits on unrelated refetches.
-  //
-  // For a coverage that *just appeared* (per-section save → refetch), preserve
-  // any existing non-empty form value when the refetch's mapping would clobber
-  // it with empty. The backend round-trip for some field types (choice, date,
-  // reference) can come back without a value before resources are fully
-  // indexed; without this guard, the user's just-saved values get wiped and
-  // the form reports phantom "required" errors.
-  const coveragesInitKeyRef = useRef<string>('');
-  useEffect(() => {
-    if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
-    const coverageKey = [
-      patientId ?? 'none',
-      insuranceData?.coverages?.primary?.id ?? 'none',
-      insuranceData?.coverages?.secondary?.id ?? 'none',
-    ].join(':');
-    if (coveragesInitKeyRef.current === coverageKey) return;
-    const previousKey = coveragesInitKeyRef.current;
-    coveragesInitKeyRef.current = coverageKey;
-
-    const parts = (k: string): string[] => k.split(':');
-    const prev = previousKey ? parts(previousKey) : ['', 'none', 'none'];
-    const curr = parts(coverageKey);
-    const patientChanged = prev[0] !== curr[0];
-    const primaryAdded = !patientChanged && prev[1] === 'none' && curr[1] !== 'none';
-    const secondaryAdded = !patientChanged && prev[2] === 'none' && curr[2] !== 'none';
-
-    const isEmpty = (v: unknown): boolean =>
-      v === undefined ||
-      v === null ||
-      v === '' ||
-      (typeof v === 'object' && v !== null && Object.keys(v as object).length === 0);
-
-    Object.entries(coveragesFormValues).forEach(([key, value]) => {
-      const isSecondaryKey = key.endsWith('-2');
-      const isAdd = (isSecondaryKey && secondaryAdded) || (!isSecondaryKey && primaryAdded);
-      if (isAdd && !isEmpty(methods.getValues(key)) && isEmpty(value)) {
-        // Keep the value the user just saved; mapping returned nothing for it.
-        return;
-      }
-      methods.resetField(key, { defaultValue: value });
-    });
-  }, [coveragesFormValues, methods, insuranceData?.coverages, patientId]);
+  useCoverageFormRehydration({
+    coveragesFormValues,
+    patientId,
+    primaryCoverageId: insuranceData?.coverages?.primary?.id,
+    secondaryCoverageId: insuranceData?.coverages?.secondary?.id,
+    methods,
+  });
 
   return { methods, coveragesFormValues };
 };
