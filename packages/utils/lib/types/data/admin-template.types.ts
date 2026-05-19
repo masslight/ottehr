@@ -85,6 +85,12 @@ export interface TemplateInHouseLabPlan {
   code: string;
   diagnoses: TemplateCodeInfo[];
   notes: string[];
+  // CPT codes that will be materialized when this plan is applied, taken from
+  // the plan's stored code.coding (which preserved the AD's CPT codings at
+  // save time). Surfaced to the preview UI so providers see what the lab
+  // section delivers, and used by apply-template to dedupe against the
+  // template's separate CPT Codes section.
+  cptCodes: TemplateCodeInfo[];
   missing: boolean;
 }
 
