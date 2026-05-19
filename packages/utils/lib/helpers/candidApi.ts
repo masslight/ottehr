@@ -153,21 +153,13 @@ export async function getOrCreateCandidApiClient(oystehr: Oystehr, secrets: Secr
     throw MISSING_REQUEST_SECRETS;
   }
 
-  const client = createCandidApiClient(secrets);
-  // The Candid SDK constructs a private _oauthTokenProvider that calls /auth/v2/token on demand.
-  // Replace its getToken so every authenticated request fetches the secret first
-  const internals = client as unknown as { _oauthTokenProvider?: { getToken?: unknown } };
-  // Assert the shape up front — if a candidhealth SDK upgrade renames this field, fail loudly here
-  // rather than silently letting the SDK fetch its own tokens and reintroducing the 429s.
-  if (typeof internals._oauthTokenProvider?.getToken !== 'function') {
-    throw new Error('candidhealth SDK shape changed: expected client._oauthTokenProvider.getToken to be a function');
-  }
-  (internals._oauthTokenProvider as { getToken: () => Promise<string> }).getToken = async () => {
-    if (!latestOystehr) throw new Error('candid client invoked before getOrCreateCandidApiClient populated oystehr');
-    return (await getOrCreateToken(latestOystehr, latestSecrets)).accessToken;
-  };
-
-  cachedCandidApiClient = client;
+  cachedCandidApiClient = new CandidApiClient({
+    token: async () => {
+      if (!latestOystehr) throw new Error('candid client invoked before getOrCreateCandidApiClient populated oystehr');
+      return (await getOrCreateToken(latestOystehr, latestSecrets)).accessToken;
+    },
+    environment: candidEnv === 'PROD' ? CandidApiEnvironment.Production : CandidApiEnvironment.Staging,
+  });
   return cachedCandidApiClient;
 }
 
