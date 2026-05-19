@@ -129,6 +129,7 @@ const mockTemplateDetail = {
         code: 'strep',
         diagnoses: [{ code: 'J02.9', display: 'Acute pharyngitis, unspecified' }],
         notes: [],
+        cptCodes: [{ code: '87880', display: 'Strep rapid' }],
         missing: false,
       },
       {
@@ -138,6 +139,7 @@ const mockTemplateDetail = {
         code: 'retired',
         diagnoses: [],
         notes: [],
+        cptCodes: [],
         missing: true,
       },
     ],

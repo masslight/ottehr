@@ -346,6 +346,9 @@ const performEffect = async (
         return { code: icd?.code ?? '', display: icd?.display ?? rc.text ?? '' };
       })
       .filter((d) => d.code || d.display);
+    const cptCodes: TemplateCodeInfo[] = (plan.code?.coding ?? [])
+      .filter((c) => c.system === 'http://www.ama-assn.org/go/cpt' && c.code)
+      .map((c) => ({ code: c.code ?? '', display: c.display ?? '' }));
     const notes = (plan.note ?? []).map((n) => n.text ?? '').filter((t) => t.length > 0);
 
     return {
@@ -355,6 +358,7 @@ const performEffect = async (
       code: inHouseCoding?.code ?? '',
       diagnoses,
       notes,
+      cptCodes,
       missing: !ad,
     };
   });

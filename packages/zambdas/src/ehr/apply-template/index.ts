@@ -6,7 +6,16 @@ import Oystehr, {
 } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { ClinicalImpression, Communication, Condition, Encounter, List, Observation, Procedure } from 'fhir/r4b';
+import {
+  ClinicalImpression,
+  Communication,
+  Condition,
+  Encounter,
+  List,
+  Observation,
+  Procedure,
+  ServiceRequest,
+} from 'fhir/r4b';
 import {
   ApplyTemplateWarning,
   ApplyTemplateZambdaInput,
@@ -112,6 +121,36 @@ const resolveSectionActions = (input?: TemplateSectionActions): ResolvedSectionA
 const hasTagSystem = (resource: FhirResource, system: string): boolean =>
   resource.meta?.tag?.some((t) => t.system === system) ?? false;
 
+const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
+const IN_HOUSE_LAB_PLAN_TAG_SYSTEM = chartDataTagSystem('in-house-lab-template-plan');
+
+// Walks the template's contained resources and collects the CPT codes belonging
+// to in-house lab plans that will be applied (i.e. their section action isn't
+// 'skip'). Those CPTs are materialized by the lab's create flow at apply time,
+// so when the CPT Codes section is also being applied, makeCreateRequests
+// drops the matching template CPT Procedures to avoid double-Procedures.
+//
+// Returns an empty set if either action is 'skip' - if labs are being skipped
+// the lab side doesn't materialize anything, and if CPTs are skipped the
+// section doesn't run so no dedup is needed.
+const collectCptCodesFromAppliedInHouseLabPlans = (
+  templateList: List,
+  actions: ResolvedSectionActions
+): Set<string> => {
+  if (actions.inHouseLabs === 'skip' || actions.cptCodes === 'skip') return new Set();
+  const out = new Set<string>();
+  for (const r of templateList.contained ?? []) {
+    if (r.resourceType !== 'ServiceRequest') continue;
+    const sr = r as ServiceRequest;
+    if (sr.intent !== 'plan') continue;
+    if (!sr.meta?.tag?.some((t) => t.system === IN_HOUSE_LAB_PLAN_TAG_SYSTEM)) continue;
+    for (const coding of sr.code?.coding ?? []) {
+      if (coding.system === CPT_CODE_SYSTEM && coding.code) out.add(coding.code);
+    }
+  }
+  return out;
+};
+
 // Maps an existing chart-data resource on the encounter (or a contained template resource)
 // to the template section it belongs to. Returns null if it doesn't map to a managed section.
 const getSectionForResource = (resource: FhirResource): TemplateSectionKey | null => {
@@ -176,7 +215,12 @@ const performEffect = async (
     })
   );
 
-  const createRequests = makeCreateRequests(encounter, templateList, encounterBundle, actions);
+  // If an in-house lab plan is being applied AND the CPT Codes section is also
+  // being applied, the lab's create flow will materialize the lab's CPT
+  // Procedures on its own - we need to skip those CPT codes from the template's
+  // separate CPT Codes section so we don't end up with the same Procedure twice.
+  const cptCodesFromLabsToSkip = collectCptCodesFromAppliedInHouseLabPlans(templateList, actions);
+  const createRequests = makeCreateRequests(encounter, templateList, encounterBundle, actions, cptCodesFromLabsToSkip);
 
   const miniTransactionRequests = createRequests.filter((request) => {
     if (request.method === 'POST') {
@@ -279,7 +323,8 @@ const makeCreateRequests = (
   encounter: Encounter,
   templateList: List,
   encounterBundle: FhirResource[],
-  actions: ResolvedSectionActions
+  actions: ResolvedSectionActions,
+  cptCodesFromLabsToSkip: Set<string>
 ): Array<
   | BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication | Procedure>
   | BatchInputJSONPatchRequest
@@ -352,6 +397,20 @@ const makeCreateRequests = (
     }
     const action = actions[section];
     if (action === 'skip') continue;
+
+    // CPT Codes section dedup: when an in-house lab is also being applied, the
+    // lab's create flow will emit a Procedure for each of its CPT codings.
+    // Skip the matching CPT Procedure from the template here so we don't end
+    // up with the same Procedure created twice on the encounter.
+    if (
+      section === 'cptCodes' &&
+      containedResource.resourceType === 'Procedure' &&
+      (containedResource as Procedure).code?.coding?.some(
+        (c) => c.system === CPT_CODE_SYSTEM && c.code !== undefined && cptCodesFromLabsToSkip.has(c.code)
+      )
+    ) {
+      continue;
+    }
 
     // For Chief Complaint on append: if an existing HPI Condition exists, patch it instead of creating.
     if (

@@ -425,6 +425,23 @@ const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlan[] }> = ({ pl
             ))}
           </Stack>
         ) : null}
+        {plan.cptCodes.length > 0 ? (
+          // CPT codes are surfaced here so providers see what the lab section
+          // delivers. If the same CPT also appears in the CPT Codes section,
+          // apply-template dedupes - whichever section is appended wins, both
+          // appended produces one Procedure not two.
+          <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+            {plan.cptCodes.map((c, idx) => (
+              <Chip
+                key={`${plan.planId}-cpt-${idx}`}
+                size="small"
+                variant="outlined"
+                color="primary"
+                label={`CPT ${c.code}${c.display ? ` — ${c.display}` : ''}`}
+              />
+            ))}
+          </Stack>
+        ) : null}
         {plan.notes.length > 0 ? (
           <Typography
             variant="caption"
