@@ -192,6 +192,8 @@ import {
   ScheduleDTO,
   SendForFinalReadZambdaInput,
   SendForFinalReadZambdaOutput,
+  UpdateRadiologyOrderConsentZambdaInput,
+  UpdateRadiologyOrderConsentZambdaOutput,
   SendReceiptByEmailZambdaInput,
   SendReceiptByEmailZambdaOutput,
   SubmitLabOrderInput,
@@ -1204,6 +1206,22 @@ export const sendForFinalRead = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-send-for-final-read',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateRadiologyOrderConsent = async (
+  oystehr: Oystehr,
+  parameters: UpdateRadiologyOrderConsentZambdaInput
+): Promise<UpdateRadiologyOrderConsentZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-update-consent',
       ...parameters,
     });
     return chooseJson(response);

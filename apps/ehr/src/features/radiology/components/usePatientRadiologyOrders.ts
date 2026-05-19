@@ -6,7 +6,13 @@ import {
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
 } from 'utils';
-import { cancelRadiologyOrder, getRadiologyOrders, savePreliminaryReport, sendForFinalRead } from '../../../api/api';
+import {
+  cancelRadiologyOrder,
+  getRadiologyOrders,
+  savePreliminaryReport,
+  sendForFinalRead,
+  updateRadiologyOrderConsent,
+} from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useDeleteRadiologyOrderDialog } from './useDeleteRadiologyOrderDialog';
 
@@ -31,8 +37,10 @@ interface UsePatientRadiologyOrdersResult {
   DeleteOrderDialog: ReactElement | null;
   handleSavePreliminaryReport: (serviceRequestId: string, preliminaryReport: string) => Promise<void>;
   handleSendForFinalRead: (serviceRequestId: string) => Promise<void>;
+  handleUpdateConsent: (serviceRequestId: string, consentObtained: boolean) => Promise<void>;
   isSavingPreliminaryReport: boolean;
   isSendingForFinalRead: boolean;
+  isUpdatingConsent: boolean;
 }
 
 export const usePatientRadiologyOrders = (options: {
@@ -55,6 +63,7 @@ export const usePatientRadiologyOrders = (options: {
   const [showPagination, setShowPagination] = useState(false);
   const [isSavingPreliminaryReport, setIsSavingPreliminaryReport] = useState(false);
   const [isSendingForFinalRead, setIsSendingForFinalRead] = useState(false);
+  const [isUpdatingConsent, setIsUpdatingConsent] = useState(false);
 
   const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetRadiologyOrderListZambdaInput => {
     const params: GetRadiologyOrderListZambdaInput = {} as GetRadiologyOrderListZambdaInput;
@@ -269,6 +278,35 @@ export const usePatientRadiologyOrders = (options: {
     [fetchOrders, getCurrentSearchParamsForPage, oystehrZambda, page]
   );
 
+  const handleUpdateConsent = useCallback(
+    async (serviceRequestId: string, consentObtained: boolean): Promise<void> => {
+      if (!oystehrZambda) {
+        console.error('Cannot update consent: API client is not available');
+        setError(new Error('API client is not available'));
+        return;
+      }
+
+      setIsUpdatingConsent(true);
+      setError(null);
+
+      try {
+        await updateRadiologyOrderConsent(oystehrZambda, { serviceRequestId, consentObtained });
+
+        // Refetch the orders to get the updated data
+        const searchParams = getCurrentSearchParamsForPage(page);
+        await fetchOrders(searchParams);
+      } catch (err) {
+        console.error('Error updating consent:', err);
+        enqueueSnackbar('An error occurred while updating consent', { variant: 'error' });
+        const errorObj = err instanceof Error ? err : new Error('Failed to update consent');
+        setError(errorObj);
+      } finally {
+        setIsUpdatingConsent(false);
+      }
+    },
+    [fetchOrders, getCurrentSearchParamsForPage, oystehrZambda, page]
+  );
+
   // handle delete dialog
   const { showDeleteRadiologyOrderDialog, DeleteOrderDialog } = useDeleteRadiologyOrderDialog({
     deleteOrder: handleDeleteOrder,
@@ -289,7 +327,9 @@ export const usePatientRadiologyOrders = (options: {
     getCurrentSearchParams: getCurrentSearchParamsWithoutPageIndex,
     handleSavePreliminaryReport,
     handleSendForFinalRead,
+    handleUpdateConsent,
     isSavingPreliminaryReport,
     isSendingForFinalRead,
+    isUpdatingConsent,
   };
 };
