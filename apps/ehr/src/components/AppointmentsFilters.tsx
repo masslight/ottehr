@@ -56,7 +56,7 @@ export default function AppointmentsFilters({ _s }: Props): ReactElement {
       <Paper sx={{ padding: 2 }}>
         <Stack direction="row" spacing={2} alignItems="flex-start">
           <Box style={{ flex: 1 }}>
-            <LocationSelectInput name="location" label="Location" multiple />
+            <LocationSelectInput name="location" label="Location" size="medium" multiple />
           </Box>
           <Box style={{ flex: 1.5 }}>
             <SelectInput
@@ -66,6 +66,7 @@ export default function AppointmentsFilters({ _s }: Props): ReactElement {
               getOptionLabel={(option) => {
                 return (visitTypeToLabel as Record<string, string>)[option];
               }}
+              size="medium"
               multiple
             />
           </Box>
@@ -78,14 +79,15 @@ export default function AppointmentsFilters({ _s }: Props): ReactElement {
                 BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === option)?.category.display ??
                 'Unknown'
               }
+              size="medium"
               multiple
             />
           </Box>
           <Box style={{ flex: 0.75 }}>
-            <DateInput name="date" label="Select Date" />
+            <DateInput name="date" label="Select Date" size="medium" />
           </Box>
           <Box style={{ flex: 1 }}>
-            <EmployeeSelectInput name="provider" label="Providers" filter={PROVIDERS_FILTER} multiple />
+            <EmployeeSelectInput name="provider" label="Providers" filter={PROVIDERS_FILTER} size="medium" multiple />
           </Box>
           <Link to="/visits/add">
             <Button

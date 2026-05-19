@@ -9,9 +9,10 @@ type Props = {
   label: string;
   multiple?: boolean;
   required?: boolean;
+  size?: 'small' | 'medium';
 };
 
-export const LocationSelectInput: React.FC<Props> = ({ name, label, multiple, required }) => {
+export const LocationSelectInput: React.FC<Props> = ({ name, label, multiple, required, size }) => {
   const { oystehr } = useApiClients();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [options, setOptions] = useState<{ id: string; name: string }[] | undefined>(undefined);
@@ -58,6 +59,7 @@ export const LocationSelectInput: React.FC<Props> = ({ name, label, multiple, re
       getOptionKey={(option) => option.id}
       isOptionEqualToValue={(option, value) => option.id === value.id}
       multiple={multiple}
+      size={size}
     />
   );
 };

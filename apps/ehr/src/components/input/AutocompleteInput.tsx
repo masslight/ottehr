@@ -20,6 +20,7 @@ export type AutocompleteInputProps<Value> = {
   isOptionEqualToValue?: (option: Value, value: Value) => boolean;
   dataTestId?: string;
   multiple?: boolean;
+  size?: 'small' | 'medium';
 };
 
 export function AutocompleteInput<Value>({
@@ -39,6 +40,7 @@ export function AutocompleteInput<Value>({
   isOptionEqualToValue,
   dataTestId,
   multiple,
+  size,
 }: AutocompleteInputProps<Value>): React.JSX.Element {
   const { control } = useFormContext();
   if (loading && !options) {
@@ -92,7 +94,7 @@ export function AutocompleteInput<Value>({
                   placeholder={!multiple ? label : undefined}
                   inputProps={{ ...params.inputProps, readOnly: selectOnly }}
                   error={error != null}
-                  size="small"
+                  size={size ?? 'small'}
                   onChange={onInputTextChanged ? (e) => onInputTextChanged(e.target.value) : undefined}
                   data-testid={dataTestId}
                 />
