@@ -13,6 +13,7 @@ import {
   MDM_FIELD_DEFAULT_TEXT,
   Secrets,
 } from 'utils';
+import { getProgressNoteConfig } from '../../../ehr/progress-note-config/get-progress-note-config';
 import { checkOrCreateM2MClientToken, saveResourceRequest, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   createDispositionServiceRequest,
@@ -57,6 +58,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createOystehrClient(oystehrToken, secrets);
   console.log('Created zapToken and fhir client');
 
+  const progressNoteConfig = await getProgressNoteConfig(oystehr);
+
   const resourceBundle = (
     await oystehr.fhir.search<Appointment | Encounter | Patient>({
       resourceType: 'Appointment',
@@ -94,7 +97,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const disposition: DispositionDTO = {
     type: 'pcp-no-type',
-    note: getDefaultNote('pcp-no-type'),
+    note: progressNoteConfig.dispositionDefaults['pcp-no-type'] ?? getDefaultNote('pcp-no-type'),
   };
 
   saveOrUpdateRequests.push(
@@ -105,10 +108,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     })
   );
 
+  const mdmText = progressNoteConfig.mdmDefaultText || MDM_FIELD_DEFAULT_TEXT;
   saveOrUpdateRequests.push(
-    saveResourceRequest(
-      makeClinicalImpressionResource(encounterId, patient.id, { text: MDM_FIELD_DEFAULT_TEXT }, 'medical-decision')
-    )
+    saveResourceRequest(makeClinicalImpressionResource(encounterId, patient.id, { text: mdmText }, 'medical-decision'))
   );
 
   encounterUpdateRequests.push(

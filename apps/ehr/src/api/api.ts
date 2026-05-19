@@ -13,6 +13,7 @@ import {
   AdminGetLabSetDetailInput,
   AdminGetLabSetDetailOutput,
   AdminGetLabSetListOutput,
+  AdminGetProgressNoteConfigOutput,
   AdminGetTemplateDetailInput,
   AdminGetTemplateDetailOutput,
   AdminInHouseLabConfigOutput,
@@ -22,6 +23,7 @@ import {
   AdminUpdateInHouseLabInput,
   AdminUpdateLabSetInput,
   AdminUpdatePrintingConfigInput,
+  AdminUpdateProgressNoteConfigInput,
   AiAssistedEncountersReportZambdaInput,
   AiAssistedEncountersReportZambdaOutput,
   AllergyQuickPickData,
@@ -349,6 +351,8 @@ const ADMIN_UPDATE_LAB_SET_ZAMBDA_ID = 'admin-update-lab-set';
 const CREATE_CUSTOM_FOLDER_ZAMBDA_ID = 'create-custom-folder';
 const RENAME_CUSTOM_FOLDER_ZAMBDA_ID = 'rename-custom-folder';
 const DELETE_CUSTOM_FOLDER_ZAMBDA_ID = 'delete-custom-folder';
+const GET_PROGRESS_NOTE_CONFIG_ZAMBDA_ID = 'get-progress-note-config';
+const ADMIN_UPDATE_PROGRESS_NOTE_CONFIG_ZAMBDA_ID = 'admin-update-progress-note-config';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -2823,6 +2827,34 @@ export const migrateExamData = async (
       ...parameters,
     });
     return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getProgressNoteConfig = async (oystehr: Oystehr): Promise<AdminGetProgressNoteConfigOutput> => {
+  try {
+    if (GET_PROGRESS_NOTE_CONFIG_ZAMBDA_ID == null) {
+      throw new Error('get progress note config environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({ id: GET_PROGRESS_NOTE_CONFIG_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateProgressNoteConfig = async (
+  oystehr: Oystehr,
+  parameters: AdminUpdateProgressNoteConfigInput
+): Promise<void> => {
+  try {
+    if (ADMIN_UPDATE_PROGRESS_NOTE_CONFIG_ZAMBDA_ID == null) {
+      throw new Error('admin update progress note config environment variable could not be loaded');
+    }
+    await oystehr.zambda.execute({ id: ADMIN_UPDATE_PROGRESS_NOTE_CONFIG_ZAMBDA_ID, ...parameters });
   } catch (error: unknown) {
     console.log(error);
     throw apiErrorToThrow(error);
