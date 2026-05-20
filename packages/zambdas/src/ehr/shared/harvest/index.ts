@@ -2885,7 +2885,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
             {
               reference: isValidUUID(workersCompInsuranceOrg.id ?? '')
                 ? `Organization/${workersCompInsuranceOrg.id}`
-                : getPayerUrl(workersCompInsuranceOrg.id!),
+                : getPayerUrl(payerId),
             },
           ];
           updatedWorkersCompCoverage.class = [
