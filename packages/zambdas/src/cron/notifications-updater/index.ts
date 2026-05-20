@@ -107,7 +107,9 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
       READY_OR_UNSIGNED_ENCOUNTER_STATUSES,
       // getting ready and unsigned appointments for the last 49 hours just to send appropriate notifications
       // on unsigned appointments that are in the unsigned state for too long
-      DateTime.utc().minus(Duration.fromISO('PT49H'))
+      DateTime.utc().minus(Duration.fromISO('PT49H')),
+      // 'booked' for telemed appointment notifications, 'arrived' for waiting room notifications
+      ['booked', 'arrived']
     ),
     getResourcePackagesAppointmentsMap(
       oystehr,
@@ -172,7 +174,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             }
           });
         }
-        if (status === 'arrived') {
+        if (status === 'pending') {
           // check the tag presence that indicates that communications for "Patient is waiting" notification already exist
           const isProcessed = appointment.meta?.tag?.find(
             (tag) =>
@@ -524,7 +526,8 @@ type ResourcePackagesMap = { [key: NonNullable<Appointment['id']>]: ResourcePack
 async function getResourcePackagesAppointmentsMap(
   oystehr: Oystehr,
   statuses: Encounter['status'][],
-  fromDate: DateTime
+  fromDate: DateTime,
+  appointmentStatuses: Appointment['status'][] = ['arrived']
 ): Promise<ResourcePackagesMap> {
   const results = (
     await oystehr.fhir.search<Appointment | Communication | Encounter | Location | Patient | Practitioner>({
@@ -537,7 +540,7 @@ async function getResourcePackagesAppointmentsMap(
         },
         {
           name: 'status',
-          value: `arrived`,
+          value: appointmentStatuses.join(','),
         },
         {
           name: '_revinclude',
