@@ -13,19 +13,16 @@ import {
   ListItemText,
   styled,
 } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { getAdmitterPractitionerId, getInPersonVisitStatus, PRACTITIONER_CODINGS } from 'utils';
+import { getInPersonVisitStatus } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeButton';
 import { EncounterSwitcher } from '../../in-person/components/EncounterSwitcher';
 import { RouteInPerson, useInPersonNavigationContext } from '../../in-person/context/InPersonNavigationContext';
+import { useCompleteIntake } from '../../in-person/hooks/useCompleteIntake';
 import { ROUTER_PATH, routesInPerson } from '../../in-person/routing/routesInPerson';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
-import { usePractitionerActions } from '../hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
@@ -159,6 +156,14 @@ export const sidebarMenuIcons = {
       />
     </svg>
   ),
+  Checklist: (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M4 18C3.45 18 2.97917 17.8042 2.5875 17.4125C2.19583 17.0208 2 16.55 2 16V2C2 1.45 2.19583 0.979167 2.5875 0.5875C2.97917 0.195833 3.45 0 4 0H16C16.55 0 17.0208 0.195833 17.4125 0.5875C17.8042 0.979167 18 1.45 18 2V16C18 16.55 17.8042 17.0208 17.4125 17.4125C17.0208 17.8042 16.55 18 16 18H4ZM4 16H16V2H4V16ZM6 14H11V12H6V14ZM13.175 14L17 10.175L15.6 8.775L13.175 11.2L12.075 10.1L10.675 11.5L13.175 14ZM6 9H11V7H6V9ZM13.175 9L17 5.175L15.6 3.775L13.175 6.2L12.075 5.1L10.675 6.5L13.175 9Z"
+        fill="currentColor"
+      />
+    </svg>
+  ),
   Stethoscope: (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
@@ -261,46 +266,16 @@ const StyledButton = styled(Button, {
 export const Sidebar = (): JSX.Element => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
-  const { oystehrZambda } = useApiClients();
   const { interactionMode } = useInPersonNavigationContext();
   const { id: appointmentID } = useParams();
-  const { visitState, appointmentRefetch } = useAppointmentData();
+  const { visitState } = useAppointmentData();
   const { chartData } = useChartData();
   const { appointment, encounter } = visitState;
   const status = appointment && encounter ? getInPersonVisitStatus(appointment, encounter) : undefined;
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
 
-  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
-    encounter,
-    'end',
-    PRACTITIONER_CODINGS.Admitter
-  );
-
-  const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
-
-  const handleCompleteIntake = async (): Promise<void> => {
-    try {
-      if (assignedIntakePerformerId) {
-        await handleUpdatePractitioner(assignedIntakePerformerId);
-
-        await handleChangeInPersonVisitStatus(
-          {
-            encounterId: encounter!.id!,
-            updatedStatus: 'ready for provider',
-          },
-          oystehrZambda
-        );
-
-        await appointmentRefetch();
-      } else {
-        enqueueSnackbar('Please select intake practitioner first', { variant: 'error' });
-      }
-    } catch (error: any) {
-      console.log(error.message);
-      enqueueSnackbar('An error occurred trying to complete intake. Please try again.', { variant: 'error' });
-    }
-  };
+  const { handleCompleteIntake, isEncounterUpdatePending } = useCompleteIntake();
 
   const handleDrawerToggle = (): void => {
     setOpen(!open);

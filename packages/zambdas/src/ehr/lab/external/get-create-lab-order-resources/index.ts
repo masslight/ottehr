@@ -17,6 +17,7 @@ import {
   OrderableItemSearchResult,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
+  STATIC_COMPENDIUM_LAB_GUID,
   VALUE_SETS,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler } from '../../../../shared';
@@ -47,8 +48,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
-  const { accounts, coverages, labOrgsGUIDs, orderingLocationDetails, appointmentIsWorkersComp, labLists } =
+  const { accounts, coverages, labGuids, orderingLocationDetails, appointmentIsWorkersComp, labLists } =
     await getResources(oystehr, patientId, encounterId, testItemSearch, labOrgIdsString);
+
+  console.log('labGuids and labOrgIdString', labGuids, labOrgIdsString);
 
   let coverageInfo: CreateLabCoverageInfo[] | undefined;
   if (patientId) {
@@ -57,16 +60,40 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   let labs: OrderableItemSearchResult[] = [];
   if (testItemSearch) {
-    labs = await getLabs(labOrgsGUIDs, { textSearch: testItemSearch }, m2mToken);
+    labs = await getLabs(labGuids, { textSearch: testItemSearch }, m2mToken);
   }
 
   if (selectedLabSet) {
     console.log('searching orderable items for the lab set', selectedLabSet.listName);
-    const labRequests = selectedLabSet.labs.map((lab) => {
-      return getLabs([lab.labGuid], { itemCodes: [lab.itemCode] }, m2mToken);
+    const labRequests = selectedLabSet.labs.map(async (lab) => {
+      const labSearchRes = await getLabs([lab.labGuid], { itemCodes: [lab.itemCode] }, m2mToken);
+
+      let staticLabName: string | undefined;
+      if (lab.labGuid === STATIC_COMPENDIUM_LAB_GUID) {
+        // lab.display is formatted as such: `(code) Test Name / Lab Name`
+        // we want "Lab Name" which will always be the last item in array split on '/'
+        staticLabName = lab.display?.split('/').pop()?.trim();
+      }
+
+      return { labSearchRes, staticLabName };
     });
+
     const allLabsResults = await Promise.all(labRequests);
-    labs = allLabsResults.flat();
+
+    labs = allLabsResults.flatMap((res) => {
+      const { labSearchRes, staticLabName } = res;
+      if (staticLabName) {
+        return labSearchRes.map((oi) => ({
+          item: oi.item,
+          lab: {
+            ...oi.lab,
+            labName: staticLabName,
+          },
+        }));
+      } else {
+        return labSearchRes;
+      }
+    });
   }
 
   let cptCodesToAddPerEncounter: CPTCodeOption[] | undefined = undefined;
@@ -105,7 +132,7 @@ const getResources = async (
 ): Promise<{
   accounts: Account[];
   coverages: Coverage[];
-  labOrgsGUIDs: string[];
+  labGuids: string[];
   orderingLocationDetails: ExternalLabOrderingLocations;
   appointmentIsWorkersComp: boolean;
   labLists: List[];
@@ -164,7 +191,8 @@ const getResources = async (
   const coverages: Coverage[] = [];
   const accounts: Account[] = [];
   const organizations: Organization[] = [];
-  const labOrgsGUIDs: string[] = [];
+  const labGuids: string[] = [];
+  const labOrgRefToLabGuidAndNameMap = new Map<string, { labGuid: string; labName: string }>();
   const orderingLocations: ModifiedOrderingLocation[] = [];
   const orderingLocationIds: string[] = [];
   const encounters: Encounter[] = [];
@@ -172,13 +200,19 @@ const getResources = async (
   const labLists: List[] = [];
   const appointments: Appointment[] = [];
 
+  // grab the lab orgs first to make associating labGuids later more efficient
+  resources
+    .filter((res): res is Organization => res.resourceType === 'Organization')
+    .forEach((org) => {
+      organizations.push(org);
+      const labGuid = org.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value;
+      if (labGuid) {
+        labGuids.push(labGuid);
+        labOrgRefToLabGuidAndNameMap.set(`Organization/${org.id}`, { labGuid, labName: org.name || '' });
+      }
+    });
+
   resources.forEach((resource) => {
-    if (resource.resourceType === 'Organization') {
-      const fhirOrg = resource as Organization;
-      organizations.push(fhirOrg);
-      const labGuid = fhirOrg.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value;
-      if (labGuid) labOrgsGUIDs.push(labGuid);
-    }
     if (resource.resourceType === 'Coverage') coverages.push(resource as Coverage);
     if (resource.resourceType === 'Account' && resource.status === 'active') {
       if (accountIsPatientBill(resource)) {
@@ -208,6 +242,7 @@ const getResources = async (
               return {
                 accountNumber: id.value!,
                 labOrgRef: id.assigner!.reference!,
+                ...labOrgRefToLabGuidAndNameMap.get(id.assigner!.reference!),
               };
             }),
         });
@@ -240,7 +275,7 @@ const getResources = async (
   return {
     coverages,
     accounts,
-    labOrgsGUIDs,
+    labGuids,
     orderingLocationDetails: { orderingLocationIds, orderingLocations },
     appointmentIsWorkersComp,
     labLists,
@@ -249,11 +284,11 @@ const getResources = async (
 
 type LabSearch = { textSearch: string } | { itemCodes: string[] } | { textSearch: string; itemCodes: string[] };
 const getLabs = async (
-  labOrgsGUIDs: string[],
+  labGuids: string[],
   search: LabSearch,
   m2mToken: string
 ): Promise<OrderableItemSearchResult[]> => {
-  const labIds = labOrgsGUIDs.join(',');
+  const labIds = labGuids.join(',');
   let cursor = '';
   let totalReturn = 0;
   const items: OrderableItemSearchResult[] = [];

@@ -88,8 +88,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('token', m2mToken);
 
   const oystehr = createOystehrClient(m2mToken, secrets);
-  const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-  const curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+  const curUserPractitionerId = await getMyPractitionerId(userToken, secrets);
 
   const {
     serviceRequest,
@@ -392,7 +391,13 @@ const getInHouseLabResultResources = async (
 
   const activityDefinitions = activityDefinitionSearch.unbundle();
 
-  if (activityDefinitions.length !== 1) throw new Error('Only one activity definition should be returned');
+  if (activityDefinitions.length !== 1) {
+    throw new Error(
+      `Only one activity definition should be returned: ${activityDefinitions.map(
+        (ad) => `ActivityDefinition/${ad.id}`
+      )}`
+    );
+  }
 
   return {
     serviceRequest,
@@ -714,11 +719,11 @@ const determineQuantInterpretation = (
     precision?: number;
   }
 ): { interpretation: CodeableConcept; nonNormalResult?: NonNormalResult } => {
-  const errorMsg = `Something is malformed with this quantity observation value: ${obsValue}`;
+  const errorMsg = `Something is malformed with this quantity observation value: ${JSON.stringify(obsValue)}`;
 
   if ('valueQuantity' in obsValue) {
     const entry = obsValue.valueQuantity.value;
-    if (!entry) throw new Error(errorMsg);
+    if (entry === undefined) throw new Error(errorMsg);
     if (entry > range.high || entry < range.low) {
       return { interpretation: ABNORMAL_OBSERVATION_INTERPRETATION, nonNormalResult: NonNormalResult.Abnormal };
     } else {

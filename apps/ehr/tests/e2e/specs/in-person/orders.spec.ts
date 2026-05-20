@@ -2,6 +2,7 @@ import { BatchInputPostRequest } from '@oystehr/sdk';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { ActivityDefinition, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import {
   DocumentProcedurePage,
   expectDocumentProcedurePage,
@@ -18,18 +19,26 @@ import {
   PerformTestPage,
   RadioSelectionResult,
 } from 'tests/e2e/page/lab';
+import { ExternalLabDetailPage } from 'tests/e2e/page/lab/external/ExternalLabDetailPage';
+import { ExternalLabsPage } from 'tests/e2e/page/lab/external/ExternalLabsPage';
+import { MOCK_LAB_RESULTS } from 'tests/e2e/page/lab/external/mock-data';
 import inHouseLabsMockData from 'tests/e2e/page/lab/in-house/mock-data.json' assert { type: 'json' };
+import { LabelPrintingConfigAdminPage } from 'tests/e2e/page/LabelPrintingConfigAdminPage';
 import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
 import { NursingOrdersPage } from 'tests/e2e/page/NursingOrdersPage';
 import { ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
+import { ENV_LOCATION_NAME } from 'tests/e2e-utils/resource/constants';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import {
   checkActivityDefinitionForReflexLogic,
   convertActivityDefinitionToDataEntryTestItem,
   CPTCodeDTO,
   DataEntryTestItem,
+  ExternalLabsStatus,
+  getTimezone,
+  LabPaymentMethod,
   makeCptCodeDisplay,
   REPEAT_TEST_CPT_CODE_MODIFIER,
   repeatTestErrorMessage,
@@ -152,11 +161,15 @@ const PROCEDURE_B: ProcedureInfo = {
 const resourceHandler = new ResourceHandler(`documentProceduresPage-${DateTime.now().toMillis()}`);
 
 let sideMenu: SideMenu;
+let header: InPersonHeader;
 let context: BrowserContext;
 let page: Page;
 test.beforeAll(async ({ browser }) => {
-  await resourceHandler.setResources({ skipPaperwork: true });
-  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  await resourceHandler.setResources({ skipPaperwork: false });
+  await Promise.all([
+    resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
+    resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
+  ]);
 
   context = await browser.newContext();
   page = await context.newPage();
@@ -164,6 +177,7 @@ test.beforeAll(async ({ browser }) => {
   await setupPractitioners(page);
 
   sideMenu = new SideMenu(page);
+  header = new InPersonHeader(page);
 });
 
 test.afterAll(async () => {
@@ -226,6 +240,11 @@ test.describe('Procedures Page', () => {
 });
 
 test.describe('In-house labs page', async () => {
+  test.skip(
+    !FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED,
+    'In-house labs feature flag is false (aka inhouse labs are not enabled), skipping tests'
+  );
+
   const DIAGNOSIS = 'Situs inversus';
   const SOURCE = 'Nasopharyngeal swab';
   const SECTION_TITLE = 'In-House Labs';
@@ -705,6 +724,175 @@ test.describe('In-house labs page', async () => {
   }
 });
 
+test.describe('External labs page', async () => {
+  test.skip(
+    !FEATURE_FLAGS.LAB_ORDERS_ENABLED,
+    'External labs feature flag is false (aka labs are not enabled), skipping tests'
+  );
+
+  test.afterAll(async () => {
+    // Restore the printing config to manual mode so subsequent test runs start from a clean state.
+    // EXL-0.2 leaves the Device in integrated mode; this undoes that regardless of pass/fail.
+    const labelConfigPage = new LabelPrintingConfigAdminPage(page);
+    await labelConfigPage.goto();
+    await labelConfigPage.waitForFormLoaded();
+    await labelConfigPage.selectMode('manual');
+    await labelConfigPage.submitAndWaitForSuccess();
+    // Navigate back to the appointment so subsequent describe blocks (e.g. Nursing Orders) start on the right page.
+    await page.goto(`in-person/${resourceHandler.appointment.id}`);
+  });
+
+  test('External labs. Tests Various Functionality.', async () => {
+    await test.step('EXL-0 Admin label printing config', async () => {
+      const labelConfigPage = new LabelPrintingConfigAdminPage(page);
+      await test.step('EXL-0.1 Form shows manual mode; save and reload confirms manual mode', async () => {
+        await labelConfigPage.goto();
+        await labelConfigPage.waitForFormLoaded();
+        await labelConfigPage.expectModeIs('manual');
+        await labelConfigPage.expectIntegratedFieldsNotVisible();
+        await labelConfigPage.submitAndWaitForSuccess();
+        await labelConfigPage.reload();
+        await labelConfigPage.expectModeIs('manual');
+        await labelConfigPage.expectIntegratedFieldsNotVisible();
+      });
+
+      await test.step('EXL-0.2 Switch to integrated mode, fill all fields, save, reload confirms integrated', async () => {
+        await labelConfigPage.selectMode('integrated');
+        await labelConfigPage.expectIntegratedFieldsVisible();
+        await labelConfigPage.selectManufacturer('DYMO');
+        await labelConfigPage.selectLabelType('30334');
+        await labelConfigPage.selectOrientation('portrait');
+        await labelConfigPage.submitAndWaitForSuccess();
+        await labelConfigPage.reload();
+        await labelConfigPage.expectModeIs('integrated');
+        await labelConfigPage.expectIntegratedFieldsVisible();
+        await labelConfigPage.expectManufacturerIs('DYMO');
+        await labelConfigPage.expectLabelTypeIs('30334');
+        await labelConfigPage.expectOrientationIs('portrait');
+      });
+    });
+
+    // Integrated mode remains active after EXL-0.2. EXL-1.4 will trigger the integrated
+    // print path, which falls back to manual (PDF in new tab) when Dymo Connect is not running / there are no printers connected.
+
+    await test.step('EXL-1 Create a single self pay lab', async () => {
+      const timezone = resourceHandler.appointmentLocation
+        ? getTimezone(resourceHandler.appointmentLocation)
+        : undefined;
+      const mockResults = MOCK_LAB_RESULTS.withAoe;
+      const orderingOfficeName = ENV_LOCATION_NAME;
+      const note = 'hey! im a note :)';
+      let primaryDx: string | null = null;
+      let additionalDx: string | null = null;
+      let selectedTestName: string | null = null;
+      let selectedTestCode: string | null = null;
+      let fillerLabName: string | null = null;
+
+      await test.step('EXL-1.1 Check assessment page for dx', async () => {
+        await page.goto(`in-person/${resourceHandler.appointment.id}`);
+        await sideMenu.clickAssessment();
+        const assessmentPage = await expectAssessmentPage(page);
+        primaryDx = await assessmentPage.checkForPrimaryDx();
+
+        if (!primaryDx) {
+          // if this is being run with the entire orders.spec this step should not be reached but if running on its own i think it could happen
+          await test.step('EXL-1.1.1 No primary dx entered ', async () => {
+            await assessmentPage.selectDiagnosis({ diagnosisNamePart: 'Plague meningitis' });
+
+            // now assign the primaryDx
+            primaryDx = await assessmentPage.checkForPrimaryDx();
+          });
+        }
+
+        await expect(primaryDx, `confirming we've captured the primary dx for encounter: ${primaryDx}`).not.toBeNull();
+      });
+
+      await test.step('EXL-1.2 Create the lab order', async () => {
+        const externalLabsPage = await sideMenu.clickExternalLabs();
+        const createExternalLabPage = await externalLabsPage.clickOrderButton();
+
+        // confirming expected values are prefilled (expecting an error if unknown gets passed in)
+        await createExternalLabPage.officeIsSelected(orderingOfficeName || 'unknown');
+        await createExternalLabPage.diagnosisIsSelected(primaryDx || 'unknown');
+        await createExternalLabPage.paymentMethodIsSelected(LabPaymentMethod.SelfPay);
+
+        // start clicking / typing
+        const labDetails = await createExternalLabPage.searchAndSelectLab({ withAoe: true });
+        selectedTestName = labDetails.testName;
+        fillerLabName = labDetails.fillerLabName;
+        selectedTestCode = labDetails.testItemCode;
+        await createExternalLabPage.labIsSelected(labDetails);
+        additionalDx = await createExternalLabPage.selectAdditionalDx('plague');
+        await createExternalLabPage.addClinicalInfoNote(note);
+
+        await createExternalLabPage.clickOrderButton();
+      });
+
+      await test.step('EXL-1.3 Confirm test is present in labs table', async () => {
+        const externalLabsPage = await ExternalLabsPage.isOpen(page);
+        const testRow = await externalLabsPage.confirmTestWithOutResultsIsPresent({
+          fillerLabName: fillerLabName || 'missing',
+          testName: selectedTestName || 'missing',
+          testItemCode: selectedTestCode || 'missing',
+          status: ExternalLabsStatus.pending,
+          submitBtnDisplay: 'disabled',
+        });
+
+        await testRow.click();
+      });
+
+      await test.step('EXL-1.4 Enter AOE for lab order, confirm data is shown and mark ready', async () => {
+        const detailsPage = await ExternalLabDetailPage.isOpen(page);
+
+        // confirm expected data is displayed
+        await detailsPage.checkBreadCrumbs(selectedTestName || 'unknown');
+        await detailsPage.confirmRequisitionNumberIsDisplayed();
+        await detailsPage.confirmOrderingOfficeIsDisplayed(orderingOfficeName || 'unknown');
+        await detailsPage.confirmClinicalNoteIsDisplayed(note);
+        await detailsPage.validateSampleCollectionInstructions(mockResults.labsData.item.specimens, timezone);
+
+        // start clicking / typing
+        const aoeAnswers = mockResults.aoeAnswers;
+        await detailsPage.enterAoeAnswers(aoeAnswers);
+
+        // Integrated mode is active (set in EXL-0.2). Dymo Connect is not running in CI,
+        // so the hook falls back to manual printing and shows a warning snackbar first.
+        await detailsPage.clickMarkAsReady({ isPSC: false, expectIntegratedFallback: true });
+      });
+
+      await test.step('ELX-1.5 Confirm lab is ready for submit', async () => {
+        const externalLabsPage = await ExternalLabsPage.isOpen(page);
+
+        // we won't click submit since that ultimately goes to oystehr/dorn and could be flaky
+        await externalLabsPage.confirmTestWithOutResultsIsPresent({
+          fillerLabName: fillerLabName || 'missing',
+          testName: selectedTestName || 'missing',
+          testItemCode: selectedTestCode || 'missing',
+          status: ExternalLabsStatus.ready,
+          submitBtnDisplay: 'enabled',
+        });
+      });
+
+      await test.step('ELX-1.6 Check assessment page and patient record labs table', async () => {
+        await sideMenu.clickAssessment();
+        const assessmentPage = await expectAssessmentPage(page);
+
+        await assessmentPage.checkForSecondaryDx({ secondaryDx: additionalDx || 'unknown', addedViaLabOrder: true });
+
+        const patientRecordPage = await header.clickPatientName(resourceHandler.patient.id!);
+        await patientRecordPage.clickLabsTableTab();
+
+        await patientRecordPage.confirmPatientRecordLab({
+          testName: selectedTestName || 'unknown',
+          testItemCode: selectedTestCode || 'unknown',
+          status: ExternalLabsStatus.ready,
+          navToLabDetailPage: true,
+        });
+      });
+    });
+  });
+});
+
 test.describe('Nursing Orders Page', () => {
   interface NursingOrderInfo {
     notes: string;
@@ -879,11 +1067,12 @@ async function verifyProcedureRow(procedureInfo: ProcedureInfo, procedureRow: Pr
 function progressNoteProcedureDetails(procedureInfo: ProcedureInfo): string[] {
   const cptInfo: string[] = [];
   for (const cpt of procedureInfo.cptInfo) {
-    const cptPrefix = cpt.procedureTypeCptCode ? cpt.procedureTypeCptCode + ':' : '';
-    cptInfo.push(cptPrefix + cpt.cptCode + ' ' + cpt.cptName);
+    if (cpt.procedureTypeCptCode) {
+      cptInfo.push(cpt.procedureTypeCptCode);
+    }
+    cptInfo.push(cpt.cptCode + ' ' + cpt.cptName);
   }
   return [
-    // colon will be used to split and reorder string so this line is different
     'CPT:' + cptInfo.join('; '),
     'Dx: ' + procedureInfo.diagnosisCode + ' ' + procedureInfo.diagnosisName,
     'Performed by: ' + procedureInfo.performedBy,

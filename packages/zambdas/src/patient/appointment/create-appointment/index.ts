@@ -27,7 +27,6 @@ import { uuid } from 'short-uuid';
 import {
   ACCIDENT_TYPE_SYSTEM,
   CanonicalUrl,
-  checkSlotAvailable,
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
   createUserResourcesForPatient,
@@ -85,7 +84,6 @@ interface CreateAppointmentInput {
   visitType: VisitType;
   language?: string;
   locationState?: string;
-  unconfirmedDateOfBirth?: string;
   appointmentMetadata?: Appointment['meta'];
   parentEncounterId?: string;
   /** Resolved Location for this booking (direct or via group member / role). */
@@ -105,7 +103,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
 
   const user = await getUser(token, input.secrets);
   const validatedParameters = validateCreateAppointmentParams(input, user);
-  const { secrets, unconfirmedDateOfBirth, language } = validatedParameters;
+  const { secrets, language } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
 
@@ -160,7 +158,6 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       language,
       secrets,
       visitType,
-      unconfirmedDateOfBirth,
       questionnaireCanonical,
       appointmentMetadata,
       parentEncounterId,
@@ -205,6 +202,8 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
  * (Locations on HealthcareService.location[] and Practitioners linked via
  * PractitionerRole.healthcareService).
  */
+// todo: reconnect this or delete. not clear why this would be needed in create appointment when a slot is passed in that should resolve much of this
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function resolveGroupMemberSchedules(
   oystehr: Oystehr,
   group: { id?: string; location?: Array<{ reference?: string }> }
@@ -253,7 +252,6 @@ export async function createAppointment(
     user,
     secrets,
     visitType,
-    unconfirmedDateOfBirth,
     serviceMode,
     questionnaireCanonical: questionnaireUrl,
     appointmentMetadata,
@@ -337,7 +335,6 @@ export async function createAppointment(
     createPatientRequest,
     performPreProcessing: user && !isTestUser(user),
     listRequests,
-    unconfirmedDateOfBirth,
     newPatientDob: (createPatientRequest?.resource as Patient | undefined)?.birthDate,
     createdBy,
     slot,
@@ -426,7 +423,6 @@ interface TransactionInput {
   verifiedPhoneNumber: string | undefined;
   contactInfo: { phone: string; email: string };
   additionalInfo?: string;
-  unconfirmedDateOfBirth?: string;
   patient?: Patient;
   newPatientDob?: string;
   createPatientRequest?: BatchInputPostRequest<Patient>;
@@ -462,7 +458,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     verifiedPhoneNumber,
     contactInfo,
     additionalInfo,
-    unconfirmedDateOfBirth,
     createPatientRequest,
     performPreProcessing,
     listRequests,
@@ -475,7 +470,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     parentEncounterId,
   } = input;
 
-  // Validate parent encounter for scheduled follow-ups — no nesting allowed
+  // Validate parent encounter for scheduled follow-ups — no nesting allowed.
+  // Also collect the parent encounter's diagnoses so they can be carried over to the follow-up.
+  let carriedOverDiagnoses: { condition: Condition; rank?: number }[] = [];
   if (parentEncounterId) {
     const parentEncounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',
@@ -483,6 +480,25 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     });
     if (parentEncounter.partOf) {
       throw new Error('Cannot create a follow-up of a follow-up. Please select a top-level encounter as the parent.');
+    }
+
+    const parentDiagnosisEntries = (parentEncounter.diagnosis ?? []).filter((entry) => {
+      const ref = entry.condition?.reference;
+      return typeof ref === 'string' && ref.startsWith('Condition/');
+    });
+    if (parentDiagnosisEntries.length > 0) {
+      const fetchedConditions = await Promise.all(
+        parentDiagnosisEntries.map((entry) =>
+          oystehr.fhir.get<Condition>({
+            resourceType: 'Condition',
+            id: entry.condition!.reference!.split('/')[1],
+          })
+        )
+      );
+      carriedOverDiagnoses = parentDiagnosisEntries.map((entry, idx) => ({
+        condition: fetchedConditions[idx],
+        rank: entry.rank,
+      }));
     }
   }
 
@@ -495,26 +511,17 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const nowIso = now.toISO() ?? '';
   const initialAppointmentStatus: FhirAppointmentStatus =
     visitType === VisitType.PreBook || visitType === VisitType.PostTelemed ? 'booked' : 'arrived';
-  let initialEncounterStatus: FhirEncounterStatus =
+  const initialEncounterStatus: FhirEncounterStatus =
     visitType === VisitType.PreBook || visitType === VisitType.PostTelemed ? 'planned' : 'arrived';
 
   const apptExtensions: Extension[] = [];
   const encExtensions: Extension[] = [];
 
   if (serviceMode === ServiceMode.virtual) {
-    initialEncounterStatus = 'planned';
-
     const { encExtensions: telemedEncExtensions, apptExtensions: telemedApptExtensions } =
       getTelemedRequiredAppointmentEncounterExtensions(patientRef, nowIso);
     apptExtensions.push(...telemedApptExtensions);
     encExtensions.push(...telemedEncExtensions);
-  }
-
-  if (unconfirmedDateOfBirth) {
-    apptExtensions.push({
-      url: FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url,
-      valueString: unconfirmedDateOfBirth,
-    });
   }
 
   if (additionalInfo) {
@@ -629,6 +636,11 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const encUrl = `urn:uuid:${uuid()}`;
 
+  /*
+
+  todo sort out his merge conflict later 
+
+  <<<<<<< HEAD
   // Capacity guard + group-member fallback. Before touching the busy Slot,
   // verify that the target Schedule can absorb one more booking in the
   // requested window. If it can't and this is a group booking, reroute to
@@ -735,6 +747,75 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
         period: { start: nowIso },
       },
     ];
+=======
+  // Carry over diagnoses from the parent encounter to the follow-up by cloning each Dx Condition
+  // and attaching it to the new encounter's diagnosis array (preserving rank/primary).
+  const followUpDiagnosisRequests: BatchInputPostRequest<Condition>[] = [];
+  const followUpDiagnosisEntries: NonNullable<Encounter['diagnosis']> = [];
+  for (const { condition: parentCondition, rank } of carriedOverDiagnoses) {
+    const newConditionUrl = `urn:uuid:${uuid()}`;
+    const newCondition: Condition = {
+      resourceType: 'Condition',
+      subject: { reference: patientRef },
+      encounter: { reference: encUrl },
+      code: parentCondition.code,
+      clinicalStatus: parentCondition.clinicalStatus,
+      verificationStatus: parentCondition.verificationStatus,
+      meta: {
+        tag: [
+          {
+            code: 'diagnosis',
+            system: `${PRIVATE_EXTENSION_BASE_URL}/diagnosis`,
+          },
+        ],
+      },
+    };
+    followUpDiagnosisRequests.push({
+      method: 'POST',
+      url: '/Condition',
+      resource: newCondition,
+      fullUrl: newConditionUrl,
+    });
+    followUpDiagnosisEntries.push({
+      condition: { reference: newConditionUrl },
+      ...(rank !== undefined && { rank }),
+    });
+>>>>>>> c6ed511e429c3cf6d025face3740ce71fdb39d29
+  }
+*/
+
+  // Carry over diagnoses from the parent encounter to the follow-up by cloning each Dx Condition
+  // and attaching it to the new encounter's diagnosis array (preserving rank/primary).
+  const followUpDiagnosisRequests: BatchInputPostRequest<Condition>[] = [];
+  const followUpDiagnosisEntries: NonNullable<Encounter['diagnosis']> = [];
+  for (const { condition: parentCondition, rank } of carriedOverDiagnoses) {
+    const newConditionUrl = `urn:uuid:${uuid()}`;
+    const newCondition: Condition = {
+      resourceType: 'Condition',
+      subject: { reference: patientRef },
+      encounter: { reference: encUrl },
+      code: parentCondition.code,
+      clinicalStatus: parentCondition.clinicalStatus,
+      verificationStatus: parentCondition.verificationStatus,
+      meta: {
+        tag: [
+          {
+            code: 'diagnosis',
+            system: `${PRIVATE_EXTENSION_BASE_URL}/diagnosis`,
+          },
+        ],
+      },
+    };
+    followUpDiagnosisRequests.push({
+      method: 'POST',
+      url: '/Condition',
+      resource: newCondition,
+      fullUrl: newConditionUrl,
+    });
+    followUpDiagnosisEntries.push({
+      condition: { reference: newConditionUrl },
+      ...(rank !== undefined && { rank }),
+    });
   }
 
   const encResource: Encounter = {
@@ -765,8 +846,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
           },
         ]
       : [],
-    ...(encounterParticipants ? { participant: encounterParticipants } : {}),
+    //...(encounterParticipants ? { participant: encounterParticipants } : {}), todo: related to merge conflict above
     extension: encExtensions,
+    ...(followUpDiagnosisEntries.length > 0 && { diagnosis: followUpDiagnosisEntries }),
     ...(parentEncounterId && {
       partOf: { reference: `Encounter/${parentEncounterId}` },
       type: [
@@ -804,7 +886,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     verifiedPhoneNumber,
     contactInfo,
     newPatientDob,
-    unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
     appointmentServiceCategory: getCoding(slot?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code ?? '',
     reasonForVisit,
@@ -937,6 +1018,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       postQuestionnaireResponseRequest,
       taskRequest,
       ...postAccidentConditionRequests,
+      ...followUpDiagnosisRequests,
     ],
   };
   console.log('making transaction request');

@@ -1,18 +1,10 @@
-import { BundleEntry } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
-import { Bundle, FhirResource, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
+import { FhirResource, Patient, Person, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import {
-  getFirstName,
-  getLastName,
-  ORG_TYPE_CODE_SYSTEM,
-  ORG_TYPE_PAYER_CODE,
-  PromiseReturnType,
-  RemoveCoverageZambdaInput,
-  useSuccessQuery,
-} from 'utils';
+import { getFirstName, getLastName, isValidUUID, PromiseReturnType, RemoveCoverageZambdaInput } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { OystehrTelemedAPIClient } from '../features/visits/shared/api/oystehrApi';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { useApiClients } from './useAppClients';
@@ -27,6 +19,7 @@ export const useGetPatient = (
   patient?: Patient;
   setPatient: (patient: Patient) => void;
   relatedPerson?: RelatedPerson;
+  person?: Person;
 } => {
   const { oystehr } = useApiClients();
   const [loading, setLoading] = useState<boolean>(true);
@@ -34,6 +27,7 @@ export const useGetPatient = (
   const [duplicatePatients, setDuplicatePatients] = useState<Patient[]>([]);
   const [patient, setPatient] = useState<Patient>();
   const [relatedPerson, setRelatedPerson] = useState<RelatedPerson>();
+  const [person, setPerson] = useState<Person>();
 
   const { data: patientResources } = useQuery({
     queryKey: ['useGetPatientPatientResources', id],
@@ -47,6 +41,10 @@ export const useGetPatient = (
                 {
                   name: '_revinclude:iterate',
                   value: 'RelatedPerson:patient',
+                },
+                {
+                  name: '_revinclude:iterate',
+                  value: 'Person:link',
                 },
               ],
             })
@@ -100,6 +98,7 @@ export const useGetPatient = (
       const relatedPersonTemp: RelatedPerson = patientResources.find(
         (resource) => resource.resourceType === 'RelatedPerson'
       ) as RelatedPerson;
+      const personTemp: Person = patientResources.find((resource) => resource.resourceType === 'Person') as Person;
 
       const duplicates = (otherPatientsWithSameNameResources as Patient[]).filter(
         (r) => r.resourceType === 'Patient' && r.id !== id && r.active !== false
@@ -114,6 +113,7 @@ export const useGetPatient = (
 
       setPatient(patientTemp);
       setRelatedPerson(relatedPersonTemp);
+      setPerson(personTemp);
       setLoading(false);
     }
 
@@ -127,6 +127,7 @@ export const useGetPatient = (
     duplicatePatients,
     patient,
     relatedPerson,
+    person,
     setPatient,
   };
 };
@@ -187,6 +188,38 @@ export const useGetPatientCoverages = (
   return queryResult;
 };
 
+/**
+ * Polls the merge-patients zambda for the active merge Task targeting the given
+ * patient. Returns `null` if no active merge is in progress.
+ */
+export const useGetActiveMergeTask = (
+  patientId: string | undefined,
+  options?: { enabled?: boolean; refetchIntervalMs?: number }
+): UseQueryResult<PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getMergePatientsTask']>>, Error> => {
+  const apiClient = useOystehrAPIClient();
+  const refetchIntervalMs = options?.refetchIntervalMs ?? 3000;
+
+  // Guard against bogus route params like the literal string "undefined".
+  // Without this, broken `/patient/${someUndefined}/info` URLs send
+  // {"patientId":"undefined","mode":"status"} to the merge-patients zambda and
+  // produce noisy 400s.
+  const validPatientId = patientId && isValidUUID(patientId) ? patientId : undefined;
+
+  return useQuery({
+    queryKey: ['active-merge-task', { patientId: validPatientId }],
+    queryFn: () => apiClient!.getMergePatientsTask({ patientId: validPatientId! }),
+    enabled: (options?.enabled ?? true) && apiClient != null && !!validPatientId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data?.task) return false;
+      // Stop polling on terminal states — user must dismiss/retry.
+      if (data.task.status === 'failed') return false;
+      return refetchIntervalMs;
+    },
+    refetchOnWindowFocus: true,
+  });
+};
+
 export const useRemovePatientCoverage = (): UseMutationResult<void, Error, RemoveCoverageZambdaInput> => {
   const apiClient = useOystehrAPIClient();
 
@@ -241,58 +274,4 @@ export const useUpdatePatientAccount = (
       });
     },
   });
-};
-
-export const useGetInsurancePlans = (
-  onSuccess: (data: Bundle<Organization> | null) => void
-): UseQueryResult<Bundle<Organization>, Error> => {
-  const { oystehr } = useApiClients();
-
-  const fetchAllInsurancePlans = async (): Promise<Bundle<Organization>> => {
-    if (!oystehr) {
-      throw new Error('FHIR client not defined');
-    }
-
-    const searchParams = [
-      { name: 'type', value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}` },
-      { name: '_count', value: '1000' },
-    ];
-
-    let offset = 0;
-    let allEntries: BundleEntry<Organization>[] = [];
-
-    let bundle = await oystehr.fhir.search<Organization>({
-      resourceType: 'Organization',
-      params: [...searchParams, { name: '_offset', value: offset }],
-    });
-
-    allEntries = allEntries.concat(bundle.entry || []);
-    const serverTotal = bundle.total;
-
-    while (bundle.link?.find((link) => link.relation === 'next')) {
-      offset += 1000;
-
-      bundle = await oystehr.fhir.search<Organization>({
-        resourceType: 'Organization',
-        params: [...searchParams.filter((param) => param.name !== '_offset'), { name: '_offset', value: offset }],
-      });
-
-      allEntries = allEntries.concat(bundle.entry || []);
-    }
-
-    return {
-      ...bundle,
-      entry: allEntries,
-      total: serverTotal !== undefined ? serverTotal : allEntries.length,
-    };
-  };
-
-  const queryResult = useQuery({
-    queryKey: ['insurance-plans'],
-    queryFn: fetchAllInsurancePlans,
-  });
-
-  useSuccessQuery(queryResult.data, onSuccess);
-
-  return queryResult;
 };

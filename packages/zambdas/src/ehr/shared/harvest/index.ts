@@ -64,6 +64,7 @@ import {
   FHIR_EXTENSION,
   FileDocDataForDocReference,
   filterHiddenRemovableFields,
+  findOrgMatchingReference,
   flattenIntakeQuestionnaireItems,
   flattenItems,
   formatPhoneNumber,
@@ -79,6 +80,7 @@ import {
   getPatchOperationToAddOrUpdatePreferredName,
   getPatchOperationToRemovePreferredLanguage,
   getPayerId,
+  getPayerUrl,
   getPhoneNumberForIndividual,
   getSecret,
   getTaxID,
@@ -91,6 +93,7 @@ import {
   IntakeQuestionnaireItem,
   isFieldExplicitlyCleared,
   isoStringFromDateComponents,
+  isPayerUrl,
   isValidUUID,
   makeSSNIdentifier,
   mapBirthSexToGender,
@@ -131,6 +134,7 @@ import {
 } from 'utils';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
+import { getInsuranceOverrideList, ListName } from '../../../rcm/get-insurance-override-list/handler';
 import { createPdfBytes } from '../../../shared';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
@@ -1472,7 +1476,7 @@ function areArraysDifferent(source: string[], target: string[]): boolean {
 
 interface GetCoveragesInput {
   questionnaireResponse: QuestionnaireResponse;
-  patientId: string;
+  patient: Patient;
   organizationResources: Organization[];
 }
 
@@ -1484,20 +1488,24 @@ interface GetCoverageResourcesResult {
 // this function is exported for testing purposes
 export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResourcesResult => {
   const newCoverages: OrderedCoverages = {};
-  const { questionnaireResponse, organizationResources, patientId } = input;
+  const { questionnaireResponse, organizationResources, patient } = input;
+  if (!patient.id) {
+    throw new Error('Patient ID is required to create coverage resources');
+  }
+  const patientId = patient.id;
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponse.item as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
   const isSecondaryOnly = checkIsSecondaryOnly(flattenedPaperwork);
   let firstPolicyHolder: PolicyHolder | undefined;
   let firstInsuranceDetails: InsuranceDetails | undefined;
-  let secondPolicyHolder = getSecondaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
+  let secondPolicyHolder = getSecondaryPolicyHolderFromAnswers(questionnaireResponse.item ?? [], patient);
   let secondInsuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources, '-2');
   if (!isSecondaryOnly) {
-    firstPolicyHolder = getPrimaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
+    firstPolicyHolder = getPrimaryPolicyHolderFromAnswers(questionnaireResponse.item ?? [], patient);
     firstInsuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);
   } else if (secondPolicyHolder === undefined || secondInsuranceDetails === undefined) {
-    secondPolicyHolder = secondPolicyHolder ?? getPrimaryPolicyHolderFromAnswers(flattenedPaperwork);
+    secondPolicyHolder = secondPolicyHolder ?? getPrimaryPolicyHolderFromAnswers(flattenedPaperwork, patient);
     secondInsuranceDetails =
       secondInsuranceDetails ?? getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);
   }
@@ -1604,33 +1612,56 @@ function resolveInsurancePriorities(
 
 export async function searchInsuranceInformation(
   oystehr: Oystehr,
-  insuranceOrgRefs: string[]
+  insuranceOrgRefs: string[],
+  resources?: Organization[]
 ): Promise<Organization[]> {
-  const orgIds = insuranceOrgRefs
-    .map((ref) => {
-      const [resType, id] = ref.split('/');
-      if (resType === 'Organization' && id) {
-        return id;
-      }
-      return '';
-    })
-    .filter((id) => !!id);
-  if (orgIds.length !== insuranceOrgRefs.length) {
-    console.log('searchInsuranceInformation: some Organization references were invalid:', insuranceOrgRefs);
-  }
-  if (orgIds.length === 0) {
+  if (insuranceOrgRefs.length === 0) {
     return [];
   }
-  const searchResults = await oystehr.fhir.search<Organization>({
-    resourceType: 'Organization',
-    params: [
-      {
-        name: '_id',
-        value: orgIds.join(','),
-      },
-    ],
-  });
-  return searchResults.unbundle();
+  return await Promise.all(
+    insuranceOrgRefs.map((ref) => {
+      if (isPayerUrl(ref)) {
+        if (oystehr.rcm.constructPayerUrl({ id: '00000' }) === ref) {
+          // We have added a dummy payer option to paperwork, so we need to handle it here
+          return {
+            resourceType: 'Organization',
+            id: '00000',
+            name: 'Other',
+            identifier: [
+              {
+                type: {
+                  coding: [
+                    {
+                      system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                      code: 'PAYERID',
+                    },
+                  ],
+                },
+                system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id',
+                value: '00000',
+              },
+            ],
+            type: [
+              {
+                coding: [
+                  {
+                    system: 'http://terminology.hl7.org/CodeSystem/organization-type',
+                    code: 'pay',
+                  },
+                ],
+              },
+            ],
+          };
+        }
+        return oystehr.rcm.getPayerByUrl({ url: ref });
+      }
+      const orgFromFhir = findOrgMatchingReference(ref, resources);
+      if (orgFromFhir) {
+        return orgFromFhir;
+      }
+      return oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: ref.split('/')[1] });
+    })
+  );
 }
 
 const getCoverageGroups = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[][] => {
@@ -1684,7 +1715,10 @@ const tagCoverageGroupWithPriority = (items: QuestionnaireResponseItem[]): Prior
 };
 
 // the following 3 functions are exported for testing purposes; not expected to be called outside this file but for unit testing
-export const getPrimaryPolicyHolderFromAnswers = (items: QuestionnaireResponseItem[]): PolicyHolder | undefined => {
+export const getPrimaryPolicyHolderFromAnswers = (
+  items: QuestionnaireResponseItem[],
+  patient: Patient
+): PolicyHolder | undefined => {
   // group the coverage-related items into their respective group(s)
   // if there is some indication in the answers within each group that the group should be treated as primary,
   // use that group here, regardless of the suffix used within that group
@@ -1697,14 +1731,17 @@ export const getPrimaryPolicyHolderFromAnswers = (items: QuestionnaireResponseIt
   const foundPrimaryGroup = prioritizedCoverageGroups.find((group) => group.priority === 'Primary');
 
   if (foundPrimaryGroup) {
-    return extractPolicyHolder(foundPrimaryGroup.items, foundPrimaryGroup.suffix);
+    return extractPolicyHolder(foundPrimaryGroup.items, patient, foundPrimaryGroup.suffix);
   }
 
   const flattenedItems = flattenIntakeQuestionnaireItems(items as IntakeQuestionnaireItem[]);
-  return extractPolicyHolder(flattenedItems);
+  return extractPolicyHolder(flattenedItems, patient);
 };
 
-export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponseItem[]): PolicyHolder | undefined => {
+export const getSecondaryPolicyHolderFromAnswers = (
+  items: QuestionnaireResponseItem[],
+  patient: Patient
+): PolicyHolder | undefined => {
   // group the coverage-related items into their respective group(s)
   // if there is some indication in the answers within each group that the group should be treated as secondary,
   // use that group here, regardless of the suffix used within that group
@@ -1716,10 +1753,10 @@ export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponse
     .filter(Boolean) as PrioritizedCoverageGroup[];
   const foundSecondaryGroup = prioritizedCoverageGroups.find((group) => group.priority === 'Secondary');
   if (foundSecondaryGroup) {
-    return extractPolicyHolder(foundSecondaryGroup.items, foundSecondaryGroup.suffix);
+    return extractPolicyHolder(foundSecondaryGroup.items, patient, foundSecondaryGroup.suffix);
   }
   const flattenedItems = flattenIntakeQuestionnaireItems(items as IntakeQuestionnaireItem[]);
-  return extractPolicyHolder(flattenedItems, '-2');
+  return extractPolicyHolder(flattenedItems, patient, '-2');
 };
 
 // EHR design calls for tertiary insurance to be handled in addition to secondary - will need some changes to support this
@@ -1736,9 +1773,15 @@ const checkIsSecondaryOnly = (items: QuestionnaireResponseItem[]): boolean => {
 };
 
 // note: this function assumes items have been flattened before being passed in
-const extractPolicyHolder = (items: QuestionnaireResponseItem[], keySuffix?: string): PolicyHolder | undefined => {
+const extractPolicyHolder = (
+  items: QuestionnaireResponseItem[],
+  patient: Patient,
+  keySuffix?: string
+): PolicyHolder | undefined => {
   const findAnswer = (linkId: string): string | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+  const findBooleanAnswer = (linkId: string): boolean | undefined =>
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueBoolean;
 
   const suffix = keySuffix ? `${keySuffix}` : '';
   const contact: any = {
@@ -1757,18 +1800,25 @@ const extractPolicyHolder = (items: QuestionnaireResponseItem[], keySuffix?: str
       | 'Legal Guardian'
       | 'Other',
   };
-  const address = {
-    line: [
-      findAnswer(`policy-holder-address${suffix}`) ?? '',
-      findAnswer(`policy-holder-address-additional-line${suffix}`) ?? '',
-    ].filter(Boolean),
-    city: findAnswer(`policy-holder-city${suffix}`) ?? '',
-    state: findAnswer(`policy-holder-state${suffix}`) ?? '',
-    postalCode: findAnswer(`policy-holder-zip${suffix}`) ?? '',
-  };
 
-  if (address.line.length > 0 || address.city || address.state || address.postalCode) {
-    contact.address = address as Address;
+  const sameAsPatient = findBooleanAnswer(`policy-holder-address-as-patient${suffix}`) === true;
+  const patientAddress = patient.address?.[0];
+  if (sameAsPatient && patientAddress) {
+    contact.address = _.cloneDeep(patientAddress);
+  } else {
+    const address = {
+      line: [
+        findAnswer(`policy-holder-address${suffix}`) ?? '',
+        findAnswer(`policy-holder-address-additional-line${suffix}`) ?? '',
+      ].filter(Boolean),
+      city: findAnswer(`policy-holder-city${suffix}`) ?? '',
+      state: findAnswer(`policy-holder-state${suffix}`) ?? '',
+      postalCode: findAnswer(`policy-holder-zip${suffix}`) ?? '',
+    };
+
+    if (address.line.length > 0 || address.city || address.state || address.postalCode) {
+      contact.address = address as Address;
+    }
   }
   if (
     contact.firstName &&
@@ -1785,24 +1835,37 @@ const extractPolicyHolder = (items: QuestionnaireResponseItem[], keySuffix?: str
 
 // note: this function assumes items have been flattened before being passed in
 // this function is exported for testing purposes; not expected to be called outside this file but for unit testing
-export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): ResponsiblePartyContact | undefined {
+export function extractAccountGuarantor(
+  items: QuestionnaireResponseItem[],
+  patient: Patient
+): ResponsiblePartyContact | undefined {
   const findAnswer = (linkId: string): string | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+  const findBooleanAnswer = (linkId: string): boolean | undefined =>
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueBoolean;
 
-  const city = findAnswer('responsible-party-city');
-  const addressLine = findAnswer('responsible-party-address');
-  const line = addressLine ? [addressLine] : undefined;
-  const addressLine2 = findAnswer('responsible-party-address-2');
-  if (addressLine2) line?.push(addressLine2);
-  const state = findAnswer('responsible-party-state');
-  const postalCode = findAnswer('responsible-party-zip');
+  const sameAsPatient = findBooleanAnswer('responsible-party-address-as-patient') === true;
+  const patientAddress = patient.address?.[0];
 
-  const guarantorAddress: Address = {
-    city,
-    line,
-    state,
-    postalCode,
-  };
+  let guarantorAddress: Address;
+  if (sameAsPatient && patientAddress) {
+    guarantorAddress = _.cloneDeep(patientAddress);
+  } else {
+    const city = findAnswer('responsible-party-city');
+    const addressLine = findAnswer('responsible-party-address');
+    const line = addressLine ? [addressLine] : undefined;
+    const addressLine2 = findAnswer('responsible-party-address-2');
+    if (addressLine2) line?.push(addressLine2);
+    const state = findAnswer('responsible-party-state');
+    const postalCode = findAnswer('responsible-party-zip');
+
+    guarantorAddress = {
+      city,
+      line,
+      state,
+      postalCode,
+    };
+  }
 
   const contact: ResponsiblePartyContact = {
     birthSex: findAnswer('responsible-party-birth-sex') as 'Male' | 'Female' | 'Intersex',
@@ -1852,9 +1915,16 @@ export function extractEmergencyContact(items: QuestionnaireResponseItem[]): Eme
   return undefined;
 }
 
-const buildEmergencyContactAddress = (contact: EmergencyContact): Address | undefined => {
-  // The frontend auto-fills the address fields when "same as patient" is selected,
-  // so we always read directly from the emergency contact's own fields.
+// exported for testing
+export const buildEmergencyContactAddress = (contact: EmergencyContact, patient: Patient): Address | undefined => {
+  // When "same as patient" is true, resolve the address from the (already-patched) Patient
+  // resource so the dependent address tracks the patient's current address — regardless of
+  // whether the frontend managed to copy the values into the emergency-contact fields.
+  const patientAddress = patient.address?.[0];
+  if (contact.addressSameAsPatient && patientAddress) {
+    return _.cloneDeep(patientAddress);
+  }
+
   const { addressLine, addressLine2, city, state, zip } = contact;
   const hasAddressData = addressLine || addressLine2 || city || state || zip;
   if (!hasAddressData) {
@@ -1889,7 +1959,7 @@ function getInsuranceDetailsFromAnswers(
     ?.valueReference;
   if (!insuranceOrgReference) return undefined;
 
-  const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insuranceOrgReference.reference);
+  const org = findOrgMatchingReference(insuranceOrgReference.reference, organizations);
   if (!org) return undefined;
 
   const qType = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]?.valueString;
@@ -2307,10 +2377,10 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   const memberId = policyHolder.memberId;
 
   const payerId = getPayerId(org);
-
   if (!payerId) {
     throw new Error('payerId unexpectedly missing from insuranceOrg');
   }
+  const payerUrl = new Oystehr({}).rcm.constructPayerUrl({ id: payerId });
 
   const policyHolderId = 'coverageSubscriber';
   const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
@@ -2358,7 +2428,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       reference: `Patient/${patientId}`,
     },
     type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
-    payor: [{ reference: `Organization/${org.id}` }],
+    payor: [{ reference: payerUrl }],
     subscriberId: policyHolder.memberId,
     relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
     class: [
@@ -2529,11 +2599,11 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
 
   const flattenedItems = flattenItems(questionnaireResponseItem ?? []);
 
-  const guarantorData = extractAccountGuarantor(flattenedItems);
+  const guarantorData = extractAccountGuarantor(flattenedItems, patient);
 
   const emergencyContactData = extractEmergencyContact(flattenedItems);
   const emergencyContactAddress =
-    emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData) : undefined;
+    emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData, patient) : undefined;
 
   const employerInformation = getEmployerInformation(flattenedItems);
   const shouldClearEmployerInformation =
@@ -2559,7 +2629,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     questionnaireResponse: {
       item: flattenedItems,
     } as QuestionnaireResponse,
-    patientId: patient.id,
+    patient,
     organizationResources,
   });
 
@@ -2798,9 +2868,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       let workersCompCoverage: Coverage | undefined = undefined;
       const workersCompInsurance = employerInformation.workersCompInsurance;
       const workersCompMemberId = employerInformation.workersCompMemberId;
-      const workersCompInsuranceOrg = organizationResources.find(
-        (org) => `${org.resourceType}/${org.id}` === workersCompInsurance
-      );
+      const workersCompInsuranceOrg = findOrgMatchingReference(workersCompInsurance, organizationResources);
       const payerId = getPayerId(workersCompInsuranceOrg);
       if (existingCoverages.workersComp) {
         workersCompCoverage = existingCoverages.workersComp;
@@ -2812,8 +2880,14 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
           ];
           updatedWorkersCompCoverage.subscriberId = workersCompMemberId;
         }
-        if (workersCompInsuranceOrg) {
-          updatedWorkersCompCoverage.payor = [{ reference: `Organization/${workersCompInsuranceOrg.id}` }];
+        if (workersCompInsuranceOrg && payerId) {
+          updatedWorkersCompCoverage.payor = [
+            {
+              reference: isValidUUID(workersCompInsuranceOrg.id ?? '')
+                ? `Organization/${workersCompInsuranceOrg.id}`
+                : getPayerUrl(workersCompInsuranceOrg.id!),
+            },
+          ];
           updatedWorkersCompCoverage.class = [
             {
               type: {
@@ -2824,8 +2898,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
                   },
                 ],
               },
-              value: payerId ?? '',
-              name: `${workersCompInsuranceOrg?.name ?? ''}`,
+              value: payerId,
+              name: `${workersCompInsuranceOrg.name ?? ''}`,
             },
           ];
         }
@@ -2850,7 +2924,13 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
             reference: `Patient/${patient.id}`,
           },
           type: { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: 'WC' }] },
-          payor: [{ reference: `Organization/${workersCompInsuranceOrg?.id}` }],
+          payor: [
+            {
+              reference: isValidUUID(workersCompInsuranceOrg.id ?? '')
+                ? `Organization/${workersCompInsuranceOrg.id}`
+                : getPayerUrl(workersCompInsuranceOrg.id!),
+            },
+          ],
           relationship: {
             coding: [
               {
@@ -3902,14 +3982,53 @@ export const getAccountAndCoverageResourcesForPatient = async (
     throw PATIENT_NOT_FOUND_ERROR;
   }
 
+  const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
+  const insuranceOrgsFromFhir = resources.filter(
+    (res): res is Organization =>
+      res.resourceType === 'Organization' &&
+      organizationMatchesType(res, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url))
+  );
+  const resourcesWithoutInsuranceOrgsFromFhir = resources.filter(
+    (res) =>
+      res.resourceType !== 'Organization' ||
+      !organizationMatchesType(res, codeableConcept('pay', FHIR_EXTENSION.Organization.organizationType.url))
+  );
+
+  // Get payer info for coverages
+  const insuranceOrgs = await searchInsuranceInformation(
+    oystehr,
+    coverageResources
+      .flatMap<string | undefined>((cov) => cov.payor.map((ref) => ref.reference))
+      .filter<string>((ref): ref is string => !!ref),
+    insuranceOrgsFromFhir
+  );
+
+  // Get EHR-facing payer notes
+  const ehrPayerList = await getInsuranceOverrideList(oystehr, ListName.EHR);
+  for (const org of insuranceOrgs) {
+    const override = ehrPayerList.entry?.find((override) => override.item.reference === getPayerUrl(org.id!));
+    if (override) {
+      const extensions = [...(org.extension ?? []), ...(override.extension ?? [])];
+      org.extension = extensions;
+    }
+  }
+
   return getCoverageUpdateResourcesFromUnbundled({
     patient: patientResource,
-    resources: [...resources],
+    resources: [...resourcesWithoutInsuranceOrgsFromFhir, ...insuranceOrgs],
   });
 };
 
 export interface UpdatePatientAccountInput {
   patientId: string;
+  /**
+   * Optional already-loaded Patient resource. When provided, this Patient is used
+   * for downstream address resolution instead of the one returned by the
+   * subsequent re-fetch — important when the caller has just patched the
+   * Patient and needs same-as-patient address resolution to see the post-patch
+   * state without depending on read-after-write consistency.
+   */
+  patient?: Patient;
   questionnaireResponseItem: QuestionnaireResponse['item'];
   preserveOmittedCoverages?: boolean;
   questionnaireForEnableWhenFiltering?: Questionnaire;
@@ -3919,7 +4038,13 @@ export const updatePatientAccountFromQuestionnaire = async (
   input: UpdatePatientAccountInput,
   oystehr: Oystehr
 ): Promise<Bundle> => {
-  const { patientId, questionnaireResponseItem, preserveOmittedCoverages, questionnaireForEnableWhenFiltering } = input;
+  const {
+    patientId,
+    patient: patientFromInput,
+    questionnaireResponseItem,
+    preserveOmittedCoverages,
+    questionnaireForEnableWhenFiltering,
+  } = input;
 
   let flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponseItem as IntakeQuestionnaireItem[]
@@ -3949,7 +4074,7 @@ export const updatePatientAccountFromQuestionnaire = async (
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
 
   const {
-    patient,
+    patient: existingPatient,
     coverages: existingCoverages,
     account: existingAccount,
     guarantorResource: existingGuarantorResource,
@@ -3959,6 +4084,11 @@ export const updatePatientAccountFromQuestionnaire = async (
     employerOrganization: existingEmployerOrganization,
     attorneyRelatedPerson: existingAttorneyRelatedPerson,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+
+  // Prefer the patient passed in by the caller (already reflects any in-flight
+  // patches) so same-as-patient address resolution doesn't silently use a stale
+  // copy when read-after-write isn't guaranteed.
+  const patient = patientFromInput ?? existingPatient;
 
   /*
   console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));

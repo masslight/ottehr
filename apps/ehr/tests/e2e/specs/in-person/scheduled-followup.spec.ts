@@ -112,12 +112,12 @@ test.describe.serial('Scheduled Follow-up Visit E2E', () => {
     await test.step('Fill reason for visit and submit', async () => {
       const reasonDropdown = page.getByTestId(dataTestIds.addPatientPage.reasonForVisitDropdown);
       await expect(reasonDropdown).toBeVisible(LONG_TIMEOUT);
-      // Click the dropdown's combobox element to open it
+      // Open the dropdown and pick the first option — the specific reason doesn't
+      // affect what this test verifies, and the option list varies per project config.
       await reasonDropdown.locator('[role="combobox"]').click();
-      // Wait for menu and select Fever
-      const feverOption = page.getByRole('option', { name: 'Fever' });
-      await expect(feverOption).toBeVisible(DEFAULT_TIMEOUT);
-      await feverOption.click();
+      const firstReason = page.getByRole('option').first();
+      await expect(firstReason).toBeVisible(DEFAULT_TIMEOUT);
+      await firstReason.click();
       // Wait for menu to close
       await page.waitForTimeout(500);
 

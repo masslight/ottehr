@@ -51,6 +51,7 @@ export interface AllChartValues {
   surgicalHistoryNote?: FreeTextNoteDTO;
   observations?: ObservationDTO[];
   examObservations?: ExamObservationDTO[];
+  rosObservations?: ExamObservationDTO[];
   medicalDecision?: ClinicalImpressionDTO;
   cptCodes?: CPTCodeDTO[];
   emCode?: CPTCodeDTO;
@@ -183,6 +184,7 @@ export interface AllergyDTO extends SaveableDTO {
 }
 
 export const EXAM_OBSERVATION_META_SYSTEM = 'exam-observation-field';
+export const ROS_OBSERVATION_META_SYSTEM = 'ros-observation-field';
 export const ADDITIONAL_QUESTIONS_META_SYSTEM = 'additional-questions-field';
 export const AI_OBSERVATION_META_SYSTEM = 'ai-observation';
 export const PATIENT_VITALS_META_SYSTEM = 'patient-vitals-field';
@@ -269,6 +271,7 @@ export interface VitalsVisionObservationDTO extends VitalsBaseObservationDTO {
   value?: never;
   leftEyeVisionText: string;
   rightEyeVisionText: string;
+  bothEyesVisionText?: string;
   extraVisionOptions?: VitalsVisionOption[];
 }
 
@@ -498,6 +501,7 @@ export interface BillingSuggestionInput {
   radiologyOrders: any;
   radiologyReports?: string;
   procedures: any;
+  rosFindings?: string;
   diagnoses: DiagnosisDTO[] | undefined;
   billing: CPTCodeDTO[] | undefined;
 }
@@ -552,6 +556,7 @@ export interface AccidentDTO extends SaveableDTO {
 
 export interface MigrateExamDataInput {
   encounterId: string;
+  normalExternalGenitalExamSex?: 'male' | 'female';
 }
 
 export interface MigrateExamDataOutput {

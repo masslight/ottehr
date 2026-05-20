@@ -26,6 +26,7 @@ interface CardReaderTerminalProps {
   encounterId: string;
   onTerminalConfiguredChange?: (isConfigured: boolean) => void;
   onReaderConnectionChange?: (isConnected: boolean) => void;
+  onConfigLoadingChange?: (isLoading: boolean) => void;
 }
 
 export interface CardReaderTerminalHandle {
@@ -45,6 +46,7 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
     encounterId,
     onTerminalConfiguredChange,
     onReaderConnectionChange,
+    onConfigLoadingChange,
   }: CardReaderTerminalProps,
   ref
 ): ReactElement {
@@ -78,6 +80,10 @@ const CardReaderTerminal = forwardRef<CardReaderTerminalHandle, CardReaderTermin
   useEffect(() => {
     onReaderConnectionChange?.(isReady);
   }, [isReady, onReaderConnectionChange]);
+
+  useEffect(() => {
+    onConfigLoadingChange?.(configLoading);
+  }, [configLoading, onConfigLoadingChange]);
 
   // Load terminal config and available readers
   useEffect(() => {

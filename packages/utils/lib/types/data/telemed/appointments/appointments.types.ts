@@ -1,3 +1,4 @@
+import { VisitStatusLabel } from '../../../api';
 import { FileURLInfo, FileURLs } from '../../../common';
 import { AnswerOptionSource } from '../../paperwork';
 import { PatientInfo } from './create-appointment.types';
@@ -10,7 +11,6 @@ export interface CancelAppointmentRequestParams {
 export interface UpdateAppointmentRequestParams {
   appointmentId: string;
   patient: PatientInfo;
-  unconfirmedDateOfBirth?: string;
   locationState?: string;
 }
 
@@ -35,6 +35,10 @@ export interface GetAnswerOptionsRequest {
   valueSet?: string;
 }
 
+export type GetPatientInsuranceOptionsRequest = object;
+
+export type GetAllInsuranceOptionsRequest = object;
+
 export interface PrescribedMedication {
   resourceId?: string;
   name?: string;
@@ -42,7 +46,7 @@ export interface PrescribedMedication {
 }
 
 export interface FollowUpDetails {
-  encounterTime: string;
+  encounterTime: string | undefined;
   documents: FileURLs;
 }
 
@@ -78,51 +82,6 @@ export interface TelemedAppointmentInformationIntake {
     dateOfBirth?: string;
   };
   appointmentStatus: string;
-  telemedStatus: TelemedAppointmentStatus;
+  status: VisitStatusLabel;
   state?: { code?: string; id?: string };
-}
-
-export enum TelemedAppointmentStatusEnum {
-  'ready' = 'ready',
-  'pre-video' = 'pre-video',
-  'on-video' = 'on-video',
-  'unsigned' = 'unsigned',
-  'complete' = 'complete',
-  'cancelled' = 'cancelled',
-}
-
-export type TelemedAppointmentStatus = `${TelemedAppointmentStatusEnum}`;
-
-export type TelemedCallStatuses = `${TelemedAppointmentStatus}`;
-
-export const TelemedCallStatusesArr: TelemedAppointmentStatus[] = [
-  'ready',
-  'pre-video',
-  'on-video',
-  'unsigned',
-  'complete',
-  'cancelled',
-];
-
-export interface TelemedStatusHistoryElement {
-  start?: string;
-  end?: string;
-  status?: TelemedCallStatuses;
-}
-
-export enum TelemedAppointmentVisitTabs {
-  'hpi' = 'hpi',
-  'vitals' = 'vitals',
-  'exam' = 'exam',
-  'assessment' = 'assessment',
-  'plan' = 'plan',
-  'sign' = 'sign',
-  'ottehrai' = 'ottehrai',
-}
-
-export enum ApptTelemedTab {
-  'ready' = 'ready',
-  'provider' = 'provider',
-  'not-signed' = 'not-signed',
-  'complete' = 'complete',
 }

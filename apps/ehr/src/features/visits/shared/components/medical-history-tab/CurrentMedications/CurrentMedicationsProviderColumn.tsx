@@ -20,8 +20,10 @@ import { DateTime } from 'luxon';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { useMergedMedicationHistoryQuickPicks } from 'src/hooks/useMergedQuickPicks';
-import { MedicationDTO } from 'utils';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
+import { MedicationDTO, MedicationHistoryQuickPickData } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { ExtractObjectType, useGetMedicationsSearch } from '../../../stores/appointment/appointment.queries';
 import { useChartData } from '../../../stores/appointment/appointment.store';
@@ -117,15 +119,44 @@ export const CurrentMedicationsProviderColumn: FC<CurrentMedicationsProviderColu
 
   const { quickPicks: medicationHistoryQuickPicks } = useMergedMedicationHistoryQuickPicks();
 
-  const handleQuickPickSelect = (quickPick: (typeof medicationHistoryQuickPicks)[number]): void => {
-    const quickPickAsMedication: ExtractObjectType<ErxSearchMedicationsResponse> = {
-      name: quickPick.name,
-      strength: quickPick.strength,
-      id: quickPick.medicationId,
-    } as ExtractObjectType<ErxSearchMedicationsResponse>;
+  const handleQuickPickSelect = useCallback(
+    (quickPick: { name: string; strength?: string; medicationId?: number }): void => {
+      const quickPickAsMedication: ExtractObjectType<ErxSearchMedicationsResponse> = {
+        name: quickPick.name,
+        strength: quickPick.strength,
+        id: quickPick.medicationId,
+      } as ExtractObjectType<ErxSearchMedicationsResponse>;
 
-    setValue('medication', quickPickAsMedication);
-  };
+      setValue('medication', quickPickAsMedication);
+    },
+    [setValue]
+  );
+
+  const commandPaletteItems = useMemo(
+    () =>
+      isReadOnly
+        ? []
+        : medicationHistoryQuickPicks.map((quickPick) => ({
+            id: `medication-${quickPick.id ?? `${quickPick.name}-${quickPick.strength ?? ''}`}`,
+            label: `${quickPick.name}${quickPick.strength ? ` (${quickPick.strength})` : ''}`,
+            category: 'Add Medication',
+            onSelect: () => handleQuickPickSelect(quickPick),
+          })),
+    [handleQuickPickSelect, isReadOnly, medicationHistoryQuickPicks]
+  );
+  useCommandPaletteSource('medication-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback(
+    (payload: MedicationHistoryQuickPickData) => {
+      if (isReadOnly) {
+        return;
+      }
+
+      handleQuickPickSelect(payload);
+    },
+    [handleQuickPickSelect, isReadOnly]
+  );
+  usePendingQuickPick('medications', handlePendingQuickPick);
 
   return (
     <Box>

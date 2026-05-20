@@ -11,6 +11,7 @@ import {
   CreateAppointmentUCTelemedParams,
   CreateAppointmentUCTelemedResponse,
   CreditCardInfo,
+  GetAllInsuranceOptionsRequest,
   GetAnswerOptionsRequest,
   GetAppointmentsRequest,
   GetBookableItemListParams,
@@ -20,6 +21,7 @@ import {
   GetPastVisitsResponse,
   GetPatientBalancesZambdaInput,
   GetPatientBalancesZambdaOutput,
+  GetPatientInsuranceOptionsRequest,
   GetScheduleRequestParams,
   GetScheduleResponse,
   GetTelemedAppointmentsRequest,
@@ -60,6 +62,8 @@ type ZambdaName =
   | 'get eligibility'
   | 'get visit details'
   | 'get answer options'
+  | 'get patient insurance options'
+  | 'get all insurance options'
   | 'get schedule'
   | 'get paperwork'
   | 'get patients'
@@ -89,6 +93,8 @@ const zambdasPublicityMap: Record<ZambdaName, boolean> = {
   'get eligibility': false,
   'get visit details': false,
   'get answer options': false,
+  'get patient insurance options': false,
+  'get all insurance options': false,
   'get schedule': true,
   'get paperwork': true,
   'get patients': false,
@@ -125,6 +131,8 @@ export const getOystehrAPI = (
   getEligibility: typeof getEligibility;
   getVisitDetails: typeof getVisitDetails;
   getAnswerOptions: typeof getAnswerOptions;
+  getPatientInsuranceOptions: typeof getPatientInsuranceOptions;
+  getAllInsuranceOptions: typeof getAllInsuranceOptions;
   getSchedule: typeof getSchedule;
   getPaperworkPublic: typeof getPaperworkPublic;
   getPaperwork: typeof getPaperwork;
@@ -154,6 +162,8 @@ export const getOystehrAPI = (
     getEligibilityZambdaID,
     getVisitDetailsZambdaID,
     getAnswerOptionsZambdaID,
+    getPatientInsuranceOptionsZambdaID,
+    getAllInsuranceOptionsZambdaID,
     getScheduleZambdaID,
     getPaperworkZambdaID,
     getPatientsZambdaID,
@@ -184,6 +194,8 @@ export const getOystehrAPI = (
     'get eligibility': getEligibilityZambdaID,
     'get visit details': getVisitDetailsZambdaID,
     'get answer options': getAnswerOptionsZambdaID,
+    'get patient insurance options': getPatientInsuranceOptionsZambdaID,
+    'get all insurance options': getAllInsuranceOptionsZambdaID,
     'get schedule': getScheduleZambdaID,
     'get paperwork': getPaperworkZambdaID,
     'get patients': getPatientsZambdaID,
@@ -316,6 +328,18 @@ export const getOystehrAPI = (
     return await makeZapRequest('get answer options', parameters);
   };
 
+  const getPatientInsuranceOptions = async (
+    parameters: GetPatientInsuranceOptionsRequest
+  ): Promise<QuestionnaireItemAnswerOption[]> => {
+    return await makeZapRequest('get patient insurance options', parameters);
+  };
+
+  const getAllInsuranceOptions = async (
+    parameters: GetAllInsuranceOptionsRequest
+  ): Promise<QuestionnaireItemAnswerOption[]> => {
+    return await makeZapRequest('get all insurance options', parameters);
+  };
+
   const getSchedule = async (parameters: GetScheduleRequestParams): Promise<GetScheduleResponse> => {
     return await makeZapRequest('get schedule', parameters);
   };
@@ -434,6 +458,8 @@ export const getOystehrAPI = (
     getEligibility,
     getVisitDetails,
     getAnswerOptions,
+    getPatientInsuranceOptions,
+    getAllInsuranceOptions,
     getSchedule,
     getPaperworkPublic,
     getPaperwork,

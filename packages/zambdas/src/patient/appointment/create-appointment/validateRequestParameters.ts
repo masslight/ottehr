@@ -46,17 +46,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   const isEHRUser = user && checkIsEHRUser(user);
 
   const bodyJSON = JSON.parse(input.body);
-  const {
-    slotId,
-    language,
-    patient,
-    unconfirmedDateOfBirth,
-    locationState,
-    appointmentMetadata,
-    parentEncounterId,
-    atLocationSlug,
-  } = bodyJSON;
-  console.log('unconfirmedDateOfBirth', unconfirmedDateOfBirth);
+  const { slotId, language, patient, locationState, appointmentMetadata, parentEncounterId, atLocationSlug } = bodyJSON;
   console.log('patient:', patient, 'slotId:', slotId);
   // Check existence of necessary fields
   if (patient === undefined) {
@@ -81,7 +71,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (Boolean(patient.reasonForVisit) === undefined) {
     missingRequiredPatientFields.push('reasonForVisit');
   }
-  if (!isEHRUser && Boolean(patient.sex) === false) {
+  if (Boolean(patient.sex) === false) {
     missingRequiredPatientFields.push('sex');
   }
   if (!isEHRUser && Boolean(patient.email === undefined)) {
@@ -121,13 +111,6 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     throw INVALID_INPUT_ERROR('"language" must be one of: "en", "es"');
   }
 
-  if (unconfirmedDateOfBirth) {
-    const isInvalidUnconfirmedDateOfBirth = !DateTime.fromISO(unconfirmedDateOfBirth).isValid;
-    if (isInvalidUnconfirmedDateOfBirth) {
-      throw INVALID_INPUT_ERROR('"unconfirmedDateOfBirth" was not read as a valid date');
-    }
-  }
-
   if (locationState) {
     const isValidLocationState = AllStates.some((state) => state.value.toLowerCase() === locationState.toLowerCase());
     if (isValidLocationState === false) {
@@ -155,7 +138,6 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     patient,
     secrets: input.secrets,
     language,
-    unconfirmedDateOfBirth,
     locationState,
     appointmentMetadata,
     parentEncounterId,

@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { usePrintVisitLabel } from 'src/features/visits/shared/hooks/usePrintVisitLabel';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
@@ -62,6 +63,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
   const [loading, setLoading] = useState(false);
   const isSubmitting = useRef(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { printVisitLabel } = usePrintVisitLabel();
 
   // set default collected by to current user if no choice made
   useEffect(() => {
@@ -125,7 +127,8 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
       }
 
       const labelPdf = labelPdfs[0];
-      window.open(labelPdf.presignedURL, '_blank');
+
+      await printVisitLabel({ pdfPresignedUrl: labelPdf?.presignedURL ?? '', encounterId: encounter.id });
       setLabelButtonLoading(false);
     }
   };

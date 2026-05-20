@@ -1,26 +1,18 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  Appointment,
-  Communication,
-  Encounter,
-  EncounterStatusHistory,
-  Location,
-  Patient,
-  Practitioner,
-  Task,
-} from 'fhir/r4b';
+import { Appointment, Communication, Encounter, Location, Patient, Practitioner, Resource, Task } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import {
   AppointmentProviderNotificationTags,
   AppointmentProviderNotificationTypes,
   ERX_TASK,
   getFullestAvailableName,
+  getInPersonVisitStatus,
   getPatchBinary,
   getPatchOperationForNewMetaTag,
   getProviderNotificationSettingsForPractitioner,
-  getTelemedVisitStatus,
+  getVideoRoomResourceExtension,
   OTTEHR_MODULE,
   OttehrTaskSystem,
   PROVIDER_NOTIFICATION_TAG_SYSTEM,
@@ -31,12 +23,10 @@ import {
   RoleType,
   Secrets,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
-  TelemedAppointmentStatus,
-  TelemedAppointmentStatusEnum,
   USER_TIMEZONE_EXTENSION_URL,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
+  VisitStatusLabel,
 } from 'utils';
-import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -145,10 +135,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
       const { appointment, encounter, practitioner, location, communications, patient } =
         readyOrUnsignedVisitPackages[appointmentId];
       if (encounter && appointment) {
-        const status: TelemedAppointmentStatus | undefined = getTelemedVisitStatus(
-          encounter.status,
-          appointment.status
-        );
+        const status: VisitStatusLabel | undefined = getInPersonVisitStatus(appointment, encounter);
         if (!status) return;
 
         // getting communications that were postponed after practitioner will become not busy
@@ -182,7 +169,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             }
           });
         }
-        if (status === TelemedAppointmentStatusEnum.ready) {
+        if (status === 'arrived') {
           // check the tag presence that indicates that communications for "Patient is waiting" notification already exist
           const isProcessed = appointment.meta?.tag?.find(
             (tag) =>
@@ -258,67 +245,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 createCommunicationRequests.push(request);
                 addNewSMSCommunicationForPractitioner(provider, request.resource as Communication, status);
               }
-            }
-          }
-          // todo: go through communications and make sure everything was sent
-        } else if (status === TelemedAppointmentStatusEnum.unsigned && practitioner) {
-          // check that the appointment is more than >12 hours in the "unsigned" status
-          // and that corresponding notifications were sent to providers
-
-          const lastUnsignedStatus = encounter.statusHistory?.reduceRight(
-            (found: EncounterStatusHistory | null, entry) => {
-              if (found === null && entry.status === 'finished') {
-                return entry;
-              }
-              return found;
-            },
-            null
-          );
-
-          const utcNow = DateTime.utc();
-          let isProcessed = true;
-          let tagToLookFor: AppointmentProviderNotificationTags | undefined = undefined;
-          // here we check that the appointment is in the unsigned status for > 12, 24 or 48 hours
-          if (lastUnsignedStatus && !lastUnsignedStatus.period.end) {
-            const unsignedPeriodStart = DateTime.fromISO(lastUnsignedStatus.period.start || utcNow.toISO()!);
-            if (unsignedPeriodStart < utcNow.minus({ hour: 48 })) {
-              tagToLookFor = AppointmentProviderNotificationTags.unsigned_more_than_x_hours_3;
-            } else if (unsignedPeriodStart < utcNow.minus({ hour: 24 })) {
-              tagToLookFor = AppointmentProviderNotificationTags.unsigned_more_than_x_hours_2;
-            } else if (unsignedPeriodStart < utcNow.minus({ hour: 12 })) {
-              tagToLookFor = AppointmentProviderNotificationTags.unsigned_more_than_x_hours_1;
-            }
-          }
-
-          if (tagToLookFor) {
-            isProcessed = Boolean(
-              appointment.meta?.tag?.find(
-                (tag) => tag.system === PROVIDER_NOTIFICATION_TAG_SYSTEM && tag.code === tagToLookFor
-              )
-            );
-            if (!practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!]) {
-              practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!] = [];
-            }
-            practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!].push({
-              pack: readyOrUnsignedVisitPackages[appointmentId],
-              isProcessed: Boolean(isProcessed),
-            });
-
-            if (!isProcessed) {
-              // add tag into appointment that the >x hours unsigned status notification was processed
-              // and add to batch request
-              updateAppointmentRequests.push(
-                getPatchBinary({
-                  resourceId: appointment.id!,
-                  resourceType: 'Appointment',
-                  patchOperations: [
-                    getPatchOperationForNewMetaTag(appointment, {
-                      system: PROVIDER_NOTIFICATION_TAG_SYSTEM,
-                      code: tagToLookFor,
-                    }),
-                  ],
-                })
-              );
             }
           }
         }
@@ -881,3 +807,12 @@ function getCommunicationStatus(
   }
   return status;
 }
+
+const getTelemedEncounterAppointmentId = (encounterResource: Resource): string | undefined => {
+  if (!(encounterResource.resourceType === 'Encounter' && getVideoRoomResourceExtension(encounterResource)))
+    return undefined;
+  const appointmentReference = (encounterResource as Encounter)?.appointment?.[0].reference || '';
+  const appointmentId = removePrefix('Appointment/', appointmentReference);
+
+  return appointmentId;
+};

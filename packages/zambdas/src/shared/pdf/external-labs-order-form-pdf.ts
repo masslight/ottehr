@@ -15,6 +15,7 @@ import {
   ORDER_ITEM_UNKNOWN,
   PaymentResources,
   Secrets,
+  STATIC_COMPENDIUM_ACCOUNT_NUMBER,
 } from 'utils';
 import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
@@ -245,6 +246,12 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
   pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Bill Class:', data.billClass);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
+  console.log('Determining is workers comp line. Is workers comp', data.isWorkersCompOrder);
+  if (data.isWorkersCompOrder) {
+    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, "Worker's Comp Order:", 'Yes');
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
   if (data.insuranceDetails) {
     // sort these by rank asc just to be sure
     const sortedDetails = data.insuranceDetails.sort((a, b) => a.insuranceRank - b.insuranceRank);
@@ -262,7 +269,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
   data.testDetails.forEach((detail, idx) => {
     const lastTest = idx + 1 === data.testDetails.length;
 
-    pdfClient.drawTextSequential(detail.testName.toUpperCase(), {
+    pdfClient.drawTextSequential(`(${detail.testItemCode}) ${detail.testName.toUpperCase()}`, {
       ...textStyles.textBold,
       fontSize: SUB_HEADER_FONT_SIZE,
     });
@@ -348,7 +355,10 @@ export function getOrderFormDataConfig(
   // this is the same logic we use in oystehr to determine PV1-20
   const getBillClass = (paymentResources: PaymentResources): string => {
     let coverage: Coverage | undefined;
-    if (paymentResources.type === LabPaymentMethod.Insurance) {
+    if (
+      paymentResources.type === LabPaymentMethod.Insurance ||
+      paymentResources.type === LabPaymentMethod.WorkersComp
+    ) {
       coverage = paymentResources.coverageAndOrgs[0].coverage;
     } else {
       // client bill or self pay
@@ -367,7 +377,7 @@ export function getOrderFormDataConfig(
   const billClass = getBillClass(paymentResources);
 
   const insuranceDetails =
-    paymentResources.type === LabPaymentMethod.Insurance
+    paymentResources.type === LabPaymentMethod.Insurance || paymentResources.type === LabPaymentMethod.WorkersComp
       ? getInsuranceDetails(paymentResources.coverageAndOrgs, patient, oystehr)
       : undefined;
 
@@ -383,7 +393,7 @@ export function getOrderFormDataConfig(
     locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
     labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
     brandingProjectName,
-    accountNumber,
+    accountNumber: accountNumber === STATIC_COMPENDIUM_ACCOUNT_NUMBER ? 'N/A' : accountNumber,
     orderNumber: orderNumber || ORDER_ITEM_UNKNOWN,
     providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
     providerNPI: provider.identifier?.find((id) => id?.system === FHIR_IDENTIFIER_NPI)?.value,
@@ -408,6 +418,7 @@ export function getOrderFormDataConfig(
     testDetails,
     isManualOrder,
     isPscOrder,
+    isWorkersCompOrder: paymentResources.type === LabPaymentMethod.WorkersComp,
   };
 
   return dataConfig;

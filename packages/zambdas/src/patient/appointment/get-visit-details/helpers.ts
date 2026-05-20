@@ -1,15 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, MedicationRequest } from 'fhir/r4b';
 import {
+  FEATURE_FLAGS_CONFIG,
   FileURLInfo,
   FileURLs,
   getPresignedURL,
-  isFeatureFlagEnabled,
   LAB_DOC_REF_DETAIL_TAGS,
   LAB_RESULT_DOC_REF_CODING_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
   PrescribedMedication,
-  Secrets,
 } from 'utils';
 import { getLabDocRefDescriptionFromMetaTags } from '../../../shared/pdf/lab-pdf-utils';
 
@@ -211,11 +210,10 @@ export async function getPresignedURLs(
 export async function getPatientPortalPresignedURLs(
   oystehr: Oystehr,
   oystehrToken: string,
-  encounterId: string | undefined,
-  secrets: Secrets | null
+  encounterId: string | undefined
 ): Promise<{ presignedUrls: FileURLs; reviewedLabResultsUrls: FileURLInfo[] }> {
   const result = await getPresignedURLs(oystehr, oystehrToken, encounterId);
-  if (isFeatureFlagEnabled('SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG', secrets)) {
+  if (FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled) {
     delete result.presignedUrls['visit-note'];
   }
   return result;

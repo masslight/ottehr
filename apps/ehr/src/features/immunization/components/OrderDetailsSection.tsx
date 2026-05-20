@@ -1,12 +1,13 @@
 import { Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
-import { EmployeeSelectInput, PROVIDERS_FILTER } from 'src/components/input/EmployeeSelectInput';
+import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunization';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { PROVIDERS_FILTER } from 'src/shared/utils';
 import { LOCATION_OPTIONS, ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { UNIT_OPTIONS } from 'utils';
 
@@ -14,7 +15,9 @@ export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
   const { data: vaccines, isLoading } = useGetVaccines();
   const { chartData } = useChartData();
-  const diagnosisOptions = (chartData?.diagnosis ?? []).map((dx) => `${dx.code} - ${dx.display}`);
+  const diagnosisOptions = (chartData?.diagnosis ?? [])
+    .filter((dx) => dx.resourceId)
+    .map((dx) => ({ resourceId: dx.resourceId!, display: `${dx.code} - ${dx.display}` }));
 
   return (
     <Grid container spacing={2}>
@@ -46,7 +49,9 @@ export const OrderDetailsSection: React.FC = () => {
           name="details.associatedDx"
           label="Associated Dx"
           options={diagnosisOptions}
-          freeSolo
+          getOptionLabel={(option) => option.display}
+          getOptionKey={(option) => option.resourceId}
+          isOptionEqualToValue={(option, value) => option.resourceId === value.resourceId}
           dataTestId={dataTestIds.orderVaccinePage.associatedDx}
         />
       </Grid>

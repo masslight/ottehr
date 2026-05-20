@@ -46,6 +46,8 @@ interface BookableSelectProps {
   disabled?: boolean;
   /** Optional — invoked once the picker has loaded its full list (used by AddPatient to keep a side list of Locations). */
   onLocationsLoaded?: (locations: LocationWithWalkinSchedule[]) => void;
+  error?: boolean;
+  helperText?: string;
 }
 
 function formatHumanName(p?: Practitioner): string {

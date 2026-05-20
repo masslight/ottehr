@@ -16,7 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
@@ -27,10 +27,13 @@ import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedB
 import { WarningBlock } from 'src/features/visits/in-person/components/WarningBlock';
 import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/helpers';
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
+import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { RoleType } from 'utils';
+import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
+import { ImmunizationQuickPickData, RoleType } from 'utils';
 import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
 import {
   useCancelImmunizationOrder,
@@ -48,6 +51,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     resources: { encounter, patient },
   } = useAppointmentData(appointmentId);
 
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
   const [isOrderSaved, setIsOrderSaved] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -123,6 +127,38 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     }
   }, [methods, defaultProviderId, orderId, currentUser]);
 
+  const onQuickPickSelectRef = useRef(onQuickPickSelect);
+  onQuickPickSelectRef.current = onQuickPickSelect;
+
+  const commandPaletteItems = useMemo(
+    () =>
+      orderId || isReadOnly
+        ? []
+        : mergedQuickPicks.map((quickPick) => {
+            const doseAndUnits = quickPick.dose && quickPick.units ? `${quickPick.dose} ${quickPick.units}` : undefined;
+
+            return {
+              id: `immunization-${quickPick.id ?? quickPick.name}`,
+              label: [quickPick.name, doseAndUnits].filter(Boolean).join(', '),
+              category: 'Add Immunization',
+              onSelect: () => onQuickPickSelectRef.current(quickPick),
+            };
+          }),
+    [isReadOnly, mergedQuickPicks, orderId]
+  );
+  useCommandPaletteSource('immunization-quick-picks', commandPaletteItems);
+
+  const handlePendingQuickPick = useCallback(
+    (payload: ImmunizationQuickPickData) => {
+      if (isReadOnly) {
+        return;
+      }
+      onQuickPickSelectRef.current(payload);
+    },
+    [isReadOnly]
+  );
+  usePendingQuickPick('immunizations', handlePendingQuickPick, !isOrderLoading);
+
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)}>
@@ -146,6 +182,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
               showAddOption
               isAdmin={isAdmin}
               onAddOrUpdate={() => void openQuickPickDialog()}
+              searchable
             />
           )}
 

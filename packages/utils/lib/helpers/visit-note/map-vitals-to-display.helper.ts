@@ -81,20 +81,27 @@ export const mapVitalsToDisplay = (
         parsed = observation as VitalsHeightObservationDTO;
         text = `${parsed.value} cm = ${cmToInches(parsed.value)} inch = ${cmToFeet(parsed.value)} ft`;
         break;
-      case VitalFieldNames.VitalVision:
+      case VitalFieldNames.VitalVision: {
         parsed = observation as VitalsVisionObservationDTO;
-        text = `Left eye: ${parsed.leftEyeVisionText}; Right eye: ${parsed.rightEyeVisionText};${
+        const visionParts: string[] = [];
+        if (parsed.leftEyeVisionText) visionParts.push(`Left eye: ${parsed.leftEyeVisionText}`);
+        if (parsed.rightEyeVisionText) visionParts.push(`Right eye: ${parsed.rightEyeVisionText}`);
+        if (parsed.bothEyesVisionText) visionParts.push(`Both eyes: ${parsed.bothEyesVisionText}`);
+        text = `${visionParts.join('; ')};${
           parsed.extraVisionOptions && parsed.extraVisionOptions.length > 0
             ? ` ${getVisionExtraOptionsFormattedString(parsed.extraVisionOptions)}`
             : ''
         }`;
         break;
+      }
       case VitalFieldNames.VitalLastMenstrualPeriod: {
         parsed = observation as VitalsLastMenstrualPeriodObservationDTO;
         if (parsed.value) {
           const date = DateTime.fromISO(parsed.value);
           const formattedDate = date.isValid ? date.toFormat('MM/dd/yyyy') : parsed.value;
           text = `${formattedDate}${parsed.isUnsure ? ' (unsure)' : ''}`;
+        } else if (parsed.isUnsure) {
+          text = 'unsure';
         }
         break;
       }

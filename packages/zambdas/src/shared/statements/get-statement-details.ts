@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { CandidApi } from 'candidhealth';
+import { CandidApi, CandidApiClient } from 'candidhealth';
 import {
   Appointment,
   Coverage,
@@ -14,7 +14,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  createCandidApiClient,
+  findOrgMatchingReference,
   formatDateToMDYWithTime,
   getMemberIdFromCoverage,
   getPayerId,
@@ -66,6 +66,7 @@ interface GetStatementDetailsInput {
   statementType: StatementType;
   secrets: Secrets;
   oystehr: Oystehr;
+  candidApiClient: CandidApiClient;
 }
 
 const UNKNOWN_BILLER_VALUE = 'unknown';
@@ -142,9 +143,7 @@ function getInsuranceDetails(
   }
 
   const payorReference = coverage.payor?.[0]?.reference;
-  const payerOrgByReference = payorReference
-    ? insuranceOrgs.find((org) => `Organization/${org.id}` === payorReference)
-    : undefined;
+  const payerOrgByReference = payorReference ? findOrgMatchingReference(payorReference, insuranceOrgs) : undefined;
   const payerOrgByPayerId = coverage.class?.[0]?.value
     ? insuranceOrgs.find((org) => getPayerId(org) === coverage.class?.[0]?.value)
     : undefined;
@@ -201,7 +200,7 @@ function formatMoney(cents: number | undefined): string {
 
 async function getServiceLines(
   encounter: Encounter,
-  secrets: Secrets,
+  candid: CandidApiClient,
   oystehr: Oystehr
 ): Promise<StatementLineDetails> {
   const encounterId = encounter.id;
@@ -214,7 +213,6 @@ async function getServiceLines(
     throw new Error(`Candid encounter id is missing for "Encounter/${encounterId}"`);
   }
 
-  const candid = createCandidApiClient(secrets);
   const candidEncounterResponse = await candid.encounters.v4.get(CandidApi.EncounterId(candidEncounterId));
 
   const candidClaimId =
@@ -379,7 +377,7 @@ function createStatementDetails(
 }
 
 export async function getStatementDetails(input: GetStatementDetailsInput): Promise<StatementDetails> {
-  const { encounterId, secrets, oystehr } = input;
+  const { encounterId, secrets, oystehr, candidApiClient } = input;
   const resources = await getResources(encounterId, oystehr);
   const { guarantorResource, coverages, insuranceOrgs } = await getAccountAndCoverageResourcesForPatient(
     resources.patient.id ?? '',
@@ -391,7 +389,7 @@ export async function getStatementDetails(input: GetStatementDetailsInput): Prom
   }
 
   const insuranceDetails = getInsuranceDetails(coverages, insuranceOrgs);
-  const { serviceLines, totals } = await getServiceLines(resources.encounter, secrets, oystehr);
+  const { serviceLines, totals } = await getServiceLines(resources.encounter, candidApiClient, oystehr);
   const paymentUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
 
   let billerDetails: StatementBillerDetails = {

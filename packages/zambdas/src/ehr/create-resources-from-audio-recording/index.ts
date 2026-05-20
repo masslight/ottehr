@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CreateResourcesFromAudioRecordingInput, Secrets } from 'utils';
+import { CreateResourcesFromAudioRecordingInput, Secrets, userMe } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -28,8 +28,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
 
-  const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-  const providerUserProfile = (await oystehrCurrentUser.user.me()).profile;
+  const providerUserProfile = (await userMe(userToken, secrets)).profile;
 
   const presignedFileDownloadUrl = await createPresignedUrl(m2mToken, z3URL, 'download');
   console.log(presignedFileDownloadUrl);

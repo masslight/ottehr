@@ -2,6 +2,7 @@ import {
   Appointment,
   Coding,
   Consent,
+  Coverage,
   DocumentReference,
   Encounter,
   Location,
@@ -14,6 +15,7 @@ import {
 import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
+  AppointmentContext,
   ExternalLabOrderResult,
   FollowupReason,
   Gender,
@@ -132,19 +134,6 @@ export interface PdfClient {
   numberPages: (textStyle: TextStyle) => void;
 }
 
-export interface PdfExaminationBlockData {
-  examination: {
-    [group: string]: {
-      items?: Array<{
-        field: string;
-        label: string;
-        abnormal: boolean;
-      }>;
-      comment?: string;
-    };
-  };
-}
-
 // todo might make sense to have a separate interface for the order pdf base
 // and the result pdf base
 interface LabsData {
@@ -190,6 +179,7 @@ export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessmen
   testDetails: testDataForOrderForm[];
   insuranceDetails?: OrderFormInsuranceInfo[];
   brandingProjectName?: string;
+  isWorkersCompOrder: boolean;
 }
 
 export interface ExternalLabResult {
@@ -225,6 +215,7 @@ export interface InHouseLabResultConfig {
   specimenSource: string;
   results: InHouseLabResult[];
   testName: string;
+  diagnosticReportId: string;
 }
 
 export type ResultSpecimenInfo = {
@@ -247,6 +238,7 @@ export interface LabResultsData
     | 'isManualOrder'
   > {
   testName: string;
+  testItemCode: string;
   resultStatus: string;
   abnormalResult?: boolean;
   patientVisitNote?: string;
@@ -328,6 +320,8 @@ export interface PrescribedMedication {
 
 export interface PdfData {
   attachmentDocRefs?: string[];
+  /** Populated by composers that have an Appointment so `createConfiguredSection` can evaluate section triggers. */
+  appointmentContext?: AppointmentContext;
 }
 
 export interface PdfStyles {
@@ -384,7 +378,6 @@ export interface PatientInfo extends PdfData {
   fullName: string;
   preferredName: string;
   dob: string;
-  unconfirmedDOB?: string;
   sex: Gender;
   id: string;
   phone: string;
@@ -520,12 +513,25 @@ export interface Vitals extends PdfData {
 export interface Examination extends PdfData {
   examination: {
     [group: string]: {
+      groupLabel: string;
       items?: Array<{
         field: string;
         label: string;
         abnormal: boolean;
       }>;
       comment?: string;
+    };
+  };
+}
+
+export interface RosObservations extends PdfData {
+  rosObservations: {
+    [group: string]: {
+      items: Array<{
+        field: string;
+        label: string;
+        abnormal: boolean;
+      }>;
     };
   };
 }
@@ -547,7 +553,7 @@ export interface CptCodes extends PdfData {
 }
 
 export interface PlanData extends PdfData {
-  patientInstructions?: { text?: string; title?: string }[];
+  patientInstructions?: string[];
   disposition: {
     header: string;
     text: string;
@@ -615,6 +621,14 @@ export interface PatientDetails extends PdfData {
 }
 
 export interface PrimaryCarePhysician extends PdfData {
+  /**
+   * Mirrors `pcp-active` in `PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items`:
+   * `false` when the patient has explicitly indicated they do not have a PCP
+   * (no contained Practitioner, or `Practitioner.active === false`). When `false`
+   * the section renders the explanatory line instead of the field list — same as
+   * EHR's `PrimaryCareContainer`.
+   */
+  hasPcp: boolean;
   pcpName: string;
   pcpPracticeName: string;
   pcpAddress: string;
@@ -631,6 +645,8 @@ export interface Documents extends PdfData {
 }
 export interface Insurance {
   insuranceCarrier: string;
+  /** Human-readable insurance type, e.g. `"12 - PPO"`. Resolved from the candid code on Coverage. */
+  planType: string;
   memberId: string;
   policyHoldersName: string;
   policyHoldersDateOfBirth: string;
@@ -687,6 +703,8 @@ export interface EmergencyContactInfo extends PdfData {
 }
 
 export interface EmployerInfo extends PdfData {
+  workersCompInsuranceCarrier: string;
+  workersCompMemberId: string;
   employerName: string;
   streetAddress: string;
   addressLineOptional: string;
@@ -699,6 +717,11 @@ export interface EmployerInfo extends PdfData {
   email: string;
   phone: string;
   fax: string;
+}
+
+/** Mirrors `occupationalMedicineEmployerInformation` in PATIENT_RECORD_CONFIG: only `employerName`. */
+export interface OccupationalMedicineEmployerInfo extends PdfData {
+  employerName: string;
 }
 
 export interface AttorneyInfo extends PdfData {
@@ -739,6 +762,7 @@ export interface VisitDetailsInput {
   emergencyContactResource?: RelatedPerson;
   attorneyRelatedPerson?: RelatedPerson;
   employerOrganization?: Organization;
+  occupationalMedicineEmployerOrganization?: Organization;
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
   payments: PatientPaymentDTO[];
@@ -798,6 +822,13 @@ export interface EmergencyContactDataInput {
 }
 
 export interface EmployerDataInput {
+  employer?: Organization;
+  /** Workers' comp Coverage from `OrderedCoveragesWithSubscribers.workersComp`. Carrier name resolved via `insuranceOrgs`. */
+  workersCompCoverage?: Coverage;
+  insuranceOrgs?: Organization[];
+}
+
+export interface OccupationalMedicineEmployerDataInput {
   employer?: Organization;
 }
 
@@ -923,6 +954,7 @@ export interface VisitDetailsData extends PdfData {
   emergencyContact: EmergencyContactInfo;
   attorney: AttorneyInfo;
   employer: EmployerInfo;
+  omEmployer: OccupationalMedicineEmployerInfo;
   consentForms: consentFormsInfo;
   documents: Documents;
   pharmacy: pharmacyInfo;
@@ -969,6 +1001,7 @@ export interface ProgressNoteData extends PdfData {
   screening: AdditionalQuestions;
   intakeNotes: IntakeNotes;
   vitals: Vitals;
+  rosObservations: RosObservations;
   examination: Examination;
   assessment?: Assessment;
   medicalDecision: MedicalDecision;

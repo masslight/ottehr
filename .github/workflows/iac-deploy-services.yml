@@ -110,7 +110,7 @@ jobs:
           branch: ${{ github.ref }}
 
       - name: Install dependencies
-        run: npm ci
+        run: for i in {1..3}; do npm ci && s=0 && break || s=$? && sleep 5; done; (exit $s)
 
       - name: Resolve secrets branch
         id: resolve-secrets
@@ -133,15 +133,6 @@ jobs:
         uses: ./.github/actions/populate-secrets
         with:
           environment: ${{ env.ENVIRONMENT }}
-
-      # TODO: Remove this step and references to it once transition to TF is complete
-      # If this succeeds, we will use the import file in the terraform module and deploy apps through Terraform
-      # If it fails, we will use a different deployment method
-      - name: Maybe copy import file into aws_infra module
-        id: copy-import-file
-        continue-on-error: true
-        run: |
-          cp secrets/ottehr/terraform/${{ env.ENVIRONMENT }}_import.tf deploy
 
       - name: Configure AWS Credentials
         id: configure-aws-credentials

@@ -199,3 +199,36 @@ export type UpdateInHouseMedicationQuickPickResponse = QuickPickUpdateResponse<I
 export type GetInHouseMedicationQuickPicksResponse = QuickPickListResponse<InHouseMedicationQuickPickData>;
 export type RemoveInHouseMedicationQuickPickInput = QuickPickRemoveInput;
 export type RemoveInHouseMedicationQuickPickResponse = QuickPickRemoveResponse;
+
+// ── Patient Instruction Quick Picks (Practice Quick Picks) ──
+
+export interface PatientInstructionQuickPickData {
+  id?: string;
+  name: string;
+  text: string;
+}
+
+export type CreatePatientInstructionQuickPickInput = QuickPickCreateInput<PatientInstructionQuickPickData>;
+export type CreatePatientInstructionQuickPickResponse = QuickPickCreateResponse<PatientInstructionQuickPickData>;
+export type UpdatePatientInstructionQuickPickInput = QuickPickUpdateInput<PatientInstructionQuickPickData>;
+export type UpdatePatientInstructionQuickPickResponse = QuickPickUpdateResponse<PatientInstructionQuickPickData>;
+export type GetPatientInstructionQuickPicksResponse = QuickPickListResponse<PatientInstructionQuickPickData>;
+export type RemovePatientInstructionQuickPickInput = QuickPickRemoveInput;
+export type RemovePatientInstructionQuickPickResponse = QuickPickRemoveResponse;
+
+// ── Quick Text Quick Picks ──
+
+export interface QuickTextQuickPickData {
+  id?: string;
+  name: string;
+  english: string;
+  spanish?: string;
+}
+
+export type CreateQuickTextQuickPickInput = QuickPickCreateInput<QuickTextQuickPickData>;
+export type CreateQuickTextQuickPickResponse = QuickPickCreateResponse<QuickTextQuickPickData>;
+export type UpdateQuickTextQuickPickInput = QuickPickUpdateInput<QuickTextQuickPickData>;
+export type UpdateQuickTextQuickPickResponse = QuickPickUpdateResponse<QuickTextQuickPickData>;
+export type GetQuickTextQuickPicksResponse = QuickPickListResponse<QuickTextQuickPickData>;
+export type RemoveQuickTextQuickPickInput = QuickPickRemoveInput;
+export type RemoveQuickTextQuickPickResponse = QuickPickRemoveResponse;

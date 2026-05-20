@@ -20,17 +20,12 @@ import {
 } from 'fhir/r4b';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import {
-  APPOINTMENT_REFRESH_INTERVAL,
-  CHART_DATA_QUERY_KEY,
-  CHART_FIELDS_QUERY_KEY,
-  QUERY_STALE_TIME,
-} from 'src/constants';
+import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY, QUERY_STALE_TIME } from 'src/constants';
+import { useRosObservations } from 'src/features/visits/shared/hooks/useRosObservations';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import {
-  createRefreshableAppointmentData,
-  extractPhotoUrlsFromAppointmentData,
-  extractReviewAndSignAppointmentData,
+  extractPatientConditionPhotoRefsFromAppointmentData,
+  PatientConditionPhotoRef,
 } from 'src/features/visits/telemed/utils/appointments';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -42,16 +37,13 @@ import {
   isLocationVirtual,
   ObservationDTO,
   PromiseReturnType,
-  RefreshableAppointmentData,
   RequestedFields,
-  ReviewAndSignData,
   SaveChartDataRequest,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SchoolWorkNoteExcuseDocFileDTO,
-  useErrorQuery,
-  useSuccessQuery,
 } from 'utils';
+import { useErrorQuery, useSuccessQuery } from 'utils/lib/frontend';
 import { create } from 'zustand';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
@@ -74,9 +66,8 @@ export type AppointmentTelemedState = {
   followupEncounters?: Encounter[];
   selectedEncounterId: string | undefined;
   questionnaireResponse: QuestionnaireResponse | undefined;
-  patientPhotoUrls: string[];
+  patientConditionPhotos: PatientConditionPhotoRef[];
   schoolWorkNoteUrls: string[];
-  reviewAndSignData: ReviewAndSignData | undefined;
 };
 
 type AppointmentStateUpdater = {
@@ -120,7 +111,7 @@ type ReactQueryState = {
   isPending: boolean;
 };
 
-type ChartDataResponse = Omit<
+export type ChartDataResponse = Omit<
   GetChartDataResponse,
   Exclude<
     RequestedFields,
@@ -158,9 +149,8 @@ const APPOINTMENT_INITIAL: AppointmentTelemedState & AppointmentRawResourcesStat
   followupEncounters: [],
   selectedEncounterId: undefined,
   questionnaireResponse: undefined,
-  patientPhotoUrls: [],
+  patientConditionPhotos: [],
   schoolWorkNoteUrls: [],
-  reviewAndSignData: undefined,
   rawResources: [],
 
   // todo: remove and use selectors/utils or something else, keep in store derived data is not a good decision
@@ -327,10 +317,6 @@ export const useAppointmentData = (
         appointment: getAppointmentValues(appointmentToUse),
         encounter: getEncounterValues(encounterToUse),
       },
-      reviewAndSignData: extractReviewAndSignAppointmentData(state.rawResources || [], {
-        appointmentId: appointmentToUse?.id,
-        encounterId: encounterToUse?.id,
-      }),
       isAppointmentLoading: isLoading,
       appointmentRefetch: refetch,
       appointmentSetState: setState,
@@ -447,7 +433,7 @@ const selectAppointmentData = (
     followupEncounters,
     selectedEncounterId: validSelectedEncounterId,
     questionnaireResponse,
-    patientPhotoUrls: extractPhotoUrlsFromAppointmentData(data),
+    patientConditionPhotos: extractPatientConditionPhotoRefsFromAppointmentData(data),
     schoolWorkNoteUrls:
       (data
         ?.filter(
@@ -459,10 +445,6 @@ const selectAppointmentData = (
         )
         .flatMap((docRef: FhirResource) => (docRef as DocumentReference).content.map((cnt) => cnt.attachment.url))
         .filter(Boolean) as string[]) || [],
-    reviewAndSignData: extractReviewAndSignAppointmentData(data, {
-      appointmentId: appointment?.id,
-      encounterId: selectedEncounter?.id,
-    }),
     resources: parsed.resources,
     mappedData: parsed.mappedData,
 
@@ -601,7 +583,18 @@ const useGetAppointment = (
           }
         }
 
-        return selectAppointmentData(data, currentSelectedEncounterId || scheduledFollowupEncounter?.id, appointmentId);
+        // Only fall back to the scheduled follow-up encounter when the URL actually targets it.
+        // Otherwise, on a main-appointment URL the bundle's child follow-up encounter would hijack
+        // the selection and vitals would get saved against the follow-up's id.
+        const hasMainEncounterForRequestedAppt = data.some(
+          (r) =>
+            r.resourceType === 'Encounter' &&
+            !(r as Encounter).partOf &&
+            (r as Encounter).appointment?.some((ref) => ref.reference === `Appointment/${appointmentId}`)
+        );
+        const fallbackEncounterId = hasMainEncounterForRequestedAppt ? undefined : scheduledFollowupEncounter?.id;
+
+        return selectAppointmentData(data, currentSelectedEncounterId || fallbackEncounterId, appointmentId);
       }
       throw new Error('fhir client not defined or appointmentId not provided');
     },
@@ -613,74 +606,6 @@ const useGetAppointment = (
   useSuccessQuery(data, (data) => data && onSuccess && onSuccess(data));
 
   return query;
-};
-
-export const useRefreshableAppointmentData = (
-  {
-    appointmentId,
-    isEnabled,
-  }: {
-    appointmentId: string | undefined;
-    isEnabled: boolean;
-  },
-  onSuccess: (data: RefreshableAppointmentData) => void
-): UseQueryResult<AppointmentResources[], unknown> => {
-  return useGetTelemedAppointmentPeriodicRefresh(
-    {
-      appointmentId: appointmentId,
-      isEnabled: isEnabled,
-      refreshIntervalMs: APPOINTMENT_REFRESH_INTERVAL,
-    },
-    (originalData) => {
-      if (!originalData || !onSuccess) {
-        return;
-      }
-      const refreshedData = createRefreshableAppointmentData(originalData);
-      onSuccess(refreshedData);
-    }
-  );
-};
-
-export const useGetTelemedAppointmentPeriodicRefresh = (
-  {
-    appointmentId,
-    isEnabled,
-    refreshIntervalMs,
-  }: {
-    appointmentId: string | undefined;
-    isEnabled: boolean;
-    refreshIntervalMs: number | undefined;
-  },
-  onSuccess: (data: AppointmentResources[] | null) => void
-): UseQueryResult<AppointmentResources[], unknown> => {
-  const { oystehr } = useApiClients();
-  const refetchOptions = refreshIntervalMs ? { refetchInterval: refreshIntervalMs } : {};
-
-  const queryResult = useQuery({
-    queryKey: ['telemed-appointment-periodic-refresh', appointmentId],
-
-    queryFn: async () => {
-      if (oystehr && appointmentId) {
-        return (
-          await oystehr.fhir.search<AppointmentResources>({
-            resourceType: 'Appointment',
-            params: [
-              { name: '_id', value: appointmentId },
-              { name: '_revinclude', value: 'DocumentReference:related' },
-            ],
-          })
-        ).unbundle();
-      }
-      throw new Error('fhir client not defined or appointmentId not provided');
-    },
-
-    ...refetchOptions,
-    enabled: isEnabled && Boolean(appointmentId) && Boolean(oystehr),
-  });
-
-  useSuccessQuery(queryResult.data, onSuccess);
-
-  return queryResult;
 };
 
 export const useSaveChartData = (): UseMutationResult<
@@ -774,6 +699,7 @@ export const useChartData = ({
   ReactQueryState => {
   const apiClient = useOystehrAPIClient();
   const { update: updateExamObservations } = useExamObservations();
+  const { update: updateRosObservations } = useRosObservations();
   const { id: appointmentIdFromUrl } = useParams();
   const { encounter } = useAppointmentData(appointmentId || appointmentIdFromUrl);
   const encounterId = encounter?.id ?? paramEncounterId;
@@ -797,6 +723,7 @@ export const useChartData = ({
       onSuccess?.(data);
       if (shouldUpdateExams) {
         updateExamObservations(data.examObservations, true);
+        updateRosObservations(data.rosObservations || [], true);
       }
     },
     (error) => {

@@ -6,10 +6,12 @@ import {
   type FormFieldsInputItem,
   type FormFieldsItem,
   type FormFieldsLogicalItem,
+  type FormFieldsValueType,
   type FormFieldTrigger,
   FormSectionArraySchema,
   FormSectionSimpleSchema,
   type QuestionnaireConfigType,
+  ReferenceDataSource,
   type ServiceCategoryConfig,
 } from 'config-types';
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
@@ -108,25 +110,33 @@ const createRequireWhenExtension = (
 });
 
 const createAnswerLoadingOptionsExtension = (
-  dataSource: any
+  dataSource: ReferenceDataSource
 ): NonNullable<QuestionnaireItem['extension']>[number] | undefined => {
   const { answerSource } = dataSource;
   if (!answerSource) return undefined;
 
   return {
-    url: 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options',
+    url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.extension,
     extension: [
       {
-        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/strategy',
+        url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy,
         valueString: 'dynamic',
       },
       {
-        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/source',
-        valueExpression: {
-          language: 'application/x-fhir-query',
-          expression: `${answerSource.resourceType}?${answerSource.query}`,
-        },
+        url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source,
+        valueString: answerSource.zambdaId,
       },
+      ...(answerSource.zambdaId === 'get-answer-options'
+        ? [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.expression,
+              valueExpression: {
+                language: 'application/x-fhir-query',
+                expression: `${answerSource.resourceType}?${answerSource.query}`,
+              },
+            },
+          ]
+        : []),
     ],
   };
 };
@@ -889,22 +899,21 @@ export const createQuestionnaireFromConfig = (config: QuestionnaireConfigType): 
  * - triggers: enable when appointment-service-category matches any category
  * - answerDisplayFilters: one filter per category+mode combo, specifying which options to show
  */
-export const buildReasonForVisitFromConfig = (serviceCategories: ServiceCategoryConfig[]): Record<string, unknown> => {
+interface ReasonForVisitFieldConfig {
+  reasonForVisit: FormFieldsValueType;
+  isHidden: boolean;
+}
+export const buildReasonForVisitFromConfig = (
+  serviceCategories: ServiceCategoryConfig[]
+): ReasonForVisitFieldConfig => {
   const allOptions = new Map<string, { label: string; value: string }>();
   const displayFilters: {
     conditions: { question: string; operator: string; answer: string }[];
     includeValues: string[];
   }[] = [];
-  const enableTriggers: FormFieldTrigger[] = [];
 
   for (const sc of serviceCategories) {
     const rfv = sc.reasonsForVisit;
-    enableTriggers.push({
-      targetQuestionLinkId: 'appointment-service-category',
-      effect: ['enable', 'require'],
-      operator: '=',
-      answerString: sc.category.code,
-    });
 
     for (const mode of sc.serviceModes) {
       const modeOptions = rfv[mode] ?? rfv.default;
@@ -928,16 +937,15 @@ export const buildReasonForVisitFromConfig = (serviceCategories: ServiceCategory
     }
   }
 
+  const options = [...allOptions.values()];
   return {
     reasonForVisit: {
       key: 'reason-for-visit',
       label: 'Reason for visit',
       type: 'choice',
-      options: [...allOptions.values()],
-      triggers: enableTriggers,
-      disabledDisplay: 'hidden',
-      enableBehavior: 'any',
+      options,
       answerDisplayFilters: displayFilters,
     },
+    isHidden: options.length <= 1,
   };
 };

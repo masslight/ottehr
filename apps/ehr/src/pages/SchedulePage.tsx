@@ -32,8 +32,8 @@ import {
   scheduleTypeFromFHIRType,
   TIMEZONES,
   UpdateScheduleParams,
-  useSuccessQuery,
 } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { createSchedule, getSchedule, listServiceCategories, updatePractitionerRole, updateSchedule } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import Loading from '../components/Loading';

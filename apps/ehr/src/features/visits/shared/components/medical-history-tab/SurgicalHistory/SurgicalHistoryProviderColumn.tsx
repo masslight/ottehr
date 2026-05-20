@@ -4,14 +4,11 @@ import { ActionsList } from 'src/components/ActionsList';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useChartData } from '../../../stores/appointment/appointment.store';
-import { useAppFlags } from '../../../stores/contexts/useAppFlags';
 import { ProceduresForm } from './ProceduresForm';
-import { ProceduresNoteField, ProceduresNoteFieldSkeleton } from './ProceduresNoteField';
 
 export const SurgicalHistoryProviderColumn: FC = () => {
-  const { chartData, isLoading: isChartDataLoading } = useChartData();
+  const { chartData } = useChartData();
   const procedures = chartData?.surgicalHistory || [];
-  const appFlags = useAppFlags();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   return (
@@ -28,7 +25,6 @@ export const SurgicalHistoryProviderColumn: FC = () => {
             )}
             divider
           />
-          {!appFlags.isInPerson && <ProceduresNoteField />}
         </>
       ) : (
         <Box
@@ -40,7 +36,6 @@ export const SurgicalHistoryProviderColumn: FC = () => {
           }}
         >
           <ProceduresForm />
-          {isChartDataLoading ? <ProceduresNoteFieldSkeleton /> : !appFlags.isInPerson && <ProceduresNoteField />}
         </Box>
       )}
     </Box>

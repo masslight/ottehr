@@ -17,12 +17,10 @@ import { checkOrCreateM2MClientToken, saveResourceRequest, wrapHandler, ZambdaIn
 import {
   createDispositionServiceRequest,
   makeClinicalImpressionResource,
-  makeExamObservationResource,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
 } from '../../../shared/chart-data';
 import { createOystehrClient, getVideoRoomResourceExtension } from '../../../shared/helpers';
-import { createExamObservations } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const CHUNK_SIZE = 50;
@@ -84,8 +82,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     | Patient
     | undefined;
   if (!patient?.id) throw new Error('Patient is missing from resource bundle.');
-  // When in forEach, TS forgets this is no longer undefined.
-  const patientId = patient.id;
 
   const encounter = resourceBundle?.find(
     (resource: FhirResource) =>
@@ -95,18 +91,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!encounter?.id) throw new Error('Encounter is missing from resource bundle.');
   // When in forEach, TS forgets this is no longer undefined.
   const encounterId = encounter.id;
-
-  // Exam observations
-  const examObservations = createExamObservations(isInPerson);
-
-  examObservations?.forEach((element) => {
-    const { code, bodySite, label, ...rest } = element;
-    saveOrUpdateRequests.push(
-      saveResourceRequest(
-        makeExamObservationResource(encounterId, patientId, rest, code ? { code, bodySite } : undefined, label)
-      )
-    );
-  });
 
   const disposition: DispositionDTO = {
     type: 'pcp-no-type',
@@ -132,7 +116,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       resourceId: encounter.id,
       resourceType: 'Encounter',
       patchOperations: [
-        ...updateEncounterPatientInfoConfirmed(encounter, { value: true }),
+        ...updateEncounterPatientInfoConfirmed(encounter, { value: false }),
         updateEncounterDischargeDisposition(encounter, disposition),
       ],
     })

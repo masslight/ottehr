@@ -160,6 +160,15 @@ const ChoosePatient = (): JSX.Element => {
         });
       }
     }
+    // TODO: form progress in sessionStorage and patientInfo in the booking store are currently
+    // invalidated only when the selected patientID changes. That's not enough in the general case:
+    // even within the same patientID (including new-patient -> new-patient) the underlying booking
+    // context — serviceMode, serviceCategory, the questionnaire canonical url+version — can differ
+    // between sessions/slots. When that happens, cached answers from a previous session may no
+    // longer match the current questionnaire structure and may cause logical validation bugs.
+    // A possible fix is to key the cached form progress by (serviceMode, serviceCategory,
+    // questionnaireVersion) and drop it whenever any of those change.
+    // But no concrete bug has been observed from this yet, so we keep the minimal patientID check.
     if (patientInfo?.id !== data.patientID) {
       sessionStorage.removeItem(PROGRESS_STORAGE_KEY);
     }
@@ -187,7 +196,7 @@ const ChoosePatient = (): JSX.Element => {
           });
         } else {
           // Continue prebook flow for returning patient
-          navigateInFlow('confirm-date-of-birth');
+          navigateInFlow('patient-information');
         }
       }
     } else {
@@ -253,7 +262,7 @@ const ChoosePatient = (): JSX.Element => {
   ): Promise<void> => {
     if (!cancels.length && !checkIns.length) {
       // Continue walk-in flow for returning patient
-      navigateInFlow('confirm-date-of-birth');
+      navigateInFlow('patient-information');
     } else if (!cancels.length && checkIns.length) {
       // Check in or walk in to location where appointment is booked
       const appointment = checkIns[0];
@@ -262,7 +271,7 @@ const ChoosePatient = (): JSX.Element => {
       if (checkIsMoreThan4HoursInFuture(start) && visitType !== VisitType.PostTelemed) {
         // If patient walks in more than 4 hours before their pre-booked slot then cancel the appointment and walk-in
         await handleCancelAppointmentForSelectedLocation(appointment.id, zambdaClient);
-        navigateInFlow('confirm-date-of-birth');
+        navigateInFlow('patient-information');
       } else {
         // If patient walks in less than 4 hours before their prebook time then check in to the earliest pre-booked appointment
         navigate(`/visit/${appointment.id}/check-in`);

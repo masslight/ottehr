@@ -4,19 +4,20 @@ import { Row } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
+import { SectionSaveButton } from './SectionSaveButton';
 
 const contactSection = PATIENT_RECORD_CONFIG.FormFields.patientContactInformation;
-export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
-  /*
-  // this is just something that is known about the implementation ahead of time, so we can code it
-  // into the config object rather than looking into the patient intake questionnaire
-  // leaving this commented in order to help figure out which projects do need to show this
-  const showPreferredCommunicationMethod =
-    Object.values(inPersonIntakeQuestionnaire.fhirResources)[0]
-      .resource.item.find((item) => item.linkId === 'contact-information-page')
-      ?.item.find((item) => item.linkId === 'patient-preferred-communication-method') != null;
-  */
 
+const FIELD_KEYS = Object.values(contactSection.items).map((item) => item.key);
+const REQUIRED_FIELD_KEYS = contactSection.requiredFields ?? [];
+
+interface ContactContainerProps {
+  isLoading: boolean;
+  patientId?: string;
+  encounterId?: string;
+}
+
+export const ContactContainer: FC<ContactContainerProps> = ({ isLoading, patientId, encounterId }) => {
   const {
     items: contact,
     hiddenFields: hiddenFormFields,
@@ -26,7 +27,17 @@ export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   });
 
   return (
-    <PatientRecordFormSection formSection={contactSection}>
+    <PatientRecordFormSection
+      formSection={contactSection}
+      titleWidget={
+        <SectionSaveButton
+          fieldKeys={FIELD_KEYS}
+          requiredFieldKeys={REQUIRED_FIELD_KEYS}
+          patientId={patientId}
+          encounterId={encounterId}
+        />
+      }
+    >
       <PatientRecordFormField
         item={contact.streetAddress}
         hiddenFormFields={hiddenFormFields}

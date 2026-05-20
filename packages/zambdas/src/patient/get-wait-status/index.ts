@@ -11,7 +11,6 @@ import {
   getSecret,
   PROJECT_WEBSITE,
   SecretsKeys,
-  TelemedAppointmentStatusEnum,
   WaitingRoomResponse,
 } from 'utils';
 import { getAuth0Token, getUser, getVideoEncounterForAppointment, wrapHandler, ZambdaInput } from '../../shared';
@@ -110,7 +109,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const status = getInPersonVisitStatus(appointment, videoEncounter);
 
-  if (['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(status)) {
+  if (['pending', 'arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(status)) {
     const appointments = await getAppointmentsForLocation(oystehr, locationId);
 
     const estimatedTime = calculateEstimatedTime(appointments);
@@ -119,7 +118,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const response = {
       statusCode: 200,
       body: JSON.stringify(<WaitingRoomResponse>{
-        status: status === 'provider' ? TelemedAppointmentStatusEnum['on-video'] : TelemedAppointmentStatusEnum.ready,
+        status: status === 'provider' ? 'provider' : 'ready',
         estimatedTime: estimatedTime,
         numberInLine: numberInLine,
         encounterId: status === 'provider' ? videoEncounter?.id : undefined,
@@ -133,7 +132,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const response = {
       statusCode: 200,
       body: JSON.stringify({
-        status: status === 'cancelled' ? status : TelemedAppointmentStatusEnum.complete,
+        status: status === 'cancelled' ? 'cancelled' : 'completed',
       }),
     };
     console.log(JSON.stringify(response, null, 4));

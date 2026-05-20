@@ -19,6 +19,9 @@ export function validateRequestParameters(input: ZambdaInput): SaveTerminalLocat
   if (terminalLocationId !== null && typeof terminalLocationId !== 'string') {
     throw INVALID_INPUT_ERROR('terminalLocationId must be a string or null');
   }
+  if (typeof terminalLocationId === 'string' && terminalLocationId.trim() === '') {
+    throw INVALID_INPUT_ERROR('terminalLocationId must not be an empty string');
+  }
 
   return {
     locationId,

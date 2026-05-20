@@ -1,195 +1,115 @@
-import Oystehr, { BatchInputPutRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { QuestionnaireResponse, Task } from 'fhir/r4b';
 import {
-  Account,
-  Appointment,
-  AuditEvent,
-  ChargeItem,
-  Consent,
-  Coverage,
-  DocumentReference,
-  Encounter,
-  FhirResource,
-  MedicationAdministration,
-  Patient,
-  QuestionnaireResponse,
-  RelatedPerson,
-  Resource,
-} from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import {
-  AUDIT_EVENT_OUTCOME_CODE,
-  ChartDataRequestedFields,
-  createUserResourcesForPatient,
-  flattenQuestionnaireAnswers,
-  getCoding,
+  GetMergePatientsTaskResponse,
   getSecret,
   isValidUUID,
   MergePatientsResponse,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
-  PATIENT_RECORD_QUESTIONNAIRE,
-  PRIVATE_EXTENSION_BASE_URL,
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
+  RoleType,
   Secrets,
   SecretsKeys,
-  userMe,
+  TASK_INPUT_TYPE_CODES,
+  TASK_INPUT_TYPE_SYSTEM,
+  TaskIndicator,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  getStripeClient,
+  getUser,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getChartData } from '../get-chart-data';
-import {
-  createMasterRecordPatchOperations,
-  createUpdatePharmacyPatchOps,
-  getAccountAndCoverageResourcesForPatient,
-  updatePatientAccountFromQuestionnaire,
-  updateStripeCustomer,
-} from '../shared/harvest';
 
 const ZAMBDA_NAME = 'merge-patients';
 
 let m2mToken: string;
 
-// ─── Chart data fields for visit resource collection ──────────────────────────
-
-const CONDITIONAL_CHART_DATA_FIELDS: ChartDataRequestedFields = {
-  chiefComplaint: { _tag: 'chief-complaint' },
-  historyOfPresentIllness: { _tag: 'history-of-present-illness' },
-  mechanismOfInjury: { _tag: 'mechanism-of-injury' },
-  ros: { _tag: 'ros' },
-  accident: {},
-  surgicalHistoryNote: { _tag: 'surgical-history-note' },
-  medications: {},
-  inhouseMedications: {},
-  prescribedMedications: {},
-  disposition: {},
-  procedures: {},
-  medicalDecision: { _tag: 'medical-decision' },
-  episodeOfCare: {},
-  notes: { _count: 10000 },
-  observations: {},
-  vitalsObservations: { _search_by: 'encounter' },
-  birthHistory: {},
-  externalLabResults: {},
-  inHouseLabResults: {},
-  reasonForVisit: {},
-  patientInfoConfirmed: {},
-  addendumNote: {},
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-// function resourceReferencesEncounter(resource: Resource, encounterId: string): boolean {
-//   const encounterRef = `Encounter/${encounterId}`;
-//   const r = resource as any;
-//   if (r.encounter?.reference === encounterRef) return true;
-//   if (r.context?.reference === encounterRef) return true;
-//   if (Array.isArray(r.context?.encounter)) {
-//     if (r.context.encounter.some((e: any) => e.reference === encounterRef)) return true;
-//   }
-//   if (r.focus?.reference === encounterRef) return true;
-//   return false;
-// }
-
-function patchPatientRef(resource: Resource, oldPatientId: string, newPatientRef: string): string[] {
-  const updated: string[] = [];
-  const r = resource as any;
-  const oldRef = `Patient/${oldPatientId}`;
-
-  if (Array.isArray(r.subject)) {
-    for (const subj of r.subject) {
-      if (subj.reference === oldRef) {
-        subj.reference = newPatientRef;
-        if (!updated.includes('subject[]')) updated.push('subject[]');
-      }
-    }
-  } else if (r.subject?.reference === oldRef) {
-    r.subject.reference = newPatientRef;
-    updated.push('subject');
-  }
-  if (r.patient?.reference === oldRef) {
-    r.patient.reference = newPatientRef;
-    updated.push('patient');
-  }
-  if (r.beneficiary?.reference === oldRef) {
-    r.beneficiary.reference = newPatientRef;
-    updated.push('beneficiary');
-  }
-  if (r.subscriber?.reference === oldRef) {
-    r.subscriber.reference = newPatientRef;
-    updated.push('subscriber');
-  }
-  return updated;
-}
-
-async function getLoginPhoneNumbers(oystehr: Oystehr, patientId: string): Promise<string[]> {
-  const resources = (
-    await oystehr.fhir.search<Patient | RelatedPerson>({
-      resourceType: 'Patient',
-      params: [
-        { name: '_id', value: patientId },
-        { name: '_revinclude', value: 'RelatedPerson:patient' },
-      ],
-    })
-  ).unbundle();
-
-  return resources
-    .filter(
-      (r): r is RelatedPerson =>
-        r.resourceType === 'RelatedPerson' &&
-        getCoding(r.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson'
-    )
-    .map((rp) => rp.telecom?.find((t) => t.system === 'sms')?.value)
-    .filter((v): v is string => Boolean(v));
-}
-
-async function getEncounterForAppointment(appointmentId: string, oystehr: Oystehr): Promise<Encounter | undefined> {
-  const encounters = (
-    await oystehr.fhir.search<Encounter>({
-      resourceType: 'Encounter',
-      params: [{ name: 'appointment', value: `Appointment/${appointmentId}` }],
-    })
-  ).unbundle();
-  return encounters[0];
-}
-
-// ─── Handler ──────────────────────────────────────────────────────────────────
-
-interface BasicInput {
+interface KickoffInput {
   userToken: string;
   secrets: Secrets | null;
   mainPatientId: string;
   otherPatientId: string;
   questionnaireResponse: QuestionnaireResponse;
+  mode: 'kickoff';
 }
 
-interface FinishedInput extends BasicInput {
-  providerProfileReference: string;
+interface StatusInput {
+  secrets: Secrets | null;
+  patientId: string;
+  mode: 'status';
 }
+
+type ValidatedInput = KickoffInput | StatusInput;
+
+const ACTIVE_STATUSES: ReadonlyArray<Task['status']> = ['requested', 'received', 'accepted', 'in-progress', 'ready'];
+// Statuses worth surfacing to the UI even when not active (require user attention).
+const ATTENTION_STATUSES: ReadonlyArray<Task['status']> = ['failed'];
+// If a Task is still in `requested` after this many ms, the subscription likely
+// didn't fire (misconfiguration, deploy hiccup, etc.) and the user should be
+// able to dismiss/retry instead of staring at an infinite spinner.
+const STUCK_REQUESTED_THRESHOLD_MS = 90_000;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
-    const { secrets } = validatedParameters;
+    const validated = validateRequestParameters(input);
+    const { secrets } = validated;
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
-    const effectInput = await complexValidation(validatedParameters);
-    await performEffect(effectInput, oystehr);
-    const response: MergePatientsResponse = { result: 'success' };
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
+
+    if (validated.mode === 'status') {
+      if (!validated.patientId) {
+        return { statusCode: 200, body: JSON.stringify({ task: null }) };
+      }
+      const response = await getActiveMergeTaskForPatient(validated.patientId, oystehr);
+      return { statusCode: 200, body: JSON.stringify(response) };
+    }
+
+    const providerProfileReference = await checkAdminAndGetProfile(validated);
+
+    // Reject if there is already an active merge task for this main patient,
+    // to avoid two background workers stomping on each other.
+    const existing = await getActiveMergeTaskForPatient(validated.mainPatientId, oystehr);
+    if (existing.task) {
+      const response: MergePatientsResponse = {
+        taskId: existing.task.id,
+        status: existing.task.status as MergePatientsResponse['status'],
+      };
+      return { statusCode: 200, body: JSON.stringify(response) };
+    }
+
+    // Persist the QR so the subscription handler can read it.
+    const qrCreated = await oystehr.fhir.create<QuestionnaireResponse>({
+      ...validated.questionnaireResponse,
+      // Ensure the QR is anchored to the main patient.
+      subject: { reference: `Patient/${validated.mainPatientId}` },
+    });
+
+    const task = await oystehr.fhir.create<Task>({
+      resourceType: 'Task',
+      status: 'requested',
+      intent: 'order',
+      code: { coding: [{ system: TaskIndicator.mergePatients.system, code: TaskIndicator.mergePatients.code }] },
+      focus: { reference: `QuestionnaireResponse/${qrCreated.id}` },
+      for: { reference: `Patient/${validated.mainPatientId}` },
+      input: [
+        {
+          type: { coding: [{ system: TASK_INPUT_TYPE_SYSTEM, code: TASK_INPUT_TYPE_CODES.OTHER_PATIENT_ID }] },
+          valueString: validated.otherPatientId,
+        },
+        {
+          type: { coding: [{ system: TASK_INPUT_TYPE_SYSTEM, code: TASK_INPUT_TYPE_CODES.PROVIDER_PROFILE }] },
+          valueString: providerProfileReference,
+        },
+      ],
+    });
+
+    const response: MergePatientsResponse = { taskId: task.id!, status: 'requested' };
+    return { statusCode: 200, body: JSON.stringify(response) };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
@@ -197,7 +117,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-const validateRequestParameters = (input: ZambdaInput): BasicInput => {
+const validateRequestParameters = (input: ZambdaInput): ValidatedInput => {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
@@ -209,8 +129,25 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw NOT_AUTHORIZED;
   }
   const { secrets } = input;
-  const { mainPatientId, otherPatientId, questionnaireResponse } = JSON.parse(input.body);
+  const body = JSON.parse(input.body);
 
+  // Status mode: caller passes only patientId (no questionnaireResponse).
+  if (body.mode === 'status' || (body.patientId && !body.mainPatientId)) {
+    if (!body.patientId) {
+      throw MISSING_REQUIRED_PARAMETERS(['patientId']);
+    }
+    // Polling endpoint is hit on every page render — be tolerant of bogus values
+    // (e.g. URLs like /patient/undefined/info producing the literal string
+    // "undefined") so they don't spam logs with 400s. The handler will treat
+    // these as "no active task".
+    if (typeof body.patientId !== 'string' || !isValidUUID(body.patientId)) {
+      console.warn(`merge-patients status mode: ignoring non-UUID patientId ${JSON.stringify(body.patientId)}`);
+      return { mode: 'status', secrets, patientId: '' };
+    }
+    return { mode: 'status', secrets, patientId: body.patientId };
+  }
+
+  const { mainPatientId, otherPatientId, questionnaireResponse } = body;
   if (!mainPatientId || !otherPatientId) {
     throw MISSING_REQUIRED_PARAMETERS(['mainPatientId', 'otherPatientId']);
   }
@@ -226,544 +163,78 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   if (questionnaireResponse.resourceType !== 'QuestionnaireResponse') {
     throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('questionnaireResponse must be of type QuestionnaireResponse');
   }
-
-  return { userToken, secrets, mainPatientId, otherPatientId, questionnaireResponse };
+  return { mode: 'kickoff', userToken, secrets, mainPatientId, otherPatientId, questionnaireResponse };
 };
 
-const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
+const checkAdminAndGetProfile = async (input: KickoffInput): Promise<string> => {
   const { secrets, userToken } = input;
-  const user = await userMe(userToken, secrets);
-  if (!user) {
-    throw NOT_AUTHORIZED;
-  }
-  const providerProfileReference = user.profile;
-  if (!providerProfileReference) {
-    throw NOT_AUTHORIZED;
-  }
-  return { ...input, providerProfileReference };
+  const user = await getUser(userToken, secrets);
+  if (!user) throw NOT_AUTHORIZED;
+  const userRoles = (user as any).roles as { name?: string }[] | undefined;
+  const isAdmin = userRoles?.some((role) => role.name === RoleType.Administrator) ?? false;
+  if (!isAdmin) throw NOT_AUTHORIZED;
+  if (!user.profile) throw NOT_AUTHORIZED;
+  return user.profile;
 };
 
-/**
- * Collects all resources tied to an encounter (chart data, immunizations,
- * medication orders), re-points their patient references in memory,
- * and returns them for batch submission (no writes).
- */
-async function collectEncounterResources(
-  oystehr: Oystehr,
-  encounterId: string,
-  otherPatientId: string,
-  newPatientRef: string,
-  processedIds: Set<string>
-): Promise<FhirResource[]> {
-  const { chartResources: defaultResources } = await getChartData(oystehr, m2mToken, encounterId);
-  const { chartResources: conditionalResources } = await getChartData(
-    oystehr,
-    m2mToken,
-    encounterId,
-    CONDITIONAL_CHART_DATA_FIELDS
-  );
-
-  const immunizationResources = (
-    await oystehr.fhir.search<MedicationAdministration>({
-      resourceType: 'MedicationAdministration',
+async function getActiveMergeTaskForPatient(
+  patientId: string,
+  oystehr: ReturnType<typeof createOystehrClient>
+): Promise<GetMergePatientsTaskResponse> {
+  const tasks = (
+    await oystehr.fhir.search<Task>({
+      resourceType: 'Task',
       params: [
-        { name: '_tag', value: 'immunization' },
-        { name: 'context', value: `Encounter/${encounterId}` },
+        { name: 'subject', value: `Patient/${patientId}` },
+        {
+          name: 'code',
+          value: `${TaskIndicator.mergePatients.system}|${TaskIndicator.mergePatients.code}`,
+        },
+        { name: '_sort', value: '-_lastUpdated' },
+        { name: '_count', value: '1' },
       ],
     })
   ).unbundle();
 
-  const medicationOrderResources = (
-    await oystehr.fhir.search<MedicationAdministration>({
-      resourceType: 'MedicationAdministration',
-      params: [
-        { name: '_tag', value: 'in-house-medication-administration-order' },
-        { name: 'context', value: `Encounter/${encounterId}` },
-      ],
-    })
-  ).unbundle();
+  const candidate = tasks.find((t) => t.for?.reference === `Patient/${patientId}`);
+  const task = candidate ?? tasks[0];
+  if (!task?.id) return { task: null };
 
-  const resourceMap = new Map<string, Resource>();
-  for (const r of [
-    ...defaultResources,
-    ...conditionalResources,
-    ...immunizationResources,
-    ...medicationOrderResources,
-  ]) {
-    if (r.id) resourceMap.set(`${r.resourceType}/${r.id}`, r);
-  }
+  // Surface failed tasks (user must dismiss) and active tasks. A `requested`
+  // task that has been sitting unprocessed for too long is treated as stuck
+  // (subscription not firing) — also surfaced so the user can dismiss/retry.
+  const now = Date.now();
+  const lastUpdated = task.meta?.lastUpdated ? new Date(task.meta.lastUpdated).getTime() : now;
+  const isStuck = task.status === 'requested' && now - lastUpdated > STUCK_REQUESTED_THRESHOLD_MS;
+  const isActive = ACTIVE_STATUSES.includes(task.status) && !isStuck;
+  const needsAttention = ATTENTION_STATUSES.includes(task.status) || isStuck;
+  if (!isActive && !needsAttention) return { task: null };
 
-  const visitResources = Array.from(resourceMap.values()).filter((r) => !processedIds.has(`${r.resourceType}/${r.id}`));
+  const otherPatientId =
+    task.input?.find(
+      (i) =>
+        i.type?.coding?.some(
+          (c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.OTHER_PATIENT_ID
+        )
+    )?.valueString ?? '';
 
-  const resourcesToUpdate: FhirResource[] = [];
-  for (const resource of visitResources) {
-    const rid = `${resource.resourceType}/${resource.id}`;
-    processedIds.add(rid);
-    const fieldsUpdated = patchPatientRef(resource, otherPatientId, newPatientRef);
-    if (fieldsUpdated.length === 0) continue;
-    resourcesToUpdate.push(resource as FhirResource);
-  }
-  return resourcesToUpdate;
-}
+  // Synthesize a stuck status so the UI can render an actionable banner
+  // without needing to know about timestamps.
+  const reportedStatus = isStuck
+    ? ('failed' as const)
+    : (task.status as NonNullable<GetMergePatientsTaskResponse['task']>['status']);
+  const statusReason = isStuck
+    ? `Merge has been queued for over ${Math.round(
+        STUCK_REQUESTED_THRESHOLD_MS / 1000
+      )}s without starting. The background worker may be unavailable. Dismiss to retry.`
+    : task.statusReason?.text;
 
-const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<void> => {
-  const { mainPatientId, otherPatientId, questionnaireResponse } = input;
-  const oldPatientRef = `Patient/${otherPatientId}`;
-  const newPatientRef = `Patient/${mainPatientId}`;
-
-  // Track processed resource IDs to avoid double-processing
-  const processedIds = new Set<string>();
-  // Collect all PUT requests for a single atomic transaction (Steps 2–4, 6)
-  const requests: BatchInputPutRequest<FhirResource>[] = [];
-
-  // ════════════════════════════════════════════════════════════════════════
-  // Step 1: Apply merged patient record fields via update-patient-account logic
-  // ════════════════════════════════════════════════════════════════════════
-  console.log('Step 1: Applying merged patient record fields');
-
-  const items = questionnaireResponse.item ?? [];
-  if (items.length > 0) {
-    const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
-
-    let patientResource = await oystehr.fhir.get<Patient>({
-      resourceType: 'Patient',
-      id: mainPatientId,
-    });
-
-    // Same logic as update-patient-account zambda's performEffect
-    const questionnaireForEnableWhenFiltering = questionnaire;
-    const patientPatchOps = createMasterRecordPatchOperations(
-      {
-        questionnaireResponseItems: items,
-        sourceQuestionnaire: questionnaireForEnableWhenFiltering,
-        options: { filterByEnableWhen: true },
-      },
-      patientResource
-    );
-
-    if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
-      console.log(`  Patching patient with ${patientPatchOps.patient.patchOpsForDirectUpdate.length} operations`);
-      patientResource = await oystehr.fhir.patch({
-        resourceType: 'Patient',
-        id: patientResource.id!,
-        operations: patientPatchOps.patient.patchOpsForDirectUpdate,
-      });
-    }
-
-    const pharmacyPatchOps = createUpdatePharmacyPatchOps(patientResource, flattenQuestionnaireAnswers(items));
-    if (pharmacyPatchOps.length > 0) {
-      await oystehr.fhir.patch<Patient>({
-        resourceType: 'Patient',
-        id: patientResource.id!,
-        operations: pharmacyPatchOps,
-      });
-    }
-
-    // Update Account, Coverage, RelatedPerson (guarantor/emergency), Organization (employer)
-    await updatePatientAccountFromQuestionnaire(
-      {
-        questionnaireResponseItem: items,
-        patientId: mainPatientId,
-        preserveOmittedCoverages: true,
-        questionnaireForEnableWhenFiltering,
-      },
-      oystehr
-    );
-
-    // Update Stripe customer
-    try {
-      const { account, guarantorResource } = await getAccountAndCoverageResourcesForPatient(mainPatientId, oystehr);
-      const stripeClient = getStripeClient(input.secrets);
-      if (account && guarantorResource) {
-        await updateStripeCustomer({ account, guarantorResource, stripeClient });
-      }
-    } catch (e) {
-      console.error('Error updating stripe details (non-fatal)', e);
-    }
-
-    console.log('  Patient record fields merged successfully');
-  }
-
-  // ════════════════════════════════════════════════════════════════════════
-  // Step 2: Collect all visits (appointments + encounters + visit resources)
-  // ════════════════════════════════════════════════════════════════════════
-  console.log('Step 2: Collecting visits');
-
-  const appointments = (
-    await oystehr.fhir.search<Appointment>({
-      resourceType: 'Appointment',
-      params: [
-        { name: 'actor', value: oldPatientRef },
-        { name: '_count', value: '1000' },
-      ],
-    })
-  ).unbundle();
-
-  console.log(`  Found ${appointments.length} appointment(s) for other patient`);
-
-  for (const appointment of appointments) {
-    const apptId = appointment.id!;
-    const hasOldParticipant = appointment.participant.some((p) => p.actor?.reference === oldPatientRef);
-
-    if (hasOldParticipant) {
-      appointment.participant = appointment.participant.map((p) => {
-        if (p.actor?.reference === oldPatientRef) {
-          return { ...p, actor: { ...p.actor, reference: newPatientRef } };
-        }
-        return p;
-      });
-      processedIds.add(`Appointment/${apptId}`);
-      requests.push({ method: 'PUT', url: `/Appointment/${apptId}`, resource: appointment });
-    }
-
-    const encounter = await getEncounterForAppointment(apptId, oystehr);
-    if (!encounter?.id) continue;
-    const encounterId = encounter.id;
-
-    // Collect visit-connected resources BEFORE modifying encounter subject,
-    // because getChartData resolves the patient from encounter.subject
-    const visitResources = await collectEncounterResources(
-      oystehr,
-      encounterId,
+  return {
+    task: {
+      id: task.id,
+      status: reportedStatus,
       otherPatientId,
-      newPatientRef,
-      processedIds
-    );
-    for (const r of visitResources) {
-      requests.push({ method: 'PUT', url: `/${r.resourceType}/${r.id}`, resource: r });
-    }
-
-    encounter.subject = { reference: newPatientRef };
-    processedIds.add(`Encounter/${encounterId}`);
-    requests.push({ method: 'PUT', url: `/Encounter/${encounterId}`, resource: encounter });
-  }
-
-  // Collect any remaining encounters by subject (e.g. follow-up encounters
-  // that are not linked through an appointment)
-  const remainingEncounters = (
-    await oystehr.fhir.search<Encounter>({
-      resourceType: 'Encounter',
-      params: [
-        { name: 'subject', value: oldPatientRef },
-        { name: '_count', value: '1000' },
-      ],
-    })
-  ).unbundle();
-
-  for (const enc of remainingEncounters) {
-    if (!enc.id || processedIds.has(`Encounter/${enc.id}`)) continue;
-    const encId = enc.id;
-    processedIds.add(`Encounter/${encId}`);
-
-    // Collect resources BEFORE modifying encounter subject
-    const visitResources = await collectEncounterResources(oystehr, encId, otherPatientId, newPatientRef, processedIds);
-    for (const r of visitResources) {
-      requests.push({ method: 'PUT', url: `/${r.resourceType}/${r.id}`, resource: r });
-    }
-
-    enc.subject = { reference: newPatientRef };
-    requests.push({ method: 'PUT', url: `/Encounter/${encId}`, resource: enc });
-    console.log(`  Collected remaining Encounter/${encId}`);
-  }
-
-  // ════════════════════════════════════════════════════════════════════════
-  // Step 3: Patient-level resources (QR, Consent, DocRef, RelatedPerson)
-  // ════════════════════════════════════════════════════════════════════════
-  console.log('Step 3: Collecting patient-level resources');
-
-  // QuestionnaireResponse
-  const qrs = (
-    await oystehr.fhir.search<QuestionnaireResponse>({
-      resourceType: 'QuestionnaireResponse',
-      params: [
-        { name: 'subject', value: oldPatientRef },
-        { name: '_count', value: '1000' },
-      ],
-    })
-  ).unbundle();
-  for (const qr of qrs) {
-    if (!qr.id || processedIds.has(`QuestionnaireResponse/${qr.id}`)) continue;
-    processedIds.add(`QuestionnaireResponse/${qr.id}`);
-    qr.subject = { reference: newPatientRef };
-    requests.push({ method: 'PUT', url: `/QuestionnaireResponse/${qr.id}`, resource: qr as FhirResource });
-  }
-
-  // Consent
-  const consents = (
-    await oystehr.fhir.search<Consent>({
-      resourceType: 'Consent',
-      params: [
-        { name: 'patient', value: oldPatientRef },
-        { name: '_count', value: '1000' },
-      ],
-    })
-  ).unbundle();
-  for (const consent of consents) {
-    if (!consent.id || processedIds.has(`Consent/${consent.id}`)) continue;
-    processedIds.add(`Consent/${consent.id}`);
-    consent.patient = { reference: newPatientRef };
-    requests.push({ method: 'PUT', url: `/Consent/${consent.id}`, resource: consent as FhirResource });
-  }
-
-  // DocumentReference (patient-level)
-  const docRefs = (
-    await oystehr.fhir.search<DocumentReference>({
-      resourceType: 'DocumentReference',
-      params: [
-        { name: 'subject', value: oldPatientRef },
-        { name: '_count', value: '1000' },
-      ],
-    })
-  ).unbundle();
-  for (const docRef of docRefs) {
-    if (!docRef.id || processedIds.has(`DocumentReference/${docRef.id}`)) continue;
-    processedIds.add(`DocumentReference/${docRef.id}`);
-    docRef.subject = { reference: newPatientRef };
-    requests.push({ method: 'PUT', url: `/DocumentReference/${docRef.id}`, resource: docRef as FhirResource });
-  }
-
-  // RelatedPerson (non-user — guarantor, emergency contact, etc.)
-  const relatedPersons = (
-    await oystehr.fhir.search<RelatedPerson>({
-      resourceType: 'RelatedPerson',
-      params: [
-        { name: 'patient', value: oldPatientRef },
-        { name: '_count', value: '1000' },
-      ],
-    })
-  ).unbundle();
-  const nonUserRelatedPersons = relatedPersons.filter(
-    (rp) =>
-      getCoding(rp.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code !== 'user-relatedperson' &&
-      rp.id &&
-      !processedIds.has(`RelatedPerson/${rp.id}`)
-  );
-  for (const rp of nonUserRelatedPersons) {
-    processedIds.add(`RelatedPerson/${rp.id}`);
-    rp.patient = { reference: newPatientRef };
-    requests.push({ method: 'PUT', url: `/RelatedPerson/${rp.id}`, resource: rp as FhirResource });
-  }
-
-  // Patient-scoped clinical resources (may or may not be encounter-linked;
-  // any already collected via Step 2's getChartData are deduplicated via processedIds)
-  const clinicalSearches = [
-    { resourceType: 'AllergyIntolerance' as const, searchParam: 'patient' },
-    { resourceType: 'Condition' as const, searchParam: 'subject' },
-    { resourceType: 'MedicationStatement' as const, searchParam: 'subject' },
-    { resourceType: 'Procedure' as const, searchParam: 'subject' },
-    { resourceType: 'Observation' as const, searchParam: 'subject' },
-    { resourceType: 'Communication' as const, searchParam: 'subject' },
-    { resourceType: 'ServiceRequest' as const, searchParam: 'subject' },
-    { resourceType: 'MedicationRequest' as const, searchParam: 'subject' },
-    { resourceType: 'ClinicalImpression' as const, searchParam: 'subject' },
-    { resourceType: 'EpisodeOfCare' as const, searchParam: 'patient' },
-    { resourceType: 'MedicationAdministration' as const, searchParam: 'subject' },
-  ];
-
-  for (const { resourceType, searchParam } of clinicalSearches) {
-    const resources = (
-      await oystehr.fhir.search<FhirResource>({
-        resourceType,
-        params: [
-          { name: searchParam, value: oldPatientRef },
-          { name: '_count', value: '1000' },
-        ],
-      })
-    ).unbundle();
-
-    let count = 0;
-    for (const resource of resources) {
-      const rid = `${resource.resourceType}/${resource.id}`;
-      if (!resource.id || processedIds.has(rid)) continue;
-      processedIds.add(rid);
-      const fieldsUpdated = patchPatientRef(resource, otherPatientId, newPatientRef);
-      if (fieldsUpdated.length === 0) continue;
-      requests.push({ method: 'PUT', url: `/${rid}`, resource: resource as FhirResource });
-      count++;
-    }
-    if (count > 0) console.log(`  Transferred ${count} ${resourceType} resource(s)`);
-  }
-
-  // ════════════════════════════════════════════════════════════════════════
-  // Step 4: Billing resources (Account, Coverage, ChargeItem)
-  // ════════════════════════════════════════════════════════════════════════
-  console.log('Step 4: Collecting billing resources');
-
-  // Account
-  const accounts = (
-    await oystehr.fhir.search<Account>({
-      resourceType: 'Account',
-      params: [
-        { name: 'patient', value: oldPatientRef },
-        { name: '_count', value: '1000' },
-      ],
-    })
-  ).unbundle();
-  for (const account of accounts) {
-    if (!account.id || processedIds.has(`Account/${account.id}`)) continue;
-    processedIds.add(`Account/${account.id}`);
-    let changed = false;
-    if (account.subject) {
-      for (const subj of account.subject) {
-        if (subj.reference === oldPatientRef) {
-          subj.reference = newPatientRef;
-          changed = true;
-        }
-      }
-    }
-    if (account.guarantor) {
-      for (const g of account.guarantor) {
-        if (g.party?.reference === oldPatientRef) {
-          g.party.reference = newPatientRef;
-          changed = true;
-        }
-      }
-    }
-    if (!changed) continue;
-    requests.push({ method: 'PUT', url: `/Account/${account.id}`, resource: account as FhirResource });
-  }
-
-  // Coverage
-  const coverages = (
-    await oystehr.fhir.search<Coverage>({
-      resourceType: 'Coverage',
-      params: [
-        { name: 'patient', value: oldPatientRef },
-        { name: '_count', value: '100' },
-      ],
-    })
-  ).unbundle();
-  for (const coverage of coverages) {
-    if (!coverage.id || processedIds.has(`Coverage/${coverage.id}`)) continue;
-    processedIds.add(`Coverage/${coverage.id}`);
-    let changed = false;
-    if (coverage.beneficiary?.reference === oldPatientRef) {
-      coverage.beneficiary.reference = newPatientRef;
-      changed = true;
-    }
-    if (coverage.subscriber?.reference === oldPatientRef) {
-      coverage.subscriber!.reference = newPatientRef;
-      changed = true;
-    }
-    if (!changed) continue;
-    requests.push({ method: 'PUT', url: `/Coverage/${coverage.id}`, resource: coverage as FhirResource });
-  }
-
-  // ChargeItem
-  const chargeItems = (
-    await oystehr.fhir.search<ChargeItem>({
-      resourceType: 'ChargeItem',
-      params: [
-        { name: 'subject', value: oldPatientRef },
-        { name: '_count', value: '1000' },
-      ],
-    })
-  ).unbundle();
-  for (const ci of chargeItems) {
-    if (!ci.id || processedIds.has(`ChargeItem/${ci.id}`)) continue;
-    processedIds.add(`ChargeItem/${ci.id}`);
-    const fieldsUpdated = patchPatientRef(ci, otherPatientId, newPatientRef);
-    if (fieldsUpdated.length === 0) continue;
-    requests.push({ method: 'PUT', url: `/ChargeItem/${ci.id}`, resource: ci as FhirResource });
-  }
-
-  // ════════════════════════════════════════════════════════════════════════
-  // Step 5: Mark other patient as merged (add to transaction)
-  // ════════════════════════════════════════════════════════════════════════
-  console.log('Step 5: Marking other patient as merged');
-
-  const otherPatient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: otherPatientId });
-  otherPatient.active = false;
-  const existingLinks = otherPatient.link ?? [];
-  const replacedByLink = {
-    other: { reference: newPatientRef },
-    type: 'replaced-by' as const,
-  };
-  const hasReplacedByLink = existingLinks.some(
-    (link) => link.type === replacedByLink.type && link.other?.reference === replacedByLink.other.reference
-  );
-  otherPatient.link = hasReplacedByLink ? existingLinks : [...existingLinks, replacedByLink];
-  requests.push({ method: 'PUT', url: `/Patient/${otherPatientId}`, resource: otherPatient });
-
-  // ════════════════════════════════════════════════════════════════════════
-  // Execute single atomic transaction (Steps 2–5)
-  // ════════════════════════════════════════════════════════════════════════
-  console.log(`Executing transaction with ${requests.length} operations`);
-  await oystehr.fhir.transaction({ requests });
-  console.log(`Merge complete: ${requests.length} resources updated in a single transaction`);
-
-  // ════════════════════════════════════════════════════════════════════════
-  // Step 6: Write audit event
-  // ════════════════════════════════════════════════════════════════════════
-  console.log('Step 6: Writing audit event');
-
-  const auditEvent: AuditEvent = {
-    resourceType: 'AuditEvent',
-    type: {
-      system: 'http://terminology.hl7.org/CodeSystem/iso-21089-lifecycle',
-      code: 'merge',
-      display: 'Merge Record Lifecycle Event',
+      statusReason,
     },
-    recorded: DateTime.now().toISO(),
-    outcome: AUDIT_EVENT_OUTCOME_CODE.success,
-    agent: [
-      {
-        type: {
-          coding: [
-            {
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
-              code: 'AUT',
-              display: 'author (originator)',
-            },
-          ],
-        },
-        who: {
-          reference: input.providerProfileReference,
-        },
-        requestor: true,
-      },
-    ],
-    source: {
-      site: 'Ottehr',
-      observer: {
-        reference: input.providerProfileReference,
-      },
-    },
-    entity: [
-      {
-        what: { reference: newPatientRef },
-        role: {
-          system: 'http://terminology.hl7.org/CodeSystem/object-role',
-          code: '1',
-          display: 'Patient',
-        },
-        description: 'Surviving (main) patient record',
-      },
-      {
-        what: { reference: oldPatientRef },
-        role: {
-          system: 'http://terminology.hl7.org/CodeSystem/object-role',
-          code: '1',
-          display: 'Patient',
-        },
-        description: 'Merged (deprecated) patient record',
-      },
-    ],
   };
-  const ae = await oystehr.fhir.create(auditEvent);
-  console.log(`  Wrote audit event: AuditEvent/${ae.id}`);
-
-  // ════════════════════════════════════════════════════════════════════════
-  // Step 7: Transfer login phone numbers (after transaction to avoid partial state)
-  // ════════════════════════════════════════════════════════════════════════
-  console.log('Step 7: Transferring login phone numbers');
-
-  const oldPatientPhones = await getLoginPhoneNumbers(oystehr, otherPatientId);
-  const newPatientPhones = await getLoginPhoneNumbers(oystehr, mainPatientId);
-  const phonesToAdd = oldPatientPhones.filter((p) => !newPatientPhones.includes(p));
-
-  for (const phone of phonesToAdd) {
-    await createUserResourcesForPatient(oystehr, mainPatientId, phone);
-    console.log(`  Added phone ${phone} to main patient`);
-  }
-};
+}

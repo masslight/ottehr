@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import { Autocomplete, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
+import { VisitType } from 'config-types';
 import { HealthcareService, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
@@ -11,6 +12,7 @@ import { useGetVitalsForEncounters } from 'src/features/visits/shared/components
 import { useGetOrdersForTrackingBoard } from 'src/hooks/useGetOrdersForTrackingBoard';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
+  AppointmentType,
   BOOKING_CONFIG,
   GetVitalsForListOfEncountersResponseData,
   InPersonAppointmentInformation,
@@ -26,8 +28,37 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { adjustTopForBannerHeight } from '../helpers/misc.helper';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { VisitType, visitTypeToInPersonLabel } from '../types/types';
 import { LocationWithWalkinSchedule } from './AddPatient';
+
+// keys are the appointment-type strings get-appointments uses:
+// `${'in-person' | 'virtual'}-${AppointmentType}`
+const ALL_VISIT_TYPE_LABELS = {
+  'in-person-walk-in': 'Walk-in In Person Visit',
+  'in-person-pre-booked': 'Pre-booked In Person Visit',
+  'in-person-post-telemed': 'Post Telemed Lab Only',
+  'virtual-walk-in': 'On-demand Telemed',
+  'virtual-pre-booked': 'Pre-booked Telemed',
+} as const satisfies Partial<Record<`${'in-person' | 'virtual'}-${AppointmentType}`, string>>;
+type VisitTypeFilterKey = keyof typeof ALL_VISIT_TYPE_LABELS;
+
+// this map bridges visit and appointment types so we can filter only the options configured for the
+// project
+const FILTER_KEY_TO_BOOKING_OPTION_ID: Record<VisitTypeFilterKey, VisitType> = {
+  'in-person-walk-in': VisitType.InPersonWalkIn,
+  'in-person-pre-booked': VisitType.InPersonPreBook,
+  'in-person-post-telemed': VisitType.InPersonPostTelemed,
+  'virtual-walk-in': VisitType.VirtualOnDemand,
+  'virtual-pre-booked': VisitType.VirtualScheduled,
+};
+
+const getVisitTypeToLabel = (): Partial<typeof ALL_VISIT_TYPE_LABELS> => {
+  const enabledBookingOptionIds = new Set(BOOKING_CONFIG.ehrBookingOptions.map((opt) => opt.id));
+  return Object.fromEntries(
+    (Object.entries(ALL_VISIT_TYPE_LABELS) as [VisitTypeFilterKey, string][]).filter(([key]) =>
+      enabledBookingOptionIds.has(FILTER_KEY_TO_BOOKING_OPTION_ID[key])
+    )
+  );
+};
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -116,15 +147,28 @@ export default function Appointments(): ReactElement {
     encounterIds: [...inOfficeEncounterIds, ...completedEncounterIds],
   });
 
+  const visitTypeToLabel = useMemo(() => getVisitTypeToLabel(), []);
+
   useEffect(() => {
-    const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');
-    if (selectedVisitTypes) {
-      queryParams?.set('visitType', JSON.parse(selectedVisitTypes) ?? '');
-      navigate(`?${queryParams?.toString()}`);
-    } else {
-      queryParams?.set('visitType', Object.keys(visitTypeToInPersonLabel).join(','));
+    const allowedKeys = Object.keys(visitTypeToLabel);
+    const stored = localStorage.getItem('selectedVisitTypes');
+    let selected: string[] | null = null;
+    if (stored) {
+      try {
+        const parsed: unknown = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((k): k is string => typeof k === 'string' && allowedKeys.includes(k));
+          if (filtered.length > 0) selected = filtered;
+        }
+      } catch {
+        // malformed storage, fall through to defaults
+      }
     }
-  }, [navigate, queryParams]);
+    const next = (selected ?? allowedKeys).join(',');
+    if (queryParams.get('visitType') === next) return;
+    queryParams.set('visitType', next);
+    navigate(`?${queryParams.toString()}`);
+  }, [navigate, queryParams, visitTypeToLabel]);
 
   useEffect(() => {
     if (localStorage.getItem('selectedProviders')) {
@@ -277,6 +321,7 @@ export default function Appointments(): ReactElement {
       queryParams={queryParams}
       handleSubmit={handleSubmit}
       visitType={visitType}
+      visitTypeToLabel={visitTypeToLabel}
       providers={providers}
       serviceCategories={serviceCategories}
       preBookedAppointments={preBookedAppointments}
@@ -308,6 +353,7 @@ interface AppointmentsBodyProps {
   handleSubmit: CustomFormEventHandler;
   queryParams?: URLSearchParams;
   visitType: string[];
+  visitTypeToLabel: Record<string, string>;
   providers: string[];
   serviceCategories: string[];
   setLocationSelected: (location: LocationWithWalkinSchedule | undefined) => void;
@@ -330,6 +376,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     setLocationSelected,
     appointmentDate,
     visitType,
+    visitTypeToLabel,
     providers,
     serviceCategories,
     practitioners,
@@ -378,9 +425,9 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                   }}
                   style={{ flex: 1.5 }}
                   value={visitType}
-                  options={Object.keys(visitTypeToInPersonLabel)}
+                  options={Object.keys(visitTypeToLabel)}
                   getOptionLabel={(option) => {
-                    return visitTypeToInPersonLabel[option as VisitType];
+                    return visitTypeToLabel[option];
                   }}
                   onChange={(event, value) => {
                     if (value) {

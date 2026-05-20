@@ -6,11 +6,12 @@ import { decodeJwt, jwtVerify } from 'jose';
 import { JSONPath } from 'jsonpath-plus';
 import { DateTime } from 'luxon';
 import {
+  APIError,
   CANNOT_JOIN_CALL_NOT_STARTED_ERROR,
   createOystehrClient,
   FHIR_EXTENSION,
   getAppointmentResourceById,
-  getRelatedPersonForPatient,
+  getRelatedPersonsForPatient,
   getSecret,
   getVirtualServiceResourceExtension,
   JoinCallInput,
@@ -25,6 +26,7 @@ import {
   getUser,
   getVideoEncounterForAppointment,
   lambdaResponse,
+  reportMissingUserRelatedPerson,
   searchInvitedParticipantResourcesByEncounterId,
   userHasAccessToPatient,
   wrapHandler,
@@ -130,7 +132,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   let userProfile: string;
-  let relatedPersonRef: string | undefined;
+  let relatedPersonRefs: string[] = [];
   if (isInvitedParticipant) {
     const subject = claims.sub || '';
     if (!(await isParticipantInvited(subject, videoEncounter.id, oystehr))) {
@@ -144,20 +146,39 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (!(await userHasAccessToPatient(user, patientId, oystehr))) {
       return lambdaResponse(403, NO_READ_ACCESS_TO_PATIENT_ERROR);
     }
-    const relatedPerson = await getRelatedPersonForPatient(patientId, oystehr);
-    relatedPersonRef = `RelatedPerson/${relatedPerson?.id}`;
+    const relatedPersons = await getRelatedPersonsForPatient(patientId, oystehr);
+    if (!relatedPersons.length) {
+      console.log(`No user-relatedperson for patient ${patientId}; proceeding without an RP participant`);
+      reportMissingUserRelatedPerson('join-call', patientId);
+    } else {
+      relatedPersonRefs = relatedPersons
+        .filter((rp): rp is typeof rp & { id: string } => !!rp.id)
+        .map((rp) => `RelatedPerson/${rp.id}`);
+    }
   }
 
   console.log('User profile:', userProfile);
-  console.log('RelatedPerson:', relatedPersonRef);
+  console.log('RelatedPersons:', relatedPersonRefs);
 
-  videoEncounter = await addUserToVideoEncounterIfNeeded(videoEncounter, userProfile, relatedPersonRef, oystehr);
+  videoEncounter = await addUserToVideoEncounterIfNeeded(videoEncounter, userProfile, relatedPersonRefs, oystehr);
   if (!videoEncounter.id) {
     throw new Error(`Video encounter was not found for the appointment ${appointment.id}`);
   }
 
   const userToken = isInvitedParticipant ? oystehrToken : jwt;
-  const joinCallResponse = await joinTelemedMeeting(projectApiURL, userToken, videoEncounter.id, isInvitedParticipant);
+  let joinCallResponse;
+  try {
+    joinCallResponse = await joinTelemedMeeting(projectApiURL, userToken, videoEncounter.id, isInvitedParticipant);
+  } catch (error: any) {
+    console.error('Error joining telemed meeting:', error);
+    // Handle expired/unavailable meeting errors (404 NotFoundException from AWS Chime SDK)
+    // This status code indicates the meeting has expired or does not exist
+    // This is expected behavior and we should return a user-friendly error
+    if (error?.statusCode === 404) {
+      return lambdaResponse(400, CANNOT_JOIN_CALL_NOT_STARTED_ERROR);
+    }
+    throw error;
+  }
 
   return lambdaResponse(200, joinCallResponse);
 });
@@ -165,7 +186,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function addUserToVideoEncounterIfNeeded(
   encounter: Encounter,
   fhirParticipantRef: string,
-  fhirRelatedPersonRef: string | undefined,
+  fhirRelatedPersonRefs: string[],
   oystehr: Oystehr
 ): Promise<Encounter> {
   try {
@@ -207,20 +228,19 @@ async function addUserToVideoEncounterIfNeeded(
       });
     }
 
-    if (
-      !fhirRelatedPersonRef ||
-      (encounter.participant &&
-        encounter.participant.findIndex((p) => p.individual?.reference === fhirRelatedPersonRef) >= 0)
-    ) {
+    const existingParticipantRefs = new Set(
+      (encounter.participant ?? []).map((p) => p.individual?.reference).filter((r): r is string => !!r)
+    );
+    const refsToAdd = fhirRelatedPersonRefs.filter((ref) => !existingParticipantRefs.has(ref));
+
+    if (!refsToAdd.length) {
       console.log('Encounter.participant list will not be updated.');
     } else {
-      console.log(`Adding RelatedPerson/'${fhirRelatedPersonRef}' to Encounter.participant.`);
-      const participants = [...(encounter.participant ?? [])];
-      participants.push({
-        individual: {
-          reference: fhirRelatedPersonRef,
-        },
-      });
+      console.log(`Adding ${refsToAdd.join(', ')} to Encounter.participant.`);
+      const participants = [
+        ...(encounter.participant ?? []),
+        ...refsToAdd.map((ref) => ({ individual: { reference: ref } })),
+      ];
 
       updateOperations.push({
         op: encounter.participant ? 'replace' : 'add',
@@ -276,7 +296,12 @@ async function joinTelemedMeeting(
     method: 'GET',
   });
   if (!response.ok) {
-    throw new Error(`API call failed: ${JSON.stringify(await response.json())}`);
+    const errorBody = await response.json();
+    const error: APIError = {
+      message: `API call failed: ${JSON.stringify(errorBody)}`,
+      statusCode: response.status,
+    };
+    throw error;
   }
 
   return (await response.json()) as JoinCallResponse;

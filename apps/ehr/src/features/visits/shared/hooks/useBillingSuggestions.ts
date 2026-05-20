@@ -6,12 +6,16 @@ import {
   BillingSuggestionOutput,
   CPTCodeDTO,
   DiagnosisDTO,
-  PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
-  PATIENT_INFO_META_DATA_SYSTEM,
-  PROVIDER_CONFIG,
+  getRosFindingStateFromKey,
+  InPersonRosConfig,
+  rosField,
+  RosFindingState,
 } from 'utils';
+import { getReturningPatient } from '../components/additional-questions/AdditionalQuestionsPatientColumn';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
+import { useRosObservationsStore } from '../stores/appointment/ros-observations.store';
 import { useChartFields } from './useChartFields';
+import { useEMCodes } from './useEMCodes';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 
 export interface BillingSuggestionsResult {
@@ -30,8 +34,9 @@ export function buildBillingSuggestionInput(params: {
   radiologyOrders: any[] | undefined;
   appointment: any;
   patient: any;
+  rosFindings?: string;
 }): BillingSuggestionInput | null {
-  const { chartData, chartDataFields, radiologyOrders, appointment, patient } = params;
+  const { chartData, chartDataFields, radiologyOrders, appointment, patient, rosFindings } = params;
 
   // External lab results
   const externalLabOrderParts: string[] = [];
@@ -108,13 +113,11 @@ export function buildBillingSuggestionInput(params: {
   const newPatientFromChart = chartData?.observations?.find(
     (observation) => observation.field === 'seen-in-last-three-years' || observation.field === 'seen-in-last-3-years'
   );
-  const newPatientFromAppointmentCreation = appointment?.meta?.tag?.some(
-    (tag: any) =>
-      tag.system === PATIENT_INFO_META_DATA_SYSTEM && tag.code !== PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE
-  );
+  const newPatientFromAppointmentCreation = !getReturningPatient(chartData, appointment);
+
   if (newPatientFromChart) {
-    newPatient = newPatientFromChart?.value === 'no';
-  } else if (newPatientFromAppointmentCreation) {
+    newPatient = newPatientFromChart?.value === 'no' || newPatientFromChart?.value === false;
+  } else {
     newPatient = newPatientFromAppointmentCreation;
   }
 
@@ -147,6 +150,7 @@ export function buildBillingSuggestionInput(params: {
     radiologyOrders: radiologyOrdersString,
     radiologyReports: radiologyReportsString,
     procedures: proceduresParts.join('\n'),
+    rosFindings: rosFindings || '',
   };
 }
 
@@ -159,6 +163,7 @@ function hashInput(input: BillingSuggestionInput): string {
 // ── Main hook ───────────────────────────────────────────────────────────────
 
 export const useBillingSuggestions = (): BillingSuggestionsResult => {
+  const { emCodes } = useEMCodes();
   const { chartData, isLoading: chartDataLoading } = useChartData();
   const { appointment, encounter, patient } = useAppointmentData();
   const encounterId = encounter.id;
@@ -185,8 +190,37 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
   });
 
   const apiClient = useOystehrAPIClient();
+  const rosState = useRosObservationsStore();
 
   const inputsReady = !chartDataLoading && !chartDataFieldsLoading && !chartDataFieldsFetching;
+
+  // Build ROS positive findings string grouped by system
+  const rosFindingsGroupedBySystem = useMemo(() => {
+    const reported = Object.values(rosState).filter(
+      (obs) => obs.value && getRosFindingStateFromKey(obs.field) === RosFindingState.Reports
+    );
+
+    if (reported.length === 0) return '';
+
+    const systemFindings: Record<string, string[]> = {};
+
+    for (const [_systemKey, system] of Object.entries(InPersonRosConfig)) {
+      const items: string[] = [];
+      for (const [baseKey, item] of Object.entries(system.items)) {
+        const fieldKey = rosField(baseKey, RosFindingState.Reports);
+        if (rosState[fieldKey]?.value) {
+          items.push(item.label);
+        }
+      }
+      if (items.length > 0) {
+        systemFindings[system.label] = items;
+      }
+    }
+
+    return Object.entries(systemFindings)
+      .map(([system, items]) => `${system}: ${items.join(', ')}`)
+      .join('. ');
+  }, [rosState]);
 
   const billingInput = useMemo(() => {
     if (!inputsReady) return null;
@@ -196,8 +230,9 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
       radiologyOrders,
       appointment,
       patient,
+      rosFindings: rosFindingsGroupedBySystem,
     });
-  }, [inputsReady, chartData, chartDataFields, radiologyOrders, appointment, patient]);
+  }, [inputsReady, chartData, chartDataFields, radiologyOrders, appointment, patient, rosFindingsGroupedBySystem]);
 
   const inputHash = useMemo(() => (billingInput ? hashInput(billingInput) : ''), [billingInput]);
 
@@ -223,7 +258,7 @@ export const useBillingSuggestions = (): BillingSuggestionsResult => {
     currentCptCodes.push(chartData.emCode);
   }
 
-  const emCodeSet = new Set(PROVIDER_CONFIG.assessment.emCodeOptions.map((option) => option.code));
+  const emCodeSet = new Set(emCodes.map((option) => option.code));
 
   const icdCodesSuggest = data?.icdCodes?.filter(
     (code) => !currentDiagnoses?.some((diagnosis) => diagnosis.code === code.code)

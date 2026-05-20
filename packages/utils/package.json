@@ -2,9 +2,10 @@
   "name": "utils",
   "private": true,
   "type": "module",
-  "version": "1.32.11",
+  "version": "1.34.13",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
+  "sideEffects": false,
   "engines": {
     "node": ">=22.0.0",
     "npm": ">=10.0.0"
