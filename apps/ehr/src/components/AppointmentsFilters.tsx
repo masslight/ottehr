@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import { VisitType } from 'config-types';
+import { DateTime } from 'luxon';
 import { ReactElement, useEffect, useMemo } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -100,7 +101,13 @@ export default function AppointmentsFilters(): ReactElement {
     if (searchParams.size === 0 && persistedValues) {
       methods.reset(JSON.parse(persistedValues));
     }
-  }, [methods, searchParams]);
+    if (searchParams.size === 0 && !persistedValues) {
+      methods.reset({
+        visitType: Object.keys(visitTypeToLabel),
+        date: DateTime.now().toISODate(),
+      });
+    }
+  }, [methods, searchParams, visitTypeToLabel]);
 
   return (
     <FormProvider {...methods}>
