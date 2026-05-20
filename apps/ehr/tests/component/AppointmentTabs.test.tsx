@@ -23,9 +23,7 @@ const renderTabs = (initialEntries: Parameters<typeof MemoryRouter>[0]['initialE
   );
   render(
     <AppointmentTabs
-      location={undefined}
-      providers={[]}
-      serviceCategories={[]}
+      showSelectFiltersMessage={false}
       preBookedAppointments={[]}
       completedAppointments={[]}
       cancelledAppointments={[]}
