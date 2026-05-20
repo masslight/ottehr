@@ -1,5 +1,5 @@
 // cSpell:ignore Español
-import { i18nextCreator } from 'utils';
+import { i18nextCreator } from 'utils/lib/frontend';
 import * as englishStrings from './i18n-en.json';
 import * as spanishStrings from './i18n-es.json';
 

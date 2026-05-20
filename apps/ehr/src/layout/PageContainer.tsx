@@ -13,9 +13,16 @@ interface PageContainerProps {
   tabTitle?: string;
   title?: string;
   children: ReactElement;
+  showEnvFooter?: boolean;
 }
 
-export default function PageContainer({ sidebarItems, tabTitle, title, children }: PageContainerProps): ReactElement {
+export default function PageContainer({
+  sidebarItems,
+  tabTitle,
+  title,
+  children,
+  showEnvFooter = true,
+}: PageContainerProps): ReactElement {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   if (title != null || tabTitle != null) {
@@ -31,9 +38,11 @@ export default function PageContainer({ sidebarItems, tabTitle, title, children 
       )}
       {children}
       <br />
-      <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
-        Environment: {import.meta.env.VITE_APP_ENV}, Version: {import.meta.env.VITE_APP_VERSION}
-      </TooltipWrapper>
+      {showEnvFooter && (
+        <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
+          Environment: {import.meta.env.VITE_APP_ENV}, Version: {import.meta.env.VITE_APP_VERSION}
+        </TooltipWrapper>
+      )}
     </Container>
   );
 

@@ -619,7 +619,6 @@ const generateRandomPatientInfo = async (
   if (serviceMode === 'virtual') {
     return {
       patient: patientData,
-      unconfirmedDateOfBirth: randomDateOfBirth,
       slotId: persistedSlot.id!,
       language: 'en',
       selectedLocation: selectedLocation!,

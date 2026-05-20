@@ -1,7 +1,8 @@
 // cSpell:ignore RCRT, RFRT, RPRT
 import { Coding } from 'fhir/r4b';
+import { LabelConfig } from '../..';
 import { Pagination } from '..';
-import { LabelConfig, LabPaymentMethod, LabType } from './labs.types';
+import { LabPaymentMethod, LabType } from './labs.types';
 
 // for order form pdf (we might not want this idk)
 export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
@@ -73,7 +74,7 @@ export const LAB_RESULT_HL7_DOC_REF_CODING_CODE = {
 
 // there is no loinc code specifically for specimen labels or container labels, closest is 74384-9 "Specimen container [Type]"
 // so opted for something custom her
-export const EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE = {
+export const EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE = {
   system: 'http://ottehr.org/fhir/StructureDefinition/specimen-collection-label',
   code: 'specimen-container-label',
   display: 'Specimen Container Label',
@@ -392,6 +393,9 @@ export const LAB_LIST_CODE_CODING = {
   },
 };
 
+export const LAB_LIST_IN_HOUSE_ITEM_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/Identifier/in-house-ad-url';
+
+export const LAB_LIST_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/Identifier/lab-test-item-set-labGuid-and-test-code';
 export const LAB_LIST_ITEM_SEARCH_FIELD_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/orderable-item-search-fields';
 export const LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL = {

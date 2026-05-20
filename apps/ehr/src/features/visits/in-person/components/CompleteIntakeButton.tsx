@@ -10,7 +10,7 @@ import { useReactNavigationBlocker } from '../../shared/hooks/useReactNavigation
 
 export const CompleteIntakeButton: React.FC<{
   isDisabled: boolean;
-  handleCompleteIntake: () => void | Promise<void>;
+  handleCompleteIntake: () => void | Promise<unknown>;
   status: VisitStatusLabel | undefined;
 }> = ({ isDisabled, handleCompleteIntake, status }) => {
   const abnormalVitals = useGetAbnormalVitals();

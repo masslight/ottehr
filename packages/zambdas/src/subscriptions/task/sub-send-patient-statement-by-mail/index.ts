@@ -18,6 +18,7 @@ import {
   createOystehrClient,
   getHTMLStatementTemplate,
   getStatementDetails,
+  MAIL_VENDOR_EXTENSION_URL,
   sendPostGridLetter,
   StatementType,
   wrapHandler,
@@ -168,11 +169,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         {
           contentString: description,
         },
+        {
+          contentAttachment: {
+            contentType: 'text/html',
+            data: Buffer.from(html).toString('base64'),
+          },
+        },
       ],
       sent: DateTime.now().toUTC().toISO() ?? undefined,
       extension: [
         {
-          url: 'https://extensions.fhir.ottehr.com/mail-vendor',
+          url: MAIL_VENDOR_EXTENSION_URL,
           extension: [
             {
               url: 'vendor',

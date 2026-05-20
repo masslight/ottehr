@@ -5,6 +5,8 @@ import { getSecret, Secrets, SecretsKeys } from 'utils';
 
 const POSTGRID_BASE_URL = 'https://api.postgrid.com/print-mail/v1';
 
+export const MAIL_VENDOR_EXTENSION_URL = 'https://extensions.fhir.ottehr.com/mail-vendor';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -37,6 +39,12 @@ export interface PostGridLetter {
   status: PostGridLetterStatus;
   sendDate?: string;
   mailingClass?: string;
+  pageCount?: number;
+  envelopeType?: string;
+  trackingNumber?: string;
+  imbStatus?: 'entered_mail_stream' | 'out_for_delivery' | 'returned_to_sender';
+  imbDate?: string;
+  imbZIPCode?: string;
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;

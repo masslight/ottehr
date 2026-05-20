@@ -3,6 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter } from 'fhir/r4b';
 import {
+  CONCURRENT_UPDATE_WITH_MESSAGE,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
@@ -49,6 +50,9 @@ export const changeInPersonVisitStatusIfPossible = async (
               resourceType: 'Encounter',
               resourceId: resourcesToUpdate.encounter.id!,
               patchOperations: updateInPersonEncounterStatusOp,
+              ifMatch: resourcesToUpdate.encounter.meta?.versionId
+                ? `W/"${resourcesToUpdate.encounter.meta.versionId}"`
+                : undefined,
             }),
           ]
         : []),
@@ -67,7 +71,11 @@ export const changeInPersonVisitStatusIfPossible = async (
       await oystehr.fhir.transaction({
         requests,
       });
-    } catch (error) {
+    } catch (error: any) {
+      const is412 = error?.code === 412 || error?.statusCode === 412 || error?.message?.includes('412');
+      if (is412) {
+        throw CONCURRENT_UPDATE_WITH_MESSAGE('The encounter was modified during the operation');
+      }
       captureException(error, {
         tags: {
           encounterId: resourcesToUpdate.encounter.id,

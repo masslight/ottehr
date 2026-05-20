@@ -2,7 +2,6 @@ import {
   Autocomplete,
   Box,
   Button,
-  Checkbox,
   Chip,
   CircularProgress,
   FormControl,
@@ -12,12 +11,6 @@ import {
   Paper,
   Select,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
   useTheme,
@@ -34,26 +27,21 @@ import { LabSets } from 'src/features/external-labs/components/LabSets';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { usePrintVisitLabel } from 'src/features/visits/shared/hooks/usePrintVisitLabel';
 import {
   useGetCreateInHouseLabResources,
   useICD10SearchNew,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import {
-  DataEntryTestItem,
-  getAttendingPractitionerId,
-  isApiError,
-  LabListsDTO,
-  LabType,
-  REPEAT_TEST_CPT_CODE_MODIFIER,
-} from 'utils';
-import { CPTCodeDTO, DiagnosisDTO } from 'utils/lib/types/api/chart-data';
+import { DataEntryTestItem, getAttendingPractitionerId, isApiError, LabSetDTO, LabType } from 'utils';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
 import { createInHouseLabOrder, getOrCreateVisitLabel } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
+import { InHouseLabSelect } from '../components/create/InHouseLabSelect';
+import { InHouseSelectedTestTable } from '../components/create/InHouseSelectedTestTable';
 import { InHouseLabsNotesCard } from '../components/details/InHouseLabsNotesCard';
 import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
-import { configCptCodeTestId, configRunAsRepeatBtnTestId } from '../utils/test-ids';
 
 export const InHouseLabOrderCreatePage: React.FC = () => {
   const theme = useTheme();
@@ -81,6 +69,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
   const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
+
+  const { printVisitLabel } = usePrintVisitLabel();
 
   const diagnosis = useMemo<DiagnosisDTO[]>(
     () => (isFollowup ? mainEncounterChartData?.diagnosis || [] : chartData?.diagnosis || []),
@@ -162,23 +152,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
   const canBeSubmitted = !!(encounter?.id && selectedTests.length > 0);
 
-  const formatCptCodesForCell = (cptCodes: CPTCodeDTO[], orderMode: DataEntryTestItem['orderMode']): string => {
-    const cptCodesFormatted = cptCodes.map((c) => {
-      // these modifiers are pulled from the activity definition are specific to the test (ex: alcohol confirmation test)
-      let modifier = c.modifier ? c.modifier.map((m) => `-${m.code}`).join(',') : '';
-
-      // we handle 91 for repeat tests on the fly since a test getting this modifier is dependant on the user selecting run as repeat
-      if (orderMode === 'repeat' && !modifier.includes(REPEAT_TEST_CPT_CODE_MODIFIER.code)) {
-        modifier += `-${REPEAT_TEST_CPT_CODE_MODIFIER.code}`;
-      }
-
-      const isStandard = orderMode === 'standard';
-
-      return `${c.code}${modifier}${!isStandard ? ' (QW)' : ''}`;
-    });
-    return cptCodesFormatted.join('; ');
-  };
-
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldPrintLabel = false): Promise<void> => {
     e.preventDefault();
     setLoading(true);
@@ -216,7 +189,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           }
 
           const labelPdf = labelPdfs[0];
-          window.open(labelPdf.presignedURL, '_blank');
+
+          await printVisitLabel({ pdfPresignedUrl: labelPdf?.presignedURL ?? '', encounterId: encounter.id! });
         }
 
         if (res.serviceRequestIds.length === 1) {
@@ -271,7 +245,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     }
   };
 
-  const handleSetSelectedLabsViaLabSets = async (labSet: LabListsDTO): Promise<void> => {
+  const handleSetSelectedLabsViaLabSets = async (labSet: LabSetDTO): Promise<void> => {
     if (labSet.listType === LabType.inHouse) {
       const res = await apiClient?.getCreateInHouseLabOrderResources({
         selectedLabSet: labSet,
@@ -311,127 +285,16 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
             <form onSubmit={handleSubmit}>
               <Grid container spacing={3}>
                 <Grid item xs={12}>
-                  <FormControl
-                    fullWidth
-                    sx={{
-                      '& .MuiInputBase-root': {
-                        height: '40px',
-                      },
-                      '& .MuiSelect-select': {
-                        display: 'flex',
-                        alignItems: 'center',
-                        paddingTop: 0,
-                        paddingBottom: 0,
-                      },
-                    }}
-                  >
-                    <InputLabel
-                      id="test-type-label"
-                      sx={{
-                        transform: 'translate(14px, 10px) scale(1)',
-                        '&.MuiInputLabel-shrink': {
-                          transform: 'translate(14px, -9px) scale(0.75)',
-                        },
-                      }}
-                    >
-                      Test
-                    </InputLabel>
-                    <Select
-                      labelId="test-type-label"
-                      id="test-type"
-                      data-testid={dataTestIds.orderInHouseLabPage.testTypeField}
-                      value=""
-                      label="Test"
-                      onChange={(e) => handleTestSelection(e.target.value)}
-                      MenuProps={{
-                        PaperProps: {
-                          'data-testid': dataTestIds.orderInHouseLabPage.testTypeList,
-                        },
-                      }}
-                    >
-                      {availableTests.map((test) => (
-                        <MenuItem key={`${test.name}-${test.adId}`} value={test.name}>
-                          {test.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <InHouseLabSelect availableTests={availableTests} handleTestSelection={handleTestSelection} />
 
                   {labSets && <LabSets labSets={labSets} setSelectedLabs={handleSetSelectedLabsViaLabSets} />}
 
                   {selectedTests.length > 0 && (
-                    <TableContainer sx={{ mb: '8px' }}>
-                      <Table
-                        size="small"
-                        sx={{
-                          '& .MuiTableCell-root': {
-                            py: 0.5,
-                            px: 1,
-                          },
-                        }}
-                      >
-                        <TableHead>
-                          <TableRow>
-                            <TableCell width="35%">
-                              <Typography variant="overline">Test</Typography>
-                            </TableCell>
-                            <TableCell width="35%">
-                              <Typography variant="overline">CPT Code</Typography>
-                            </TableCell>
-                            <TableCell align="center">
-                              <Typography variant="overline">Run as repeat</Typography>
-                            </TableCell>
-                            <TableCell></TableCell>
-                          </TableRow>
-                        </TableHead>
-
-                        <TableBody>
-                          {selectedTests.map((test) => (
-                            <TableRow key={test.name}>
-                              <TableCell>{test.name}</TableCell>
-                              <TableCell data-testid={configCptCodeTestId(test.name)}>
-                                {formatCptCodesForCell(test.cptCode, test.orderMode)}
-                              </TableCell>
-                              <TableCell align="center">
-                                {test.repeatable && (
-                                  <Checkbox
-                                    data-testid={configRunAsRepeatBtnTestId(test.name)}
-                                    size="small"
-                                    sx={{
-                                      p: 0.5,
-                                    }}
-                                    checked={test.orderMode === 'repeat'}
-                                    onChange={(e) => {
-                                      const checked = e.target.checked;
-
-                                      const orderMode = checked ? 'repeat' : 'standard';
-
-                                      setSelectedTests((prev) =>
-                                        prev.map((item) => (item.name === test.name ? { ...item, orderMode } : item))
-                                      );
-                                    }}
-                                  />
-                                )}
-                              </TableCell>
-                              <TableCell align="right">
-                                <DeleteIconButton
-                                  onClick={() =>
-                                    setSelectedTests((prev) =>
-                                      prev.filter((tempLab) => {
-                                        const tempLabName = tempLab.name;
-                                        const labName = test.name;
-
-                                        return tempLabName !== labName;
-                                      })
-                                    )
-                                  }
-                                />
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
+                    <InHouseSelectedTestTable
+                      selectedTests={selectedTests}
+                      setSelectedTests={setSelectedTests}
+                      displayRunAsRepeat={true}
+                    />
                   )}
                 </Grid>
 

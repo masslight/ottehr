@@ -80,7 +80,6 @@ interface CreateAppointmentInput {
   visitType: VisitType;
   language?: string;
   locationState?: string;
-  unconfirmedDateOfBirth?: string;
   appointmentMetadata?: Appointment['meta'];
   parentEncounterId?: string;
 }
@@ -96,7 +95,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
 
   const user = await getUser(token, input.secrets);
   const validatedParameters = validateCreateAppointmentParams(input, user);
-  const { secrets, unconfirmedDateOfBirth, language } = validatedParameters;
+  const { secrets, language } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
 
@@ -149,7 +148,6 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       language,
       secrets,
       visitType,
-      unconfirmedDateOfBirth,
       questionnaireCanonical,
       appointmentMetadata,
       parentEncounterId,
@@ -198,7 +196,6 @@ export async function createAppointment(
     user,
     secrets,
     visitType,
-    unconfirmedDateOfBirth,
     serviceMode,
     questionnaireCanonical: questionnaireUrl,
     appointmentMetadata,
@@ -278,7 +275,6 @@ export async function createAppointment(
     createPatientRequest,
     performPreProcessing: user && !isTestUser(user),
     listRequests,
-    unconfirmedDateOfBirth,
     newPatientDob: (createPatientRequest?.resource as Patient | undefined)?.birthDate,
     createdBy,
     slot,
@@ -365,7 +361,6 @@ interface TransactionInput {
   verifiedPhoneNumber: string | undefined;
   contactInfo: { phone: string; email: string };
   additionalInfo?: string;
-  unconfirmedDateOfBirth?: string;
   patient?: Patient;
   newPatientDob?: string;
   createPatientRequest?: BatchInputPostRequest<Patient>;
@@ -399,7 +394,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     verifiedPhoneNumber,
     contactInfo,
     additionalInfo,
-    unconfirmedDateOfBirth,
     createPatientRequest,
     performPreProcessing,
     listRequests,
@@ -464,13 +458,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       getTelemedRequiredAppointmentEncounterExtensions(patientRef, nowIso);
     apptExtensions.push(...telemedApptExtensions);
     encExtensions.push(...telemedEncExtensions);
-  }
-
-  if (unconfirmedDateOfBirth) {
-    apptExtensions.push({
-      url: FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url,
-      valueString: unconfirmedDateOfBirth,
-    });
   }
 
   if (additionalInfo) {
@@ -664,7 +651,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     verifiedPhoneNumber,
     contactInfo,
     newPatientDob,
-    unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
     appointmentServiceCategory: getCoding(slot?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code ?? '',
     reasonForVisit,

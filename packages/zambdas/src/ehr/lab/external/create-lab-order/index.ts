@@ -28,6 +28,7 @@ import {
   getAttendingPractitionerId,
   getOrderNumber,
   getSecret,
+  isExternalLabServiceRequest,
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
@@ -60,7 +61,7 @@ import {
   formatServiceRequestConfig,
   GetCreateOrderResourcesInput,
   GetCreateOrderResourcesReturn,
-  groupTestsByLabGuid,
+  groupTestsByKey,
   ResourcesForRequestFormatting,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -87,16 +88,15 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
   const oystehr = createOystehrClient(m2mToken, secrets);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const oystehrCurrentUser = createOystehrClient(userToken, secrets);
   let curUserPractitionerId: string | undefined;
   try {
-    curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+    curUserPractitionerId = await getMyPractitionerId(userToken, secrets);
   } catch {
     throw EXTERNAL_LAB_ERROR(
       'Resource configuration error - user creating this external lab order must have a Practitioner resource linked'
     );
   }
-  const currentUserPractitioner = await oystehrCurrentUser.fhir.get<Practitioner>({
+  const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
     id: curUserPractitionerId,
   });
@@ -113,7 +113,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
 
   const clientOrgId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
-  const testsGroupedByLabGuid = groupTestsByLabGuid(orderableItems);
+  const testsGroupedByKey = groupTestsByKey(orderableItems);
 
   // create lab order requests will come in for the same patient, encounter, psc flag, location
   // the only potential difference is the lab that will perform the test
@@ -126,10 +126,14 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     clientOrgId,
   };
 
-  const resourceRequestPromises = Object.entries(testsGroupedByLabGuid).map(async ([labGuid, testData]) => {
+  const resourceRequestPromises = Object.entries(testsGroupedByKey).map(async ([_groupingKey, testData]) => {
     // get the fhir resources for this requsition which are grouped by lab
     // (there are some other factors that go into requisition grouping like payment type and psc status but those are will never differ at this point)
-    const resources = await getCreateOrderResources({ ...commonResources, labName: testData.labName, labGuid });
+    const resources = await getCreateOrderResources({
+      ...commonResources,
+      labName: testData.labName,
+      labGuid: testData.labGuid,
+    });
 
     const requisitionNumber = resources.existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN);
 
@@ -569,11 +573,19 @@ const getCreateOrderResources = async (input: GetCreateOrderResourcesInput): Pro
     }
     // we will use these to determine if the current order is able to be bundled with any existing
     // anything past draft status is automatically in a different bundle
-    if (resource.resourceType === 'ServiceRequest' && resource.status === 'draft') {
+    if (
+      resource.resourceType === 'ServiceRequest' &&
+      resource.status === 'draft' &&
+      isExternalLabServiceRequest(resource)
+    ) {
       draftServiceRequests.push(resource);
     }
   });
   console.log('resource parsing complete');
+  console.log(
+    'Final draft draftServiceRequests: ',
+    JSON.stringify(draftServiceRequests.map((sr) => `ServiceRequest/${sr.id}`))
+  );
 
   // for determining bundles, we need to check labGuid and potentially also the lab name to account for static compendium orders
   const labOrgReferenceToOrgMap = new Map(labOrganizationSearchResults.map((org) => [`Organization/${org.id}`, org]));
@@ -597,7 +609,9 @@ const getCreateOrderResources = async (input: GetCreateOrderResourcesInput): Pro
       // for static compendium, we should bundle based on name of the lab since all generic-compendium labs have the same labGuid
       if (
         (labGuid !== STATIC_COMPENDIUM_LAB_GUID && draftSRFillerLabGuid === labGuid) ||
-        (labGuid === STATIC_COMPENDIUM_LAB_GUID && labName === draftSrMatchedLabOrg?.name)
+        (labGuid === STATIC_COMPENDIUM_LAB_GUID &&
+          draftSRFillerLabGuid === STATIC_COMPENDIUM_LAB_GUID &&
+          labName === draftSrMatchedLabOrg?.name)
       ) {
         const allCoverages = [...insuranceCoverageSearchResults];
         if (clientBillCoverage) allCoverages.push(clientBillCoverage);
@@ -611,6 +625,7 @@ const getCreateOrderResources = async (input: GetCreateOrderResourcesInput): Pro
           if (curSrIsPsc === psc) {
             // we bundled psc orders separately, so if the current test being submitted is psc
             // it should only be bundled under the same requisition number if there are other psc orders for this lab
+            console.log('adding sr to bundle. Id:', sr.id);
             serviceRequestsForBundle.push(sr);
           }
         } else {
@@ -650,11 +665,46 @@ const getCreateOrderResources = async (input: GetCreateOrderResourcesInput): Pro
   }
 
   // match by both name and lab guid given the static compendium case. This labOrganization array may have multiple items since multiple labOrgs have the same labGuid in static case
-  const labOrganization = labOrganizationSearchResults.find(
-    (org) =>
-      org.name === labName && org.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value === labGuid
-  );
+  const labOrganization = labOrganizationSearchResults.find((org) => {
+    const identifierLabGuid = org.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value;
+    // only do the name check if it is a generic compendium lab
+    console.log(
+      'Finding the labOrg, this is the logic: ',
+      JSON.stringify({
+        labGuid,
+        STATIC_COMPENDIUM_LAB_GUID,
+        identifierLabGuid,
+        orgName: org.name?.toLowerCase(),
+        labName: labName.toLowerCase(),
+      })
+    );
+
+    if (labGuid === STATIC_COMPENDIUM_LAB_GUID) {
+      console.log(`Organization/${org.id} was generic`);
+      if (identifierLabGuid === labGuid && org.name?.toLowerCase() === labName.toLowerCase()) {
+        console.log(
+          `Organization/${org.id} was generic and matched the labName we were searching for '${labName}'. Org Name: '${org.name}' labGuid: ${identifierLabGuid}`
+        );
+        return org;
+      }
+    } else {
+      console.log(`Organization/${org.id} was not generic. Name: '${org.name}' labGuid: ${identifierLabGuid}`);
+      return identifierLabGuid === labGuid ? org : undefined;
+    }
+    return undefined;
+  });
+  console.log(`labOrganization after filter is Organization/${labOrganization?.id} ${labOrganization?.name}`);
+
   if (!labOrganization) {
+    console.error(
+      `We couldn't match the lab org to any results when searching for labGuid: ${labGuid} and labName: ${labName}. These were the results: ${JSON.stringify(
+        labOrganizationSearchResults.map((org) => ({
+          id: org.id,
+          name: org.name,
+          labGuid: org.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value,
+        }))
+      )}`
+    );
     throw EXTERNAL_LAB_ERROR(
       `Organization resource for ${labName} may be misconfigured. No organization found for lab guid ${labGuid}`
     );

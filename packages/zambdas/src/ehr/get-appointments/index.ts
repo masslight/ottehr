@@ -25,6 +25,7 @@ import {
   flattenItems,
   GetAppointmentsZambdaInput,
   getAttendingPractitionerId,
+  getAttestedConsentFromEncounter,
   getChatContainsUnreadMessages,
   getCoding,
   getInPersonVisitStatus,
@@ -32,13 +33,13 @@ import {
   getPatientFirstName,
   getPatientLastName,
   getSMSNumberForIndividual,
-  getUnconfirmedDOBForAppointment,
   getVisitStatusHistory,
   InPersonAppointmentInformation,
   INSURANCE_CARD_CODE,
   isAnnotationFollowupEncounter,
   isInPersonAppointment,
   isNonPaperworkQuestionnaireResponse,
+  isPatientDemographicsComplete,
   isTruthy,
   PHOTO_ID_CARD_CODE,
   PRIVATE_EXTENSION_BASE_URL,
@@ -735,8 +736,6 @@ const makeAppointmentInformation = (
   const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
   const status = getInPersonVisitStatus(appointment, encounter, supervisorApprovalEnabled);
 
-  const unconfirmedDOB = getUnconfirmedDOBForAppointment(appointment);
-
   const waitingMinutesString = appointment.meta?.tag?.find((tag) => tag.system === 'waiting-minutes-estimate')?.code;
   const waitingMinutes = waitingMinutesString ? parseInt(waitingMinutesString) : undefined;
 
@@ -751,7 +750,11 @@ const makeAppointmentInformation = (
   }
 
   // if the QR has been updated at least once, this tag will not be present
-  const paperworkHasBeenSubmitted = !!questionnaireResponse?.authored;
+  const demographicsByPaperworkSubmission = !!questionnaireResponse?.authored;
+
+  const demographicsByPatientResource = isPatientDemographicsComplete(patient);
+  const consentByPaperworkSignatures = !!consentComplete;
+  const consentByStaffAttestation = !!(encounter && getAttestedConsentFromEncounter(encounter));
 
   const participants = parseEncounterParticipants(encounter, practitionerIdToResourceMap);
   const attenderProviderType = parseAttenderProviderType(encounter, practitionerIdToResourceMap);
@@ -781,7 +784,6 @@ const makeAppointmentInformation = (
     smsModel,
     reasonForVisit: appointment.description || 'Unknown',
     comment: appointment.comment,
-    unconfirmedDOB: unconfirmedDOB ?? '',
     appointmentType: appointmentTypeForAppointment(appointment),
     appointmentAttendanceType: appointmentAttendanceTypeAppointment(appointment),
     appointmentStatus: appointment.status,
@@ -793,16 +795,15 @@ const makeAppointmentInformation = (
     group: group ? group.name : undefined,
     room: room,
     paperwork: {
-      demographics: paperworkHasBeenSubmitted,
+      demographics: demographicsByPaperworkSubmission || demographicsByPatientResource,
       photoID: idCard,
       insuranceCard: insuranceCard,
-      consent: consentComplete ? true : false,
+      consent: consentByPaperworkSignatures || consentByStaffAttestation,
       ovrpInterest: Boolean(ovrpInterest && ovrpInterest.startsWith('Yes')),
     },
     participants,
     next,
     visitStatusHistory: getVisitStatusHistory(encounter),
-    needsDOBConfirmation: !!unconfirmedDOB,
     waitingMinutes,
     serviceCategory: appointment.serviceCategory
       ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])

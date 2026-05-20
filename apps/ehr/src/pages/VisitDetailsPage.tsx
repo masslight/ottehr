@@ -63,12 +63,11 @@ import {
   formatDateForDisplay,
   getCancellationReasonDisplay,
   getCoding,
-  getFullName,
+  getFormattedPatientFullName,
   getInPersonVisitStatus,
   getPatchOperationForNewMetaTag,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
-  getUnconfirmedDOBForAppointment,
   GetVisitFaxHistoryOutput,
   isApiError,
   isInPersonAppointment,
@@ -536,16 +535,7 @@ export default function VisitDetailsPage(): ReactElement {
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patientId ?? '');
 
-  const { fullName } = useMemo(() => {
-    let fullName = '';
-
-    if (patient) {
-      fullName = getFullName(patient);
-    }
-    return {
-      fullName,
-    };
-  }, [patient]);
+  const fullName = (patient && getFormattedPatientFullName(patient)) ?? '';
 
   const isInPerson = isInPersonAppointment(appointment);
 
@@ -693,7 +683,6 @@ export default function VisitDetailsPage(): ReactElement {
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
-  const unconfirmedDOB = appointment && getUnconfirmedDOBForAppointment(appointment);
   const getAppointmentType = (appointmentType: FhirAppointmentType | undefined): string => {
     return appointmentType === 'prebook'
       ? 'Scheduled'
@@ -1191,13 +1180,10 @@ export default function VisitDetailsPage(): ReactElement {
                         title="Booking details"
                         loading={loading}
                         patientDetails={{
-                          ...(unconfirmedDOB
-                            ? {
-                                "Patient's date of birth (Unmatched)": formatDateForDisplay(unconfirmedDOB),
-                              }
-                            : {}),
                           'Service category': serviceCategoryLabel,
-                          'Reason for visit': `${reasonForVisit} ${additionalDetails ? `- ${additionalDetails}` : ''}`,
+                          'Reason for visit': reasonForVisit
+                            ? `${reasonForVisit}${additionalDetails ? ` - ${additionalDetails}` : ''}`
+                            : undefined,
                           'Authorized non-legal guardian(s)': patient?.extension?.find(
                             (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
                           )?.valueString || <></>,
@@ -1215,10 +1201,7 @@ export default function VisitDetailsPage(): ReactElement {
                                 setEditDialogConfig({
                                   type: 'dob',
                                   values: {
-                                    dob:
-                                      unconfirmedDOB && DateTime.fromISO(unconfirmedDOB).isValid
-                                        ? DateTime.fromISO(unconfirmedDOB)
-                                        : null,
+                                    dob: null,
                                   },
                                   keyTitleMap: {
                                     dob: 'DOB',
@@ -1591,15 +1574,6 @@ export default function VisitDetailsPage(): ReactElement {
                   </Grid>
                   <Grid item>{formatDateForDisplay(patient?.birthDate)}</Grid>
                 </Grid>
-
-                {unconfirmedDOB && (
-                  <Grid container item>
-                    <Grid item width="35%">
-                      Unmatched DOB:
-                    </Grid>
-                    <Grid item>{formatDateForDisplay(unconfirmedDOB)}</Grid>
-                  </Grid>
-                )}
               </Grid>
             ) : undefined
           }

@@ -10,7 +10,7 @@ import { assert, describe, expect, it } from 'vitest';
 import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../../fhir';
 import { ConditionKeyObject, QuestionnaireItemConditionDefinition, QuestionnaireItemTextWhen } from '../../../types';
 import { DOB_DATE_FORMAT } from '../../../utils';
-import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork';
+import { mapQuestionnaireAndValueSetsToItemsList, structureExtension } from '../paperwork';
 import {
   evalComplexValidationTrigger,
   evalEnableWhen,
@@ -2486,6 +2486,99 @@ describe('Conditional logic', () => {
       // there are no enableWhen conditions left, so page is considered enabled
       expect(result[0]).toEqual(responseItems[0]);
       expect(result[0].item).toBeDefined();
+    });
+  });
+
+  describe('structureExtension tests', () => {
+    describe('answer loading tests', () => {
+      it('Handles full get-answer-options configuration', () => {
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'reference',
+          extension: [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.extension,
+              extension: [
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy,
+                  valueString: 'dynamic',
+                },
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source,
+                  valueString: 'get-answer-options',
+                },
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.expression,
+                  valueExpression: {
+                    language: 'application/x-fhir-query',
+                    expression: 'Organization?status=active',
+                  },
+                },
+              ],
+            },
+          ],
+        };
+        const { answerLoadingOptions } = structureExtension(item);
+        expect(answerLoadingOptions).toMatchObject({
+          strategy: 'dynamic',
+          answerSource: {
+            zambdaId: 'get-answer-options',
+            resourceType: 'Organization',
+            query: 'status=active',
+          },
+        });
+      });
+      it('Ignores incomplete get-answer-options configuration', () => {
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'reference',
+          extension: [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.extension,
+              extension: [
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy,
+                  valueString: 'dynamic',
+                },
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source,
+                  valueString: 'get-answer-options',
+                },
+              ],
+            },
+          ],
+        };
+        const { answerLoadingOptions } = structureExtension(item);
+        expect(answerLoadingOptions).toBeUndefined();
+      });
+      it('Handles other zambda configuration', () => {
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'reference',
+          extension: [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.extension,
+              extension: [
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.strategy,
+                  valueString: 'dynamic',
+                },
+                {
+                  url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.answerLoadingOptions.source,
+                  valueString: 'get-all-insurance-payers',
+                },
+              ],
+            },
+          ],
+        };
+        const { answerLoadingOptions } = structureExtension(item);
+        expect(answerLoadingOptions).toMatchObject({
+          strategy: 'dynamic',
+          answerSource: {
+            zambdaId: 'get-all-insurance-payers',
+          },
+        });
+      });
     });
   });
 });
