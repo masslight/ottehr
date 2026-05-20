@@ -1,11 +1,11 @@
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import CheckIcon from '@mui/icons-material/Check';
 import { LoadingButton } from '@mui/lab';
-import { Box, ButtonGroup, IconButton, Skeleton, Tooltip } from '@mui/material';
+import { Box, Button, ButtonGroup, Skeleton, Tooltip } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
+import { handleDischarge } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getInPersonVisitStatus } from 'utils';
@@ -38,11 +38,11 @@ export const DischargeButton: FC = () => {
   const appointmentId = resources?.appointment?.id ?? appointment?.id;
   const patientId = resources?.patient?.id;
 
-  const handleDischarge = async (): Promise<void> => {
+  const onDischargeClick = async (): Promise<void> => {
     setStatusLoading(true);
 
     try {
-      await handleChangeInPersonVisitStatus({ encounterId, updatedStatus: 'discharged' }, oystehrZambda);
+      await handleDischarge(encounterId, oystehrZambda);
       await appointmentRefetch();
       enqueueSnackbar('Patient discharged successfully', { variant: 'success' });
     } catch (error) {
@@ -65,7 +65,7 @@ export const DischargeButton: FC = () => {
           variant="contained"
           startIcon={<CheckIcon color="inherit" />}
           data-testid={dataTestIds.progressNotePage.dischargeButton}
-          sx={{ borderRadius: 100, textTransform: 'none', fontWeight: 500, fontSize: 14, whiteSpace: 'nowrap' }}
+          sx={{ borderRadius: 100, textTransform: 'none' }}
         >
           Discharged
         </LoadingButton>
@@ -76,68 +76,20 @@ export const DischargeButton: FC = () => {
   return (
     <>
       <Box sx={{ display: 'flex', justifyContent: 'end' }}>
-        <ButtonGroup
-          variant="contained"
-          disabled={statusLoading || isAlreadyDischarged}
-          sx={{
-            borderRadius: 100,
-            '& .MuiButtonGroup-grouped': {
-              borderRadius: 100,
-            },
-            '& .MuiButtonGroup-grouped:not(:last-of-type)': {
-              borderTopRightRadius: 0,
-              borderBottomRightRadius: 0,
-            },
-            '& .MuiButtonGroup-grouped:not(:first-of-type)': {
-              borderTopLeftRadius: 0,
-              borderBottomLeftRadius: 0,
-            },
-          }}
-        >
+        <ButtonGroup variant="contained" disabled={statusLoading || isAlreadyDischarged} sx={{ boxShadow: 'none' }}>
           <LoadingButton
-            loading={statusLoading}
             variant="contained"
-            onClick={handleDischarge}
+            loading={statusLoading}
+            onClick={onDischargeClick}
             data-testid={dataTestIds.progressNotePage.dischargeButton}
-            sx={{
-              borderRadius: 100,
-              textTransform: 'none',
-              fontWeight: 500,
-              fontSize: 14,
-              whiteSpace: 'nowrap',
-              borderTopRightRadius: '0 !important',
-              borderBottomRightRadius: '0 !important',
-            }}
+            sx={{ borderRadius: '100px', textTransform: 'none' }}
           >
             Discharge
           </LoadingButton>
           <Tooltip title="Discharge & Print">
-            <IconButton
-              size="small"
-              onClick={() => setDialogOpen(true)}
-              disabled={statusLoading}
-              sx={{
-                borderRadius: 0,
-                borderTopRightRadius: '100px !important',
-                borderBottomRightRadius: '100px !important',
-                backgroundColor: 'primary.main',
-                color: 'primary.contrastText',
-                border: '1px solid',
-                borderColor: 'primary.main',
-                borderLeft: '1px solid rgba(255,255,255,0.3)',
-                px: 0.5,
-                '&:hover': {
-                  backgroundColor: 'primary.dark',
-                },
-                '&.Mui-disabled': {
-                  backgroundColor: 'action.disabledBackground',
-                  color: 'action.disabled',
-                  borderColor: 'action.disabledBackground',
-                },
-              }}
-            >
+            <Button variant="contained" size="small" onClick={() => setDialogOpen(true)} sx={{ borderRadius: '100px' }}>
               <ArrowDropDownIcon fontSize="small" />
-            </IconButton>
+            </Button>
           </Tooltip>
         </ButtonGroup>
       </Box>

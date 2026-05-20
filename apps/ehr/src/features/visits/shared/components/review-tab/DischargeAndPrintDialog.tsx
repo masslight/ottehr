@@ -12,7 +12,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
 import { createDischargeSummary } from 'src/api/api';
-import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
+import { handleDischarge } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
@@ -49,7 +49,6 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
   const hasWorkNote = Boolean(workNote);
   const hasSchoolNote = Boolean(schoolNote);
   const hasPatientInstructions = instructions.length > 0;
-  // Discharge summary is always generatable if appointmentId is present
   const hasDischargeSummary = Boolean(appointmentId);
 
   const [printDischargeSummary, setPrintDischargeSummary] = useState(true);
@@ -68,8 +67,7 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
     setIsLoading(true);
 
     try {
-      // Discharge the patient
-      await handleChangeInPersonVisitStatus({ encounterId, updatedStatus: 'discharged' }, oystehrZambda);
+      await handleDischarge(encounterId, oystehrZambda);
 
       // Print selected documents
       const printPromises: Promise<void>[] = [];
@@ -80,7 +78,7 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
             .then(async (response) => {
               const documentId = response?.documentId;
               if (documentId) {
-                await downloadDocument(documentId);
+                await downloadDocument(documentId, { skipRelated: true });
               } else {
                 enqueueSnackbar(
                   'Discharge summary created, but document is not accessible right now. You can find it later in the Patient Record > Review Docs.',
@@ -104,8 +102,7 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
       }
 
       if (printPatientInstructions && hasPatientInstructions) {
-        // Patient instructions are text-based (no separate document URL), skip opening new tab
-        // They are part of the visit note / discharge summary
+        // todo, print patient instructions
       }
 
       await Promise.all(printPromises);
