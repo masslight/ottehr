@@ -15,6 +15,7 @@ import { DischargeAndPrintDialog } from './DischargeAndPrintDialog';
 
 export const handleDischarge = async (encounterId: string, oystehr?: Oystehr): Promise<void> => {
   await handleChangeInPersonVisitStatus({ encounterId, updatedStatus: 'discharged' }, oystehr);
+  enqueueSnackbar('Patient discharged successfully', { variant: 'success' });
 };
 
 export const DischargeButton: FC = () => {
@@ -49,17 +50,12 @@ export const DischargeButton: FC = () => {
     try {
       await handleDischarge(encounterId, oystehrZambda);
       await appointmentRefetch();
-      enqueueSnackbar('Patient discharged successfully', { variant: 'success' });
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
     } finally {
       setStatusLoading(false);
     }
-  };
-
-  const handleDischargeSuccess = async (): Promise<void> => {
-    await appointmentRefetch();
   };
 
   if (isAlreadyDischarged) {
@@ -105,7 +101,6 @@ export const DischargeButton: FC = () => {
         encounterId={encounterId}
         appointmentId={appointmentId}
         patientId={patientId}
-        onDischargeSuccess={handleDischargeSuccess}
       />
     </>
   );

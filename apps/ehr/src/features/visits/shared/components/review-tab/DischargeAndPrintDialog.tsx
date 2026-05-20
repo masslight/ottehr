@@ -16,7 +16,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import { SCHOOL_NOTE_CODE, WORK_NOTE_CODE } from 'utils';
-import { useChartData } from '../../stores/appointment/appointment.store';
+import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 import { handleDischarge } from './DischargeButton';
 
 interface DischargeAndPrintDialogProps {
@@ -25,7 +25,6 @@ interface DischargeAndPrintDialogProps {
   encounterId: string;
   appointmentId?: string;
   patientId?: string;
-  onDischargeSuccess: () => Promise<void>;
 }
 
 export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
@@ -34,10 +33,10 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
   encounterId,
   appointmentId,
   patientId,
-  onDischargeSuccess,
 }) => {
   const { oystehrZambda } = useApiClients();
   const { chartData } = useChartData();
+  const { appointmentRefetch } = useAppointmentData();
   const { downloadDocument } = useGetPatientDocs(patientId ?? '');
 
   const schoolWorkNotes = chartData?.schoolWorkNotes ?? [];
@@ -67,8 +66,6 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
     setIsLoading(true);
 
     try {
-      await handleDischarge(encounterId, oystehrZambda);
-
       // Print selected documents
       const printPromises: Promise<void>[] = [];
 
@@ -106,9 +103,8 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
       }
 
       await Promise.all(printPromises);
-
-      await onDischargeSuccess();
-      enqueueSnackbar('Patient discharged successfully', { variant: 'success' });
+      await handleDischarge(encounterId, oystehrZambda);
+      await appointmentRefetch();
       onClose();
     } catch (error) {
       console.error(error);
@@ -131,7 +127,7 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
     printPatientInstructions,
     hasPatientInstructions,
     downloadDocument,
-    onDischargeSuccess,
+    appointmentRefetch,
     onClose,
   ]);
 
