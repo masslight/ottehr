@@ -64,7 +64,6 @@ import { usePractitionerActions } from '../features/visits/shared/hooks/usePract
 import { useSignAppointmentMutation } from '../features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder, isEligibleSupervisor } from '../helpers';
 import { completeIntakeWorkflow } from '../helpers/completeIntakeWorkflow';
-import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
 import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
@@ -221,12 +220,7 @@ export default function AppointmentTableRow({
       })) ||
     'Unknown';
 
-  let start;
-  if (appointment.start) {
-    const locationTimeZone = getTimezone(appointment.location); // todo show in user's timezone
-    const dateTime = DateTime.fromISO(appointment.start).setZone(locationTimeZone);
-    start = dateTime.toFormat('h:mm a');
-  }
+  const start = appointment.start ? DateTime.fromISO(appointment.start).toFormat('h:mm a') : undefined;
 
   const showChatIcon = appointment.smsModel !== undefined;
   // console.log('sms model', appointment.smsModel);

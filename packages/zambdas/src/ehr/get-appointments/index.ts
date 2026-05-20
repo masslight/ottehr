@@ -88,11 +88,18 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   // "start": "2025-03-21T00:15:00.000Z",
   // "end": "2025-03-21T00:30:00.000Z",
   // But in local time (e.g., America/New_York) this may actually be 2025-03-20.
-  // We should use the appointment's timezone to request the correct appointments.
-  // The approach: use date without timezone from client and convert it to Zulu (UTC)
-  // with the appointment's timezone.
-  const { visitType, searchDate, locationIds, providerIds, serviceCategories, supervisorApprovalEnabled, secrets } =
-    validatedParameters;
+  // We should use the supplied timezone to request the correct appointments.
+  // The approach: use date with timezone from client and convert it to a range of date-time in Zulu (UTC)
+  const {
+    visitType,
+    searchDate,
+    timezone,
+    locationIds,
+    providerIds,
+    serviceCategories,
+    supervisorApprovalEnabled,
+    secrets,
+  } = validatedParameters;
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
@@ -156,6 +163,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
           resourceId: options.resourceId,
           resourceType: options.resourceType,
           searchDate,
+          timezone,
         });
 
         const appointmentRequest = {

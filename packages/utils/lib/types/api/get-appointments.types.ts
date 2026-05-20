@@ -2,6 +2,7 @@ import { InPersonAppointmentInformation } from '..';
 
 export interface GetAppointmentsZambdaInput {
   searchDate: string;
+  timezone: string;
   locationIds?: string[];
   providerIds?: string[];
   serviceCategories?: string[];

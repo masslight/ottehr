@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import { Box, Button, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
+import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -75,6 +76,7 @@ export default function Appointments(): ReactElement {
       if ((locations.length > 0 || providers.length > 0 || serviceCategories.length > 0) && dateParam && visitType) {
         const searchResults = await getAppointments(client, {
           searchDate: dateParam,
+          timezone: DateTime.now().zoneName,
           locationIds: locations,
           providerIds: providers,
           serviceCategories,
