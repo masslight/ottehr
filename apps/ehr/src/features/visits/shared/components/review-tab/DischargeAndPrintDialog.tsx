@@ -1,3 +1,4 @@
+import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Checkbox,
@@ -11,13 +12,12 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
-import { createDischargeSummary } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import { SCHOOL_NOTE_CODE, WORK_NOTE_CODE } from 'utils';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
-import { handleDischarge } from './DischargeButton';
+import { createAndOpenDischargeSummary, handleDischarge } from './DischargeButton';
 
 interface DischargeAndPrintDialogProps {
   open: boolean;
@@ -71,22 +71,7 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
 
       if (printDischargeSummary && hasDischargeSummary && appointmentId) {
         printPromises.push(
-          createDischargeSummary(oystehrZambda, { appointmentId })
-            .then(async (response) => {
-              const documentId = response?.documentId;
-              if (documentId) {
-                await downloadDocument(documentId, { skipRelated: true });
-              } else {
-                enqueueSnackbar(
-                  'Discharge summary created, but document is not accessible right now. You can find it later in the Patient Record > Review Docs.',
-                  { variant: 'info' }
-                );
-              }
-            })
-            .catch((error) => {
-              console.error('Error creating Discharge Summary:', error);
-              enqueueSnackbar('Error creating Discharge Summary.', { variant: 'error' });
-            })
+          createAndOpenDischargeSummary(oystehrZambda, appointmentId, downloadDocument, { skipRelated: true })
         );
       }
 
@@ -196,14 +181,14 @@ export const DischargeAndPrintDialog: FC<DischargeAndPrintDialogProps> = ({
         >
           Cancel
         </Button>
-        <Button
+        <LoadingButton
           onClick={handleDischargeAndPrint}
-          disabled={isLoading}
+          loading={isLoading}
           variant="contained"
           sx={{ borderRadius: 100, textTransform: 'none' }}
         >
-          {isLoading ? 'Processing...' : 'Discharge & Print'}
-        </Button>
+          Discharge & Print
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   );

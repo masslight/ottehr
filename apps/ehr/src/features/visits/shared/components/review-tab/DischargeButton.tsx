@@ -5,6 +5,7 @@ import { Box, Button, ButtonGroup, Skeleton, Tooltip } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
+import { createDischargeSummary } from 'src/api/api';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -12,6 +13,29 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getInPersonVisitStatus } from 'utils';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { DischargeAndPrintDialog } from './DischargeAndPrintDialog';
+
+export const createAndOpenDischargeSummary = async (
+  oystehr: Oystehr,
+  appointmentId: string,
+  downloadDocument: (id: string, options?: { skipRelated?: boolean }) => Promise<void>,
+  options?: { skipRelated?: boolean }
+): Promise<void> => {
+  try {
+    const response = await createDischargeSummary(oystehr, { appointmentId });
+    const documentId = response?.documentId;
+    if (documentId) {
+      await downloadDocument(documentId, options);
+    } else {
+      enqueueSnackbar(
+        'Discharge summary created, but document is not accessible right now. You can find it later in the Patient Record > Review Docs.',
+        { variant: 'info' }
+      );
+    }
+  } catch (error) {
+    console.error('Error creating Discharge Summary:', error);
+    enqueueSnackbar('Error creating Discharge Summary.', { variant: 'error' });
+  }
+};
 
 export const handleDischarge = async (encounterId: string, oystehr?: Oystehr): Promise<void> => {
   await handleChangeInPersonVisitStatus({ encounterId, updatedStatus: 'discharged' }, oystehr);
