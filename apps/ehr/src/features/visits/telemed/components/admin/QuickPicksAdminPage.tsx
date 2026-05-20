@@ -5,19 +5,16 @@ import React, { ReactElement, useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   createAllergyQuickPick,
-  createInsuranceQuickPick,
   createMedicalConditionQuickPick,
   createMedicationHistoryQuickPick,
   createPatientInstructionQuickPick,
   createQuickTextQuickPick,
   getAllergyQuickPicks,
-  getInsuranceQuickPicks,
   getMedicalConditionQuickPicks,
   getMedicationHistoryQuickPicks,
   getPatientInstructionQuickPicks,
   getQuickTextQuickPicks,
   removeAllergyQuickPick,
-  removeInsuranceQuickPick,
   removeMedicalConditionQuickPick,
   removeMedicationHistoryQuickPick,
   removePatientInstructionQuickPick,
@@ -34,7 +31,6 @@ import {
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AllergyQuickPickData,
-  InsuranceQuickPickData,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   PatientInstructionQuickPickData,
@@ -42,7 +38,7 @@ import {
 } from 'utils';
 import ImmunizationQuickPicksPage from './ImmunizationQuickPicksPage';
 import InHouseMedicationQuickPicksPage from './InHouseMedicationQuickPicksPage';
-import { InsuranceSearchField } from './InsuranceSearchField';
+import InsuranceQuickPickPage from './InsuranceQuickPickPage';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
 import QuickPickEditor from './QuickPickEditor';
 import { QuickTextTemplateField } from './QuickTextTemplateField';
@@ -336,30 +332,6 @@ export default function QuickPicksAdminPage(): ReactElement {
     [oystehrZambda]
   );
 
-  // ── Insurance callbacks ──
-  const fetchInsurance = useCallback(async () => {
-    if (!oystehrZambda) return [];
-    const response = await getInsuranceQuickPicks(oystehrZambda);
-    return response.quickPicks;
-  }, [oystehrZambda]);
-
-  const createInsurance = useCallback(
-    async (data: Omit<InsuranceQuickPickData, 'id'>) => {
-      if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      const response = await createInsuranceQuickPick(oystehrZambda, { quickPick: data });
-      return response.quickPick;
-    },
-    [oystehrZambda]
-  );
-
-  const removeInsurance = useCallback(
-    async (id: string) => {
-      if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removeInsuranceQuickPick(oystehrZambda, id);
-    },
-    [oystehrZambda]
-  );
-
   // ── Patient instruction callbacks ──
   const fetchPatientInstructions = useCallback(async () => {
     if (!oystehrZambda) return [];
@@ -542,30 +514,7 @@ export default function QuickPicksAdminPage(): ReactElement {
           <InHouseMedicationQuickPicksPage />
         </TabPanel>
         <TabPanel value="insurance" sx={{ px: 0 }}>
-          <QuickPickEditor<InsuranceQuickPickData>
-            title="Insurance Quick Picks"
-            description="Manage common insurance carriers that appear as quick picks when selecting a patient's insurance."
-            columns={[{ label: 'Insurance Name', getValue: (item) => item.name }]}
-            fields={[
-              {
-                key: 'name',
-                label: 'Insurance',
-                required: true,
-                renderField: (value, onValueChange, onExtraData) => (
-                  <InsuranceSearchField value={value} onChange={onValueChange} onExtraData={onExtraData} />
-                ),
-              },
-            ]}
-            editable={false}
-            fetchItems={fetchInsurance}
-            createItem={createInsurance}
-            removeItem={removeInsurance}
-            buildItemFromFields={(values) => ({
-              name: values.name.trim(),
-              payerId: values.payerId ?? '',
-              organizationReference: values.organizationReference ?? '',
-            })}
-          />
+          <InsuranceQuickPickPage />
         </TabPanel>
         <TabPanel value="patient-instructions" sx={{ px: 0 }}>
           <QuickPickEditor<PatientInstructionQuickPickData>
