@@ -797,6 +797,11 @@ const getCreateOrderResources = async (input: GetCreateOrderResourcesInput): Pro
       if (!workersCompInsurance) {
         throw new Error(`workersCompInsurance not found for encounter: ${encounter.id}`);
       }
+      if (isOtherInsurance(workersCompInsurance)) {
+        throw EXTERNAL_LAB_ERROR(
+          `Cannot order lab with "Other" insurance. Update the Worker's Comp insurance or select a new payment method`
+        );
+      }
       coverageDetails = {
         type: LabPaymentMethod.WorkersComp,
         workersCompInsurance,
