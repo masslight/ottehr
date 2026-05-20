@@ -56,8 +56,8 @@ const INDENT = '  ';
 
 const COUNT_TO_PRINT = 5000;
 
-const DOC_TYPES_TO_ANALYZE: string[] = ['Composite', 'Patient Documentation'];
-// const DOC_TYPES_TO_ANALYZE: string[] = [];
+// const DOC_TYPES_TO_ANALYZE: string[] = ['Composite', 'Patient Documentation'];
+const DOC_TYPES_TO_ANALYZE: string[] = [];
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
