@@ -43,6 +43,9 @@ export function validateRequestParameters(input: ZambdaInput): { secrets: Secret
   };
 }
 
+// 'arrived' for OTR-2552
+export const READY_OR_UNSIGNED_ENCOUNTER_STATUSES: Encounter['status'][] = ['planned', 'arrived', 'finished'];
+
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
@@ -101,7 +104,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
   ] = await Promise.all([
     getResourcePackagesAppointmentsMap(
       oystehr,
-      ['planned', 'finished'],
+      READY_OR_UNSIGNED_ENCOUNTER_STATUSES,
       // getting ready and unsigned appointments for the last 49 hours just to send appropriate notifications
       // on unsigned appointments that are in the unsigned state for too long
       DateTime.utc().minus(Duration.fromISO('PT49H'))
