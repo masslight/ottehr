@@ -2,15 +2,20 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import CheckIcon from '@mui/icons-material/Check';
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, ButtonGroup, Skeleton, Tooltip } from '@mui/material';
+import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { handleDischarge } from 'src/helpers/inPersonVisitStatusUtils';
+import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getInPersonVisitStatus } from 'utils';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { DischargeAndPrintDialog } from './DischargeAndPrintDialog';
+
+export const handleDischarge = async (encounterId: string, oystehr?: Oystehr): Promise<void> => {
+  await handleChangeInPersonVisitStatus({ encounterId, updatedStatus: 'discharged' }, oystehr);
+};
 
 export const DischargeButton: FC = () => {
   const { appointment, encounter, appointmentRefetch, resources } = useAppointmentData();

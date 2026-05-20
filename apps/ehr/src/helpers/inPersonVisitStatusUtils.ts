@@ -2,10 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { ChangeInPersonVisitStatusInput } from 'utils';
 import { changeInPersonVisitStatus } from '../api/api';
 
-export const handleDischarge = async (encounterId: string, oystehr?: Oystehr): Promise<void> => {
-  await handleChangeInPersonVisitStatus({ encounterId, updatedStatus: 'discharged' }, oystehr);
-};
-
 export const handleChangeInPersonVisitStatus = async (
   zambdaInput: ChangeInPersonVisitStatusInput,
   oystehr?: Oystehr

@@ -12,12 +12,12 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
 import { createDischargeSummary } from 'src/api/api';
-import { handleDischarge } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import { SCHOOL_NOTE_CODE, WORK_NOTE_CODE } from 'utils';
 import { useChartData } from '../../stores/appointment/appointment.store';
+import { handleDischarge } from './DischargeButton';
 
 interface DischargeAndPrintDialogProps {
   open: boolean;
