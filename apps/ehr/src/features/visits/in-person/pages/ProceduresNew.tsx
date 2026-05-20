@@ -901,7 +901,8 @@ export default function ProceduresNew(): ReactElement {
     let cancelled = false;
     fetch('/consent_procedure.pdf', { method: 'HEAD' })
       .then((res) => {
-        if (!cancelled) setConsentPdfExists(res.ok);
+        const contentType = res.headers.get('content-type') ?? '';
+        if (!cancelled) setConsentPdfExists(res.ok && contentType.includes('pdf'));
       })
       .catch(() => {
         if (!cancelled) setConsentPdfExists(false);
