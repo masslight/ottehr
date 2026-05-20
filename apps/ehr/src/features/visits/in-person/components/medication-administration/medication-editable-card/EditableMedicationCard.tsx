@@ -32,8 +32,6 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useMergedInHouseMedicationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import {
-  CODE_SYSTEM_CPT,
-  CODE_SYSTEM_HCPCS,
   ExtendedMedicationDataForResponse,
   getApiError,
   getMedicationName,
@@ -186,28 +184,6 @@ export const EditableMedicationCard: React.FC<{
     }
     if (field === 'medicationId' && value !== '' && (typeFromProps === 'order-new' || typeFromProps === 'order-edit')) {
       setErxEnabled(true);
-    }
-    // Auto-populate CPT codes from medication resource when a medication is selected
-    if (field === 'medicationId' && value && value !== IN_HOUSE_CONTAINED_MEDICATION_ID && oystehr) {
-      void (async () => {
-        try {
-          const med = await oystehr.fhir.get<Medication>({
-            resourceType: 'Medication',
-            id: value as string,
-          });
-          const codes: { code: string; display: string }[] = [];
-          med.code?.coding?.forEach((coding) => {
-            if ((coding.system === CODE_SYSTEM_CPT || coding.system === CODE_SYSTEM_HCPCS) && coding.code) {
-              codes.push({ code: coding.code, display: coding.display ?? '' });
-            }
-          });
-          if (codes.length > 0) {
-            setLocalValues((prev) => ({ ...prev, cptCodes: codes }));
-          }
-        } catch {
-          // Medication lookup failed — user can still add CPT codes manually
-        }
-      })();
     }
   };
 
