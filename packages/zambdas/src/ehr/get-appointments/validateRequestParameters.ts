@@ -27,6 +27,12 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
   }
   const searchDate = body.searchDate;
 
+  // Safely extract and validate searchDate (required string)
+  if (typeof body.timezone !== 'string') {
+    throw new Error('timezone is required and must be a string');
+  }
+  const timezone = body.timezone;
+
   // Safely extract and validate locationIds (optional string)
   let locationIds: string[] | undefined;
   if (body.locationIds !== undefined) {
@@ -82,6 +88,7 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
 
   return {
     searchDate,
+    timezone,
     locationIds,
     providerIds,
     serviceCategories,
