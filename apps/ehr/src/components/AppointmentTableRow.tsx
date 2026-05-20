@@ -72,6 +72,7 @@ import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusU
 import { getTrackingBoardPrimaryAction } from '../helpers/trackingBoardPrimaryAction';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
+import { useSupportPhonesMap } from '../hooks/useLocationSupportPhones';
 import AppointmentNote from './AppointmentNote';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
@@ -188,6 +189,7 @@ export default function AppointmentTableRow({
 }: AppointmentTableRowProps): ReactElement | null {
   const { oystehr, oystehrZambda } = useApiClients();
   const apiClient = useOystehrAPIClient();
+  const { phonesByLocationName } = useSupportPhonesMap();
   const theme = useTheme();
   const navigate = useNavigate();
   const { encounter } = appointment;
@@ -529,7 +531,7 @@ export default function AppointmentTableRow({
     locationName: location?.name,
     bookingTime: start,
     officePhone: officePhoneNumber,
-    supportPhone: getSupportPhoneFor(location?.name) || '',
+    supportPhone: getSupportPhoneFor(location?.name, phonesByLocationName) || '',
   };
 
   const onCloseChat = useCallback(() => {

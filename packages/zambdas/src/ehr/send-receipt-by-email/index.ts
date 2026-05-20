@@ -58,7 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       'recipient-name': recipientFullName,
       date: DateTime.now().toFormat('MM/dd/yyyy'),
     };
-    const emailClient = getEmailClient(secrets);
+    const emailClient = getEmailClient(secrets, oystehr);
     await emailClient.sendInPersonReceiptEmail(email, templateData, [attachment]);
   }
 

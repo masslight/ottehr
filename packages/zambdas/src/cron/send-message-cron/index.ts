@@ -192,7 +192,7 @@ export const index = wrapHandler('send-message-cron', async (input: ZambdaInput)
           'paperwork-url': makePaperworkUrl(fhirAppointment.id, secrets),
           address,
         };
-        const emailClient = getEmailClient(secrets);
+        const emailClient = getEmailClient(secrets, oystehr);
         await emailClient.sendInPersonReminderEmail(patientEmail, templateData);
       } else {
         console.log(`not sending email, missing data: ${missingData.join(', ')}`);

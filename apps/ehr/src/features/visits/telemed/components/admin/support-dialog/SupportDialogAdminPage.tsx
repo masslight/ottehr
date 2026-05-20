@@ -9,11 +9,14 @@ export default function SupportDialogAdminPage(): ReactElement {
   const { data, isPending, isError, dataUpdatedAt } = useAdminGetSupportDialog();
   const { mutateAsync, isPending: isSubmitting } = useAdminUpdateSupportDialog();
 
-  const [bodyHtml, setBodyHtml] = useState('');
+  const [editedBodyHtml, setEditedBodyHtml] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    setBodyHtml(data?.bodyHtml ?? '');
+    setEditedBodyHtml(undefined);
   }, [data?.bodyHtml, dataUpdatedAt]);
+
+  const bodyHtml = editedBodyHtml ?? data?.bodyHtml ?? '';
+  const savedBodyHtml = data?.bodyHtml ?? '';
 
   const handleSave = async (): Promise<void> => {
     await mutateAsync({ bodyHtml });
@@ -41,8 +44,9 @@ export default function SupportDialogAdminPage(): ReactElement {
             ) : (
               <>
                 <RichTextEditorField
+                  key={dataUpdatedAt}
                   value={bodyHtml}
-                  onChange={setBodyHtml}
+                  onChange={setEditedBodyHtml}
                   placeholder="Write the support text patients will see…"
                   minHeight={320}
                   disabled={isSubmitting}
@@ -52,7 +56,7 @@ export default function SupportDialogAdminPage(): ReactElement {
                     variant="contained"
                     loading={isSubmitting}
                     onClick={handleSave}
-                    disabled={bodyHtml === (data?.bodyHtml ?? '')}
+                    disabled={bodyHtml === savedBodyHtml}
                   >
                     Save
                   </LoadingButton>

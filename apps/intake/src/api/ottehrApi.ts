@@ -14,7 +14,6 @@ import {
   GetBookingQuestionnaireResponse,
   GetEligibilityParameters,
   GetEligibilityResponse,
-  GetLocationSupportPhonesOutput,
   GetPresignedFileURLInput,
   GetScheduleRequestParams,
   GetScheduleResponse,
@@ -71,7 +70,6 @@ const GET_WALKIN_AVAILABILITY_ZAMBDA_ID = 'walkin-check-availability';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const GET_SLOT_DETAILS_ZAMBDA_ID = 'get-slot-details';
 const GET_PUBLIC_SUPPORT_DIALOG_ZAMBDA_ID = 'get-public-support-dialog';
-const GET_PUBLIC_LOCATION_SUPPORT_PHONES_ZAMBDA_ID = 'get-public-location-support-phones';
 
 class API {
   async checkIn(
@@ -231,15 +229,6 @@ class API {
   async getPublicSupportDialog(zambdaClient: ZambdaClient): Promise<GetSupportDialogOutput> {
     try {
       const response = await zambdaClient.executePublic(GET_PUBLIC_SUPPORT_DIALOG_ZAMBDA_ID, {});
-      return chooseJson(response);
-    } catch (error: unknown) {
-      throw apiErrorToThrow(error, false);
-    }
-  }
-
-  async getPublicLocationSupportPhones(zambdaClient: ZambdaClient): Promise<GetLocationSupportPhonesOutput> {
-    try {
-      const response = await zambdaClient.executePublic(GET_PUBLIC_LOCATION_SUPPORT_PHONES_ZAMBDA_ID, {});
       return chooseJson(response);
     } catch (error: unknown) {
       throw apiErrorToThrow(error, false);

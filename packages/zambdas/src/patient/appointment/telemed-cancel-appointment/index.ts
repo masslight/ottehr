@@ -6,11 +6,13 @@ import { Appointment, Coding, Encounter, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
+  buildLocationSupportPhonesMap,
   cancelAppointmentResource,
   CancelTelemedAppointmentZambdaInput,
   CancelTelemedAppointmentZambdaOutput,
   createOystehrClient,
   FHIR_ZAPEHR_URL,
+  getAllFhirSearchPages,
   getAppointmentResourceById,
   getLocationIdFromAppointment,
   getLocationResource,
@@ -184,7 +186,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   try {
     const email = getPatientContactEmail(patient);
     if (email) {
-      const emailClient = getEmailClient(secrets);
+      const emailClient = getEmailClient(secrets, oystehr);
       const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
 
       const templateData: TelemedCancelationTemplateData = {
@@ -208,7 +210,9 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
     console.log(`No user-relatedperson found for patient ${patient.id}; not sending cancellation text`);
     reportMissingUserRelatedPerson('telemed-cancel-appointment', patient.id);
   } else {
-    const message = `Sorry to see you go. Questions? Call ${getSupportPhoneFor(locationName)} `;
+    const allLocations = await getAllFhirSearchPages<Location>({ resourceType: 'Location' }, oystehr);
+    const phonesMap = buildLocationSupportPhonesMap(allLocations);
+    const message = `Sorry to see you go. Questions? Call ${getSupportPhoneFor(locationName, phonesMap) ?? ''} `;
     await sendSmsToRelatedPersons({
       relatedPersons,
       message,

@@ -22,7 +22,6 @@ export interface LocationSupportPhoneEntry {
 }
 
 export interface GetLocationSupportPhonesOutput {
-  defaultSupportPhoneNumber?: string;
   locations: LocationSupportPhoneEntry[];
 }
 

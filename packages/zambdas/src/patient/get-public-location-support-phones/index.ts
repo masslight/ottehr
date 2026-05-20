@@ -1,8 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
 import {
+  getAllFhirSearchPages,
   GetLocationSupportPhonesOutput,
-  LOCATION_CONFIG,
   LOCATION_SUPPORT_PHONE_EXTENSION_URL,
   LocationSupportPhoneEntry,
 } from 'utils';
@@ -18,12 +18,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   const oystehr = createOystehrClient(oystehrToken, secrets);
 
-  const locations = (
-    await oystehr.fhir.search<Location>({
-      resourceType: 'Location',
-      params: [{ name: '_count', value: '1000' }],
-    })
-  ).unbundle();
+  const locations = await getAllFhirSearchPages<Location>({ resourceType: 'Location' }, oystehr);
 
   const entries: LocationSupportPhoneEntry[] = locations
     .map((loc) => {
@@ -34,7 +29,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     .filter((e): e is LocationSupportPhoneEntry => e !== undefined);
 
   const response: GetLocationSupportPhonesOutput = {
-    defaultSupportPhoneNumber: LOCATION_CONFIG.supportPhoneNumber,
     locations: entries,
   };
   return { statusCode: 200, body: JSON.stringify(response) };
