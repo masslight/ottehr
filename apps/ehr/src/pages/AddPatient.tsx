@@ -19,7 +19,12 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  CopyableFollowupField,
+  copyChartDataToFollowup,
+} from 'src/features/visits/shared/components/patient/copyFollowupFields';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import {
   BOOKING_CONFIG,
   CreateAppointmentInputParams,
@@ -98,6 +103,7 @@ export default function AddPatient(): JSX.Element {
         parentLocation?: LocationWithWalkinSchedule;
         patientId?: string;
         patientInfo?: AddVisitPatientInfo;
+        copyFields?: CopyableFollowupField[];
       }
     | undefined;
   const parentEncounterId = followUpState?.parentEncounterId;
@@ -154,6 +160,7 @@ export default function AddPatient(): JSX.Element {
   // general variables
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
+  const apiClient = useOystehrAPIClient();
   const reasonForVisitErrorMessage = `Input cannot be more than ${MAXIMUM_CHARACTER_LIMIT} characters`;
 
   const handleAdditionalReasonForVisitChange = (newValue: string): void => {
@@ -292,6 +299,18 @@ export default function AddPatient(): JSX.Element {
       let apiErr = false;
       try {
         response = await createAppointment(oystehrZambda, zambdaParams);
+
+        const copyFields = followUpState?.copyFields;
+        if (response && parentEncounterId && apiClient && copyFields && copyFields.length > 0) {
+          try {
+            await copyChartDataToFollowup(apiClient, parentEncounterId, response.encounterId, copyFields);
+          } catch (copyError) {
+            console.error('Failed to copy chart data to follow-up visit:', copyError);
+            enqueueSnackbar('Visit created, but copying the note from the previous visit failed.', {
+              variant: 'warning',
+            });
+          }
+        }
       } catch (error) {
         console.error(`Failed to add patient: ${error}`);
         enqueueSnackbar('An unexpected error occurred, please try again.', { variant: 'error' });
