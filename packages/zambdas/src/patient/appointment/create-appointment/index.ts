@@ -645,6 +645,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     currentPatientAccount = accountInfo?.account;
   }
 
+  // need to add accounts to encounter for workers comp
+
   const item: QuestionnaireResponseItem[] = makePrepopulatedItemsForPatient({
     patient: patientToUse,
     isNewQrsPatient: createPatientRequest?.resource !== undefined,
@@ -684,13 +686,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     url: '/Appointment',
     resource: apptResource,
     fullUrl: apptUrl,
-  };
-
-  const postEncRequest: BatchInputRequest<Encounter> = {
-    method: 'POST',
-    url: '/Encounter',
-    resource: encResource,
-    fullUrl: encUrl,
   };
 
   const patientRequests: BatchInputRequest<Patient>[] = [];
@@ -742,6 +737,23 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const postAccidentConditionRequests: BatchInputPostRequest<Condition>[] = [];
   const serviceCategoryCode = getCoding(slot?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
   if (serviceCategoryCode === 'workers-comp') {
+    // accounts should be on the encounter, needed for ordering labs for workers comp visits
+    // and if no paperwork is updated, harvest does not run and the account is never added
+    const accountRefs: Reference[] = [];
+    if (accountInfo?.workersCompAccount) {
+      accountRefs.push({ reference: `Account/${accountInfo.workersCompAccount.id}` });
+    }
+    if (currentPatientAccount) {
+      accountRefs.push({ reference: `Account/${currentPatientAccount.id}` });
+    }
+    if (accountRefs.length) {
+      if (encResource['account']) {
+        encResource.account.push(...accountRefs);
+      } else {
+        encResource['account'] = accountRefs;
+      }
+    }
+
     postAccidentConditionRequests.push({
       method: 'POST',
       url: '/Condition',
@@ -768,6 +780,13 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       },
     });
   }
+
+  const postEncRequest: BatchInputRequest<Encounter> = {
+    method: 'POST',
+    url: '/Encounter',
+    resource: encResource,
+    fullUrl: encUrl,
+  };
 
   const transactionInput: BatchInput<
     Appointment | Encounter | Patient | List | QuestionnaireResponse | Account | Task | Slot | Condition
