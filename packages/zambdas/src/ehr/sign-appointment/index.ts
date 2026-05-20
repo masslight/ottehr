@@ -210,7 +210,10 @@ const changeFollowupEncounterStatusToCompleted = async (
     }
   }
 
-  const documentPatch = createPublishExcuseNotesOps(resourcesToUpdate?.documentReferences ?? []);
+  const documentPatch = createPublishExcuseNotesOps(
+    resourcesToUpdate?.documentReferences ?? [],
+    resourcesToUpdate.encounter.id
+  );
 
   const encounterPatch = getPatchBinary({
     resourceType: 'Encounter',
@@ -301,7 +304,10 @@ const changeStatusToCompleted = async (
     }
   }
 
-  const documentPatch = createPublishExcuseNotesOps(resourcesToUpdate?.documentReferences ?? []);
+  const documentPatch = createPublishExcuseNotesOps(
+    resourcesToUpdate?.documentReferences ?? [],
+    resourcesToUpdate.encounter.id
+  );
 
   const appointmentPatch = getPatchBinary({
     resourceType: 'Appointment',

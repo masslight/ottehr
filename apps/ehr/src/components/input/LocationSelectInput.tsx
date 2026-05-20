@@ -1,16 +1,20 @@
 import { Location } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { isLocationVirtual } from 'utils';
+import { getAllFhirSearchPages, isLocationVirtual } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';
 
 type Props = {
   name: string;
   label: string;
+  multiple?: boolean;
   required?: boolean;
+  size?: 'small' | 'medium';
+  type?: 'in-person' | 'virtual';
+  dataTestId?: string;
 };
 
-export const LocationSelectInput: React.FC<Props> = ({ name, label, required }) => {
+export const LocationSelectInput: React.FC<Props> = ({ name, label, multiple, required, size, type, dataTestId }) => {
   const { oystehr } = useApiClients();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [options, setOptions] = useState<{ id: string; name: string }[] | undefined>(undefined);
@@ -25,13 +29,22 @@ export const LocationSelectInput: React.FC<Props> = ({ name, label, required }) 
       try {
         setIsLoading(true);
         const options = (
-          await oystehr.fhir.search<Location>({
-            resourceType: 'Location',
-            params: [{ name: '_count', value: '1000' }],
-          })
+          await getAllFhirSearchPages<Location>(
+            {
+              resourceType: 'Location',
+            },
+            oystehr
+          )
         )
-          .unbundle()
-          .filter((location: Location) => !isLocationVirtual(location))
+          .filter((location: Location) => {
+            if (type === 'in-person') {
+              return !isLocationVirtual(location);
+            }
+            if (type === 'virtual') {
+              return isLocationVirtual(location);
+            }
+            return true;
+          })
           .map((location: Location) => ({
             id: location.id ?? '',
             name: getLocationLabel(location),
@@ -45,7 +58,7 @@ export const LocationSelectInput: React.FC<Props> = ({ name, label, required }) 
       }
     }
     void loadLocationsOptions();
-  }, [oystehr]);
+  }, [oystehr, type]);
   return (
     <AutocompleteInput
       name={name}
@@ -56,6 +69,9 @@ export const LocationSelectInput: React.FC<Props> = ({ name, label, required }) 
       getOptionLabel={(option) => option.name ?? options?.find((opt) => opt.id === option.id)?.name ?? option.id}
       getOptionKey={(option) => option.id}
       isOptionEqualToValue={(option, value) => option.id === value.id}
+      multiple={multiple}
+      size={size}
+      dataTestId={dataTestId}
     />
   );
 };
