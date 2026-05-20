@@ -32,6 +32,9 @@ export const sortQuickPicks = (a: any, b: any): number => {
   return aLabel.localeCompare(bLabel);
 };
 
+/**
+ * Generic hook that fetches FHIR-based quick picks from a zambda endpoint.
+ */
 export function useFhirQuickPicks<T>(
   fetchFn: (oystehr: any) => Promise<{ quickPicks: T[] }>,
   options?: { enabled?: boolean }
