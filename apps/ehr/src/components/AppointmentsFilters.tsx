@@ -107,7 +107,13 @@ export default function AppointmentsFilters(): ReactElement {
       <Paper sx={{ padding: 2 }}>
         <Stack direction="row" spacing={2} alignItems="flex-start">
           <Box style={{ flex: 1 }}>
-            <LocationSelectInput name="location" label="Location" size="medium" multiple />
+            <LocationSelectInput
+              name="location"
+              label="Location"
+              size="medium"
+              dataTestId={dataTestIds.dashboard.locationSelect}
+              multiple
+            />
           </Box>
           <Box style={{ flex: 1.5 }}>
             <SelectInput
