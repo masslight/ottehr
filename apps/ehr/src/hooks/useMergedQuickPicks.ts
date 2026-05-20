@@ -26,9 +26,12 @@ interface UseFhirQuickPicksResult<T> {
   refetch: () => Promise<void>;
 }
 
-/**
- * Generic hook that fetches FHIR-based quick picks from a zambda endpoint.
- */
+export const sortQuickPicks = (a: any, b: any): number => {
+  const aLabel = a.name ?? a.display ?? '';
+  const bLabel = b.name ?? b.display ?? '';
+  return aLabel.localeCompare(bLabel);
+};
+
 export function useFhirQuickPicks<T>(
   fetchFn: (oystehr: any) => Promise<{ quickPicks: T[] }>,
   options?: { enabled?: boolean }
@@ -47,7 +50,7 @@ export function useFhirQuickPicks<T>(
     setLoading(true);
     try {
       const response = await fetchFn(oystehrZambda);
-      setQuickPicks(response.quickPicks);
+      setQuickPicks([...response.quickPicks].sort(sortQuickPicks));
     } catch (error) {
       console.error('Failed to load quick picks:', error);
       enqueueSnackbar('Failed to load quick picks', { variant: 'error' });
