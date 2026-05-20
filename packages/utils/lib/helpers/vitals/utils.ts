@@ -240,18 +240,16 @@ const getRulesForPatientDOB = (
   const rules = alertThresholds
     .filter((threshold) => {
       const { minAge, maxAge } = threshold;
-      if (!minAge && !maxAge) return true;
+      let inRange = true;
       if (minAge) {
-        const minAgeDOB = now.minus({ [minAge.unit]: minAge.value });
-        if (dateOfBirth > minAgeDOB) return false;
+        const patientAge = now.diff(dateOfBirth, minAge.unit)[minAge.unit];
+        inRange &&= patientAge >= minAge.value;
       }
       if (maxAge) {
-        // Exclusive upper bound: when an adjacent threshold's minAge equals this maxAge,
-        // a patient at exactly maxAge will match the next (older-age) threshold instead.
-        const maxAgeDOB = now.minus({ [maxAge.unit]: maxAge.value });
-        if (dateOfBirth <= maxAgeDOB) return false;
+        const patientAge = now.diff(dateOfBirth, maxAge.unit)[maxAge.unit];
+        inRange &&= patientAge < maxAge.value;
       }
-      return true;
+      return inRange;
     })
     .flatMap((threshold) => threshold.rules ?? []);
   return rules;

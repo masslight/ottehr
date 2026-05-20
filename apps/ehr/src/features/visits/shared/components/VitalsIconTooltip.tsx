@@ -1,3 +1,4 @@
+import ErrorIcon from '@mui/icons-material/Error';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { Link } from 'react-router-dom';
@@ -38,8 +39,8 @@ const getLabelForVitalField = (field: VitalFieldNames): string => {
 export const VitalsIconTooltip: React.FC<VitalsIconTooltipProps> = ({ appointment, abnormalVitals }) => {
   const theme = useTheme();
 
-  const hasAbnormals = Object.keys(abnormalVitals).length > 0;
-  if (!hasAbnormals) return null;
+  const hasAbnormalVitals = Object.keys(abnormalVitals).length > 0;
+  if (!hasAbnormalVitals) return null;
 
   const abnormals: {
     [K in keyof typeof VitalFieldNames]: { data: VitalsObservationDTO[]; label: string };
@@ -54,33 +55,44 @@ export const VitalsIconTooltip: React.FC<VitalsIconTooltipProps> = ({ appointmen
     {} as { [K in keyof typeof VitalFieldNames]: { data: VitalsObservationDTO[]; label: string } }
   );
 
+  const hasAbnormal = Object.values(abnormals).some((item) =>
+    item.data.some((data) => data.alertCriticality === 'abnormal')
+  );
+  const hasCritical = Object.values(abnormals).some((item) =>
+    item.data.some((data) => data.alertCriticality === 'critical')
+  );
+
   return (
     <GenericToolTip
       title={
         <>
-          <AssessmentTitle>Abnormal vitals</AssessmentTitle>
+          <AssessmentTitle>Critical & Abnormal Vitals</AssessmentTitle>
           <Stack spacing={1}>
             {Object.entries(abnormals).map(([key, abnormal]) => {
               return (
                 <Box key={key} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                   {abnormal.data.length > 0 &&
-                    abnormal.data.map((item) => (
-                      <Box key={item.resourceId || item.lastUpdated} sx={{ display: 'flex', alignItems: 'center' }}>
-                        {abnormal.label} -&nbsp;
-                        <Typography
-                          component="span"
-                          sx={{ fontSize: '14px', fontWeight: 'bold', color: theme.palette.warning.light }}
-                        >
-                          {getObservationValueElements(item, theme.palette.warning.light)}
-                        </Typography>
-                        {item.alertCriticality === 'abnormal' && (
-                          <WarningAmberOutlinedIcon
-                            fontSize="small"
-                            sx={{ ml: '4px', verticalAlign: 'middle', color: theme.palette.warning.light }}
-                          />
-                        )}
-                      </Box>
-                    ))}
+                    abnormal.data.map((item) => {
+                      const color =
+                        item.alertCriticality === 'abnormal' ? theme.palette.warning.light : theme.palette.error.main;
+                      return (
+                        <Box key={item.resourceId || item.lastUpdated} sx={{ display: 'flex', alignItems: 'center' }}>
+                          {abnormal.label} -&nbsp;
+                          <Typography component="span" sx={{ fontSize: '14px', fontWeight: 'bold', color: color }}>
+                            {getObservationValueElements(item, color)}
+                          </Typography>
+                          {item.alertCriticality === 'abnormal' && (
+                            <WarningAmberOutlinedIcon
+                              fontSize="small"
+                              sx={{ ml: '4px', verticalAlign: 'middle', color: color }}
+                            />
+                          )}
+                          {item.alertCriticality === 'critical' && (
+                            <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: color }} />
+                          )}
+                        </Box>
+                      );
+                    })}
                 </Box>
               );
             })}
@@ -96,10 +108,15 @@ export const VitalsIconTooltip: React.FC<VitalsIconTooltipProps> = ({ appointmen
           style={{ textDecoration: 'none' }}
           key={'vitals-link-' + appointment.id}
         >
-          <WarningAmberOutlinedIcon
-            fontSize="medium"
-            sx={{ ml: '4px', verticalAlign: 'middle', color: theme.palette.warning.light }}
-          />
+          {hasAbnormal ? (
+            <WarningAmberOutlinedIcon
+              fontSize="medium"
+              sx={{ ml: '4px', verticalAlign: 'middle', color: theme.palette.warning.light }}
+            />
+          ) : null}
+          {hasCritical ? (
+            <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: theme.palette.error.main }} />
+          ) : null}
         </Link>
       </Box>
     </GenericToolTip>

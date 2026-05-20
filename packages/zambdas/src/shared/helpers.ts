@@ -29,15 +29,17 @@ import {
 } from 'utils';
 import { ZambdaInput } from './types';
 
-export function createOystehrClient(token: string, secrets: Secrets | null): Oystehr {
-  const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
-  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
-  const CLIENT_CONFIG: OystehrConfig = {
+export function createOystehrClient(
+  token: string,
+  secrets: Secrets | null,
+  overrides?: Partial<OystehrConfig>
+): Oystehr {
+  return new Oystehr({
     accessToken: token,
-    fhirApiUrl: FHIR_API,
-    projectApiUrl: PROJECT_API,
-  };
-  return new Oystehr(CLIENT_CONFIG);
+    fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
+    projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+    ...overrides,
+  });
 }
 
 export interface SMSModel {

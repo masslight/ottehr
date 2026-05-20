@@ -14,11 +14,13 @@ export const workExcuseFields = [
   'areNeededAtHomeToCareForChildDuringThisIllness',
   'workExcusedFromWorkFromTo',
   'workExcusedFromWorkOn',
+  'workMayReturnToWorkOn',
 ] as const;
 
 export const schoolExcuseFields = [
   'excusedFromSchoolFromTo',
   'excusedFromSchoolOn',
+  'schoolMayReturnToSchoolOn',
   'excusedFromSchoolUntilFeverFreeFor24Hours',
   'excusedFromSchoolUntilOnAntibioticsFor24Hours',
   'ableToReturnToSchoolWithoutRestriction',
@@ -45,9 +47,11 @@ export const dateExcuseFields = [
   'workExcusedFromWorkFromDate',
   'workExcusedFromWorkToDate',
   'workExcusedFromWorkOnDate',
+  'workMayReturnToWorkOnDate',
   'excusedFromSchoolFromDate',
   'excusedFromSchoolToDate',
   'excusedFromSchoolOnDate',
+  'schoolMayReturnToSchoolOnDate',
   'excusedFromGymActivitiesFromDate',
   'excusedFromGymActivitiesToDate',
 ] as const;
@@ -82,8 +86,10 @@ export const mapExcuseFieldsToLabels = {
   schoolExcusedFromWorkOn: 'excused from work on',
   workExcusedFromWorkFromTo: 'are excused from work from - to',
   workExcusedFromWorkOn: 'are excused from work on',
+  workMayReturnToWorkOn: 'may return to work from',
   excusedFromSchoolFromTo: 'excused from school from - to',
   excusedFromSchoolOn: 'excused from school on',
+  schoolMayReturnToSchoolOn: 'may return to school from',
   excusedFromSchoolUntilFeverFreeFor24Hours: 'excused from school until fever free for 24 hours',
   excusedFromSchoolUntilOnAntibioticsFor24Hours: 'excused from school until on antibiotics for 24 hours',
   ableToReturnToSchoolWithoutRestriction: 'able to return to school without restriction',
@@ -119,12 +125,16 @@ const mapCompositeExcuseFieldsToLabels: {
     )} to ${values.workExcusedFromWorkToDate!.toFormat('MM/dd/yyyy')}`,
   workExcusedFromWorkOn: (values: ExcuseFormValues) =>
     `excused from work on ${values.workExcusedFromWorkOnDate!.toFormat('MM/dd/yyyy')}`,
+  workMayReturnToWorkOn: (values: ExcuseFormValues) =>
+    `may return to work on ${values.workMayReturnToWorkOnDate!.toFormat('MM/dd/yyyy')}`,
   excusedFromSchoolFromTo: (values: ExcuseFormValues) =>
     `excused from school from ${values.excusedFromSchoolFromDate!.toFormat(
       'MM/dd/yyyy'
     )} to ${values.excusedFromSchoolToDate!.toFormat('MM/dd/yyyy')}`,
   excusedFromSchoolOn: (values: ExcuseFormValues) =>
     `excused from school on ${values.excusedFromSchoolOnDate!.toFormat('MM/dd/yyyy')}`,
+  schoolMayReturnToSchoolOn: (values: ExcuseFormValues) =>
+    `may return to school on ${values.schoolMayReturnToSchoolOnDate!.toFormat('MM/dd/yyyy')}`,
   excusedFromGymActivitiesFromTo: (values: ExcuseFormValues) =>
     `excused from gym/activities from ${values.excusedFromGymActivitiesFromDate!.toFormat(
       'MM/dd/yyyy'
@@ -173,8 +183,10 @@ export const getDefaultExcuseFormValues = (params: {
     schoolExcusedFromWorkOnDate: DateTime.now(),
     workExcusedFromWorkFromDate: DateTime.now(),
     workExcusedFromWorkOnDate: DateTime.now(),
+    workMayReturnToWorkOnDate: DateTime.now().plus({ days: 1 }),
     excusedFromSchoolFromDate: DateTime.now(),
     excusedFromSchoolOnDate: DateTime.now(),
+    schoolMayReturnToSchoolOnDate: DateTime.now().plus({ days: 1 }),
     excusedFromGymActivitiesFromDate: DateTime.now(),
   } as ExcuseFormValues;
 

@@ -95,7 +95,8 @@ export async function sendUserInvite(
   email: string,
   firstName: string,
   lastName: string,
-  roleIds: string[]
+  roleIds: string[],
+  npi?: string
 ): Promise<{ invitationUrl?: string; profile: string; id: string }> {
   return apiFetch('/user/invite', config, {
     method: 'POST',
@@ -107,6 +108,14 @@ export async function sendUserInvite(
       resource: {
         resourceType: 'Practitioner',
         name: [{ family: lastName, given: [firstName] }],
+        ...(npi && {
+          identifier: [
+            {
+              system: 'http://hl7.org/fhir/sid/us-npi',
+              value: npi,
+            },
+          ],
+        }),
       },
       accessPolicy: {
         rule: [
