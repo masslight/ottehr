@@ -2380,7 +2380,6 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   if (!payerId) {
     throw new Error('payerId unexpectedly missing from insuranceOrg');
   }
-  const payerUrl = new Oystehr({}).rcm.constructPayerUrl({ id: payerId });
 
   const policyHolderId = 'coverageSubscriber';
   const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
@@ -2428,7 +2427,11 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       reference: `Patient/${patientId}`,
     },
     type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
-    payor: [{ reference: payerUrl }],
+    payor: [
+      {
+        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id}` : getPayerUrl(payerId),
+      },
+    ],
     subscriberId: policyHolder.memberId,
     relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
     class: [
