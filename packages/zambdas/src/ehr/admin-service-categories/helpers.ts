@@ -40,6 +40,12 @@ export interface ServiceCategoryRecord {
   code: string;
   active: boolean;
   config: ServiceCategoryRuntimeConfig;
+  /**
+   * Origin of this record in the resolved catalog. Set by the public
+   * `get-service-categories` zambda when assembling the catalog for the
+   * booking flow. Admin CRUD paths can leave this undefined.
+   */
+  source?: 'booking-config' | 'fhir';
 }
 
 let m2mToken: string;
@@ -81,6 +87,7 @@ export function toRecord(resource: HealthcareService): ServiceCategoryRecord {
     code,
     active: resource.active !== false,
     config: parseConfig(resource),
+    source: 'fhir',
   };
 }
 

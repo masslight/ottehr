@@ -17,10 +17,16 @@ interface ServiceCategoryRuntimeRecord {
     visitTypes: Array<'prebook' | 'walk-in'>;
     reasonsForVisit?: Array<{ label: string; value: string }>;
   };
+  source?: 'booking-config' | 'fhir';
 }
 
-/** Convert a FHIR-backed runtime record to the shape existing code expects. */
-function toConfig(record: ServiceCategoryRuntimeRecord): ServiceCategoryConfig {
+/** Page-facing config shape with the per-entry source label preserved. */
+export type ServiceCategoryConfigWithSource = ServiceCategoryConfig & {
+  source?: 'booking-config' | 'fhir';
+};
+
+/** Convert a runtime record to the page-facing config shape, preserving source. */
+function toConfig(record: ServiceCategoryRuntimeRecord): ServiceCategoryConfigWithSource {
   const coding: Coding = {
     system: SERVICE_CATEGORY_SYSTEM,
     code: record.code,
@@ -33,7 +39,13 @@ function toConfig(record: ServiceCategoryRuntimeRecord): ServiceCategoryConfig {
     reasonsForVisit: {
       default: record.config.reasonsForVisit || [],
     },
+    source: record.source,
   };
+}
+
+/** Tag compiled-in BOOKING_CONFIG entries with source so fallback data is shape-compatible. */
+function tagBookingConfig(entries: ServiceCategoryConfig[]): ServiceCategoryConfigWithSource[] {
+  return entries.map((sc) => ({ ...sc, source: 'booking-config' as const }));
 }
 
 export interface ServiceCategoryContext {
@@ -44,25 +56,19 @@ export interface ServiceCategoryContext {
 }
 
 /**
- * Returns the active service categories: the compiled-in BOOKING_CONFIG entries
- * (production source of truth, in-flight when this branch was started) merged
- * with any FHIR-registry entries the admin has added through the new Services
- * admin UI. **BOOKING_CONFIG wins on code collisions** — a FHIR entry with the
- * same code as an existing BOOKING_CONFIG entry is ignored. This keeps
- * production URLs (e.g. `?serviceCategoryCode=urgent-care`) and intake homepage
- * routing structurally identical to pre-branch behavior; the FHIR registry can
- * only *add* new categories, not silently override the compiled defaults.
+ * Returns the active service categories for the booking flow.
  *
- * If the registry is unreachable or returns an empty list, the result is just
- * BOOKING_CONFIG.serviceCategories — the pre-branch shape.
+ * All resolution logic — merging BOOKING_CONFIG (compiled-in, D14-preferred)
+ * with the FHIR-registry catalog, and scoping to a group's declared
+ * categories — lives in the `get-service-categories` zambda. This hook is a
+ * thin adapter: it calls the zambda, converts records to the page-facing
+ * shape, and handles loading-state fallback.
  *
- * When a group context is passed, the returned list is intersected with the
- * group's declared categories (HealthcareService.type[]), so patients booking
- * via a group URL only see categories that group actually offers.
+ * Each returned category carries a `source` of 'booking-config' or 'fhir'
+ * so callers can distinguish admin-managed entries from compiled-in ones.
  */
 export function useServiceCategories(context: ServiceCategoryContext = {}): {
-  serviceCategories: ServiceCategoryConfig[];
-  source: 'fhir' | 'booking-config' | 'merged' | 'fallback';
+  serviceCategories: ServiceCategoryConfigWithSource[];
   isLoading: boolean;
 } {
   const zambdaClient = useUCZambdaClient({ tokenless: true });
@@ -70,12 +76,9 @@ export function useServiceCategories(context: ServiceCategoryContext = {}): {
 
   const { data, isLoading } = useQuery({
     queryKey: ['intake-service-categories', scheduleType ?? null, bookingOn ?? null],
-    queryFn: async (): Promise<{
-      serviceCategories: ServiceCategoryConfig[];
-      source: 'fhir' | 'booking-config' | 'merged';
-    }> => {
+    queryFn: async (): Promise<ServiceCategoryConfigWithSource[]> => {
       if (!zambdaClient) {
-        return { serviceCategories: BOOKING_CONFIG.serviceCategories, source: 'booking-config' };
+        return tagBookingConfig(BOOKING_CONFIG.serviceCategories);
       }
       const isScoped = Boolean(scheduleType && bookingOn);
       const response = await zambdaClient.executePublic(
@@ -84,38 +87,13 @@ export function useServiceCategories(context: ServiceCategoryContext = {}): {
       );
       const parsed = typeof response.output === 'string' ? JSON.parse(response.output) : (response.output as any);
       const records = (parsed?.serviceCategories || []) as ServiceCategoryRuntimeRecord[];
-
-      // Scoped query (group context): the zambda has already intersected the
-      // catalog with the bookable entity's declared categories. Trust its
-      // result verbatim — do NOT re-merge BOOKING_CONFIG, or system-level
-      // categories (urgent-care, workers-comp, etc.) would leak back into a
-      // group's picker even when the group hasn't allow-listed them.
-      if (isScoped) {
-        return { serviceCategories: records.map(toConfig), source: 'fhir' };
-      }
-
-      if (records.length === 0) {
-        return { serviceCategories: BOOKING_CONFIG.serviceCategories, source: 'booking-config' };
-      }
-      // Unscoped (homepage, etc.): merge BOOKING_CONFIG (the production source
-      // of truth for compiled-in categories that production URLs depend on)
-      // with any new FHIR-registry categories. BOOKING_CONFIG wins on code
-      // collisions so admins can only *add* categories, not silently override
-      // compiled defaults.
-      const bookingCodes = new Set(
-        BOOKING_CONFIG.serviceCategories.map((sc) => sc.category.code).filter((c): c is string => !!c)
-      );
-      const fhirOnly = records.map(toConfig).filter((sc) => sc.category.code && !bookingCodes.has(sc.category.code));
-      return {
-        serviceCategories: [...BOOKING_CONFIG.serviceCategories, ...fhirOnly],
-        source: fhirOnly.length > 0 ? 'merged' : 'booking-config',
-      };
+      return records.map(toConfig);
     },
     enabled: !!zambdaClient,
     staleTime: 5 * 60 * 1000,
   });
 
-  if (data) return { ...data, isLoading };
+  if (data) return { serviceCategories: data, isLoading };
   // No data yet (initial load). For scoped (group) queries fall back to an
   // empty list, not the compiled-in BOOKING_CONFIG — otherwise the picker
   // briefly flashes system-level categories (urgent-care, workers-comp, etc.)
@@ -124,8 +102,7 @@ export function useServiceCategories(context: ServiceCategoryContext = {}): {
   // appears empty during loading.
   const isScoped = Boolean(scheduleType && bookingOn);
   return {
-    serviceCategories: isScoped ? [] : BOOKING_CONFIG.serviceCategories,
-    source: 'fallback',
+    serviceCategories: isScoped ? [] : tagBookingConfig(BOOKING_CONFIG.serviceCategories),
     isLoading,
   };
 }
