@@ -1,4 +1,4 @@
-import { Description as DescriptionIcon, Home as HomeIcon } from '@mui/icons-material';
+import { Description as DescriptionIcon, Home as HomeIcon, People as PeopleIcon } from '@mui/icons-material';
 import { Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar } from '@mui/material';
 import { FC } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -9,6 +9,7 @@ const DRAWER_WIDTH = 220;
 const navItems = [
   { label: 'Home', path: '/', icon: <HomeIcon fontSize="small" /> },
   { label: 'Claims', path: '/claims', icon: <DescriptionIcon fontSize="small" /> },
+  { label: 'Patients', path: '/patients', icon: <PeopleIcon fontSize="small" /> },
 ];
 
 export const Sidebar: FC = () => {

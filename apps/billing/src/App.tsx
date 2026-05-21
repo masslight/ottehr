@@ -10,6 +10,7 @@ import ClaimDetail from './pages/ClaimDetail';
 import ClaimsList from './pages/ClaimsList';
 import CreateClaim from './pages/CreateClaim';
 import Dashboard from './pages/Dashboard';
+import PatientsList from './pages/PatientsList';
 import { theme } from './themes/ottehr';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
@@ -38,6 +39,7 @@ export default function App(): ReactElement {
             <Route path="/claims" element={<ClaimsList />} />
             <Route path="/claims/new" element={<CreateClaim />} />
             <Route path="/claims/:id" element={<ClaimDetail />} />
+            <Route path="/patients" element={<PatientsList />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Route>
         </Routes>

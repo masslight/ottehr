@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
+import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAM, fhirName, formatAddress } from '../shared';
 import { SearchBillingPatientsParams, validateRequestParameters } from './validateRequestParameters';
@@ -14,7 +15,7 @@ interface PatientSearchItem {
   gender: string;
   address: string;
   mrn: string;
-  identifiers: { system: string | undefined; value: string | undefined }[];
+  friendlyId: string;
 }
 
 let m2mToken: string;
@@ -52,8 +53,9 @@ async function performEffect(
   const response = await oystehr.fhir.search<Patient>({ resourceType: 'Patient', params: searchParams });
 
   const patients = response.unbundle().map((p) => {
-    const identifiers = p.identifier ?? [];
-    const mrn = identifiers.find((id) => id.type?.coding?.some((c) => c.code === 'MR'))?.value ?? '';
+    const ids = p.identifier ?? [];
+    const mrn = ids.find((id) => id.type?.coding?.some((c) => c.code === 'MR'))?.value ?? '';
+    const friendlyId = ids.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
 
     return {
       id: p.id,
@@ -64,7 +66,7 @@ async function performEffect(
       gender: p.gender ?? '',
       address: formatAddress(p.address?.[0]),
       mrn,
-      identifiers: identifiers.map((id) => ({ system: id.system, value: id.value })),
+      friendlyId,
     };
   });
 
