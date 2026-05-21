@@ -1,4 +1,9 @@
 terraform {
+  # For trying out Ottehr solo, use the local backend to avoid having to set up an S3 bucket and AWS credentials
+  # by commenting out the S3 backend and uncommenting the local backend.
+  # backend "local" {
+  #   path = "terraform.tfstate"
+  # }
   backend "s3" {
     bucket  = "YOUR_TF_BUCKET_NAME"
     region  = "us-east-1"

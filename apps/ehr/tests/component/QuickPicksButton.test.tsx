@@ -12,6 +12,18 @@ describe('Quick Picks Button', () => {
     expect(screen.queryByRole('button', { name: /quick picks/i })).not.toBeInTheDocument();
   });
 
+  it('renders the button and shows a loading row while quick picks are loading', async () => {
+    const user = userEvent.setup();
+
+    render(<QuickPicksButton quickPicks={[]} getLabel={(item) => item} onSelect={vi.fn()} loading />);
+
+    expect(screen.getByRole('button', { name: /quick picks/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /quick picks/i }));
+
+    expect(screen.getByRole('menuitem', { name: 'Loading…' })).toBeInTheDocument();
+  });
+
   it('renders when showAddOption is true even with no quick picks', () => {
     render(<QuickPicksButton quickPicks={[]} getLabel={(item) => item} onSelect={vi.fn()} showAddOption isAdmin />);
 

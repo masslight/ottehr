@@ -89,7 +89,7 @@ export default function Navbar(): ReactElement | null {
 
   useEffect(() => {
     if (!currentTab) {
-      useNavStore.setState({ currentTab: 'In Person' });
+      useNavStore.setState({ currentTab: 'Tracking Board' });
     }
 
     (Object.keys(navbarItems) as AppTab[]).forEach((navbarItem) => {

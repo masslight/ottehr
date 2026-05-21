@@ -233,9 +233,11 @@ test.describe('In-Person Visit Chart Data', async () => {
         await test.step('VIT-1.14 Verify abnormal vital Dialog', async () => {
           await page.getByTestId(dataTestIds.sideMenu.sideMenuItem('allergies')).click();
           const abnormalVitalDialog = await expectDialog(page);
-          await abnormalVitalDialog.verifyTitle('Abnormal Vital Value');
-          await abnormalVitalDialog.verifyModalContent('You have entered an abnormal value. Please verify');
-          await abnormalVitalDialog.verifyModalContent('Temperature');
+          await abnormalVitalDialog.verifyTitle('Critical & Abnormal Vital Values');
+          await abnormalVitalDialog.verifyModalContent(
+            'You have entered critical and/or abnormal value(s). Please verify:'
+          );
+          await abnormalVitalDialog.verifyModalContent('Temp (C)');
           await abnormalVitalDialog.verifyModalContent(TEMPERATURE_ABNORMAL_C);
           await abnormalVitalDialog.verifyAlertIconVisible();
           await abnormalVitalDialog.clickCancelButton(); // clickCancelButton() is used because it corresponds to 'Continue' button in UI.
