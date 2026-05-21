@@ -1,9 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CandidApiClient } from 'candidhealth';
 import { Operation } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
-import { getOptionalSecret, getOrCreateCandidApiClient, MISSING_REQUEST_SECRETS, SecretsKeys } from 'utils';
+import { getOptionalSecret, getOrCreateCandidApiClient, SecretsKeys } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   createEncounterFromAppointment,
@@ -84,14 +83,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         if (shouldUseCandid(secrets) && (candidClientId == null || candidClientId.length === 0)) {
           console.log('CANDID_CLIENT_ID is not set, skipping encounter submission to candid');
         } else {
-          let candidApiClient: CandidApiClient | null = null;
-          try {
-            candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
-          } catch (error: unknown) {
-            if (error !== MISSING_REQUEST_SECRETS) throw error;
-            console.log('Candid not configured, skipping encounter submission to candid.');
-          }
-          if (shouldUseCandid(secrets) && candidApiClient) {
+          if (shouldUseCandid(secrets)) {
+            const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
             console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
             const candidEncounterId = await createEncounterFromAppointment(visitResources, oystehr, candidApiClient);
             console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);

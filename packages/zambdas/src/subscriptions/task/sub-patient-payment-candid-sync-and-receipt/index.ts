@@ -139,7 +139,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const errors: string[] = [];
 
       // Perform Candid pre-encounter sync
-      // Skip recording payment in for Stripe payments — only cash/check payments should be recorded
+      // Skip recording payment in Candid for Stripe payments — only cash/check payments should be recorded
       const shouldRecordPaymentInBillingPlatform = !stripePaymentIntentId;
       if (shouldUseCandid(secrets)) {
         try {
