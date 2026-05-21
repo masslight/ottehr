@@ -1,7 +1,8 @@
 {
   "name": "zambdas",
-  "version": "1.33.18",
+  "version": "1.34.14",
   "private": true,
+  "sideEffects": false,
   "scripts": {
     "start": "npm run start:iac",
     "start:local": "ENV=local npm run start",
@@ -25,6 +26,7 @@
     "get-invoiceable-claims": "tsx src/scripts/get-invoiceable-claims.ts staging",
     "create-non-insurance-payers": "tsx src/scripts/create-non-insurance-payers.ts",
     "create-non-insurance-payer-resources": "tsx src/scripts/create-non-insurance-payer-resources.ts",
+    "import-employers": "tsx src/scripts/import-employers.ts",
     "fix-duplicate-payers": "tsx src/scripts/fix-duplicate-payers.ts",
     "fix-payer-ids-in-orgs": "tsx src/scripts/fix-payer-ids-in-orgs.ts",
     "update-insurances-and-payer-orgs": "tsx src/scripts/update-insurances-and-payer-orgs.ts",

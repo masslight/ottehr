@@ -634,6 +634,7 @@ export enum TASK_INPUT_TYPE_CODES {
   PAGE_INDEX = 'page-index',
   OTHER_PATIENT_ID = 'other-patient-id',
   PROVIDER_PROFILE = 'provider-profile',
+  SKIP_EMAIL = 'skip-email',
 }
 
 export enum ServiceMode {
@@ -797,3 +798,13 @@ export type CPTCodeOption = {
   code: string;
   display: string;
 };
+
+export interface LabelConfig {
+  heightInches: number;
+  widthInches: number;
+  marginTopInches: number;
+  marginBottomInches: number;
+  marginLeftInches: number;
+  marginRightInches: number;
+  printerDPI: number;
+}

@@ -896,6 +896,22 @@ export default function ProceduresNew(): ReactElement {
   }, []);
   usePendingQuickPick('procedures', handlePendingQuickPick, !isSelectOptionsLoading);
 
+  const [consentPdfExists, setConsentPdfExists] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/consent_procedure.pdf', { method: 'HEAD' })
+      .then((res) => {
+        const contentType = res.headers.get('content-type') ?? '';
+        if (!cancelled) setConsentPdfExists(res.ok && contentType.includes('pdf'));
+      })
+      .catch(() => {
+        if (!cancelled) setConsentPdfExists(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <FormProvider {...methods}>
       <Stack spacing={1}>
@@ -915,9 +931,13 @@ export default function ProceduresNew(): ReactElement {
               />
               <Typography>
                 I have obtained the{' '}
-                <Link target="_blank" to={`/consent_procedure.pdf`} style={{ color: theme.palette.primary.main }}>
-                  Consent for Procedure
-                </Link>
+                {consentPdfExists ? (
+                  <Link target="_blank" to={`/consent_procedure.pdf`} style={{ color: theme.palette.primary.main }}>
+                    Consent for Procedure
+                  </Link>
+                ) : (
+                  'Consent for Procedure'
+                )}
               </Typography>
             </Box>
 

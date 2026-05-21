@@ -14,12 +14,9 @@ import {
   MedicationData,
   MedicationOrderStatuses,
   OrderPackage,
-  removePrefix,
   searchMedicationLocation,
   searchRouteByCode,
-  Secrets,
 } from 'utils';
-import { createOystehrClient } from '../../shared';
 import { createMedicationAdministrationResource } from './fhir-resources-creation';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
@@ -54,13 +51,6 @@ export function createMedicationCopy(
     resourceCopy.code.coding.push({ system: CODE_SYSTEM_NDC, code: orderData.ndc });
   }
   return resourceCopy;
-}
-
-export async function practitionerIdFromZambdaInput(userToken: string, secrets: Secrets | null): Promise<string> {
-  const oystehr = createOystehrClient(userToken, secrets);
-  const myPractitionerId = removePrefix('Practitioner/', (await oystehr.user.me()).profile);
-  if (!myPractitionerId) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('No practitioner id was found for token provided');
-  return myPractitionerId;
 }
 
 export async function getMedicationByName(oystehr: Oystehr, medicationName: string): Promise<Medication> {

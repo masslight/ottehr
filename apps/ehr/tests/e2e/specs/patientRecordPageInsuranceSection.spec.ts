@@ -9,7 +9,6 @@ import {
   getEmergencyContactStepAnswers,
   getEmployerInformationStepAnswers,
   getPatientDetailsStepAnswers,
-  getPayerId,
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
@@ -294,6 +293,7 @@ test.describe('Insurance Information Section mutating tests', () => {
   });
 
   test('Updated values from Insurance information block are saved and displayed correctly', async ({ page }) => {
+    test.slow();
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     await primaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);
@@ -697,8 +697,8 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
       display: ic2?.name,
     },
   };
-  const insuranceCarrier1ForResult = `${getPayerId(ic1)} - ${ic1?.name}`;
-  const insuranceCarrier2ForResult = `${getPayerId(ic2)} - ${ic2?.name}`;
+  const insuranceCarrier1ForResult = `${ic1?.name} (inactive)`; // these are old Organization references so they show up as inactive
+  const insuranceCarrier2ForResult = `${ic2?.name} (inactive)`;
   console.log('carrier: ', JSON.stringify(insuranceCarrier1ForResult));
 
   await resourceHandler.setResources();

@@ -4,9 +4,7 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Bundle, Encounter, Patient, Resource } from 'fhir/r4b';
 import {
   createOystehrClient,
-  FHIR_EXTENSION,
   getPatchBinary,
-  getPatchOperationToUpdateExtension,
   getSecret,
   getTelemedLocation,
   RequiredProps,
@@ -86,7 +84,7 @@ export async function updateAppointment(
   user: User
 ): Promise<UpdateAppointmentResponse> {
   let updatePatientRequest: BatchInputRequest<Patient> | undefined = undefined;
-  const { patient, unconfirmedDateOfBirth, locationState } = params;
+  const { patient, locationState } = params;
 
   // if it is a returning patient
   const resources = (
@@ -144,17 +142,6 @@ export async function updateAppointment(
   }
 
   const patchApptOps: Operation[] = [];
-
-  if (unconfirmedDateOfBirth) {
-    const op = getPatchOperationToUpdateExtension(fhirAppointment, {
-      url: FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url,
-      valueDate: unconfirmedDateOfBirth,
-    });
-
-    if (op) {
-      patchApptOps.push(op);
-    }
-  }
 
   const transactionInput: BatchInput<Appointment | Patient> = {
     requests: [...patientRequests],

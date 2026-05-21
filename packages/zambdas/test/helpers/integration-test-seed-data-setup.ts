@@ -47,6 +47,8 @@ export interface InsertFullAppointmentDataBaseResult {
 export interface IntegrationTestSetupResult {
   oystehr: Oystehr;
   oystehrTestUserM2M: Oystehr;
+  testUserM2MToken: string;
+  testUserM2MProfile: string;
   token: string;
   processId: string;
   cleanup: () => Promise<void>;
@@ -328,6 +330,8 @@ export const setupIntegrationTest = async (
   return {
     oystehr: oystehrAdmin,
     oystehrTestUserM2M: oystehrTestUserM2M,
+    testUserM2MToken,
+    testUserM2MProfile: testUserM2M.profile,
     token,
     processId,
     cleanup,

@@ -91,7 +91,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           lastName: patient?.name?.[0].family,
         },
         appointmentStatus: fhirAppointment.status,
-        telemedStatus: status === 'provider' ? 'on-video' : 'complete',
+        status: status,
         state: { code: stateCode, id: stateId },
       };
       appointments.push(appointment);

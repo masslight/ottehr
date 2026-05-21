@@ -387,10 +387,6 @@
             "valueString": "#{var/stripe-account-3}"
           },
           {
-            "url": "https://fhir.ottehr.com/Extension/stripe-terminal-location-id",
-            "valueString": "#{var/stripe-terminal-location-1}"
-          },          
-          {
             "url": "https://fhir.ottehr.com/Extension/advapacs-location-id",
             "valueString": "#{var/advapacs-location-1}"
           }

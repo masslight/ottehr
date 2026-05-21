@@ -16,7 +16,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { TemplateEditorField, textToTiptapContent } from 'src/rcm/features/invoicing/InvoiceTemplateEditor';
+import { TemplateEditorField, textToTiptapContent } from 'src/components/template-editor-field/TemplateEditorField';
 import { useGetInvoiceConfigQuery } from 'src/rcm/state/invoice-config/invoice-config.queries';
 import {
   BRANDING_CONFIG,

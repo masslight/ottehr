@@ -430,13 +430,9 @@ export default function CompleteEncounters(): React.ReactElement {
         width: 320,
         sortable: true,
         renderCell: (params: GridRenderCellParams) => {
-          const visitType = params.row.visitType;
           const appointmentId = params.value;
 
-          const linkPath =
-            visitType === 'Telemed'
-              ? `/telemed/appointments/${appointmentId}?tab=sign`
-              : `/in-person/${appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`;
+          const linkPath = `/in-person/${appointmentId}/${ROUTER_PATH.REVIEW_AND_SIGN}`;
 
           return (
             <Link
@@ -510,7 +506,7 @@ export default function CompleteEncounters(): React.ReactElement {
           if (visitType === 'Telemed') {
             return (
               <Link
-                to="/telemed/appointments"
+                to="/visits"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{

@@ -47,11 +47,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
-  const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
   const { encounterId, serviceRequestId, data } = validatedParameters;
 
-  const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+  const userPractitionerId = await getMyPractitionerId(validatedParameters.userToken, validatedParameters.secrets);
 
   const [serviceRequestResources, tasksCSTResources, userPractitioner, encounter] = await Promise.all([
     oystehr.fhir.get<ServiceRequest>({

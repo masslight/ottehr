@@ -8,14 +8,15 @@ import InputMask from 'src/components/InputMask';
 import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  AnswerOptionSource,
   dedupeObjectsByKey,
+  evaluateFieldTriggers,
   FormFieldsDisplayItem,
   FormFieldsGroupItem,
   FormFieldsInputItem,
   isRemovableField,
   QuestionnaireItemGroupType,
 } from 'utils';
-import { evaluateFieldTriggers } from './patientRecordValidation';
 
 interface PatientRecordFormFieldProps {
   item: FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem;
@@ -99,6 +100,11 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
 
   let placeholder: string | undefined;
   let mask: string | undefined;
+  // ZIP stores the unmasked digits (matching what the backend persists and
+  // returns), so IMaskInput's mount-time normalization round-trips cleanly
+  // and doesn't mark the field dirty against its loaded default. Phone and
+  // SSN store the masked, dashed form they always have.
+  let unmask: boolean | undefined;
   if (item.type !== 'display' && item.type !== 'group' && item.dataType === 'Phone Number') {
     placeholder = '(XXX) XXX-XXXX';
     mask = '(000) 000-0000';
@@ -110,6 +116,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
   if (item.type !== 'display' && item.type !== 'group' && item.dataType === 'ZIP') {
     placeholder = 'XXXXX(-XXXX)';
     mask = '00000-0000'; // will still accept the 5 digit zip
+    unmask = true;
   }
 
   const InputElement = (() => {
@@ -120,7 +127,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
         disabled={isDisabled || isLoading}
         id={omitRowWrapper ? item.key : undefined}
         key={item.key}
-        inputProps={{ mask, placeholder }}
+        inputProps={{ mask, placeholder, unmask }}
         InputProps={mask ? { inputComponent: InputMask as any } : undefined}
       />
     );
@@ -308,7 +315,7 @@ type ValueSetStrategy = {
 // todo: these types already exist somewhere
 type AnswerSourceStrategy = {
   type: 'answerSource';
-  answerSource: { resourceType: string; query: string; prependedIdentifier?: string };
+  answerSource: AnswerOptionSource;
 };
 
 interface DynamicReferenceFieldProps {
@@ -342,6 +349,7 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
     }
     return {
       ...base,
+      id: optionStrategy.answerSource.zambdaId,
       answerSource: optionStrategy.answerSource,
     };
   })();

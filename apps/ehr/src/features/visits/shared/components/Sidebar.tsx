@@ -13,19 +13,16 @@ import {
   ListItemText,
   styled,
 } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { getAdmitterPractitionerId, getInPersonVisitStatus, PRACTITIONER_CODINGS } from 'utils';
+import { getInPersonVisitStatus } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeButton';
 import { EncounterSwitcher } from '../../in-person/components/EncounterSwitcher';
 import { RouteInPerson, useInPersonNavigationContext } from '../../in-person/context/InPersonNavigationContext';
+import { useCompleteIntake } from '../../in-person/hooks/useCompleteIntake';
 import { ROUTER_PATH, routesInPerson } from '../../in-person/routing/routesInPerson';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
-import { usePractitionerActions } from '../hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
@@ -269,46 +266,16 @@ const StyledButton = styled(Button, {
 export const Sidebar = (): JSX.Element => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
-  const { oystehrZambda } = useApiClients();
   const { interactionMode } = useInPersonNavigationContext();
   const { id: appointmentID } = useParams();
-  const { visitState, appointmentRefetch } = useAppointmentData();
+  const { visitState } = useAppointmentData();
   const { chartData } = useChartData();
   const { appointment, encounter } = visitState;
   const status = appointment && encounter ? getInPersonVisitStatus(appointment, encounter) : undefined;
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
 
-  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
-    encounter,
-    'end',
-    PRACTITIONER_CODINGS.Admitter
-  );
-
-  const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
-
-  const handleCompleteIntake = async (): Promise<void> => {
-    try {
-      if (assignedIntakePerformerId) {
-        await handleUpdatePractitioner(assignedIntakePerformerId);
-
-        await handleChangeInPersonVisitStatus(
-          {
-            encounterId: encounter!.id!,
-            updatedStatus: 'ready for provider',
-          },
-          oystehrZambda
-        );
-
-        await appointmentRefetch();
-      } else {
-        enqueueSnackbar('Please select intake practitioner first', { variant: 'error' });
-      }
-    } catch (error: any) {
-      console.log(error.message);
-      enqueueSnackbar('An error occurred trying to complete intake. Please try again.', { variant: 'error' });
-    }
-  };
+  const { handleCompleteIntake, isEncounterUpdatePending } = useCompleteIntake();
 
   const handleDrawerToggle = (): void => {
     setOpen(!open);

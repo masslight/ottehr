@@ -242,7 +242,7 @@ const mapResponseItemsToInsuranceData = (
       memberId = i.answer?.[0]?.valueString;
     }
     if (i.linkId === `insurance-carrier${suffix}`) {
-      insuranceId = i.answer?.[0]?.valueReference?.reference?.split('/')?.[1];
+      insuranceId = i.answer?.[0]?.valueReference?.reference?.split('/')?.pop();
     }
   });
   if (insuranceId === undefined || memberId === undefined) {

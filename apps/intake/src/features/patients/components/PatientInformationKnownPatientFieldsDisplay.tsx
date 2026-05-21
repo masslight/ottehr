@@ -9,18 +9,13 @@ import i18n from '../../../lib/i18n';
 
 export const PatientInformationKnownPatientFieldsDisplay = ({
   patientInfo,
-  unconfirmedDateOfBirth,
   selectPatientPageUrl,
 }: {
   patientInfo: PatientInfo;
-  unconfirmedDateOfBirth?: string;
   selectPatientPageUrl: string;
 }): JSX.Element => {
   const patientFullName = useGetFullName(patientInfo);
-  const formattedBirthday = DateTime.fromFormat(
-    yupDateTransform(unconfirmedDateOfBirth ?? patientInfo.dateOfBirth),
-    'yyyy-MM-dd'
-  )
+  const formattedBirthday = DateTime.fromFormat(yupDateTransform(patientInfo.dateOfBirth), 'yyyy-MM-dd')
     .setLocale(i18n.language)
     .toFormat('MMMM dd, yyyy');
   const { t } = useTranslation();

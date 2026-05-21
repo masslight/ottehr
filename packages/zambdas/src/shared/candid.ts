@@ -60,10 +60,14 @@ import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
   createReference,
+  EmCodeOption,
   FHIR_IDENTIFIER_NPI,
+  findOrgMatchingReference,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
+  getEmCodes,
   getPayerId,
+  getPayerUrl,
   getPaymentVariantFromEncounter,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -74,7 +78,6 @@ import {
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   OrderedCoveragesWithSubscribers,
   PaymentVariant,
-  PROVIDER_CONFIG,
   TIMEZONES,
 } from 'utils';
 import {
@@ -133,6 +136,7 @@ interface CreateEncounterInput {
   procedures: Procedure[];
   insuranceResources?: InsuranceResources;
   accident?: Condition;
+  emCodes: EmCodeOption[];
 }
 
 const STUB_BILLING_PROVIDER_DATA: BillingProviderData = {
@@ -177,9 +181,7 @@ const createCandidCreateEncounterInput = async (
   const { coverages, insuranceOrgs } = await getAccountAndCoverageResourcesForPatient(patient.id, oystehr);
   const coverage = coverages.primary;
   const coverageSubscriber = coverages.primarySubscriber;
-  const coveragePayor = insuranceOrgs.find(
-    (insuranceOrg) => `Organization/${insuranceOrg.id}` === coverage?.payor[0]?.reference
-  );
+  const coveragePayor = findOrgMatchingReference(coverage?.payor[0]?.reference, insuranceOrgs);
   if (coverage && (!coverageSubscriber || !coveragePayor)) {
     throw MISSING_PATIENT_COVERAGE_INFO_ERROR;
   }
@@ -199,17 +201,15 @@ const createCandidCreateEncounterInput = async (
     practitioner = visitResources.practitioners?.[0] ?? null;
   }
 
-  const conditions = (
-    await oystehr.fhir.search<Condition>({
-      resourceType: 'Condition',
-      params: [
-        {
-          name: 'encounter',
-          value: `Encounter/${encounterId}`,
-        },
-      ],
-    })
-  ).unbundle();
+  const [conditions, emCodes] = await Promise.all([
+    oystehr.fhir
+      .search<Condition>({
+        resourceType: 'Condition',
+        params: [{ name: 'encounter', value: `Encounter/${encounterId}` }],
+      })
+      .then((r) => r.unbundle()),
+    getEmCodes(oystehr),
+  ]);
 
   return {
     appointment: appointment,
@@ -250,6 +250,7 @@ const createCandidCreateEncounterInput = async (
         }
       : undefined,
     accident: conditions.find((condition) => chartDataResourceHasMetaTagByCode(condition, 'accident')),
+    emCodes,
   };
 };
 
@@ -806,15 +807,27 @@ const createCandidCoverages = async (
   if (coverages === undefined) {
     return candidCoverages;
   }
-  const primaryInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.primary?.payor?.[0].reference
-  );
-  const secondaryInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.secondary?.payor?.[0].reference
-  );
-  const workersCompInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.workersComp?.payor?.[0].reference
-  );
+  const primaryInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.primary?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.primary?.payor?.[0].reference)
+    );
+  });
+  const secondaryInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.secondary?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.secondary?.payor?.[0].reference)
+    );
+  });
+  const workersCompInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.workersComp?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.workersComp?.payor?.[0].reference)
+    );
+  });
 
   if (coverages.primary && coverages.primarySubscriber && primaryInsuranceOrg) {
     const candidCoverage = buildCandidCoverageCreateInput(
@@ -1082,6 +1095,7 @@ async function candidCreateEncounterFromAppointmentRequest(
     insuranceResources,
     location,
     accident,
+    emCodes,
   } = input;
   const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
   const practitionerName = assertDefined(practitioner.name?.[0], 'Practitioner name');
@@ -1154,9 +1168,7 @@ async function candidCreateEncounterFromAppointmentRequest(
       }
     });
 
-    const isEAndMCode = PROVIDER_CONFIG.assessment.emCodeOptions.some(
-      (emCodeOption) => emCodeOption.code === procedureCode
-    );
+    const isEAndMCode = emCodes.some((emCode) => emCode.code === procedureCode);
     if (isEAndMCode && isTelemedAppointment(appointment)) {
       modifiers = ['95'];
     }

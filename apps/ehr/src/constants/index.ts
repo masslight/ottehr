@@ -8,10 +8,6 @@ export const MAXIMUM_CHARACTER_LIMIT = 155;
 
 export const HOP_QUEUE_URI = 'hop-queue';
 
-export const CHAT_REFETCH_INTERVAL = 15000;
-
-export const APPOINTMENT_REFRESH_INTERVAL = 15000;
-
 export enum LANGUAGES {
   spanish = 'spanish',
   english = 'english',
@@ -50,8 +46,7 @@ export const VISIT_ICONS_WIDTH_MIN = '160px';
 export const VITALS_ICON_WIDTH_MIN = '90px';
 export const NOTES_WIDTH_MIN = '220px';
 export const CHAT_WIDTH_MIN = '80px';
-export const GO_TO_MANY_BUTTONS_WIDTH_MIN = '400px';
-export const ACTION_WIDTH_MIN = '130px';
+export const ACTION_WIDTH_MIN = '170px';
 
 // Constants for default page sizes. Could also consider adding constants for the page size options
 export const LOCATION_ROWS_PER_PAGE = 25;
