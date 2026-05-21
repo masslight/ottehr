@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
-import { INVALID_INPUT_ERROR } from 'utils';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils';
 import { OutreachTaskResult, produceOutreachTasks } from './produce-outreach-tasks';
 
 export interface ProduceDischargeOutreachParams {
@@ -34,7 +34,7 @@ export async function produceDischargeOutreach(
       id: encounterId,
     });
   } catch {
-    throw INVALID_INPUT_ERROR(`Encounter ${encounterId} could not be found`);
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Encounter ${encounterId} could not be found`);
   }
 
   if (params.validateStatus && encounter.status !== 'finished') {
