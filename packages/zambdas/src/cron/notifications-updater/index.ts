@@ -519,9 +519,9 @@ interface ResourcePackage {
 
 type ResourcePackagesMap = { [key: NonNullable<Appointment['id']>]: ResourcePackage };
 
-/** Getting appointments with status "Arrived" and encounter with statuses
- * that correspond to Telemed statuses "ready", "pre-video", "on-video", "unsigned".
- * Include related encounter, patient, provider and communication
+/** Getting appointments with chosen status (default "arrived") and encounter with statuses that
+ * correspond to Telemed statuses "ready", "pre-video", "on-video", "unsigned". Include related
+ * encounter, patient, provider and communication
  */
 async function getResourcePackagesAppointmentsMap(
   oystehr: Oystehr,
