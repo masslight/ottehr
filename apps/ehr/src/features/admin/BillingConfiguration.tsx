@@ -22,11 +22,19 @@ import { BILLING_URL, PAYMENT_LOCATIONS_URL } from 'src/App';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import { PaymentLocation } from 'src/rcm/state/payments/payments.api';
 import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
-import FeeSchedule from './ChargeItemList';
-import EmployersTab from './employers/EmployersTab';
-import InsuranceConfiguration from './InsuranceConfiguration';
+import FeeSchedule from '../visits/telemed/components/admin/ChargeItemList';
+import EMCodesAdminPage from '../visits/telemed/components/admin/EMCodesAdminPage';
+import EmployersTab from '../visits/telemed/components/admin/employers/EmployersTab';
+import InsuranceConfiguration from '../visits/telemed/components/admin/InsuranceConfiguration';
 
-type BillingSubTab = 'insurance' | 'fee-schedules' | 'charge-masters' | 'employers' | 'payment-locations' | 'invoicing';
+type BillingSubTab =
+  | 'insurance'
+  | 'fee-schedules'
+  | 'charge-masters'
+  | 'employers'
+  | 'payment-locations'
+  | 'invoicing'
+  | 'em-codes';
 
 function PaymentLocationsList(): ReactElement {
   const navigate = useNavigate();
@@ -146,7 +154,7 @@ export default function BillingConfiguration({
   insuranceTab?: string;
 }): ReactElement {
   const navigate = useNavigate();
-  const subTab: BillingSubTab = (billingTab as BillingSubTab) || 'insurance';
+  const subTab: BillingSubTab = (billingTab as BillingSubTab) || 'em-codes';
 
   const handleSubTabChange = (_: unknown, newValue: BillingSubTab): void => {
     navigate(`${BILLING_URL}/${newValue}`);
@@ -157,6 +165,7 @@ export default function BillingConfiguration({
       <TabContext value={subTab}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList onChange={handleSubTabChange} aria-label="Billing configuration tabs">
+            <Tab label="E&M Codes" value="em-codes" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Insurance" value="insurance" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Fee Schedules" value="fee-schedules" sx={{ textTransform: 'none', fontWeight: 500 }} />
             <Tab label="Charge Masters" value="charge-masters" sx={{ textTransform: 'none', fontWeight: 500 }} />
@@ -165,6 +174,9 @@ export default function BillingConfiguration({
             <Tab label="Invoicing" value="invoicing" sx={{ textTransform: 'none', fontWeight: 500 }} />
           </TabList>
         </Box>
+        <TabPanel value="em-codes" sx={{ padding: 0 }}>
+          <EMCodesAdminPage />
+        </TabPanel>
         <TabPanel value="insurance" sx={{ padding: 0 }}>
           <InsuranceConfiguration insuranceTab={insuranceTab} />
         </TabPanel>
