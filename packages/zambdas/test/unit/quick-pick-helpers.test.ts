@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   ALLERGY_QUICK_PICK_CATEGORY,
   IMMUNIZATION_QUICK_PICK_CATEGORY,
+  INSURANCE_QUICK_PICK_CATEGORY,
   MEDICAL_CONDITION_QUICK_PICK_CATEGORY,
   MEDICATION_HISTORY_QUICK_PICK_CATEGORY,
   PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY,
@@ -241,6 +242,38 @@ describe('activityDefinitionToQuickPick', () => {
     });
   });
 
+  describe('Insurance', () => {
+    test('should parse with name, payerId, and organizationReference', () => {
+      const ad = createMockActivityDefinition('insurance-quick-pick', 'Aetna', {
+        payerId: 'aetna-001',
+        organizationReference: 'Organization/aetna-org-1',
+      });
+
+      const result = activityDefinitionToQuickPick(ad, INSURANCE_QUICK_PICK_CATEGORY);
+
+      expect(result.id).toBe('test-id-123');
+      expect(result.name).toBe('Aetna');
+      expect(result.payerId).toBe('aetna-001');
+      expect(result.organizationReference).toBe('Organization/aetna-org-1');
+    });
+
+    test('should parse when config extension is missing', () => {
+      const ad: ActivityDefinition = {
+        resourceType: 'ActivityDefinition',
+        status: 'active',
+        title: 'Cigna',
+        meta: {
+          tag: [{ system: QUICK_PICK_TAG_SYSTEM, code: 'insurance-quick-pick' }],
+        },
+      };
+
+      const result = activityDefinitionToQuickPick(ad, INSURANCE_QUICK_PICK_CATEGORY);
+      expect(result.name).toBe('Cigna');
+      expect(result.payerId).toBeUndefined();
+      expect(result.organizationReference).toBeUndefined();
+    });
+  });
+
   describe('Patient instructions', () => {
     test('should parse a valid patient instruction ActivityDefinition with name and text', () => {
       const title = 'inst-title';
@@ -327,6 +360,31 @@ describe('quickPickToActivityDefinition', () => {
     const ad = quickPickToActivityDefinition(quickPick, IMMUNIZATION_QUICK_PICK_CATEGORY);
 
     expect(ad.meta?.tag).toEqual([{ system: QUICK_PICK_TAG_SYSTEM, code: 'immunization-quick-pick' }]);
+  });
+
+  test('should set correct meta tag system and code for insurance category', () => {
+    const quickPick = { name: 'Aetna', payerId: 'aetna-001', organizationReference: 'Organization/aetna-org-1' };
+
+    const ad = quickPickToActivityDefinition(quickPick, INSURANCE_QUICK_PICK_CATEGORY);
+
+    expect(ad.meta?.tag).toEqual([{ system: QUICK_PICK_TAG_SYSTEM, code: 'insurance-quick-pick' }]);
+  });
+
+  test('should serialize insurance config excluding name field', () => {
+    const quickPick = {
+      name: 'Aetna',
+      payerId: 'aetna-001',
+      organizationReference: 'Organization/aetna-org-1',
+    };
+
+    const ad = quickPickToActivityDefinition(quickPick, INSURANCE_QUICK_PICK_CATEGORY);
+
+    const configExt = ad.extension?.find((e) => e.url === QUICK_PICK_CONFIG_EXTENSION_URL);
+    expect(configExt).toBeDefined();
+    const parsed = JSON.parse(configExt!.valueString!);
+    expect(parsed.name).toBeUndefined();
+    expect(parsed.payerId).toBe('aetna-001');
+    expect(parsed.organizationReference).toBe('Organization/aetna-org-1');
   });
 
   test('should serialize immunization config excluding name field', () => {
@@ -496,6 +554,21 @@ describe('round-trip conversion', () => {
     expect(restored.units).toBe('ml');
     expect(restored.vaccine).toBeUndefined();
     expect(restored.cvx).toBeUndefined();
+  });
+
+  test('should preserve insurance data through round-trip', () => {
+    const original = {
+      name: 'Blue Cross Blue Shield',
+      payerId: 'bcbs-042',
+      organizationReference: 'Organization/bcbs-org-42',
+    };
+    const ad = quickPickToActivityDefinition(original, INSURANCE_QUICK_PICK_CATEGORY, 'ins-id');
+    const restored = activityDefinitionToQuickPick(ad, INSURANCE_QUICK_PICK_CATEGORY);
+
+    expect(restored.name).toBe('Blue Cross Blue Shield');
+    expect(restored.payerId).toBe('bcbs-042');
+    expect(restored.organizationReference).toBe('Organization/bcbs-org-42');
+    expect(restored.id).toBe('ins-id');
   });
 
   test('should preserve patient instruction data through round-trip', () => {

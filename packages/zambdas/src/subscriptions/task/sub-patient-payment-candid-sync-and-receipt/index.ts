@@ -10,6 +10,8 @@ import {
   getAuth0Token,
   getStripeClient,
   performCandidPreEncounterSync,
+  shouldUseCandid,
+  shouldUseOttehrBilling,
   STRIPE_PAYMENT_ID_SYSTEM,
   wrapHandler,
   ZambdaInput,
@@ -137,23 +139,29 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const errors: string[] = [];
 
       // Perform Candid pre-encounter sync
-      // Skip recording payment in Candid for Stripe payments — only cash/check payments should be recorded
-      const shouldRecordPaymentInCandid = !stripePaymentIntentId;
-      try {
-        const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
-        console.time('Candid pre-encounter sync');
-        await performCandidPreEncounterSync({
-          encounterId,
-          oystehr,
-          candidApiClient,
-          amountCents: shouldRecordPaymentInCandid ? amountInCents : undefined,
-        });
-        console.timeEnd('Candid pre-encounter sync');
-      } catch (error) {
-        console.error(`Error during Candid pre-encounter sync: ${error}`);
-        captureException(error);
-        candidSyncFailed = true;
-        errors.push(`Candid sync failed: ${error}`);
+      // Skip recording payment in for Stripe payments — only cash/check payments should be recorded
+      const shouldRecordPaymentInBillingPlatform = !stripePaymentIntentId;
+      if (shouldUseCandid(secrets)) {
+        try {
+          const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
+          console.time('Candid pre-encounter sync');
+          await performCandidPreEncounterSync({
+            encounterId,
+            oystehr,
+            candidApiClient,
+            amountCents: shouldRecordPaymentInBillingPlatform ? amountInCents : undefined,
+          });
+          console.timeEnd('Candid pre-encounter sync');
+        } catch (error) {
+          console.error(`Error during Candid pre-encounter sync: ${error}`);
+          captureException(error);
+          candidSyncFailed = true;
+          errors.push(`Candid sync failed: ${error}`);
+        }
+      }
+      // no else, these are not mutually exclusive
+      if (shouldUseOttehrBilling(secrets) && shouldRecordPaymentInBillingPlatform) {
+        // currently a no op
       }
 
       // Create patient payment receipt PDF
