@@ -923,15 +923,6 @@ export const getAvailableSlotsForSchedules = async (
   // follows a least-recently-booked heuristic: the member with the fewest
   // upcoming busy slots gets the pick, so demand distributes across members
   // over time. Tiebreak: schedule id, for deterministic/stable results.
-  //
-  // ── v2 smarter picker hook ─────────────────────────────────────────────────
-  // This is where a qualification-aware picker would replace the load-based
-  // tiebreak. Call canScheduleAllBookings (scheduleMatching.ts) with [existing
-  // bookings on the day, plus the candidate]; among feasible assignments,
-  // prefer the one that leaves the most specialists free for future bookings
-  // (e.g. give Botox to a generalist when both an ARNP-only-doing-aesthetics
-  // and a multi-specialty ARNP qualify). Reduces the v1 false-negative rate
-  // documented in scheduleMatching.ts without changing the data model.
   const loadScore: Record<string, number> = {};
   for (const sao of scheduleList) {
     const sid = sao.schedule.id;
@@ -985,16 +976,6 @@ export const getAvailableSlotsForSchedules = async (
     }
     return picked.sort((a, b) => DateTime.fromISO(a.slot.start).toMillis() - DateTime.fromISO(b.slot.start).toMillis());
   };
-
-  // ── v2 silent-rebalance hook ───────────────────────────────────────────────
-  // Before computing slots for the day, a v2 implementation would run
-  // canScheduleAllBookings across the day's anonymous bookings + each
-  // proposed candidate, and silently rewrite Appointment.participant +
-  // Slot.schedule.reference for any anonymous booking whose visit hasn't
-  // started, when the matching primitive finds a better assignment. No new UI
-  // surface needed — the rebalance happens as a side-effect of the slot
-  // generation a patient triggers when browsing. Skipped in v1 per the
-  // limitation documented in scheduleMatching.ts.
 
   if (selectedDate) {
     for (const scheduleTemp of scheduleList) {
