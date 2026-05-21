@@ -182,6 +182,9 @@ describe('AddVisit', () => {
   });
 
   describe('Required field validation', () => {
+    const prebookOption = BOOKING_CONFIG.ehrBookingOptions.find((opt) => opt.id === 'in-person-pre-booked');
+    const postTelemedOption = BOOKING_CONFIG.ehrBookingOptions.find((opt) => opt.id === 'in-person-post-telemed');
+
     it('Shows error when clicking Add button without selecting a location', async () => {
       const user = userEvent.setup();
 
@@ -267,7 +270,7 @@ describe('AddVisit', () => {
       expect(visitTypeInput).toHaveAttribute('required');
     });
 
-    it(
+    it.skipIf(!prebookOption)(
       'Shows dialog when clicking Add for prebook visit without selecting a time slot',
       async () => {
         const user = userEvent.setup();
@@ -323,8 +326,8 @@ describe('AddVisit', () => {
         const visitTypeDropdown = screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown);
         const visitTypeButton = visitTypeDropdown.querySelector('[role="combobox"]');
         await user.click(visitTypeButton!);
-        const prebookOption = await screen.findByText('Pre-booked In Person Visit');
-        await user.click(prebookOption);
+        const prebookMenuOption = await screen.findByText(prebookOption!.label);
+        await user.click(prebookMenuOption);
 
         // Select location
         const locationSelect = screen.getByTestId(dataTestIds.dashboard.locationSelect);
@@ -344,7 +347,7 @@ describe('AddVisit', () => {
       { timeout: 10000 }
     );
 
-    it(
+    it.skipIf(!postTelemedOption)(
       'Shows dialog when clicking Add for post-telemed visit without selecting a time slot',
       async () => {
         const user = userEvent.setup();
@@ -399,8 +402,8 @@ describe('AddVisit', () => {
         const visitTypeDropdown = screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown);
         const visitTypeButton = visitTypeDropdown.querySelector('[role="combobox"]');
         await user.click(visitTypeButton!);
-        const postTelemedOption = await screen.findByText('Post Telemed Lab Only');
-        await user.click(postTelemedOption);
+        const postTelemedMenuOption = await screen.findByText(postTelemedOption!.label);
+        await user.click(postTelemedMenuOption);
 
         // Select location
         const locationSelect = screen.getByTestId(dataTestIds.dashboard.locationSelect);
