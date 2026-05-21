@@ -33,13 +33,13 @@ async function deleteCommunication(oystehr: Oystehr, id: string): Promise<void> 
 
 async function checkIfBelongsToCurrentProvider(
   oystehr: Oystehr,
-  userToken: string,
+  token: string,
   secrets: Secrets | null,
   resourceId: string
 ): Promise<boolean> {
   const [resource, myUser] = await Promise.all([
     oystehr.fhir.get<Communication>({ resourceType: 'Communication', id: resourceId }),
-    userMe(userToken, secrets),
+    userMe(token, secrets),
   ]);
   return resource.sender?.reference === myUser.profile;
 }

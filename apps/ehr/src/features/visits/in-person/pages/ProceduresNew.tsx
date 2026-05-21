@@ -256,7 +256,16 @@ export default function ProceduresNew(): ReactElement {
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<ProcedureQuickPickData[]>([]);
   const [quickPickSaving, setQuickPickSaving] = useState(false);
-  const { quickPicks: mergedQuickPicks } = useMergedProcedureQuickPicks();
+  // The quick-picks fetch is triggered by mounting this page (useMergedProcedureQuickPicks
+  // calls the zambda from a useEffect on mount), so picks start loading as soon as the
+  // user navigates to /procedures/new — not when they open the Quick Picks menu. We
+  // surface the loading flag below so the menu shows a "Loading…" item while in-flight,
+  // instead of appearing empty on a fast first click.
+  const { quickPicks: mergedQuickPicks, loading: mergedQuickPicksLoading } = useMergedProcedureQuickPicks();
+  const sortedMergedQuickPicks = useMemo(
+    () => [...mergedQuickPicks].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+    [mergedQuickPicks]
+  );
 
   const updateState = (stateMutator: (draft: PageState) => void): void => {
     setState((prev) => {
@@ -496,7 +505,7 @@ export default function ProceduresNew(): ReactElement {
       setExistingQuickPicks(response.quickPicks);
     } catch (error) {
       console.error('Failed to load existing quick picks:', error);
-      setExistingQuickPicks(mergedQuickPicks);
+      setExistingQuickPicks(sortedMergedQuickPicks);
     }
     // Suggest name: procedure name | site location | side of body | complications | cpt codes
     const parts: string[] = [];
@@ -896,6 +905,22 @@ export default function ProceduresNew(): ReactElement {
   }, []);
   usePendingQuickPick('procedures', handlePendingQuickPick, !isSelectOptionsLoading);
 
+  const [consentPdfExists, setConsentPdfExists] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/consent_procedure.pdf', { method: 'HEAD' })
+      .then((res) => {
+        const contentType = res.headers.get('content-type') ?? '';
+        if (!cancelled) setConsentPdfExists(res.ok && contentType.includes('pdf'));
+      })
+      .catch(() => {
+        if (!cancelled) setConsentPdfExists(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <FormProvider {...methods}>
       <Stack spacing={1}>
@@ -915,14 +940,19 @@ export default function ProceduresNew(): ReactElement {
               />
               <Typography>
                 I have obtained the{' '}
-                <Link target="_blank" to={`/consent_procedure.pdf`} style={{ color: theme.palette.primary.main }}>
-                  Consent for Procedure
-                </Link>
+                {consentPdfExists ? (
+                  <Link target="_blank" to={`/consent_procedure.pdf`} style={{ color: theme.palette.primary.main }}>
+                    Consent for Procedure
+                  </Link>
+                ) : (
+                  'Consent for Procedure'
+                )}
               </Typography>
             </Box>
 
             <QuickPicksButton
-              quickPicks={!procedureId ? mergedQuickPicks : []}
+              quickPicks={!procedureId ? sortedMergedQuickPicks : []}
+              loading={!procedureId && mergedQuickPicksLoading}
               getLabel={(quickPick) => quickPick.name}
               onSelect={onQuickPickSelect}
               showAddOption

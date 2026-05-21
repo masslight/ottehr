@@ -10,7 +10,8 @@ export const hasNumericVisionValue = (vitals: VitalsObservationDTO[]): boolean =
     const visionVital = vital as VitalsVisionObservationDTO;
     const hasLeftVision = visionVital.leftEyeVisionText && /\d/.test(visionVital.leftEyeVisionText);
     const hasRightVision = visionVital.rightEyeVisionText && /\d/.test(visionVital.rightEyeVisionText);
-    return Boolean(hasLeftVision || hasRightVision);
+    const hasBothEyesVision = visionVital.bothEyesVisionText && /\d/.test(visionVital.bothEyesVisionText);
+    return Boolean(hasLeftVision || hasRightVision || hasBothEyesVision);
   });
 };
 

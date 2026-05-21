@@ -25,26 +25,26 @@ export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({ appointment,
       ) : (
         // Visit Components
         <GenericToolTip title={<PaperworkToolTipContent appointment={appointment} />} customWidth="none">
-          <Box sx={{ display: 'flex', gap: 0 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, auto)', gap: 0.5 }}>
             <AccountCircleOutlinedIcon
-              sx={{ ml: 0, mr: 0.5, color: appointment.paperwork.demographics ? '#43A047' : '#BFC2C6' }}
+              sx={{ color: appointment.paperwork.demographics ? '#43A047' : '#BFC2C6' }}
               fill={otherColors.cardChip}
-            ></AccountCircleOutlinedIcon>
+            />
 
             <HealthAndSafetyOutlinedIcon
-              sx={{ mx: 0.5, color: appointment.paperwork.insuranceCard ? '#43A047' : '#BFC2C6' }}
+              sx={{ color: appointment.paperwork.insuranceCard ? '#43A047' : '#BFC2C6' }}
               fill={otherColors.cardChip}
-            ></HealthAndSafetyOutlinedIcon>
+            />
 
             <BadgeOutlinedIcon
-              sx={{ mx: 0.5, color: appointment.paperwork.photoID ? '#43A047' : '#BFC2C6' }}
+              sx={{ color: appointment.paperwork.photoID ? '#43A047' : '#BFC2C6' }}
               fill={otherColors.cardChip}
-            ></BadgeOutlinedIcon>
+            />
 
             <AssignmentTurnedInOutlinedIcon
-              sx={{ mx: 0.5, color: appointment.paperwork.consent ? '#43A047' : '#BFC2C6' }}
+              sx={{ color: appointment.paperwork.consent ? '#43A047' : '#BFC2C6' }}
               fill={otherColors.cardChip}
-            ></AssignmentTurnedInOutlinedIcon>
+            />
           </Box>
         </GenericToolTip>
       )}

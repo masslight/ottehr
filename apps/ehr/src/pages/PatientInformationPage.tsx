@@ -1,6 +1,6 @@
 import { Box, SxProps, Typography, useTheme } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { BundleEntry, Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Organization, Patient, Questionnaire, QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -14,6 +14,10 @@ import { ContactContainer } from 'src/features/visits/shared/components/patient/
 import { EmergencyContactContainer } from 'src/features/visits/shared/components/patient/EmergencyContactContainer';
 import { EmployerInformationContainer } from 'src/features/visits/shared/components/patient/EmployerInformationContainer';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
+import {
+  buildInsuranceSectionCounts,
+  useCoverageFormRehydration,
+} from 'src/features/visits/shared/components/patient/insuranceFormHelpers';
 import { InsuranceSection } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { OccupationalMedicineEmployerInformationContainer } from 'src/features/visits/shared/components/patient/OccupationalMedicineEmployerContainer';
 import { PatientDetailsContainer } from 'src/features/visits/shared/components/patient/PatientDetailsContainer';
@@ -28,7 +32,6 @@ import {
   CoverageWithPriority,
   extractFirstValueFromAnswer,
   flattenItems,
-  InsurancePlanDTO,
   OrderedCoveragesWithSubscribers,
   PATIENT_RECORD_CONFIG,
   PATIENT_RECORD_QUESTIONNAIRE,
@@ -40,14 +43,12 @@ import { CustomDialog } from '../components/dialogs';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import {
-  useGetInsurancePlans,
   useGetPatient,
   useGetPatientAccount,
   useGetPatientCoverages,
   useRemovePatientCoverage,
   useUpdatePatientAccount,
 } from '../hooks/useGetPatient';
-import { createInsurancePlanDto, usePatientStore } from '../state/patient.store';
 
 const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2'];
 const ANSWER_TYPES: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = [
@@ -69,12 +70,45 @@ const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   return undefined;
 };
 
+// Build a linkId -> form item type lookup so empty form fields can default to a
+// type-appropriate value. Without this, undefined defaults make RHF treat
+// "type then clear" as dirty, since MUI inputs emit '' (or false/null for
+// checkboxes/references) and that never strict-equals undefined.
+//
+// Reference fields are emitted as FHIR type 'choice' but tagged with the
+// answer-loading-options extension; surface them as 'reference' so they get a
+// null default that matches what the Autocomplete clears to.
+const ANSWER_LOADING_OPTIONS_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options';
+const isReferenceItem = (item: QuestionnaireItem): boolean =>
+  item.type === 'choice' && (item.extension?.some((ext) => ext.url === ANSWER_LOADING_OPTIONS_URL) ?? false);
+
+const buildLinkIdTypeMap = (q: Questionnaire): Map<string, string> => {
+  const map = new Map<string, string>();
+  const walk = (items?: QuestionnaireItem[]): void => {
+    if (!items) return;
+    for (const item of items) {
+      if (item.linkId && item.type) {
+        map.set(item.linkId, isReferenceItem(item) ? 'reference' : item.type);
+      }
+      walk(item.item);
+    }
+  };
+  walk(q.item);
+  return map;
+};
+const linkIdTypes = buildLinkIdTypeMap(questionnaire);
+
+const emptyDefaultForType = (type: string | undefined): any => {
+  if (type === 'boolean') return false;
+  if (type === 'reference' || type === 'attachment') return null;
+  return '';
+};
+
 const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): Record<string, any> => {
   const flattened = flattenItems(currentItemValues);
-  // console.log('Flattened items for form defaults:', flattened);
   return flattened.reduce((acc: Record<string, any>, item: QuestionnaireResponseItem) => {
     const value = getAnyAnswer(item);
-    acc[item.linkId] = value;
+    acc[item.linkId] = value === undefined ? emptyDefaultForType(linkIdTypes.get(item.linkId)) : value;
     return acc;
   }, {});
 };
@@ -111,32 +145,6 @@ const makePrepopulatedCoveragesFormDefaults = ({
   });
 
   return makeFormDefaults(prepopulatedItems);
-};
-
-const transformInsurancePlans = (bundleEntries: BundleEntry[]): InsurancePlanDTO[] => {
-  const organizations = bundleEntries
-    .filter((bundleEntry) => bundleEntry.resource?.resourceType === 'Organization')
-    .map((bundleEntry) => bundleEntry.resource as Organization);
-
-  const transformedPlans = organizations
-    .map((organization) => {
-      try {
-        return createInsurancePlanDto(organization);
-      } catch (err) {
-        console.error(err);
-        console.error('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
-        return {} as InsurancePlanDTO;
-      }
-    })
-    .filter((insurancePlan) => insurancePlan.id !== undefined)
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const insurancePlanMap: Record<string, InsurancePlanDTO> = {};
-  transformedPlans.forEach((plan) => {
-    insurancePlanMap[plan.name ?? ''] = plan;
-  });
-
-  return Object.values(insurancePlanMap);
 };
 
 const usePatientData = (
@@ -198,8 +206,8 @@ const usePatientData = (
     if (accountData && questionnaire) {
       const prepopulatedForm = prepopulatePatientRecordItems({
         ...accountData,
-        coverages: {},
-        insuranceOrgs: [],
+        coverages: insuranceData?.coverages ?? {},
+        insuranceOrgs: insuranceData?.insuranceOrgs ?? [],
         questionnaire,
         appointmentContext,
       });
@@ -207,7 +215,7 @@ const usePatientData = (
     }
 
     return { patient, isFetching, defaultFormVals };
-  }, [accountData, accountFetching, appointmentContext]);
+  }, [accountData, accountFetching, appointmentContext, insuranceData?.coverages, insuranceData?.insuranceOrgs]);
 
   return {
     accountData,
@@ -232,37 +240,14 @@ const useFormData = (
   methods: ReturnType<typeof useForm>;
   coveragesFormValues: any;
 } => {
-  // Build a map of section IDs to their rendered counts for sections with conditional rendering
-  const renderedSectionCounts: Record<string, number> = {};
-
-  // Insurance sections are only rendered based on actual coverage data
-  // The count represents the maximum index + 1 that should be validated
-  // e.g., if only secondary exists (index 1), count should be 2 to validate indices 0 and 1
-  if (insuranceData?.coverages) {
-    // Determine the highest insurance index that will be rendered
-    let maxInsuranceIndex = Math.max(
-      insuranceData.coverages.primary ? 0 : -1,
-      insuranceData.coverages.secondary ? 1 : -1
-    );
-    // Account for the inline add form
-    if (isAddingInsurance && newInsuranceOrdinal !== undefined) {
-      maxInsuranceIndex = Math.max(maxInsuranceIndex, newInsuranceOrdinal - 1);
-    }
-    // Count is max index + 1 (to validate all indices from 0 to maxIndex)
-    const insuranceCount = maxInsuranceIndex + 1;
-    renderedSectionCounts['insurance-section'] = insuranceCount;
-    renderedSectionCounts['insurance-section-2'] = insuranceCount;
-  } else {
-    // Even with no existing coverages, account for inline add
-    if (isAddingInsurance && newInsuranceOrdinal !== undefined) {
-      const insuranceCount = newInsuranceOrdinal;
-      renderedSectionCounts['insurance-section'] = insuranceCount;
-      renderedSectionCounts['insurance-section-2'] = insuranceCount;
-    } else {
-      renderedSectionCounts['insurance-section'] = 0;
-      renderedSectionCounts['insurance-section-2'] = 0;
-    }
-  }
+  // The dynamic resolver needs to know how many insurance ordinals are
+  // actually rendered so it doesn't validate hidden ones.
+  const renderedSectionCounts = buildInsuranceSectionCounts({
+    hasPrimary: Boolean(insuranceData?.coverages?.primary),
+    hasSecondary: Boolean(insuranceData?.coverages?.secondary),
+    isAddingInsurance,
+    newInsuranceOrdinal,
+  });
 
   const methods = useForm({
     defaultValues: defaultFormVals,
@@ -271,14 +256,42 @@ const useFormData = (
     resolver: createDynamicValidationResolver({ renderedSectionCounts }),
   });
 
-  // Populate form when data first loads (defaultValues only applies at mount time,
-  // and the form mounts before data is available)
-  const initializedRef = useRef(false);
+  // Populate form when data loads, and re-populate when navigating to a different
+  // patient on the same mounted component (defaultValues only applies at mount time).
+  const initializedForPatientRef = useRef<string | null>(null);
   useEffect(() => {
-    if (defaultFormVals && !initializedRef.current) {
+    if (defaultFormVals && initializedForPatientRef.current !== (patientId ?? null)) {
       methods.reset(defaultFormVals);
-      initializedRef.current = true;
+      initializedForPatientRef.current = patientId ?? null;
     }
+  }, [defaultFormVals, methods, patientId]);
+
+  const appointmentContextSyncRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!defaultFormVals) return;
+    const nextKey = [
+      defaultFormVals['appointment-service-category'] ?? '',
+      defaultFormVals['appointment-service-mode'] ?? '',
+      defaultFormVals['reason-for-visit'] ?? '',
+    ].join('|');
+    if (appointmentContextSyncRef.current === nextKey) return;
+    appointmentContextSyncRef.current = nextKey;
+
+    methods.setValue('appointment-service-category', defaultFormVals['appointment-service-category'], {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+    methods.setValue('appointment-service-mode', defaultFormVals['appointment-service-mode'], {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+    methods.setValue('reason-for-visit', defaultFormVals['reason-for-visit'], {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
   }, [defaultFormVals, methods]);
 
   const { coveragesFormValues } = useMemo(() => {
@@ -296,27 +309,13 @@ const useFormData = (
     return { coveragesFormValues };
   }, [accountData, coveragesFetching, insuranceData?.coverages, insuranceData?.insuranceOrgs]);
 
-  // Use resetField (not setValue) so the loaded coverage values become the form's
-  // defaultValues. Without this, RHF's dirty comparison (value vs defaultValue)
-  // marks fields dirty whenever masked inputs re-emit their value on mount.
-  // Re-run when the set of coverages changes (e.g. primary removed) so removed
-  // coverages' fields get cleared; keying on coverage IDs avoids clobbering
-  // in-progress edits on unrelated refetches.
-  const coveragesInitKeyRef = useRef<string>('');
-  useEffect(() => {
-    if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
-    const coverageKey = [
-      patientId ?? 'none',
-      insuranceData?.coverages?.primary?.id ?? 'none',
-      insuranceData?.coverages?.secondary?.id ?? 'none',
-    ].join(':');
-    if (coveragesInitKeyRef.current === coverageKey) return;
-    coveragesInitKeyRef.current = coverageKey;
-
-    Object.entries(coveragesFormValues).forEach(([key, value]) => {
-      methods.resetField(key, { defaultValue: value });
-    });
-  }, [coveragesFormValues, methods, insuranceData?.coverages, patientId]);
+  useCoverageFormRehydration({
+    coveragesFormValues,
+    patientId,
+    primaryCoverageId: insuranceData?.coverages?.primary?.id,
+    secondaryCoverageId: insuranceData?.coverages?.secondary?.id,
+    methods,
+  });
 
   return { methods, coveragesFormValues };
 };
@@ -360,7 +359,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   appointmentContext,
 }) => {
   const navigate = useNavigate();
-  const { setInsurancePlans } = usePatientStore();
 
   const { accountData, insuranceData, coverages, patient, isFetching, defaultFormVals, coveragesFetching } =
     usePatientData(id, appointmentContext);
@@ -385,15 +383,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   const { otherPatientsWithSameName, setOtherPatientsWithSameName } = useGetPatient(id);
 
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
-  useGetInsurancePlans((data) => {
-    if (!data) return;
-
-    const bundleEntries = data.entry;
-    if (bundleEntries) {
-      const uniquePlans = transformInsurancePlans(bundleEntries);
-      setInsurancePlans(uniquePlans);
-    }
-  });
 
   const { handleSubmit, formState } = methods;
   const { dirtyFields } = formState;
@@ -425,6 +414,17 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
         methods.resetField(field.key, { defaultValue: undefined });
       });
     }
+  };
+
+  // Close the inline add form WITHOUT clearing field values. Used after a
+  // successful section save: the values the user just saved must stay in the
+  // form (the new coverage container will display them); only the inline form
+  // slot itself needs to disappear so its Controllers cleanly unmount before
+  // a coverage container mounts and claims the same field names — without
+  // this, the inline form's name change (e.g. "insurance-priority" →
+  // "insurance-priority-2") wipes the just-saved values out of form state.
+  const handleCloseAddInsurance = (): void => {
+    setIsAddingInsurance(false);
   };
 
   const handleDiscardChanges = (): void => {
@@ -544,6 +544,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     isAddingInsurance={isAddingInsurance}
                     onStartAddInsurance={handleStartAddInsurance}
                     onCancelAddInsurance={handleCancelAddInsurance}
+                    onCloseAddInsurance={handleCloseAddInsurance}
                     newInsuranceOrdinal={newInsuranceOrdinal}
                     encounterId={appointmentContext?.encounterId}
                   />

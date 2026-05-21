@@ -1,5 +1,6 @@
 import { FEATURE_FLAGS_CONFIG } from 'utils';
 
+// todo: use FEATURE_FLAGS_CONFIG directly instead of re-exporting it
 export const FEATURE_FLAGS = {
   LAB_ORDERS_ENABLED: FEATURE_FLAGS_CONFIG.labOrdersEnabled,
   RADIOLOGY_ENABLED: FEATURE_FLAGS_CONFIG.radiologyEnabled,

@@ -32,11 +32,11 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { mergeEncounterAccounts } from '../../shared/harvest';
 import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
+  mergeEncounterAccounts,
   updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
 } from '../../shared/harvest';

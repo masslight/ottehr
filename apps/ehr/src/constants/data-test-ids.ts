@@ -1,10 +1,4 @@
-import {
-  ApptTelemedTab,
-  DispositionType,
-  PractitionerQualificationCode,
-  RoleType,
-  TelemedAppointmentVisitTabs,
-} from 'utils';
+import { DispositionType, PractitionerQualificationCode, RoleType } from 'utils';
 
 export const dataTestIds = {
   closeIcon: 'CloseIcon',
@@ -29,7 +23,10 @@ export const dataTestIds = {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
     addPatientButton: 'add-patient-button',
     approveButton: 'approve-button',
+    completeIntakeButton: 'complete-intake-button',
     intakeButton: `intake-button`,
+    readyButton: 'ready-button',
+    startProviderButton: 'start-provider-button',
     visitDetailsButton: `visit-details-button`,
     progressNoteButton: `progress-note-button`,
     dischargeButton: 'discharge-button',
@@ -50,7 +47,6 @@ export const dataTestIds = {
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',
-    changeStatusDropdown: 'change-status-dropdown-in-appointment-page',
   },
   addPatientPage: {
     pageTitle: 'page-title',
@@ -193,7 +189,6 @@ export const dataTestIds = {
   telemedEhrFlow: {
     trackingBoardLocationsSelect: 'telemed-tracking-board-location-select',
     trackingBoardLocationsSelectOption: (id: string) => `telemed-tracking-board-location-select-option-${id}`,
-    telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
     trackingBoardTableGroupRow: `telemed-tracking-board-table-group-row`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
     myPatientsButton: 'telemed-my-patients-button',
@@ -237,7 +232,6 @@ export const dataTestIds = {
     endVideoCallButton: 'telemed-end-video-call-button',
     pinVideoCallButton: 'telemed-pin-video-call-button',
     finishVisitButton: 'telemed-finish-visit-button',
-    appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
     closeChartButton: 'telemed-chart-close-icon',
@@ -734,6 +728,16 @@ export const dataTestIds = {
     },
   },
 
+  adminLabelPrintingConfig: {
+    form: 'label-printing-config-form',
+    modeSelect: 'label-printing-config-mode-select',
+    manufacturerSelect: 'label-printing-config-manufacturer-select',
+    labelTypeSelect: 'label-printing-config-label-type-select',
+    orientationSelect: 'label-printing-config-orientation-select',
+    openPdfOnPrintCheckbox: 'label-printing-config-open-pdf-checkbox',
+    submitButton: 'label-printing-config-submit-button',
+  },
+
   reviewOfSystemsPage: {
     rosTableContainer: 'review-of-systems-table-container',
     rosTable: 'review-of-systems-table',
@@ -791,5 +795,19 @@ export const dataTestIds = {
       },
       markReadyBtn: 'external-lab-mark-ready-btn',
     },
+  },
+
+  emCodesAdminPage: {
+    addButton: 'em-codes-add-button',
+    codeRow: (code: string) => `em-code-row-${code}`,
+    editButton: (code: string) => `em-code-edit-${code}`,
+    deleteButton: (code: string) => `em-code-delete-${code}`,
+    dialog: 'em-code-dialog',
+    codeField: 'em-code-field',
+    displayField: 'em-code-display-field',
+    saveButton: 'em-code-save-button',
+    confirmDeleteDialog: 'em-code-confirm-delete-dialog',
+    confirmDeleteButton: 'em-code-confirm-delete-button',
+    cancelDeleteButton: 'em-code-cancel-delete-button',
   },
 };

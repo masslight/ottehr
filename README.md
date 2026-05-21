@@ -26,7 +26,7 @@
 
 # Ottehr
 
-[Ottehr](https://www.ottehr.com/) is a modern, modular EHR used as the foundation for large-scale production EHR installations. Ottehr uses the headless EHR [Oystehr](https://www.oystehr.com) as a service provider and to host its backend service endpoints. Ottehr requires  a [free Oystehr account](https://docs.oystehr.com/oystehr/getting-started/quickstart/) to run as-is, but you are welcome to modify it to use a third-party service vendor or build your own service architecture. Ottehr is designed for developers, making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.
+[Ottehr](https://www.ottehr.com/) is a modern, modular EHR. Ottehr uses the headless EHR [Oystehr](https://www.oystehr.com) as a service provider and to host its backend service endpoints. Ottehr requires a [free Oystehr account](https://docs.oystehr.com/oystehr/getting-started/quickstart/) to run as-is. Ottehr is designed for developers, making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.
 
 Ottehr consists of three components:
 
@@ -35,6 +35,16 @@ Ottehr consists of three components:
 - **[Ottehr Backend](packages/zambdas)** &mdash; The backend for the Patient Portal and EHR apps, it is composed of Function-as-a-Service endpoints deployed as [Oystehr Zambdas](https://docs.oystehr.com/oystehr/services/zambda/).
 
 ## Run Ottehr Locally
+
+### AI-prompt setup
+
+You can use an LLM to help you get up and running with Ottehr for the first time. First, [install Node.js 22](#install-nodejs-22x) and [Terraform 1.13](#install-terraform-113).
+
+Clone the repository, start up Claude Code or similar at the root of the repository, and use a prompt like the one below and replacing the placeholders,
+
+```md
+I just cloned Ottehr, the open source EHR. I want to get up and running locally so I can kick the tires to check it out. In order to do this I know we'll need these three things: My PROJECT_ID is <PROJECT_ID>, and my M2M Client credentials are Client=<CLIENT_ID>, Secret=<SECRET_KEY>. Use the local terraform backend.
+```
 
 ### Prerequisites
 
@@ -49,11 +59,31 @@ Once your request is received, the Oystehr team will promptly create your accoun
 
 Check out the [Oystehr Technical Documentation](https://docs.oystehr.com/oystehr/getting-started/) to learn more about the Oystehr platform.
 
-#### Install Node.js
+#### Install Node.js 22.x
 
 If you do not already have it, [install Node.js](https://nodejs.org/en/download) v22.x.
 
 Ottehr also supports `nvm`, `asdf`, and tools that use `.node-version`.
+
+#### Install Terraform 1.13
+
+If you do not already have it, install Terraform version 1.13. You can download this directly from HashiCorp's [releases page](https://releases.hashicorp.com/terraform) and install it into your path, or use [Homebrew](https://brew.sh). For example to install from HashiCorp on an ARM Mac:
+
+```bash
+brew install wget # or use cURL
+wget https://releases.hashicorp.com/terraform/1.13.5/terraform_1.13.5_darwin_arm64.zip
+unzip terraform_1.13.5_darwin_arm64.zip -d /tmp
+sudo cp /tmp/terraform /usr/local/bin/terraform
+```
+
+Using Homebrew:
+
+```bash
+brew tap hashicorp/tap
+brew install hashicorp/tap/terraform
+```
+
+Check the [1.13 releases page](https://releases.hashicorp.com/terraform/1.13.5/) if you aren't sure which version to install.
 
 ### Fork & Clone
 
@@ -96,46 +126,7 @@ To log into the EHR, check the email address you provided during setup for an in
 
 ## End to End Test Setup Procedure
 
-Ottehr includes a suite of end to end tests that can be used to maintain quality as you customize it for your use case.
-
-Ottehr uses the [ClickSend](https://www.clicksend.com/us/) API to send an SMS with a confirmation code that is used to login before running the E2E tests. As such, you will need to [create a ClickSend account](https://dashboard.clicksend.com/signup/step1) in order to setup e2e testing.
-
-After you have created your ClickSend account, invite a test user to your EHR application using the [Oystehr console](https://console.oystehr.com/app/users/new). Select your EHR application, input the user's email for both "User name" and "Email", set the in-line access policy to
-
-```
-{
-  "rule": []
-}
-```
-
-and choose "Administrator" as the role. Then, click "Invite". To set the password, launch the ehr app by running `npm run ehr:start` from the root directory, enter the email you invited, click `Forgot password?` and set a password.
-
-To set the environment files required to run E2E tests, run the following command in the root directory:
-
-```bash
-./scripts/e2e-test-setup.sh
-```
-
-The script will prompt you for the following information:
-
-- The username for the test user of the EHR
-- The password for a test user of the EHR
-- The phone number for a test user of the EHR
-- Your ClickSend user's username
-- Your ClickSend user's password
-
-Once the program finishes running, the environment files for your e2e tests will be set.
-
-From the root directory, running the following commands will run the e2e tests for the backend and UI for the intake and ehr apps:
-
-```
-npm run intake:e2e:local
-npm run intake:e2e:local:ui
-npm run ehr:e2e:local
-npm run ehr:e2e:local:ui
-```
-
-Full E2E Documentation: [E2E_README.md](./E2E_README.md)
+Ottehr includes a suite of end to end tests that can be used to maintain quality as you customize it for your use case. Learn more about how to configure and use the end to end tests in [E2E_README.md](./E2E_README.md).
 
 ## Repository Structure
 
@@ -180,7 +171,7 @@ This repository uses a monorepo structure.
 - Modify the images, SVGs and colors as needed
 - Restart the app
 
-#### To theme your Ottehr Ehr app
+#### To theme your Ottehr EHR app
 
 - Copy the files in `apps/ehr/src/theme` into a new folder, for example `apps/ehr/src/myTheme`
 - Update the theme environment variables to point to your new folders:

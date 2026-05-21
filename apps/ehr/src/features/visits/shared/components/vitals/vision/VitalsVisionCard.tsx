@@ -32,9 +32,11 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyEleme
     const latestHistoryEntry = field.current[0];
     if (!latestHistoryEntry) return;
     const visionOptionsLine = getVisionExtraOptionsFormattedString(latestHistoryEntry.extraVisionOptions);
-    return `Left eye: ${latestHistoryEntry.leftEyeVisionText}; Right eye: ${latestHistoryEntry.rightEyeVisionText}; ${
-      visionOptionsLine ?? ''
-    }`;
+    const parts: string[] = [];
+    if (latestHistoryEntry.leftEyeVisionText) parts.push(`Left eye: ${latestHistoryEntry.leftEyeVisionText}`);
+    if (latestHistoryEntry.rightEyeVisionText) parts.push(`Right eye: ${latestHistoryEntry.rightEyeVisionText}`);
+    if (latestHistoryEntry.bothEyesVisionText) parts.push(`Both eyes: ${latestHistoryEntry.bothEyesVisionText}`);
+    return `${parts.join('; ')}; ${visionOptionsLine ?? ''}`;
   })();
 
   const { handleKeyDown } = useVitalsSaveOnEnter({

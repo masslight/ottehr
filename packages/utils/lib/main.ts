@@ -1,6 +1,5 @@
 export * from './auth';
 export * from './fhir';
-export * from './frontend';
 export * from './helpers';
 export * from './secrets';
 export * from './store';

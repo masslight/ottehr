@@ -10,9 +10,8 @@ import { removePrefix, Secrets, userMe } from 'utils';
  * and prevented backend/integration callers (and synthesis tooling)
  * from invoking zambdas that depend on this helper.
  */
-export async function getMyPractitionerId(userToken: string, secrets: Secrets | null): Promise<string> {
-  const userInfo = await userMe(userToken, secrets);
-  const myPractitionerId = removePrefix('Practitioner/', userInfo.profile);
+export async function getMyPractitionerId(token: string, secrets: Secrets | null): Promise<string> {
+  const myPractitionerId = removePrefix('Practitioner/', (await userMe(token, secrets)).profile);
   if (!myPractitionerId) throw new Error("Can't receive practitioner resource id attached to current user");
   return myPractitionerId;
 }

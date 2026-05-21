@@ -72,11 +72,11 @@ function validateRequestParameters(
 
 async function complexValidation(
   oystehr: Oystehr,
-  userToken: string,
+  token: string,
   secrets: Secrets | null,
   userId: string
 ): Promise<void> {
-  const [user, caller] = await Promise.all([oystehr.user.get({ id: userId }), userMe(userToken, secrets)]);
+  const [user, caller] = await Promise.all([oystehr.user.get({ id: userId }), userMe(token, secrets)]);
   if (!user) {
     throw {
       code: APIErrorCode.INVALID_INPUT,

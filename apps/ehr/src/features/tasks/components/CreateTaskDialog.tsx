@@ -214,7 +214,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
             <TextInput name="taskDetails" label="Task details" />
             <Stack direction="row" spacing={1}>
               <EmployeeSelectInput name="assignee" label="Assign task to" />
-              <LocationSelectInput name="location" label="Location" required />
+              <LocationSelectInput name="location" label="Location" type="in-person" required />
             </Stack>
           </Stack>
         </FormProvider>

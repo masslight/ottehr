@@ -14,11 +14,8 @@ import {
   MedicationData,
   MedicationOrderStatuses,
   OrderPackage,
-  removePrefix,
   searchMedicationLocation,
   searchRouteByCode,
-  Secrets,
-  userMe,
 } from 'utils';
 import { createMedicationAdministrationResource } from './fhir-resources-creation';
 
@@ -54,12 +51,6 @@ export function createMedicationCopy(
     resourceCopy.code.coding.push({ system: CODE_SYSTEM_NDC, code: orderData.ndc });
   }
   return resourceCopy;
-}
-
-export async function practitionerIdFromZambdaInput(userToken: string, secrets: Secrets | null): Promise<string> {
-  const myPractitionerId = removePrefix('Practitioner/', (await userMe(userToken, secrets)).profile);
-  if (!myPractitionerId) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('No practitioner id was found for token provided');
-  return myPractitionerId;
 }
 
 export async function getMedicationByName(oystehr: Oystehr, medicationName: string): Promise<Medication> {

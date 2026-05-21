@@ -5,11 +5,13 @@ import {
   Medication,
   MedicationAdministration,
   MedicationStatement,
+  Organization,
   Practitioner,
   Procedure,
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   AdministerImmunizationOrderRequest,
   CODE_SYSTEM_CPT,
@@ -22,6 +24,7 @@ import {
   getFullName,
   getMedicationName,
   ImmunizationEmergencyContact,
+  INVALID_INPUT_ERROR,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
@@ -43,6 +46,7 @@ import {
 } from '../../../shared';
 import {
   CONTAINED_EMERGENCY_CONTACT_ID,
+  CONTAINED_MANUFACTURER_ORG_ID,
   CONTAINED_MEDICATION_ID,
   getContainedMedication,
   updateOrderDetails,
@@ -191,7 +195,10 @@ async function administerImmunizationOrder(
         medicationAdministration,
         medication,
         administrationDetails.administeredDateTime,
-        userPractitioner
+        userPractitioner,
+        medicationAdministration.contained?.find((r) => r.id === CONTAINED_MANUFACTURER_ORG_ID) as
+          | Organization
+          | undefined
       ),
     });
   }
@@ -278,6 +285,23 @@ export function validateRequestParameters(
 
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
 
+  function validateDate(value: string, input: string): void {
+    const dt = DateTime.fromISO(value);
+    if (!dt.isValid || dt.year < 1900) {
+      throw INVALID_INPUT_ERROR(`Invalid ${input}, "${value}" is not a valid date`);
+    }
+  }
+
+  if (administrationDetails?.expDate) {
+    validateDate(administrationDetails.expDate, 'expiration date');
+  }
+  if (administrationDetails?.administeredDateTime) {
+    validateDate(administrationDetails.administeredDateTime, 'administered date');
+  }
+  if (administrationDetails?.visGivenDate) {
+    validateDate(administrationDetails.visGivenDate, 'VIS given date');
+  }
+
   if (administrationDetails) {
     if (administrationDetails.mvx) administrationDetails.mvx = administrationDetails.mvx.trim();
     if (administrationDetails.cvx) administrationDetails.cvx = administrationDetails.cvx.trim();
@@ -299,9 +323,11 @@ function createMedicationStatement(
   medicationAdministration: MedicationAdministration,
   medication: Medication,
   administeredDateTime: string,
-  userPractitioner: Practitioner
+  userPractitioner: Practitioner,
+  manufacturer?: Organization
 ): MedicationStatement {
   const drugIdCoding = medication.code?.coding?.find((code) => code.system === MEDICATION_DISPENSABLE_DRUG_ID);
+  const containedResources = drugIdCoding ? undefined : [...[medication], ...(manufacturer ? [manufacturer] : [])];
   return {
     resourceType: 'MedicationStatement',
     status: 'active',
@@ -331,7 +357,7 @@ function createMedicationStatement(
     },
     effectiveDateTime: administeredDateTime,
     meta: fillMeta('immunization', 'immunization'),
-    contained: drugIdCoding ? undefined : [medication],
+    contained: containedResources,
   };
 }
 

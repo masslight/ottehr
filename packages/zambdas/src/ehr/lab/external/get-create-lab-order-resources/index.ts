@@ -17,6 +17,7 @@ import {
   OrderableItemSearchResult,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
+  STATIC_COMPENDIUM_LAB_GUID,
   VALUE_SETS,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler } from '../../../../shared';
@@ -64,11 +65,35 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   if (selectedLabSet) {
     console.log('searching orderable items for the lab set', selectedLabSet.listName);
-    const labRequests = selectedLabSet.labs.map((lab) => {
-      return getLabs([lab.labGuid], { itemCodes: [lab.itemCode] }, m2mToken);
+    const labRequests = selectedLabSet.labs.map(async (lab) => {
+      const labSearchRes = await getLabs([lab.labGuid], { itemCodes: [lab.itemCode] }, m2mToken);
+
+      let staticLabName: string | undefined;
+      if (lab.labGuid === STATIC_COMPENDIUM_LAB_GUID) {
+        // lab.display is formatted as such: `(code) Test Name / Lab Name`
+        // we want "Lab Name" which will always be the last item in array split on '/'
+        staticLabName = lab.display?.split('/').pop()?.trim();
+      }
+
+      return { labSearchRes, staticLabName };
     });
+
     const allLabsResults = await Promise.all(labRequests);
-    labs = allLabsResults.flat();
+
+    labs = allLabsResults.flatMap((res) => {
+      const { labSearchRes, staticLabName } = res;
+      if (staticLabName) {
+        return labSearchRes.map((oi) => ({
+          item: oi.item,
+          lab: {
+            ...oi.lab,
+            labName: staticLabName,
+          },
+        }));
+      } else {
+        return labSearchRes;
+      }
+    });
   }
 
   let cptCodesToAddPerEncounter: CPTCodeOption[] | undefined = undefined;

@@ -1,7 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { OystehrAPIClient } from 'ui-components';
-import { useSuccessQuery } from 'utils';
 import { CancelInviteParticipantRequestParameters, InviteParticipantRequestParameters, PromiseReturnType } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { useOystehrAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 

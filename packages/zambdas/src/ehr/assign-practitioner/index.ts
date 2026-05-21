@@ -63,7 +63,7 @@ export const complexValidation = async (
 
 export const performEffect = async (
   oystehr: Oystehr,
-  userToken: string,
+  token: string,
   secrets: Secrets | null,
   validatedData: {
     encounter: Encounter;
@@ -74,7 +74,7 @@ export const performEffect = async (
 ): Promise<AssignPractitionerResponse> => {
   const { encounter, appointment, practitionerId, userRole } = validatedData;
 
-  const user = await userMe(userToken, secrets);
+  const user = await userMe(token, secrets);
   await assignPractitionerIfPossible(oystehr, encounter, appointment, practitionerId, userRole, user);
 
   return {

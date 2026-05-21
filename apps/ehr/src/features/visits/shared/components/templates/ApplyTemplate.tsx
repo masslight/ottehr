@@ -24,7 +24,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
-import { ExamType, RoleType } from 'utils';
+import { RoleType } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
@@ -64,7 +64,7 @@ export const ApplyTemplate: React.FC = () => {
   const isAdmin = currentUser?.hasRole?.([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
 
   // Load templates using custom react-query hook
-  const { templates, isLoading: isLoadingTemplates, error: templatesError } = useListTemplates(ExamType.IN_PERSON);
+  const { templates, isLoading: isLoadingTemplates, error: templatesError } = useListTemplates();
 
   // Show error toast when template loading fails
   React.useEffect(() => {
@@ -123,7 +123,6 @@ export const ApplyTemplate: React.FC = () => {
         await applyTemplate(oystehrZambda, {
           encounterId: encounter.id,
           templateName: pendingTemplate,
-          examType: ExamType.IN_PERSON,
         });
 
         // Reset exam observations store to force reload from server
@@ -222,7 +221,6 @@ export const ApplyTemplate: React.FC = () => {
       await createTemplate(oystehrZambda, {
         encounterId: encounter.id,
         templateName: trimmedName,
-        examType: ExamType.IN_PERSON,
       });
       await queryClient.invalidateQueries({ queryKey: ['list-templates'] });
       enqueueSnackbar(
@@ -328,9 +326,9 @@ export const ApplyTemplate: React.FC = () => {
             Are you sure you want to apply the <strong>{getTemplateName(pendingTemplate)}</strong> template?
             <br />
             <br />
-            <strong>Overwritten:</strong> Exam, MDM, Patient Instructions, E&amp;M Code
+            <strong>Overwritten:</strong> ROS, Exam, MDM, Patient Instructions, E&amp;M Code
             <br />
-            <strong>Appended:</strong> HPI, MOI, ROS, ICD-10 Diagnoses, CPT Codes
+            <strong>Appended:</strong> HPI, MOI, ICD-10 Diagnoses, CPT Codes
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>

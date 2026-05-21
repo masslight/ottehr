@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { FhirResource, Provenance, Task } from 'fhir/r4b';
@@ -13,7 +13,6 @@ import {
   getPatchBinary,
   getTaskResource,
   isAnnotationFollowupEncounter,
-  Secrets,
   SignAppointmentInput,
   SignAppointmentResponse,
   TaskIndicator,
@@ -21,7 +20,7 @@ import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler, ZambdaInput } from '../../shared';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
@@ -50,7 +49,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export const performEffect = async (
   oystehr: Oystehr,
-  params: SignAppointmentInput & { userToken: string; secrets: Secrets | null }
+  params: SignAppointmentInput & {
+    userToken: string;
+  }
 ): Promise<SignAppointmentResponse> => {
   const { appointmentId, encounterId, timezone, supervisorApprovalEnabled, userToken, secrets } = params;
 
@@ -81,13 +82,8 @@ export const performEffect = async (
   if (isFollowup) {
     // For follow-up encounters: only update encounter status and create PDF (no appointment updates, no email)
     if (currentStatus) {
-      await changeFollowupEncounterStatusToCompleted(
-        oystehr,
-        userToken,
-        secrets,
-        visitResources,
-        supervisorApprovalEnabled
-      );
+      const userId = await getMyPractitionerId(userToken, secrets);
+      await changeFollowupEncounterStatusToCompleted(oystehr, userId, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Follow-up encounter status has been changed.`);
 
@@ -109,7 +105,8 @@ export const performEffect = async (
   } else {
     // For regular encounters: keep existing behavior
     if (currentStatus) {
-      await changeStatusToCompleted(oystehr, userToken, secrets, visitResources, supervisorApprovalEnabled);
+      const user = await userMe(userToken, secrets);
+      await changeStatusToCompleted(oystehr, user, visitResources, supervisorApprovalEnabled);
     }
     console.debug(`Status has been changed.`);
 
@@ -163,8 +160,7 @@ export const performEffect = async (
 
 const changeFollowupEncounterStatusToCompleted = async (
   oystehr: Oystehr,
-  userToken: string,
-  secrets: Secrets | null,
+  userId: string,
   resourcesToUpdate: FullAppointmentResourcePackage,
   supervisorApprovalEnabled?: boolean
 ): Promise<void> => {
@@ -181,8 +177,6 @@ const changeFollowupEncounterStatusToCompleted = async (
       value: encounterStatus,
     },
   ];
-
-  const user = await userMe(userToken, secrets);
 
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
     resourcesToUpdate.encounter,
@@ -210,17 +204,16 @@ const changeFollowupEncounterStatusToCompleted = async (
         provenanceCreate = {
           method: 'POST',
           url: '/Provenance',
-          resource: createProvenanceForEncounter(
-            resourcesToUpdate.encounter.id,
-            user.profile.split('/')[1],
-            'verifier'
-          ),
+          resource: createProvenanceForEncounter(resourcesToUpdate.encounter.id, userId, 'verifier'),
         };
       }
     }
   }
 
-  const documentPatch = createPublishExcuseNotesOps(resourcesToUpdate?.documentReferences ?? []);
+  const documentPatch = createPublishExcuseNotesOps(
+    resourcesToUpdate?.documentReferences ?? [],
+    resourcesToUpdate.encounter.id
+  );
 
   const encounterPatch = getPatchBinary({
     resourceType: 'Encounter',
@@ -239,8 +232,7 @@ const changeFollowupEncounterStatusToCompleted = async (
 
 const changeStatusToCompleted = async (
   oystehr: Oystehr,
-  userToken: string,
-  secrets: Secrets | null,
+  user: User,
   resourcesToUpdate: FullAppointmentResourcePackage,
   supervisorApprovalEnabled?: boolean
 ): Promise<void> => {
@@ -261,8 +253,6 @@ const changeStatusToCompleted = async (
       value: appointmentStatus,
     },
   ];
-
-  const user = await userMe(userToken, secrets);
 
   patchOps.push(...getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'completed', { user }));
 
@@ -314,7 +304,10 @@ const changeStatusToCompleted = async (
     }
   }
 
-  const documentPatch = createPublishExcuseNotesOps(resourcesToUpdate?.documentReferences ?? []);
+  const documentPatch = createPublishExcuseNotesOps(
+    resourcesToUpdate?.documentReferences ?? [],
+    resourcesToUpdate.encounter.id
+  );
 
   const appointmentPatch = getPatchBinary({
     resourceType: 'Appointment',

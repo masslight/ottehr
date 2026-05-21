@@ -1,4 +1,5 @@
 import Oystehr, { BatchInput, BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
@@ -38,7 +39,13 @@ import {
   searchRouteByCode,
   UpdateMedicationOrderInput,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  getMyPractitionerId,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import {
   createMedicationAdministrationResource,
   createMedicationRequest,
@@ -48,7 +55,6 @@ import {
   createMedicationCopy,
   getEncounterIdFromMA,
   getMedicationById,
-  practitionerIdFromZambdaInput,
   updateMedicationAdministrationData,
   validateProviderAccess,
 } from './helpers';
@@ -65,7 +71,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '') as string;
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-  const practitionerId = await practitionerIdFromZambdaInput(userToken, validatedParameters.secrets);
+  const practitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
   console.log('Created zapToken, fhir and clients.');
 
   const response = await performEffect(oystehr, validatedParameters, practitionerId, userToken);
@@ -93,7 +99,8 @@ async function performEffect(
         encounterIdFromMA,
         newStatus,
         orderResources.medicationAdministration,
-        userToken
+        userToken,
+        orderData.cptCodes
       );
     } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
 
@@ -445,24 +452,28 @@ async function manageAdditionalCptCodesForOrder(
   encounterId: string,
   medicationStatus: MedicationOrderStatusesType,
   medicationAdministration: MedicationAdministration,
-  userToken: string
+  userToken: string,
+  cptCodes?: { code: string; display: string }[]
 ): Promise<void> {
   try {
     console.log(`Managing additional CPT codes for order with status: ${medicationStatus}`);
 
     if (statusesToCreateAdditionalCptCodes.includes(medicationStatus)) {
-      // Read CPT codes from the MedicationAdministration extension — this is the
-      // single source of truth for the order's CPT codes. It includes auto-populated
-      // codes from the Medication resource (inventory defaults) plus any user edits.
-      const cptExt = medicationAdministration.extension?.find(
-        (ext) => ext.url === 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
-      );
-      let orderCptCodes: { code: string; display: string }[] = [];
-      if (cptExt?.valueString) {
-        try {
-          orderCptCodes = JSON.parse(cptExt.valueString) as { code: string; display: string }[];
-        } catch {
-          console.log('Failed to parse CPT codes extension');
+      let orderCptCodes: { code: string; display: string }[] = cptCodes ?? [];
+      if (!cptCodes) {
+        // Read CPT codes from the MedicationAdministration extension — this is the
+        // single source of truth for the order's CPT codes. It includes auto-populated
+        // codes from the Medication resource (inventory defaults) plus any user edits.
+        const cptExt = medicationAdministration.extension?.find(
+          (ext) => ext.url === 'https://fhir.ottehr.com/Extension/medication-cpt-codes'
+        );
+        if (cptExt?.valueString) {
+          try {
+            orderCptCodes = JSON.parse(cptExt.valueString) as { code: string; display: string }[];
+          } catch (e) {
+            console.log('Failed to parse CPT codes extension', e, JSON.stringify(e));
+            captureException(e);
+          }
         }
       }
 
@@ -496,5 +507,6 @@ async function manageAdditionalCptCodesForOrder(
     }
   } catch (e) {
     console.log('Error in manageAdditionalCptCodesForOrder: ', e, JSON.stringify(e));
+    captureException(e);
   }
 }

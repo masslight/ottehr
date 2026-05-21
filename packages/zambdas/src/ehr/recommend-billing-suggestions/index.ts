@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, PROVIDER_CONFIG } from 'utils';
+import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, getEmCodes } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { loadAndParseIcd10Data } from '../../shared/icd-10-search';
@@ -33,6 +33,9 @@ export const index = wrapHandler(
     console.debug('validateRequestParameters success');
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+
+    const oystehr = createOystehrClient(m2mToken, secrets);
+    const emCodeOptions = await getEmCodes(oystehr);
 
     let prompt = `You are an expert medical coder for an urgent care clinic. Suggest appropriate ICD-10 and CPT codes for this visit.
 
@@ -76,7 +79,7 @@ export const index = wrapHandler(
 
       Here are the E&M codes:
 
-      ${PROVIDER_CONFIG.assessment.emCodeOptions.map((option) => `${option.code}: ${option.display}`).join('\n')}
+      ${emCodeOptions.map((option) => `${option.code}: ${option.display}`).join('\n')}
 
       Include in three or fewer sentences how this visit would differ if coded at a higher complexity E&M level, identifying exactly which progress note data were the bottlenecks preventing a higher level and a sample MDM paragraph that would satisfy that level.
 
@@ -242,34 +245,34 @@ export const index = wrapHandler(
 
     // Validate CPT codes and get the descriptions for the codes
     if (suggestions?.cptCodes) {
-      const oystehr = createOystehrClient(m2mToken, secrets);
       await Promise.all(
         suggestions.cptCodes.map(async (code) => {
+          const cptCode = code.code.split('-')[0]; // Remove modifiers before lookup
           const terminologyResponse = await oystehr?.terminology.searchCpt({
-            query: code.code,
+            query: cptCode,
             searchType: 'code',
             limit: 100,
             strictMatch: true,
           });
           if (terminologyResponse.codes.length === 0) {
             const hcpcsSearchResponse = await oystehr?.terminology.searchHcpcs({
-              query: code.code,
+              query: cptCode,
               searchType: 'code',
               limit: 100,
               strictMatch: true,
             });
             if (hcpcsSearchResponse.codes.length === 1) {
               cptSuggestions.push({
-                code: code.code,
+                code: cptCode,
                 description: hcpcsSearchResponse.codes[0].display,
                 reason: code.reason,
               });
             } else {
-              console.log("Didn't get an CPT or HCPCS code", code.code);
+              console.log("Didn't get an CPT or HCPCS code", cptCode);
             }
           } else if (terminologyResponse.codes.length === 1) {
             cptSuggestions.push({
-              code: code.code,
+              code: cptCode,
               description: terminologyResponse.codes[0].display,
               reason: code.reason,
             });
@@ -285,7 +288,7 @@ export const index = wrapHandler(
         const codeParts = code.code.split(/\s*\/\s*/);
         for (const codePart of codeParts) {
           const trimmedCode = codePart.trim();
-          const emCodeOption = PROVIDER_CONFIG.assessment.emCodeOptions.find((option) => option.code === trimmedCode);
+          const emCodeOption = emCodeOptions.find((option) => option.code === trimmedCode);
           if (emCodeOption) {
             emCodeSuggestions.push({
               code: trimmedCode,

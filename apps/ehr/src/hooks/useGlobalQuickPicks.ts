@@ -1,7 +1,9 @@
 import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ExamType } from 'utils';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils';
 import { useListTemplates } from '../features/visits/shared/components/templates/useListTemplates';
+import { useGetAppointmentAccessibility } from '../features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from '../features/visits/shared/stores/appointment/appointment.store';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
 import { useCommandPaletteSource } from './useCommandPaletteSource';
 import {
@@ -17,6 +19,8 @@ import {
 export function useGlobalQuickPicks(): void {
   const location = useLocation();
   const navigate = useNavigate();
+  const { encounter } = useAppointmentData();
+  const { visitType, isAppointmentReadOnly } = useGetAppointmentAccessibility();
   const setPendingQuickPick = useCommandPaletteStore((state) => state.setPendingQuickPick);
 
   const inPersonBasePath = useMemo(() => {
@@ -25,26 +29,34 @@ export function useGlobalQuickPicks(): void {
   }, [location.pathname]);
 
   const isInPersonVisit = Boolean(inPersonBasePath);
+  const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
+  const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
+  const isChartingAvailable = Boolean(
+    isInPersonVisit &&
+      (visitType === 'follow-up' || assignedIntakePerformerId) &&
+      assignedProviderId &&
+      !isAppointmentReadOnly
+  );
   const { quickPicks: allergyQuickPicks } = useMergedAllergyQuickPicks({
-    enabled: isInPersonVisit,
+    enabled: isChartingAvailable,
   });
   const { quickPicks: conditionQuickPicks } = useMergedMedicalConditionQuickPicks({
-    enabled: isInPersonVisit,
+    enabled: isChartingAvailable,
   });
   const { quickPicks: medicationQuickPicks } = useMergedMedicationHistoryQuickPicks({
-    enabled: isInPersonVisit,
+    enabled: isChartingAvailable,
   });
   const { quickPicks: inHouseMedicationQuickPicks } = useMergedInHouseMedicationQuickPicks({
-    enabled: isInPersonVisit,
+    enabled: isChartingAvailable,
   });
   const { quickPicks: procedureQuickPicks } = useMergedProcedureQuickPicks({
-    enabled: isInPersonVisit,
+    enabled: isChartingAvailable,
   });
   const { quickPicks: immunizationQuickPicks } = useMergedImmunizationQuickPicks({
-    enabled: isInPersonVisit,
+    enabled: isChartingAvailable,
   });
   const { quickPicks: radiologyQuickPicks } = useMergedRadiologyQuickPicks({
-    enabled: isInPersonVisit,
+    enabled: isChartingAvailable,
   });
 
   const currentSubPath = useMemo(() => {
@@ -55,7 +67,7 @@ export function useGlobalQuickPicks(): void {
     return location.pathname.slice(inPersonBasePath.length + 1);
   }, [inPersonBasePath, location.pathname]);
 
-  const { templates } = useListTemplates(ExamType.IN_PERSON, { enabled: isInPersonVisit });
+  const { templates } = useListTemplates({ enabled: isChartingAvailable });
 
   const navigateAndDefer = useCallback(
     (targetPath: string, pendingCategory: string, itemId: string, payload: unknown) => {
@@ -83,7 +95,7 @@ export function useGlobalQuickPicks(): void {
   const isOnTemplatesPage = currentSubPath === 'history-of-present-illness-and-templates';
 
   const items = useMemo<CommandPaletteItem[]>(() => {
-    if (!inPersonBasePath) {
+    if (!inPersonBasePath || !isChartingAvailable) {
       return [];
     }
 
@@ -212,6 +224,7 @@ export function useGlobalQuickPicks(): void {
     inHouseMedicationQuickPicks,
     inPersonBasePath,
     immunizationQuickPicks,
+    isChartingAvailable,
     isOnAllergiesPage,
     isOnImmunizationsPage,
     isOnInHouseMedicationPage,

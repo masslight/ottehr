@@ -5,7 +5,6 @@ import {
   createCriticalUpdateTag,
   getAppointmentLockMetaTagOperations,
   getPatchBinary,
-  Secrets,
   UnlockAppointmentZambdaInputValidated,
   UnlockAppointmentZambdaOutput,
   userMe,
@@ -26,12 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
   console.log('Created Oystehr client');
 
-  const response = await performEffect(
-    oystehr,
-    validatedParameters.userToken,
-    validatedParameters.secrets,
-    validatedParameters
-  );
+  const response = await performEffect(oystehr, validatedParameters);
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -40,11 +34,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export const performEffect = async (
   oystehr: Oystehr,
-  userToken: string,
-  secrets: Secrets | null,
   params: UnlockAppointmentZambdaInputValidated
 ): Promise<UnlockAppointmentZambdaOutput> => {
-  const { appointmentId } = params;
+  const { appointmentId, userToken, secrets } = params;
 
   const appointment = await oystehr.fhir.get<Appointment>({
     resourceType: 'Appointment',
