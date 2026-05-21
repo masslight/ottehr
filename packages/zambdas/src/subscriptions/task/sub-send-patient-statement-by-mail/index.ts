@@ -1,13 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CandidApiClient } from 'candidhealth';
 import { Operation } from 'fast-json-patch';
 import { Communication, Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  createCandidApiClient,
   FEATURE_FLAGS_CONFIG,
   generateStatement,
+  getOrCreateCandidApiClient,
   getSecret,
   RCM_TASK_SYSTEM,
   Secrets,
@@ -32,7 +31,6 @@ const MAIL_STATEMENT_TASK_INPUT_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/pat
 const validStatementTypes = new Set<StatementType>(['standard', 'past-due', 'final-notice']);
 
 let m2mToken: string;
-let candidApiClient: CandidApiClient | undefined;
 
 interface ParsedTaskInput {
   encounterId: string;
@@ -67,9 +65,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     }
 
-    if (!candidApiClient) {
-      candidApiClient = createCandidApiClient(secrets);
-    }
+    const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
 
     await patchTaskStatus(oystehr, task.id!, 'in-progress');
 

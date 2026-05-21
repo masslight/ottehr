@@ -1,8 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CandidApiClient } from 'candidhealth';
 import {
-  createCandidApiClient,
+  getOrCreateCandidApiClient,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
@@ -28,7 +27,6 @@ interface GetStatementTypeInput {
 
 const validStatementTypes = new Set<StatementType>(['standard', 'past-due', 'final-notice']);
 let oystehrToken: string;
-let candidApiClient: CandidApiClient | undefined;
 
 function validateRequestParameters(input: ZambdaInput): GetStatementTypeInput {
   if (!input.body) throw MISSING_REQUEST_BODY;
@@ -63,9 +61,7 @@ async function createOystehr(secrets: Secrets): Promise<Oystehr> {
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedInput = validateRequestParameters(input);
   const oystehr = await createOystehr(validatedInput.secrets);
-  if (!candidApiClient) {
-    candidApiClient = createCandidApiClient(validatedInput.secrets);
-  }
+  const candidApiClient = await getOrCreateCandidApiClient(oystehr, validatedInput.secrets);
   const statementDetails = await getStatementDetails({
     encounterId: validatedInput.encounterId,
     statementType: validatedInput.statementType,

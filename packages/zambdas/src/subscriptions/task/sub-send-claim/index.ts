@@ -1,9 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CandidApiClient } from 'candidhealth';
 import { Operation } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
-import { createCandidApiClient, getOptionalSecret, SecretsKeys } from 'utils';
+import { getOptionalSecret, getOrCreateCandidApiClient, SecretsKeys } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   createEncounterFromAppointment,
@@ -34,7 +33,6 @@ type TaskStatus =
 
 let oystehrToken: string;
 let oystehr: Oystehr;
-let candidApiClient: CandidApiClient | undefined;
 let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-send-claim';
@@ -86,9 +84,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           console.log('CANDID_CLIENT_ID is not set, skipping encounter submission to candid');
         } else {
           if (shouldUseCandid(secrets)) {
-            if (!candidApiClient) {
-              candidApiClient = createCandidApiClient(secrets);
-            }
+            const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
             console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
             const candidEncounterId = await createEncounterFromAppointment(visitResources, oystehr, candidApiClient);
             console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
