@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ChargeItem, Invoice } from 'fhir/r4b';
-import { INVALID_INPUT_ERROR } from 'utils';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils';
 import { OutreachTaskResult, produceOutreachTasks } from './produce-outreach-tasks';
 
 /** Action types that can execute without an Encounter focus. */
@@ -38,7 +38,7 @@ export async function produceInvoiceIssuedOutreach(
       id: invoiceId,
     });
   } catch {
-    throw INVALID_INPUT_ERROR(`Invoice ${invoiceId} could not be found`);
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Invoice ${invoiceId} could not be found`);
   }
 
   if (params.validateStatus && invoice.status !== 'issued') {
