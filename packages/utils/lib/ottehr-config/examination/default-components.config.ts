@@ -768,7 +768,7 @@ function createLymphNodeModalExam(
   };
 }
 
-export const InPersonExamConfig: ExamItemConfig = {
+export const DefaultExamComponentsConfig: ExamItemConfig = {
   general: {
     label: 'General Appearance',
     components: {

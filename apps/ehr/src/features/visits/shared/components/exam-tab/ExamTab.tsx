@@ -18,7 +18,7 @@ export const ExamTab: FC = () => {
   // what save-chart-data validates against (it uses isInPersonAppointment on the
   // same tag). Driving this from route-scoped app flags desyncs the two when a
   // telemed appointment is opened under /in-person/:id/*.
-  const config = examConfig.inPerson.default.components;
+  const config = examConfig.default.components;
   const unmatchedFields = useUnmatchedExamFields(config);
 
   return (
