@@ -1,15 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Condition, List, Observation, Resource } from 'fhir/r4b';
-import {
-  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
-} from 'utils';
+import { GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils';
 
 export function verifyIsTemplate(templateList: List, templateId: string): void {
-  const isTemplate = templateList.code?.coding?.some(
-    (c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM || c.system === GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM
-  );
+  const isTemplate = templateList.code?.coding?.some((c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM);
   if (!isTemplate) {
     throw new Error(`List ${templateId} is not a global template`);
   }
