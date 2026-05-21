@@ -31,10 +31,15 @@ export async function produceInvoiceIssuedOutreach(
 ): Promise<OutreachTaskResult> {
   const { invoiceId, oystehr } = params;
 
-  const invoice = await oystehr.fhir.get<Invoice>({
-    resourceType: 'Invoice',
-    id: invoiceId,
-  });
+  let invoice: Invoice;
+  try {
+    invoice = await oystehr.fhir.get<Invoice>({
+      resourceType: 'Invoice',
+      id: invoiceId,
+    });
+  } catch {
+    throw INVALID_INPUT_ERROR(`Invoice ${invoiceId} could not be found`);
+  }
 
   if (params.validateStatus && invoice.status !== 'issued') {
     throw INVALID_INPUT_ERROR(`Invoice ${invoice.id} is in '${invoice.status}' status, expected 'issued'`);

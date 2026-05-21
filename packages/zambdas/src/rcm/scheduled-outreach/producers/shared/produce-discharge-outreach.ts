@@ -27,10 +27,15 @@ export async function produceDischargeOutreach(
 ): Promise<ProduceDischargeOutreachResult> {
   const { encounterId, oystehr } = params;
 
-  const encounter = await oystehr.fhir.get<Encounter>({
-    resourceType: 'Encounter',
-    id: encounterId,
-  });
+  let encounter: Encounter;
+  try {
+    encounter = await oystehr.fhir.get<Encounter>({
+      resourceType: 'Encounter',
+      id: encounterId,
+    });
+  } catch {
+    throw INVALID_INPUT_ERROR(`Encounter ${encounterId} could not be found`);
+  }
 
   if (params.validateStatus && encounter.status !== 'finished') {
     throw INVALID_INPUT_ERROR(
