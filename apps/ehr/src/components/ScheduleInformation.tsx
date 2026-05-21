@@ -1,16 +1,11 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Add, Edit as EditIcon } from '@mui/icons-material';
 import SearchIcon from '@mui/icons-material/Search';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
   capitalize,
   Checkbox,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   IconButton,
   Paper,
   Table,
@@ -36,6 +31,7 @@ import { useErrorQuery } from 'utils/lib/frontend';
 import { listScheduleOwners } from '../api/api';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
+import { EditSupportPhoneDialog } from './EditSupportPhoneDialog';
 import Loading from './Loading';
 
 export type ScheduleType = 'location' | 'provider' | 'group';
@@ -333,58 +329,6 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
         />
       )}
     </Paper>
-  );
-};
-
-interface EditSupportPhoneDialogProps {
-  open: boolean;
-  initialValue: string;
-  bulkCount?: number;
-  isSaving: boolean;
-  onClose: () => void;
-  onSave: (phoneNumber: string) => Promise<void>;
-}
-
-const EditSupportPhoneDialog = ({
-  open,
-  initialValue,
-  bulkCount,
-  isSaving,
-  onClose,
-  onSave,
-}: EditSupportPhoneDialogProps): ReactElement => {
-  const [value, setValue] = useState(initialValue);
-
-  const title = bulkCount ? `Update support phone for ${bulkCount} locations` : 'Update support phone';
-  const helper = bulkCount
-    ? `The same number will be applied to all ${bulkCount} selected locations. Leave blank to clear.`
-    : 'Leave blank to clear the support phone for this location.';
-
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {helper}
-        </Typography>
-        <TextField
-          autoFocus
-          fullWidth
-          label="Support phone number"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          disabled={isSaving}
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={isSaving}>
-          Cancel
-        </Button>
-        <LoadingButton variant="contained" loading={isSaving} onClick={() => onSave(value)}>
-          Save
-        </LoadingButton>
-      </DialogActions>
-    </Dialog>
   );
 };
 
