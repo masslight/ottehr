@@ -67,6 +67,7 @@ import {
   getCandidPlanTypeCodeFromCoverage,
   getEmCodes,
   getPayerId,
+  getPayerUrl,
   getPaymentVariantFromEncounter,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -807,15 +808,27 @@ const createCandidCoverages = async (
   if (coverages === undefined) {
     return candidCoverages;
   }
-  const primaryInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.primary?.payor?.[0].reference
-  );
-  const secondaryInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.secondary?.payor?.[0].reference
-  );
-  const workersCompInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.workersComp?.payor?.[0].reference
-  );
+  const primaryInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.primary?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.primary?.payor?.[0].reference)
+    );
+  });
+  const secondaryInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.secondary?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.secondary?.payor?.[0].reference)
+    );
+  });
+  const workersCompInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.workersComp?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.workersComp?.payor?.[0].reference)
+    );
+  });
 
   if (coverages.primary && coverages.primarySubscriber && primaryInsuranceOrg) {
     const candidCoverage = buildCandidCoverageCreateInput(

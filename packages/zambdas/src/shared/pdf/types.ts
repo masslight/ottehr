@@ -179,6 +179,7 @@ export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessmen
   testDetails: testDataForOrderForm[];
   insuranceDetails?: OrderFormInsuranceInfo[];
   brandingProjectName?: string;
+  isWorkersCompOrder: boolean;
 }
 
 export interface ExternalLabResult {
@@ -237,6 +238,7 @@ export interface LabResultsData
     | 'isManualOrder'
   > {
   testName: string;
+  testItemCode: string;
   resultStatus: string;
   abnormalResult?: boolean;
   patientVisitNote?: string;
