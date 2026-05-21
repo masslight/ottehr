@@ -1,5 +1,6 @@
 import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { VisitType } from 'config-types';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { BOOKING_CONFIG, getReasonForVisitOptionsForServiceCategory } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -182,8 +183,8 @@ describe('AddVisit', () => {
   });
 
   describe('Required field validation', () => {
-    const prebookOption = BOOKING_CONFIG.ehrBookingOptions.find((opt) => opt.id === 'in-person-pre-booked');
-    const postTelemedOption = BOOKING_CONFIG.ehrBookingOptions.find((opt) => opt.id === 'in-person-post-telemed');
+    const prebookOption = BOOKING_CONFIG.ehrBookingOptions.find((opt) => opt.id === VisitType.InPersonPreBook);
+    const postTelemedOption = BOOKING_CONFIG.ehrBookingOptions.find((opt) => opt.id === VisitType.InPersonPostTelemed);
 
     it('Shows error when clicking Add button without selecting a location', async () => {
       const user = userEvent.setup();
