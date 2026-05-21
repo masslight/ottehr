@@ -72,7 +72,7 @@ describe('cron-outreach-task-promoter', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    const mod = await import('../../../src/rcm/scheduled-outreach/cron-outreach-task-promoter/index');
+    const mod = await import('../../../src/cron/rcm/outreach-task-promoter/index');
     handler = mod.index as ZambdaHandler;
   });
 
@@ -144,7 +144,7 @@ describe('cron-outreach-task-promoter with SMS time restriction', () => {
     const helpersModule = await import('../../../src/rcm/scheduled-outreach-config/helpers');
     parseNotificationsTimeRestriction = helpersModule.parseNotificationsTimeRestriction;
 
-    const mod = await import('../../../src/rcm/scheduled-outreach/cron-outreach-task-promoter/index');
+    const mod = await import('../../../src/cron/rcm/outreach-task-promoter/index');
     handler = mod.index as ZambdaHandler;
   });
 

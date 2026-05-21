@@ -7,9 +7,12 @@ import { OutreachTaskResult, produceOutreachTasks } from './produce-outreach-tas
 const INVOICE_SAFE_ACTION_TYPES = new Set(['send-notification', 'log']);
 
 export interface ProduceInvoiceIssuedOutreachParams {
-  /** The Invoice resource, or an invoice ID to fetch it */
+  /** The Invoice resource (for internal callers that already have it) */
   invoice?: Invoice;
+  /** Invoice ID to fetch (preferred for external callers) */
   invoiceId?: string;
+  /** When true, validates the invoice is in 'issued' status before proceeding */
+  validateStatus?: boolean;
   /** Optional Appointment reference to link in basedOn */
   appointmentRef?: string;
   /** Optional Encounter reference. If omitted, resolved from Invoice lineItem ChargeItems. */
@@ -40,6 +43,10 @@ export async function produceInvoiceIssuedOutreach(
     });
   } else {
     throw INVALID_INPUT_ERROR('Expected either invoice or invoiceId');
+  }
+
+  if (params.validateStatus && invoice.status !== 'issued') {
+    throw INVALID_INPUT_ERROR(`Invoice ${invoice.id} is in '${invoice.status}' status, expected 'issued'`);
   }
 
   if (!invoice.subject?.reference) {

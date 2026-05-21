@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { MISSING_REQUIRED_PARAMETERS } from 'utils';
+import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 import { produceDischargeOutreach } from '../shared';
 
@@ -10,21 +10,26 @@ const ZAMBDA_NAME = 'produce-outreach-discharge-tasks';
 /**
  * Zambda handler: thin wrapper over produceDischargeOutreach.
  *
- * Input body: Encounter resource or { encounterId: string }
+ * Input body: { encounterId: string }
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   if (!input.body) throw MISSING_REQUIRED_PARAMETERS(['body']);
   if (!input.secrets) throw new Error('Secrets are not defined');
 
+  const body = JSON.parse(input.body);
+
+  const encounterId = body.encounterId;
+  if (!encounterId || typeof encounterId !== 'string') {
+    throw INVALID_INPUT_ERROR('encounterId is required and must be a non-empty string');
+  }
+
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
   const oystehr = createOystehrClient(m2mToken, input.secrets);
 
-  const body = JSON.parse(input.body);
-
   const result = await produceDischargeOutreach({
-    encounter: body.resourceType === 'Encounter' ? body : undefined,
-    encounterId: body.encounterId,
+    encounterId,
     oystehr,
+    validateStatus: true,
   });
 
   return {

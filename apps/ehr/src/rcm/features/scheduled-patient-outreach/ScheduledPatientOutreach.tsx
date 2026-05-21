@@ -455,8 +455,8 @@ function buildDefaultConfig(actionType: ActionType): Partial<OutreachAction> {
         chargeCardConfig: {
           onSuccess: defaultNotificationConfig(),
           onFailure: defaultNotificationConfig(),
-          retryAttempts: 1,
-          retryIntervalDays: 3,
+          retryAttempts: 0,
+          retryIntervalDays: 0,
         },
       };
     case 'send-notification':
@@ -730,35 +730,31 @@ function ChargeCardConfigEditor({
   return (
     <Stack spacing={2}>
       <Stack direction="row" spacing={1} alignItems="center">
-        <Typography variant="body2">Retry</Typography>
+        <Typography variant="body2" color="text.disabled">
+          Retry
+        </Typography>
         <TextField
           type="number"
           size="small"
-          value={config.retryAttempts}
-          onChange={(e) =>
-            onChange({
-              ...config,
-              retryAttempts: e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0),
-            })
-          }
+          value={0}
+          disabled
           sx={{ width: 70 }}
           inputProps={{ min: 0, max: 10, ...numericFieldProps }}
         />
-        <Typography variant="body2">time(s) every</Typography>
+        <Typography variant="body2" color="text.disabled">
+          time(s) every
+        </Typography>
         <TextField
           type="number"
           size="small"
-          value={config.retryIntervalDays}
-          onChange={(e) =>
-            onChange({
-              ...config,
-              retryIntervalDays: e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value) || 0),
-            })
-          }
+          value={0}
+          disabled
           sx={{ width: 70 }}
           inputProps={{ min: 0, max: 90, ...numericFieldProps }}
         />
-        <Typography variant="body2">day(s)</Typography>
+        <Typography variant="body2" color="text.disabled">
+          day(s) — retries disabled
+        </Typography>
       </Stack>
       <Divider />
       <Box>

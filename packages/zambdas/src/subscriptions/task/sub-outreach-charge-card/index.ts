@@ -13,7 +13,8 @@ import {
   SecretsKeys,
   TaskIndicator,
 } from 'utils';
-import { getAccountAndCoverageResourcesForPatient } from '../../../../ehr/shared/harvest';
+import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
+import { ChargeCardConfig, NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -25,9 +26,8 @@ import {
   StatementType,
   wrapHandler,
   ZambdaInput,
-} from '../../../../shared';
-import { findStripeInvoiceByEncounterId } from '../../../../shared/template-placeholders';
-import { ChargeCardConfig, NotificationMedium } from '../../../scheduled-outreach-config/helpers';
+} from '../../../shared';
+import { findStripeInvoiceByEncounterId } from '../../../shared/template-placeholders';
 
 let m2mToken: string;
 

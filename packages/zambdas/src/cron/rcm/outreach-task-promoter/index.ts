@@ -2,12 +2,12 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FEATURE_FLAGS_CONFIG, PRIVATE_EXTENSION_BASE_URL } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   getOrCreateOutreachConfig,
   NotificationsTimeRestriction,
   parseNotificationsTimeRestriction,
-} from '../../scheduled-outreach-config/helpers';
+} from '../../../rcm/scheduled-outreach-config/helpers';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
 

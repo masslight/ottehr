@@ -22,10 +22,10 @@ import { BILLING_URL, PAYMENT_LOCATIONS_URL } from 'src/App';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import { PaymentLocation } from 'src/rcm/state/payments/payments.api';
 import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
-import FeeSchedule from './ChargeItemList';
-import EMCodesAdminPage from './EMCodesAdminPage';
-import EmployersTab from './employers/EmployersTab';
-import InsuranceConfiguration from './InsuranceConfiguration';
+import FeeSchedule from '../visits/telemed/components/admin/ChargeItemList';
+import EMCodesAdminPage from '../visits/telemed/components/admin/EMCodesAdminPage';
+import EmployersTab from '../visits/telemed/components/admin/employers/EmployersTab';
+import InsuranceConfiguration from '../visits/telemed/components/admin/InsuranceConfiguration';
 
 type BillingSubTab =
   | 'insurance'

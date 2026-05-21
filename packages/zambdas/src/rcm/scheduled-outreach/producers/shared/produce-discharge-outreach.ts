@@ -4,9 +4,12 @@ import { INVALID_INPUT_ERROR } from 'utils';
 import { OutreachTaskResult, produceOutreachTasks } from './produce-outreach-tasks';
 
 export interface ProduceDischargeOutreachParams {
-  /** The Encounter resource, or an encounter ID to fetch it */
+  /** The Encounter resource (for internal callers that already have it) */
   encounter?: Encounter;
+  /** Encounter ID to fetch (preferred for external callers) */
   encounterId?: string;
+  /** When true, validates the encounter is in 'finished' status before proceeding */
+  validateStatus?: boolean;
   oystehr: Oystehr;
 }
 
@@ -36,6 +39,12 @@ export async function produceDischargeOutreach(
     });
   } else {
     throw INVALID_INPUT_ERROR('Expected either encounter or encounterId');
+  }
+
+  if (params.validateStatus && encounter.status !== 'finished') {
+    throw INVALID_INPUT_ERROR(
+      `Encounter ${encounter.id} is in '${encounter.status}' status, expected 'finished' (discharged)`
+    );
   }
 
   if (!encounter.subject?.reference) {

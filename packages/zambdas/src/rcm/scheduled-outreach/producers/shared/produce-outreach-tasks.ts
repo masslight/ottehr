@@ -70,6 +70,21 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
       continue;
     }
 
+    // Item 10: refer-to-collections integration is not yet implemented — skip at producer level
+    if (action.actionType === 'refer-to-collections') {
+      result.skipped.push({ actionId: action.id, reason: 'refer-to-collections is not yet implemented' });
+      continue;
+    }
+
+    // Item 9: skip notification tasks whose only medium is paper-mail when the feature is disabled
+    if (action.actionType === 'send-notification' && action.sendNotificationConfig) {
+      const mediums = action.sendNotificationConfig.mediums;
+      if (mediums.every((m) => m === 'paper-mail') && !FEATURE_FLAGS_CONFIG.mailingPaperStatementsEnabled) {
+        result.skipped.push({ actionId: action.id, reason: 'Paper mail feature is disabled' });
+        continue;
+      }
+    }
+
     const dueDateTime = calculateDueDateTime(eventTimestamp, action);
     const task = buildOutreachTask(action, planDefinition, patient, focus, dueDateTime, appointment);
     const created = await oystehr.fhir.create<Task>(task);

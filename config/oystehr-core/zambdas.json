@@ -2005,7 +2005,7 @@
       "name": "cron-outreach-task-promoter",
       "type": "cron",
       "runtime": "nodejs22.x",
-      "src": "src/rcm/scheduled-outreach/cron-outreach-task-promoter/index",
+      "src": "src/cron/rcm/outreach-task-promoter/index",
       "zip": ".dist/zips/cron-outreach-task-promoter.zip",
       "schedule": {
         "expression": "cron(0,15,30,45 * * * ? *)"
@@ -2015,28 +2015,28 @@
       "name": "sub-outreach-send-notification",
       "type": "subscription",
       "runtime": "nodejs22.x",
-      "src": "src/rcm/scheduled-outreach/executors/sub-outreach-send-notification/index",
+      "src": "src/subscriptions/task/sub-outreach-send-notification/index",
       "zip": ".dist/zips/sub-outreach-send-notification.zip"
     },
     "SUB-OUTREACH-CHARGE-CARD": {
       "name": "sub-outreach-charge-card",
       "type": "subscription",
       "runtime": "nodejs22.x",
-      "src": "src/rcm/scheduled-outreach/executors/sub-outreach-charge-card/index",
+      "src": "src/subscriptions/task/sub-outreach-charge-card/index",
       "zip": ".dist/zips/sub-outreach-charge-card.zip"
     },
     "SUB-OUTREACH-REFER-TO-COLLECTIONS": {
       "name": "sub-outreach-refer-to-collections",
       "type": "subscription",
       "runtime": "nodejs22.x",
-      "src": "src/rcm/scheduled-outreach/executors/sub-outreach-refer-to-collections/index",
+      "src": "src/subscriptions/task/sub-outreach-refer-to-collections/index",
       "zip": ".dist/zips/sub-outreach-refer-to-collections.zip"
     },
     "SUB-OUTREACH-LOG": {
       "name": "sub-outreach-log",
       "type": "subscription",
       "runtime": "nodejs22.x",
-      "src": "src/rcm/scheduled-outreach/executors/sub-outreach-log/index",
+      "src": "src/subscriptions/task/sub-outreach-log/index",
       "zip": ".dist/zips/sub-outreach-log.zip"
     },
     "ADMIN_LIST_IN_HOUSE_LABS": {

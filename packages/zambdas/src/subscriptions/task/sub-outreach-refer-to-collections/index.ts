@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 let m2mToken: string;
 
@@ -50,12 +50,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('--- END COLLECTIONS REFERRAL CONFIG ---');
 
     // Collections referral integration is not yet implemented.
-    // Mark the task as cancelled rather than completed to avoid falsely reporting success.
+    // Mark the task as rejected with a businessStatus so the state is explicit and queryable.
     await oystehr.fhir.patch<Task>({
       resourceType: 'Task',
       id: task.id!,
       operations: [
-        { op: 'replace', path: '/status', value: 'cancelled' },
+        { op: 'replace', path: '/status', value: 'rejected' },
+        {
+          op: 'add',
+          path: '/businessStatus',
+          value: {
+            coding: [
+              {
+                system: 'https://ottehr.com/CodeSystem/outreach-task-business-status',
+                code: 'not-implemented',
+                display: 'Feature not yet implemented',
+              },
+            ],
+          },
+        },
         { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
         {
           op: 'add',
@@ -70,7 +83,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ],
     });
 
-    return { statusCode: 200, body: JSON.stringify({ status: 'cancelled', reason: 'not-yet-implemented' }) };
+    return { statusCode: 200, body: JSON.stringify({ status: 'rejected', reason: 'not-yet-implemented' }) };
   } catch (err: any) {
     console.error(`Unexpected error executing task ${task.id}:`, err.message);
 

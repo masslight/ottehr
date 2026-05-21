@@ -92,6 +92,7 @@ function TemplateEditor({
   const theme = useTheme();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialContent = useMemo(() => textToTiptapContent(value), []);
+  // Refs hold the latest prop values so the useEditor closure (created once) always reads fresh values.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const stripNonAsciiRef = useRef(stripNonAscii);

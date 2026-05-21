@@ -109,6 +109,35 @@ describe('produceDischargeOutreach', () => {
 
     await expect(produceDischargeOutreach({ encounter, oystehr: mockOystehr as any })).rejects.toThrow();
   });
+
+  it('throws when validateStatus is true and encounter is not finished', async () => {
+    const encounter: Encounter = {
+      resourceType: 'Encounter',
+      id: 'enc-4',
+      status: 'in-progress',
+      class: { code: 'AMB' },
+      subject: { reference: 'Patient/pat-4' },
+    };
+
+    await expect(
+      produceDischargeOutreach({ encounter, validateStatus: true, oystehr: mockOystehr as any })
+    ).rejects.toThrow(/expected 'finished'/);
+  });
+
+  it('does not validate status when validateStatus is not set', async () => {
+    const encounter: Encounter = {
+      resourceType: 'Encounter',
+      id: 'enc-5',
+      status: 'in-progress',
+      class: { code: 'AMB' },
+      subject: { reference: 'Patient/pat-5' },
+      period: { start: '2025-01-15T09:00:00Z', end: '2025-01-15T10:00:00Z' },
+    };
+
+    await produceDischargeOutreach({ encounter, oystehr: mockOystehr as any });
+
+    expect(mockProduceOutreachTasks).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('produceInvoiceIssuedOutreach', () => {
@@ -191,5 +220,32 @@ describe('produceInvoiceIssuedOutreach', () => {
     } as any;
 
     await expect(produceInvoiceIssuedOutreach({ invoice, oystehr: mockOystehr as any })).rejects.toThrow();
+  });
+
+  it('throws when validateStatus is true and invoice is not issued', async () => {
+    const invoice: Invoice = {
+      resourceType: 'Invoice',
+      id: 'inv-5',
+      status: 'draft',
+      subject: { reference: 'Patient/pat-5' },
+    } as any;
+
+    await expect(
+      produceInvoiceIssuedOutreach({ invoice, validateStatus: true, oystehr: mockOystehr as any })
+    ).rejects.toThrow(/expected 'issued'/);
+  });
+
+  it('does not validate status when validateStatus is not set', async () => {
+    const invoice: Invoice = {
+      resourceType: 'Invoice',
+      id: 'inv-6',
+      status: 'draft',
+      subject: { reference: 'Patient/pat-6' },
+      date: '2025-04-01',
+    } as any;
+
+    await produceInvoiceIssuedOutreach({ invoice, oystehr: mockOystehr as any });
+
+    expect(mockProduceOutreachTasks).toHaveBeenCalledTimes(1);
   });
 });

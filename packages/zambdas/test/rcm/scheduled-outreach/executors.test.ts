@@ -74,7 +74,7 @@ describe('sub-outreach-log', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    const mod = await import('../../../src/rcm/scheduled-outreach/executors/sub-outreach-log/index');
+    const mod = await import('../../../src/subscriptions/task/sub-outreach-log/index');
     handler = mod.index as ZambdaHandler;
   });
 
@@ -146,11 +146,11 @@ describe('sub-outreach-refer-to-collections', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    const mod = await import('../../../src/rcm/scheduled-outreach/executors/sub-outreach-refer-to-collections/index');
+    const mod = await import('../../../src/subscriptions/task/sub-outreach-refer-to-collections/index');
     handler = mod.index as ZambdaHandler;
   });
 
-  it('marks task as in-progress then cancelled (not yet implemented)', async () => {
+  it('marks task as in-progress then rejected (not yet implemented)', async () => {
     const task = makeTaskInput({
       input: [
         { type: { text: 'action-type' }, valueString: 'refer-to-collections' },
@@ -164,7 +164,7 @@ describe('sub-outreach-refer-to-collections', () => {
     const result = await handler(makeZambdaInput(task));
 
     expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body).status).toBe('cancelled');
+    expect(JSON.parse(result.body).status).toBe('rejected');
     expect(JSON.parse(result.body).reason).toBe('not-yet-implemented');
     expect(mockPatch).toHaveBeenCalledTimes(2);
   });

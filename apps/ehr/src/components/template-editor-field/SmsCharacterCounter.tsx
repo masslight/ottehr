@@ -49,6 +49,12 @@ function computeSmsStats(
 // Component
 // ---------------------------------------------------------------------------
 
+function getSegmentColor(isUcs2: boolean, segments: number): string {
+  if (isUcs2 || segments >= 3) return 'error.main';
+  if (segments === 2) return 'warning.main';
+  return 'text.secondary';
+}
+
 export function SmsCharacterCounter({
   value,
   sampleValues,
@@ -61,13 +67,8 @@ export function SmsCharacterCounter({
     [value, sampleValues]
   );
   const isUcs2 = encoding === 'UCS-2';
-  const color = isUcs2
-    ? 'error.main'
-    : segments >= 3
-    ? 'error.main'
-    : segments === 2
-    ? 'warning.main'
-    : 'text.secondary';
+
+  const color = getSegmentColor(isUcs2, segments);
   return (
     <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 0.5, flexWrap: 'wrap', rowGap: 0.5 }}>
       <Typography variant="caption" color={color}>

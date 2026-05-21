@@ -85,42 +85,39 @@ export async function produceBirthdayOutreach(oystehr: Oystehr): Promise<Produce
 
     const turningAge = nextBirthday.year - birthDate.year;
 
-    for (const action of birthdayActions) {
-      try {
-        // Check age filter if configured
-        const bConfig = actionBirthdayConfigs.get(action.id);
-        if (bConfig?.ageMode && bConfig.age != null) {
-          const effectiveMaxAge = bConfig.maxAge ?? 100;
-          if (bConfig.ageMode === 'at') {
-            if (turningAge !== bConfig.age) {
-              tasksSkipped++;
-              continue;
+    try {
+      // Single call per patient — age filtering moves into actionFilter to avoid
+      // redundant findExistingOutreachTasks queries (N+1 optimization).
+      let ageSkipped = 0;
+      const result = await produceOutreachTasks({
+        triggerEvent: 'patient-birthday',
+        patient: { reference: `Patient/${patient.id}` },
+        // Focus is the Patient themselves for birthday outreach (no encounter/invoice)
+        focus: { reference: `Patient/${patient.id}` },
+        eventTimestamp: nextBirthday.toISO()!,
+        oystehr,
+        actionFilter: (action) => {
+          const bConfig = actionBirthdayConfigs.get(action.id);
+          if (bConfig?.ageMode && bConfig.age != null) {
+            const effectiveMaxAge = bConfig.maxAge ?? 100;
+            if (bConfig.ageMode === 'at' && turningAge !== bConfig.age) {
+              ageSkipped++;
+              return false;
             }
-          } else if (bConfig.ageMode === 'after') {
-            if (turningAge < bConfig.age || turningAge > effectiveMaxAge) {
-              tasksSkipped++;
-              continue;
+            if (bConfig.ageMode === 'after' && (turningAge < bConfig.age || turningAge > effectiveMaxAge)) {
+              ageSkipped++;
+              return false;
             }
           }
-        }
+          return true;
+        },
+      });
 
-        const result = await produceOutreachTasks({
-          triggerEvent: 'patient-birthday',
-          patient: { reference: `Patient/${patient.id}` },
-          // Focus is the Patient themselves for birthday outreach (no encounter/invoice)
-          focus: { reference: `Patient/${patient.id}` },
-          eventTimestamp: nextBirthday.toISO()!,
-          oystehr,
-          // Only produce this specific action (not all birthday actions)
-          actionFilter: (a) => a.id === action.id,
-        });
-
-        tasksCreated += result.created.length;
-        tasksSkipped += result.skipped.length;
-      } catch (err) {
-        console.error(`Failed to produce birthday outreach for patient ${patient.id}, action ${action.id}:`, err);
-        errors++;
-      }
+      tasksCreated += result.created.length;
+      tasksSkipped += result.skipped.length + ageSkipped;
+    } catch (err) {
+      console.error(`Failed to produce birthday outreach for patient ${patient.id}:`, err);
+      errors++;
     }
   }
 

@@ -13,6 +13,7 @@ import {
   SecretsKeys,
   TaskIndicator,
 } from 'utils';
+import { NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -23,8 +24,7 @@ import {
   StatementType,
   wrapHandler,
   ZambdaInput,
-} from '../../../../shared';
-import { NotificationMedium } from '../../../scheduled-outreach-config/helpers';
+} from '../../../shared';
 
 let m2mToken: string;
 
