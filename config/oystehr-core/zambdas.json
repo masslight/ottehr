@@ -326,6 +326,34 @@
       "src": "src/ehr/admin-remove-medication-history-quick-pick/index",
       "zip": ".dist/zips/admin-remove-medication-history-quick-pick.zip"
     },
+    "ADMIN-GET-INSURANCE-QUICK-PICKS": {
+      "name": "admin-get-insurance-quick-picks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-get-insurance-quick-picks/index",
+      "zip": ".dist/zips/admin-get-insurance-quick-picks.zip"
+    },
+    "ADMIN-CREATE-INSURANCE-QUICK-PICK": {
+      "name": "admin-create-insurance-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-create-insurance-quick-pick/index",
+      "zip": ".dist/zips/admin-create-insurance-quick-pick.zip"
+    },
+    "ADMIN-UPDATE-INSURANCE-QUICK-PICK": {
+      "name": "admin-update-insurance-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-insurance-quick-pick/index",
+      "zip": ".dist/zips/admin-update-insurance-quick-pick.zip"
+    },
+    "ADMIN-REMOVE-INSURANCE-QUICK-PICK": {
+      "name": "admin-remove-insurance-quick-pick",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-remove-insurance-quick-pick/index",
+      "zip": ".dist/zips/admin-remove-insurance-quick-pick.zip"
+    },
     "ADMIN-GET-IMMUNIZATION-QUICK-PICKS": {
       "name": "admin-get-immunization-quick-picks",
       "type": "http_auth",
