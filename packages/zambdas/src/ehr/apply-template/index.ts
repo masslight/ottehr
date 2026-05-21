@@ -120,7 +120,6 @@ const getSectionForResource = (resource: FhirResource): TemplateSectionKey | nul
   if (hasTagSystem(resource, chartDataTagSystem('patient-instruction'))) return 'patientInstructions';
   if (hasTagSystem(resource, chartDataTagSystem('em-code'))) return 'emCode';
   if (hasTagSystem(resource, chartDataTagSystem('cpt-code'))) return 'cptCodes';
-  if (hasTagSystem(resource, chartDataTagSystem('accident'))) return 'accident';
   if (
     resource.resourceType === 'Condition' &&
     (resource as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
@@ -176,11 +175,13 @@ const performEffect = async (
   });
 
   const observationRequests = createRequests.filter(
-    (request) => request.method === 'POST' && request.resource.resourceType === 'Observation'
+    (request): request is BatchInputPostRequest<Observation> =>
+      request.method === 'POST' && request.resource.resourceType === 'Observation'
   );
 
   const procedureRequests = createRequests.filter(
-    (request) => request.method === 'POST' && request.resource.resourceType === 'Procedure'
+    (request): request is BatchInputPostRequest<Procedure> =>
+      request.method === 'POST' && request.resource.resourceType === 'Procedure'
   );
 
   const createObservationBatches = chunkThings(observationRequests, 5).map((chunk) =>
@@ -295,25 +296,23 @@ const makeCreateRequests = (
   }
 
   // Existing resources we may patch instead of recreate (HPI, ROS note, MDM).
-  const existingHpiCondition = encounterBundle.find((r) => hasTagSystem(r, chartDataTagSystem('chief-complaint'))) as
-    | Condition
-    | undefined;
+  const existingHpiCondition = encounterBundle.find((r): r is Condition =>
+    hasTagSystem(r, chartDataTagSystem('chief-complaint'))
+  );
 
-  const existingMoiCondition = encounterBundle.find((r) =>
+  const existingMoiCondition = encounterBundle.find((r): r is Condition =>
     hasTagSystem(r, chartDataTagSystem('mechanism-of-injury'))
-  ) as Condition | undefined;
+  );
 
   const existingRosCondition = encounterBundle.find(
-    (r) => hasTagSystem(r, chartDataTagSystem('ros')) && r.resourceType === 'Condition'
-  ) as Condition | undefined;
+    (r): r is Condition => hasTagSystem(r, chartDataTagSystem('ros')) && r.resourceType === 'Condition'
+  );
 
-  const existingMdm = encounterBundle.find((r) => hasTagSystem(r, chartDataTagSystem('medical-decision'))) as
-    | ClinicalImpression
-    | undefined;
+  const existingMdm = encounterBundle.find((r): r is ClinicalImpression =>
+    hasTagSystem(r, chartDataTagSystem('medical-decision'))
+  );
 
-  const templateEncounter = templateList.contained?.find((r) => r.resourceType === 'Encounter') as
-    | Encounter
-    | undefined;
+  const templateEncounter = templateList.contained?.find((r): r is Encounter => r.resourceType === 'Encounter');
   const templateEncounterDiagnoses = templateEncounter?.diagnosis;
   const templateEncounterExtensions = templateEncounter?.extension ?? [];
 
@@ -355,11 +354,6 @@ const makeCreateRequests = (
       existingRosCondition
     ) {
       templateRosCondition = containedResource as Condition;
-      continue;
-    }
-
-    // Skip duplicate MOI Conditions from the template (only the first one is used)
-    if (hasTagSystem(containedResource, chartDataTagSystem('mechanism-of-injury')) && moiHandled) {
       continue;
     }
 
@@ -411,6 +405,11 @@ const makeCreateRequests = (
         ...diagnosisToAdd, // This pulls in the `rank: 1` if present.
         condition: { reference: fullUrl },
       });
+    }
+
+    // Skip duplicate MOI Conditions from the template (only the first one is used)
+    if (hasTagSystem(containedResource, chartDataTagSystem('mechanism-of-injury')) && moiHandled) {
+      continue;
     }
 
     // For MOI on append: concatenate existing text into the template text before creating.

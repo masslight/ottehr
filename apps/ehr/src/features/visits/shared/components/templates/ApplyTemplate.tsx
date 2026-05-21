@@ -24,7 +24,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
-import { ExamType, RoleType, TemplateSectionActions } from 'utils';
+import { ExamType, RoleType, TEMPLATE_SECTIONS_IN_ORDER, TemplateSectionActions } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
@@ -34,17 +34,7 @@ import { TemplateOption, useListTemplates } from './useListTemplates';
 
 const ADD_NEW_SENTINEL = '__ADD_NEW__';
 
-const TEMPLATE_SECTIONS = [
-  'HPI (History of Present Illness)',
-  'MOI (Mechanism of Injury)',
-  'Review of Systems (ROS)',
-  'Exam findings',
-  'Medical Decision Making (MDM)',
-  'Assessment / ICD-10 Diagnoses',
-  'Patient Instructions',
-  'CPT Codes',
-  'E&M Code',
-];
+const TEMPLATE_SECTIONS = TEMPLATE_SECTIONS_IN_ORDER.map((section) => section.label);
 
 const ADD_OR_UPDATE_LABEL = '+ Add or Update Template From Note';
 

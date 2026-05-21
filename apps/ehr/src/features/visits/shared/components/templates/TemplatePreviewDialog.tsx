@@ -32,9 +32,11 @@ import {
   RosFindingStateLabel,
   TelemedExamConfig,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
+  TEMPLATE_SECTIONS_IN_ORDER,
   TEMPLATE_SECTIONS_NO_APPEND,
   TemplateSectionAction,
   TemplateSectionActions,
+  TemplateSectionDescriptor,
   TemplateSectionKey,
 } from 'utils';
 
@@ -64,24 +66,6 @@ interface TemplatePreviewDialogProps {
   onCancel: () => void;
   onApply: (actions: TemplateSectionActions) => void;
 }
-
-interface SectionDescriptor {
-  key: TemplateSectionKey;
-  label: string;
-}
-
-const SECTIONS_IN_ORDER: readonly SectionDescriptor[] = [
-  { key: 'hpi', label: 'HPI (History of Present Illness)' },
-  { key: 'moi', label: 'MOI (Mechanism of Injury)' },
-  { key: 'ros', label: 'Review of Systems (ROS)' },
-  { key: 'examFindings', label: 'Exam Findings' },
-  { key: 'mdm', label: 'Medical Decision Making (MDM)' },
-  { key: 'diagnoses', label: 'Assessment / ICD-10 Diagnoses' },
-  { key: 'patientInstructions', label: 'Patient Instructions' },
-  { key: 'cptCodes', label: 'CPT Codes' },
-  { key: 'emCode', label: 'E&M Code' },
-  { key: 'accident', label: 'Accident' },
-];
 
 const ACTION_LABELS: Record<TemplateSectionAction, string> = {
   skip: 'Skip',
@@ -159,14 +143,6 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
     }
     case 'emCode':
       return sections.emCode ? sections.emCode.code : '';
-    case 'accident': {
-      if (!sections.accident) return '';
-      const flags: string[] = [];
-      if (sections.accident.autoAccident) flags.push('Auto');
-      if (sections.accident.employment) flags.push('Employment');
-      if (sections.accident.otherAccident) flags.push('Other');
-      return flags.length > 0 ? flags.join(', ') : 'Yes';
-    }
     default:
       return '';
   }
@@ -192,8 +168,6 @@ const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], k
       return sections.cptCodes.length > 0;
     case 'emCode':
       return Boolean(sections.emCode);
-    case 'accident':
-      return Boolean(sections.accident);
     default:
       return false;
   }
@@ -348,40 +322,13 @@ const SectionPreview: React.FC<{
       return <CodeList items={sections.cptCodes} />;
     case 'emCode':
       return sections.emCode ? <CodeList items={[sections.emCode]} /> : null;
-    case 'accident': {
-      const accident = sections.accident;
-      if (!accident) return null;
-      const flags: string[] = [];
-      if (accident.autoAccident) flags.push('Auto accident');
-      if (accident.employment) flags.push('Employment');
-      if (accident.otherAccident) flags.push('Other accident');
-      return (
-        <Stack spacing={0.5}>
-          {flags.length > 0 ? (
-            <Typography variant="body2" sx={{ color: 'text.primary' }}>
-              <strong>Type:</strong> {flags.join(', ')}
-            </Typography>
-          ) : null}
-          {accident.date ? (
-            <Typography variant="body2" sx={{ color: 'text.primary' }}>
-              <strong>Date:</strong> {accident.date}
-            </Typography>
-          ) : null}
-          {accident.state ? (
-            <Typography variant="body2" sx={{ color: 'text.primary' }}>
-              <strong>State:</strong> {accident.state}
-            </Typography>
-          ) : null}
-        </Stack>
-      );
-    }
     default:
       return null;
   }
 };
 
 const SectionCard: React.FC<{
-  descriptor: SectionDescriptor;
+  descriptor: TemplateSectionDescriptor;
   sections: AdminGetTemplateDetailOutput['sections'];
   action: TemplateSectionAction;
   onActionChange: (action: TemplateSectionAction) => void;
@@ -532,7 +479,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
 
   const sectionsWithContent = useMemo(() => {
     if (!detailQuery.data) return [];
-    return SECTIONS_IN_ORDER.filter((s) => sectionHasContent(detailQuery.data.sections, s.key));
+    return TEMPLATE_SECTIONS_IN_ORDER.filter((s) => sectionHasContent(detailQuery.data.sections, s.key));
   }, [detailQuery.data]);
 
   const handleActionChange = (key: TemplateSectionKey, action: TemplateSectionAction): void => {
@@ -600,7 +547,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
                 descriptor={section}
                 sections={detailQuery.data!.sections}
                 action={actions[section.key]}
-                onActionChange={(next) => handleActionChange(section.key, next)}
+                onActionChange={(action) => handleActionChange(section.key, action)}
                 disabled={isApplying}
                 examType={examType}
               />
