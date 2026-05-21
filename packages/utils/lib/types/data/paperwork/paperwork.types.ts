@@ -121,7 +121,6 @@ export interface AppointmentSummary {
   serviceMode: string;
   status?: string;
   // otherOffices: { display: string; url: string }[];
-  unconfirmedDateOfBirth?: string;
 }
 
 // it's pretty tedious to have this one-property interface and have to drill down to get the bits you're really after

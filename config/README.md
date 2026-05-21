@@ -1,8 +1,12 @@
-# Configuration
+# Config
 
 This directory holds Infrastructure-as-Code (IaC) configuration files for resources used by Ottehr. Structuring required resources as static configuration files allows us to use IaC tools like [Terraform](https://developer.hashicorp.com/terraform) to ensure deployed environments match what is expected by the application. It also consolidates the source of resource setup down to a single location and separates resource declaration from [deployment](/deploy/README.md).
 
 All Oystehr resources are defined in the `oystehr/` subdirectory. The files are in JSON format and must adhere to one of the schema versions defined in [the Schema package](/packages/spec/README.md).
+
+## Per-environment configuration
+
+Per-environment configuration is specified by JSON files in the .env directory. Learn how to configure your .env JSON files in the [.env README](./.env/README.md).
 
 ## Canonical FHIR Resources
 

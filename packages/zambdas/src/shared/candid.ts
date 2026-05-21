@@ -62,10 +62,12 @@ import {
   createReference,
   EmCodeOption,
   FHIR_IDENTIFIER_NPI,
+  findOrgMatchingReference,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
   getEmCodes,
   getPayerId,
+  getPayerUrl,
   getPaymentVariantFromEncounter,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -76,6 +78,7 @@ import {
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   OrderedCoveragesWithSubscribers,
   PaymentVariant,
+  Secrets,
   TIMEZONES,
 } from 'utils';
 import {
@@ -179,9 +182,7 @@ const createCandidCreateEncounterInput = async (
   const { coverages, insuranceOrgs } = await getAccountAndCoverageResourcesForPatient(patient.id, oystehr);
   const coverage = coverages.primary;
   const coverageSubscriber = coverages.primarySubscriber;
-  const coveragePayor = insuranceOrgs.find(
-    (insuranceOrg) => `Organization/${insuranceOrg.id}` === coverage?.payor[0]?.reference
-  );
+  const coveragePayor = findOrgMatchingReference(coverage?.payor[0]?.reference, insuranceOrgs);
   if (coverage && (!coverageSubscriber || !coveragePayor)) {
     throw MISSING_PATIENT_COVERAGE_INFO_ERROR;
   }
@@ -807,15 +808,27 @@ const createCandidCoverages = async (
   if (coverages === undefined) {
     return candidCoverages;
   }
-  const primaryInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.primary?.payor?.[0].reference
-  );
-  const secondaryInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.secondary?.payor?.[0].reference
-  );
-  const workersCompInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.workersComp?.payor?.[0].reference
-  );
+  const primaryInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.primary?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.primary?.payor?.[0].reference)
+    );
+  });
+  const secondaryInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.secondary?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.secondary?.payor?.[0].reference)
+    );
+  });
+  const workersCompInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.workersComp?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.workersComp?.payor?.[0].reference)
+    );
+  });
 
   if (coverages.primary && coverages.primarySubscriber && primaryInsuranceOrg) {
     const candidCoverage = buildCandidCoverageCreateInput(
@@ -1289,3 +1302,36 @@ export const getCptModifierCodeFromProcedure = (
 
   return modifier;
 };
+
+export function shouldUseCandid(secrets: Secrets): boolean {
+  return (
+    ['candid', 'all'].includes(secrets.BILLING_INTEGRATION_FEATURE_FLAG) ||
+    // TODO: remove this once secrets migrated
+    !secrets.BILLING_INTEGRATION_FEATURE_FLAG
+  );
+}
+
+export function shouldUseOttehrBilling(secrets: Secrets): boolean {
+  return ['ottehr', 'all'].includes(secrets.BILLING_INTEGRATION_FEATURE_FLAG);
+}
+
+export function shouldSendClaim(secrets: Secrets, encounter: Encounter): boolean {
+  if (shouldUseCandid(secrets)) {
+    // Check if candid encounter ID already exists in encounter identifier
+    const existingCandidEncounterId = encounter.identifier?.find(
+      (identifier) => identifier.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM
+    )?.value;
+    if (existingCandidEncounterId) {
+      console.log(
+        `[CLAIM SUBMISSION] Candid encounter already exists with ID ${existingCandidEncounterId}, skipping creation`
+      );
+      return false;
+    }
+    return true;
+  }
+  if (shouldUseOttehrBilling(secrets)) {
+    // Always send to Ottehr billing
+    return true;
+  }
+  return false;
+}

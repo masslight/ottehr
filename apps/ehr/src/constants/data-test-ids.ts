@@ -23,7 +23,10 @@ export const dataTestIds = {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
     addPatientButton: 'add-patient-button',
     approveButton: 'approve-button',
+    completeIntakeButton: 'complete-intake-button',
     intakeButton: `intake-button`,
+    readyButton: 'ready-button',
+    startProviderButton: 'start-provider-button',
     visitDetailsButton: `visit-details-button`,
     progressNoteButton: `progress-note-button`,
     dischargeButton: 'discharge-button',
@@ -44,7 +47,6 @@ export const dataTestIds = {
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',
-    changeStatusDropdown: 'change-status-dropdown-in-appointment-page',
   },
   addPatientPage: {
     pageTitle: 'page-title',
@@ -724,6 +726,16 @@ export const dataTestIds = {
     admin: {
       scanForStaleBtn: 'global-template-scan-staleness-btn',
     },
+  },
+
+  adminLabelPrintingConfig: {
+    form: 'label-printing-config-form',
+    modeSelect: 'label-printing-config-mode-select',
+    manufacturerSelect: 'label-printing-config-manufacturer-select',
+    labelTypeSelect: 'label-printing-config-label-type-select',
+    orientationSelect: 'label-printing-config-orientation-select',
+    openPdfOnPrintCheckbox: 'label-printing-config-open-pdf-checkbox',
+    submitButton: 'label-printing-config-submit-button',
   },
 
   reviewOfSystemsPage: {

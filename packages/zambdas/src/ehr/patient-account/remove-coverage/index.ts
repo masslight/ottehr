@@ -14,6 +14,7 @@ import {
   NOT_AUTHORIZED,
   RemoveCoverageResponse,
   Secrets,
+  userMe,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
@@ -147,8 +148,7 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
 
 const complexValidation = async (input: Input, oystehr: Oystehr): Promise<EffectInput> => {
   const { patientId, coverageId, userToken, secrets } = input;
-  const userOystehr = createOystehrClient(userToken, secrets);
-  const user = await userOystehr.user.me();
+  const user = await userMe(userToken, secrets);
   if (!user) {
     throw NOT_AUTHORIZED;
   }

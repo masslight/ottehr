@@ -1,16 +1,7 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import {
-  Appointment,
-  CodeableConcept,
-  DocumentReference,
-  Encounter,
-  FhirResource,
-  List,
-  Patient,
-  Practitioner,
-} from 'fhir/r4b';
+import { CodeableConcept, DocumentReference, Encounter, FhirResource, List, Patient, Practitioner } from 'fhir/r4b';
 import {
   addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -19,11 +10,9 @@ import {
   DispositionFollowUpType,
   ExamObservationDTO,
   getPatchBinary,
-  isInPersonAppointment,
   PATIENT_VITALS_META_SYSTEM,
   SCHOOL_WORK_NOTE,
   Secrets,
-  userMe,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -32,6 +21,7 @@ import {
   createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
+  getMyPractitionerId,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
@@ -78,479 +68,462 @@ const ZAMBDA_NAME = 'save-chart-data';
 let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  try {
-    console.log(`Input: ${JSON.stringify(input)}`);
-    console.log('Validating input');
-    const {
-      encounterId,
-      chiefComplaint,
-      historyOfPresentIllness,
-      mechanismOfInjury,
-      ros,
-      conditions,
-      medications,
-      allergies,
-      surgicalHistoryNote,
-      surgicalHistory,
-      episodeOfCare,
-      observations,
-      secrets,
-      examObservations,
-      rosObservations,
-      medicalDecision,
-      cptCodes,
-      emCode,
-      instructions,
-      disposition,
-      diagnosis,
-      newSchoolWorkNote,
-      schoolWorkNotes,
-      patientInfoConfirmed,
-      addendumNote,
-      addToVisitNote,
-      notes,
-      vitalsObservations,
-      birthHistory,
-      userToken,
-      procedures,
-      reasonForVisit,
-      accident,
-    } = validateRequestParameters(input);
+  console.log(`Input: ${JSON.stringify(input)}`);
+  console.log('Validating input');
+  const {
+    encounterId,
+    chiefComplaint,
+    historyOfPresentIllness,
+    mechanismOfInjury,
+    ros,
+    conditions,
+    medications,
+    allergies,
+    surgicalHistoryNote,
+    surgicalHistory,
+    episodeOfCare,
+    observations,
+    secrets,
+    examObservations,
+    rosObservations,
+    medicalDecision,
+    cptCodes,
+    emCode,
+    instructions,
+    disposition,
+    diagnosis,
+    newSchoolWorkNote,
+    schoolWorkNotes,
+    patientInfoConfirmed,
+    addendumNote,
+    addToVisitNote,
+    notes,
+    vitalsObservations,
+    birthHistory,
+    userToken,
+    procedures,
+    reasonForVisit,
+    accident,
+  } = validateRequestParameters(input);
 
-    console.time('time');
-    console.timeLog('time', 'before creating fhir client and token resources');
-    console.log('Getting token');
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+  console.time('time');
+  console.timeLog('time', 'before creating fhir client and token resources');
+  console.log('Getting token');
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createOystehrClient(m2mToken, secrets);
 
-    console.timeLog('time', 'before fetching resources');
-    // get encounter and resources
-    console.log(`Getting encounter ${encounterId}`);
-    // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
-    // const [allResources, currentPractitioner, chartDataBeforeUpdate] = await Promise.all([
-    //   getEncounterAndRelatedResources(oystehr, encounterId),
-    //   getUserPractitioner(oystehr, oystehrCurrentUser),
-    //   getChartData(oystehr, encounterId),
-    // ]);
+  console.timeLog('time', 'before fetching resources');
+  // get encounter and resources
+  console.log(`Getting encounter ${encounterId}`);
+  // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
+  // const [allResources, currentPractitioner, chartDataBeforeUpdate] = await Promise.all([
+  //   getEncounterAndRelatedResources(oystehr, encounterId),
+  //   getUserPractitioner(oystehr, userToken, secrets),
+  //   getChartData(oystehr, encounterId),
+  // ]);
 
-    const [allResources, currentPractitioner] = await Promise.all([
-      getEncounterAndRelatedResources(oystehr, encounterId),
-      getUserPractitioner(oystehr, userToken, secrets),
-    ]);
+  const [allResources, currentPractitioner] = await Promise.all([
+    getEncounterAndRelatedResources(oystehr, encounterId),
+    getUserPractitioner(oystehr, userToken, secrets),
+  ]);
 
-    const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
-    if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
-    const patient = allResources.filter((resource) => resource.resourceType === 'Patient')[0] as Patient;
-    const listResources = allResources.filter((res) => res.resourceType === 'List') as List[];
-    const appointment = allResources.find((res) => res.resourceType === 'Appointment');
-    console.log(`Got encounter with id ${encounter.id}`);
+  const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
+  if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
+  const patient = allResources.filter((resource) => resource.resourceType === 'Patient')[0] as Patient;
+  const listResources = allResources.filter((res) => res.resourceType === 'List') as List[];
+  const appointment = allResources.find((res) => res.resourceType === 'Appointment');
+  console.log(`Got encounter with id ${encounter.id}`);
 
-    // validate that patient from encounter exists
-    if (patient?.id === undefined) throw new Error(`Encounter ${encounter.id} must be associated with a patient... `);
-    console.log(`Got patient with id ${patient.id}`);
-    console.timeLog('time', 'after fetching resources');
+  // validate that patient from encounter exists
+  if (patient?.id === undefined) throw new Error(`Encounter ${encounter.id} must be associated with a patient... `);
+  console.log(`Got patient with id ${patient.id}`);
+  console.timeLog('time', 'after fetching resources');
 
-    const saveOrUpdateRequests: (
-      | BatchInputPostRequest<ChartDataResources>
-      | BatchInputPutRequest<ChartDataResources>
-      | BatchInputRequest<ChartDataResources>
-    )[] = [];
-    const updateEncounterOperations: Operation[] = [];
-    const additionalResourcesForResponse: FhirResource[] = [];
+  const saveOrUpdateRequests: (
+    | BatchInputPostRequest<ChartDataResources>
+    | BatchInputPutRequest<ChartDataResources>
+    | BatchInputRequest<ChartDataResources>
+  )[] = [];
+  const updateEncounterOperations: Operation[] = [];
+  const additionalResourcesForResponse: FhirResource[] = [];
 
-    if (chiefComplaint) {
-      // convert chief complaint Medical Conditions to Conditions preserve FHIR resource ID, add to encounter
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, chiefComplaint, 'chief-complaint'))
-      );
-    }
+  if (chiefComplaint) {
+    // convert chief complaint Medical Conditions to Conditions preserve FHIR resource ID, add to encounter
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, chiefComplaint, 'chief-complaint'))
+    );
+  }
 
-    if (historyOfPresentIllness) {
-      // convert history of present illness Medical Conditions to Conditions preserve FHIR resource ID, add to encounter
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeConditionResource(encounterId, patient.id, historyOfPresentIllness, 'history-of-present-illness')
-        )
-      );
-    }
+  if (historyOfPresentIllness) {
+    // convert history of present illness Medical Conditions to Conditions preserve FHIR resource ID, add to encounter
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeConditionResource(encounterId, patient.id, historyOfPresentIllness, 'history-of-present-illness')
+      )
+    );
+  }
 
-    if (mechanismOfInjury) {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeConditionResource(encounterId, patient.id, mechanismOfInjury, 'mechanism-of-injury')
-        )
-      );
-    }
+  if (mechanismOfInjury) {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeConditionResource(encounterId, patient.id, mechanismOfInjury, 'mechanism-of-injury')
+      )
+    );
+  }
 
-    if (ros) {
-      // convert ROS to Conditions preserve FHIR resource ID, add to encounter
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, ros, 'ros'))
-      );
-    }
+  if (ros) {
+    // convert ROS to Conditions preserve FHIR resource ID, add to encounter
+    saveOrUpdateRequests.push(saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, ros, 'ros')));
+  }
 
-    // convert Medical Conditions [] to Conditions [] and preserve FHIR resource IDs
-    conditions?.forEach((condition) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id!, condition, 'medical-condition'))
-      );
-    });
+  // convert Medical Conditions [] to Conditions [] and preserve FHIR resource IDs
+  conditions?.forEach((condition) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id!, condition, 'medical-condition'))
+    );
+  });
 
-    // convert Medications [] to MedicationStatement+Medication [] and preserve FHIR resource IDs
-    medications?.forEach((medication) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeMedicationResource(encounterId, patient.id!, currentPractitioner.id!, medication, 'current-medication')
-        )
-      );
-    });
+  // convert Medications [] to MedicationStatement+Medication [] and preserve FHIR resource IDs
+  medications?.forEach((medication) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeMedicationResource(encounterId, patient.id!, currentPractitioner.id!, medication, 'current-medication')
+      )
+    );
+  });
 
-    // convert Allergy [] to AllergyIntolerance [] and preserve FHIR resource IDs
-    allergies?.forEach((allergy) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeAllergyResource(encounterId, patient.id!, allergy, 'known-allergy'))
-      );
-    });
+  // convert Allergy [] to AllergyIntolerance [] and preserve FHIR resource IDs
+  allergies?.forEach((allergy) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeAllergyResource(encounterId, patient.id!, allergy, 'known-allergy'))
+    );
+  });
 
-    episodeOfCare?.forEach((hosp) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeHospitalizationResource(patient.id!, hosp, 'hospitalization'))
-      );
-    });
+  episodeOfCare?.forEach((hosp) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeHospitalizationResource(patient.id!, hosp, 'hospitalization'))
+    );
+  });
 
-    surgicalHistory?.forEach((procedure) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, procedure, 'surgical-history'))
-      );
-    });
+  surgicalHistory?.forEach((procedure) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, procedure, 'surgical-history'))
+    );
+  });
 
-    if (surgicalHistoryNote) {
-      // convert Procedure to Procedure (FHIR) and preserve FHIR resource IDs
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeProcedureResource(encounterId, patient.id!, surgicalHistoryNote, 'surgical-history-note')
-        )
-      );
-    }
+  if (surgicalHistoryNote) {
+    // convert Procedure to Procedure (FHIR) and preserve FHIR resource IDs
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeProcedureResource(encounterId, patient.id!, surgicalHistoryNote, 'surgical-history-note')
+      )
+    );
+  }
 
-    // convert Observation[] to Observation (FHIR) [] and preserve FHIR resource IDs
-    observations?.forEach((element) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeObservationResource(
-            encounterId,
-            patient.id!,
-            currentPractitioner.id!,
-            undefined,
-            element,
-            ADDITIONAL_QUESTIONS_META_SYSTEM,
-            patient.birthDate,
-            patient.gender
-          )
-        )
-      );
-    });
-
-    vitalsObservations?.forEach((element) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeObservationResource(
-            encounterId,
-            patient.id!,
-            currentPractitioner.id!,
-            undefined,
-            element,
-            PATIENT_VITALS_META_SYSTEM,
-            patient.birthDate,
-            patient.gender
-          )
-        )
-      );
-    });
-
-    const isInPerson = isInPersonAppointment(appointment as Appointment);
-
-    // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
-    examObservations?.forEach((element) => {
-      const allExamFields = getAllExamFieldsMetadata(isInPerson);
-      const examObservationComments = createExamObservationComments(isInPerson);
-
-      const observation = allExamFields.find((observation) => observation.field === element.field);
-      const comment = examObservationComments.find((comment) => comment.field === element.field);
-
-      if (!observation && !comment) {
-        throw new Error(`Exam observation with field ${element.field} not found`);
-      }
-      const { code, bodySite, label } = (observation || comment) as ExamObservationDTO & {
-        code?: CodeableConcept;
-        bodySite?: CodeableConcept;
-        label?: string;
-      };
-
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeExamObservationResource(encounterId, patient.id!, element, code ? { code, bodySite } : undefined, label)
-        )
-      );
-    });
-
-    // 8b. convert ROS observations to Observation (FHIR)
-    rosObservations?.forEach((element) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeRosObservationResource(encounterId, patient.id!, element))
-      );
-    });
-
-    // 9. convert Medical Decision to ClinicalImpression (FHIR) and preserve FHIR resource IDs
-    if (medicalDecision) {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(
-          makeClinicalImpressionResource(encounterId, patient.id, medicalDecision, 'medical-decision')
-        )
-      );
-    }
-
-    // 10 convert CPT code to Procedure (FHIR) and preserve FHIR resource IDs
-    cptCodes?.forEach((element) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, element, 'cpt-code'))
-      );
-    });
-
-    if (emCode) {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, emCode, 'em-code'))
-      );
-    }
-
-    // 11 convert provider instructions to Communication (FHIR) and preserve FHIR resource IDs
-    instructions?.forEach((element) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeCommunicationResource(encounterId, patient.id!, element, 'patient-instruction'))
-      );
-    });
-
-    // 12 convert disposition to Encounter.hospitalization (FHIR) update
-    // and ServiceRequest (FHIR) resource creation
-    if (disposition) {
-      saveOrUpdateRequests.push(
-        createDispositionServiceRequest({
-          disposition,
+  // convert Observation[] to Observation (FHIR) [] and preserve FHIR resource IDs
+  observations?.forEach((element) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeObservationResource(
           encounterId,
-          followUpId: filterServiceRequestsFromFhir(allResources, 'disposition-follow-up')[0]?.id,
-          patientId: patient.id,
-        })
-      );
+          patient.id!,
+          currentPractitioner.id!,
+          undefined,
+          element,
+          ADDITIONAL_QUESTIONS_META_SYSTEM,
+          patient.birthDate,
+          patient.gender
+        )
+      )
+    );
+  });
 
-      updateEncounterOperations.push(updateEncounterDischargeDisposition(encounter, disposition));
+  vitalsObservations?.forEach((element) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeObservationResource(
+          encounterId,
+          patient.id!,
+          currentPractitioner.id!,
+          undefined,
+          element,
+          PATIENT_VITALS_META_SYSTEM,
+          patient.birthDate,
+          patient.gender
+        )
+      )
+    );
+  });
 
-      // creating sub followUps for disposition
-      const subFollowUpCode: CodeableConcept = createCodeableConcept(
+  // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
+  examObservations?.forEach((element) => {
+    const allExamFields = getAllExamFieldsMetadata();
+    const examObservationComments = createExamObservationComments();
+
+    const observation = allExamFields.find((observation) => observation.field === element.field);
+    const comment = examObservationComments.find((comment) => comment.field === element.field);
+
+    if (!observation && !comment) {
+      throw new Error(`Exam observation with field ${element.field} not found`);
+    }
+    const { code, bodySite, label } = (observation || comment) as ExamObservationDTO & {
+      code?: CodeableConcept;
+      bodySite?: CodeableConcept;
+      label?: string;
+    };
+
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeExamObservationResource(encounterId, patient.id!, element, code ? { code, bodySite } : undefined, label)
+      )
+    );
+  });
+
+  // 8b. convert ROS observations to Observation (FHIR)
+  rosObservations?.forEach((element) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeRosObservationResource(encounterId, patient.id!, element))
+    );
+  });
+
+  // 9. convert Medical Decision to ClinicalImpression (FHIR) and preserve FHIR resource IDs
+  if (medicalDecision) {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(
+        makeClinicalImpressionResource(encounterId, patient.id, medicalDecision, 'medical-decision')
+      )
+    );
+  }
+
+  // 10 convert CPT code to Procedure (FHIR) and preserve FHIR resource IDs
+  cptCodes?.forEach((element) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, element, 'cpt-code'))
+    );
+  });
+
+  if (emCode) {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, emCode, 'em-code'))
+    );
+  }
+
+  // 11 convert provider instructions to Communication (FHIR) and preserve FHIR resource IDs
+  instructions?.forEach((element) => {
+    saveOrUpdateRequests.push(
+      saveOrUpdateResourceRequest(makeCommunicationResource(encounterId, patient.id!, element, 'patient-instruction'))
+    );
+  });
+
+  // 12 convert disposition to Encounter.hospitalization (FHIR) update
+  // and ServiceRequest (FHIR) resource creation
+  if (disposition) {
+    saveOrUpdateRequests.push(
+      createDispositionServiceRequest({
+        disposition,
+        encounterId,
+        followUpId: filterServiceRequestsFromFhir(allResources, 'disposition-follow-up')[0]?.id,
+        patientId: patient.id,
+      })
+    );
+
+    updateEncounterOperations.push(updateEncounterDischargeDisposition(encounter, disposition));
+
+    // creating sub followUps for disposition
+    const subFollowUpCode: CodeableConcept = createCodeableConcept(
+      [
+        {
+          code: '185389009',
+          display: 'Follow-up visit (procedure)',
+          system: 'http://snomed.info/sct',
+        },
+      ],
+      'Follow-up visit (procedure)'
+    );
+    const subFollowUpMetaTag = 'sub-follow-up';
+    disposition.followUp?.forEach((followUp) => {
+      const followUpPerformer = followUpToPerformerMap[followUp.type];
+      const lurieCtOrderDetail = createCodeableConcept(
         [
           {
-            code: '185389009',
-            display: 'Follow-up visit (procedure)',
+            code: '77477000',
+            display: 'Computed tomography (procedure)',
             system: 'http://snomed.info/sct',
           },
         ],
-        'Follow-up visit (procedure)'
+        'Computed tomography (procedure)'
       );
-      const subFollowUpMetaTag = 'sub-follow-up';
-      disposition.followUp?.forEach((followUp) => {
-        const followUpPerformer = followUpToPerformerMap[followUp.type];
-        const lurieCtOrderDetail = createCodeableConcept(
-          [
-            {
-              code: '77477000',
-              display: 'Computed tomography (procedure)',
-              system: 'http://snomed.info/sct',
-            },
-          ],
-          'Computed tomography (procedure)'
-        );
-        const existedSubFollowUpId = filterServiceRequestsFromFhir(
-          allResources,
-          subFollowUpMetaTag,
-          followUpPerformer?.coding?.[0]
-        )[0]?.id;
+      const existedSubFollowUpId = filterServiceRequestsFromFhir(
+        allResources,
+        subFollowUpMetaTag,
+        followUpPerformer?.coding?.[0]
+      )[0]?.id;
 
-        saveOrUpdateRequests.push(
-          saveOrUpdateResourceRequest(
-            makeServiceRequestResource({
-              resourceId: existedSubFollowUpId,
-              encounterId,
-              patientId: patient.id!,
-              metaName: subFollowUpMetaTag,
-              code: subFollowUpCode,
-              orderDetail: followUp.type === 'lurie-ct' ? [lurieCtOrderDetail] : undefined,
-              performerType: followUpPerformer,
-              note: followUp.type === 'other' ? followUp.note : undefined,
-            })
-          )
-        );
-      });
-
-      // remove sub follow-ups that are not in the current request
-      const existingSubFollowUps = filterServiceRequestsFromFhir(allResources, subFollowUpMetaTag);
-      existingSubFollowUps.forEach((subFollowUp) => {
-        const subFollowUpType = Object.keys(followUpToPerformerMap).find(
-          (key) =>
-            followUpToPerformerMap[key as DispositionFollowUpType]?.coding?.[0].code ===
-            subFollowUp.performerType?.coding?.[0].code
-        );
-        if (subFollowUpType && !disposition.followUp?.some((f) => f.type === subFollowUpType)) {
-          saveOrUpdateRequests.push(deleteResourceRequest('ServiceRequest', subFollowUp.id!));
-        }
-      });
-    }
-
-    // 13 convert diagnosis to Condition (FHIR) resources and mention them in Encounter.diagnosis
-    if (diagnosis) {
-      if (!encounter.diagnosis) {
-        updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
-      }
-      for (const element of diagnosis) {
-        const conditionResource = makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis');
-        const condition = element.resourceId
-          ? await oystehr.fhir.update(conditionResource)
-          : await oystehr.fhir.create(conditionResource);
-        additionalResourcesForResponse.push(condition);
-        updateEncounterOperations.push(...updateEncounterDiagnosis(encounter, condition.id!, element));
-      }
-    }
-
-    // convert BooleanValue to Condition (FHIR) resource and mention them in Encounter.extension
-    if (patientInfoConfirmed) {
-      updateEncounterOperations.push(...updateEncounterPatientInfoConfirmed(encounter, patientInfoConfirmed));
-    }
-
-    // convert BooleanValue to Condition (FHIR) resource and mention them in Encounter.extension
-    if (addToVisitNote) {
-      updateEncounterOperations.push(...updateEncounterAddToVisitNote(encounter, addToVisitNote));
-    }
-
-    // convert FreeTextNote to Condition (FHIR) resource and mention them in Encounter.extension
-    if (addendumNote) {
-      updateEncounterOperations.push(...updateEncounterAddendumNote(encounter, addendumNote));
-    }
-
-    // convert FreeTextNote to Encounter.extension
-    if (reasonForVisit) {
-      updateEncounterOperations.push(...updateEncounterReasonForVisit(encounter, reasonForVisit));
-    }
-
-    // 14 convert work-school note to pdf file, upload it to z3 bucket and create DocumentReference (FHIR) for it
-    if (newSchoolWorkNote) {
-      if (appointment?.id === undefined) throw new Error(`No appointment found for encounterId: ${encounterId}`);
-      const pdfInfo = await createSchoolWorkNotePDF(newSchoolWorkNote, patient, secrets, m2mToken);
-      additionalResourcesForResponse.push(
-        await makeSchoolWorkDR(
-          oystehr,
-          pdfInfo,
-          patient.id,
-          appointment?.id,
-          encounterId,
-          newSchoolWorkNote.type,
-          SCHOOL_WORK_NOTE,
-          listResources
+      saveOrUpdateRequests.push(
+        saveOrUpdateResourceRequest(
+          makeServiceRequestResource({
+            resourceId: existedSubFollowUpId,
+            encounterId,
+            patientId: patient.id!,
+            metaName: subFollowUpMetaTag,
+            code: subFollowUpCode,
+            orderDetail: followUp.type === 'lurie-ct' ? [lurieCtOrderDetail] : undefined,
+            performerType: followUpPerformer,
+            note: followUp.type === 'other' ? followUp.note : undefined,
+          })
         )
       );
-    }
-    // updating schoolWork note DocumentReference status 'published' | 'unpublished'
-    if (schoolWorkNotes) {
-      const documentReferences = allResources.filter(
-        (resource) => resource.resourceType === 'DocumentReference'
-      ) as DocumentReference[];
-      schoolWorkNotes.forEach((element) => {
-        const schoolWorkDR = documentReferences.find((dr) => dr.id === element.id);
-        if (schoolWorkDR) {
-          schoolWorkDR.docStatus = element.published
-            ? PdfDocumentReferencePublishedStatuses.published
-            : PdfDocumentReferencePublishedStatuses.unpublished;
-          saveOrUpdateRequests.push(saveOrUpdateResourceRequest(schoolWorkDR));
-        }
-      });
-    }
+    });
 
-    if (updateEncounterOperations.length > 0) {
-      saveOrUpdateRequests.push(
-        getPatchBinary({
-          resourceId: encounterId,
-          resourceType: 'Encounter',
-          patchOperations: updateEncounterOperations,
-        })
+    // remove sub follow-ups that are not in the current request
+    const existingSubFollowUps = filterServiceRequestsFromFhir(allResources, subFollowUpMetaTag);
+    existingSubFollowUps.forEach((subFollowUp) => {
+      const subFollowUpType = Object.keys(followUpToPerformerMap).find(
+        (key) =>
+          followUpToPerformerMap[key as DispositionFollowUpType]?.coding?.[0].code ===
+          subFollowUp.performerType?.coding?.[0].code
       );
-    }
-
-    // convert notes to Communication (FHIR) resources
-    notes?.forEach((element) => {
-      const note = makeNoteResource(encounterId, patient.id!, element);
-      const request = saveOrUpdateResourceRequest(note);
-      saveOrUpdateRequests.push(request);
+      if (subFollowUpType && !disposition.followUp?.some((f) => f.type === subFollowUpType)) {
+        saveOrUpdateRequests.push(deleteResourceRequest('ServiceRequest', subFollowUp.id!));
+      }
     });
-
-    // convert birth history to Observation (FHIR) resources
-    birthHistory?.forEach((element) => {
-      const birthHistoryElement = makeBirthHistoryObservationResource(
-        encounterId,
-        patient.id!,
-        element,
-        'birth-history'
-      );
-      const request = saveOrUpdateResourceRequest(birthHistoryElement);
-      saveOrUpdateRequests.push(request);
-    });
-
-    if (procedures) {
-      procedures?.forEach((procedure) => {
-        saveOrUpdateRequests.push(createProcedureServiceRequest(procedure, encounterId, patient.id!));
-      });
-      additionalResourcesForResponse.push(encounter);
-    }
-
-    if (accident) {
-      saveOrUpdateRequests.push(createAccidentCondition(accident, encounterId, patient.id!));
-    }
-
-    console.log('Starting a transaction update of chart data...');
-
-    console.timeLog('time', 'before saving resources');
-    const transactionBundle = await oystehr.fhir.transaction({
-      requests: saveOrUpdateRequests,
-    });
-    console.timeLog('time', 'after saving resources');
-
-    console.log('Updated chart data as a transaction');
-
-    await runChartDataPostChangeTasks(oystehr, addendumNote, encounter, appointment?.id);
-
-    console.timeLog('time', 'before sorting resources');
-    const output = validateBundleAndExtractSavedChartData(
-      transactionBundle,
-      patient.id!,
-      encounterId,
-      additionalResourcesForResponse
-    );
-    console.timeLog('time', 'after sorting resources');
-
-    // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
-    // console.timeLog('time', 'before creating auditEvent');
-    // const auditEvent = createAuditEvent(chartDataBeforeUpdate.chartResources, output.chartResources);
-    // await oystehr.fhir.create(auditEvent);
-    // console.timeLog('time', 'after creating auditEvent');
-
-    console.timeEnd('time');
-    return {
-      body: JSON.stringify(output),
-      statusCode: 200,
-    };
-  } catch (error) {
-    console.log('Save chart data error', error, JSON.stringify(error, null, 2));
-    return {
-      body: JSON.stringify({ message: 'Error saving encounter data...' }),
-      statusCode: 500,
-    };
   }
+
+  // 13 convert diagnosis to Condition (FHIR) resources and mention them in Encounter.diagnosis
+  if (diagnosis) {
+    if (!encounter.diagnosis) {
+      updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
+    }
+    for (const element of diagnosis) {
+      const conditionResource = makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis');
+      const condition = element.resourceId
+        ? await oystehr.fhir.update(conditionResource)
+        : await oystehr.fhir.create(conditionResource);
+      additionalResourcesForResponse.push(condition);
+      updateEncounterOperations.push(...updateEncounterDiagnosis(encounter, condition.id!, element));
+    }
+  }
+
+  // convert BooleanValue to Condition (FHIR) resource and mention them in Encounter.extension
+  if (patientInfoConfirmed) {
+    updateEncounterOperations.push(...updateEncounterPatientInfoConfirmed(encounter, patientInfoConfirmed));
+  }
+
+  // convert BooleanValue to Condition (FHIR) resource and mention them in Encounter.extension
+  if (addToVisitNote) {
+    updateEncounterOperations.push(...updateEncounterAddToVisitNote(encounter, addToVisitNote));
+  }
+
+  // convert FreeTextNote to Condition (FHIR) resource and mention them in Encounter.extension
+  if (addendumNote) {
+    updateEncounterOperations.push(...updateEncounterAddendumNote(encounter, addendumNote));
+  }
+
+  // convert FreeTextNote to Encounter.extension
+  if (reasonForVisit) {
+    updateEncounterOperations.push(...updateEncounterReasonForVisit(encounter, reasonForVisit));
+  }
+
+  // 14 convert work-school note to pdf file, upload it to z3 bucket and create DocumentReference (FHIR) for it
+  if (newSchoolWorkNote) {
+    if (appointment?.id === undefined) throw new Error(`No appointment found for encounterId: ${encounterId}`);
+    const pdfInfo = await createSchoolWorkNotePDF(newSchoolWorkNote, patient, secrets, m2mToken);
+    additionalResourcesForResponse.push(
+      await makeSchoolWorkDR(
+        oystehr,
+        pdfInfo,
+        patient.id,
+        appointment?.id,
+        encounterId,
+        newSchoolWorkNote.type,
+        SCHOOL_WORK_NOTE,
+        listResources
+      )
+    );
+  }
+  // updating schoolWork note DocumentReference status 'published' | 'unpublished'
+  if (schoolWorkNotes) {
+    const documentReferences = allResources.filter(
+      (resource) => resource.resourceType === 'DocumentReference'
+    ) as DocumentReference[];
+    schoolWorkNotes.forEach((element) => {
+      const schoolWorkDR = documentReferences.find((dr) => dr.id === element.id);
+      if (schoolWorkDR) {
+        schoolWorkDR.docStatus = element.published
+          ? PdfDocumentReferencePublishedStatuses.published
+          : PdfDocumentReferencePublishedStatuses.unpublished;
+        saveOrUpdateRequests.push(saveOrUpdateResourceRequest(schoolWorkDR));
+      }
+    });
+  }
+
+  if (updateEncounterOperations.length > 0) {
+    saveOrUpdateRequests.push(
+      getPatchBinary({
+        resourceId: encounterId,
+        resourceType: 'Encounter',
+        patchOperations: updateEncounterOperations,
+      })
+    );
+  }
+
+  // convert notes to Communication (FHIR) resources
+  notes?.forEach((element) => {
+    const note = makeNoteResource(encounterId, patient.id!, element);
+    const request = saveOrUpdateResourceRequest(note);
+    saveOrUpdateRequests.push(request);
+  });
+
+  // convert birth history to Observation (FHIR) resources
+  birthHistory?.forEach((element) => {
+    const birthHistoryElement = makeBirthHistoryObservationResource(encounterId, patient.id!, element, 'birth-history');
+    const request = saveOrUpdateResourceRequest(birthHistoryElement);
+    saveOrUpdateRequests.push(request);
+  });
+
+  if (procedures) {
+    procedures?.forEach((procedure) => {
+      saveOrUpdateRequests.push(createProcedureServiceRequest(procedure, encounterId, patient.id!));
+    });
+    additionalResourcesForResponse.push(encounter);
+  }
+
+  if (accident) {
+    saveOrUpdateRequests.push(createAccidentCondition(accident, encounterId, patient.id!));
+  }
+
+  console.log('Starting a transaction update of chart data...');
+
+  console.timeLog('time', 'before saving resources');
+  const transactionBundle = await oystehr.fhir.transaction({
+    requests: saveOrUpdateRequests,
+  });
+  console.timeLog('time', 'after saving resources');
+
+  console.log('Updated chart data as a transaction');
+
+  await runChartDataPostChangeTasks(oystehr, addendumNote, encounter, appointment?.id);
+
+  console.timeLog('time', 'before sorting resources');
+  const output = validateBundleAndExtractSavedChartData(
+    transactionBundle,
+    patient.id!,
+    encounterId,
+    additionalResourcesForResponse
+  );
+  console.timeLog('time', 'after sorting resources');
+
+  // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
+  // console.timeLog('time', 'before creating auditEvent');
+  // const auditEvent = createAuditEvent(chartDataBeforeUpdate.chartResources, output.chartResources);
+  // await oystehr.fhir.create(auditEvent);
+  // console.timeLog('time', 'after creating auditEvent');
+
+  console.timeEnd('time');
+  return {
+    body: JSON.stringify(output),
+    statusCode: 200,
+  };
 });
 
 // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
@@ -626,11 +599,7 @@ async function getUserPractitioner(
   secrets: Secrets | null
 ): Promise<Practitioner> {
   try {
-    const getUserResponse = await userMe(userToken, secrets);
-    const userProfile = getUserResponse.profile;
-    console.log(`User Profile: ${JSON.stringify(userProfile)}`);
-    const userProfileString = userProfile.split('/');
-    const practitionerId = userProfileString[1];
+    const practitionerId = await getMyPractitionerId(userToken, secrets);
     return await oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
       id: practitionerId,

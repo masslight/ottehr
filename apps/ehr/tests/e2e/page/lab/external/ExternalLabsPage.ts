@@ -38,14 +38,16 @@ export class ExternalLabsPage {
   async confirmTestWithOutResultsIsPresent(input: {
     fillerLabName: string;
     testName: string;
+    testItemCode: string;
     status: ExternalLabsStatus;
     submitBtnDisplay: 'disabled' | 'enabled';
   }): Promise<Locator> {
-    const { fillerLabName, testName, status, submitBtnDisplay } = input;
+    const { fillerLabName, testName, testItemCode, status, submitBtnDisplay } = input;
     const bundleContainer = this.#page.getByTestId(configBundleTableTestId(fillerLabName));
     const header = bundleContainer.getByTestId(configBundleHeaderRowTitleTestId(fillerLabName));
 
     // confirm header is correct
+
     await expect(header, `Confirming bundle exists with the title ${fillerLabName}`).toHaveText(fillerLabName);
 
     const submitBtn = bundleContainer.getByTestId(tableTestIds.bundleRowSubmitBtn);
@@ -56,9 +58,12 @@ export class ExternalLabsPage {
     }
 
     // confirm test is in the bundleContainer
+    const expectedTestTitle = `(${testItemCode}) ${testName}`;
     const testRow = bundleContainer.getByTestId(configBundleRowTestId(testName));
     const testNameCell = testRow.getByTestId(tableTestIds.bundleRowCellTestType);
-    await expect(testNameCell, `Confirming ${testName} is present in the bundle`).toHaveText(testName);
+    await expect(testNameCell, `Confirming ${expectedTestTitle} is present in the bundle`).toHaveText(
+      expectedTestTitle
+    );
 
     // confirm status
     const statusChip = testRow.getByTestId(dataTestIds.externalLabs.labsStatusChip);

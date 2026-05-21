@@ -2,9 +2,12 @@ import {
   AllergyQuickPickData,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
+  InsuranceQuickPickData,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
+  PatientInstructionQuickPickData,
   ProcedureQuickPickData,
+  QuickTextQuickPickData,
   RadiologyQuickPickData,
 } from 'utils';
 import { QuickPickCategory } from './quick-pick-helpers';
@@ -83,5 +86,38 @@ export const IN_HOUSE_MEDICATION_QUICK_PICK_CATEGORY: QuickPickCategory<InHouseM
     id,
     name: title,
     ...(config as Omit<InHouseMedicationQuickPickData, 'id' | 'name'>),
+  }),
+};
+
+export const PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY: QuickPickCategory<PatientInstructionQuickPickData> = {
+  tagCode: 'patient-instruction-quick-pick',
+  displayNameKey: 'name',
+  getDisplayName: (data) => data.name,
+  fromParsed: (id, title, config) => ({
+    id,
+    name: title,
+    ...(config as Omit<PatientInstructionQuickPickData, 'id' | 'name'>),
+  }),
+};
+
+export const INSURANCE_QUICK_PICK_CATEGORY: QuickPickCategory<InsuranceQuickPickData> = {
+  tagCode: 'insurance-quick-pick',
+  displayNameKey: 'name',
+  getDisplayName: (data) => data.name,
+  fromParsed: (id, title, config) => ({
+    id,
+    name: title,
+    ...(config as Omit<InsuranceQuickPickData, 'id' | 'name'>),
+  }),
+};
+
+export const QUICK_TEXT_QUICK_PICK_CATEGORY: QuickPickCategory<QuickTextQuickPickData> = {
+  tagCode: 'quick-text-quick-pick',
+  displayNameKey: 'name',
+  getDisplayName: (data) => data.name,
+  fromParsed: (id, title, config) => ({
+    id,
+    name: title,
+    ...(config as Omit<QuickTextQuickPickData, 'id' | 'name'>),
   }),
 };

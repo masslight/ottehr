@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
+import { Secrets, userMe } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -14,8 +15,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { instructionId, secrets, userToken } = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
-  const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-  const isProviderInstruction = await checkIfBelongsToCurrentProvider(oystehrCurrentUser, instructionId);
+  const isProviderInstruction = await checkIfBelongsToCurrentProvider(oystehr, userToken, secrets, instructionId);
   if (!isProviderInstruction) throw new Error('Instruction deletion failed. Instruction does not belongs to provider');
   await deleteCommunication(oystehr, instructionId);
 
@@ -31,10 +31,15 @@ async function deleteCommunication(oystehr: Oystehr, id: string): Promise<void> 
   await oystehr.fhir.delete({ resourceType: 'Communication', id });
 }
 
-async function checkIfBelongsToCurrentProvider(oystehr: Oystehr, resourceId: string): Promise<boolean> {
+async function checkIfBelongsToCurrentProvider(
+  oystehr: Oystehr,
+  token: string,
+  secrets: Secrets | null,
+  resourceId: string
+): Promise<boolean> {
   const [resource, myUser] = await Promise.all([
     oystehr.fhir.get<Communication>({ resourceType: 'Communication', id: resourceId }),
-    oystehr.user.me(),
+    userMe(token, secrets),
   ]);
   return resource.sender?.reference === myUser.profile;
 }

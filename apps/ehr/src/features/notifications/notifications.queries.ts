@@ -11,8 +11,8 @@ import {
   PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL,
   PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL,
   ProviderNotificationMethod,
-  useSuccessQuery,
 } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser from '../../hooks/useEvolveUser';
 

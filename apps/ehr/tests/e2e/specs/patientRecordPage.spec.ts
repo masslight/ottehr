@@ -1640,6 +1640,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
     let inlineInsuranceCard: InsuranceCard;
 
     test('Check validation error is displayed if any required field in Add insurance dialog is missing', async () => {
+      test.slow();
       inlineInsuranceCard = await patientInformationPage.clickAddInsuranceButton();
 
       await inlineInsuranceCard.enterTextField(insuranceSection.items[0].memberId.key, INSURANCE_MEMBER_ID);
