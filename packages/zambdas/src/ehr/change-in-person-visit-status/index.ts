@@ -96,7 +96,7 @@ export const performEffect = async (
   // Produce outreach tasks triggered by discharge
   if (updatedStatus === 'discharged') {
     try {
-      await produceDischargeOutreach({ encounter, oystehr });
+      await produceDischargeOutreach({ encounterId: encounter.id!, oystehr });
     } catch (err) {
       console.error('Failed to produce discharge outreach tasks:', err);
       captureException(err, {

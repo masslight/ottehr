@@ -4,10 +4,8 @@ import { INVALID_INPUT_ERROR } from 'utils';
 import { OutreachTaskResult, produceOutreachTasks } from './produce-outreach-tasks';
 
 export interface ProduceDischargeOutreachParams {
-  /** The Encounter resource (for internal callers that already have it) */
-  encounter?: Encounter;
-  /** Encounter ID to fetch (preferred for external callers) */
-  encounterId?: string;
+  /** Encounter ID to fetch */
+  encounterId: string;
   /** When true, validates the encounter is in 'finished' status before proceeding */
   validateStatus?: boolean;
   oystehr: Oystehr;
@@ -27,19 +25,12 @@ export interface ProduceDischargeOutreachResult {
 export async function produceDischargeOutreach(
   params: ProduceDischargeOutreachParams
 ): Promise<ProduceDischargeOutreachResult> {
-  const { oystehr } = params;
+  const { encounterId, oystehr } = params;
 
-  let encounter: Encounter;
-  if (params.encounter) {
-    encounter = params.encounter;
-  } else if (params.encounterId) {
-    encounter = await oystehr.fhir.get<Encounter>({
-      resourceType: 'Encounter',
-      id: params.encounterId,
-    });
-  } else {
-    throw INVALID_INPUT_ERROR('Expected either encounter or encounterId');
-  }
+  const encounter = await oystehr.fhir.get<Encounter>({
+    resourceType: 'Encounter',
+    id: encounterId,
+  });
 
   if (params.validateStatus && encounter.status !== 'finished') {
     throw INVALID_INPUT_ERROR(

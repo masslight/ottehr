@@ -7,10 +7,8 @@ import { OutreachTaskResult, produceOutreachTasks } from './produce-outreach-tas
 const INVOICE_SAFE_ACTION_TYPES = new Set(['send-notification', 'log']);
 
 export interface ProduceInvoiceIssuedOutreachParams {
-  /** The Invoice resource (for internal callers that already have it) */
-  invoice?: Invoice;
-  /** Invoice ID to fetch (preferred for external callers) */
-  invoiceId?: string;
+  /** Invoice ID to fetch */
+  invoiceId: string;
   /** When true, validates the invoice is in 'issued' status before proceeding */
   validateStatus?: boolean;
   /** Optional Appointment reference to link in basedOn */
@@ -31,19 +29,12 @@ export interface ProduceInvoiceIssuedOutreachParams {
 export async function produceInvoiceIssuedOutreach(
   params: ProduceInvoiceIssuedOutreachParams
 ): Promise<OutreachTaskResult> {
-  const { oystehr } = params;
+  const { invoiceId, oystehr } = params;
 
-  let invoice: Invoice;
-  if (params.invoice) {
-    invoice = params.invoice;
-  } else if (params.invoiceId) {
-    invoice = await oystehr.fhir.get<Invoice>({
-      resourceType: 'Invoice',
-      id: params.invoiceId,
-    });
-  } else {
-    throw INVALID_INPUT_ERROR('Expected either invoice or invoiceId');
-  }
+  const invoice = await oystehr.fhir.get<Invoice>({
+    resourceType: 'Invoice',
+    id: invoiceId,
+  });
 
   if (params.validateStatus && invoice.status !== 'issued') {
     throw INVALID_INPUT_ERROR(`Invoice ${invoice.id} is in '${invoice.status}' status, expected 'issued'`);

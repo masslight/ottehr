@@ -45,7 +45,7 @@ describe('produceDischargeOutreach', () => {
     produceDischargeOutreach = mod.produceDischargeOutreach;
   });
 
-  it('produces tasks for both discharge-time and date-of-visit triggers', async () => {
+  it('fetches the encounter and produces tasks for both discharge-time and date-of-visit triggers', async () => {
     const encounter: Encounter = {
       resourceType: 'Encounter',
       id: 'enc-1',
@@ -56,7 +56,9 @@ describe('produceDischargeOutreach', () => {
       appointment: [{ reference: 'Appointment/appt-1' }],
     };
 
-    await produceDischargeOutreach({ encounter, oystehr: mockOystehr as any });
+    mockOystehr.fhir.get.mockResolvedValue(encounter);
+
+    await produceDischargeOutreach({ encounterId: 'enc-1', oystehr: mockOystehr as any });
 
     expect(mockProduceOutreachTasks).toHaveBeenCalledTimes(2);
 
@@ -74,31 +76,6 @@ describe('produceDischargeOutreach', () => {
     expect(call2.eventTimestamp).toBe('2025-01-15T09:00:00Z');
   });
 
-  it('fetches encounter by ID when only encounterId is provided', async () => {
-    const encounter: Encounter = {
-      resourceType: 'Encounter',
-      id: 'enc-2',
-      status: 'finished',
-      class: { code: 'AMB' },
-      subject: { reference: 'Patient/pat-2' },
-      period: { start: '2025-02-01T08:00:00Z', end: '2025-02-01T09:00:00Z' },
-    };
-
-    mockOystehr.fhir.get.mockResolvedValue(encounter);
-
-    await produceDischargeOutreach({ encounterId: 'enc-2', oystehr: mockOystehr as any });
-
-    expect(mockOystehr.fhir.get).toHaveBeenCalledWith({
-      resourceType: 'Encounter',
-      id: 'enc-2',
-    });
-    expect(mockProduceOutreachTasks).toHaveBeenCalledTimes(2);
-  });
-
-  it('throws when neither encounter nor encounterId is provided', async () => {
-    await expect(produceDischargeOutreach({ oystehr: mockOystehr as any })).rejects.toThrow();
-  });
-
   it('throws when encounter has no subject', async () => {
     const encounter: Encounter = {
       resourceType: 'Encounter',
@@ -107,7 +84,9 @@ describe('produceDischargeOutreach', () => {
       class: { code: 'AMB' },
     } as any;
 
-    await expect(produceDischargeOutreach({ encounter, oystehr: mockOystehr as any })).rejects.toThrow();
+    mockOystehr.fhir.get.mockResolvedValue(encounter);
+
+    await expect(produceDischargeOutreach({ encounterId: 'enc-3', oystehr: mockOystehr as any })).rejects.toThrow();
   });
 
   it('throws when validateStatus is true and encounter is not finished', async () => {
@@ -119,8 +98,10 @@ describe('produceDischargeOutreach', () => {
       subject: { reference: 'Patient/pat-4' },
     };
 
+    mockOystehr.fhir.get.mockResolvedValue(encounter);
+
     await expect(
-      produceDischargeOutreach({ encounter, validateStatus: true, oystehr: mockOystehr as any })
+      produceDischargeOutreach({ encounterId: 'enc-4', validateStatus: true, oystehr: mockOystehr as any })
     ).rejects.toThrow(/expected 'finished'/);
   });
 
@@ -134,7 +115,9 @@ describe('produceDischargeOutreach', () => {
       period: { start: '2025-01-15T09:00:00Z', end: '2025-01-15T10:00:00Z' },
     };
 
-    await produceDischargeOutreach({ encounter, oystehr: mockOystehr as any });
+    mockOystehr.fhir.get.mockResolvedValue(encounter);
+
+    await produceDischargeOutreach({ encounterId: 'enc-5', oystehr: mockOystehr as any });
 
     expect(mockProduceOutreachTasks).toHaveBeenCalledTimes(2);
   });
@@ -159,7 +142,9 @@ describe('produceInvoiceIssuedOutreach', () => {
       date: '2025-03-01',
     };
 
-    await produceInvoiceIssuedOutreach({ invoice, oystehr: mockOystehr as any });
+    mockOystehr.fhir.get.mockResolvedValue(invoice);
+
+    await produceInvoiceIssuedOutreach({ invoiceId: 'inv-1', oystehr: mockOystehr as any });
 
     expect(mockProduceOutreachTasks).toHaveBeenCalledTimes(1);
     const call = mockProduceOutreachTasks.mock.calls[0][0];
@@ -167,26 +152,6 @@ describe('produceInvoiceIssuedOutreach', () => {
     expect(call.patient).toEqual({ reference: 'Patient/pat-1' });
     expect(call.focus).toEqual({ reference: 'Invoice/inv-1' });
     expect(call.eventTimestamp).toBe('2025-03-01');
-  });
-
-  it('fetches invoice by ID when only invoiceId is provided', async () => {
-    const invoice: Invoice = {
-      resourceType: 'Invoice',
-      id: 'inv-2',
-      status: 'issued',
-      subject: { reference: 'Patient/pat-2' },
-      date: '2025-03-15',
-    };
-
-    mockOystehr.fhir.get.mockResolvedValue(invoice);
-
-    await produceInvoiceIssuedOutreach({ invoiceId: 'inv-2', oystehr: mockOystehr as any });
-
-    expect(mockOystehr.fhir.get).toHaveBeenCalledWith({
-      resourceType: 'Invoice',
-      id: 'inv-2',
-    });
-    expect(mockProduceOutreachTasks).toHaveBeenCalledTimes(1);
   });
 
   it('includes appointment reference when provided', async () => {
@@ -198,18 +163,16 @@ describe('produceInvoiceIssuedOutreach', () => {
       date: '2025-03-20',
     };
 
+    mockOystehr.fhir.get.mockResolvedValue(invoice);
+
     await produceInvoiceIssuedOutreach({
-      invoice,
+      invoiceId: 'inv-3',
       appointmentRef: 'Appointment/appt-1',
       oystehr: mockOystehr as any,
     });
 
     const call = mockProduceOutreachTasks.mock.calls[0][0];
     expect(call.appointment).toEqual({ reference: 'Appointment/appt-1' });
-  });
-
-  it('throws when neither invoice nor invoiceId is provided', async () => {
-    await expect(produceInvoiceIssuedOutreach({ oystehr: mockOystehr as any })).rejects.toThrow();
   });
 
   it('throws when invoice has no subject', async () => {
@@ -219,7 +182,9 @@ describe('produceInvoiceIssuedOutreach', () => {
       status: 'issued',
     } as any;
 
-    await expect(produceInvoiceIssuedOutreach({ invoice, oystehr: mockOystehr as any })).rejects.toThrow();
+    mockOystehr.fhir.get.mockResolvedValue(invoice);
+
+    await expect(produceInvoiceIssuedOutreach({ invoiceId: 'inv-4', oystehr: mockOystehr as any })).rejects.toThrow();
   });
 
   it('throws when validateStatus is true and invoice is not issued', async () => {
@@ -230,8 +195,10 @@ describe('produceInvoiceIssuedOutreach', () => {
       subject: { reference: 'Patient/pat-5' },
     } as any;
 
+    mockOystehr.fhir.get.mockResolvedValue(invoice);
+
     await expect(
-      produceInvoiceIssuedOutreach({ invoice, validateStatus: true, oystehr: mockOystehr as any })
+      produceInvoiceIssuedOutreach({ invoiceId: 'inv-5', validateStatus: true, oystehr: mockOystehr as any })
     ).rejects.toThrow(/expected 'issued'/);
   });
 
@@ -244,7 +211,9 @@ describe('produceInvoiceIssuedOutreach', () => {
       date: '2025-04-01',
     } as any;
 
-    await produceInvoiceIssuedOutreach({ invoice, oystehr: mockOystehr as any });
+    mockOystehr.fhir.get.mockResolvedValue(invoice);
+
+    await produceInvoiceIssuedOutreach({ invoiceId: 'inv-6', oystehr: mockOystehr as any });
 
     expect(mockProduceOutreachTasks).toHaveBeenCalledTimes(1);
   });
