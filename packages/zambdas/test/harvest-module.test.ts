@@ -2517,7 +2517,9 @@ describe('Harvest Module', () => {
         (coverage) => coverage.resource.type?.coding?.some((coding) => coding.code === 'WC')
       );
       expect(workersCompCoveragePost).toBeDefined();
-      expect(workersCompCoveragePost?.resource.payor?.[0].reference).toBe('https://rcm-api.zapehr.com/v1/payer/12345');
+      expect(workersCompCoveragePost?.resource.payor?.[0].reference).toBe(
+        'Organization/868091c6-c176-448f-8790-cb4566a57a9b'
+      );
       expect(workersCompCoveragePost?.resource.class?.[0].name).toBe('MassLight');
       expect(workersCompCoveragePost?.resource.class?.[0].value).toBe('12345');
       expect(workersCompCoveragePost?.resource.identifier?.[0]?.value).toBe('1');

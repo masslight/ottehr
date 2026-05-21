@@ -393,12 +393,20 @@ const PatientDocumentsExplorerPage: FC = () => {
                   )}
 
                   <RoundedButton
-                    disabled={!selectedFolder || documentActions.isUploading}
+                    disabled={documentActions.isUploading}
                     loading={documentActions.isUploading}
                     component="label"
                     target="_blank"
                     variant="outlined"
                     startIcon={<UploadFileIcon fontSize="small" />}
+                    onClick={(event) => {
+                      if (!selectedFolder) {
+                        event.preventDefault();
+                        enqueueSnackbar('Please select a folder where you want to upload the doc', {
+                          variant: 'warning',
+                        });
+                      }
+                    }}
                   >
                     Upload
                     <FileAttachmentHiddenInput

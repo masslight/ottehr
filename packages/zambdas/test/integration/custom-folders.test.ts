@@ -65,11 +65,12 @@ describe('custom folders zambdas integration tests', () => {
     }
   }, 60_000);
 
-  afterAll(async () => {
-    // Clean up the catalog entries we created so future runs see a clean state. With
-    // soft-delete in place, an entry tombstoned by `delete-custom-folder` is still in the
-    // catalog (carrying an `entry.flag` marker); we hard-remove our entries here regardless
-    // of state.
+  // Hard-remove our tracked catalog entries. Soft-deleted entries still occupy a slot
+  // (entry.flag tombstone), so we strip them regardless of state. Runs after every test
+  // so the catalog doesn't grow unbounded during the suite — once it gets large enough
+  // the trailing fhir.update silently fails and the entries leak to the env.
+  const pruneTrackedCatalogEntries = async (): Promise<void> => {
+    if (!createdInternalNames.size) return;
     try {
       const results = await oystehrAdmin.fhir.search<List>({
         resourceType: 'List',
@@ -82,9 +83,19 @@ describe('custom folders zambdas integration tests', () => {
         );
         await oystehrAdmin.fhir.update<List>({ ...catalog, entry: remainingEntries });
       }
+      createdInternalNames.clear();
     } catch (err) {
       console.warn('failed to clean catalog entries created by test', err);
     }
+  };
+
+  afterEach(async () => {
+    await pruneTrackedCatalogEntries();
+  });
+
+  afterAll(async () => {
+    // Safety net for entries that escaped afterEach (e.g. the prune itself errored).
+    await pruneTrackedCatalogEntries();
     await cleanup();
   });
 

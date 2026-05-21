@@ -1,4 +1,4 @@
-import { ApplyTemplateZambdaInput, ExamType, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
+import { ApplyTemplateZambdaInput, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'> {
@@ -13,13 +13,10 @@ export function validateRequestParameters(input: ZambdaInput): ApplyTemplateZamb
     throw INVALID_INPUT_ERROR('Request body must be a valid JSON object');
   }
 
-  const { examType, templateName, encounterId } = parsedInput as Record<string, unknown>;
+  const { templateName, encounterId } = parsedInput as Record<string, unknown>;
 
   // Validate required parameters
   const missingFields = [];
-  if (examType === undefined) {
-    missingFields.push('examType');
-  }
   if (templateName === undefined) {
     missingFields.push('templateName');
   }
@@ -29,11 +26,6 @@ export function validateRequestParameters(input: ZambdaInput): ApplyTemplateZamb
 
   if (missingFields.length > 0) {
     throw MISSING_REQUIRED_PARAMETERS(missingFields);
-  }
-
-  // Validate examType is a valid ExamType enum value
-  if (!Object.values(ExamType).includes(examType as ExamType)) {
-    throw INVALID_INPUT_ERROR(`Invalid examType: ${examType}. Must be one of: ${Object.values(ExamType).join(', ')}`);
   }
 
   // Validate templateName is a string
@@ -50,7 +42,6 @@ export function validateRequestParameters(input: ZambdaInput): ApplyTemplateZamb
   }
 
   return {
-    examType: examType as ExamType,
     templateName,
     encounterId,
     secrets: input.secrets,

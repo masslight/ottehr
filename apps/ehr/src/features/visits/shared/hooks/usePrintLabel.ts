@@ -40,7 +40,11 @@ export const usePrintLabel = (): UsePrintLabelOutput => {
     window.open(url, '_blank');
   };
 
-  const _printIntegratedLabel = async (input: { pdfPresignedUrl: string; labelXmlString: string }): Promise<void> => {
+  // Returns true if integrated print succeeded, false if it fell back to manual printing (and already opened the PDF)
+  const _printIntegratedLabel = async (input: {
+    pdfPresignedUrl: string;
+    labelXmlString: string;
+  }): Promise<boolean> => {
     const { pdfPresignedUrl, labelXmlString } = input;
     const showSnackbarAndPrintManually = async (message: string, variant: VariantType): Promise<void> => {
       enqueueSnackbar(message, { variant: variant });
@@ -62,7 +66,7 @@ export const usePrintLabel = (): UsePrintLabelOutput => {
         'warning'
       );
       setFallbackOverrideMode('manual');
-      return;
+      return false;
     }
 
     let printerName = '';
@@ -76,7 +80,7 @@ export const usePrintLabel = (): UsePrintLabelOutput => {
           'warning'
         );
         setFallbackOverrideMode('manual');
-        return;
+        return false;
       }
       printerName = connectedPrinters[0].name;
     } catch (error) {
@@ -87,7 +91,7 @@ export const usePrintLabel = (): UsePrintLabelOutput => {
         'error'
       );
       setFallbackOverrideMode('manual');
-      return;
+      return false;
     }
 
     console.log('Attempting to print to: ', printerName);
@@ -105,7 +109,10 @@ export const usePrintLabel = (): UsePrintLabelOutput => {
         'error'
       );
       setFallbackOverrideMode('manual');
+      return false;
     }
+
+    return true;
   };
 
   const printLabelByConfig = async (input: {
@@ -121,8 +128,8 @@ export const usePrintLabel = (): UsePrintLabelOutput => {
     if (effectiveMode === 'integrated' && configuredMode === 'integrated')
       shouldOpenPdfInIntegratedMode = printingConfig.openPdfOnPrint;
     if (effectiveMode === 'integrated') {
-      await _printIntegratedLabel(input);
-      if (shouldOpenPdfInIntegratedMode) await _openLabelPdf(input.pdfPresignedUrl);
+      const integratedPrintSucceeded = await _printIntegratedLabel(input);
+      if (shouldOpenPdfInIntegratedMode && integratedPrintSucceeded) await _openLabelPdf(input.pdfPresignedUrl);
     } else {
       await _openLabelPdf(input.pdfPresignedUrl);
     }

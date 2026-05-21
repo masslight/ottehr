@@ -773,7 +773,6 @@ export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorn
 
 export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/global-template-list`;
 export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-in-person`;
-export const GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-telemed`;
 
 /** Builds the full meta.tag system URL from a chart data field name (e.g. 'chief-complaint' → full URL). */
 export const chartDataTagSystem = (fieldName: string): string => `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}`;
