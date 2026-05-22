@@ -140,6 +140,14 @@ let cachedToken: CandidToken | undefined;
 let latestOystehr: Oystehr | undefined;
 let latestSecrets: Secrets | null = null;
 
+export function __resetCandidApiClientForTests(): void {
+  inflightRefresh = undefined;
+  cachedCandidApiClient = undefined;
+  cachedToken = undefined;
+  latestOystehr = undefined;
+  latestSecrets = null;
+}
+
 export async function getOrCreateCandidApiClient(oystehr: Oystehr, secrets: Secrets | null): Promise<CandidApiClient> {
   latestOystehr = oystehr;
   latestSecrets = secrets;
