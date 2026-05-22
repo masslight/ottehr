@@ -13,8 +13,11 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   MISSING_SCHEDULE_EXTENSION_ERROR,
+  ROOM_EXTENSION_URL,
   SCHEDULE_NOT_FOUND_ERROR,
+  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
   SCHEDULE_OWNER_NOT_FOUND_ERROR,
+  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
   ScheduleDTO,
   ScheduleDTOOwner,
   ScheduleExtension,
@@ -59,14 +62,30 @@ const performEffect = (input: EffectInput): ScheduleDTO => {
 
   let detailText: string | undefined = undefined;
   let isVirtual: boolean | undefined = undefined;
+  let stripeAccountId: string | undefined = undefined;
+  let advapacsLocationId: string | undefined = undefined;
+  let rooms: string[] | undefined = undefined;
+  let description: string | undefined = undefined;
+  let address: Location['address'] | undefined = undefined;
+  let telecom: Location['telecom'] | undefined = undefined;
 
   if (ownerResource.resourceType === 'Location') {
     const loc = ownerResource as Location;
-    const address = loc.address;
+    address = loc.address;
     if (address) {
       detailText = addressStringFromAddress(address);
     }
+    description = loc.description;
+    telecom = loc.telecom;
     isVirtual = isLocationVirtual(loc);
+    stripeAccountId = loc.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)
+      ?.valueString;
+    advapacsLocationId = loc.extension?.find((ext) => ext.url === SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL)
+      ?.valueString;
+    rooms = loc.extension
+      ?.filter((ext) => ext.url === ROOM_EXTENSION_URL)
+      .map((ext) => ext.valueString)
+      .filter((value): value is string => typeof value === 'string');
   }
 
   const owner: ScheduleDTOOwner = {
@@ -77,9 +96,14 @@ const performEffect = (input: EffectInput): ScheduleDTO => {
     timezone: getTimezone(ownerResource),
     active,
     detailText,
-    infoMessage: '',
     hoursOfOperation: (ownerResource as Location)?.hoursOfOperation,
     isVirtual,
+    stripeAccountId,
+    advapacsLocationId,
+    rooms,
+    description,
+    address,
+    telecom,
   };
 
   return {

@@ -65,9 +65,24 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
 
   console.log('input', JSON.stringify(input, null, 2));
   const { secrets } = input;
-  const { scheduleId, timezone, slug, schedule, scheduleOverrides, closures, ownerId, ownerType } = JSON.parse(
-    input.body
-  );
+  const {
+    scheduleId,
+    timezone,
+    slug,
+    schedule,
+    scheduleOverrides,
+    closures,
+    ownerId,
+    ownerType,
+    isVirtual,
+    stripeAccountId,
+    advapacsLocationId,
+    rooms,
+    name,
+    description,
+    address,
+    telecom,
+  } = JSON.parse(input.body);
   const createMode = Boolean(ownerId) && Boolean(ownerType);
 
   if (!scheduleId) {
@@ -135,6 +150,69 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     throw INVALID_INPUT_ERROR('"slug" must be a string');
   }
 
+  if (isVirtual !== undefined && typeof isVirtual !== 'boolean') {
+    throw INVALID_INPUT_ERROR('"isVirtual" must be a boolean');
+  }
+
+  if (stripeAccountId !== undefined && stripeAccountId !== null && typeof stripeAccountId !== 'string') {
+    throw INVALID_INPUT_ERROR('"stripeAccountId" must be a string or null');
+  }
+
+  if (advapacsLocationId !== undefined && advapacsLocationId !== null && typeof advapacsLocationId !== 'string') {
+    throw INVALID_INPUT_ERROR('"advapacsLocationId" must be a string or null');
+  }
+
+  if (rooms !== undefined) {
+    if (!Array.isArray(rooms) || rooms.some((room) => typeof room !== 'string')) {
+      throw INVALID_INPUT_ERROR('"rooms" must be an array of strings');
+    }
+  }
+
+  if (name !== undefined && typeof name !== 'string') {
+    throw INVALID_INPUT_ERROR('"name" must be a string');
+  }
+
+  if (description !== undefined && description !== null && typeof description !== 'string') {
+    throw INVALID_INPUT_ERROR('"description" must be a string or null');
+  }
+
+  if (address !== undefined && address !== null) {
+    if (typeof address !== 'object' || Array.isArray(address)) {
+      throw INVALID_INPUT_ERROR('"address" must be an object or null');
+    }
+    const { line, city, state, postalCode } = address as Record<string, unknown>;
+    if (line !== undefined && line !== null) {
+      if (!Array.isArray(line) || line.some((segment) => typeof segment !== 'string')) {
+        throw INVALID_INPUT_ERROR('"address.line" must be an array of strings');
+      }
+    }
+    if (city !== undefined && city !== null && typeof city !== 'string') {
+      throw INVALID_INPUT_ERROR('"address.city" must be a string');
+    }
+    if (state !== undefined && state !== null && typeof state !== 'string') {
+      throw INVALID_INPUT_ERROR('"address.state" must be a string');
+    }
+    if (postalCode !== undefined && postalCode !== null && typeof postalCode !== 'string') {
+      throw INVALID_INPUT_ERROR('"address.postalCode" must be a string');
+    }
+  }
+
+  if (telecom !== undefined && telecom !== null) {
+    if (typeof telecom !== 'object' || Array.isArray(telecom)) {
+      throw INVALID_INPUT_ERROR('"telecom" must be an object or null');
+    }
+    const { phone, url, fax } = telecom as Record<string, unknown>;
+    if (phone !== undefined && phone !== null && typeof phone !== 'string') {
+      throw INVALID_INPUT_ERROR('"telecom.phone" must be a string');
+    }
+    if (url !== undefined && url !== null && typeof url !== 'string') {
+      throw INVALID_INPUT_ERROR('"telecom.url" must be a string');
+    }
+    if (fax !== undefined && fax !== null && typeof fax !== 'string') {
+      throw INVALID_INPUT_ERROR('"telecom.fax" must be a string');
+    }
+  }
+
   return {
     secrets,
     scheduleId,
@@ -143,5 +221,13 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     scheduleOverrides,
     closures,
     slug,
+    isVirtual,
+    stripeAccountId,
+    advapacsLocationId,
+    rooms,
+    name,
+    description,
+    address,
+    telecom,
   };
 };
