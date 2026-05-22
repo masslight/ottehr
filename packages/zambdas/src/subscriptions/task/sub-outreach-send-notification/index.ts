@@ -239,7 +239,7 @@ async function sendOutreachEmail(
 
   const htmlContent = convertOutreachTextToHtml(resolvedMessage);
 
-  const emailClient = getEmailClient(secrets);
+  const emailClient = getEmailClient(secrets, oystehr);
   await emailClient.sendGenericOutreachEmail(email, {
     content: htmlContent,
     'subject-text': 'Important information about your visit',
