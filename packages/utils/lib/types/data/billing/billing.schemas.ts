@@ -17,6 +17,10 @@ export const GetClaimDetailInputSchema = z.object({
   claimId: nonEmptyString,
 });
 
+export const GetPatientDetailInputSchema = z.object({
+  patientId: nonEmptyString,
+});
+
 export const GetPatientCoveragesInputSchema = z.object({
   patientId: nonEmptyString,
 });
@@ -169,6 +173,7 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
 ]);
 
 export type GetClaimDetailInput = z.infer<typeof GetClaimDetailInputSchema>;
+export type GetPatientDetailInput = z.infer<typeof GetPatientDetailInputSchema>;
 export type GetPatientCoveragesInput = z.infer<typeof GetPatientCoveragesInputSchema>;
 export type SearchBillingClaimsInput = z.infer<typeof SearchBillingClaimsInputSchema>;
 export type SearchBillingProvidersInput = z.infer<typeof SearchBillingProvidersInputSchema>;

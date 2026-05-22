@@ -634,6 +634,13 @@
       "src": "src/billing/get-billing-claim-detail/index",
       "zip": ".dist/zips/get-billing-claim-detail.zip"
     },
+    "GET-BILLING-PATIENT-DETAIL": {
+      "name": "get-billing-patient-detail",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-patient-detail/index",
+      "zip": ".dist/zips/get-billing-patient-detail.zip"
+    },
     "UPDATE-BILLING-CLAIM": {
       "name": "update-billing-claim",
       "type": "http_auth",

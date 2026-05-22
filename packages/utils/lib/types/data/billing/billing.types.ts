@@ -18,6 +18,37 @@ export interface BillingClaimItem {
   responsibleParty: string;
 }
 
+export interface PatientDetailResponse {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dob: string;
+  gender: string;
+  phone: string;
+  email: string;
+  address: string;
+  mrn: string;
+  friendlyId: string;
+  active: boolean;
+  balance: {
+    claimsWithPatientBalance: number;
+    pendingPayments: number;
+    currentBalance: number;
+  };
+  claims: Pick<
+    BillingClaimItem,
+    | 'id'
+    | 'status'
+    | 'serviceDate'
+    | 'payerName'
+    | 'billed'
+    | 'allowed'
+    | 'insurancePaid'
+    | 'patientResp'
+    | 'patientPaid'
+  >[];
+}
+
 export interface ClaimDetailResponse {
   id: string;
   status: string;

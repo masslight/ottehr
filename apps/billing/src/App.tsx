@@ -10,6 +10,7 @@ import ClaimDetail from './pages/ClaimDetail';
 import ClaimsList from './pages/ClaimsList';
 import CreateClaim from './pages/CreateClaim';
 import Dashboard from './pages/Dashboard';
+import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
 import { theme } from './themes/ottehr';
 
@@ -40,6 +41,7 @@ export default function App(): ReactElement {
             <Route path="/claims/new" element={<CreateClaim />} />
             <Route path="/claims/:id" element={<ClaimDetail />} />
             <Route path="/patients" element={<PatientsList />} />
+            <Route path="/patients/:id" element={<PatientDetail />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Route>
         </Routes>
