@@ -35,7 +35,7 @@ async function performEffect(
     { name: '_count', value: '50' },
     { name: '_sort', value: 'family' },
   ];
-  if (!params.name) searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
+  if (!params.includeWorkingCopies) searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
   if (params.name) searchParams.push({ name: 'name', value: params.name });
 
   const response = await oystehr.fhir.search<Practitioner>({ resourceType: 'Practitioner', params: searchParams });

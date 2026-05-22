@@ -31,13 +31,12 @@ async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingOrganizationsParams
 ): Promise<{ organizations: OrganizationSearchItem[] }> {
-  const hasSearch = params.name || params.type;
   // TODO: add pagination support
   const searchParams: { name: string; value: string }[] = [
     { name: '_count', value: '50' },
     { name: '_sort', value: 'name' },
   ];
-  if (!hasSearch) searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
+  if (!params.includeWorkingCopies) searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
   if (params.name) searchParams.push({ name: 'name', value: params.name });
   if (params.type) searchParams.push({ name: 'type', value: params.type });
 

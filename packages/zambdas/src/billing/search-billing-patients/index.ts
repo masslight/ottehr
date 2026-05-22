@@ -34,17 +34,11 @@ async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingPatientsParams
 ): Promise<{ patients: PatientSearchItem[] }> {
-  const hasSearch = params.name || params.dob || params.identifier || params.uuid;
-
   const searchParams: { name: string; value: string }[] = [
     { name: '_count', value: '50' },
     { name: '_sort', value: 'family' },
   ];
-
-  // Default view excludes working copies; search includes them
-  if (!hasSearch) {
-    searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
-  }
+  if (!params.includeWorkingCopies) searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
   if (params.uuid) searchParams.push({ name: '_id', value: params.uuid });
   if (params.name) searchParams.push({ name: 'name', value: params.name });
   if (params.dob) searchParams.push({ name: 'birthdate', value: params.dob });

@@ -44,19 +44,23 @@ export const SearchBillingPatientsInputSchema = z.object({
   dob: nonEmptyString.optional(),
   identifier: nonEmptyString.optional(),
   uuid: z.string().uuid().optional(),
+  includeWorkingCopies: z.boolean().optional(),
 });
 
 export const SearchBillingPractitionersInputSchema = z.object({
   name: nonEmptyString.optional(),
+  includeWorkingCopies: z.boolean().optional(),
 });
 
 export const SearchBillingLocationsInputSchema = z.object({
   name: nonEmptyString.optional(),
+  includeWorkingCopies: z.boolean().optional(),
 });
 
 export const SearchBillingOrganizationsInputSchema = z.object({
   name: nonEmptyString.optional(),
   type: nonEmptyString.optional(),
+  includeWorkingCopies: z.boolean().optional(),
 });
 
 export const CreateBillingClaimInputSchema = z.object({

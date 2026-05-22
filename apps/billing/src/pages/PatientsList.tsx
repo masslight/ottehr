@@ -63,7 +63,9 @@ export default function PatientsList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
+        const hasSearch = filters.name || filters.dob || filters.identifier || filters.uuid;
         const body: Record<string, unknown> = {};
+        if (hasSearch) body.includeWorkingCopies = true;
         if (filters.name) body.name = filters.name;
         if (filters.dob) body.dob = filters.dob;
         if (filters.identifier) body.identifier = filters.identifier;
