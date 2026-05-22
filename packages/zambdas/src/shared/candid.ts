@@ -1046,23 +1046,7 @@ export async function createEncounterFromAppointment(
   let candidEncounterId: CandidApi.EncounterId | undefined;
   if (!response.ok) {
     if (response.rawResponse.status === 422) {
-      const fhirEncounterId = visitResources.encounter.id!;
-      console.log(
-        `[CLAIM SUBMISSION] EncounterExternalIdUniquenessError occurred during encounter creation with ${fhirEncounterId} external id`
-      );
-      const existing = await candidApiClient.encounters.v4.getAll({
-        externalId: EncounterExternalId(fhirEncounterId),
-        limit: 1,
-      });
-      if (!existing.ok || existing.body.items.length === 0) {
-        throw new Error(
-          `EncounterExternalIdUniquenessError: encounter with externalId ${fhirEncounterId} exists but lookup failed: ${JSON.stringify(
-            existing
-          )}`
-        );
-      }
-      candidEncounterId = existing.body.items.find((item) => item.externalId === fhirEncounterId)?.encounterId;
-      console.log(`[CLAIM SUBMISSION] Recovered existing Candid encounter: ${candidEncounterId}`);
+      candidEncounterId = await recoverCandidEncounterAfter422(visitResources.encounter.id!, candidApiClient);
     } else {
       throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
     }
@@ -1094,13 +1078,36 @@ export async function createEncounterFromAppointment(
   return candidEncounterId?.toString();
 }
 
-async function retryCandidCall<T, E>(
+export async function recoverCandidEncounterAfter422(
+  fhirEncounterId: string,
+  candidApiClient: CandidApiClient
+): Promise<CandidApi.EncounterId | undefined> {
+  console.log(
+    `[CLAIM SUBMISSION] EncounterExternalIdUniquenessError occurred during encounter creation with ${fhirEncounterId} external id`
+  );
+  const existing = await candidApiClient.encounters.v4.getAll({
+    externalId: EncounterExternalId(fhirEncounterId),
+    limit: 1,
+  });
+  if (!existing.ok || existing.body.items.length === 0) {
+    throw new Error(
+      `EncounterExternalIdUniquenessError: encounter with externalId ${fhirEncounterId} exists but lookup failed: ${JSON.stringify(
+        existing
+      )}`
+    );
+  }
+  const candidEncounterId = existing.body.items.find((item) => item.externalId === fhirEncounterId)?.encounterId;
+  console.log(`[CLAIM SUBMISSION] Recovered existing Candid encounter: ${candidEncounterId}`);
+  return candidEncounterId;
+}
+
+export async function retryCandidCall<T, E>(
   fn: () => Promise<APIResponse<T, E>>,
   maxRetries = 3,
   baseDelayMs = 500
 ): Promise<APIResponse<T, E>> {
+  let response;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    let response;
     try {
       response = await fn();
       // Rate-limit may come back as a non-ok response with no HTTP status; detect by error name.
@@ -1120,7 +1127,7 @@ async function retryCandidCall<T, E>(
     );
     await new Promise((resolve) => setTimeout(resolve, delay));
   }
-  return fn();
+  throw new Error('Candid call failed after all retries');
 }
 
 async function candidCreateEncounterFromAppointmentRequest(
