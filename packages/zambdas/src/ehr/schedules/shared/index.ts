@@ -146,7 +146,7 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     });
   }
 
-  if (slug && typeof slug !== 'string') {
+  if (slug !== undefined && typeof slug !== 'string') {
     throw INVALID_INPUT_ERROR('"slug" must be a string');
   }
 

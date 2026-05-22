@@ -122,7 +122,10 @@ export default function ScheduleGeneralTab({
         newActiveStatus = patched.active === true;
       }
       // Preserve old behavior: toggling active also persists current timezone/slug.
-      void onSave({ scheduleId: item.id, timezone, slug });
+      // Fire-and-forget but surface rejections to the user instead of letting them go unhandled.
+      onSave({ scheduleId: item.id, timezone, slug }).catch(() => {
+        enqueueSnackbar('Status updated, but persisting timezone/slug failed.', { variant: 'error' });
+      });
       onSchedulePersisted({
         ...item,
         owner: {
@@ -196,7 +199,11 @@ export default function ScheduleGeneralTab({
         params.advapacsLocationId = advapacsLocationId.trim();
       }
     }
-    await onSave(params);
+    try {
+      await onSave(params);
+    } catch {
+      enqueueSnackbar('Oops. Something went wrong. Changes were not saved.', { variant: 'error' });
+    }
   };
 
   return (
@@ -236,6 +243,7 @@ export default function ScheduleGeneralTab({
               }}
             >
               <Button
+                aria-label="Copy booking link"
                 onClick={() => {
                   void navigator.clipboard.writeText(defaultIntakeUrl);
                   setIsCopied(true);

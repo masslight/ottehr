@@ -154,9 +154,10 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
       address !== undefined ||
       telecom !== undefined);
   const nameToUpdate = name !== undefined;
-  if (owner && (timezone || ownerSlug || locationFieldsToUpdate || nameToUpdate)) {
+  if (owner && (timezone || ownerSlug !== undefined || locationFieldsToUpdate || nameToUpdate)) {
     const ownerExtension = (owner.extension ?? []).filter((ext: Extension) => {
-      if (ext.url === TIMEZONE_EXTENSION_URL) {
+      // Preserve existing timezone extension unless caller is explicitly updating timezone.
+      if (timezone !== undefined && ext.url === TIMEZONE_EXTENSION_URL) {
         return false;
       }
       // Only strip the 'vi' (virtual) coding; preserve any 'si' (facility group) coding on the same URL.
@@ -183,7 +184,11 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
       }
       return true;
     });
-    const ownerIdentifier = (owner.identifier ?? []).filter((id) => id.system !== SLUG_SYSTEM);
+    // Preserve existing slug identifier unless caller is explicitly updating slug
+    // (undefined = preserve, empty string = clear, non-empty = replace).
+    const ownerIdentifier = (owner.identifier ?? []).filter((id) =>
+      ownerSlug !== undefined ? id.system !== SLUG_SYSTEM : true
+    );
     if (timezone) {
       ownerExtension.push({
         url: TIMEZONE_EXTENSION_URL,
@@ -210,13 +215,13 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
       if (typeof stripeAccountId === 'string' && stripeAccountId.trim() !== '') {
         ownerExtension.push({
           url: SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
-          valueString: stripeAccountId,
+          valueString: stripeAccountId.trim(),
         });
       }
       if (typeof advapacsLocationId === 'string' && advapacsLocationId.trim() !== '') {
         ownerExtension.push({
           url: SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
-          valueString: advapacsLocationId,
+          valueString: advapacsLocationId.trim(),
         });
       }
       if (rooms !== undefined) {
@@ -249,7 +254,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
       }
       if (description !== undefined) {
         if (typeof description === 'string' && description.trim() !== '') {
-          locationUpdate.description = description;
+          locationUpdate.description = description.trim();
         } else {
           delete locationUpdate.description;
         }
