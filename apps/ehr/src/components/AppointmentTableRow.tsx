@@ -36,12 +36,12 @@ import {
 } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
-import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
   formatMinutes,
   getAbnormalVitals,
   getAdmitterPractitionerId,
+  getAttendingPractitionerId,
   getDurationOfStatus,
   getPatchBinary,
   getSupportPhoneFor,
@@ -65,7 +65,6 @@ import { usePractitionerActions } from '../features/visits/shared/hooks/usePract
 import { useSignAppointmentMutation } from '../features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder, isEligibleSupervisor } from '../helpers';
 import { completeIntakeWorkflow } from '../helpers/completeIntakeWorkflow';
-import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
 import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
@@ -86,7 +85,6 @@ const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
 interface AppointmentTableRowProps {
   appointment: InPersonAppointmentInformation;
-  location?: LocationWithWalkinSchedule;
   now: DateTime;
   tab: ApptTab;
   updateAppointments: () => void;
@@ -178,7 +176,6 @@ const getIsLongWaitTime = (
 
 export default function AppointmentTableRow({
   appointment,
-  location,
   now,
   tab,
   updateAppointments,
@@ -209,10 +206,12 @@ export default function AppointmentTableRow({
   const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'end', PRACTITIONER_CODINGS.Admitter);
 
   const rooms = useMemo(() => {
-    return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
-  }, [location]);
+    return appointment.location?.extension
+      ?.filter((ext) => ext.url === ROOM_EXTENSION_URL)
+      .map((ext) => ext.valueString);
+  }, [appointment]);
 
-  const officePhoneNumber = getOfficePhoneNumber(location);
+  const officePhoneNumber = getOfficePhoneNumber(appointment.location);
 
   const patientName =
     (appointment.patient.lastName &&
@@ -224,12 +223,7 @@ export default function AppointmentTableRow({
       })) ||
     'Unknown';
 
-  let start;
-  if (appointment.start) {
-    const locationTimeZone = getTimezone(location);
-    const dateTime = DateTime.fromISO(appointment.start).setZone(locationTimeZone);
-    start = dateTime.toFormat('h:mm a');
-  }
+  const start = appointment.start ? DateTime.fromISO(appointment.start).toFormat('h:mm a') : undefined;
 
   const showChatIcon = appointment.smsModel !== undefined;
   // console.log('sms model', appointment.smsModel);
@@ -528,10 +522,10 @@ export default function AppointmentTableRow({
     patientFirstName: appointment.patient.firstName,
     patientLastName: appointment.patient.lastName,
     visitId: appointment.id,
-    locationName: location?.name,
+    locationName: appointment.location?.name,
     bookingTime: start,
     officePhone: officePhoneNumber,
-    supportPhone: getSupportPhoneFor(location?.name, phonesByLocationName) || '',
+    supportPhone: getSupportPhoneFor(appointment.location?.name, phonesByLocationName) || '',
   };
 
   const onCloseChat = useCallback(() => {
@@ -566,8 +560,9 @@ export default function AppointmentTableRow({
     return null;
   }
   const encounterId: string = encounter.id;
-  const primaryAction = getTrackingBoardPrimaryAction(appointment.status);
+  const primaryAction = getTrackingBoardPrimaryAction(appointment.status, { isVirtualVisit: isVirtual(appointment) });
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
+  const assignedProviderId = getAttendingPractitionerId(encounter);
 
   const handleStatusAction = async (
     updatedStatus: VisitStatusWithoutUnknown,
@@ -664,6 +659,16 @@ export default function AppointmentTableRow({
         setPrimaryActionButtonLoading(false);
       }
 
+      return;
+    }
+
+    if (appointment.status === 'ready for provider' && !assignedProviderId) {
+      enqueueSnackbar('Please assign provider', { variant: 'error' });
+      return;
+    }
+
+    if (primaryAction.skipStatusUpdate && primaryAction.navigateToChart) {
+      navigate(getInPersonUrlByAppointmentType(appointment, 'patient-info'));
       return;
     }
 
@@ -1078,7 +1083,7 @@ export default function AppointmentTableRow({
       {chatModalOpen && (
         <ChatModal
           appointment={appointment}
-          currentLocation={location}
+          currentLocation={appointment.location}
           onClose={onCloseChat}
           onMarkAllRead={onMarkAllRead}
           quickTextsContext={quickTextsContext}

@@ -1,4 +1,3 @@
-import { ExamType } from 'utils';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters as validateCreateParams } from '../../src/ehr/admin-create-template/validateRequestParameters';
 import { validateRequestParameters as validateDeleteParams } from '../../src/ehr/admin-delete-template/validateRequestParameters';
@@ -22,36 +21,21 @@ const createMockZambdaInputWithSecrets = (body: Record<string, unknown>): Zambda
 });
 
 describe('Admin Create Template - validateRequestParameters', () => {
-  test('should accept valid input with encounterId, templateName, examType', () => {
+  test('should accept valid input with encounterId, templateName', () => {
     const input = createMockZambdaInputWithSecrets({
       encounterId: 'encounter-123',
       templateName: 'My Template',
-      examType: ExamType.IN_PERSON,
     });
 
     const result = validateCreateParams(input);
 
     expect(result.encounterId).toBe('encounter-123');
     expect(result.templateName).toBe('My Template');
-    expect(result.examType).toBe(ExamType.IN_PERSON);
-  });
-
-  test('should accept valid input with telemed examType', () => {
-    const input = createMockZambdaInputWithSecrets({
-      encounterId: 'encounter-123',
-      templateName: 'Telemed Template',
-      examType: ExamType.TELEMED,
-    });
-
-    const result = validateCreateParams(input);
-
-    expect(result.examType).toBe(ExamType.TELEMED);
   });
 
   test('should throw when encounterId is missing', () => {
     const input = createMockZambdaInputWithSecrets({
       templateName: 'My Template',
-      examType: ExamType.IN_PERSON,
     });
 
     expect(() => validateCreateParams(input)).toThrow('encounterId');
@@ -60,7 +44,6 @@ describe('Admin Create Template - validateRequestParameters', () => {
   test('should throw when templateName is missing', () => {
     const input = createMockZambdaInputWithSecrets({
       encounterId: 'encounter-123',
-      examType: ExamType.IN_PERSON,
     });
 
     expect(() => validateCreateParams(input)).toThrow('templateName');
@@ -70,36 +53,15 @@ describe('Admin Create Template - validateRequestParameters', () => {
     const input = createMockZambdaInputWithSecrets({
       encounterId: 'encounter-123',
       templateName: '',
-      examType: ExamType.IN_PERSON,
     });
 
     expect(() => validateCreateParams(input)).toThrow('templateName');
-  });
-
-  test('should throw when examType is missing', () => {
-    const input = createMockZambdaInputWithSecrets({
-      encounterId: 'encounter-123',
-      templateName: 'My Template',
-    });
-
-    expect(() => validateCreateParams(input)).toThrow('examType');
-  });
-
-  test('should throw when examType is invalid', () => {
-    const input = createMockZambdaInputWithSecrets({
-      encounterId: 'encounter-123',
-      templateName: 'My Template',
-      examType: 'invalidType',
-    });
-
-    expect(() => validateCreateParams(input)).toThrow('Invalid examType');
   });
 
   test('should throw when no secrets are provided', () => {
     const input = createMockZambdaInput({
       encounterId: 'encounter-123',
       templateName: 'My Template',
-      examType: ExamType.IN_PERSON,
     });
 
     expect(() => validateCreateParams(input)).toThrow('No secrets provided');

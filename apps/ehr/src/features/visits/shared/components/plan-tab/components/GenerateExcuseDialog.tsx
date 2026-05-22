@@ -200,6 +200,23 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
                         }}
                       />
                     </Box>
+
+                    <Box>
+                      <ControlledExcuseCheckbox
+                        name="workMayReturnToWorkOn"
+                        label={mapExcuseFieldsToLabels['workMayReturnToWorkOn']}
+                      />
+
+                      <ControlledExcuseDatePicker
+                        name="workMayReturnToWorkOnDate"
+                        validate={(value) => {
+                          if (getValues('workMayReturnToWorkOn') && !value) {
+                            return 'Field is required';
+                          }
+                          return;
+                        }}
+                      />
+                    </Box>
                   </>
                 )}
 
@@ -246,6 +263,22 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
                         name="excusedFromSchoolOnDate"
                         validate={(value) => {
                           if (getValues('excusedFromSchoolOn') && !value) {
+                            return 'Field is required';
+                          }
+                          return;
+                        }}
+                      />
+                    </Box>
+
+                    <Box>
+                      <ControlledExcuseCheckbox
+                        name="schoolMayReturnToSchoolOn"
+                        label={mapExcuseFieldsToLabels['schoolMayReturnToSchoolOn']}
+                      />
+                      <ControlledExcuseDatePicker
+                        name="schoolMayReturnToSchoolOnDate"
+                        validate={(value) => {
+                          if (getValues('schoolMayReturnToSchoolOn') && !value) {
                             return 'Field is required';
                           }
                           return;
