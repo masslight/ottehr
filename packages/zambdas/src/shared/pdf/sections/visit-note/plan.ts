@@ -14,12 +14,20 @@ import {
 import { drawBlockHeader, drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { AddendumEntry, PdfSection, PlanData } from '../../types';
-import { AllChartData } from '../../visit-details-pdf/types';
+import { AllChartData, FullAppointmentResourcePackage } from '../../visit-details-pdf/types';
 
-export const composePlanData: DataComposer<{ allChartData: AllChartData; encounter?: Encounter }, PlanData> = ({
-  allChartData,
-  encounter,
-}) => {
+const formatAddendumTimestamp = (timestamp: string | undefined, timezone: string | undefined): string => {
+  if (!timestamp) return '';
+  const dt = DateTime.fromISO(timestamp);
+  if (!dt.isValid) return '';
+  return (timezone ? dt.setZone(timezone) : dt).toFormat('MM/dd/yyyy hh:mm a');
+};
+
+export const composePlanData: DataComposer<
+  { allChartData: AllChartData; encounter?: Encounter; appointmentPackage?: FullAppointmentResourcePackage },
+  PlanData
+> = ({ allChartData, encounter, appointmentPackage }) => {
+  const timezone = appointmentPackage?.timezone;
   const { chartData, additionalChartData } = allChartData;
   const patientInstructions: string[] = [];
   chartData?.instructions?.forEach((item) => {
@@ -71,8 +79,9 @@ export const composePlanData: DataComposer<{ allChartData: AllChartData; encount
           // Always show meta.lastUpdated — same as the frontend NoteEntity. For a fresh note that's
           // the create time, for an edited note it's the edit time, and for a soft-deleted note it's
           // the deletion time. Keeping the two surfaces in sync avoids confusion when comparing the
-          // EHR view to the generated PDF.
-          timestamp: note.lastUpdated,
+          // EHR view to the generated PDF. Pre-formatted in the appointment timezone so the render
+          // pass doesn't need to know about zones (matches the immunization composer pattern).
+          timestamp: formatAddendumTimestamp(note.lastUpdated, timezone),
           edited: !deleted && !!note.edited,
           deleted,
         };
@@ -125,12 +134,6 @@ const hasAnyPlanBlock = (data?: PlanData): boolean =>
     hasSubSpecialtyFollowUp(data) ||
     hasWorkSchoolExcuse(data) ||
     hasAddendum(data));
-
-const formatAddendumTimestamp = (timestamp?: string): string => {
-  if (!timestamp) return '';
-  const dt = DateTime.fromISO(timestamp);
-  return dt.isValid ? dt.toFormat('MM/dd/yyyy hh:mm a') : '';
-};
 
 export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSection<TData, PlanData> => {
   return createConfiguredSection(null, () => ({
@@ -207,7 +210,7 @@ export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSecti
           drawRegularText(client, styles, data.addendumNote);
         }
         data.addendumNotes?.forEach((entry) => {
-          const timestamp = formatAddendumTimestamp(entry.timestamp);
+          const timestamp = entry.timestamp ?? '';
           if (entry.deleted) {
             const tombstone = [timestamp, entry.authorName, 'deleted the note'].filter(Boolean).join(' ');
             drawRegularText(client, styles, tombstone);

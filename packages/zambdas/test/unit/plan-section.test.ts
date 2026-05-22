@@ -2,7 +2,10 @@ import { Encounter } from 'fhir/r4b';
 import { CODE_SYSTEM_ACT_CODE_V3, NOTE_TYPE, NoteDTO } from 'utils';
 import { describe, expect, it } from 'vitest';
 import { composePlanData } from '../../src/shared/pdf/sections/visit-note/plan';
-import { AllChartData } from '../../src/shared/pdf/visit-details-pdf/types';
+import { AllChartData, FullAppointmentResourcePackage } from '../../src/shared/pdf/visit-details-pdf/types';
+
+const makeAppointmentPackage = (timezone: string): FullAppointmentResourcePackage =>
+  ({ timezone }) as FullAppointmentResourcePackage;
 
 const makeEncounter = (id: string): Encounter => ({
   resourceType: 'Encounter',
@@ -33,12 +36,14 @@ describe('composePlanData — addendum mapping', () => {
     const plan = composePlanData({
       allChartData: makeAllChartData([makeAddendum({ edited: true, lastUpdated: '2026-05-21T10:05:00.000Z' })]),
       encounter: makeEncounter('enc-1'),
+      appointmentPackage: makeAppointmentPackage('UTC'),
     });
     expect(plan.addendumNotes).toHaveLength(1);
     expect(plan.addendumNotes?.[0].edited).toBe(true);
     expect(plan.addendumNotes?.[0].deleted).toBe(false);
-    // Edited notes display lastUpdated (the edit time), matching the EHR's NoteEntity rendering.
-    expect(plan.addendumNotes?.[0].timestamp).toBe('2026-05-21T10:05:00.000Z');
+    // Edited notes display lastUpdated (the edit time), matching the EHR's NoteEntity rendering;
+    // the composer pre-formats the timestamp in the appointment timezone (UTC here).
+    expect(plan.addendumNotes?.[0].timestamp).toBe('05/21/2026 10:05 AM');
   });
 
   it('marks a soft-deleted addendum as deleted (NOT edited)', () => {
