@@ -86,8 +86,33 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           DOWNSTREAM_REPO: ${{ github.repository_owner }}/${{ vars.DOWNSTREAM_BUILD_REPO }}
+          RUN_ID: ${{ steps.find-run.outputs.run_id }}
         run: |
-          gh run watch \
-            -R "$DOWNSTREAM_REPO" \
-            --exit-status \
-            ${{ steps.find-run.outputs.run_id }}
+          set -euo pipefail
+          # Poll status only — never stream the downstream's job/step
+          # structure into this log, since job names there may include
+          # internal project identifiers that shouldn't leak into the
+          # public log of this run. Cap iterations so a stuck downstream
+          # can't keep this job pinned indefinitely.
+          MAX_ITERS=180   # 180 * 20s = 60 min
+          for i in $(seq 1 "$MAX_ITERS"); do
+            RESP=$(gh api "repos/$DOWNSTREAM_REPO/actions/runs/$RUN_ID" --jq '{status, conclusion}')
+            STATUS=$(echo "$RESP" | jq -r '.status')
+            CONCLUSION=$(echo "$RESP" | jq -r '.conclusion')
+            if [ "$STATUS" = "completed" ]; then
+              echo "Downstream run completed with conclusion: $CONCLUSION"
+              echo "See https://github.com/$DOWNSTREAM_REPO/actions/runs/$RUN_ID for details."
+              if [ "$CONCLUSION" = "success" ]; then
+                exit 0
+              fi
+              exit 1
+            fi
+            # Print one line per minute (every third iteration) to keep the
+            # log compact but show liveness.
+            if [ $((i % 3)) -eq 1 ]; then
+              echo "Status: $STATUS (poll $i/$MAX_ITERS)"
+            fi
+            sleep 20
+          done
+          echo "::error::Downstream run did not complete within $((MAX_ITERS * 20 / 60)) minutes."
+          exit 1
