@@ -1,0 +1,90 @@
+name: Downstream Build Check
+
+# Triggers a build in a downstream consumer repository on every PR and blocks
+# until that build completes. Catches the bug class where a change in core
+# breaks an existing downstream consumer's configuration before it's merged.
+#
+# The target repo, workflow, and project list are configured via repo
+# variables so this file does not name them directly.
+
+on:
+  pull_request:
+    branches: [main, develop, "release/**"]
+
+concurrency:
+  group: downstream-build-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-check:
+    name: Downstream build check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: ${{ !contains(github.event.pull_request.body, '/skip-build-and-lint') && vars.DOWNSTREAM_BUILD_REPO != '' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Generate GitHub App Token
+        uses: actions/create-github-app-token@21cfef2b496dd8ef5b904c159339626a10ad380e # v1.11.6
+        id: app-token
+        with:
+          app-id: ${{ secrets.OTTEHR_GITHUB_APP_ID }}
+          private-key: ${{ secrets.OTTEHR_GITHUB_APP_PRIVATE_KEY }}
+          repositories: ${{ vars.DOWNSTREAM_BUILD_REPO }}
+
+      - name: Dispatch downstream build
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORE_SHA: ${{ github.event.pull_request.head.sha }}
+          DOWNSTREAM_REPO: ${{ github.repository_owner }}/${{ vars.DOWNSTREAM_BUILD_REPO }}
+          DOWNSTREAM_WORKFLOW: ${{ vars.DOWNSTREAM_BUILD_WORKFLOW }}
+          DOWNSTREAM_PROJECTS: ${{ vars.DOWNSTREAM_BUILD_PROJECTS }}
+        run: |
+          set -euo pipefail
+          gh workflow run "$DOWNSTREAM_WORKFLOW" \
+            -R "$DOWNSTREAM_REPO" \
+            --ref develop \
+            -f projects="$DOWNSTREAM_PROJECTS" \
+            -f branch="$CORE_SHA"
+          echo "Dispatched downstream build for $CORE_SHA"
+
+      - name: Find dispatched run
+        id: find-run
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORE_SHA: ${{ github.event.pull_request.head.sha }}
+          DOWNSTREAM_REPO: ${{ github.repository_owner }}/${{ vars.DOWNSTREAM_BUILD_REPO }}
+          DOWNSTREAM_WORKFLOW: ${{ vars.DOWNSTREAM_BUILD_WORKFLOW }}
+        run: |
+          set -euo pipefail
+          # The downstream workflow embeds the `branch` input (our PR head SHA)
+          # in its display title, so we poll for a recent dispatched run with
+          # that SHA in the title.
+          for i in $(seq 1 30); do
+            RUN_ID=$(gh run list \
+              -R "$DOWNSTREAM_REPO" \
+              --workflow="$DOWNSTREAM_WORKFLOW" \
+              --event=workflow_dispatch \
+              --limit=20 \
+              --json databaseId,displayTitle \
+              --jq "[.[] | select(.displayTitle | contains(\"$CORE_SHA\"))][0].databaseId")
+            if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
+              echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+              echo "Found downstream run: https://github.com/$DOWNSTREAM_REPO/actions/runs/$RUN_ID"
+              exit 0
+            fi
+            echo "Run not yet visible (attempt $i/30), waiting 5s..."
+            sleep 5
+          done
+          echo "::error::Failed to locate dispatched downstream run after 150s"
+          exit 1
+
+      - name: Wait for downstream run to complete
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          DOWNSTREAM_REPO: ${{ github.repository_owner }}/${{ vars.DOWNSTREAM_BUILD_REPO }}
+        run: |
+          gh run watch \
+            -R "$DOWNSTREAM_REPO" \
+            --exit-status \
+            ${{ steps.find-run.outputs.run_id }}
