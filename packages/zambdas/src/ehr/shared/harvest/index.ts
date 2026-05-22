@@ -3754,25 +3754,9 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   const accountResources = resources.filter((res): res is Account => res.resourceType === 'Account');
   const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
 
-  let existingAccount: Account | undefined;
-  let existingGuarantorResource: RelatedPerson | Patient | undefined;
-  let workersCompAccount: Account | undefined;
-  let occupationalMedicineAccount: Account | undefined;
+  const { existingAccount, workersCompAccount, occupationalMedicineAccount } = organizeAccounts(accountResources);
 
-  if (accountResources.length > 0) {
-    existingAccount = accountResources.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
-    workersCompAccount = accountResources.find((account) => accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE));
-    occupationalMedicineAccount = accountResources.find((account) =>
-      accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
-    );
-    if (!existingAccount) {
-      existingAccount = accountResources.find(
-        (account) =>
-          !accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE) &&
-          !accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
-      );
-    }
-  }
+  let existingGuarantorResource: RelatedPerson | Patient | undefined;
 
   const employerOrganization: Organization | undefined = resources.find(
     (res): res is Organization =>
@@ -3918,6 +3902,35 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     guarantorResource: existingGuarantorResource,
     emergencyContactResource,
   };
+};
+
+export const organizeAccounts = (
+  accountResources: Account[]
+): {
+  existingAccount: Account | undefined;
+  workersCompAccount: Account | undefined;
+  occupationalMedicineAccount: Account | undefined;
+} => {
+  let existingAccount: Account | undefined;
+  let workersCompAccount: Account | undefined;
+  let occupationalMedicineAccount: Account | undefined;
+
+  if (accountResources.length > 0) {
+    existingAccount = accountResources.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
+    workersCompAccount = accountResources.find((account) => accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE));
+    occupationalMedicineAccount = accountResources.find((account) =>
+      accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
+    );
+    if (!existingAccount) {
+      existingAccount = accountResources.find(
+        (account) =>
+          !accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE) &&
+          !accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
+      );
+    }
+  }
+
+  return { existingAccount, workersCompAccount, occupationalMedicineAccount };
 };
 
 enum InsuranceCarrierKeys {

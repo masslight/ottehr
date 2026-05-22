@@ -1,6 +1,6 @@
 import { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, FhirResource, Patient } from 'fhir/r4b';
+import { Account, Appointment, Encounter, FhirResource, Patient } from 'fhir/r4b';
 import {
   ChartDataResources,
   chunkThings,
@@ -13,6 +13,7 @@ import {
   MDM_FIELD_DEFAULT_TEXT,
   Secrets,
 } from 'utils';
+import { organizeAccounts } from '../../../ehr/shared/harvest';
 import { checkOrCreateM2MClientToken, saveResourceRequest, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   createDispositionServiceRequest,
@@ -21,6 +22,7 @@ import {
   updateEncounterPatientInfoConfirmed,
 } from '../../../shared/chart-data';
 import { createOystehrClient, getVideoRoomResourceExtension } from '../../../shared/helpers';
+import { makeEncounterAccountPatchOp } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const CHUNK_SIZE = 50;
@@ -58,7 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('Created zapToken and fhir client');
 
   const resourceBundle = (
-    await oystehr.fhir.search<Appointment | Encounter | Patient>({
+    await oystehr.fhir.search<Appointment | Encounter | Patient | Account>({
       resourceType: 'Appointment',
       params: [
         { name: '_id', value: appointment.id },
@@ -69,6 +71,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         {
           name: '_revinclude:iterate',
           value: 'Encounter:appointment',
+        },
+        {
+          name: '_revinclude',
+          value: 'Account:patient',
         },
       ],
     })
@@ -87,6 +93,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     (resource: FhirResource) =>
       resource.resourceType === 'Encounter' && (isInPerson || Boolean(getVideoRoomResourceExtension(resource)))
   ) as Encounter | undefined;
+
+  const accountResources = resourceBundle?.filter(
+    (resource) => resource.resourceType === 'Account' && resource.status === 'active'
+  ) as Account[];
+
+  const { existingAccount, workersCompAccount } = organizeAccounts(accountResources);
 
   if (!encounter?.id) throw new Error('Encounter is missing from resource bundle.');
   // When in forEach, TS forgets this is no longer undefined.
@@ -118,6 +130,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       patchOperations: [
         ...updateEncounterPatientInfoConfirmed(encounter, { value: false }),
         updateEncounterDischargeDisposition(encounter, disposition),
+        ...makeEncounterAccountPatchOp(encounter, existingAccount, workersCompAccount),
       ],
     })
   );
