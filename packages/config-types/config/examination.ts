@@ -226,15 +226,7 @@ export interface ExamTypeInstance {
 /**
  * Full examination configuration
  */
-export interface ExaminationConfig {
-  telemed: Record<string, ExamTypeInstance>;
-  inPerson: Record<string, ExamTypeInstance>;
-}
-
-/**
- * Exam type enum values
- */
-export type ExamTypeValue = 'telemed' | 'inPerson';
+export type ExaminationConfig = Record<string, ExamTypeInstance>;
 
 // ============================================================================
 // Zod Schemas
@@ -450,9 +442,9 @@ export const ExamItemConfigSchema: z.ZodType<ExamItemConfig, z.ZodTypeDef, unkno
 );
 
 /**
- * Schema for exam type instance
+ * Schema for full examination config
  */
-export const ExamTypeInstanceSchema: z.ZodType<Record<string, ExamTypeInstance>, z.ZodTypeDef, unknown> = z.record(
+export const ExaminationConfigSchema: z.ZodType<ExaminationConfig, z.ZodTypeDef, unknown> = z.record(
   z.string(),
   z.object({
     version: HexHashSchema,
@@ -460,14 +452,6 @@ export const ExamTypeInstanceSchema: z.ZodType<Record<string, ExamTypeInstance>,
     constants: z.record(z.string(), z.set(z.string())).optional(),
   })
 );
-
-/**
- * Schema for full examination config
- */
-export const ExaminationConfigSchema: z.ZodType<ExaminationConfig, z.ZodTypeDef, unknown> = z.object({
-  telemed: ExamTypeInstanceSchema,
-  inPerson: ExamTypeInstanceSchema,
-});
 
 /**
  * Validation function for examination config

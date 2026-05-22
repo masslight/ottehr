@@ -104,7 +104,11 @@ export async function updateQuickPick<T extends { id?: string }>(
   return activityDefinitionToQuickPick(updated, category);
 }
 
-export async function removeQuickPick(oystehr: Oystehr, quickPickId: string): Promise<void> {
+export async function removeQuickPick<T extends { id?: string }>(
+  oystehr: Oystehr,
+  quickPickId: string,
+  category?: QuickPickCategory<T>
+): Promise<void> {
   let existing: ActivityDefinition;
   try {
     existing = await oystehr.fhir.get<ActivityDefinition>({
@@ -114,9 +118,16 @@ export async function removeQuickPick(oystehr: Oystehr, quickPickId: string): Pr
   } catch {
     throw new Error(`ActivityDefinition with id ${quickPickId} not found`);
   }
-  const hasQuickPickTag = existing.meta?.tag?.some((t) => t.system === QUICK_PICK_TAG_SYSTEM);
+  const tags = existing.meta?.tag ?? [];
+  const hasQuickPickTag = tags.some((t) => t.system === QUICK_PICK_TAG_SYSTEM);
   if (!hasQuickPickTag) {
     throw new Error(`ActivityDefinition ${quickPickId} is not a quick pick resource`);
+  }
+  if (category) {
+    const matchesCategory = tags.some((t) => t.system === QUICK_PICK_TAG_SYSTEM && t.code === category.tagCode);
+    if (!matchesCategory) {
+      throw new Error(`ActivityDefinition ${quickPickId} is not a ${category.tagCode} resource`);
+    }
   }
   existing.status = 'retired';
   await oystehr.fhir.update(existing);

@@ -244,7 +244,7 @@ export const PATIENT_NOT_FOUND_ERROR = {
 
 export const CANNOT_JOIN_CALL_NOT_STARTED_ERROR = {
   code: APIErrorCode.CANNOT_JOIN_CALL_NOT_IN_PROGRESS,
-  message: "This video call cannot be joined because it's either ended or not have been started",
+  message: 'This video call is not yet available or has already ended',
 };
 
 export const MISSING_REQUEST_BODY = {

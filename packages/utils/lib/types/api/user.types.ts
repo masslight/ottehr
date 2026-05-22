@@ -23,7 +23,6 @@ export enum RoleType {
   Manager = 'Manager',
   // Medical Assistant
   NewUser = 'NewUser',
-  Prescriber = 'Prescriber',
   Provider = 'Provider',
   RegionalTelemedLead = 'RegionalTelemedLead',
   Staff = 'Staff',
@@ -75,9 +74,4 @@ export const AVAILABLE_EMPLOYEE_ROLES: {
     label: 'Customer Support',
     hint: `A customer support representative`,
   },
-  // {
-  //   value: RoleType.Prescriber,
-  //   label: 'Prescriber',
-  //   hint: `A clinician that is allowed to prescribe`,
-  // },
 ];
