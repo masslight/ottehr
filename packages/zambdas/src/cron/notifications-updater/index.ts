@@ -46,6 +46,24 @@ export function validateRequestParameters(input: ZambdaInput): { secrets: Secret
 // 'arrived' for OTR-2552
 export const READY_OR_UNSIGNED_ENCOUNTER_STATUSES: Encounter['status'][] = ['planned', 'arrived', 'finished'];
 
+export function resolveTaskRecipients(
+  task: Task,
+  owner: Practitioner | undefined,
+  activeProviders: Practitioner[]
+): Practitioner[] {
+  if (owner) return [owner];
+  const taskCode = task.code?.coding?.find((c) => c.system === OttehrTaskSystem)?.code;
+  if (taskCode === VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE) return activeProviders;
+  return [];
+}
+
+// protects against "Patient is ready" notification flooding on first deploy
+export function isWaitingRoomTaskAppointmentArrived(task: Task, arrivedAppointmentIds: Set<string>): boolean {
+  const focusRef = task.focus?.reference;
+  if (!focusRef?.startsWith('Appointment/')) return false;
+  return arrivedAppointmentIds.has(focusRef.split('/')[1]);
+}
+
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
@@ -260,6 +278,11 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     }
   });
 
+  const arrivedAppointmentIds = new Set<string>();
+  for (const [appointmentId, pack] of Object.entries(readyOrUnsignedVisitPackages)) {
+    if (pack.appointment?.status === 'arrived') arrivedAppointmentIds.add(appointmentId);
+  }
+
   // Process recently assigned tasks to create task assignment notifications
   const updateTaskRequests: BatchInputRequest<Task>[] = [];
   const telemedRelatedTaskCodes = [VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE];
@@ -272,81 +295,89 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           tag.system === PROVIDER_NOTIFICATION_TAG_SYSTEM &&
           tag.code === AppointmentProviderNotificationTypes.task_assigned
       );
+      if (isProcessed) return;
 
-      if (!isProcessed && practitioner) {
-        updateTaskRequests.push(
-          getPatchBinary({
-            resourceId: task.id!,
-            resourceType: 'Task',
-            patchOperations: [
-              getPatchOperationForNewMetaTag(task, {
-                system: PROVIDER_NOTIFICATION_TAG_SYSTEM,
-                code: AppointmentProviderNotificationTypes.task_assigned,
-              }),
-            ],
-          })
-        );
+      // for unassigned waiting room notifications
+      if (!practitioner && !isWaitingRoomTaskAppointmentArrived(task, arrivedAppointmentIds)) return;
 
-        const taskCodes = task.code?.coding;
-        const ottehrTaskCode = taskCodes?.find((coding) => coding.system === OttehrTaskSystem)?.code;
-        const erxTaskCode = taskCodes?.find((coding) => coding.system === ERX_TASK.system)?.code;
-        const taskCode = ottehrTaskCode || erxTaskCode || '';
-        const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
+      const recipients = resolveTaskRecipients(task, practitioner, Object.values(activeProvidersMap));
+      if (recipients.length === 0) return;
+
+      updateTaskRequests.push(
+        getPatchBinary({
+          resourceId: task.id!,
+          resourceType: 'Task',
+          patchOperations: [
+            getPatchOperationForNewMetaTag(task, {
+              system: PROVIDER_NOTIFICATION_TAG_SYSTEM,
+              code: AppointmentProviderNotificationTypes.task_assigned,
+            }),
+          ],
+        })
+      );
+
+      const taskCodes = task.code?.coding;
+      const ottehrTaskCode = taskCodes?.find((coding) => coding.system === OttehrTaskSystem)?.code;
+      const erxTaskCode = taskCodes?.find((coding) => coding.system === ERX_TASK.system)?.code;
+      const taskCode = ottehrTaskCode || erxTaskCode || '';
+
+      for (const recipient of recipients) {
+        const notificationSettings = getProviderNotificationSettingsForPractitioner(recipient);
 
         const areNotificationsEnabledForThisTask = telemedRelatedTaskCodes.includes(taskCode)
           ? notificationSettings?.telemedNotificationsEnabled
           : notificationSettings?.taskNotificationsEnabled;
-        if (areNotificationsEnabledForThisTask) {
-          let title = 'A new task has been assigned to you: ' + (task.description ?? `task ID ${task.id}`);
-          let status = getCommunicationStatus(notificationSettings!, busyPractitionerIds, practitioner);
+        if (!areNotificationsEnabledForThisTask) continue;
 
-          switch (taskCode) {
-            case VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE: {
-              title = task.description ?? `task ID ${task.id}`;
-              // waiting room practitioners will always become "busy" (status "preparation"),
-              // so we force "in-progress" to ensure they receive the notification
-              status = 'in-progress';
-              break;
-            }
-            case ERX_TASK.code.providerNotification: {
-              // similarly, practitioners prescribing eRX are assigned to an
-              // appointment already. phone-only notifications require a
-              // status of "completed" but phone and computer ones require
-              // "in-progress".
-              status = notificationSettings!.method === ProviderNotificationMethod.phone ? 'completed' : 'in-progress';
-              break;
-            }
-            default: {
-              break;
-            }
+        let title = 'A new task has been assigned to you: ' + (task.description ?? `task ID ${task.id}`);
+        let status = getCommunicationStatus(notificationSettings!, busyPractitionerIds, recipient);
+
+        switch (taskCode) {
+          case VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE: {
+            title = task.description ?? `task ID ${task.id}`;
+            // waiting room practitioners will always become "busy" (status "preparation"),
+            // so we force "in-progress" to ensure they receive the notification
+            status = 'in-progress';
+            break;
           }
-
-          const request: BatchInputPostRequest<Communication> = {
-            method: 'POST',
-            url: '/Communication',
-            resource: {
-              resourceType: 'Communication',
-              category: [
-                {
-                  coding: [
-                    {
-                      system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-                      code: AppointmentProviderNotificationTypes.task_assigned,
-                    },
-                  ],
-                },
-              ],
-              sent: DateTime.utc().toISO()!,
-              status: status,
-              basedOn: [{ reference: `Task/${task.id}` }],
-              recipient: [{ reference: `Practitioner/${practitioner.id}` }],
-              payload: [{ contentString: title }],
-            },
-          };
-
-          createCommunicationRequests.push(request);
-          addNewSMSCommunicationForPractitioner(practitioner, request.resource as Communication, status);
+          case ERX_TASK.code.providerNotification: {
+            // similarly, practitioners prescribing eRX are assigned to an
+            // appointment already. phone-only notifications require a
+            // status of "completed" but phone and computer ones require
+            // "in-progress".
+            status = notificationSettings!.method === ProviderNotificationMethod.phone ? 'completed' : 'in-progress';
+            break;
+          }
+          default: {
+            break;
+          }
         }
+
+        const request: BatchInputPostRequest<Communication> = {
+          method: 'POST',
+          url: '/Communication',
+          resource: {
+            resourceType: 'Communication',
+            category: [
+              {
+                coding: [
+                  {
+                    system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
+                    code: AppointmentProviderNotificationTypes.task_assigned,
+                  },
+                ],
+              },
+            ],
+            sent: DateTime.utc().toISO()!,
+            status: status,
+            basedOn: [{ reference: `Task/${task.id}` }],
+            recipient: [{ reference: `Practitioner/${recipient.id}` }],
+            payload: [{ contentString: title }],
+          },
+        };
+
+        createCommunicationRequests.push(request);
+        addNewSMSCommunicationForPractitioner(recipient, request.resource as Communication, status);
       }
     } catch (error) {
       console.error(`Error trying to process task assignment notification for task ${taskId}`, error);
@@ -736,7 +767,8 @@ type ProvidersMap = { [key: string]: Practitioner };
 
 interface TaskWithPractitioner {
   task: Task;
-  practitioner: Practitioner;
+  // unassigned telemed visits have no owner but need waiting room notifications
+  practitioner?: Practitioner;
 }
 
 type RecentlyAssignedTasksMap = { [key: NonNullable<Task['id']>]: TaskWithPractitioner };
@@ -789,6 +821,13 @@ async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime)
             practitioner: practitionerIdMap[practitionerId],
           };
         }
+      }
+    } else {
+      const taskCode = task.code?.coding?.find((c) => c.system === OttehrTaskSystem)?.code;
+      if (taskCode !== VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE) return;
+      const authoredOn = task.authoredOn ? DateTime.fromISO(task.authoredOn) : null;
+      if (authoredOn && authoredOn >= fromDate) {
+        resultMap[task.id!] = { task };
       }
     }
   });

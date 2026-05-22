@@ -450,8 +450,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     visitType === VisitType.PostTelemed ||
     (visitType === VisitType.WalkIn && serviceMode === ServiceMode.virtual);
   const initialAppointmentStatus: FhirAppointmentStatus = startsAsBooked ? 'booked' : 'arrived';
-  const initialEncounterStatus: FhirEncounterStatus =
-    visitType === VisitType.PreBook || visitType === VisitType.PostTelemed ? 'planned' : 'arrived';
+  const initialEncounterStatus: FhirEncounterStatus = startsAsBooked ? 'planned' : 'arrived';
 
   const apptExtensions: Extension[] = [];
   const encExtensions: Extension[] = [];

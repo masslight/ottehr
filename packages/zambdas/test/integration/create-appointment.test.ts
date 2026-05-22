@@ -112,6 +112,7 @@ const validateCreateAppointmentResponse = (
   const isPostTelemed = getSlotIsPostTelemed(slot);
   const isVirtual = checkEncounterIsVirtual(encounter);
   expect(appointment.status).toEqual(isWalkin && !isVirtual ? 'arrived' : 'booked');
+  assert(appointment.start);
   if (isWalkin) {
     const appointmentTimeStamp = DateTime.fromISO(appointment.start!, { zone: timezone }).toUnixInteger();
     const slotTimeStamp = DateTime.fromISO(slot.start).toUnixInteger();
