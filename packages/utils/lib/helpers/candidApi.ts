@@ -140,6 +140,7 @@ let cachedToken: CandidToken | undefined;
 let latestOystehr: Oystehr | undefined;
 let latestSecrets: Secrets | null = null;
 
+/** @internal — test-only; not re-exported from the package barrel. */
 export function __resetCandidApiClientForTests(): void {
   inflightRefresh = undefined;
   cachedCandidApiClient = undefined;
