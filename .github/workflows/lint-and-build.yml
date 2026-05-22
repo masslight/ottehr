@@ -132,3 +132,83 @@ jobs:
               context: 'CI / Tests',
               description: success ? 'Tests successful' : 'Tests failed'
             });
+
+  # Dispatches HOB's bulk CI workflow for a canary set of customers, pinned
+  # to this PR's head SHA, and blocks until that run completes. Catches the
+  # bug class where a core PR changes config types or terraform inputs that
+  # an existing customer overlay in ottehr-secrets can't satisfy — currently
+  # detected only at deploy time, after merge. Full 9-customer fan-out runs
+  # post-merge via existing flows; this job is the lighter PR-gate.
+  validate-customer-overlays:
+    name: Validate customer overlays
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.body, '/skip-build-and-lint')
+    permissions:
+      contents: read
+    concurrency:
+      group: validate-customer-overlays-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Generate GitHub App Token
+        uses: actions/create-github-app-token@21cfef2b496dd8ef5b904c159339626a10ad380e # v1.11.6
+        id: app-token
+        with:
+          app-id: ${{ secrets.OTTEHR_GITHUB_APP_ID }}
+          private-key: ${{ secrets.OTTEHR_GITHUB_APP_PRIVATE_KEY }}
+          repositories: hosted-ottehr-builds
+
+      - name: Dispatch HOB bulk CI for canary customers
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          gh workflow run ci-test-services-bulk.yml \
+            -R masslight/hosted-ottehr-builds \
+            --ref develop \
+            -f projects=ottehr,quality,urgikids \
+            -f branch="$CORE_SHA" \
+            -f secretsBranch=develop \
+            -f environment=local \
+            -f runDeploy=false \
+            -f runE2e=false
+          echo "Dispatched bulk CI for core SHA $CORE_SHA"
+
+      - name: Find dispatched run
+        id: find-run
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CORE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # ci-test-services-bulk's run-name embeds the `branch` input (our
+          # PR head SHA), so we poll for a recent dispatched run whose
+          # display title contains the SHA.
+          for i in $(seq 1 30); do
+            RUN_ID=$(gh run list \
+              -R masslight/hosted-ottehr-builds \
+              --workflow=ci-test-services-bulk.yml \
+              --event=workflow_dispatch \
+              --limit=20 \
+              --json databaseId,displayTitle \
+              --jq "[.[] | select(.displayTitle | contains(\"$CORE_SHA\"))][0].databaseId")
+            if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
+              echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+              echo "Found HOB bulk run: https://github.com/masslight/hosted-ottehr-builds/actions/runs/$RUN_ID"
+              exit 0
+            fi
+            echo "Run not yet visible (attempt $i/30), waiting 5s..."
+            sleep 5
+          done
+          echo "::error::Failed to locate dispatched HOB bulk run after 150s"
+          exit 1
+
+      - name: Wait for HOB bulk run to complete
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh run watch \
+            -R masslight/hosted-ottehr-builds \
+            --exit-status \
+            ${{ steps.find-run.outputs.run_id }}
