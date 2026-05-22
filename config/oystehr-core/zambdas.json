@@ -1981,6 +1981,113 @@
       "src": "src/rcm/invoice-config/save-invoice-config/index",
       "zip": ".dist/zips/save-invoice-config.zip"
     },
+    "GET-SCHEDULED-OUTREACH-CONFIG": {
+      "name": "get-scheduled-outreach-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach-config/get-scheduled-outreach-config/index",
+      "zip": ".dist/zips/get-scheduled-outreach-config.zip"
+    },
+    "SAVE-SCHEDULED-OUTREACH-CONFIG": {
+      "name": "save-scheduled-outreach-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach-config/save-scheduled-outreach-config/index",
+      "zip": ".dist/zips/save-scheduled-outreach-config.zip"
+    },
+    "LIST-OUTREACH-TASKS": {
+      "name": "list-outreach-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/list-outreach-tasks/index",
+      "zip": ".dist/zips/list-outreach-tasks.zip"
+    },
+    "CANCEL-OUTREACH-TASK": {
+      "name": "cancel-outreach-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/cancel-outreach-task/index",
+      "zip": ".dist/zips/cancel-outreach-task.zip"
+    },
+    "RETRY-OUTREACH-TASK": {
+      "name": "retry-outreach-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/retry-outreach-task/index",
+      "zip": ".dist/zips/retry-outreach-task.zip"
+    },
+    "PRODUCE-OUTREACH-DISCHARGE-TASKS": {
+      "name": "produce-outreach-discharge-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/produce-discharge-tasks/index",
+      "zip": ".dist/zips/produce-outreach-discharge-tasks.zip"
+    },
+    "PRODUCE-OUTREACH-INVOICE-ISSUED-TASKS": {
+      "name": "produce-outreach-invoice-issued-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/produce-invoice-issued-tasks/index",
+      "zip": ".dist/zips/produce-outreach-invoice-issued-tasks.zip"
+    },
+    "CRON-OUTREACH-INVOICE-DUE": {
+      "name": "cron-outreach-invoice-due",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/cron-outreach-invoice-due/index",
+      "zip": ".dist/zips/cron-outreach-invoice-due.zip",
+      "schedule": {
+        "expression": "cron(0 6 * * ? *)"
+      }
+    },
+    "CRON-OUTREACH-BIRTHDAY": {
+      "name": "cron-outreach-birthday",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/rcm/scheduled-outreach/producers/cron-outreach-birthday/index",
+      "zip": ".dist/zips/cron-outreach-birthday.zip",
+      "schedule": {
+        "expression": "cron(0 6 * * ? *)"
+      }
+    },
+    "CRON-OUTREACH-TASK-PROMOTER": {
+      "name": "cron-outreach-task-promoter",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/cron/rcm/outreach-task-promoter/index",
+      "zip": ".dist/zips/cron-outreach-task-promoter.zip",
+      "schedule": {
+        "expression": "cron(0,15,30,45 * * * ? *)"
+      }
+    },
+    "SUB-OUTREACH-SEND-NOTIFICATION": {
+      "name": "sub-outreach-send-notification",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-outreach-send-notification/index",
+      "zip": ".dist/zips/sub-outreach-send-notification.zip"
+    },
+    "SUB-OUTREACH-CHARGE-CARD": {
+      "name": "sub-outreach-charge-card",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-outreach-charge-card/index",
+      "zip": ".dist/zips/sub-outreach-charge-card.zip"
+    },
+    "SUB-OUTREACH-REFER-TO-COLLECTIONS": {
+      "name": "sub-outreach-refer-to-collections",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-outreach-refer-to-collections/index",
+      "zip": ".dist/zips/sub-outreach-refer-to-collections.zip"
+    },
+    "SUB-OUTREACH-LOG": {
+      "name": "sub-outreach-log",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-outreach-log/index",
+      "zip": ".dist/zips/sub-outreach-log.zip"
+    },
     "ADMIN_LIST_IN_HOUSE_LABS": {
       "name": "admin-list-in-house-labs",
       "type": "http_auth",
@@ -2561,6 +2668,78 @@
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_SEND_NOTIFICATION_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach send notification",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|send-notification&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-SEND-NOTIFICATION/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_CHARGE_CARD_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach charge card on file",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|charge-card&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-CHARGE-CARD/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_REFER_TO_COLLECTIONS_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach refer to collections",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|refer-to-collections&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-REFER-TO-COLLECTIONS/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_OUTREACH_LOG_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Outreach log",
+        "criteria": "Task?code=https://ottehr.com/CodeSystem/outreach-action-type|log&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-OUTREACH-LOG/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
           }
         ]
       }
