@@ -102,7 +102,10 @@ class EmailClient {
 
     const { sender, replyTo: configReplyTo, ...emailRest } = baseEmail;
     if (!this.supportPhonesMapPromise) {
-      this.supportPhonesMapPromise = fetchLocationSupportPhonesMap(this.oystehr);
+      this.supportPhonesMapPromise = fetchLocationSupportPhonesMap(this.oystehr).catch((err) => {
+        this.supportPhonesMapPromise = undefined;
+        throw err;
+      });
     }
     const supportPhonesMap = await this.supportPhonesMapPromise;
     const supportPhoneNumber = getSupportPhoneFor((templateData as any).location, supportPhonesMap);
