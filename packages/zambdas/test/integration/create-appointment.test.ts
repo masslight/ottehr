@@ -111,10 +111,7 @@ const validateCreateAppointmentResponse = (
   const isWalkin = getSlotIsWalkin(slot);
   const isPostTelemed = getSlotIsPostTelemed(slot);
   const isVirtual = checkEncounterIsVirtual(encounter);
-  // this really should be 'booked' for all but there is a known issue https://github.com/masslight/ottehr/issues/2431
-  // todo: change the check to 'booked' once the issue with virtual appointments is resolved
-  expect(appointment.status).toEqual(isVirtual || isWalkin ? 'arrived' : 'booked');
-  assert(appointment.start);
+  expect(appointment.status).toEqual(isWalkin && !isVirtual ? 'arrived' : 'booked');
   if (isWalkin) {
     const appointmentTimeStamp = DateTime.fromISO(appointment.start!, { zone: timezone }).toUnixInteger();
     const slotTimeStamp = DateTime.fromISO(slot.start).toUnixInteger();
@@ -130,8 +127,6 @@ const validateCreateAppointmentResponse = (
 
   assert(encounter);
   assert(encounter.id);
-  // todo: should encounter status be 'arrived' for walkin virtual appointments to match the appointment status?
-  // i think this is intended and helps with some intake logic particular to the virtual walkin flow
   if (isWalkin && !isVirtual) {
     expect(encounter.status).toEqual('arrived');
   } else {
