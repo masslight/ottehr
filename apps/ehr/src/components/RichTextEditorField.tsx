@@ -147,7 +147,6 @@ export function RichTextEditorField({
               pointerEvents: 'none',
               height: 0,
             },
-            '& a': { color: theme.palette.primary.main, textDecoration: 'underline' },
             '& h2, & h3': { marginTop: 0, marginBottom: '0.5em' },
             '& ul, & ol': { paddingLeft: '1.5em' },
           },

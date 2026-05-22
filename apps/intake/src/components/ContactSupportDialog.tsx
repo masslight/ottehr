@@ -1,6 +1,8 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { FC } from 'react';
+import DOMPurify from 'dompurify';
+import { FC, useMemo } from 'react';
+import { ALLOWED_SUPPORT_DIALOG_TAGS } from 'utils';
 import api from '../api/ottehrApi';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { CustomDialog } from './CustomDialog';
@@ -20,7 +22,14 @@ export const ContactSupportDialog: FC<ContactSupportDialogProps> = ({ onClose })
     staleTime: 5 * 60_000,
   });
 
-  const bodyHtml = data?.bodyHtml?.trim();
+  const rawBodyHtml = data?.bodyHtml?.trim();
+  const safeBodyHtml = useMemo(
+    () =>
+      rawBodyHtml
+        ? DOMPurify.sanitize(rawBodyHtml, { ALLOWED_TAGS: ALLOWED_SUPPORT_DIALOG_TAGS, ALLOWED_ATTR: [] })
+        : '',
+    [rawBodyHtml]
+  );
 
   return (
     <CustomDialog open={true} onClose={onClose}>
@@ -31,7 +40,7 @@ export const ContactSupportDialog: FC<ContactSupportDialogProps> = ({ onClose })
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
           <CircularProgress />
         </Box>
-      ) : isError || !bodyHtml ? (
+      ) : isError || !safeBodyHtml ? (
         <Typography variant="body2">
           Support information is unavailable right now. If this is an emergency, please call 911.
         </Typography>
@@ -41,9 +50,8 @@ export const ContactSupportDialog: FC<ContactSupportDialogProps> = ({ onClose })
             '& p': { my: 1 },
             '& h2, & h3': { mt: 1.5, mb: 1 },
             '& ul, & ol': { pl: 3, my: 1 },
-            '& a': { color: 'primary.main' },
           }}
-          dangerouslySetInnerHTML={{ __html: bodyHtml }}
+          dangerouslySetInnerHTML={{ __html: safeBodyHtml }}
         />
       )}
       <PageForm

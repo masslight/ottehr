@@ -21,6 +21,7 @@ export * from './pdf';
 export * from './practitioners';
 export * from './queueingUtils';
 export * from './resources.helpers';
+export * from './support-dialog';
 export * from './rolesUtils';
 export * from './sentry';
 export * from './types';

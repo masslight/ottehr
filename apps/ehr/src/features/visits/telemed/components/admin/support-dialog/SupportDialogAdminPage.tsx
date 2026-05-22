@@ -32,7 +32,7 @@ export default function SupportDialogAdminPage(): ReactElement {
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               This text is shown to patients in the intake app when they click "Contact support". You can format the
-              text with bold, italic, lists, headings, and links.
+              text with bold, italic, lists, and headings.
             </Typography>
 
             {isPending ? (

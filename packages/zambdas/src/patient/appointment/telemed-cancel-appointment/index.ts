@@ -6,13 +6,11 @@ import { Appointment, Coding, Encounter, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
-  buildLocationSupportPhonesMap,
   cancelAppointmentResource,
   CancelTelemedAppointmentZambdaInput,
   CancelTelemedAppointmentZambdaOutput,
   createOystehrClient,
   FHIR_ZAPEHR_URL,
-  getAllFhirSearchPages,
   getAppointmentResourceById,
   getLocationIdFromAppointment,
   getLocationResource,
@@ -20,7 +18,7 @@ import {
   getPatientContactEmail,
   getRelatedPersonsForPatient,
   getSecret,
-  getSupportPhoneFor,
+  LOCATION_SUPPORT_PHONE_EXTENSION_URL,
   Secrets,
   SecretsKeys,
   TelemedCancelationTemplateData,
@@ -210,9 +208,13 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
     console.log(`No user-relatedperson found for patient ${patient.id}; not sending cancellation text`);
     reportMissingUserRelatedPerson('telemed-cancel-appointment', patient.id);
   } else {
-    const allLocations = await getAllFhirSearchPages<Location>({ resourceType: 'Location' }, oystehr);
-    const phonesMap = buildLocationSupportPhonesMap(allLocations);
-    const message = `Sorry to see you go. Questions? Call ${getSupportPhoneFor(locationName, phonesMap) ?? ''} `;
+    const supportPhone = location?.extension?.find((e) => e.url === LOCATION_SUPPORT_PHONE_EXTENSION_URL)?.valueString;
+    if (!supportPhone) {
+      console.warn(
+        `No support phone number configured for location "${locationName}" — omitting from cancellation SMS`
+      );
+    }
+    const message = supportPhone ? `Sorry to see you go. Questions? Call ${supportPhone}` : 'Sorry to see you go.';
     await sendSmsToRelatedPersons({
       relatedPersons,
       message,

@@ -21,7 +21,11 @@ function findFirstLocationName(): string {
       inPerson ??= resource.name;
     }
   }
-  return inPerson ?? telemed ?? '';
+  if (inPerson) return inPerson;
+  if (telemed) return telemed;
+  throw new Error(
+    'Expected locations-and-schedules.json to contain at least one named Location resource, but none were found.'
+  );
 }
 
 let page: Page;

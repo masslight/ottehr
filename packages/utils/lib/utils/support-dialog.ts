@@ -7,15 +7,34 @@ export const SUPPORT_DIALOG_BASIC_TAG = {
 
 export const SUPPORT_DIALOG_BODY_HTML_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/support-dialog-body-html';
 
+// Allowlist of HTML tags the support dialog rich-text editor is allowed to emit.
+// Kept in sync with the tiptap StarterKit nodes/marks used in RichTextEditorField.
+// Links are intentionally excluded so admins cannot inject href-based payloads.
+export const ALLOWED_SUPPORT_DIALOG_TAGS = [
+  'p',
+  'br',
+  'strong',
+  'em',
+  's',
+  'code',
+  'pre',
+  'blockquote',
+  'ul',
+  'ol',
+  'li',
+  'h2',
+  'h3',
+  'hr',
+];
+
 export const LOCATION_SUPPORT_PHONE_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/support-phone-number';
 
 export function getSupportPhoneFor(
   locationName: string | undefined,
-  phonesByLocationName: Record<string, string>,
-  defaultPhone?: string
+  phonesByLocationName: Record<string, string>
 ): string | undefined {
-  if (!locationName) return defaultPhone;
-  return phonesByLocationName[locationName] ?? defaultPhone;
+  if (!locationName) return undefined;
+  return phonesByLocationName[locationName];
 }
 
 export function buildLocationSupportPhonesMap(locations: Location[]): Record<string, string> {
