@@ -55,14 +55,14 @@ export const NoteEntity: React.FC<{
         <Box sx={{ py: 1, pr: 4 }}>
           {isDeleted && softDeleteWithTombstone ? (
             <Typography variant="caption" color="textSecondary">
-              {entity.lastUpdated ? DateTime.fromISO(entity.lastUpdated).toFormat('MM/dd/yyyy HH:mm a') : ''}{' '}
+              {entity.lastUpdated ? DateTime.fromISO(entity.lastUpdated).toFormat('MM/dd/yyyy hh:mm a') : ''}{' '}
               {entity.authorName || entity.authorId} deleted the note
             </Typography>
           ) : (
             <>
               <Typography variant="body1">{entity.text}</Typography>
               <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
-                {entity.lastUpdated ? DateTime.fromISO(entity.lastUpdated).toFormat('MM/dd/yyyy HH:mm a') : ''} by{' '}
+                {entity.lastUpdated ? DateTime.fromISO(entity.lastUpdated).toFormat('MM/dd/yyyy hh:mm a') : ''} by{' '}
                 {entity.authorName || entity.authorId}
                 {edited ? ' (edited)' : ''}
               </Typography>
