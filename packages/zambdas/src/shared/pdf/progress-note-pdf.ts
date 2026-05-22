@@ -150,9 +150,11 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
     }),
     plan: composePlanData({
       allChartData,
+      encounter,
     }),
     patientInstructions: composePlanData({
       allChartData,
+      encounter,
     }),
     followupCompleted: composeFollowupCompleted({
       appointmentPackage,

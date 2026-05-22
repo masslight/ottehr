@@ -61,11 +61,13 @@ import {
   HospitalizationDTO,
   ICD_10_CODE_SYSTEM,
   IN_PERSON_NOTE_ID,
+  isNoteEdited,
   isVitalObservation,
   makeVitalsObservationDTO,
   MedicalConditionDTO,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MedicationDTO,
+  NOTE_TYPE,
   NoteDTO,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_ID,
@@ -698,18 +700,28 @@ export function makeCommunicationDTO(resource: Communication): CommunicationDTO 
   };
 }
 
-export function makeNoteResource(encounterId: string, patientId: string | undefined, data: NoteDTO): Communication {
+export function makeNoteResource(
+  encounterId: string,
+  patientId: string | undefined,
+  data: NoteDTO,
+  existing?: Communication
+): Communication {
+  // Preserve the original creation timestamp on edit by reusing the prior resource's `sent`.
+  // For new notes, stamp `sent` with now so the FE can detect edits by comparing it against
+  // meta.lastUpdated on subsequent reads.
+  const sent = existing?.sent ?? new Date().toISOString();
   const resource: Communication = {
     id: data.resourceId,
     resourceType: 'Communication',
     encounter: { reference: `Encounter/${encounterId}` },
-    status: 'completed',
+    status: data.deleted ? 'entered-in-error' : 'completed',
     meta: fillMeta(IN_PERSON_NOTE_ID, data.type),
     subject: { reference: `Patient/${patientId}` },
     sender: {
       reference: `Practitioner/${data.authorId}`,
       display: data.authorName,
     },
+    sent,
     payload: [
       {
         contentString: data.text,
@@ -718,6 +730,94 @@ export function makeNoteResource(encounterId: string, patientId: string | undefi
   };
 
   return resource;
+}
+
+async function fetchCommunicationsByIds(oystehr: Oystehr, ids: string[]): Promise<Map<string, Communication>> {
+  if (ids.length === 0) return new Map();
+  const existing = (
+    await oystehr.fhir.search<Communication>({
+      resourceType: 'Communication',
+      params: [{ name: '_id', value: ids.join(',') }],
+    })
+  ).unbundle();
+  const byId = new Map<string, Communication>();
+  existing.forEach((c) => {
+    if (c.id) byId.set(c.id, c);
+  });
+  return byId;
+}
+
+function assertCallerIsAddendumAuthor(existing: NoteDTO, callerPractitionerId: string, verb: 'edit' | 'delete'): void {
+  if (existing.authorId !== callerPractitionerId) {
+    throw new Error(`Forbidden: only the author can ${verb} this addendum`);
+  }
+}
+
+/**
+ * Enforces edit/delete-own-only on addendum notes. Mutates the input array in place to pin
+ * authorship server-side, and returns the prefetched existing Communications keyed by id so
+ * the caller can thread them into `makeNoteResource` to preserve the original `sent` timestamp.
+ * Non-addendum notes (intake, internal, etc.) pass through unchanged.
+ */
+export async function authorizeAndPrepareAddendumNotes(
+  oystehr: Oystehr,
+  notes: NoteDTO[],
+  callerPractitionerId: string,
+  callerPractitionerName: string
+): Promise<Map<string, Communication>> {
+  const addendumNotes = notes.filter((n) => n.type === NOTE_TYPE.ADDENDUM);
+  if (addendumNotes.length === 0) return new Map();
+
+  const editIds = addendumNotes.map((n) => n.resourceId).filter((id): id is string => !!id);
+  const existingById = await fetchCommunicationsByIds(oystehr, editIds);
+
+  for (const note of addendumNotes) {
+    if (note.resourceId) {
+      const existing = existingById.get(note.resourceId);
+      if (!existing) {
+        throw new Error(`Addendum ${note.resourceId} not found`);
+      }
+      const existingDto = makeNoteDTO(existing);
+      assertCallerIsAddendumAuthor(existingDto, callerPractitionerId, note.deleted ? 'delete' : 'edit');
+      // Once an addendum is soft-deleted, the original text is what the audit trail keeps —
+      // don't trust whatever text the FE sends along with the delete flag.
+      if (note.deleted) {
+        note.text = existingDto.text;
+      }
+      note.authorId = callerPractitionerId;
+      note.authorName = existingDto.authorName;
+    } else {
+      // New addendum can't be created already-deleted — guard against a malformed payload.
+      if (note.deleted) {
+        throw new Error('Cannot create an addendum in deleted state');
+      }
+      note.authorId = callerPractitionerId;
+      note.authorName = callerPractitionerName;
+    }
+  }
+
+  return existingById;
+}
+
+/**
+ * Enforces delete-own-only for addendum notes referenced by resourceId.
+ * Throws if any of the referenced Communications was authored by someone other than the caller.
+ */
+export async function authorizeAddendumNoteDeletion(
+  oystehr: Oystehr,
+  notes: NoteDTO[],
+  callerPractitionerId: string
+): Promise<void> {
+  const addendumIds = notes.filter((n) => n.type === NOTE_TYPE.ADDENDUM && n.resourceId).map((n) => n.resourceId!);
+  if (addendumIds.length === 0) return;
+
+  const existingById = await fetchCommunicationsByIds(oystehr, addendumIds);
+
+  for (const id of addendumIds) {
+    const existing = existingById.get(id);
+    if (!existing) continue; // already gone; let the delete be a no-op
+    assertCallerIsAddendumAuthor(makeNoteDTO(existing), callerPractitionerId, 'delete');
+  }
 }
 
 export function makeNoteDTO(resource: Communication): NoteDTO {
@@ -731,10 +831,12 @@ export function makeNoteDTO(resource: Communication): NoteDTO {
     resourceId: resource.id,
     text: resource.payload?.[0]?.contentString ?? '',
     lastUpdated: resource.meta?.lastUpdated ?? '',
+    edited: isNoteEdited(resource.sent, resource.meta?.lastUpdated),
     authorId: resource.sender?.reference?.split('/')[1] ?? '',
     authorName: resource.sender?.display ?? '',
     patientId: resource.subject?.reference?.split('/')[1] ?? '',
     encounterId: resource.encounter?.reference?.split('/')[1] ?? '',
+    deleted: resource.status === 'entered-in-error',
   };
 }
 

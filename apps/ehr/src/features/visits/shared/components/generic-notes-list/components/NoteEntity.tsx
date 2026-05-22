@@ -14,10 +14,29 @@ export const NoteEntity: React.FC<{
   onDelete: (entity: EditableNote) => Promise<void>;
   locales: NoteLocales;
   isReadOnly: boolean;
-}> = ({ entity, onEdit, onDelete, locales, isReadOnly }) => {
+  ownerOnly?: boolean;
+  showEditedMarker?: boolean;
+  softDeleteWithTombstone?: boolean;
+  currentPractitionerId?: string;
+}> = ({
+  entity,
+  onEdit,
+  onDelete,
+  locales,
+  isReadOnly,
+  ownerOnly,
+  showEditedMarker,
+  softDeleteWithTombstone,
+  currentPractitionerId,
+}) => {
   const theme = useTheme();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const isDeleted = !!entity.deleted;
+  const isOwn = !ownerOnly || (!!currentPractitionerId && entity.authorId === currentPractitionerId);
+  const showButtons = !isReadOnly && isOwn && !isDeleted;
+  const edited = !isDeleted && !!showEditedMarker && !!entity.edited;
 
   const handleDeleteClick = (): void => {
     setIsDeleteModalOpen(true);
@@ -34,13 +53,23 @@ export const NoteEntity: React.FC<{
     <>
       <BoxStyled dataTestId={dataTestIds.screeningPage.screeningNoteItem}>
         <Box sx={{ py: 1, pr: 4 }}>
-          <Typography variant="body1">{entity.text}</Typography>
-          <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
-            {entity.lastUpdated ? DateTime.fromISO(entity.lastUpdated).toFormat('MM/dd/yyyy HH:mm a') : ''} by{' '}
-            {entity.authorName || entity.authorId}
-          </Typography>
+          {isDeleted && softDeleteWithTombstone ? (
+            <Typography variant="caption" color="textSecondary">
+              {entity.lastUpdated ? DateTime.fromISO(entity.lastUpdated).toFormat('MM/dd/yyyy HH:mm a') : ''}{' '}
+              {entity.authorName || entity.authorId} deleted the note
+            </Typography>
+          ) : (
+            <>
+              <Typography variant="body1">{entity.text}</Typography>
+              <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
+                {entity.lastUpdated ? DateTime.fromISO(entity.lastUpdated).toFormat('MM/dd/yyyy HH:mm a') : ''} by{' '}
+                {entity.authorName || entity.authorId}
+                {edited ? ' (edited)' : ''}
+              </Typography>
+            </>
+          )}
         </Box>
-        {!isReadOnly && (
+        {showButtons && (
           <Box sx={{ minWidth: '72px', py: 1 }}>
             <IconButton
               size="small"

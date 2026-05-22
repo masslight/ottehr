@@ -1,8 +1,11 @@
+import { Encounter } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   dispositionCheckboxOptions,
   followUpInOptions,
   getDefaultNote,
   mapDispositionTypeToLabel,
+  NOTE_TYPE,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
@@ -10,10 +13,13 @@ import {
 } from 'utils';
 import { drawBlockHeader, drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
-import { PdfSection, PlanData } from '../../types';
+import { AddendumEntry, PdfSection, PlanData } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';
 
-export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanData> = ({ allChartData }) => {
+export const composePlanData: DataComposer<{ allChartData: AllChartData; encounter?: Encounter }, PlanData> = ({
+  allChartData,
+  encounter,
+}) => {
   const { chartData, additionalChartData } = allChartData;
   const patientInstructions: string[] = [];
   chartData?.instructions?.forEach((item) => {
@@ -49,6 +55,28 @@ export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanD
   });
 
   const addendumNote = chartData?.addendumNote?.text;
+  // Notes are searched by patient (not encounter), so for a follow-up visit the response includes
+  // addendum notes from the parent encounter too. Filter them out when we know which encounter this PDF
+  // is for — only show addendum notes that belong to this encounter.
+  const currentEncounterId = encounter?.id;
+  const addendumNotes: AddendumEntry[] =
+    additionalChartData?.notes
+      ?.filter((note) => note.type === NOTE_TYPE.ADDENDUM)
+      ?.filter((note) => !currentEncounterId || note.encounterId === currentEncounterId)
+      ?.map((note) => {
+        const deleted = !!note.deleted;
+        return {
+          text: note.text,
+          authorName: note.authorName || note.authorId || 'Unknown',
+          // Always show meta.lastUpdated — same as the frontend NoteEntity. For a fresh note that's
+          // the create time, for an edited note it's the edit time, and for a soft-deleted note it's
+          // the deletion time. Keeping the two surfaces in sync avoids confusion when comparing the
+          // EHR view to the generated PDF.
+          timestamp: note.lastUpdated,
+          edited: !deleted && !!note.edited,
+          deleted,
+        };
+      }) ?? [];
   return {
     patientInstructions,
     disposition: {
@@ -65,6 +93,7 @@ export const composePlanData: DataComposer<{ allChartData: AllChartData }, PlanD
     subSpecialtyFollowup,
     workSchoolExcuse,
     addendumNote,
+    addendumNotes,
   };
 };
 
@@ -87,7 +116,7 @@ const hasSubSpecialtyFollowUp = (data: PlanData): boolean =>
 
 const hasWorkSchoolExcuse = (data: PlanData): boolean => Boolean(data.workSchoolExcuse && data.workSchoolExcuse.length);
 
-const hasAddendum = (data: PlanData): boolean => !!data.addendumNote;
+const hasAddendum = (data: PlanData): boolean => !!data.addendumNote || (data.addendumNotes?.length ?? 0) > 0;
 
 const hasAnyPlanBlock = (data?: PlanData): boolean =>
   !!data &&
@@ -96,6 +125,12 @@ const hasAnyPlanBlock = (data?: PlanData): boolean =>
     hasSubSpecialtyFollowUp(data) ||
     hasWorkSchoolExcuse(data) ||
     hasAddendum(data));
+
+const formatAddendumTimestamp = (timestamp?: string): string => {
+  if (!timestamp) return '';
+  const dt = DateTime.fromISO(timestamp);
+  return dt.isValid ? dt.toFormat('MM/dd/yyyy HH:mm a') : '';
+};
 
 export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSection<TData, PlanData> => {
   return createConfiguredSection(null, () => ({
@@ -168,7 +203,24 @@ export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSecti
 
       if (hasAddendum(data)) {
         drawBlockHeader(client, styles, 'Addendum', styles.textStyles.blockSubHeader);
-        drawRegularText(client, styles, data.addendumNote);
+        if (data.addendumNote) {
+          drawRegularText(client, styles, data.addendumNote);
+        }
+        data.addendumNotes?.forEach((entry) => {
+          const timestamp = formatAddendumTimestamp(entry.timestamp);
+          if (entry.deleted) {
+            const tombstone = [timestamp, ` ${entry.authorName}`, 'deleted the note'].filter(Boolean).join(' ');
+            drawRegularText(client, styles, tombstone);
+            return;
+          }
+          drawRegularText(client, styles, entry.text);
+          const attribution = [timestamp, `by ${entry.authorName}`, entry.edited ? '(edited)' : '']
+            .filter(Boolean)
+            .join(' ');
+          if (attribution) {
+            drawRegularText(client, styles, attribution);
+          }
+        });
       }
     },
   }));

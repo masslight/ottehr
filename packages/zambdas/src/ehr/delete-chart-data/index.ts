@@ -30,8 +30,15 @@ import {
   ObservationDTO,
   ProcedureDTO,
 } from 'utils';
-import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, wrapHandler, ZambdaInput } from '../../shared';
 import {
+  checkOrCreateM2MClientToken,
+  getMyPractitionerId,
+  parseCreatedResourcesBundle,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
+import {
+  authorizeAddendumNoteDeletion,
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
   deleteEncounterDiagnosis,
@@ -91,11 +98,18 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       vitalsObservations,
       procedures,
       accident,
+      userToken,
     } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
     const oystehr = createOystehrClient(m2mToken, secrets);
+
+    // Enforce delete-own-only for addendum notes before scheduling the deletion.
+    if (notes && notes.length > 0) {
+      const callerPractitionerId = await getMyPractitionerId(userToken, secrets);
+      await authorizeAddendumNoteDeletion(oystehr, notes, callerPractitionerId);
+    }
 
     // 0. get encounter
     console.log(`Getting encounter ${encounterId}`);
@@ -328,7 +342,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     console.log('Updated chart data as a transaction');
 
     const appointment = allResources.find((res) => res.resourceType === 'Appointment');
-    await runChartDataPostChangeTasks(oystehr, addendumNote, encounter, appointment?.id);
+    await runChartDataPostChangeTasks(oystehr, addendumNote, notes, encounter, appointment?.id);
 
     // perform deleting z3 pdf objects after deleting all fhir resources
     if (schoolWorkNotes) {

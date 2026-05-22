@@ -4,6 +4,7 @@ import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   CodeableConcept,
+  Communication,
   DocumentReference,
   Encounter,
   FhirResource,
@@ -19,12 +20,14 @@ import {
   DispositionFollowUpType,
   ExamObservationDTO,
   getPatchBinary,
+  getProviderNameWithProfession,
   isInPersonAppointment,
   PATIENT_VITALS_META_SYSTEM,
   SCHOOL_WORK_NOTE,
   Secrets,
 } from 'utils';
 import {
+  authorizeAndPrepareAddendumNotes,
   checkOrCreateM2MClientToken,
   createAccidentCondition,
   createDispositionServiceRequest,
@@ -479,9 +482,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   }
 
+  // Enforce edit-own-only on addendum notes and pin authorship server-side. The returned map
+  // carries the existing Communications so we can reuse their `sent` timestamp on edit.
+  let existingByAddendumId = new Map<string, Communication>();
+  if (notes && notes.length > 0) {
+    const practitionerDisplay = getProviderNameWithProfession(currentPractitioner);
+    existingByAddendumId = await authorizeAndPrepareAddendumNotes(
+      oystehr,
+      notes,
+      currentPractitioner.id!,
+      practitionerDisplay
+    );
+  }
+
   // convert notes to Communication (FHIR) resources
   notes?.forEach((element) => {
-    const note = makeNoteResource(encounterId, patient.id!, element);
+    const existing = element.resourceId ? existingByAddendumId.get(element.resourceId) : undefined;
+    const note = makeNoteResource(encounterId, patient.id!, element, existing);
     const request = saveOrUpdateResourceRequest(note);
     saveOrUpdateRequests.push(request);
   });
@@ -514,7 +531,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('Updated chart data as a transaction');
 
-  await runChartDataPostChangeTasks(oystehr, addendumNote, encounter, appointment?.id);
+  await runChartDataPostChangeTasks(oystehr, addendumNote, notes, encounter, appointment?.id);
 
   console.timeLog('time', 'before sorting resources');
   const output = validateBundleAndExtractSavedChartData(

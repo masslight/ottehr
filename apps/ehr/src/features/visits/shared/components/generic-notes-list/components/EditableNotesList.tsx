@@ -5,6 +5,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { Loader } from '../../Loader';
 import { useNoteHandlers } from '../hooks/useNoteHandlers';
@@ -22,6 +23,10 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
   appointmentId,
   patientId,
   separateEncounterNotes,
+  alwaysEditable,
+  ownerOnly,
+  showEditedMarker,
+  softDeleteWithTombstone,
   addNoteButtonDataTestId,
   noteLoadingIndicatorDataTestId,
 }) => {
@@ -31,10 +36,15 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
     patientId,
     apiConfig: apiConfig,
     locales: locales,
+    softDeleteWithTombstone,
   });
 
   const theme = useTheme();
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const user = useEvolveUser();
+  const currentPractitionerId = user?.profileResource?.id;
+  const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
+  // Addendum notes stay editable after the visit is locked; other note types respect the lock.
+  const isReadOnly = alwaysEditable ? false : isAppointmentReadOnly;
   const [isSaving, setIsSaving] = useState(false);
   const [isMoreEntitiesShown, setIsMoreEntitiesShown] = useState(false);
   const [savingEntityText, setSavingEntityText] = useState('');
@@ -114,6 +124,10 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
           onDelete={handleDelete}
           locales={locales}
           isReadOnly={isReadOnly}
+          ownerOnly={ownerOnly}
+          showEditedMarker={showEditedMarker}
+          softDeleteWithTombstone={softDeleteWithTombstone}
+          currentPractitionerId={currentPractitionerId}
         />
       ))}
 
