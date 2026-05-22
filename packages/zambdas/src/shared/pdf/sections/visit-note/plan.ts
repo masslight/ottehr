@@ -129,7 +129,7 @@ const hasAnyPlanBlock = (data?: PlanData): boolean =>
 const formatAddendumTimestamp = (timestamp?: string): string => {
   if (!timestamp) return '';
   const dt = DateTime.fromISO(timestamp);
-  return dt.isValid ? dt.toFormat('MM/dd/yyyy HH:mm a') : '';
+  return dt.isValid ? dt.toFormat('MM/dd/yyyy hh:mm a') : '';
 };
 
 export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSection<TData, PlanData> => {
