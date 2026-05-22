@@ -2,7 +2,6 @@ import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
-  Appointment,
   CodeableConcept,
   Communication,
   DocumentReference,
@@ -21,7 +20,6 @@ import {
   ExamObservationDTO,
   getPatchBinary,
   getProviderNameWithProfession,
-  isInPersonAppointment,
   PATIENT_VITALS_META_SYSTEM,
   SCHOOL_WORK_NOTE,
   Secrets,
@@ -268,12 +266,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   });
 
-  const isInPerson = isInPersonAppointment(appointment as Appointment);
-
   // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
   examObservations?.forEach((element) => {
-    const allExamFields = getAllExamFieldsMetadata(isInPerson);
-    const examObservationComments = createExamObservationComments(isInPerson);
+    const allExamFields = getAllExamFieldsMetadata();
+    const examObservationComments = createExamObservationComments();
 
     const observation = allExamFields.find((observation) => observation.field === element.field);
     const comment = examObservationComments.find((comment) => comment.field === element.field);
