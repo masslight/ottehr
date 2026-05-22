@@ -1,13 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { HealthcareService } from 'fhir/r4b';
-import { INTEGRATION_TEST_TAG_SYSTEM, M2MClientMockType, SERVICE_CATEGORIES_AVAILABLE, SLUG_SYSTEM } from 'utils';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
+  INTEGRATION_TEST_TAG_SYSTEM,
+  M2MClientMockType,
+  SERVICE_CATEGORIES_AVAILABLE,
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
-} from '../../src/ehr/admin-service-categories/helpers';
+  serviceCategoryCharacteristics,
+  ServiceMode,
+  ServiceVisitType,
+  SLUG_SYSTEM,
+} from 'utils';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 interface ServiceCategoryResponseEntry {
@@ -38,16 +43,11 @@ describe('get-service-categories integration', () => {
       tag: [SERVICE_CATEGORY_TAG, { system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }],
     },
     type: [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code, display: name }] }],
-    extension: [
-      {
-        url: SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
-        valueString: JSON.stringify({
-          durationMinutes: 30,
-          serviceModes: ['in-person'],
-          visitTypes: ['prebook'],
-        }),
-      },
-    ],
+    characteristic: serviceCategoryCharacteristics({
+      modes: [ServiceMode['in-person']],
+      visitTypes: [ServiceVisitType.prebook],
+      durationMinutes: 30,
+    }),
   });
 
   const buildGroupResource = (slug: string, offeredCodes: string[]): HealthcareService => ({

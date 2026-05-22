@@ -1,7 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
-import { SLUG_SYSTEM } from 'utils';
-import { SERVICE_CATEGORY_TAG } from '../../../ehr/admin-service-categories/helpers';
+import { SERVICE_CATEGORY_TAG, SLUG_SYSTEM } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { buildCatalog, filterByOfferedCodes, getGroupOfferedCodes } from './helpers';
 

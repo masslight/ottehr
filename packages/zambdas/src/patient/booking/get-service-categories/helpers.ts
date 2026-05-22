@@ -1,10 +1,6 @@
 import { HealthcareService } from 'fhir/r4b';
-import { SERVICE_CATEGORIES_AVAILABLE } from 'utils';
-import {
-  SERVICE_CATEGORY_SYSTEM,
-  ServiceCategoryRecord,
-  toRecord,
-} from '../../../ehr/admin-service-categories/helpers';
+import { SERVICE_CATEGORIES_AVAILABLE, SERVICE_CATEGORY_SYSTEM, ServiceMode, ServiceVisitType } from 'utils';
+import { ServiceCategoryRecord, toRecord } from '../../../ehr/admin-service-categories/helpers';
 
 /**
  * Merge the compiled-in BOOKING_CONFIG catalog with the FHIR-registry records.
@@ -26,15 +22,21 @@ export function buildCatalog(fhirResources: HealthcareService[]): ServiceCategor
     active: true,
     config: {
       durationMinutes: 15,
-      serviceModes: sc.serviceModes as Array<'in-person' | 'virtual'>,
-      visitTypes: sc.visitTypes as Array<'prebook' | 'walk-in'>,
+      serviceModes: sc.serviceModes as ServiceMode[],
+      visitTypes: sc.visitTypes as ServiceVisitType[],
       reasonsForVisit: sc.reasonsForVisit?.default,
     },
     source: 'booking-config',
   }));
   const bookingCodes = new Set(bookingConfigRecords.map((r) => r.code).filter(Boolean));
   // toRecord (admin-service-categories/helpers) tags each record with source: 'fhir'.
-  const fhirOnlyRecords = fhirResources.map(toRecord).filter((r) => r.code && !bookingCodes.has(r.code));
+  // Sort FHIR-only entries alphabetically by name so the picker order is stable
+  // regardless of how the FHIR server happens to return them. BOOKING_CONFIG
+  // entries keep their compiled-in order (the first entries the patient sees).
+  const fhirOnlyRecords = fhirResources
+    .map(toRecord)
+    .filter((r) => r.code && !bookingCodes.has(r.code))
+    .sort((a, b) => a.name.localeCompare(b.name));
   return [...bookingConfigRecords, ...fhirOnlyRecords];
 }
 

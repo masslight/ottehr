@@ -1,11 +1,13 @@
 import { HealthcareService } from 'fhir/r4b';
-import { SERVICE_CATEGORIES_AVAILABLE } from 'utils';
-import { describe, expect, it } from 'vitest';
 import {
-  SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
+  SERVICE_CATEGORIES_AVAILABLE,
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
-} from '../../src/ehr/admin-service-categories/helpers';
+  serviceCategoryCharacteristics,
+  ServiceMode,
+  ServiceVisitType,
+} from 'utils';
+import { describe, expect, it } from 'vitest';
 import {
   buildCatalog,
   filterByOfferedCodes,
@@ -23,16 +25,11 @@ const makeFhirCategory = (code: string, name: string, durationMinutes = 30): Hea
   name,
   meta: { tag: [SERVICE_CATEGORY_TAG] },
   type: [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code, display: name }] }],
-  extension: [
-    {
-      url: SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
-      valueString: JSON.stringify({
-        durationMinutes,
-        serviceModes: ['in-person'],
-        visitTypes: ['prebook'],
-      }),
-    },
-  ],
+  characteristic: serviceCategoryCharacteristics({
+    modes: [ServiceMode['in-person']],
+    visitTypes: [ServiceVisitType.prebook],
+    durationMinutes,
+  }),
 });
 
 const makeGroup = (codes: string[] = [], opts: { codingSystem?: string } = {}): HealthcareService => ({
@@ -118,6 +115,18 @@ describe('buildCatalog', () => {
     for (let i = 0; i < firstFhirIndex; i++) {
       expect(result[i].source).toBe('booking-config');
     }
+  });
+
+  it('sorts FHIR-only entries alphabetically by name regardless of input order', () => {
+    const fhir = [
+      makeFhirCategory('zenith', 'Zenith Service'),
+      makeFhirCategory('botox', 'Botox'),
+      makeFhirCategory('massage', 'Massage'),
+      makeFhirCategory('acne', 'Acne'),
+    ];
+    const result = buildCatalog(fhir);
+    const fhirNames = result.filter((r) => r.source === 'fhir').map((r) => r.name);
+    expect(fhirNames).toEqual(['Acne', 'Botox', 'Massage', 'Zenith Service']);
   });
 });
 

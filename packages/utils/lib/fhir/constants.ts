@@ -22,6 +22,8 @@ import {
   RECEIPT_CODE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
+  ServiceMode,
+  ServiceVisitType,
   STATEMENT_CODE,
   VISIT_NOTE_SUMMARY_CODE,
 } from '../types';
@@ -386,6 +388,116 @@ export const ScheduleStrategyCoding = {
     code: 'pools-all',
     display: 'Pools All',
     fullParam: `${SCHEDULE_STRATEGY_SYSTEM}|pools-all`,
+  },
+};
+
+// ── HealthcareService characterization (service categories + groups) ─────────
+//
+// Constants below characterize HealthcareService resources used in the
+// group-scheduling rework: service-category catalog entries (tagged with
+// SERVICE_CATEGORY_TAG.meta) and group resources. Each `*_SYSTEM` is the
+// code-system URL for one HealthcareService.characteristic dimension; the
+// adjacent `*Coding` object provides typed shapes with `fullParam` ready for
+// FHIR _filter queries.
+//
+// Note on parallel concepts: a separate ServiceModeCoding above uses the HL7
+// standard system for location/practitioner mode tracking. ServiceCategory-
+// ModeCoding here uses an ottehr-namespaced system derived from the product-
+// level ServiceMode enum. See design-debt-log.md D-2 for the consolidation
+// story.
+
+/** meta.tag identifying a HealthcareService as a service-category catalog entry. */
+export const SERVICE_CATEGORY_TAG = {
+  system: ottehrCodeSystemUrl('healthcare-service-type'),
+  code: 'booking-service-category',
+};
+
+/** Code system for service-category codes (e.g. 'urgent-care', 'botox'). Used in HealthcareService.type[] codings. */
+export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
+
+/** Extension URL for the JSON-blob runtime config on service-category resources. */
+export const SERVICE_CATEGORY_CONFIG_EXTENSION_URL = ottehrExtensionUrl('service-category-config');
+
+// ── Service-category characteristic systems (one per dimension) ─────────────
+
+/** Service-mode characteristic for a service-category HealthcareService. Codes match the ServiceMode enum. */
+export const SERVICE_CATEGORY_MODE_SYSTEM = ottehrCodeSystemUrl('service-category-mode');
+export const ServiceCategoryModeCoding = {
+  inPerson: {
+    system: SERVICE_CATEGORY_MODE_SYSTEM,
+    code: ServiceMode['in-person'],
+    display: 'In Person',
+    fullParam: `${SERVICE_CATEGORY_MODE_SYSTEM}|${ServiceMode['in-person']}`,
+  },
+  virtual: {
+    system: SERVICE_CATEGORY_MODE_SYSTEM,
+    code: ServiceMode.virtual,
+    display: 'Virtual',
+    fullParam: `${SERVICE_CATEGORY_MODE_SYSTEM}|${ServiceMode.virtual}`,
+  },
+};
+
+/** Visit-type-capability characteristic for a service-category HealthcareService. Codes match the ServiceVisitType enum. */
+export const SERVICE_CATEGORY_VISIT_TYPE_SYSTEM = ottehrCodeSystemUrl('service-category-visit-type');
+export const ServiceCategoryVisitTypeCoding = {
+  prebook: {
+    system: SERVICE_CATEGORY_VISIT_TYPE_SYSTEM,
+    code: ServiceVisitType.prebook,
+    display: 'Prebook',
+    fullParam: `${SERVICE_CATEGORY_VISIT_TYPE_SYSTEM}|${ServiceVisitType.prebook}`,
+  },
+  walkIn: {
+    system: SERVICE_CATEGORY_VISIT_TYPE_SYSTEM,
+    code: ServiceVisitType['walk-in'],
+    display: 'Walk-In',
+    fullParam: `${SERVICE_CATEGORY_VISIT_TYPE_SYSTEM}|${ServiceVisitType['walk-in']}`,
+  },
+};
+
+/**
+ * Duration-minutes characteristic system for a service-category HealthcareService.
+ * Values are runtime-configurable (admins set the minutes per service), so this
+ * is a system constant only — call sites build the coding inline with
+ * `{ system: SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM, code: String(minutes), display: '<n> min' }`.
+ */
+export const SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM = ottehrCodeSystemUrl('service-category-duration-minutes');
+
+/** Cadence-minutes characteristic system for a service-category HealthcareService. Same call-site shape as duration-minutes. */
+export const SERVICE_CATEGORY_CADENCE_MINUTES_SYSTEM = ottehrCodeSystemUrl('service-category-cadence-minutes');
+
+// ── Group characteristic systems ────────────────────────────────────────────
+
+/** Assignment-mode characteristic for a group HealthcareService: 'anonymous' (default) vs 'provider'. */
+export const GROUP_ASSIGNMENT_MODE_SYSTEM = ottehrCodeSystemUrl('group-assignment-mode');
+export const GroupAssignmentModeCoding = {
+  anonymous: {
+    system: GROUP_ASSIGNMENT_MODE_SYSTEM,
+    code: 'anonymous',
+    display: 'Anonymous',
+    fullParam: `${GROUP_ASSIGNMENT_MODE_SYSTEM}|anonymous`,
+  },
+  provider: {
+    system: GROUP_ASSIGNMENT_MODE_SYSTEM,
+    code: 'provider',
+    display: 'Provider',
+    fullParam: `${GROUP_ASSIGNMENT_MODE_SYSTEM}|provider`,
+  },
+};
+
+/** Uniform-qualifications characteristic for a group HealthcareService: 'true' | 'false'. */
+export const GROUP_UNIFORM_QUALIFICATIONS_SYSTEM = ottehrCodeSystemUrl('group-uniform-qualifications');
+export const GroupUniformQualificationsCoding = {
+  true: {
+    system: GROUP_UNIFORM_QUALIFICATIONS_SYSTEM,
+    code: 'true',
+    display: 'Uniform qualifications',
+    fullParam: `${GROUP_UNIFORM_QUALIFICATIONS_SYSTEM}|true`,
+  },
+  false: {
+    system: GROUP_UNIFORM_QUALIFICATIONS_SYSTEM,
+    code: 'false',
+    display: 'Per-member qualifications',
+    fullParam: `${GROUP_UNIFORM_QUALIFICATIONS_SYSTEM}|false`,
   },
 };
 
@@ -777,10 +889,6 @@ export const DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT = 'Summary of visit from chat'
 
 export const EMPLOYER_ORG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('organization-type');
 
-export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
-
-// HealthcareService.characteristic coding that controls the cadence at which
-// bookable slot start times are offered for group schedules (e.g. 15/30/60).
 export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorney-firm`;
 
 export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/global-template-list`;

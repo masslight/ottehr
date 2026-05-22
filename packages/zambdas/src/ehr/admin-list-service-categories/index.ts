@@ -1,7 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
+import { SERVICE_CATEGORY_TAG } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
-import { getClient, SERVICE_CATEGORY_TAG, toRecord } from '../admin-service-categories/helpers';
+import { getClient, toRecord } from '../admin-service-categories/helpers';
 
 export const index = wrapHandler(
   'admin-list-service-categories',

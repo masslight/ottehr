@@ -13,6 +13,8 @@ import {
   getScheduleExtension,
   GetScheduleResponse,
   getSecret,
+  getServiceCategoryCadenceMinutes,
+  getServiceCategoryDurationMinutes,
   getTimezone,
   getWaitingMinutesAtSchedule,
   isLocationOpen,
@@ -81,25 +83,10 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     })
   ).unbundle();
 
-  const parseCategoryConfig = (hs: HealthcareService): { durationMinutes?: number; cadenceMinutes?: number } => {
-    try {
-      const raw = hs.extension?.find(
-        (e) => e.url === 'https://fhir.ottehr.com/StructureDefinitions/service-category-config'
-      )?.valueString;
-      if (!raw) return {};
-      const parsed = JSON.parse(raw) as { durationMinutes?: number; cadenceMinutes?: number };
-      const out: { durationMinutes?: number; cadenceMinutes?: number } = {};
-      if (typeof parsed.durationMinutes === 'number' && parsed.durationMinutes > 0) {
-        out.durationMinutes = parsed.durationMinutes;
-      }
-      if (typeof parsed.cadenceMinutes === 'number' && parsed.cadenceMinutes > 0) {
-        out.cadenceMinutes = parsed.cadenceMinutes;
-      }
-      return out;
-    } catch {
-      return {};
-    }
-  };
+  const parseCategoryConfig = (hs: HealthcareService): { durationMinutes?: number; cadenceMinutes?: number } => ({
+    durationMinutes: getServiceCategoryDurationMinutes(hs),
+    cadenceMinutes: getServiceCategoryCadenceMinutes(hs),
+  });
 
   let resolvedCoding: Coding | undefined;
   let slotLengthMinutes: number | undefined;

@@ -697,10 +697,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   let encounterParticipants: Encounter['participant'] = undefined;
   try {
     if (scheduleOwner.resourceType === 'HealthcareService' && memberScheduleForAssignment) {
-      const groupMode = (scheduleOwner.characteristic || [])
-        .flatMap((c) => c.coding || [])
-        .find((c) => c.system === 'https://fhir.ottehr.com/CodeSystem/group-assignment-mode')?.code;
-      if (groupMode === 'provider') {
+      if (getGroupAssignmentMode(scheduleOwner) === 'provider') {
         const memberRef = memberScheduleForAssignment.actor?.[0]?.reference;
         if (memberRef && memberRef.startsWith('Practitioner/')) {
           encounterParticipants = [

@@ -23,22 +23,25 @@ import { BatchInputRequest } from '@oystehr/sdk';
 import { useQuery } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, HealthcareService, Location, Practitioner, PractitionerRole, Resource } from 'fhir/r4b';
-
-// HealthcareService.characteristic element is structurally an array of
-// CodeableConcept. Defining locally to avoid a missing named export.
-type HealthcareServiceCharacteristic = CodeableConcept;
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { listServiceCategories } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
-import { getPatchBinary, getSlugForBookableResource, SCHEDULE_DISPLAY_NAME_EXTENSION_URL, SLUG_SYSTEM } from 'utils';
+import {
+  getGroupAssignmentMode,
+  getGroupUniformQualifications,
+  getPatchBinary,
+  getSlugForBookableResource,
+  GROUP_OWNED_CHARACTERISTIC_SYSTEMS,
+  groupCharacteristics,
+  mergeOwnedCharacteristics,
+  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
+  SERVICE_CATEGORY_SYSTEM,
+  SLUG_SYSTEM,
+} from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-
-const SERVICE_CATEGORY_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/service-category';
-const GROUP_ASSIGNMENT_MODE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/group-assignment-mode';
-const GROUP_UNIFORM_QUALIFICATIONS_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/group-uniform-qualifications';
 
 type AssignmentMode = 'anonymous' | 'provider';
 
@@ -321,15 +324,8 @@ function GroupPageContent(): ReactElement {
       .filter((id) => !!id);
     setSelectedRoleIds(initialSelectedRoleIds);
 
-    const modeCoding = (groupTemp.characteristic || [])
-      .flatMap((c) => c.coding || [])
-      .find((c) => c.system === GROUP_ASSIGNMENT_MODE_SYSTEM);
-    setAssignmentMode((modeCoding?.code as AssignmentMode) || 'anonymous');
-
-    const uniformCoding = (groupTemp.characteristic || [])
-      .flatMap((c) => c.coding || [])
-      .find((c) => c.system === GROUP_UNIFORM_QUALIFICATIONS_SYSTEM);
-    setUniformQualifications(uniformCoding?.code === 'true');
+    setAssignmentMode(getGroupAssignmentMode(groupTemp) ?? 'anonymous');
+    setUniformQualifications(getGroupUniformQualifications(groupTemp) ?? false);
   }, [oystehr, groupID]);
 
   // Resolve the group's authoritative supported-categories list. group.type[]
@@ -434,20 +430,11 @@ function GroupPageContent(): ReactElement {
       // Replace this page's own characteristic codings on save; preserve any
       // characteristic codings owned by other systems (e.g., service-mode set
       // at group creation).
-      const OWNED_SYSTEMS = new Set([GROUP_ASSIGNMENT_MODE_SYSTEM, GROUP_UNIFORM_QUALIFICATIONS_SYSTEM]);
-      const preservedCharacteristics: HealthcareServiceCharacteristic[] = (group?.characteristic || [])
-        .map((c) => ({
-          ...c,
-          coding: (c.coding || []).filter((code) => !OWNED_SYSTEMS.has(code.system || '')),
-        }))
-        .filter((c) => (c.coding || []).length > 0);
-      const newCharacteristics: HealthcareServiceCharacteristic[] = [
-        ...preservedCharacteristics,
-        { coding: [{ system: GROUP_ASSIGNMENT_MODE_SYSTEM, code: assignmentMode }] },
-        {
-          coding: [{ system: GROUP_UNIFORM_QUALIFICATIONS_SYSTEM, code: uniformQualifications ? 'true' : 'false' }],
-        },
-      ];
+      const newCharacteristics = mergeOwnedCharacteristics(
+        group?.characteristic,
+        GROUP_OWNED_CHARACTERISTIC_SYSTEMS,
+        groupCharacteristics({ assignmentMode, uniformQualifications })
+      );
       patchOperations.push({
         op: group?.characteristic ? 'replace' : 'add',
         path: '/characteristic',
