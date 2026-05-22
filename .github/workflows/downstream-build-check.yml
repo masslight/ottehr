@@ -20,7 +20,7 @@ jobs:
     name: Downstream build check
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: ${{ !contains(github.event.pull_request.body, '/skip-build-and-lint') && vars.DOWNSTREAM_BUILD_REPO != '' }}
+    if: ${{ !contains(github.event.pull_request.body, '/skip-build-and-lint') && vars.DOWNSTREAM_BUILD_REPO != '' && vars.DOWNSTREAM_BUILD_WORKFLOW != '' }}
     permissions:
       contents: read
     steps:
@@ -38,11 +38,16 @@ jobs:
           CORE_SHA: ${{ github.event.pull_request.head.sha }}
           DOWNSTREAM_REPO: ${{ github.repository_owner }}/${{ vars.DOWNSTREAM_BUILD_REPO }}
           DOWNSTREAM_WORKFLOW: ${{ vars.DOWNSTREAM_BUILD_WORKFLOW }}
+          # `--ref` selects which version of the downstream workflow file to
+          # run, not which code is being built (that's `core_sha`). Default
+          # to develop; admin can override via the repo variable when the
+          # downstream uses a different default branch.
+          DOWNSTREAM_REF: ${{ vars.DOWNSTREAM_BUILD_REF || 'develop' }}
         run: |
           set -euo pipefail
           gh workflow run "$DOWNSTREAM_WORKFLOW" \
             -R "$DOWNSTREAM_REPO" \
-            --ref develop \
+            --ref "$DOWNSTREAM_REF" \
             -f core_sha="$CORE_SHA"
           echo "Dispatched downstream build for $CORE_SHA"
 
@@ -55,9 +60,9 @@ jobs:
           DOWNSTREAM_WORKFLOW: ${{ vars.DOWNSTREAM_BUILD_WORKFLOW }}
         run: |
           set -euo pipefail
-          # The downstream workflow embeds the `branch` input (our PR head SHA)
-          # in its display title, so we poll for a recent dispatched run with
-          # that SHA in the title.
+          # The downstream workflow embeds the `core_sha` input in its
+          # run-name, so we poll for a recent dispatched run whose display
+          # title contains the SHA.
           for i in $(seq 1 30); do
             RUN_ID=$(gh run list \
               -R "$DOWNSTREAM_REPO" \
