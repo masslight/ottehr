@@ -1,5 +1,5 @@
 /**
- * Import script to upload legacy EHR data into the Z3 'legacy-data' bucket.
+ * Import script to upload v1 legacy EHR data into the Z3 'legacy-data' bucket.
  *
  * Files are stored under keys structured as:
  *   {lastName}_{firstName}_{dob}/{patientId}/{relative/subpath}
@@ -8,10 +8,10 @@
  *
  * Usage:
  *   npx env-cmd -f config/.env/{ENV}.json \
- *   npx tsx scripts/import-legacy-data.ts [--dry-run] [--data-dir <path>]
+ *   npx tsx scripts/legacy-data/import-legacy-data.ts [--dry-run] [--data-dir <path>]
  *
  * Example:
- *   npx env-cmd -f config/.env/local.json tsx scripts/import-legacy-data.ts --dry-run
+ *   npx env-cmd -f config/.env/local.json tsx scripts/legacy-data/import-legacy-data.ts --dry-run
  *
  * The env file must contain: AUTH0_CLIENT, AUTH0_SECRET, AUTH0_ENDPOINT, AUTH0_AUDIENCE,
  * PROJECT_ID, PROJECT_API. The zambdas .env files already include all of these.
@@ -26,9 +26,10 @@ import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { parseFolderName } from './legacy-data-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = dirname(dirname(__filename));
 
 const LEGACY_DATA_BUCKET_SUFFIX = 'legacy-data';
 
@@ -94,28 +95,6 @@ interface FileToUpload {
   absolutePath: string;
   objectPath: string; // The Z3 key
   fileName: string;
-}
-
-/**
- * Parse a patient folder name of the form: {PatientID}_{LastName}_{FirstName}_{DOB}
- * Returns the Z3 prefix: {lastName}_{firstName}_{dob}/{patientId}
- */
-function parseFolderName(folderName: string): { z3Prefix: string; patientId: string } | null {
-  // Expected format: 1234567_Smith_Jane_05-11-2022
-  const parts = folderName.split('_');
-  if (parts.length < 4) {
-    console.warn(`  Skipping unrecognised folder format: ${folderName}`);
-    return null;
-  }
-
-  const patientId = parts[0];
-  const lastName = parts[1].toLowerCase();
-  const firstName = parts[2].toLowerCase();
-  // DOB is everything after the first 3 underscore-separated parts
-  const dob = parts.slice(3).join('-');
-
-  const z3Prefix = `${lastName}_${firstName}_${dob}/${patientId}`;
-  return { z3Prefix, patientId };
 }
 
 /**

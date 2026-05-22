@@ -216,6 +216,23 @@ export type GetPatientInstructionQuickPicksResponse = QuickPickListResponse<Pati
 export type RemovePatientInstructionQuickPickInput = QuickPickRemoveInput;
 export type RemovePatientInstructionQuickPickResponse = QuickPickRemoveResponse;
 
+// ── Insurance Quick Picks ──
+
+export interface InsuranceQuickPickData {
+  id?: string;
+  name: string;
+  payerId: string;
+  organizationReference: string;
+}
+
+export type CreateInsuranceQuickPickInput = QuickPickCreateInput<InsuranceQuickPickData>;
+export type CreateInsuranceQuickPickResponse = QuickPickCreateResponse<InsuranceQuickPickData>;
+export type UpdateInsuranceQuickPickInput = QuickPickUpdateInput<InsuranceQuickPickData>;
+export type UpdateInsuranceQuickPickResponse = QuickPickUpdateResponse<InsuranceQuickPickData>;
+export type GetInsuranceQuickPicksResponse = QuickPickListResponse<InsuranceQuickPickData>;
+export type RemoveInsuranceQuickPickInput = QuickPickRemoveInput;
+export type RemoveInsuranceQuickPickResponse = QuickPickRemoveResponse;
+
 // ── Quick Text Quick Picks ──
 
 export interface QuickTextQuickPickData {

@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ExamType, getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils';
 import { useListTemplates } from '../features/visits/shared/components/templates/useListTemplates';
 import { useGetAppointmentAccessibility } from '../features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../features/visits/shared/stores/appointment/appointment.store';
@@ -67,7 +67,7 @@ export function useGlobalQuickPicks(): void {
     return location.pathname.slice(inPersonBasePath.length + 1);
   }, [inPersonBasePath, location.pathname]);
 
-  const { templates } = useListTemplates(ExamType.IN_PERSON, { enabled: isChartingAvailable });
+  const { templates } = useListTemplates({ enabled: isChartingAvailable });
 
   const navigateAndDefer = useCallback(
     (targetPath: string, pendingCategory: string, itemId: string, payload: unknown) => {

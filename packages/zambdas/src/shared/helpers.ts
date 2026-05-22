@@ -29,15 +29,17 @@ import {
 } from 'utils';
 import { ZambdaInput } from './types';
 
-export function createOystehrClient(token: string, secrets: Secrets | null): Oystehr {
-  const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
-  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
-  const CLIENT_CONFIG: OystehrConfig = {
+export function createOystehrClient(
+  token: string,
+  secrets: Secrets | null,
+  overrides?: Partial<OystehrConfig>
+): Oystehr {
+  return new Oystehr({
     accessToken: token,
-    fhirApiUrl: FHIR_API,
-    projectApiUrl: PROJECT_API,
-  };
-  return new Oystehr(CLIENT_CONFIG);
+    fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
+    projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+    ...overrides,
+  });
 }
 
 export interface SMSModel {
@@ -149,7 +151,9 @@ export const fillMeta = (code: string, system: string): Meta => ({
 
 export const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 
-export const rcmMeta = (type: 'fee-schedule' | 'charge-master' | 'invoice-config'): Meta => ({
+export const rcmMeta = (
+  type: 'fee-schedule' | 'charge-master' | 'invoice-config' | 'scheduled-outreach-config'
+): Meta => ({
   tag: [
     { system: RCM_TAG_SYSTEM, code: 'rcm' },
     { system: RCM_TAG_SYSTEM, code: type },
