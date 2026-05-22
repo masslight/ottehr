@@ -38,14 +38,12 @@ jobs:
           CORE_SHA: ${{ github.event.pull_request.head.sha }}
           DOWNSTREAM_REPO: ${{ github.repository_owner }}/${{ vars.DOWNSTREAM_BUILD_REPO }}
           DOWNSTREAM_WORKFLOW: ${{ vars.DOWNSTREAM_BUILD_WORKFLOW }}
-          DOWNSTREAM_PROJECTS: ${{ vars.DOWNSTREAM_BUILD_PROJECTS }}
         run: |
           set -euo pipefail
           gh workflow run "$DOWNSTREAM_WORKFLOW" \
             -R "$DOWNSTREAM_REPO" \
             --ref develop \
-            -f projects="$DOWNSTREAM_PROJECTS" \
-            -f branch="$CORE_SHA"
+            -f core_sha="$CORE_SHA"
           echo "Dispatched downstream build for $CORE_SHA"
 
       - name: Find dispatched run
