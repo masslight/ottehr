@@ -80,7 +80,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       if (shouldSendClaim(secrets, encounter)) {
         if (shouldUseCandid(secrets)) {
-          let candidApiClient;
+          let candidApiClient: Awaited<ReturnType<typeof getOrCreateCandidApiClient>> | undefined;
           try {
             candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
           } catch (error) {
