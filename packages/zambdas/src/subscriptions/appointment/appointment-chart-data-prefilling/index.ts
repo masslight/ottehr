@@ -73,7 +73,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           value: 'Encounter:appointment',
         },
         {
-          name: '_revinclude',
+          name: '_revinclude:iterate',
           value: 'Account:patient',
         },
       ],
@@ -97,6 +97,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const accountResources = resourceBundle?.filter(
     (resource) => resource.resourceType === 'Account' && resource.status === 'active'
   ) as Account[];
+
+  console.log('accounts found: ', accountResources.map((res) => `Account/${res.id}`).join(', '));
 
   const { existingAccount, workersCompAccount } = organizeAccounts(accountResources);
 
