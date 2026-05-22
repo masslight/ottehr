@@ -209,7 +209,7 @@ export const createPlanSection = <TData extends { plan?: PlanData }>(): PdfSecti
         data.addendumNotes?.forEach((entry) => {
           const timestamp = formatAddendumTimestamp(entry.timestamp);
           if (entry.deleted) {
-            const tombstone = [timestamp, ` ${entry.authorName}`, 'deleted the note'].filter(Boolean).join(' ');
+            const tombstone = [timestamp, entry.authorName, 'deleted the note'].filter(Boolean).join(' ');
             drawRegularText(client, styles, tombstone);
             return;
           }
