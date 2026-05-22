@@ -11,6 +11,7 @@ import {
   M2MClientMockType,
   makeSyntheticFolderId,
   parseCustomFoldersCatalog,
+  parseCustomFoldersCatalogIncludingDeleted,
   RoleType,
   SYNTHETIC_FOLDER_ID_PREFIX,
 } from 'utils';
@@ -64,8 +65,12 @@ describe('custom folders zambdas integration tests', () => {
     }
   }, 60_000);
 
-  afterAll(async () => {
-    // Clean up the catalog entries we created so future runs see a clean state.
+  // Hard-remove our tracked catalog entries. Soft-deleted entries still occupy a slot
+  // (entry.flag tombstone), so we strip them regardless of state. Runs after every test
+  // so the catalog doesn't grow unbounded during the suite — once it gets large enough
+  // the trailing fhir.update silently fails and the entries leak to the env.
+  const pruneTrackedCatalogEntries = async (): Promise<void> => {
+    if (!createdInternalNames.size) return;
     try {
       const results = await oystehrAdmin.fhir.search<List>({
         resourceType: 'List',
@@ -78,9 +83,19 @@ describe('custom folders zambdas integration tests', () => {
         );
         await oystehrAdmin.fhir.update<List>({ ...catalog, entry: remainingEntries });
       }
+      createdInternalNames.clear();
     } catch (err) {
       console.warn('failed to clean catalog entries created by test', err);
     }
+  };
+
+  afterEach(async () => {
+    await pruneTrackedCatalogEntries();
+  });
+
+  afterAll(async () => {
+    // Safety net for entries that escaped afterEach (e.g. the prune itself errored).
+    await pruneTrackedCatalogEntries();
     await cleanup();
   });
 
@@ -254,12 +269,11 @@ describe('custom folders zambdas integration tests', () => {
       // Manually create a per-patient List for this folder so we can verify it's not touched.
       const patient = await createTestPatient();
       const patientListSpec = addProcessIdMetaTagToResource(
-        createCustomPatientDocumentList(`Patient/${patient.id}`, created),
+        createCustomPatientDocumentList(`Patient/${patient.id}`, created.internalName),
         processId
       ) as List;
       const patientList = await oystehrAdmin.fhir.create<List>(patientListSpec);
-      const originalCoding = patientList.code?.coding?.find((c) => c.code === 'patient-docs-folder');
-      expect(originalCoding?.display).toBe(created.displayName);
+      const originalVersionId = patientList.meta?.versionId;
 
       const newName = `${created.displayName} Renamed`;
       const { output, error } = await executeRename(created.internalName, newName);
@@ -272,10 +286,9 @@ describe('custom folders zambdas integration tests', () => {
       const updated = defs.find((d) => d.internalName === created.internalName);
       expect(updated?.displayName).toBe(newName);
 
-      // Per-patient List is untouched.
+      // Per-patient List is untouched (same versionId — no write occurred).
       const refetched = (await oystehrAdmin.fhir.get({ resourceType: 'List', id: patientList.id! })) as List;
-      const refetchedCoding = refetched.code?.coding?.find((c) => c.code === 'patient-docs-folder');
-      expect(refetchedCoding?.display).toBe(created.displayName);
+      expect(refetched.meta?.versionId).toBe(originalVersionId);
     });
 
     it('returns FHIR_RESOURCE_NOT_FOUND for an unknown internal name', async () => {
@@ -305,31 +318,44 @@ describe('custom folders zambdas integration tests', () => {
   // ────────────────────────────────────────────────────────────────────────
 
   describe('delete-custom-folder', () => {
-    it('removes the catalog entry and leaves per-patient Lists intact (soft-delete)', async () => {
+    it('soft-deletes the catalog entry (entry.flag tombstone) and leaves per-patient Lists intact', async () => {
       const created = await createFolderAndTrack('Delete');
 
       // Seed a per-patient List for this folder.
       const patient = await createTestPatient();
       const patientListSpec = addProcessIdMetaTagToResource(
-        createCustomPatientDocumentList(`Patient/${patient.id}`, created),
+        createCustomPatientDocumentList(`Patient/${patient.id}`, created.internalName),
         processId
       ) as List;
       const patientList = await oystehrAdmin.fhir.create<List>(patientListSpec);
 
       const { error } = await executeDelete(created.internalName);
       expect(error).toBeUndefined();
-      // Pop our internal name from the tracker so afterAll doesn't try to remove it again.
-      createdInternalNames.delete(created.internalName);
 
-      // Catalog no longer contains the entry.
+      // Catalog drops the entry from the active list but keeps it as a tombstone so the
+      // latest displayName remains resolvable to the patient docs read path.
       const catalog = await fetchCatalog();
-      const defs = parseCustomFoldersCatalog(catalog);
-      expect(defs.some((d) => d.internalName === created.internalName)).toBe(false);
+      const activeDefs = parseCustomFoldersCatalog(catalog);
+      expect(activeDefs.some((d) => d.internalName === created.internalName)).toBe(false);
+      const allDefs = parseCustomFoldersCatalogIncludingDeleted(catalog);
+      const tombstone = allDefs.find((d) => d.internalName === created.internalName);
+      expect(tombstone).toBeDefined();
+      expect(tombstone?.deleted).toBe(true);
+      expect(tombstone?.displayName).toBe(created.displayName);
 
-      // Per-patient List is intact (orphan).
+      // Per-patient List is intact.
       const refetched = (await oystehrAdmin.fhir.get({ resourceType: 'List', id: patientList.id! })) as List;
       expect(refetched.id).toBe(patientList.id);
       expect(refetched.title).toBe(created.internalName);
+    });
+
+    it('is idempotent when called twice on the same internalName', async () => {
+      const created = await createFolderAndTrack('DeleteIdempotent');
+
+      const first = await executeDelete(created.internalName);
+      expect(first.error).toBeUndefined();
+      const second = await executeDelete(created.internalName);
+      expect(second.error).toBeUndefined();
     });
 
     it('returns FHIR_RESOURCE_NOT_FOUND for an unknown internal name', async () => {
@@ -344,6 +370,51 @@ describe('custom folders zambdas integration tests', () => {
       expect(error).toBeDefined();
       expect(code).toBe(APIErrorCode.FHIR_RESOURCE_NOT_FOUND);
     });
+
+    it('preserves the latest displayName as a tombstone after rename → delete', async () => {
+      const created = await createFolderAndTrack('PreName');
+      const renamed = `${created.displayName} V2`;
+      const { error: renameErr } = await executeRename(created.internalName, renamed);
+      expect(renameErr).toBeUndefined();
+
+      const { error: deleteErr } = await executeDelete(created.internalName);
+      expect(deleteErr).toBeUndefined();
+
+      const allDefs = parseCustomFoldersCatalogIncludingDeleted(await fetchCatalog());
+      const tombstone = allDefs.find((d) => d.internalName === created.internalName);
+      expect(tombstone?.deleted).toBe(true);
+      // This is the bug the soft-delete design fixes: the tombstone reflects the
+      // latest displayName at delete time, not the original create-time name.
+      expect(tombstone?.displayName).toBe(renamed);
+    });
+
+    it('rejects rename of a soft-deleted folder', async () => {
+      const created = await createFolderAndTrack('RenameDeleted');
+      const { error: deleteErr } = await executeDelete(created.internalName);
+      expect(deleteErr).toBeUndefined();
+
+      const { error, code } = await executeRename(created.internalName, `${created.displayName} Renamed`);
+      expect(error).toBeDefined();
+      expect(code).toBe(APIErrorCode.FHIR_RESOURCE_NOT_FOUND);
+    });
+
+    it('re-create with the same displayName clears the existing tombstone', async () => {
+      const created = await createFolderAndTrack('Recreate');
+      const { error: deleteErr } = await executeDelete(created.internalName);
+      expect(deleteErr).toBeUndefined();
+
+      // Recreating with the same displayName should clear the tombstone rather than
+      // fail with a duplicate-name error.
+      const { output, error } = await executeCreate(created.displayName);
+      expect(error).toBeUndefined();
+      expect(output?.internalName).toBe(created.internalName);
+
+      const allDefs = parseCustomFoldersCatalogIncludingDeleted(await fetchCatalog());
+      const entry = allDefs.find((d) => d.internalName === created.internalName);
+      expect(entry).toBeDefined();
+      expect(entry?.deleted).toBe(false);
+      expect(entry?.displayName).toBe(created.displayName);
+    });
   });
 
   // ────────────────────────────────────────────────────────────────────────
@@ -351,7 +422,7 @@ describe('custom folders zambdas integration tests', () => {
   // ────────────────────────────────────────────────────────────────────────
 
   describe('create-upload-document-url (lazy custom folder path)', () => {
-    it('creates a per-patient List using the catalog display when none exists', async () => {
+    it('lazily creates a per-patient List titled with the internalName when none exists', async () => {
       const folder = await createFolderAndTrack('Lazy');
       const patient = await createTestPatient();
 
@@ -371,8 +442,11 @@ describe('custom folders zambdas integration tests', () => {
       const list = await findPerPatientList(patient.id!, folder.internalName);
       expect(list).toBeDefined();
       expect(list?.id).toBe(output.folderId);
+      expect(list?.title).toBe(folder.internalName);
+      // displayName is intentionally not stored on the per-patient List — it's resolved
+      // from the catalog at read time.
       const coding = list!.code?.coding?.find((c) => c.code === 'patient-docs-folder');
-      expect(coding?.display).toBe(folder.displayName);
+      expect(coding?.display).toBeUndefined();
     });
 
     it('reuses an existing per-patient List on subsequent uploads (no duplicates)', async () => {

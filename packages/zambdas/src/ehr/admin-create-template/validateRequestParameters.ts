@@ -1,4 +1,4 @@
-import { AdminCreateTemplateInput, ExamType, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
+import { AdminCreateTemplateInput, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): AdminCreateTemplateInput & Pick<ZambdaInput, 'secrets'> {
@@ -12,7 +12,7 @@ export function validateRequestParameters(input: ZambdaInput): AdminCreateTempla
     throw INVALID_INPUT_ERROR('Request body must be a valid JSON object');
   }
 
-  const { encounterId, templateName, examType } = parsedInput as Record<string, unknown>;
+  const { encounterId, templateName } = parsedInput as Record<string, unknown>;
 
   const missingFields = [];
   if (encounterId === undefined) {
@@ -20,9 +20,6 @@ export function validateRequestParameters(input: ZambdaInput): AdminCreateTempla
   }
   if (templateName === undefined) {
     missingFields.push('templateName');
-  }
-  if (examType === undefined) {
-    missingFields.push('examType');
   }
 
   if (missingFields.length > 0) {
@@ -37,10 +34,6 @@ export function validateRequestParameters(input: ZambdaInput): AdminCreateTempla
     throw INVALID_INPUT_ERROR('templateName must be a non-empty string');
   }
 
-  if (!Object.values(ExamType).includes(examType as ExamType)) {
-    throw INVALID_INPUT_ERROR(`Invalid examType: ${examType}. Must be one of: ${Object.values(ExamType).join(', ')}`);
-  }
-
   if (!input.secrets) {
     throw new Error('No secrets provided in input');
   }
@@ -48,7 +41,6 @@ export function validateRequestParameters(input: ZambdaInput): AdminCreateTempla
   return {
     encounterId: encounterId as string,
     templateName: templateName as string,
-    examType: examType as ExamType,
     secrets: input.secrets,
   };
 }

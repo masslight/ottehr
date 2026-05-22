@@ -6,8 +6,8 @@ import type {
 import { examConfig } from 'utils';
 import { assert, describe, expect, it } from 'vitest';
 
-const inPersonConfig = examConfig.inPerson.default.components;
-const normalLabels = examConfig.inPerson.default.constants?.normalLabels;
+const configComponents = examConfig.default.components;
+const normalLabels = examConfig.default.constants?.normalLabels;
 
 /**
  * Recursively collects all modal-exam components from an exam card's
@@ -30,7 +30,7 @@ describe('InPersonExamConfig modal-exam components', () => {
     it('should have the same column keys in every section of a checkbox-with-modal', () => {
       const violations: string[] = [];
 
-      for (const [cardKey, card] of Object.entries(inPersonConfig)) {
+      for (const [cardKey, card] of Object.entries(configComponents)) {
         const allComponents = [...Object.entries(card.components.normal), ...Object.entries(card.components.abnormal)];
 
         for (const [compKey, comp] of allComponents) {
@@ -61,7 +61,7 @@ describe('InPersonExamConfig modal-exam components', () => {
     // Collect all modal-exam components across the entire config
     const allModalExams: { cardKey: string; compKey: string; component: ExamCardCheckboxWithModalComponent }[] = [];
 
-    for (const [cardKey, card] of Object.entries(inPersonConfig)) {
+    for (const [cardKey, card] of Object.entries(configComponents)) {
       for (const { key, component } of collectModalExamComponents(card.components.normal)) {
         allModalExams.push({ cardKey, compKey: key, component });
       }

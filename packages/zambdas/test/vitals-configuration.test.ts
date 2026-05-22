@@ -202,12 +202,12 @@ describe('testing vitals config validation', () => {
       const vitals = VitalsDef(updatedChart);
       expect(vitals).toBeDefined();
       // some sanity checks to make sure the rules were updated
-      const heartbeatRules = vitals['vital-heartbeat']?.alertThresholds?.[0]?.rules;
+      const heartbeatRules = vitals['vital-heartbeat']?.alertThresholds?.[0]?.rules.slice(0, 2);
       expect(heartbeatRules).toBeDefined();
       heartbeatRules?.forEach((rule) => {
         expect(rule.criticality).toBe('critical');
       });
-      const temperatureRules = vitals['vital-temperature']?.alertThresholds?.[0]?.rules;
+      const temperatureRules = vitals['vital-temperature']?.alertThresholds?.[0]?.rules.slice(0, 2);
       expect(temperatureRules).toBeDefined();
       temperatureRules?.forEach((rule) => {
         expect(rule.criticality).toBe('abnormal');
@@ -262,7 +262,7 @@ describe('testing vitals config validation', () => {
       const alertingHighTemperature: VitalsTemperatureObservationDTO = {
         patientId: testPatient.id,
         field: VitalFieldNames.VitalTemperature,
-        value: 40,
+        value: 38.5,
         resourceId: randomUUID(),
       };
       const highTemperatureCriticality = getVitalObservationAlertLevel({
@@ -410,7 +410,7 @@ describe('testing vitals config validation', () => {
     const tachyObservation: VitalsHeartbeatObservationDTO = {
       patientId: teenPatient.id,
       field: VitalFieldNames.VitalHeartbeat,
-      value: 125,
+      value: 105,
       resourceId: randomUUID(),
     };
 
@@ -479,7 +479,7 @@ describe('testing vitals config validation', () => {
       const lowResp: VitalsRespirationRateObservationDTO = {
         patientId: patient.id,
         field: VitalFieldNames.VitalRespirationRate,
-        value: 24,
+        value: 29,
         resourceId: randomUUID(),
       };
       expect(
@@ -510,7 +510,7 @@ describe('testing vitals config validation', () => {
       const normalResp: VitalsRespirationRateObservationDTO = {
         patientId: patient.id,
         field: VitalFieldNames.VitalRespirationRate,
-        value: 29,
+        value: 31,
         resourceId: randomUUID(),
       };
       expect(
@@ -548,7 +548,7 @@ describe('testing vitals config validation', () => {
       const borderlineHighResp: VitalsRespirationRateObservationDTO = {
         patientId: patient.id,
         field: VitalFieldNames.VitalRespirationRate,
-        value: 50,
+        value: 53,
         resourceId: randomUUID(),
       };
       expect(

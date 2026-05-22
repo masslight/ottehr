@@ -301,6 +301,7 @@ export const LAB_DOC_REF_TAG_hl7_TRANSMISSION = {
 
 export const LAB_DOC_REF_DETAIL_TAGS = {
   testName: { system: 'test-name' }, // code will be dynamic to the test name
+  testItemCode: { system: 'test-item-code' }, // code will be dynamic to the test item code
   fillerLab: { system: 'filler-lab' }, // code will be dynamic to the filler lab name
   labType: {
     system: 'lab-type',

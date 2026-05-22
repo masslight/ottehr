@@ -314,7 +314,7 @@ type SelfPayResource = {
 };
 type WorkersCompResource = {
   type: LabPaymentMethod.WorkersComp;
-  coverage: Coverage;
+  coverageAndOrgs: CoverageOrgRank[];
 };
 export type PaymentResources = InsurancePaymentResource | ClientBillResource | SelfPayResource | WorkersCompResource;
 

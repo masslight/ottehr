@@ -81,10 +81,10 @@ export default function PatientPage(): JSX.Element {
   // queries so the UI picks up the merged state.
   useEffect(() => {
     if (mergeTaskData && mergeTaskData.task === null) {
-      void queryClient.invalidateQueries({ queryKey: ['useGetPatientPatientResources'] });
-      void queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
-      void queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
-      void queryClient.invalidateQueries({ queryKey: ['otherPatientsWithSameNameResources'] });
+      void queryClient.refetchQueries({ queryKey: ['useGetPatientPatientResources'], type: 'all' });
+      void queryClient.refetchQueries({ queryKey: ['patient-account-get'], type: 'all' });
+      void queryClient.refetchQueries({ queryKey: ['patient-coverages'], type: 'all' });
+      void queryClient.refetchQueries({ queryKey: ['otherPatientsWithSameNameResources'], type: 'all' });
     }
   }, [mergeTaskData, queryClient]);
 

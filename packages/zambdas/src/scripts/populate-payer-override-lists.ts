@@ -2,7 +2,7 @@
 import Oystehr from '@oystehr/sdk';
 import { List, ListEntry, Organization } from 'fhir/r4b';
 import * as fs from 'fs';
-import { FHIR_EXTENSION, getPayerUrl } from 'utils';
+import { FHIR_EXTENSION, getPayerId, getPayerUrl } from 'utils';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { getInsuranceOverrideList } from '../rcm/get-insurance-override-list/handler';
 import { getAuth0Token } from '../shared';
@@ -67,24 +67,27 @@ async function main(): Promise<void> {
     return;
   }
 
-  const activePayers = payers.filter((org) => org.active === true);
+  const nonZeroPayers = payers.filter((org) => getPayerId(org) !== '00000');
+  const activePayers = nonZeroPayers.filter((org) => org.active === true);
   const activePayersWithNameOverrides = activePayers.filter((org) => org.alias?.length);
-  const payersWithNotes = payers.filter(
+  const payersWithNotes = nonZeroPayers.filter(
     (org) => org.extension?.some((e) => e.url === FHIR_EXTENSION.InsurancePlan.notes.url)
   );
 
   let patientOverrideList = await getInsuranceOverrideList(oystehr, 'patient');
+  console.log('Patient override List ID:', patientOverrideList.id);
   let ehrOverrideList = await getInsuranceOverrideList(oystehr, 'ehr');
+  console.log('EHR override List ID:', ehrOverrideList.id);
 
   let patientOverrideEntries: ListEntry[] = [];
-  if (activePayers.length !== payers.length) {
+  if (activePayers.length !== nonZeroPayers.length) {
     patientOverrideEntries = activePayers.map<ListEntry>((org) => {
       const name = org.name;
       const nameOverrideOrg = activePayersWithNameOverrides.find((overrideOrg) => overrideOrg.id === org.id);
       const nameOverride = nameOverrideOrg?.alias?.[0];
       return {
         item: {
-          reference: getPayerUrl(org.id!),
+          reference: getPayerUrl(getPayerId(org)!),
         },
         extension: [
           {
@@ -100,7 +103,7 @@ async function main(): Promise<void> {
     const note = org.extension?.find((e) => e.url === FHIR_EXTENSION.InsurancePlan.notes.url)?.valueString;
     return {
       item: {
-        reference: getPayerUrl(org.id!),
+        reference: getPayerUrl(getPayerId(org)!),
       },
       extension: [
         {

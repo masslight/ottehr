@@ -1,10 +1,27 @@
-import { Box, Button, Chip, CircularProgress, Grid, Link, Paper, TextField, Typography } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import {
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  IconButton,
+  Link,
+  Paper,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
-import React, { ReactElement, useEffect, useState } from 'react';
+import { lazy, ReactElement, Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { LegacyPatientRecord, searchLegacyRecords, SearchLegacyRecordsOutput } from 'src/api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
+
+const TiffViewer = lazy(() => import('../components/TiffViewer'));
 
 export default function LegacyDataPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -17,6 +34,12 @@ export default function LegacyDataPage(): ReactElement {
   const [firstNameError, setFirstNameError] = useState('');
 
   const [page, setPage] = useState(1);
+  const [activeTiff, setActiveTiff] = useState<{ url: string; fileName: string } | null>(null);
+
+  const isTiff = (fileName: string): boolean => {
+    const lower = fileName.toLowerCase();
+    return lower.endsWith('.tif') || lower.endsWith('.tiff');
+  };
 
   const searchMutation = useMutation<SearchLegacyRecordsOutput, Error, number>({
     mutationFn: async (requestedPage: number) => {
@@ -234,19 +257,34 @@ export default function LegacyDataPage(): ReactElement {
                                 border: 'none',
                               }}
                             />
-                            <Link
-                              href={file.presignedUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              sx={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                fontSize: '0.875rem',
-                              }}
-                            >
-                              {file.fileName}
-                            </Link>
+                            {isTiff(file.fileName) ? (
+                              <Link
+                                component="button"
+                                onClick={() => setActiveTiff({ url: file.presignedUrl, fileName: file.fileName })}
+                                sx={{
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  fontSize: '0.875rem',
+                                }}
+                              >
+                                {file.fileName}
+                              </Link>
+                            ) : (
+                              <Link
+                                href={file.presignedUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                sx={{
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  fontSize: '0.875rem',
+                                }}
+                              >
+                                {file.fileName}
+                              </Link>
+                            )}
                           </Box>
                         </Grid>
                       ))}
@@ -257,6 +295,28 @@ export default function LegacyDataPage(): ReactElement {
             )}
           </>
         )}
+
+        {/* TIFF viewer modal */}
+        <Dialog open={!!activeTiff} onClose={() => setActiveTiff(null)} maxWidth="lg" fullWidth>
+          <DialogTitle sx={{ pr: 6 }}>
+            {activeTiff?.fileName}
+            <IconButton
+              aria-label="close-tiff-view-btn"
+              onClick={() => setActiveTiff(null)}
+              sx={{ position: 'absolute', right: 8, top: 8 }}
+              size="small"
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent>
+            {activeTiff && (
+              <Suspense fallback={<CircularProgress />}>
+                <TiffViewer url={activeTiff.url} />
+              </Suspense>
+            )}
+          </DialogContent>
+        </Dialog>
       </Box>
     </PageContainer>
   );
