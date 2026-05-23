@@ -1168,66 +1168,47 @@ const EXAM_QUERY_STOPWORDS = new Set([
   'to',
   'and',
 ]);
-// Body-region tokens commonly used as exam section names. When the provider's display includes
-// one (e.g. "Throat mildly injected"), we constrain matches to leaves whose section overlaps —
-// otherwise the matcher returns wildly off-region findings whose only token in common is the
-// generic descriptor (e.g. an "Eyes — non-injected" leaf matching "Throat injected").
-const EXAM_BODY_REGIONS = new Set([
-  'throat',
-  'pharynx',
-  'oropharynx',
-  'oral',
-  'mouth',
-  'tonsils',
-  'lungs',
-  'lung',
-  'pulmonary',
-  'chest',
-  'heart',
-  'cardiac',
-  'cv',
-  'abdomen',
-  'abdominal',
-  'belly',
-  'gi',
-  'rectum',
-  'genitourinary',
-  'gu',
-  'ears',
-  'ear',
-  'tm',
-  'tympanic',
-  'nose',
-  'nasal',
-  'sinus',
-  'sinuses',
-  'eyes',
-  'eye',
-  'conjunctiva',
-  'sclera',
-  'skin',
-  'dermatologic',
-  'rash',
-  'neck',
-  'lymph',
-  'head',
-  'scalp',
-  'extremities',
-  'extremity',
-  'limbs',
-  'arm',
-  'leg',
-  'ankle',
-  'knee',
-  'shoulder',
-  'hip',
-  'back',
-  'spine',
-  'neurologic',
-  'neuro',
-  'musculoskeletal',
-  'msk',
-]);
+// Body-region equivalence classes — every token in a list collapses to the same region key.
+// Used by findExamLeafMatches to constrain candidates to the body region the provider named.
+// "throat" should match the "Oral Cavity" section's "Erythematous pharynx" leaf because
+// throat/pharynx/oral cavity are the same clinical region; an exact-token gate misses that.
+const EXAM_BODY_REGION_CLASSES: string[][] = [
+  ['throat', 'pharynx', 'oropharynx', 'oral', 'mouth', 'tonsils', 'tonsillar', 'palate', 'uvula', 'dentition'],
+  ['lungs', 'lung', 'pulmonary', 'chest', 'wheezing', 'rales', 'rhonchi'],
+  ['heart', 'cardiac', 'cv', 'cardiovascular'],
+  ['abdomen', 'abdominal', 'belly', 'gi', 'rectum', 'genitourinary', 'gu', 'cva'],
+  ['ears', 'ear', 'tm', 'tympanic', 'auditory', 'auricle'],
+  ['nose', 'nasal', 'sinus', 'sinuses', 'rhinoscopy', 'septum', 'turbinate'],
+  ['eyes', 'eye', 'conjunctiva', 'sclera', 'pupil', 'pupils', 'ocular'],
+  ['skin', 'dermatologic', 'dermatology', 'rash'],
+  ['neck', 'lymph', 'cervical'],
+  ['head', 'scalp'],
+  ['extremities', 'extremity', 'limbs', 'arm', 'leg', 'ankle', 'knee', 'shoulder', 'hip', 'foot', 'hand', 'wrist'],
+  ['back', 'spine', 'spinal'],
+  ['neurologic', 'neuro', 'neurological'],
+  ['musculoskeletal', 'msk'],
+  ['general', 'appearance'],
+];
+const EXAM_BODY_REGION_OF: Map<string, number> = new Map();
+EXAM_BODY_REGION_CLASSES.forEach((cls, i) => cls.forEach((t) => EXAM_BODY_REGION_OF.set(t, i)));
+
+// Clinical descriptor synonyms. Provider says one word, catalog uses another — without a
+// synonym map, "throat injected" finds nothing because the catalog says "Erythematous pharynx".
+// Each row collapses to one canonical key; tokens map to it. Used by findExamLeafMatches to
+// expand query tokens before scoring.
+const EXAM_DESCRIPTOR_SYNONYMS: string[][] = [
+  ['injected', 'erythematous', 'erythema', 'red', 'reddened', 'inflamed'],
+  ['tender', 'tenderness', 'painful'],
+  ['swollen', 'edematous', 'edema', 'swelling'],
+  ['bulging', 'bulge'],
+  ['exudate', 'pus', 'purulent'],
+  ['rales', 'crackles'],
+  ['discharge', 'drainage'],
+  ['lesion', 'ulcer', 'ulcers', 'vesicle', 'vesicles'],
+  ['rash', 'eruption', 'dermatitis'],
+];
+const EXAM_DESCRIPTOR_CLASS_OF: Map<string, number> = new Map();
+EXAM_DESCRIPTOR_SYNONYMS.forEach((cls, i) => cls.forEach((t) => EXAM_DESCRIPTOR_CLASS_OF.set(t, i)));
 
 const EXAM_NEGATION_TOKENS = new Set(['no', 'non', 'without', 'denies', 'absent', 'negative']);
 
@@ -1237,9 +1218,15 @@ function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): 
   if (queryTokens.length === 0) return [];
 
   // Body-region constraint: if the provider named a region, require the leaf's section (or its
-  // label, which sometimes carries a region prefix) to mention it. Without this, "Throat injected"
-  // matches "Eyes — non-injected" because "injected" is a substring of "non-injected".
-  const queryRegions = queryTokens.filter((t) => EXAM_BODY_REGIONS.has(t));
+  // label) to overlap with the SAME equivalence class. "throat" → matches leaves under "Oral
+  // Cavity" with labels like "Erythematous pharynx" because throat/pharynx/oral are clinically
+  // synonymous. Without this gate, "Throat injected" can match "Eyes — non-injected" because
+  // "injected" is a substring of "non-injected" once tokenized.
+  const queryRegionClasses = new Set<number>();
+  for (const t of queryTokens) {
+    const cls = EXAM_BODY_REGION_OF.get(t);
+    if (cls !== undefined) queryRegionClasses.add(cls);
+  }
 
   // The query is a positive assertion unless it itself contains negation tokens (e.g. provider
   // typed "no rash"). If query is positive, leaves whose label is itself a negation of one of
@@ -1264,22 +1251,35 @@ function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): 
     const labelInfo = tokenizeWithNegationIndex(leaf.label);
     const sectionTokens = tokenize(leaf.section);
 
-    // Body-region gate: if the provider named a region, require it to be present in the
-    // leaf's section OR label. No region match → skip this leaf entirely.
-    if (queryRegions.length > 0) {
-      const labelHasRegion = queryRegions.some((r) => labelInfo.tokens.some((lt) => lt === r || lt.startsWith(r)));
-      const sectionHasRegion = queryRegions.some((r) => sectionTokens.some((st) => st === r || st.startsWith(r)));
-      if (!labelHasRegion && !sectionHasRegion) return 0;
+    // Body-region gate: if the provider named a region, require the leaf's section/label to
+    // contain a token in the SAME equivalence class. No overlap → skip.
+    if (queryRegionClasses.size > 0) {
+      const leafTokens = [...labelInfo.tokens, ...sectionTokens];
+      const leafInQueryRegion = leafTokens.some((t) => {
+        const cls = EXAM_BODY_REGION_OF.get(t);
+        return cls !== undefined && queryRegionClasses.has(cls);
+      });
+      if (!leafInQueryRegion) return 0;
     }
 
+    // Synonym match: a query token "matches" a leaf token if they're literally equal OR if
+    // they're in the same EXAM_DESCRIPTOR_SYNONYMS class (so "injected" matches "erythematous").
+    const tokensMatch = (qt: string, lt: string): boolean => {
+      if (lt === qt) return true;
+      const qCls = EXAM_DESCRIPTOR_CLASS_OF.get(qt);
+      if (qCls === undefined) return false;
+      return EXAM_DESCRIPTOR_CLASS_OF.get(lt) === qCls;
+    };
+
     let total = 0;
+    let anyTokenMatched = false;
     let allMatched = true;
     for (const qt of queryTokens) {
       let labelBest = 0;
       let labelBestNegated = false;
       for (let i = 0; i < labelInfo.tokens.length; i++) {
         const lt = labelInfo.tokens[i];
-        if (lt === qt) {
+        if (tokensMatch(qt, lt)) {
           labelBest = 4;
           labelBestNegated = labelInfo.isNegated[i];
           break;
@@ -1289,24 +1289,27 @@ function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): 
           labelBestNegated = labelInfo.isNegated[i];
         }
       }
-      // Polarity mismatch: query is positive but leaf has the negated form of this exact token.
-      // Heavy penalty so a non-injected leaf can't beat a real positive match elsewhere.
       if (queryIsPositive && labelBest > 0 && labelBestNegated) {
         labelBest = -labelBest;
       }
       let sectionBest = 0;
       for (const st of sectionTokens) {
-        if (st === qt) {
+        if (tokensMatch(qt, st)) {
           sectionBest = 3;
           break;
         }
         if (st.startsWith(qt)) sectionBest = Math.max(sectionBest, 1);
       }
       const tokenScore = labelBest + sectionBest;
-      if (tokenScore <= 0) allMatched = false;
+      if (tokenScore > 0) anyTokenMatched = true;
+      else allMatched = false;
       total += tokenScore;
     }
     if (allMatched && queryTokens.length > 1) total += 2;
+    // Baseline score for in-region leaves with no specific token match — surface them as
+    // candidates when the provider's descriptor words don't appear literally in any catalog
+    // leaf ("throat injected" → all Oral Cavity findings) instead of saying "no match found".
+    if (queryRegionClasses.size > 0 && !anyTokenMatched) total += 1;
     return total;
   };
 
