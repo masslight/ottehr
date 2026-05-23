@@ -6,6 +6,38 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-planner';
 
+// Dosage-form keywords ordered most-specific first so "Oral Suspension" wins over "Suspension".
+// Kept in sync with the equivalent list in easy-chart-agent.
+const DOSE_FORM_KEYWORDS = [
+  'oral suspension',
+  'oral solution',
+  'oral tablet',
+  'extended release tablet',
+  'chewable tablet',
+  'suspension',
+  'solution',
+  'tablet',
+  'capsule',
+  'liquid',
+  'cream',
+  'ointment',
+  'drops',
+  'spray',
+  'injection',
+  'patch',
+  'inhaler',
+];
+
+function sniffDoseForm(text: string): string | undefined {
+  const lower = text.toLowerCase();
+  for (const kw of DOSE_FORM_KEYWORDS) {
+    if (lower.includes(kw)) {
+      return kw.charAt(0).toUpperCase() + kw.slice(1);
+    }
+  }
+  return undefined;
+}
+
 // Mirror the agent's intent kinds — the planner emits the same shape, just as a list.
 const KIND_VALUES = [
   'unknown',
@@ -53,6 +85,8 @@ const RESPONSE_SCHEMA = {
           kind: { type: 'string', enum: KIND_VALUES as unknown as string[] },
           display: { type: 'string' },
           searchTerms: { type: 'array', items: { type: 'string' } },
+          strength: { type: 'string' },
+          doseForm: { type: 'string' },
           isPrimary: { type: 'boolean' },
           code: { type: 'string' },
           message: { type: 'string' },
@@ -129,6 +163,20 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
 
 - add-allergy / add-condition / add-medication / add-surgical-history / add-hospitalization /
   add-diagnosis: { kind, display, searchTerms[1-3] }; add-diagnosis also takes isPrimary.
+- add-medication takes two extra fields beyond display/searchTerms:
+    { kind: "add-medication", display, searchTerms, strength, doseForm }
+    Keep searchTerms focused on the ingredient/brand name ("Amoxicillin") — DO NOT pack
+    strength/form into searchTerms; they go in their own fields so the client can rank results.
+    strength: the exact dose+concentration as written in the narrative ("400 mg/5 mL", "500 mg",
+      "10 mg/mL"). Include WHENEVER the narrative gives a strength. Omit ONLY if no strength was
+      mentioned (e.g. "start metoprolol" with no dose).
+    doseForm: the dosage-form word ("Suspension", "Tablet", "Capsule", "Liquid", "Solution",
+      "Cream", "Drops", "Spray", "Ointment", "Injection"). Include WHENEVER the narrative names
+      a form — even when the word appears next to the ingredient ("amoxicillin SUSPENSION",
+      "ibuprofen TABLET"). Omit ONLY if no form was mentioned.
+    Example: narrative "amoxicillin suspension 400 mg/5 mL, 9 mL TID for 10 days" →
+      { kind: "add-medication", display: "Amoxicillin 400 mg/5 mL suspension",
+        searchTerms: ["Amoxicillin"], strength: "400 mg/5 mL", doseForm: "Suspension" }
 - remove-allergy / remove-condition / remove-medication / remove-surgical-history /
   remove-hospitalization / remove-diagnosis / remove-exam-finding: { kind, display, searchTerms }.
 - set-em-code: { kind, code, display }   (provider gave a CPT like "99214")
@@ -190,6 +238,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (!item || typeof item !== 'object') continue;
     const i = item as Record<string, unknown>;
     if (typeof i.kind !== 'string' || !(KIND_VALUES as readonly string[]).includes(i.kind)) continue;
+    // Same fallback as the single-shot agent — sniff the narrative for a dose-form keyword if
+    // the LLM omitted it. The narrative is the only place the form might appear since the
+    // planner emits searchTerms focused on the ingredient name.
+    if (i.kind === 'add-medication' && (typeof i.doseForm !== 'string' || !i.doseForm.trim())) {
+      const display = typeof i.display === 'string' ? i.display : '';
+      const sniffed = sniffDoseForm(`${narrative} ${display}`);
+      if (sniffed) i.doseForm = sniffed;
+    }
     steps.push(i as unknown as EasyChartAgentIntent);
   }
 

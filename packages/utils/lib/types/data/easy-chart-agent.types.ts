@@ -7,7 +7,10 @@ export type EasyChartAgentIntent =
   // Add actions — display + searchTerms get used by the client to search the canonical source
   | { kind: 'add-allergy'; display: string; searchTerms: string[] }
   | { kind: 'add-condition'; display: string; searchTerms: string[] }
-  | { kind: 'add-medication'; display: string; searchTerms: string[] }
+  // strength/doseForm are extracted when present so the client can rank eRx search results
+  // (e.g. narrative says "amoxicillin suspension 400 mg/5 mL" → strength="400 mg/5 mL",
+  // doseForm="Suspension"). Plain "amoxicillin" leaves them undefined.
+  | { kind: 'add-medication'; display: string; searchTerms: string[]; strength?: string; doseForm?: string }
   | { kind: 'add-surgical-history'; display: string; searchTerms: string[] }
   | { kind: 'add-hospitalization'; display: string; searchTerms: string[] }
   | { kind: 'add-diagnosis'; display: string; searchTerms: string[]; isPrimary: boolean }

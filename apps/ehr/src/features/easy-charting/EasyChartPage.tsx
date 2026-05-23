@@ -1490,6 +1490,49 @@ function applyProcedureUpdates(
   return { updated: next, applied, skipped };
 }
 
+// Normalize a string for loose comparison: lowercase, strip whitespace and unit punctuation that
+// commonly varies between sources (e.g. "400 mg/5 mL" vs "400mg/5ml").
+function normForMatch(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, '').replace(/\./g, '');
+}
+
+// Rank eRx medication results when the planner extracted a strength and/or doseForm from the
+// narrative. eRx's name search returns results in its own order which interleaves combination
+// products and unrelated strengths; this stable sort pushes the requested strength/form to the
+// top without dropping anything. Returns a new array; original order is the tie-breaker.
+function rankMedicationResults(
+  results: SearchResult[],
+  intent: Extract<EasyChartAgentIntent, { kind: 'add-medication' }>
+): SearchResult[] {
+  const wantStrength = intent.strength ? normForMatch(intent.strength) : '';
+  const wantForm = intent.doseForm ? intent.doseForm.toLowerCase().trim() : '';
+  // Single-ingredient request: provider typed "amoxicillin" (no hyphen, no &, no "/"). eRx
+  // returns combination products (Amoxicillin-Pot Clavulanate, Amox & Vonoprazan) that
+  // SHOULDN'T outrank the plain ingredient — penalize those when the request looks single-ing.
+  const queryName = intent.searchTerms[0] ?? intent.display;
+  const isSingleIngredientQuery = !/[-&/]/.test(queryName);
+  if (!wantStrength && !wantForm && !isSingleIngredientQuery) return results;
+  const scored = results.map((r, idx) => {
+    const nameNorm = normForMatch(r.name);
+    const strengthNorm = r.strength ? normForMatch(r.strength) : '';
+    const haystack = `${nameNorm} ${strengthNorm}`;
+    let score = 0;
+    if (wantStrength) {
+      if (strengthNorm && strengthNorm === wantStrength) score += 10;
+      else if (haystack.includes(wantStrength)) score += 6;
+    }
+    if (wantForm) {
+      // doseForm is typically a single word — compare case-insensitively as a whole token.
+      if (r.name.toLowerCase().includes(wantForm)) score += 3;
+      if (r.strength && r.strength.toLowerCase().includes(wantForm)) score += 3;
+    }
+    if (isSingleIngredientQuery && /[-&]/.test(r.name)) score -= 5;
+    return { r, score, idx };
+  });
+  scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
+  return scored.map((s) => s.r);
+}
+
 async function runIntentSearch(
   intent: AddSearchIntent,
   oystehr: Oystehr | undefined,
@@ -1525,6 +1568,7 @@ async function runIntentSearch(
       }
     }
   }
+  if (intent.kind === 'add-medication') return rankMedicationResults(all, intent);
   return all;
 }
 

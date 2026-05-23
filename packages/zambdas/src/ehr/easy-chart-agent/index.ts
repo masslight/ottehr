@@ -6,6 +6,38 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-agent';
 
+// Dosage-form keywords ordered most-specific first so "Oral Suspension" wins over "Suspension".
+const DOSE_FORM_KEYWORDS = [
+  'oral suspension',
+  'oral solution',
+  'oral tablet',
+  'extended release tablet',
+  'chewable tablet',
+  'suspension',
+  'solution',
+  'tablet',
+  'capsule',
+  'liquid',
+  'cream',
+  'ointment',
+  'drops',
+  'spray',
+  'injection',
+  'patch',
+  'inhaler',
+];
+
+function sniffDoseForm(text: string): string | undefined {
+  const lower = text.toLowerCase();
+  for (const kw of DOSE_FORM_KEYWORDS) {
+    if (lower.includes(kw)) {
+      // Capitalize first letter for downstream display ("Suspension" not "suspension").
+      return kw.charAt(0).toUpperCase() + kw.slice(1);
+    }
+  }
+  return undefined;
+}
+
 const KIND_VALUES = [
   'unknown',
   'add-allergy',
@@ -50,6 +82,8 @@ const RESPONSE_SCHEMA = {
         kind: { type: 'string', enum: KIND_VALUES as unknown as string[] },
         display: { type: 'string' },
         searchTerms: { type: 'array', items: { type: 'string' } },
+        strength: { type: 'string' },
+        doseForm: { type: 'string' },
         isPrimary: { type: 'boolean' },
         code: { type: 'string' },
         message: { type: 'string' },
@@ -210,7 +244,16 @@ For action kinds (everything except "unknown"):
 - display: a short, natural-language phrase describing the item to add or remove
 - searchTerms: 1-3 short alternative phrasings or canonical names. For add: improve search hit
   rate. For remove: improve fuzzy match against existing chart items. Always include the display
-  phrase as one of the searchTerms.
+  phrase as one of the searchTerms. For add-medication: keep searchTerms focused on the active
+  ingredient or brand name (e.g. "Amoxicillin"); don't pack strength/form into the searchTerms —
+  use the strength/doseForm fields below for that.
+- strength (add-medication only): the exact dose+concentration as written by the provider,
+  e.g. "400 mg/5 mL", "500 mg", "10 mg/mL". Include WHENEVER the provider gives a strength;
+  omit ONLY if no strength was mentioned (e.g. "start metoprolol" with no dose).
+- doseForm (add-medication only): the dosage-form word, e.g. "Suspension", "Tablet",
+  "Capsule", "Liquid", "Solution", "Cream", "Drops", "Spray", "Ointment", "Injection".
+  Include WHENEVER the provider names a form — even when it sits next to the ingredient
+  ("amoxicillin SUSPENSION", "ibuprofen TABLET"). Omit ONLY if no form was mentioned.
 - isPrimary (for add-diagnosis only): true if the provider implies this is the primary diagnosis,
   otherwise false. Default false if unspecified.
 
@@ -306,6 +349,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       intent = { kind: 'unknown', message: "I couldn't extract what to add. Try rephrasing." };
     } else if (i.kind === 'add-diagnosis') {
       intent = { kind: 'add-diagnosis', display, searchTerms, isPrimary: i.isPrimary === true };
+    } else if (i.kind === 'add-medication') {
+      const strength = typeof i.strength === 'string' && i.strength.trim() ? i.strength.trim() : undefined;
+      const llmDoseForm = typeof i.doseForm === 'string' && i.doseForm.trim() ? i.doseForm.trim() : undefined;
+      // Gemini's structured output is conservative with optional fields and frequently skips
+      // doseForm even when the message says "amoxicillin SUSPENSION". Fall back to a keyword
+      // sniff of the message text so the client ranker has something to work with.
+      const doseForm = llmDoseForm ?? sniffDoseForm(`${message} ${display}`);
+      intent = { kind: 'add-medication', display, searchTerms, strength, doseForm };
     } else {
       // Add / remove kinds without extras
       intent = { kind: i.kind, display, searchTerms } as EasyChartAgentIntent;
