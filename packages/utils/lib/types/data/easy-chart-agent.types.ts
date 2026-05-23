@@ -6,14 +6,19 @@ export type EasyChartAgentIntent =
   | { kind: 'unknown'; message: string }
   // Add actions — display + searchTerms get used by the client to search the canonical source
   | { kind: 'add-allergy'; display: string; searchTerms: string[] }
-  | { kind: 'add-condition'; display: string; searchTerms: string[] }
+  // `code` is the ICD-10 code from the narrative when explicitly stated ("PMH: hypertension (I10)").
+  // Client uses it to pin/auto-pick the right code in the picker since ICD search by display text
+  // alone often ranks unrelated subtypes higher than the intended one.
+  | { kind: 'add-condition'; display: string; searchTerms: string[]; code?: string }
   // strength/doseForm are extracted when present so the client can rank eRx search results
   // (e.g. narrative says "amoxicillin suspension 400 mg/5 mL" → strength="400 mg/5 mL",
   // doseForm="Suspension"). Plain "amoxicillin" leaves them undefined.
   | { kind: 'add-medication'; display: string; searchTerms: string[]; strength?: string; doseForm?: string }
   | { kind: 'add-surgical-history'; display: string; searchTerms: string[] }
   | { kind: 'add-hospitalization'; display: string; searchTerms: string[] }
-  | { kind: 'add-diagnosis'; display: string; searchTerms: string[]; isPrimary: boolean }
+  // Same `code` convention as add-condition — the provider may dictate "diagnosis: acute otitis
+  // media (H66.91)" and we should pin H66.91 instead of letting ICD-10 search rank H65.x first.
+  | { kind: 'add-diagnosis'; display: string; searchTerms: string[]; isPrimary: boolean; code?: string }
   // Remove actions — display + searchTerms get matched against the items already on this chart
   | { kind: 'remove-allergy'; display: string; searchTerms: string[] }
   | { kind: 'remove-condition'; display: string; searchTerms: string[] }

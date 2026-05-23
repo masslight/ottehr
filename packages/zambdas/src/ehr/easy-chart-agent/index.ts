@@ -38,6 +38,40 @@ function sniffDoseForm(text: string): string | undefined {
   return undefined;
 }
 
+// Scope the sniff to the RIGHT side of the medication name so a form mentioned for
+// one drug doesn't contaminate another's intent in multi-med messages. Dose forms
+// in clinical prose conventionally follow the ingredient ("amoxicillin SUSPENSION").
+function sniffDoseFormScoped(text: string, display: string, searchTerms: string[]): string | undefined {
+  const needles = [...searchTerms, display].map((s) => s.trim()).filter(Boolean);
+  const lower = text.toLowerCase();
+  for (const needle of needles) {
+    const idx = lower.indexOf(needle.toLowerCase());
+    if (idx === -1) continue;
+    const start = idx + needle.length;
+    const end = Math.min(text.length, start + 40);
+    return sniffDoseForm(text.slice(start, end));
+  }
+  return undefined;
+}
+
+// ICD-10 code pattern — see planner for full notes. Used as a fallback when Gemini omits the
+// `code` field but the provider clearly dictated one.
+const ICD10_REGEX = /\b([A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?)\b/g;
+function sniffIcdCodeScoped(text: string, display: string, searchTerms: string[]): string | undefined {
+  const needles = [display, ...searchTerms].map((s) => s.trim()).filter(Boolean);
+  const lower = text.toLowerCase();
+  for (const needle of needles) {
+    const idx = lower.indexOf(needle.toLowerCase());
+    if (idx === -1) continue;
+    const start = Math.max(0, idx - 20);
+    const end = Math.min(text.length, idx + needle.length + 60);
+    const matches = text.slice(start, end).match(ICD10_REGEX);
+    if (matches && matches.length > 0) return matches[0];
+    return undefined;
+  }
+  return undefined;
+}
+
 const KIND_VALUES = [
   'unknown',
   'add-allergy',
@@ -176,6 +210,10 @@ CODE-BASED actions (the provider gives the code directly — emit it as the "cod
   "procedure: laceration repair", "do a nail trephination". Required fields: kind, display
   (the procedure name as the provider phrased it), searchTerms (1-3 alternate phrasings — the
   client fuzzy-matches against the practice's procedure quick-pick names).
+  IMPORTANT: an in-clinic medication administration (e.g. "Acetaminophen 1g IV in clinic",
+  "Ketorolac IM", "ondansetron 4 mg IV given") is NOT a procedure — emit add-medication
+  instead, with strength/doseForm. Reserve add-procedure for suturing, splinting, lavage,
+  I&D, imaging, foreign body removal, and similar physical interventions.
 - "update-procedure": update one or more fields on an EXISTING procedure already in the chart.
   Triggered by phrases like "adjust procedure site to arm right", "change procedure technique
   to sterile", "set procedure time spent to 30 minutes", "update the lac repair complications
@@ -247,6 +285,10 @@ For action kinds (everything except "unknown"):
   phrase as one of the searchTerms. For add-medication: keep searchTerms focused on the active
   ingredient or brand name (e.g. "Amoxicillin"); don't pack strength/form into the searchTerms —
   use the strength/doseForm fields below for that.
+- code (add-diagnosis / add-condition only, OPTIONAL): the ICD-10 code from the message when the
+  provider explicitly stated it ("acute otitis media (H66.91)", "PMH hypertension I10",
+  "S93.421A ankle sprain"). Format: just the code, no parentheses. Omit if the provider didn't
+  state a code.
 - strength (add-medication only): the exact dose+concentration as written by the provider,
   e.g. "400 mg/5 mL", "500 mg", "10 mg/mL". Include WHENEVER the provider gives a strength;
   omit ONLY if no strength was mentioned (e.g. "start metoprolol" with no dose).
@@ -348,14 +390,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     } else if (!display) {
       intent = { kind: 'unknown', message: "I couldn't extract what to add. Try rephrasing." };
     } else if (i.kind === 'add-diagnosis') {
-      intent = { kind: 'add-diagnosis', display, searchTerms, isPrimary: i.isPrimary === true };
+      const llmCode = typeof i.code === 'string' && i.code.trim() ? i.code.trim() : undefined;
+      const code = llmCode ?? sniffIcdCodeScoped(message, display, searchTerms);
+      intent = { kind: 'add-diagnosis', display, searchTerms, isPrimary: i.isPrimary === true, code };
+    } else if (i.kind === 'add-condition') {
+      const llmCode = typeof i.code === 'string' && i.code.trim() ? i.code.trim() : undefined;
+      const code = llmCode ?? sniffIcdCodeScoped(message, display, searchTerms);
+      intent = { kind: 'add-condition', display, searchTerms, code };
     } else if (i.kind === 'add-medication') {
       const strength = typeof i.strength === 'string' && i.strength.trim() ? i.strength.trim() : undefined;
       const llmDoseForm = typeof i.doseForm === 'string' && i.doseForm.trim() ? i.doseForm.trim() : undefined;
       // Gemini's structured output is conservative with optional fields and frequently skips
       // doseForm even when the message says "amoxicillin SUSPENSION". Fall back to a keyword
-      // sniff of the message text so the client ranker has something to work with.
-      const doseForm = llmDoseForm ?? sniffDoseForm(`${message} ${display}`);
+      // sniff of the message text — scoped to a window near the medication name so a form
+      // mentioned for a different drug in the same message doesn't contaminate this one.
+      const doseForm = llmDoseForm ?? sniffDoseFormScoped(message, display, searchTerms);
       intent = { kind: 'add-medication', display, searchTerms, strength, doseForm };
     } else {
       // Add / remove kinds without extras

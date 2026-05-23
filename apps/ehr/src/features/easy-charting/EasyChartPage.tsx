@@ -1163,34 +1163,131 @@ const EXAM_QUERY_STOPWORDS = new Set([
   'to',
   'and',
 ]);
+// Body-region tokens commonly used as exam section names. When the provider's display includes
+// one (e.g. "Throat mildly injected"), we constrain matches to leaves whose section overlaps —
+// otherwise the matcher returns wildly off-region findings whose only token in common is the
+// generic descriptor (e.g. an "Eyes — non-injected" leaf matching "Throat injected").
+const EXAM_BODY_REGIONS = new Set([
+  'throat',
+  'pharynx',
+  'oropharynx',
+  'oral',
+  'mouth',
+  'tonsils',
+  'lungs',
+  'lung',
+  'pulmonary',
+  'chest',
+  'heart',
+  'cardiac',
+  'cv',
+  'abdomen',
+  'abdominal',
+  'belly',
+  'gi',
+  'rectum',
+  'genitourinary',
+  'gu',
+  'ears',
+  'ear',
+  'tm',
+  'tympanic',
+  'nose',
+  'nasal',
+  'sinus',
+  'sinuses',
+  'eyes',
+  'eye',
+  'conjunctiva',
+  'sclera',
+  'skin',
+  'dermatologic',
+  'rash',
+  'neck',
+  'lymph',
+  'head',
+  'scalp',
+  'extremities',
+  'extremity',
+  'limbs',
+  'arm',
+  'leg',
+  'ankle',
+  'knee',
+  'shoulder',
+  'hip',
+  'back',
+  'spine',
+  'neurologic',
+  'neuro',
+  'musculoskeletal',
+  'msk',
+]);
+
+const EXAM_NEGATION_TOKENS = new Set(['no', 'non', 'without', 'denies', 'absent', 'negative']);
+
 function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): ExamLeaf[] {
   // Use only the provider's display phrase — LLM-expanded searchTerms produced too many ties.
   const queryTokens = tokenize(intent.display).filter((tok) => tok.length >= 2 && !EXAM_QUERY_STOPWORDS.has(tok));
   if (queryTokens.length === 0) return [];
 
-  // Weighted scoring per token (take best per-token match, then sum):
-  //   exact match in label   → 4
-  //   exact match in section → 3
-  //   prefix match in label  → 2
-  //   prefix match in section → 1
-  // Add a small bonus for matching every query token, so "erythema nose" prefers leaves
-  // that hit both terms over leaves that match only one.
+  // Body-region constraint: if the provider named a region, require the leaf's section (or its
+  // label, which sometimes carries a region prefix) to mention it. Without this, "Throat injected"
+  // matches "Eyes — non-injected" because "injected" is a substring of "non-injected".
+  const queryRegions = queryTokens.filter((t) => EXAM_BODY_REGIONS.has(t));
+
+  // The query is a positive assertion unless it itself contains negation tokens (e.g. provider
+  // typed "no rash"). If query is positive, leaves whose label is itself a negation of one of
+  // our query tokens (e.g. "non-injected" matches "injected" but they mean opposite things)
+  // must be filtered out.
+  const queryIsPositive = !queryTokens.some((t) => EXAM_NEGATION_TOKENS.has(t));
+
+  // For each label, build the indices of negation tokens so we can check whether a matched
+  // token sits immediately after one (e.g. "no" + "rash" or "non" + "injected").
+  const tokenizeWithNegationIndex = (s: string): { tokens: string[]; isNegated: boolean[] } => {
+    const tokens = tokenize(s);
+    const isNegated = tokens.map((_, i) => {
+      // "non-injected" tokenizes to ["non", "injected"] — the "injected" at i is negated by
+      // tokens[i-1] === "non". Same for "no rash" and "without exudate".
+      const prev = i > 0 ? tokens[i - 1] : '';
+      return EXAM_NEGATION_TOKENS.has(prev);
+    });
+    return { tokens, isNegated };
+  };
+
   const scoreLeaf = (leaf: ExamLeaf): number => {
-    const labelTokens = tokenize(leaf.label);
+    const labelInfo = tokenizeWithNegationIndex(leaf.label);
     const sectionTokens = tokenize(leaf.section);
+
+    // Body-region gate: if the provider named a region, require it to be present in the
+    // leaf's section OR label. No region match → skip this leaf entirely.
+    if (queryRegions.length > 0) {
+      const labelHasRegion = queryRegions.some((r) => labelInfo.tokens.some((lt) => lt === r || lt.startsWith(r)));
+      const sectionHasRegion = queryRegions.some((r) => sectionTokens.some((st) => st === r || st.startsWith(r)));
+      if (!labelHasRegion && !sectionHasRegion) return 0;
+    }
+
     let total = 0;
     let allMatched = true;
-    // Sum label-best AND section-best per query token (rather than taking the global max),
-    // so a leaf whose section matches "nose" AND label matches "erythema" beats a leaf where
-    // only one of those hits. Exact > prefix within each scope.
     for (const qt of queryTokens) {
       let labelBest = 0;
-      for (const lt of labelTokens) {
+      let labelBestNegated = false;
+      for (let i = 0; i < labelInfo.tokens.length; i++) {
+        const lt = labelInfo.tokens[i];
         if (lt === qt) {
           labelBest = 4;
+          labelBestNegated = labelInfo.isNegated[i];
           break;
         }
-        if (lt.startsWith(qt)) labelBest = Math.max(labelBest, 2);
+        if (lt.startsWith(qt) && labelBest < 2) {
+          labelBest = 2;
+          labelBestNegated = labelInfo.isNegated[i];
+        }
+      }
+      // Polarity mismatch: query is positive but leaf has the negated form of this exact token.
+      // Heavy penalty so a non-injected leaf can't beat a real positive match elsewhere.
+      if (queryIsPositive && labelBest > 0 && labelBestNegated) {
+        labelBest = -labelBest;
       }
       let sectionBest = 0;
       for (const st of sectionTokens) {
@@ -1201,7 +1298,7 @@ function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): 
         if (st.startsWith(qt)) sectionBest = Math.max(sectionBest, 1);
       }
       const tokenScore = labelBest + sectionBest;
-      if (tokenScore === 0) allMatched = false;
+      if (tokenScore <= 0) allMatched = false;
       total += tokenScore;
     }
     if (allMatched && queryTokens.length > 1) total += 2;
@@ -1538,6 +1635,22 @@ async function runIntentSearch(
   oystehr: Oystehr | undefined,
   oystehrZambda: Oystehr | undefined
 ): Promise<SearchResult[]> {
+  // For ICD-10 add intents: if the narrative supplied an explicit code, look it up first by code.
+  // The searchIcd10Codes scorer treats exact-code matches as the top result. If that yields an
+  // exact code match, return JUST that result — downstream dispatch then auto-picks (results=1)
+  // instead of showing a picker the provider has to click through.
+  const intentCode =
+    (intent.kind === 'add-diagnosis' || intent.kind === 'add-condition') && 'code' in intent
+      ? (intent as { code?: string }).code
+      : undefined;
+  if (intentCode && oystehrZambda) {
+    const codeResp = await icd10Search(oystehrZambda, { search: intentCode });
+    const exact = (codeResp.codes || []).find((c) => c.code.toLowerCase() === intentCode.toLowerCase());
+    if (exact) {
+      return [{ name: exact.display, code: exact.code }];
+    }
+    // Code not found exactly — fall through to display-based search.
+  }
   const terms = intent.searchTerms.length > 0 ? intent.searchTerms : [intent.display];
   const all: SearchResult[] = [];
   const seen = new Set<string>();

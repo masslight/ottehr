@@ -38,6 +38,51 @@ function sniffDoseForm(text: string): string | undefined {
   return undefined;
 }
 
+// Scope the sniff to the RIGHT side of the medication name only, since dose forms in clinical
+// prose conventionally follow the ingredient ("amoxicillin SUSPENSION 400 mg/5 mL"). A tight
+// 40-char forward window avoids bleeding into the next medication's form. Looking before the
+// name (e.g. amoxicillin's "suspension" landing in acetaminophen's intent) was the bug.
+function sniffDoseFormScoped(narrative: string, display: string, searchTerms: string[]): string | undefined {
+  const needles = [...searchTerms, display].map((s) => (typeof s === 'string' ? s.trim() : '')).filter(Boolean);
+  const narrativeLower = narrative.toLowerCase();
+  for (const needle of needles) {
+    const idx = narrativeLower.indexOf(needle.toLowerCase());
+    if (idx === -1) continue;
+    const start = idx + needle.length;
+    const end = Math.min(narrative.length, start + 40);
+    const window = narrative.slice(start, end);
+    const sniffed = sniffDoseForm(window);
+    if (sniffed) return sniffed;
+    // First hit decides — don't bleed into the next med's window.
+    return undefined;
+  }
+  return undefined;
+}
+
+// ICD-10 codes follow a strict pattern: letter, 2 digits, optional ".digits", optional trailing
+// alpha. Examples that should match: I10, H66.91, S93.421A, S72.142A, L23.7, M40.12, S13.4XXA.
+// Used as a fallback when the LLM omits the `code` field but the narrative clearly carries one
+// (most synth narratives spell the code in parentheses after the diagnosis name).
+const ICD10_REGEX = /\b([A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?)\b/g;
+
+function sniffIcdCodeScoped(narrative: string, display: string, searchTerms: string[]): string | undefined {
+  const needles = [display, ...searchTerms].map((s) => (typeof s === 'string' ? s.trim() : '')).filter(Boolean);
+  const narrativeLower = narrative.toLowerCase();
+  for (const needle of needles) {
+    const idx = narrativeLower.indexOf(needle.toLowerCase());
+    if (idx === -1) continue;
+    // Look in a ~80-char window around the diagnosis name — narrative usually says
+    // "Acute otitis media, right ear (H66.91)" with the code immediately following.
+    const start = Math.max(0, idx - 20);
+    const end = Math.min(narrative.length, idx + needle.length + 60);
+    const window = narrative.slice(start, end);
+    const matches = window.match(ICD10_REGEX);
+    if (matches && matches.length > 0) return matches[0];
+    return undefined;
+  }
+  return undefined;
+}
+
 // Mirror the agent's intent kinds — the planner emits the same shape, just as a list.
 const KIND_VALUES = [
   'unknown',
@@ -163,6 +208,11 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
 
 - add-allergy / add-condition / add-medication / add-surgical-history / add-hospitalization /
   add-diagnosis: { kind, display, searchTerms[1-3] }; add-diagnosis also takes isPrimary.
+- add-condition and add-diagnosis ALSO take an OPTIONAL "code" field for the ICD-10 code when
+  the narrative explicitly states one ("acute otitis media (H66.91)", "PMH hypertension I10",
+  "S93.421A ankle sprain"). Format: just the code, no parentheses. Omit if not stated. This is
+  critical for picker accuracy — without the code the client search often returns wrong subtypes
+  (e.g. "Acute otitis media" → serous H65.x instead of suppurative H66.x).
 - add-medication takes two extra fields beyond display/searchTerms:
     { kind: "add-medication", display, searchTerms, strength, doseForm }
     Keep searchTerms focused on the ingredient/brand name ("Amoxicillin") — DO NOT pack
@@ -185,6 +235,11 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
 - remove-cpt: { kind, code }
 - apply-template: { kind, display, searchTerms } — match against the practice's saved templates.
 - add-procedure: { kind, display, searchTerms } — match against the practice's procedure quick picks.
+  IMPORTANT: an in-clinic medication administration (e.g. "Acetaminophen 1g IV in clinic",
+  "Ketorolac IM", "ondansetron 4 mg IV given") is NOT a procedure — emit it as add-medication
+  with the strength/doseForm fields, even if the narrative groups it under "plan" or
+  "procedures". Only emit add-procedure for things like suturing, splinting, lavage, I&D,
+  imaging (X-ray, ultrasound), foreign body removal, etc.
 - update-procedure: { kind, updates: [{field, value}, ...], procedureMatch? }
     Field names: bodySite, bodySide, technique, suppliesUsed, procedureDetails,
     medicationUsed, complications, patientResponse, postInstructions, timeSpent,
@@ -243,8 +298,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // planner emits searchTerms focused on the ingredient name.
     if (i.kind === 'add-medication' && (typeof i.doseForm !== 'string' || !i.doseForm.trim())) {
       const display = typeof i.display === 'string' ? i.display : '';
-      const sniffed = sniffDoseForm(`${narrative} ${display}`);
+      const searchTerms = Array.isArray(i.searchTerms)
+        ? (i.searchTerms.filter((t) => typeof t === 'string' && !!t.trim()) as string[])
+        : [];
+      const sniffed = sniffDoseFormScoped(narrative, display, searchTerms);
       if (sniffed) i.doseForm = sniffed;
+    }
+    if ((i.kind === 'add-diagnosis' || i.kind === 'add-condition') && (typeof i.code !== 'string' || !i.code.trim())) {
+      const display = typeof i.display === 'string' ? i.display : '';
+      const searchTerms = Array.isArray(i.searchTerms)
+        ? (i.searchTerms.filter((t) => typeof t === 'string' && !!t.trim()) as string[])
+        : [];
+      const sniffed = sniffIcdCodeScoped(narrative, display, searchTerms);
+      if (sniffed) i.code = sniffed;
     }
     steps.push(i as unknown as EasyChartAgentIntent);
   }
