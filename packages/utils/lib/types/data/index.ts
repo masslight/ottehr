@@ -25,3 +25,5 @@ export * from './delete-patient-document.types';
 export * from './printing';
 export * from './upload-patient-condition-photo.types';
 export * from './custom-folder.types';
+export * from './easy-chart-agent.types';
+export * from './easy-charting.types';

@@ -101,8 +101,12 @@ import {
   DeleteUserZambdaOutput,
   DeleteVisitFilesInput,
   DownloadPatientProfilePhotoInput,
+  EasyChartAgentInput,
+  EasyChartAgentOutput,
   EHRVisitDetails,
   EmCodeOutput,
+  GenerateChartPlanInput,
+  GenerateChartPlanOutput,
   GetAllergyQuickPicksResponse,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
@@ -202,6 +206,8 @@ import {
   SubmitLabOrderInput,
   SubmitLabOrderOutput,
   SyncMailedStatementStatusesOutput,
+  TranscribeAudioInput,
+  TranscribeAudioOutput,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
   UpdateAllergyQuickPickResponse,
@@ -1590,6 +1596,54 @@ export const applyTemplate = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'apply-template',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const generateChartPlan = async (
+  oystehr: Oystehr,
+  parameters: GenerateChartPlanInput
+): Promise<GenerateChartPlanOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'generate-chart-plan',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const transcribeAudio = async (
+  oystehr: Oystehr,
+  parameters: TranscribeAudioInput
+): Promise<TranscribeAudioOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'transcribe-audio',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const easyChartAgent = async (
+  oystehr: Oystehr,
+  parameters: EasyChartAgentInput
+): Promise<EasyChartAgentOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'easy-chart-agent',
       ...parameters,
     });
     return chooseJson(response);

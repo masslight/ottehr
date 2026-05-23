@@ -17,6 +17,7 @@ import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { TestErrorPage } from './components/TestErrorPage';
 import { FEATURE_FLAGS } from './constants/feature-flags';
 import { CustomThemeProvider } from './CustomThemeProvider';
+import EasyChartPage from './features/easy-charting/EasyChartPage';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
@@ -220,6 +221,7 @@ function App(): ReactElement {
                 <Route path="/visits" element={<AppointmentsPage />} />
                 <Route path="/visits/add" element={<AddPatient />} />
                 <Route path="/visit/:id" element={<VisitDetailsPage />} />
+                <Route path="/easy-chart/:encounterId" element={<EasyChartPage />} />
                 <Route path="/profile" element={<EmployeeProfilePage />} />
                 <Route path="/patients" element={<PatientsPage />} />
                 <Route path="/patient/:id" element={<PatientPage />} />
@@ -275,6 +277,7 @@ function App(): ReactElement {
                 <Route path="/visits" element={<AppointmentsPage />} />
                 <Route path="/visits/add" element={<AddPatient />} />
                 <Route path="/visit/:id" element={<VisitDetailsPage />} />
+                <Route path="/easy-chart/:encounterId" element={<EasyChartPage />} />
                 <Route path="/profile" element={<EmployeeProfilePage />} />
                 <Route path="/patient/:id" element={<PatientPage />} />
                 <Route path="/patient/:id/info" element={<PatientInformationPage />} />

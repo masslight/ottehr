@@ -1,0 +1,2712 @@
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Collapse,
+  Container,
+  Divider,
+  IconButton,
+  keyframes,
+  List,
+  ListItemButton,
+  ListItemText,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
+import Oystehr from '@oystehr/sdk';
+import type { ExamItemConfig } from 'config-types';
+import { useEffect, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import {
+  AllergyDTO,
+  BODY_SIDES_VALUE_SET_URL,
+  BODY_SITES_VALUE_SET_URL,
+  COMPLICATIONS_VALUE_SET_URL,
+  CPTCodeDTO,
+  EasyChartAgentIntent,
+  examConfig,
+  GetChartDataResponse,
+  HospitalizationDTO,
+  MedicalConditionDTO,
+  MedicationDTO,
+  MEDICATIONS_USED_VALUE_SET_URL,
+  PATIENT_RESPONSES_VALUE_SET_URL,
+  POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
+  PROCEDURE_TYPES_VALUE_SET_URL,
+  ProcedureDTO,
+  ProcedureQuickPickData,
+  progressNoteChartDataRequestedFields,
+  SaveChartDataRequest,
+  SUPPLIES_VALUE_SET_URL,
+  TECHNIQUES_VALUE_SET_URL,
+  TIME_SPENT_VALUE_SET_URL,
+  VitalsObservationDTO,
+} from 'utils';
+import { applyTemplate, easyChartAgent, icd10Search, listTemplates } from '../../api/api';
+import { showEnvironmentBanner } from '../../App';
+import { HospitalizationOptions } from '../visits/in-person/components/hospitalization/hospitalizationOptions';
+import { SURGICAL_HISTORY_OPTIONS } from '../visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
+import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient';
+import { useEasyChartQuickPicks } from './useEasyChartQuickPicks';
+
+// Walk examConfig once to map every leaf exam field name to its most-specific section label
+// (e.g. "Right ear" inside the "Ears" card) so we can group abnormal findings by body section.
+function buildFieldToSectionLabel(config: ExamItemConfig): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const [, section] of Object.entries(config)) {
+    const walk = (components: Record<string, unknown>, currentLabel: string): void => {
+      for (const [key, comp] of Object.entries(components)) {
+        const c = comp as { type?: string; label?: string; components?: Record<string, unknown> };
+        if ((c?.type === 'column' || c?.type === 'dropdown') && c.components) {
+          walk(c.components, c.label ?? currentLabel);
+        } else {
+          map[key] = currentLabel;
+        }
+      }
+    };
+    walk(section.components.normal as Record<string, unknown>, section.label);
+    walk(section.components.abnormal as Record<string, unknown>, section.label);
+    walk(section.components.comment as Record<string, unknown>, section.label);
+  }
+  return map;
+}
+
+const FIELD_TO_SECTION_LABEL = buildFieldToSectionLabel(examConfig.default.components);
+
+// Flat index of every CHECKBOX leaf in the exam template, keyed by the field code so the
+// refine-bar "add exam finding" handler can fuzzy-match the provider's phrasing against
+// labels and present the closest candidates.
+interface ExamLeaf {
+  field: string;
+  label: string;
+  section: string;
+  normalAbnormal: 'normal' | 'abnormal';
+  // For modal-option leaves: `field` is the PARENT checkbox code (that's where the
+  // ServiceRequest/Observation lives); the picker writes this option as a `components`
+  // entry on that parent observation rather than as a separate field.
+  modalOption?: {
+    optionCode: string;
+    optionLabel: string;
+    groupLabel: string;
+    columnLabel?: string;
+    abnormal: boolean;
+    parentLabel: string;
+  };
+}
+function buildExamLeafIndex(config: ExamItemConfig): ExamLeaf[] {
+  const out: ExamLeaf[] = [];
+  // Walk arbitrary nested objects looking for modal "options" leaves (each is { label }).
+  // Picks any { options: { code: { label } } } leaf and emits a virtual leaf per option.
+  // Carries the path of intermediate `label`s (e.g. group/column labels like "Frontal" or
+  // "Maxillary") into the leaf's display so distinct-but-similarly-named options (e.g.
+  // sinus-frontal-l vs sinus-maxillary-l both have option label "Left") don't render as
+  // duplicates in the picker.
+  const walkModalOptions = (
+    node: unknown,
+    parentCheckboxKey: string,
+    parentCheckboxLabel: string,
+    labelPath: string[],
+    columnLabel: string | undefined,
+    groupLabel: string | undefined,
+    section: string,
+    normalAbnormal: 'normal' | 'abnormal'
+  ): void => {
+    if (!node || typeof node !== 'object') return;
+    const obj = node as Record<string, unknown>;
+    if (obj.options && typeof obj.options === 'object') {
+      for (const [optKey, optVal] of Object.entries(obj.options as Record<string, unknown>)) {
+        const opt = optVal as { label?: unknown; abnormal?: unknown } | undefined;
+        const optLabel = opt?.label;
+        if (typeof optLabel === 'string') {
+          out.push({
+            field: parentCheckboxKey,
+            label: [...labelPath, optLabel].filter(Boolean).join(' — '),
+            section,
+            normalAbnormal,
+            modalOption: {
+              optionCode: optKey,
+              optionLabel: optLabel,
+              groupLabel: groupLabel ?? '',
+              columnLabel,
+              abnormal: typeof opt?.abnormal === 'boolean' ? opt.abnormal : normalAbnormal === 'abnormal',
+              parentLabel: parentCheckboxLabel,
+            },
+          });
+        }
+      }
+    }
+    for (const containerKey of ['columns', 'groups', 'components']) {
+      const container = obj[containerKey];
+      if (container && typeof container === 'object') {
+        for (const child of Object.values(container as Record<string, unknown>)) {
+          const childObj = child as { label?: unknown; header?: unknown } | undefined;
+          const childLabel = typeof childObj?.label === 'string' ? childObj.label : undefined;
+          const childHeader = typeof childObj?.header === 'string' ? childObj.header : undefined;
+          // 'columns' nodes typically expose laterality via `header` (e.g. "Left"/"Right");
+          // 'groups' and 'components' use `label`. Prefer the right field per container
+          // scope so the display path always includes laterality.
+          const pathEntry = containerKey === 'columns' ? childHeader ?? childLabel : childLabel ?? childHeader;
+          const useful = !!pathEntry && !/^single[-_]?column$/i.test(pathEntry);
+          // Avoid consecutive duplicates in the path (e.g. modal section "Status" containing
+          // a group also called "Status").
+          const nextPath =
+            useful && pathEntry !== labelPath[labelPath.length - 1] ? [...labelPath, pathEntry!] : labelPath;
+          const nextColumn = containerKey === 'columns' ? childHeader ?? childLabel ?? columnLabel : columnLabel;
+          const nextGroup = containerKey === 'groups' ? childLabel ?? groupLabel : groupLabel;
+          walkModalOptions(
+            child,
+            parentCheckboxKey,
+            parentCheckboxLabel,
+            nextPath,
+            nextColumn,
+            nextGroup,
+            section,
+            normalAbnormal
+          );
+        }
+      }
+    }
+  };
+
+  for (const [, section] of Object.entries(config)) {
+    const walk = (
+      components: Record<string, unknown>,
+      currentSectionLabel: string,
+      normalAbnormal: 'normal' | 'abnormal'
+    ): void => {
+      for (const [key, comp] of Object.entries(components)) {
+        const c = comp as {
+          type?: string;
+          label?: string;
+          components?: Record<string, unknown>;
+          modal?: Record<string, unknown>;
+        };
+        if ((c?.type === 'column' || c?.type === 'dropdown') && c.components) {
+          walk(c.components, c.label ?? currentSectionLabel, normalAbnormal);
+        } else if (c?.type === 'checkbox' && c.label) {
+          out.push({ field: key, label: c.label, section: currentSectionLabel, normalAbnormal });
+        } else if (c?.type === 'checkbox-with-modal' && c.label && c.modal) {
+          // Surface the parent checkbox itself…
+          out.push({ field: key, label: c.label, section: currentSectionLabel, normalAbnormal });
+          // …plus every nested modal option as its own pickable item.
+          for (const modalNode of Object.values(c.modal)) {
+            walkModalOptions(
+              modalNode,
+              key,
+              c.label,
+              [c.label],
+              undefined,
+              undefined,
+              currentSectionLabel,
+              normalAbnormal
+            );
+          }
+        }
+      }
+    };
+    walk(section.components.normal as Record<string, unknown>, section.label, 'normal');
+    walk(section.components.abnormal as Record<string, unknown>, section.label, 'abnormal');
+  }
+  return out;
+}
+const EXAM_LEAVES = buildExamLeafIndex(examConfig.default.components);
+
+const VITAL_LABEL: Record<string, string> = {
+  'vital-temperature': 'Temp',
+  'vital-heartbeat': 'HR',
+  'vital-blood-pressure': 'BP',
+  'vital-oxygen-sat': 'O₂ sat',
+  'vital-respiration-rate': 'RR',
+  'vital-weight': 'Weight',
+  'vital-height': 'Height',
+  'vital-vision': 'Vision',
+  'vital-last-menstrual-period': 'LMP',
+};
+
+const VITAL_UNIT: Record<string, string> = {
+  'vital-oxygen-sat': '%',
+  'vital-respiration-rate': '/min',
+  'vital-heartbeat': 'bpm',
+};
+
+function formatVital(v: VitalsObservationDTO): string {
+  const label = VITAL_LABEL[v.field] ?? v.field;
+  if (v.field === 'vital-blood-pressure') {
+    return `${label}: ${v.systolicPressure}/${v.diastolicPressure} mmHg`;
+  }
+  if (v.field === 'vital-vision') {
+    const eyes = [
+      v.bothEyesVisionText ? `OU ${v.bothEyesVisionText}` : null,
+      v.rightEyeVisionText ? `OD ${v.rightEyeVisionText}` : null,
+      v.leftEyeVisionText ? `OS ${v.leftEyeVisionText}` : null,
+    ].filter(Boolean);
+    return `${label}: ${eyes.join(', ')}`;
+  }
+  if (v.field === 'vital-weight' && 'extraWeightOptions' in v && v.extraWeightOptions?.includes('patient_refused')) {
+    return `${label}: patient refused`;
+  }
+  if ('value' in v && v.value !== undefined && v.value !== null) {
+    const unit = VITAL_UNIT[v.field] ?? '';
+    return `${label}: ${v.value}${unit ? ` ${unit}` : ''}`;
+  }
+  return label;
+}
+
+// Shared section-header styling so each band in the note reads like a real section header
+// rather than a flat label. Underlined + bolded primary-color text on a hairline divider.
+const sectionHeaderSx = {
+  color: 'primary.dark',
+  fontWeight: 600,
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase' as const,
+  lineHeight: 1.4,
+  pb: 0.5,
+  borderBottom: '1px solid',
+  borderColor: 'divider',
+};
+
+// Convert a ProcedureType code like "laceration-repair" into a human label "Laceration Repair".
+// Procedure types are stored on the ServiceRequest as the FHIR coding code (kebab-case), but
+// providers expect to see a Title Case display name in the rendered note.
+function formatProcedureType(code: string | undefined): string | undefined {
+  if (!code) return undefined;
+  return code
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }): JSX.Element {
+  return (
+    <Box sx={{ py: 1.25 }}>
+      <Typography variant="subtitle2" sx={sectionHeaderSx}>
+        {title}
+      </Typography>
+      <Box sx={{ mt: 0.75 }}>{children}</Box>
+    </Box>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}): JSX.Element {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Box sx={{ py: 1.25 }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={0.5}
+        onClick={() => setOpen((o) => !o)}
+        sx={{ cursor: 'pointer', userSelect: 'none' }}
+      >
+        <Typography variant="subtitle2" sx={{ ...sectionHeaderSx, flex: 1 }}>
+          {title}
+        </Typography>
+        <IconButton size="small" sx={{ p: 0.25 }} aria-label={open ? 'Collapse section' : 'Expand section'}>
+          <ExpandMoreIcon
+            fontSize="small"
+            sx={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}
+          />
+        </IconButton>
+      </Stack>
+      <Collapse in={open} unmountOnExit>
+        <Box sx={{ mt: 0.5 }}>{children}</Box>
+      </Collapse>
+    </Box>
+  );
+}
+
+interface NoteSectionsProps {
+  data: GetChartDataResponse;
+  freshlyAdded: Set<string>;
+  removingItems: Set<string>;
+}
+
+// Keyframes defined at module level so the animation runs reliably whether `flashSx` is
+// passed directly to `sx` or spread into a larger sx object. The animation pulses a bold
+// yellow + outline so it's hard to miss against a white note background.
+const flashKeyframe = keyframes`
+  0% {
+    background-color: rgba(255, 193, 7, 0.85);
+    outline: 2px solid rgba(245, 124, 0, 1);
+    outline-offset: 2px;
+  }
+  60% {
+    background-color: rgba(255, 235, 59, 0.5);
+    outline: 2px solid rgba(245, 124, 0, 0.4);
+    outline-offset: 2px;
+  }
+  100% {
+    background-color: transparent;
+    outline: 2px solid rgba(245, 124, 0, 0);
+    outline-offset: 2px;
+  }
+`;
+
+const flashSx = {
+  animation: `${flashKeyframe} 3s ease-out`,
+  borderRadius: '4px',
+  px: 0.5,
+  mx: -0.5,
+};
+
+// For removes, we briefly highlight the item in red so the user sees what's about to be
+// deleted, then unmount it. The animation duration is matched to the removal delay in
+// flashAndRemoveItem (1.5s) so the flash plays to completion just as the item disappears.
+const removeFlashKeyframe = keyframes`
+  0% {
+    background-color: rgba(244, 67, 54, 0.85);
+    outline: 2px solid rgba(198, 40, 40, 1);
+    outline-offset: 2px;
+  }
+  60% {
+    background-color: rgba(244, 67, 54, 0.55);
+    outline: 2px solid rgba(198, 40, 40, 0.6);
+    outline-offset: 2px;
+  }
+  100% {
+    background-color: rgba(244, 67, 54, 0.3);
+    outline: 2px solid rgba(198, 40, 40, 0.3);
+    outline-offset: 2px;
+  }
+`;
+
+const removeFlashSx = {
+  animation: `${removeFlashKeyframe} 1.5s ease-out forwards`,
+  borderRadius: '4px',
+  px: 0.5,
+  mx: -0.5,
+};
+
+function NoteSections({ data, freshlyAdded, removingItems }: NoteSectionsProps): JSX.Element {
+  // Pick the right flash style: red if the item is being removed, yellow if it was just added,
+  // none otherwise. Removing wins so adding-then-immediately-removing still reads as a removal.
+  const itemSx = (resourceId: string | undefined): typeof flashSx | undefined => {
+    if (!resourceId) return undefined;
+    if (removingItems.has(resourceId)) return removeFlashSx;
+    if (freshlyAdded.has(resourceId)) return flashSx;
+    return undefined;
+  };
+  // In-person CC ↔ HPI swap: the textareas labelled "Chief Complaint" and "History of Present Illness"
+  // are backed by the historyOfPresentIllness and chiefComplaint chart-data keys respectively.
+  const chiefComplaint = data.historyOfPresentIllness?.text;
+  const hpi = data.chiefComplaint?.text;
+  const moi = data.mechanismOfInjury?.text;
+  const rosText = data.ros?.text;
+  const mdm = data.medicalDecision?.text;
+
+  const positiveRos = (data.rosObservations ?? []).filter((o) => o.value === true);
+  const abnormalExam = (data.examObservations ?? []).filter((o) => o.value === true);
+  const examWithNotes = (data.examObservations ?? []).filter((o) => o.note && o.note.trim());
+
+  const dx = data.diagnosis ?? [];
+  const cptCodes = data.cptCodes ?? [];
+  const emCode = data.emCode;
+  const procedures = data.procedures ?? [];
+  const instructions = data.instructions ?? [];
+  const conditions = data.conditions ?? [];
+  const allergies = data.allergies ?? [];
+  const medications = data.medications ?? [];
+  const surgicalHistory = data.surgicalHistory ?? [];
+  const hospitalizations = data.episodeOfCare ?? [];
+  const vitals = data.vitalsObservations ?? [];
+
+  const examBySection = new Map<string, typeof abnormalExam>();
+  abnormalExam.forEach((o) => {
+    const label = FIELD_TO_SECTION_LABEL[o.field] ?? 'Other';
+    if (!examBySection.has(label)) examBySection.set(label, []);
+    examBySection.get(label)!.push(o);
+  });
+
+  const anything =
+    chiefComplaint ||
+    hpi ||
+    moi ||
+    rosText ||
+    positiveRos.length ||
+    abnormalExam.length ||
+    examWithNotes.length ||
+    mdm ||
+    dx.length ||
+    cptCodes.length ||
+    emCode ||
+    instructions.length ||
+    conditions.length ||
+    allergies.length ||
+    medications.length ||
+    surgicalHistory.length ||
+    hospitalizations.length ||
+    vitals.length ||
+    procedures.length;
+
+  if (!anything) {
+    return (
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          No chart data yet for this encounter.
+        </Typography>
+      </Paper>
+    );
+  }
+
+  return (
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Stack divider={<Divider flexItem />}>
+        {allergies.length > 0 && (
+          <Section title="Allergies">
+            <Stack spacing={0.25}>
+              {allergies.map((a, i) => (
+                <Typography
+                  key={a.resourceId ?? i}
+                  variant="body2"
+                  data-easy-chart-id={a.resourceId}
+                  sx={itemSx(a.resourceId)}
+                >
+                  • {a.name ?? '(unnamed)'}
+                </Typography>
+              ))}
+            </Stack>
+          </Section>
+        )}
+
+        {medications.length > 0 && (
+          <Section title="Medications">
+            <Stack spacing={0.25}>
+              {medications.map((m, i) => (
+                <Typography
+                  key={m.resourceId ?? i}
+                  variant="body2"
+                  data-easy-chart-id={m.resourceId}
+                  sx={itemSx(m.resourceId)}
+                >
+                  • {m.name}
+                  {m.intakeInfo?.dose ? ` — ${m.intakeInfo.dose}` : ''}
+                </Typography>
+              ))}
+            </Stack>
+          </Section>
+        )}
+
+        {conditions.length > 0 && (
+          <Section title="Medical History">
+            <Stack spacing={0.25}>
+              {conditions.map((c, i) => (
+                <Typography
+                  key={c.resourceId ?? i}
+                  variant="body2"
+                  data-easy-chart-id={c.resourceId}
+                  sx={itemSx(c.resourceId)}
+                >
+                  {c.code ? <strong>{c.code}</strong> : null}
+                  {c.code ? ' — ' : ''}
+                  {c.display ?? '(no display)'}
+                </Typography>
+              ))}
+            </Stack>
+          </Section>
+        )}
+
+        {surgicalHistory.length > 0 && (
+          <Section title="Surgical History">
+            <Stack spacing={0.25}>
+              {surgicalHistory.map((s, i) => (
+                <Typography
+                  key={s.resourceId ?? i}
+                  variant="body2"
+                  data-easy-chart-id={s.resourceId}
+                  sx={itemSx(s.resourceId)}
+                >
+                  <strong>{s.code}</strong>
+                  {s.display ? ` — ${s.display}` : ''}
+                </Typography>
+              ))}
+            </Stack>
+          </Section>
+        )}
+
+        {hospitalizations.length > 0 && (
+          <Section title="Hospitalizations">
+            <Stack spacing={0.25}>
+              {hospitalizations.map((h, i) => (
+                <Typography
+                  key={h.resourceId ?? i}
+                  variant="body2"
+                  data-easy-chart-id={h.resourceId}
+                  sx={itemSx(h.resourceId)}
+                >
+                  <strong>{h.code}</strong>
+                  {h.display ? ` — ${h.display}` : ''}
+                </Typography>
+              ))}
+            </Stack>
+          </Section>
+        )}
+
+        {chiefComplaint && (
+          <Section title="Chief Complaint">
+            <Typography
+              variant="body2"
+              data-easy-chart-id={data.historyOfPresentIllness?.resourceId}
+              sx={{
+                whiteSpace: 'pre-wrap',
+                ...(itemSx(data.historyOfPresentIllness?.resourceId) ?? {}),
+              }}
+            >
+              {chiefComplaint}
+            </Typography>
+          </Section>
+        )}
+
+        {hpi && (
+          <Section title="History of Present Illness">
+            <Typography
+              variant="body2"
+              data-easy-chart-id={data.chiefComplaint?.resourceId}
+              sx={{
+                whiteSpace: 'pre-wrap',
+                ...(itemSx(data.chiefComplaint?.resourceId) ?? {}),
+              }}
+            >
+              {hpi}
+            </Typography>
+          </Section>
+        )}
+
+        {moi && (
+          <Section title="Mechanism of Injury">
+            <Typography
+              variant="body2"
+              data-easy-chart-id={data.mechanismOfInjury?.resourceId}
+              sx={{
+                whiteSpace: 'pre-wrap',
+                ...(itemSx(data.mechanismOfInjury?.resourceId) ?? {}),
+              }}
+            >
+              {moi}
+            </Typography>
+          </Section>
+        )}
+
+        {(rosText || positiveRos.length > 0) && (
+          <Section title="Review of Systems">
+            {rosText && (
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mb: positiveRos.length ? 1 : 0 }}>
+                {rosText}
+              </Typography>
+            )}
+            {positiveRos.length > 0 && (
+              <Stack spacing={0.25}>
+                {positiveRos.map((o) => (
+                  <Typography key={o.field} variant="body2">
+                    • {o.label ?? o.field}
+                    {o.note ? ` — ${o.note}` : ''}
+                  </Typography>
+                ))}
+              </Stack>
+            )}
+          </Section>
+        )}
+
+        {vitals.length > 0 && (
+          <Section title="Vitals">
+            <Stack spacing={0.25}>
+              {vitals.map((v, i) => (
+                <Typography key={v.resourceId ?? i} variant="body2">
+                  • {formatVital(v)}
+                </Typography>
+              ))}
+            </Stack>
+          </Section>
+        )}
+
+        {(abnormalExam.length > 0 || examWithNotes.length > 0) && (
+          <Section title="Examination">
+            {abnormalExam.length > 0 && (
+              <Box sx={{ mb: examWithNotes.length ? 1 : 0 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Abnormal findings
+                </Typography>
+                <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                  {Array.from(examBySection.entries()).map(([label, findings]) => (
+                    <Box key={label}>
+                      <Typography variant="body2" fontWeight={600}>
+                        {label}
+                      </Typography>
+                      <Stack spacing={0.25}>
+                        {findings.map((f) => {
+                          const checkedComponents = (f.components ?? []).filter((c) => c.value);
+                          // Group component labels by their groupLabel so checked options read like the
+                          // regular ExamCheckboxWithModal summary ("Frontal: Left, Right").
+                          const componentsByGroup = new Map<string, string[]>();
+                          for (const c of checkedComponents) {
+                            const key = c.groupLabel || '';
+                            const labels = componentsByGroup.get(key) ?? [];
+                            labels.push(c.label);
+                            componentsByGroup.set(key, labels);
+                          }
+                          const componentSummary = Array.from(componentsByGroup.entries())
+                            .map(([g, labels]) => (g ? `${g}: ${labels.join(', ')}` : labels.join(', ')))
+                            .join('; ');
+                          return (
+                            <Typography
+                              key={f.field}
+                              variant="body2"
+                              data-easy-chart-id={f.resourceId}
+                              sx={itemSx(f.resourceId)}
+                            >
+                              • {f.label ?? f.field}
+                              {componentSummary ? ` — ${componentSummary}` : ''}
+                              {f.note ? ` — ${f.note}` : ''}
+                            </Typography>
+                          );
+                        })}
+                      </Stack>
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+            )}
+            {examWithNotes
+              .filter((f) => !abnormalExam.find((a) => a.field === f.field))
+              .map((f) => (
+                <Typography key={f.field} variant="body2">
+                  • {FIELD_TO_SECTION_LABEL[f.field] ? `${FIELD_TO_SECTION_LABEL[f.field]}: ` : ''}
+                  {f.label ?? f.field}: {f.note}
+                </Typography>
+              ))}
+          </Section>
+        )}
+
+        {procedures.length > 0 && (
+          <Section title="Procedures">
+            <Stack spacing={1}>
+              {procedures.map((p, i) => (
+                <Box
+                  key={p.resourceId ?? `${p.procedureType}-${i}`}
+                  data-easy-chart-id={p.resourceId}
+                  sx={itemSx(p.resourceId)}
+                >
+                  <Typography variant="body2" fontWeight={600}>
+                    {formatProcedureType(p.procedureType) ?? '(unnamed procedure)'}
+                  </Typography>
+                  {(p.cptCodes ?? []).length > 0 && (
+                    <Typography variant="body2">
+                      <strong>CPT:</strong> {p.cptCodes!.map((c) => `${c.code} ${c.display ?? ''}`.trim()).join('; ')}
+                    </Typography>
+                  )}
+                  {(p.diagnoses ?? []).length > 0 && (
+                    <Typography variant="body2">
+                      <strong>Dx:</strong> {p.diagnoses!.map((d) => `${d.code} ${d.display ?? ''}`.trim()).join('; ')}
+                    </Typography>
+                  )}
+                  {p.bodySite && (
+                    <Typography variant="body2">
+                      <strong>Site:</strong> {p.bodySite}
+                      {p.bodySide ? ` (${p.bodySide})` : ''}
+                    </Typography>
+                  )}
+                  {p.medicationUsed && (
+                    <Typography variant="body2">
+                      <strong>Anesthesia / medication:</strong> {p.medicationUsed}
+                    </Typography>
+                  )}
+                  {p.technique && p.technique.length > 0 && (
+                    <Typography variant="body2">
+                      <strong>Technique:</strong> {p.technique.join(', ')}
+                    </Typography>
+                  )}
+                  {p.suppliesUsed && (
+                    <Typography variant="body2">
+                      <strong>Supplies:</strong> {p.suppliesUsed}
+                    </Typography>
+                  )}
+                  {p.procedureDetails && (
+                    <Typography variant="body2">
+                      <strong>Details:</strong> {p.procedureDetails}
+                    </Typography>
+                  )}
+                  {p.complications && (
+                    <Typography variant="body2">
+                      <strong>Complications:</strong> {p.complications}
+                    </Typography>
+                  )}
+                  {p.patientResponse && (
+                    <Typography variant="body2">
+                      <strong>Patient response:</strong> {p.patientResponse}
+                    </Typography>
+                  )}
+                  {p.postInstructions && (
+                    <Typography variant="body2">
+                      <strong>Post-procedure instructions:</strong> {p.postInstructions}
+                    </Typography>
+                  )}
+                  {p.timeSpent && (
+                    <Typography variant="body2">
+                      <strong>Time spent:</strong> {p.timeSpent}
+                    </Typography>
+                  )}
+                  {p.specimenSent !== undefined && (
+                    <Typography variant="body2">
+                      <strong>Specimen sent:</strong> {p.specimenSent ? 'Yes' : 'No'}
+                    </Typography>
+                  )}
+                </Box>
+              ))}
+            </Stack>
+          </Section>
+        )}
+
+        {dx.length > 0 && (
+          <Section title="Assessment / Diagnoses">
+            <Stack spacing={0.25}>
+              {dx.map((d, i) => (
+                <Typography
+                  key={d.resourceId ?? `${d.code}-${i}`}
+                  variant="body2"
+                  data-easy-chart-id={d.resourceId}
+                  sx={itemSx(d.resourceId)}
+                >
+                  <strong>{d.code}</strong> — {d.display}
+                  {d.isPrimary && ' (primary)'}
+                </Typography>
+              ))}
+            </Stack>
+          </Section>
+        )}
+
+        {mdm && (
+          <Section title="Medical Decision Making">
+            <Typography
+              variant="body2"
+              data-easy-chart-id={data.medicalDecision?.resourceId}
+              sx={{
+                whiteSpace: 'pre-wrap',
+                ...(itemSx(data.medicalDecision?.resourceId) ?? {}),
+              }}
+            >
+              {mdm}
+            </Typography>
+          </Section>
+        )}
+
+        {emCode && (
+          <Section title="E&M Code">
+            <Typography variant="body2" data-easy-chart-id={emCode.resourceId} sx={itemSx(emCode.resourceId)}>
+              <strong>{emCode.code}</strong>
+              {emCode.display ? ` — ${emCode.display}` : ''}
+            </Typography>
+          </Section>
+        )}
+
+        {cptCodes.length > 0 && (
+          <Section title="CPT Codes">
+            <Stack spacing={0.25}>
+              {cptCodes.map((c, i) => (
+                <Typography
+                  key={c.resourceId ?? `${c.code}-${i}`}
+                  variant="body2"
+                  data-easy-chart-id={c.resourceId}
+                  sx={itemSx(c.resourceId)}
+                >
+                  <strong>{c.code}</strong>
+                  {c.display ? ` — ${c.display}` : ''}
+                </Typography>
+              ))}
+            </Stack>
+          </Section>
+        )}
+
+        {instructions.length > 0 && (
+          <CollapsibleSection title={`Patient Instructions (${instructions.length})`}>
+            <Stack spacing={0.5}>
+              {instructions.map((c, i) => (
+                <Box key={c.resourceId ?? i}>
+                  {c.title && (
+                    <Typography variant="body2" fontWeight={600}>
+                      {c.title}
+                    </Typography>
+                  )}
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {c.text}
+                  </Typography>
+                </Box>
+              ))}
+            </Stack>
+          </CollapsibleSection>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
+async function fetchEasyChartData(
+  apiClient: NonNullable<ReturnType<typeof useOystehrAPIClient>>,
+  encounterId: string
+): Promise<GetChartDataResponse> {
+  // The note-style fields (CC/HPI/MOI/ROS/MDM) are only returned with explicit requestedFields,
+  // while diagnosis/exam/ros observations only return from a full unscoped call. Fetch both.
+  const [noteFields, fullChart] = await Promise.all([
+    apiClient.getChartData({ encounterId, requestedFields: progressNoteChartDataRequestedFields }),
+    apiClient.getChartData({ encounterId }),
+  ]);
+  return { ...fullChart, ...noteFields };
+}
+
+// ===== Refine-bar agent helpers ===========================================================
+
+// Intents that go through the canonical search → confirm/choose flow (display + searchTerms).
+type AddSearchIntent = Extract<
+  EasyChartAgentIntent,
+  | { kind: 'add-allergy' }
+  | { kind: 'add-condition' }
+  | { kind: 'add-medication' }
+  | { kind: 'add-surgical-history' }
+  | { kind: 'add-hospitalization' }
+  | { kind: 'add-diagnosis' }
+>;
+
+interface SearchResult {
+  id?: string | number;
+  code?: string;
+  name: string;
+  strength?: string;
+}
+
+type ConvStep =
+  | { kind: 'thinking'; user: string }
+  | { kind: 'unknown'; user: string; reply: string }
+  | { kind: 'no-match'; user: string; intent: AddSearchIntent }
+  | { kind: 'choose'; user: string; intent: AddSearchIntent; results: SearchResult[] }
+  | { kind: 'saving'; user: string; chosenName: string }
+  | { kind: 'done'; user: string; chosenName: string }
+  | { kind: 'removed'; user: string; chosenName: string }
+  | { kind: 'no-match-remove'; user: string; intent: RemoveIntent }
+  | { kind: 'choose-remove'; user: string; intent: RemoveIntent; matches: RemoveMatch[] }
+  | { kind: 'removing'; user: string; chosenName: string }
+  | { kind: 'no-match-template'; user: string; intent: ApplyTemplateIntent }
+  | { kind: 'choose-template'; user: string; intent: ApplyTemplateIntent; matches: TemplateMatch[] }
+  | { kind: 'applying-template'; user: string; chosenName: string }
+  | { kind: 'applied-template'; user: string; chosenName: string }
+  | { kind: 'no-match-procedure'; user: string; intent: AddProcedureIntent }
+  | { kind: 'choose-procedure'; user: string; intent: AddProcedureIntent; matches: ProcedureQuickPickData[] }
+  | { kind: 'no-procedure-to-update'; user: string; intent: UpdateProcedureIntent }
+  | {
+      kind: 'choose-procedure-to-update';
+      user: string;
+      intent: UpdateProcedureIntent;
+      candidates: ProcedureDTO[];
+    }
+  | { kind: 'updating-procedure'; user: string; chosenName: string }
+  | { kind: 'updated-procedure'; user: string; chosenName: string; summary: string }
+  | { kind: 'editing-note-text'; user: string; fieldLabel: string }
+  | { kind: 'edited-note-text'; user: string; fieldLabel: string }
+  | { kind: 'no-match-exam'; user: string; intent: AddExamFindingIntent }
+  | { kind: 'choose-exam'; user: string; intent: AddExamFindingIntent; matches: ExamLeaf[] }
+  | { kind: 'no-match-exam-remove'; user: string; intent: RemoveExamFindingIntent }
+  | {
+      kind: 'choose-exam-remove';
+      user: string;
+      intent: RemoveExamFindingIntent;
+      matches: ExamRemoveItem[];
+    }
+  | { kind: 'error'; user: string; reply: string };
+
+// A removable exam item — either a whole observation or one of its checked components.
+interface ExamRemoveItem {
+  resourceId: string;
+  observationField: string;
+  observationLabel?: string;
+  displayName: string;
+  // Body-system label the observation lives under (e.g. "Nose") so the picker can show the
+  // same context the note's exam section uses.
+  section: string;
+  // Set only when this item represents one component on a multi-component observation.
+  componentCode?: string;
+}
+
+type ApplyTemplateIntent = Extract<EasyChartAgentIntent, { kind: 'apply-template' }>;
+type AddProcedureIntent = Extract<EasyChartAgentIntent, { kind: 'add-procedure' }>;
+type UpdateProcedureIntent = Extract<EasyChartAgentIntent, { kind: 'update-procedure' }>;
+type AddExamFindingIntent = Extract<EasyChartAgentIntent, { kind: 'add-exam-finding' }>;
+type RemoveExamFindingIntent = Extract<EasyChartAgentIntent, { kind: 'remove-exam-finding' }>;
+interface TemplateMatch {
+  id: string;
+  title: string;
+}
+
+type RemoveIntent = Extract<
+  EasyChartAgentIntent,
+  | { kind: 'remove-allergy' }
+  | { kind: 'remove-condition' }
+  | { kind: 'remove-medication' }
+  | { kind: 'remove-surgical-history' }
+  | { kind: 'remove-hospitalization' }
+  | { kind: 'remove-diagnosis' }
+>;
+
+// A candidate item in the patient's chart that matches a remove intent.
+interface RemoveMatch {
+  resourceId: string;
+  displayName: string;
+  // Payload passed to deleteChartData
+  field: 'allergies' | 'conditions' | 'medications' | 'surgicalHistory' | 'episodeOfCare' | 'diagnosis';
+  dto: unknown;
+}
+
+function isRemoveIntent(intent: EasyChartAgentIntent): intent is RemoveIntent {
+  return (
+    intent.kind === 'remove-allergy' ||
+    intent.kind === 'remove-condition' ||
+    intent.kind === 'remove-medication' ||
+    intent.kind === 'remove-surgical-history' ||
+    intent.kind === 'remove-hospitalization' ||
+    intent.kind === 'remove-diagnosis'
+  );
+}
+
+function findRemoveMatches(intent: RemoveIntent, data: GetChartDataResponse | null): RemoveMatch[] {
+  if (!data) return [];
+  const terms = [intent.display, ...intent.searchTerms].map((t) => t.toLowerCase()).filter(Boolean);
+  const nameMatches = (haystack: string | undefined | null): boolean => {
+    if (!haystack) return false;
+    const h = haystack.toLowerCase();
+    return terms.some((t) => h.includes(t) || t.includes(h));
+  };
+
+  const out: RemoveMatch[] = [];
+  if (intent.kind === 'remove-allergy') {
+    (data.allergies ?? []).forEach((a) => {
+      if (a.resourceId && nameMatches(a.name)) {
+        out.push({ resourceId: a.resourceId, displayName: a.name ?? '(unnamed)', field: 'allergies', dto: a });
+      }
+    });
+  } else if (intent.kind === 'remove-condition') {
+    (data.conditions ?? []).forEach((c) => {
+      if (c.resourceId && (nameMatches(c.display) || (c.code && terms.some((t) => c.code!.toLowerCase() === t)))) {
+        out.push({
+          resourceId: c.resourceId,
+          displayName: c.display ?? c.code ?? '(unnamed)',
+          field: 'conditions',
+          dto: c,
+        });
+      }
+    });
+  } else if (intent.kind === 'remove-medication') {
+    (data.medications ?? []).forEach((m) => {
+      if (m.resourceId && nameMatches(m.name)) {
+        out.push({ resourceId: m.resourceId, displayName: m.name, field: 'medications', dto: m });
+      }
+    });
+  } else if (intent.kind === 'remove-surgical-history') {
+    (data.surgicalHistory ?? []).forEach((s) => {
+      if (s.resourceId && (nameMatches(s.display) || terms.some((t) => s.code === t))) {
+        out.push({
+          resourceId: s.resourceId,
+          displayName: s.display ?? s.code ?? '(unnamed)',
+          field: 'surgicalHistory',
+          dto: s,
+        });
+      }
+    });
+  } else if (intent.kind === 'remove-hospitalization') {
+    (data.episodeOfCare ?? []).forEach((h) => {
+      if (h.resourceId && (nameMatches(h.display) || terms.some((t) => h.code === t))) {
+        out.push({
+          resourceId: h.resourceId,
+          displayName: h.display ?? h.code ?? '(unnamed)',
+          field: 'episodeOfCare',
+          dto: h,
+        });
+      }
+    });
+  } else if (intent.kind === 'remove-diagnosis') {
+    (data.diagnosis ?? []).forEach((d) => {
+      if (d.resourceId && (nameMatches(d.display) || terms.some((t) => d.code.toLowerCase() === t))) {
+        out.push({ resourceId: d.resourceId, displayName: `${d.code} — ${d.display}`, field: 'diagnosis', dto: d });
+      }
+    });
+  }
+  return out;
+}
+
+function filterStaticOptions(options: { display: string; code: string }[], term: string): SearchResult[] {
+  const lower = term.toLowerCase();
+  return options.filter((o) => o.display.toLowerCase().includes(lower)).map((o) => ({ name: o.display, code: o.code }));
+}
+
+// Walk every list + scalar field on a chart-data snapshot and return the union of resourceIds.
+// Used to diff before/after apply-template so we can flash everything the template just added.
+function collectResourceIds(data: GetChartDataResponse | null): Set<string> {
+  const ids = new Set<string>();
+  if (!data) return ids;
+  const arr = (xs: { resourceId?: string }[] | undefined): void => {
+    (xs ?? []).forEach((x) => x.resourceId && ids.add(x.resourceId));
+  };
+  arr(data.diagnosis);
+  arr(data.conditions);
+  arr(data.allergies);
+  arr(data.medications);
+  arr(data.surgicalHistory);
+  arr(data.episodeOfCare);
+  arr(data.examObservations);
+  arr(data.rosObservations);
+  arr(data.vitalsObservations);
+  arr(data.instructions);
+  arr(data.cptCodes);
+  arr(data.procedures);
+  for (const scalar of [
+    data.chiefComplaint,
+    data.historyOfPresentIllness,
+    data.mechanismOfInjury,
+    data.ros,
+    data.medicalDecision,
+    data.emCode,
+  ]) {
+    if (scalar?.resourceId) ids.add(scalar.resourceId);
+  }
+  return ids;
+}
+
+// Match a template against the user's intent. Tokenize on non-word characters and accept
+// substring matches in either direction so "lac repair" matches "Laceration, Scalp" via
+// "lac" ⊂ "laceration", and "laceration" matches "lac" too. A template matches when ANY
+// query token (across display + searchTerms) substring-matches ANY title token. Lenient by
+// design — with a small template list it's better to over-suggest and let the provider pick.
+function tokenize(s: string): string[] {
+  return s
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .filter(Boolean);
+}
+// Words a provider often says when asking for a template that aren't part of any title.
+// Filtering these prevents "apply lac repair template" from matching every title containing
+// the word "template" (e.g. "Athena's Empty Template").
+const TEMPLATE_QUERY_STOPWORDS = new Set([
+  'apply',
+  'use',
+  'template',
+  'templates',
+  'for',
+  'the',
+  'a',
+  'an',
+  'of',
+  'and',
+  'please',
+  'to',
+]);
+function findTemplateMatches(intent: ApplyTemplateIntent, templates: TemplateMatch[]): TemplateMatch[] {
+  // Use only the provider's display phrase, not the LLM-supplied searchTerms — the model
+  // tends to over-expand (e.g. emitting "ankle laceration" for "lac repair"). Prefix match
+  // on title tokens (≥2 chars) so "lac" matches "laceration" but NOT "placement" — substring
+  // matching was too loose (placement contains "lac" inside p-lac-ement).
+  const queryTokens = tokenize(intent.display)
+    .filter((tok) => tok.length >= 2)
+    .filter((tok) => !TEMPLATE_QUERY_STOPWORDS.has(tok));
+  if (queryTokens.length === 0) return [];
+  return templates.filter((t) => {
+    const titleTokens = tokenize(t.title);
+    return queryTokens.some((qt) => titleTokens.some((tt) => tt.startsWith(qt)));
+  });
+}
+
+// Same shape as template matching: forward substring match against quick-pick names,
+// stopwords stripped so "add lac repair procedure" doesn't pollute results.
+const PROCEDURE_QUERY_STOPWORDS = new Set([
+  'add',
+  'do',
+  'perform',
+  'procedure',
+  'procedures',
+  'a',
+  'an',
+  'the',
+  'of',
+  'for',
+  'and',
+  'please',
+  'to',
+]);
+// Same prefix-token strategy used for templates/procedures, plus a few exam-specific
+// noise words. Each search term (display + LLM searchTerms) is tested independently; a leaf
+// matches if any of its label OR section tokens has a prefix-match for at least one of the
+// search term's non-stopword tokens. Score = number of matching tokens, used to rank.
+const EXAM_QUERY_STOPWORDS = new Set([
+  'add',
+  'exam',
+  'finding',
+  'abnormal',
+  'normal',
+  'the',
+  'a',
+  'an',
+  'on',
+  'of',
+  'has',
+  'patient',
+  'check',
+  'to',
+  'and',
+]);
+function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): ExamLeaf[] {
+  // Use only the provider's display phrase — LLM-expanded searchTerms produced too many ties.
+  const queryTokens = tokenize(intent.display).filter((tok) => tok.length >= 2 && !EXAM_QUERY_STOPWORDS.has(tok));
+  if (queryTokens.length === 0) return [];
+
+  // Weighted scoring per token (take best per-token match, then sum):
+  //   exact match in label   → 4
+  //   exact match in section → 3
+  //   prefix match in label  → 2
+  //   prefix match in section → 1
+  // Add a small bonus for matching every query token, so "erythema nose" prefers leaves
+  // that hit both terms over leaves that match only one.
+  const scoreLeaf = (leaf: ExamLeaf): number => {
+    const labelTokens = tokenize(leaf.label);
+    const sectionTokens = tokenize(leaf.section);
+    let total = 0;
+    let allMatched = true;
+    // Sum label-best AND section-best per query token (rather than taking the global max),
+    // so a leaf whose section matches "nose" AND label matches "erythema" beats a leaf where
+    // only one of those hits. Exact > prefix within each scope.
+    for (const qt of queryTokens) {
+      let labelBest = 0;
+      for (const lt of labelTokens) {
+        if (lt === qt) {
+          labelBest = 4;
+          break;
+        }
+        if (lt.startsWith(qt)) labelBest = Math.max(labelBest, 2);
+      }
+      let sectionBest = 0;
+      for (const st of sectionTokens) {
+        if (st === qt) {
+          sectionBest = 3;
+          break;
+        }
+        if (st.startsWith(qt)) sectionBest = Math.max(sectionBest, 1);
+      }
+      const tokenScore = labelBest + sectionBest;
+      if (tokenScore === 0) allMatched = false;
+      total += tokenScore;
+    }
+    if (allMatched && queryTokens.length > 1) total += 2;
+    return total;
+  };
+
+  const scored = leaves
+    .map((leaf) => ({ leaf, score: scoreLeaf(leaf) }))
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, 12).map((s) => s.leaf);
+}
+
+// Build the list of removable exam items from the chart. Plain checkbox observations get one
+// entry; observations with checked modal components get one entry per checked component so
+// the picker reflects what the provider actually sees ticked on the chart.
+function buildExamRemoveItems(observations: ExamObservationDTO[] | undefined): ExamRemoveItem[] {
+  const out: ExamRemoveItem[] = [];
+  for (const o of observations ?? []) {
+    if (!o.value || !o.resourceId) continue;
+    const section = FIELD_TO_SECTION_LABEL[o.field] ?? 'Other';
+    const checkedComponents = (o.components ?? []).filter((c) => c.value);
+    if (checkedComponents.length === 0) {
+      out.push({
+        resourceId: o.resourceId,
+        observationField: o.field,
+        observationLabel: o.label,
+        section,
+        displayName: o.label ?? o.field,
+      });
+    } else {
+      for (const c of checkedComponents) {
+        const group = c.groupLabel ? `${c.groupLabel}: ` : '';
+        out.push({
+          resourceId: o.resourceId,
+          observationField: o.field,
+          observationLabel: o.label,
+          section,
+          componentCode: c.code,
+          displayName: `${o.label ?? o.field} — ${group}${c.label}`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+function findExamRemoveMatches(intent: RemoveExamFindingIntent, items: ExamRemoveItem[]): ExamRemoveItem[] {
+  const queryTokens = tokenize(intent.display).filter((tok) => tok.length >= 2 && !EXAM_QUERY_STOPWORDS.has(tok));
+  if (queryTokens.length === 0) return [];
+  const scored = items
+    .map((item) => {
+      const haystack = tokenize(item.displayName);
+      let total = 0;
+      let allMatched = true;
+      for (const qt of queryTokens) {
+        let best = 0;
+        for (const ht of haystack) {
+          if (ht === qt) {
+            best = 4;
+            break;
+          }
+          if (ht.startsWith(qt)) best = Math.max(best, 2);
+        }
+        if (best === 0) allMatched = false;
+        total += best;
+      }
+      if (allMatched && queryTokens.length > 1) total += 2;
+      return { item, score: total };
+    })
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, 12).map((s) => s.item);
+}
+
+function findProcedureMatches(
+  intent: AddProcedureIntent,
+  quickPicks: ProcedureQuickPickData[]
+): ProcedureQuickPickData[] {
+  const queryTokens = tokenize(intent.display)
+    .filter((tok) => tok.length >= 2)
+    .filter((tok) => !PROCEDURE_QUERY_STOPWORDS.has(tok));
+  if (queryTokens.length === 0) return [];
+  return quickPicks.filter((qp) => {
+    const nameTokens = tokenize(qp.name);
+    return queryTokens.some((qt) => nameTokens.some((nt) => nt.startsWith(qt)));
+  });
+}
+
+// Build a ProcedureDTO from a quick pick the same way the regular Procedures page would when
+// the provider picks a quick pick and clicks Save without editing: pre-fill from the quick
+// pick's QUICK_PICK_APPLY_KEYS, default procedureDateTime/documentedDateTime to now, join
+// the multi-value string[] fields (suppliesUsed, postInstructions) since the saved DTO is a
+// single string for those.
+function procedureDtoFromQuickPick(
+  qp: ProcedureQuickPickData,
+  procedureTypeNameByCode: Map<string, string>
+): ProcedureDTO {
+  const joinList = (xs: (string | undefined)[] | undefined): string | undefined => {
+    const cleaned = (xs ?? []).filter((x): x is string => !!x && x.trim().length > 0);
+    return cleaned.length > 0 ? cleaned.join(', ') : undefined;
+  };
+  const now = new Date().toISOString();
+  // Match the regular ProceduresNew flow: save the human-readable name (e.g. "Laceration
+  // Repair") for procedureType so the saved DTO matches the dropdown label rather than the
+  // kebab-case code. Fall back to the raw code if the value set hasn't loaded or lacks the entry.
+  const procedureType = qp.procedureType
+    ? procedureTypeNameByCode.get(qp.procedureType) ?? qp.procedureType
+    : undefined;
+  return {
+    procedureType,
+    cptCodes: qp.cptCodes,
+    procedureDateTime: now,
+    documentedDateTime: now,
+    medicationUsed: qp.medicationUsed,
+    bodySite: qp.bodySite,
+    bodySide: qp.bodySide,
+    technique: qp.technique,
+    suppliesUsed: joinList(qp.suppliesUsed),
+    procedureDetails: qp.procedureDetails,
+    specimenSent: qp.specimenSent,
+    complications: qp.complications,
+    patientResponse: qp.patientResponse,
+    postInstructions: joinList(qp.postInstructions),
+    timeSpent: qp.timeSpent,
+    documentedBy: qp.documentedBy,
+  };
+}
+
+// Canonical ProcedureDTO field a free-text field name maps to. The agent prompt asks the LLM
+// to use canonical names, but providers may also paraphrase, so accept common synonyms too.
+const PROCEDURE_FIELD_ALIASES: Record<string, keyof ProcedureDTO> = {
+  bodysite: 'bodySite',
+  site: 'bodySite',
+  location: 'bodySite',
+  bodyside: 'bodySide',
+  side: 'bodySide',
+  laterality: 'bodySide',
+  technique: 'technique',
+  suppliesused: 'suppliesUsed',
+  supplies: 'suppliesUsed',
+  instruments: 'suppliesUsed',
+  proceduredetails: 'procedureDetails',
+  details: 'procedureDetails',
+  medicationused: 'medicationUsed',
+  medication: 'medicationUsed',
+  anesthesia: 'medicationUsed',
+  complications: 'complications',
+  patientresponse: 'patientResponse',
+  response: 'patientResponse',
+  postinstructions: 'postInstructions',
+  'post-instructions': 'postInstructions',
+  postprocedureinstructions: 'postInstructions',
+  timespent: 'timeSpent',
+  time: 'timeSpent',
+  performertype: 'performerType',
+  performer: 'performerType',
+  documentedby: 'documentedBy',
+  specimensent: 'specimenSent',
+  specimen: 'specimenSent',
+  consentobtained: 'consentObtained',
+  consent: 'consentObtained',
+};
+
+function resolveProcedureField(rawField: string): keyof ProcedureDTO | undefined {
+  return PROCEDURE_FIELD_ALIASES[rawField.toLowerCase().replace(/[^a-z]/g, '')];
+}
+
+// Choose the procedure the update intent targets. If only one exists, that's it. Otherwise
+// fuzzy-match by procedureType + first CPT display against the (optional) procedureMatch hint.
+function findProceduresToUpdate(intent: UpdateProcedureIntent, procedures: ProcedureDTO[]): ProcedureDTO[] {
+  if (procedures.length === 0) return [];
+  if (procedures.length === 1) return procedures;
+  if (!intent.procedureMatch) return procedures;
+  const qTokens = tokenize(intent.procedureMatch).filter((t) => t.length >= 2);
+  if (qTokens.length === 0) return procedures;
+  const matched = procedures.filter((p) => {
+    const haystack = `${p.procedureType ?? ''} ${(p.cptCodes ?? []).map((c) => c.display ?? '').join(' ')}`;
+    const haystackTokens = tokenize(haystack);
+    return qTokens.some((qt) => haystackTokens.some((ht) => ht.startsWith(qt)));
+  });
+  return matched.length > 0 ? matched : procedures;
+}
+
+// Apply { field, value } updates to a clone of the procedure. Field names are normalized via
+// PROCEDURE_FIELD_ALIASES, "technique" splits CSV into array, boolean fields parse true/false.
+// Returns { updated, applied, skipped } so the conversation can summarize what changed.
+// Coerce a free-text value to a canonical code from a value-set map. The LLM might emit
+// the code ("sterile"), the display ("Sterile"), or some near-match ("sterile technique").
+// Returns the canonical code on match, or undefined.
+function coerceToAllowedCode(value: string, allowed: Map<string, string>): string | undefined {
+  if (allowed.size === 0) return undefined;
+  const v = value.toLowerCase().trim();
+  // Exact code match.
+  for (const code of allowed.keys()) {
+    if (code.toLowerCase() === v) return code;
+  }
+  // Exact display match.
+  for (const [code, display] of allowed) {
+    if (display.toLowerCase() === v) return code;
+  }
+  // Prefix-or-substring on display — "sterile" → "Sterile technique".
+  for (const [code, display] of allowed) {
+    const d = display.toLowerCase();
+    if (d.startsWith(v) || v.startsWith(d) || d.includes(v)) return code;
+  }
+  return undefined;
+}
+
+// Free-text fields that don't have a constrained value-set; pass through whatever the LLM says.
+const FREE_TEXT_PROCEDURE_FIELDS = new Set<keyof ProcedureDTO>(['procedureDetails', 'documentedBy', 'performerType']);
+
+function applyProcedureUpdates(
+  procedure: ProcedureDTO,
+  updates: { field: string; value: string }[],
+  allowedByField: Map<keyof ProcedureDTO, Map<string, string>>
+): { updated: ProcedureDTO; applied: { field: keyof ProcedureDTO; value: unknown }[]; skipped: string[] } {
+  const next: ProcedureDTO = { ...procedure };
+  const applied: { field: keyof ProcedureDTO; value: unknown }[] = [];
+  const skipped: string[] = [];
+  const summarizeAllowed = (allowed: Map<string, string>): string => {
+    const entries = Array.from(allowed.values()).slice(0, 8);
+    const more = allowed.size > entries.length ? `, … (${allowed.size - entries.length} more)` : '';
+    return entries.join(', ') + more;
+  };
+  for (const u of updates) {
+    const field = resolveProcedureField(u.field);
+    if (!field) {
+      skipped.push(u.field);
+      continue;
+    }
+    if (field === 'specimenSent' || field === 'consentObtained') {
+      const v = u.value.toLowerCase().trim();
+      const bool =
+        v === 'true' || v === 'yes' || v === 'y' ? true : v === 'false' || v === 'no' || v === 'n' ? false : undefined;
+      if (bool === undefined) {
+        skipped.push(`${u.field} (expected true/false, got "${u.value}")`);
+        continue;
+      }
+      next[field] = bool;
+      applied.push({ field, value: bool });
+    } else if (field === 'technique') {
+      // technique is an array. Split CSV/semicolon, validate each token against the value
+      // set, and keep only the valid ones. Empty result means "no update".
+      const allowed = allowedByField.get('technique');
+      const raw = u.value
+        .split(/[,;]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const validCodes: string[] = [];
+      const invalid: string[] = [];
+      for (const r of raw) {
+        const code = allowed ? coerceToAllowedCode(r, allowed) : r;
+        if (code) validCodes.push(code);
+        else invalid.push(r);
+      }
+      if (validCodes.length === 0) {
+        skipped.push(`technique="${u.value}"${allowed ? ` (must be one of: ${summarizeAllowed(allowed)})` : ''}`);
+        continue;
+      }
+      next.technique = validCodes;
+      applied.push({ field, value: validCodes });
+      if (invalid.length > 0) skipped.push(`technique values not recognized: ${invalid.join(', ')}`);
+    } else if (FREE_TEXT_PROCEDURE_FIELDS.has(field)) {
+      // Free text — pass through.
+      (next as Record<string, unknown>)[field] = u.value;
+      applied.push({ field, value: u.value });
+    } else {
+      // Single-value enum fields — validate against the value set if one is loaded.
+      const allowed = allowedByField.get(field);
+      if (allowed && allowed.size > 0) {
+        const code = coerceToAllowedCode(u.value, allowed);
+        if (!code) {
+          skipped.push(`${u.field}="${u.value}" (must be one of: ${summarizeAllowed(allowed)})`);
+          continue;
+        }
+        (next as Record<string, unknown>)[field] = code;
+        applied.push({ field, value: code });
+      } else {
+        // No value set loaded yet (or none exists for this field) — pass through.
+        (next as Record<string, unknown>)[field] = u.value;
+        applied.push({ field, value: u.value });
+      }
+    }
+  }
+  return { updated: next, applied, skipped };
+}
+
+async function runIntentSearch(
+  intent: AddSearchIntent,
+  oystehr: Oystehr | undefined,
+  oystehrZambda: Oystehr | undefined
+): Promise<SearchResult[]> {
+  const terms = intent.searchTerms.length > 0 ? intent.searchTerms : [intent.display];
+  const all: SearchResult[] = [];
+  const seen = new Set<string>();
+  const perTerm = Math.max(5, Math.floor(15 / terms.length));
+
+  for (const term of terms) {
+    let results: SearchResult[] = [];
+    if ((intent.kind === 'add-condition' || intent.kind === 'add-diagnosis') && oystehrZambda) {
+      const response = await icd10Search(oystehrZambda, { search: term });
+      results = (response.codes || []).map((c) => ({ name: c.display, code: c.code }));
+    } else if (intent.kind === 'add-medication' && oystehr) {
+      results = (await oystehr.erx.searchMedications({ name: term })) as SearchResult[];
+    } else if (intent.kind === 'add-allergy' && oystehr) {
+      results = (await oystehr.erx.searchAllergens({ name: term })) as SearchResult[];
+    } else if (intent.kind === 'add-surgical-history') {
+      results = filterStaticOptions(SURGICAL_HISTORY_OPTIONS, term);
+    } else if (intent.kind === 'add-hospitalization') {
+      results = filterStaticOptions(HospitalizationOptions, term);
+    }
+    let added = 0;
+    for (const r of results) {
+      if (added >= perTerm) break;
+      const key = (r.code ?? r.name).toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        all.push(r);
+        added++;
+      }
+    }
+  }
+  return all;
+}
+
+function buildIntentPayload(
+  encounterId: string,
+  intent: AddSearchIntent,
+  result: SearchResult
+): SaveChartDataRequest | null {
+  if (intent.kind === 'add-diagnosis' && result.code) {
+    return { encounterId, diagnosis: [{ code: result.code, display: result.name, isPrimary: intent.isPrimary }] };
+  }
+  if (intent.kind === 'add-condition' && result.code) {
+    return {
+      encounterId,
+      conditions: [{ code: result.code, display: result.name, current: true } satisfies MedicalConditionDTO],
+    };
+  }
+  if (intent.kind === 'add-allergy') {
+    return {
+      encounterId,
+      allergies: [
+        {
+          name: result.name,
+          id: result.id != null ? String(result.id) : undefined,
+          current: true,
+        } satisfies AllergyDTO,
+      ],
+    };
+  }
+  if (intent.kind === 'add-medication') {
+    const strength = result.strength;
+    const nameHasStrength = strength && result.name.toLowerCase().includes(strength.toLowerCase());
+    const name = nameHasStrength || !strength ? result.name : `${result.name} (${strength})`;
+    return {
+      encounterId,
+      medications: [
+        {
+          name,
+          id: result.id != null ? String(result.id) : undefined,
+          type: 'scheduled',
+          status: 'active',
+          intakeInfo: {},
+        } satisfies MedicationDTO,
+      ],
+    };
+  }
+  if (intent.kind === 'add-surgical-history' && result.code) {
+    return { encounterId, surgicalHistory: [{ code: result.code, display: result.name } satisfies CPTCodeDTO] };
+  }
+  if (intent.kind === 'add-hospitalization' && result.code) {
+    return { encounterId, episodeOfCare: [{ code: result.code, display: result.name } satisfies HospitalizationDTO] };
+  }
+  return null;
+}
+
+export default function EasyChartPage(): JSX.Element {
+  const { encounterId } = useParams<{ encounterId: string }>();
+  const { oystehr, oystehrZambda } = useApiClients();
+  const apiClient = useOystehrAPIClient();
+
+  const [chartData, setChartData] = useState<GetChartDataResponse | null>(null);
+  // Mirror of chartData for synchronous reads inside async callbacks (e.g. mergeSaveResponse
+  // needs to compute the next state outside of setState's updater so it can compute newIds
+  // synchronously — setState updater calls are deferred and would run after our flash check).
+  const chartDataRef = useRef<GetChartDataResponse | null>(null);
+  useEffect(() => {
+    chartDataRef.current = chartData;
+  }, [chartData]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [appointmentId, setAppointmentId] = useState<string | null>(null);
+  const [refineText, setRefineText] = useState('');
+  const refineInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [freshlyAdded, setFreshlyAdded] = useState<Set<string>>(new Set());
+  const [removingItems, setRemovingItems] = useState<Set<string>>(new Set());
+  const [conv, setConv] = useState<ConvStep | null>(null);
+
+  // For removes: scroll to the item, flash it red for 1.5s so the user sees what's being
+  // deleted, then actually remove it from local state. Callers pass a `commitRemove` callback
+  // that does the state mutation (typically a setChartData call) — it runs after the flash.
+  const flashAndRemoveItem = (resourceId: string, commitRemove: () => void): void => {
+    const el = document.querySelector<HTMLElement>(`[data-easy-chart-id="${resourceId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    setRemovingItems((prev) => {
+      const next = new Set(prev);
+      next.add(resourceId);
+      return next;
+    });
+    setTimeout(() => {
+      commitRemove();
+      setRemovingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(resourceId);
+        return next;
+      });
+    }, 1500);
+  };
+
+  // Merge the saved-chart-data response into local state and flash the new items.
+  // Avoids a full refetch for single-item adds.
+  const mergeSaveResponse = (response: { chartData: GetChartDataResponse }): void => {
+    const saved = response.chartData;
+    const prev = chartDataRef.current;
+    if (!prev) return;
+    const next: GetChartDataResponse = { ...prev };
+    const newIds: string[] = [];
+    const arrayFields = [
+      'diagnosis',
+      'conditions',
+      'allergies',
+      'medications',
+      'surgicalHistory',
+      'episodeOfCare',
+      'examObservations',
+      'rosObservations',
+      'vitalsObservations',
+      'instructions',
+      'cptCodes',
+      'procedures',
+    ] as const;
+    for (const field of arrayFields) {
+      const incoming = saved[field] as Array<{ resourceId?: string }> | undefined;
+      if (!incoming || incoming.length === 0) continue;
+      const existing = (next[field] as Array<{ resourceId?: string }> | undefined) ?? [];
+      const existingIds = new Set(existing.map((e) => e.resourceId).filter((id): id is string => !!id));
+      // Replace existing items with same resourceId (updates), append new ones (adds).
+      const incomingById = new Map<string, { resourceId?: string }>();
+      const newItems: Array<{ resourceId?: string }> = [];
+      for (const item of incoming) {
+        if (item.resourceId && existingIds.has(item.resourceId)) {
+          incomingById.set(item.resourceId, item);
+        } else {
+          newItems.push(item);
+          if (item.resourceId) newIds.push(item.resourceId);
+        }
+      }
+      const merged = existing.map((e) =>
+        e.resourceId && incomingById.has(e.resourceId) ? incomingById.get(e.resourceId)! : e
+      );
+      (next[field] as unknown[]) = [...merged, ...newItems];
+    }
+    const trackScalar = (incoming: { resourceId?: string } | undefined): void => {
+      if (incoming?.resourceId) newIds.push(incoming.resourceId);
+    };
+    if (saved.chiefComplaint) {
+      next.chiefComplaint = saved.chiefComplaint;
+      trackScalar(saved.chiefComplaint);
+    }
+    if (saved.historyOfPresentIllness) {
+      next.historyOfPresentIllness = saved.historyOfPresentIllness;
+      trackScalar(saved.historyOfPresentIllness);
+    }
+    if (saved.mechanismOfInjury) {
+      next.mechanismOfInjury = saved.mechanismOfInjury;
+      trackScalar(saved.mechanismOfInjury);
+    }
+    if (saved.ros) {
+      next.ros = saved.ros;
+      trackScalar(saved.ros);
+    }
+    if (saved.medicalDecision) {
+      next.medicalDecision = saved.medicalDecision;
+      trackScalar(saved.medicalDecision);
+    }
+    if (saved.emCode) {
+      next.emCode = saved.emCode;
+      trackScalar(saved.emCode);
+    }
+    setChartData(next);
+    if (newIds.length > 0) {
+      setFreshlyAdded((prev) => {
+        const next = new Set(prev);
+        newIds.forEach((id) => next.add(id));
+        return next;
+      });
+      // After React renders, scroll the first new item into view. We retry a few times in
+      // case the section was mounted for the first time and React hasn't painted yet.
+      const tryScroll = (attempt: number): void => {
+        const el = document.querySelector<HTMLElement>(`[data-easy-chart-id="${newIds[0]}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (attempt < 10) {
+          setTimeout(() => tryScroll(attempt + 1), 50);
+        }
+      };
+      requestAnimationFrame(() => requestAnimationFrame(() => tryScroll(0)));
+      setTimeout(() => {
+        setFreshlyAdded((prev) => {
+          const next = new Set(prev);
+          newIds.forEach((id) => next.delete(id));
+          return next;
+        });
+      }, 2500);
+    }
+  };
+
+  const saveAndMerge = async (payload: SaveChartDataRequest): Promise<void> => {
+    if (!apiClient) return;
+    const response = await apiClient.saveChartData(payload);
+    mergeSaveResponse(response);
+  };
+
+  useEasyChartQuickPicks(encounterId, saveAndMerge);
+  const { quickPicks: procedureQuickPicks } = useMergedProcedureQuickPicks({ enabled: !!encounterId });
+
+  // Code → name lookup for procedureType. The regular ProceduresNew page saves the display
+  // NAME (e.g. "Laceration Repair") instead of the code (e.g. "laceration-repair") so the
+  // saved value matches what providers see in the Procedure Type dropdown. Mirror that here.
+  const [procedureTypeNameByCode, setProcedureTypeNameByCode] = useState<Map<string, string>>(new Map());
+  // Allowed-values registry per procedure field, keyed by ProcedureDTO field name.
+  // Populated from the same FHIR ValueSets the regular ProceduresNew dropdowns use, so
+  // when an admin edits those ValueSets the easy-chart accepts the new options without
+  // any code change.
+  const [procedureFieldAllowedValues, setProcedureFieldAllowedValues] = useState<
+    Map<keyof ProcedureDTO, Map<string, string>>
+  >(new Map());
+  useEffect(() => {
+    let cancelled = false;
+    if (!oystehr) return;
+    const fieldByUrl: { url: string; field: keyof ProcedureDTO }[] = [
+      { url: PROCEDURE_TYPES_VALUE_SET_URL, field: 'procedureType' },
+      { url: BODY_SIDES_VALUE_SET_URL, field: 'bodySide' },
+      { url: BODY_SITES_VALUE_SET_URL, field: 'bodySite' },
+      { url: COMPLICATIONS_VALUE_SET_URL, field: 'complications' },
+      { url: MEDICATIONS_USED_VALUE_SET_URL, field: 'medicationUsed' },
+      { url: PATIENT_RESPONSES_VALUE_SET_URL, field: 'patientResponse' },
+      { url: POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL, field: 'postInstructions' },
+      { url: SUPPLIES_VALUE_SET_URL, field: 'suppliesUsed' },
+      { url: TECHNIQUES_VALUE_SET_URL, field: 'technique' },
+      { url: TIME_SPENT_VALUE_SET_URL, field: 'timeSpent' },
+    ];
+    void (async () => {
+      try {
+        const bundle = await oystehr.fhir.search({
+          resourceType: 'ValueSet',
+          params: [{ name: 'url', value: fieldByUrl.map((f) => f.url).join(',') }],
+        });
+        const valueSets = bundle.unbundle() as {
+          url?: string;
+          version?: string;
+          resourceType?: string;
+          expansion?: { contains?: { code?: string; display?: string }[] };
+        }[];
+        const byUrl = new Map<string, { code: string; display: string }[]>();
+        for (const vs of valueSets) {
+          if (vs.resourceType !== 'ValueSet' || !vs.url) continue;
+          const items = (vs.expansion?.contains ?? [])
+            .filter((i): i is { code: string; display: string } => !!i.code && !!i.display)
+            .map((i) => ({ code: i.code, display: i.display }));
+          // ValueSets are versioned — take the latest by version.
+          const existing = byUrl.get(vs.url);
+          if (!existing || items.length > existing.length) byUrl.set(vs.url, items);
+        }
+        const procedureTypeItems = byUrl.get(PROCEDURE_TYPES_VALUE_SET_URL) ?? [];
+        const ptMap = new Map<string, string>();
+        for (const i of procedureTypeItems) ptMap.set(i.code, i.display);
+        const allowed = new Map<keyof ProcedureDTO, Map<string, string>>();
+        for (const { url, field } of fieldByUrl) {
+          const items = byUrl.get(url) ?? [];
+          const m = new Map<string, string>();
+          for (const i of items) m.set(i.code, i.display);
+          if (m.size > 0) allowed.set(field, m);
+        }
+        if (!cancelled) {
+          setProcedureTypeNameByCode(ptMap);
+          setProcedureFieldAllowedValues(allowed);
+        }
+      } catch (e) {
+        console.error('Failed to load procedure value sets:', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [oystehr]);
+
+  // Look up the encounter's appointmentId so the "Open in regular chart" button can link out.
+  useEffect(() => {
+    let cancelled = false;
+    if (!oystehr || !encounterId) return;
+    void (async () => {
+      try {
+        const encounter = await oystehr.fhir.get<{ appointment?: { reference?: string }[] }>({
+          resourceType: 'Encounter',
+          id: encounterId,
+        });
+        const ref = encounter.appointment?.[0]?.reference;
+        const id = ref?.startsWith('Appointment/') ? ref.slice('Appointment/'.length) : null;
+        if (!cancelled && id) setAppointmentId(id);
+      } catch (e) {
+        console.error('Failed to fetch encounter for appointment lookup:', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [oystehr, encounterId]);
+
+  const handleSend = async (): Promise<void> => {
+    const message = refineText.trim();
+    if (!message || !oystehrZambda || !encounterId) return;
+    setConv({ kind: 'thinking', user: message });
+    setRefineText('');
+    try {
+      const ctx = chartDataRef.current;
+      // CC↔HPI swap: in the in-person UI the "Chief Complaint" textarea is backed by the
+      // historyOfPresentIllness chart-data key, and the "History of Present Illness" textarea
+      // is backed by chiefComplaint. When we send context to the LLM we use the label-aligned
+      // mapping (so "chiefComplaint" context contains the text the provider sees under the
+      // CC heading), and on save we re-swap before writing to chart data.
+      const noteContext = ctx
+        ? {
+            chiefComplaint: ctx.historyOfPresentIllness?.text ?? undefined,
+            historyOfPresentIllness: ctx.chiefComplaint?.text ?? undefined,
+            mechanismOfInjury: ctx.mechanismOfInjury?.text ?? undefined,
+            ros: ctx.ros?.text ?? undefined,
+            medicalDecision: ctx.medicalDecision?.text ?? undefined,
+          }
+        : undefined;
+      const { intent } = await easyChartAgent(oystehrZambda, { message, noteContext });
+      if (intent.kind === 'unknown') {
+        setConv({ kind: 'unknown', user: message, reply: intent.message });
+        return;
+      }
+      if (isRemoveIntent(intent)) {
+        const matches = findRemoveMatches(intent, chartData);
+        if (matches.length === 0) {
+          setConv({ kind: 'no-match-remove', user: message, intent });
+        } else if (matches.length === 1) {
+          await handleRemovePick(matches[0], message);
+        } else {
+          setConv({ kind: 'choose-remove', user: message, intent, matches });
+        }
+        return;
+      }
+      // Code-based: the LLM gave us the code directly — save without searching
+      if (intent.kind === 'set-em-code' || intent.kind === 'add-cpt') {
+        const label = `${intent.code}${intent.display && intent.display !== intent.code ? ` — ${intent.display}` : ''}`;
+        setConv({ kind: 'saving', user: message, chosenName: label });
+        try {
+          const payload: SaveChartDataRequest =
+            intent.kind === 'set-em-code'
+              ? { encounterId, emCode: { code: intent.code, display: intent.display } }
+              : { encounterId, cptCodes: [{ code: intent.code, display: intent.display }] };
+          await saveAndMerge(payload);
+          setConv({ kind: 'done', user: message, chosenName: label });
+        } catch (e) {
+          console.error('Save failed:', e);
+          setConv({ kind: 'error', user: message, reply: `Could not save "${label}". Please try again.` });
+        }
+        return;
+      }
+      // Code-based remove
+      if (intent.kind === 'remove-em-code') {
+        if (!apiClient) return;
+        const current = chartData?.emCode;
+        if (!current?.resourceId) {
+          setConv({ kind: 'error', user: message, reply: 'There is no E&M code on this encounter to remove.' });
+          return;
+        }
+        if (intent.code && current.code !== intent.code) {
+          setConv({
+            kind: 'error',
+            user: message,
+            reply: `The current E&M code is ${current.code}, not ${intent.code}. Did you mean to remove ${current.code}?`,
+          });
+          return;
+        }
+        const label = `${current.code}${current.display ? ` — ${current.display}` : ''}`;
+        setConv({ kind: 'removing', user: message, chosenName: label });
+        try {
+          await apiClient.deleteChartData({ encounterId, emCode: current } as Parameters<
+            typeof apiClient.deleteChartData
+          >[0]);
+          flashAndRemoveItem(current.resourceId, () => {
+            setChartData((prev) => (prev ? { ...prev, emCode: undefined } : prev));
+          });
+          setConv({ kind: 'removed', user: message, chosenName: label });
+        } catch (e) {
+          console.error('Remove em-code failed:', e);
+          setConv({ kind: 'error', user: message, reply: `Could not remove ${label}.` });
+        }
+        return;
+      }
+      if (intent.kind === 'remove-cpt') {
+        if (!apiClient) return;
+        const match = (chartData?.cptCodes ?? []).find((c) => c.resourceId && c.code === intent.code);
+        if (!match || !match.resourceId) {
+          setConv({ kind: 'error', user: message, reply: `I don't see CPT ${intent.code} on this encounter.` });
+          return;
+        }
+        const label = `${match.code}${match.display ? ` — ${match.display}` : ''}`;
+        setConv({ kind: 'removing', user: message, chosenName: label });
+        try {
+          await apiClient.deleteChartData({ encounterId, cptCodes: [match] } as Parameters<
+            typeof apiClient.deleteChartData
+          >[0]);
+          flashAndRemoveItem(match.resourceId, () => {
+            setChartData((prev) =>
+              prev
+                ? { ...prev, cptCodes: (prev.cptCodes ?? []).filter((c) => c.resourceId !== match.resourceId) }
+                : prev
+            );
+          });
+          setConv({ kind: 'removed', user: message, chosenName: label });
+        } catch (e) {
+          console.error('Remove cpt failed:', e);
+          setConv({ kind: 'error', user: message, reply: `Could not remove ${label}.` });
+        }
+        return;
+      }
+      if (intent.kind === 'apply-template') {
+        const all = await listTemplates(oystehrZambda, { includeVersionData: false });
+        const matches = findTemplateMatches(intent, all.templates);
+        if (matches.length === 0) {
+          setConv({ kind: 'no-match-template', user: message, intent });
+        } else if (matches.length === 1) {
+          await handleApplyTemplate(matches[0], message);
+        } else {
+          setConv({ kind: 'choose-template', user: message, intent, matches });
+        }
+        return;
+      }
+      if (intent.kind === 'add-procedure') {
+        const matches = findProcedureMatches(intent, procedureQuickPicks);
+        if (matches.length === 0) {
+          setConv({ kind: 'no-match-procedure', user: message, intent });
+        } else if (matches.length === 1) {
+          await handleProcedurePick(matches[0], message);
+        } else {
+          setConv({ kind: 'choose-procedure', user: message, intent, matches });
+        }
+        return;
+      }
+      if (intent.kind === 'update-procedure') {
+        const allProcedures = chartDataRef.current?.procedures ?? [];
+        if (allProcedures.length === 0) {
+          setConv({ kind: 'no-procedure-to-update', user: message, intent });
+        } else {
+          const candidates = findProceduresToUpdate(intent, allProcedures);
+          if (candidates.length === 1) {
+            await handleProcedureUpdate(candidates[0], intent, message);
+          } else {
+            setConv({ kind: 'choose-procedure-to-update', user: message, intent, candidates });
+          }
+        }
+        return;
+      }
+      if (intent.kind === 'edit-note-text') {
+        await handleEditNoteText(intent, message);
+        return;
+      }
+      if (intent.kind === 'add-exam-finding') {
+        const matches = findExamLeafMatches(intent, EXAM_LEAVES);
+        if (matches.length === 0) {
+          setConv({ kind: 'no-match-exam', user: message, intent });
+        } else if (matches.length === 1) {
+          await handleExamPick(matches[0], message);
+        } else {
+          setConv({ kind: 'choose-exam', user: message, intent, matches });
+        }
+        return;
+      }
+      if (intent.kind === 'remove-exam-finding') {
+        const items = buildExamRemoveItems(chartDataRef.current?.examObservations);
+        const matches = findExamRemoveMatches(intent, items);
+        if (matches.length === 0) {
+          setConv({ kind: 'no-match-exam-remove', user: message, intent });
+        } else if (matches.length === 1) {
+          await handleExamRemove(matches[0], message);
+        } else {
+          setConv({ kind: 'choose-exam-remove', user: message, intent, matches });
+        }
+        return;
+      }
+      // Add flow
+      const results = await runIntentSearch(intent, oystehr, oystehrZambda);
+      if (results.length === 0) {
+        setConv({ kind: 'no-match', user: message, intent });
+      } else if (results.length === 1) {
+        await handlePick(intent, results[0], message);
+      } else {
+        setConv({ kind: 'choose', user: message, intent, results });
+      }
+    } catch (e) {
+      console.error('Agent failed:', e);
+      setConv({ kind: 'error', user: message, reply: 'Something went wrong. Please try again.' });
+    }
+  };
+
+  const handleRemovePick = async (match: RemoveMatch, user: string): Promise<void> => {
+    if (!apiClient || !encounterId) return;
+    setConv({ kind: 'removing', user, chosenName: match.displayName });
+    try {
+      await apiClient.deleteChartData({ encounterId, [match.field]: [match.dto] } as Parameters<
+        typeof apiClient.deleteChartData
+      >[0]);
+      flashAndRemoveItem(match.resourceId, () => {
+        setChartData((prev) => {
+          if (!prev) return prev;
+          const next: GetChartDataResponse = { ...prev };
+          const list = (next[match.field] as Array<{ resourceId?: string }> | undefined) ?? [];
+          (next[match.field] as unknown[]) = list.filter((x) => x.resourceId !== match.resourceId);
+          return next;
+        });
+      });
+      setConv({ kind: 'removed', user, chosenName: match.displayName });
+    } catch (e) {
+      console.error('Remove failed:', e);
+      setConv({ kind: 'error', user, reply: `Could not remove "${match.displayName}". Please try again.` });
+    }
+  };
+
+  const handleApplyTemplate = async (template: TemplateMatch, user: string): Promise<void> => {
+    if (!apiClient || !oystehrZambda || !encounterId) return;
+    setConv({ kind: 'applying-template', user, chosenName: template.title });
+    try {
+      // Snapshot resourceIds present BEFORE applying so we can flash anything new afterward.
+      const before = collectResourceIds(chartDataRef.current);
+      await applyTemplate(oystehrZambda, { encounterId, templateName: template.title });
+      const fresh = await fetchEasyChartData(apiClient, encounterId);
+      setChartData(fresh);
+      const newIds = [...collectResourceIds(fresh)].filter((id) => !before.has(id));
+      if (newIds.length > 0) {
+        setFreshlyAdded((prev) => {
+          const next = new Set(prev);
+          newIds.forEach((id) => next.add(id));
+          return next;
+        });
+        const tryScroll = (attempt: number): void => {
+          const el = document.querySelector<HTMLElement>(`[data-easy-chart-id="${newIds[0]}"]`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          else if (attempt < 10) setTimeout(() => tryScroll(attempt + 1), 50);
+        };
+        requestAnimationFrame(() => requestAnimationFrame(() => tryScroll(0)));
+        setTimeout(() => {
+          setFreshlyAdded((prev) => {
+            const next = new Set(prev);
+            newIds.forEach((id) => next.delete(id));
+            return next;
+          });
+        }, 3000);
+      }
+      setConv({ kind: 'applied-template', user, chosenName: template.title });
+    } catch (e) {
+      console.error('Apply template failed:', e);
+      setConv({ kind: 'error', user, reply: `Could not apply template "${template.title}". Please try again.` });
+    }
+  };
+
+  const handleProcedurePick = async (qp: ProcedureQuickPickData, user: string): Promise<void> => {
+    if (!apiClient || !encounterId) return;
+    setConv({ kind: 'saving', user, chosenName: qp.name });
+    try {
+      // Two-step save mirrors the regular Procedures page: CPT codes + diagnoses must exist
+      // as FHIR Procedure / Condition resources before the procedure ServiceRequest can
+      // reference them. Pass through the quick pick's codes/dx, capture their resourceIds
+      // from the response, then save the procedure pointing at those resourceIds.
+      const step1 = await apiClient.saveChartData({
+        encounterId,
+        ...(qp.cptCodes?.length ? { cptCodes: qp.cptCodes } : {}),
+        ...(qp.diagnoses?.length ? { diagnosis: qp.diagnoses } : {}),
+      });
+      mergeSaveResponse(step1);
+      const savedCptCodes = step1.chartData?.cptCodes ?? [];
+      const savedDiagnoses = step1.chartData?.diagnosis ?? [];
+      const procDto: ProcedureDTO = {
+        ...procedureDtoFromQuickPick(qp, procedureTypeNameByCode),
+        cptCodes: savedCptCodes.length > 0 ? savedCptCodes : undefined,
+        diagnoses: savedDiagnoses.length > 0 ? savedDiagnoses : undefined,
+      };
+      await saveAndMerge({ encounterId, procedures: [procDto] });
+      setConv({ kind: 'done', user, chosenName: qp.name });
+    } catch (e) {
+      console.error('Add procedure failed:', e);
+      setConv({ kind: 'error', user, reply: `Could not add procedure "${qp.name}". Please try again.` });
+    }
+  };
+
+  const handleExamPick = async (leaf: ExamLeaf, user: string): Promise<void> => {
+    if (!apiClient || !encounterId) return;
+    setConv({ kind: 'saving', user, chosenName: leaf.label });
+    try {
+      if (leaf.modalOption) {
+        // Modal-option leaf: write as a `components` entry on the parent observation, the
+        // same shape that ExamCheckboxWithModal.handleCloseModal saves. Preserve any
+        // existing components on the parent observation that the provider had already
+        // checked via the regular UI.
+        const existing = (chartDataRef.current?.examObservations ?? []).find((o) => o.field === leaf.field);
+        const existingComponents = existing?.components ?? [];
+        const newComponent = {
+          code: leaf.modalOption.optionCode,
+          label: leaf.modalOption.optionLabel,
+          value: true,
+          groupLabel: leaf.modalOption.groupLabel,
+          ...(leaf.modalOption.columnLabel ? { columnLabel: leaf.modalOption.columnLabel } : {}),
+          abnormal: leaf.modalOption.abnormal,
+        };
+        // Dedup: replace by code if already present
+        const merged = [...existingComponents.filter((c) => c.code !== newComponent.code), newComponent];
+        await saveAndMerge({
+          encounterId,
+          examObservations: [
+            {
+              ...(existing?.resourceId ? { resourceId: existing.resourceId } : {}),
+              field: leaf.field,
+              // Preserve any existing label on the observation (set by the regular UI); fall
+              // back to the parent checkbox label so the easy-chart render shows something
+              // human-readable instead of the kebab-case field code.
+              label: existing?.label ?? leaf.modalOption.parentLabel,
+              value: true,
+              components: merged,
+            },
+          ],
+        });
+      } else {
+        // Plain checkbox leaf: simple field+value save.
+        await saveAndMerge({
+          encounterId,
+          examObservations: [{ field: leaf.field, label: leaf.label, value: true }],
+        });
+      }
+      setConv({ kind: 'done', user, chosenName: leaf.label });
+    } catch (e) {
+      console.error('Add exam finding failed:', e);
+      setConv({ kind: 'error', user, reply: `Could not add "${leaf.label}" to the exam. Please try again.` });
+    }
+  };
+
+  const handleExamRemove = async (item: ExamRemoveItem, user: string): Promise<void> => {
+    if (!apiClient || !encounterId) return;
+    setConv({ kind: 'removing', user, chosenName: item.displayName });
+    try {
+      if (!item.componentCode) {
+        // Plain observation — delete it outright.
+        const obs = chartDataRef.current?.examObservations?.find((o) => o.resourceId === item.resourceId);
+        if (!obs) {
+          setConv({ kind: 'error', user, reply: `Couldn't find that exam finding to remove.` });
+          return;
+        }
+        flashAndRemoveItem(item.resourceId, () => {
+          setChartData((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  examObservations: (prev.examObservations ?? []).filter((o) => o.resourceId !== item.resourceId),
+                }
+              : prev
+          );
+        });
+        await apiClient.deleteChartData({ encounterId, examObservations: [obs] } as Parameters<
+          typeof apiClient.deleteChartData
+        >[0]);
+      } else {
+        // Component-level removal — uncheck this component. If it's the last checked one,
+        // delete the whole observation (mirrors the regular ExamCheckboxWithModal behavior).
+        const obs = chartDataRef.current?.examObservations?.find((o) => o.resourceId === item.resourceId);
+        if (!obs) {
+          setConv({ kind: 'error', user, reply: `Couldn't find that exam finding to remove.` });
+          return;
+        }
+        const remainingChecked = (obs.components ?? []).filter((c) => c.value && c.code !== item.componentCode);
+        if (remainingChecked.length === 0) {
+          flashAndRemoveItem(item.resourceId, () => {
+            setChartData((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    examObservations: (prev.examObservations ?? []).filter((o) => o.resourceId !== item.resourceId),
+                  }
+                : prev
+            );
+          });
+          await apiClient.deleteChartData({ encounterId, examObservations: [obs] } as Parameters<
+            typeof apiClient.deleteChartData
+          >[0]);
+        } else {
+          // Save with the chosen component set to value=false (preserved in components so the
+          // modal still shows it as available on next open, matching regular UI behavior).
+          const nextComponents = (obs.components ?? []).map((c) =>
+            c.code === item.componentCode ? { ...c, value: false } : c
+          );
+          await saveAndMerge({
+            encounterId,
+            examObservations: [
+              {
+                resourceId: obs.resourceId,
+                field: obs.field,
+                ...(obs.label ? { label: obs.label } : {}),
+                value: true,
+                components: nextComponents,
+              },
+            ],
+          });
+        }
+      }
+      setConv({ kind: 'removed', user, chosenName: item.displayName });
+    } catch (e) {
+      console.error('Remove exam finding failed:', e);
+      setConv({ kind: 'error', user, reply: `Could not remove "${item.displayName}". Please try again.` });
+    }
+  };
+
+  const handleEditNoteText = async (
+    intent: Extract<EasyChartAgentIntent, { kind: 'edit-note-text' }>,
+    user: string
+  ): Promise<void> => {
+    if (!apiClient || !encounterId) return;
+    // Map LLM-canonical field names to the corresponding chart-data scalar. The in-person
+    // CC ↔ HPI swap (HpiField.tsx) means the textarea labeled "Chief Complaint" is backed
+    // by historyOfPresentIllness and vice versa — we keep the agent honest by using the
+    // human labels but writing to whichever chart-data key actually backs it.
+    const fieldLabels: Record<typeof intent.field, string> = {
+      chiefComplaint: 'Chief Complaint',
+      historyOfPresentIllness: 'History of Present Illness',
+      mechanismOfInjury: 'Mechanism of Injury',
+      ros: 'Review of Systems',
+      medicalDecision: 'Medical Decision Making',
+    };
+    const fieldLabel = fieldLabels[intent.field];
+    // Re-apply the CC↔HPI swap when writing back. The LLM thinks of `chiefComplaint` as the
+    // CC label's text, but in chart-data terms the CC label is backed by historyOfPresentIllness.
+    const saveField: typeof intent.field =
+      intent.field === 'chiefComplaint'
+        ? 'historyOfPresentIllness'
+        : intent.field === 'historyOfPresentIllness'
+        ? 'chiefComplaint'
+        : intent.field;
+    setConv({ kind: 'editing-note-text', user, fieldLabel });
+    try {
+      const existing = chartDataRef.current?.[saveField] as { resourceId?: string } | undefined;
+      const payload: SaveChartDataRequest = {
+        encounterId,
+        [saveField]: { resourceId: existing?.resourceId, text: intent.newText },
+      } as SaveChartDataRequest;
+      await saveAndMerge(payload);
+      setConv({ kind: 'edited-note-text', user, fieldLabel });
+    } catch (e) {
+      console.error('Edit note text failed:', e);
+      setConv({ kind: 'error', user, reply: `Could not update ${fieldLabel}. Please try again.` });
+    }
+  };
+
+  const handleProcedureUpdate = async (
+    procedure: ProcedureDTO,
+    intent: UpdateProcedureIntent,
+    user: string
+  ): Promise<void> => {
+    if (!apiClient || !encounterId || !procedure.resourceId) return;
+    const procName = procedure.procedureType ?? procedure.cptCodes?.[0]?.display ?? 'procedure';
+    setConv({ kind: 'updating-procedure', user, chosenName: procName });
+    try {
+      const { updated, applied, skipped } = applyProcedureUpdates(
+        procedure,
+        intent.updates,
+        procedureFieldAllowedValues
+      );
+      if (applied.length === 0) {
+        const skippedMsg = skipped.length > 0 ? ` Unrecognized: ${skipped.join(', ')}.` : '';
+        setConv({ kind: 'error', user, reply: `I couldn't apply any updates.${skippedMsg}` });
+        return;
+      }
+      // saveChartData with resourceId set updates the existing procedure ServiceRequest.
+      // Preserve cptCodes / diagnoses references (they already have resourceIds from the
+      // initial save) so the update doesn't drop them.
+      await saveAndMerge({ encounterId, procedures: [updated] });
+      const summary = applied.map((a) => `${a.field}=${JSON.stringify(a.value)}`).join(', ');
+      const skipNote = skipped.length > 0 ? ` (skipped: ${skipped.join(', ')})` : '';
+      setConv({ kind: 'updated-procedure', user, chosenName: procName, summary: summary + skipNote });
+    } catch (e) {
+      console.error('Update procedure failed:', e);
+      setConv({ kind: 'error', user, reply: `Could not update procedure "${procName}". Please try again.` });
+    }
+  };
+
+  const handlePick = async (intent: AddSearchIntent, result: SearchResult, user: string): Promise<void> => {
+    if (!apiClient || !encounterId) return;
+    setConv({ kind: 'saving', user, chosenName: result.name });
+    try {
+      const payload = buildIntentPayload(encounterId, intent, result);
+      if (payload) {
+        await saveAndMerge(payload);
+      }
+      setConv({ kind: 'done', user, chosenName: result.name });
+    } catch (e) {
+      console.error('Save failed:', e);
+      setConv({ kind: 'error', user, reply: `Could not add "${result.name}". Please try again.` });
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!apiClient || !encounterId) return;
+    setLoading(true);
+    setError(null);
+    fetchEasyChartData(apiClient, encounterId)
+      .then((d) => {
+        if (!cancelled) setChartData(d);
+      })
+      .catch((e) => {
+        console.error('Easy chart fetch failed:', e);
+        if (!cancelled) setError('Could not load the chart for this encounter.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [apiClient, encounterId]);
+
+  const isThinking =
+    conv?.kind === 'thinking' ||
+    conv?.kind === 'saving' ||
+    conv?.kind === 'removing' ||
+    conv?.kind === 'applying-template' ||
+    conv?.kind === 'updating-procedure' ||
+    conv?.kind === 'editing-note-text';
+  // Restore focus to the refine bar after each action completes so the provider can keep
+  // typing the next request without manually clicking the input. We trigger off the !isThinking
+  // edge — the TextField is `disabled` while thinking, so refocusing must wait for re-enable.
+  useEffect(() => {
+    if (!isThinking) {
+      requestAnimationFrame(() => refineInputRef.current?.focus());
+    }
+  }, [isThinking]);
+  // Top chrome height (banner + navbar) to subtract from 100vh so each column scrolls within view.
+  const topChrome = { xs: showEnvironmentBanner ? 116 : 56, sm: showEnvironmentBanner ? 124 : 64 };
+
+  const refineBar = (
+    <Paper elevation={2} sx={{ p: 2, position: 'sticky', top: 0, zIndex: 1, bgcolor: 'background.paper' }}>
+      <Stack spacing={1}>
+        <TextField
+          fullWidth
+          multiline
+          minRows={2}
+          maxRows={6}
+          placeholder='Try: "add allergy tree nut", "add diagnosis sinusitis"'
+          value={refineText}
+          onChange={(e) => setRefineText(e.target.value)}
+          inputRef={refineInputRef}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              void handleSend();
+            }
+          }}
+          disabled={isThinking}
+        />
+        <Stack direction="row" justifyContent="flex-end">
+          <Button
+            variant="contained"
+            sx={{ borderRadius: 100, textTransform: 'none' }}
+            onClick={() => void handleSend()}
+            disabled={!refineText.trim() || isThinking}
+          >
+            {isThinking ? <CircularProgress size={18} color="inherit" /> : 'Send'}
+          </Button>
+        </Stack>
+      </Stack>
+    </Paper>
+  );
+
+  const conversationCard = conv && (
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
+        You
+      </Typography>
+      <Typography variant="body2" sx={{ mb: 1 }}>
+        {conv.user}
+      </Typography>
+      <Divider sx={{ my: 1 }} />
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
+        Assistant
+      </Typography>
+      {conv.kind === 'thinking' && (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+          <CircularProgress size={14} />
+          <Typography variant="body2" color="text.secondary">
+            Thinking…
+          </Typography>
+        </Stack>
+      )}
+      {conv.kind === 'unknown' && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          {conv.reply}
+        </Typography>
+      )}
+      {conv.kind === 'no-match' && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          No matches found for &ldquo;{conv.intent.display}&rdquo;. Try a different phrasing.
+        </Typography>
+      )}
+      {conv.kind === 'choose' && (
+        <>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            I found {conv.results.length} matches for &ldquo;{conv.intent.display}&rdquo;. Which one?
+          </Typography>
+          <List dense sx={{ mt: 0.5 }}>
+            {conv.results.map((r, i) => (
+              <ListItemButton key={`${r.code ?? r.id ?? i}`} onClick={() => void handlePick(conv.intent, r, conv.user)}>
+                <ListItemText
+                  primary={r.name + (r.strength ? ` — ${r.strength}` : '')}
+                  secondary={r.code}
+                  primaryTypographyProps={{ variant: 'body2' }}
+                  secondaryTypographyProps={{ variant: 'caption' }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        </>
+      )}
+      {conv.kind === 'saving' && (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+          <CircularProgress size={14} />
+          <Typography variant="body2" color="text.secondary">
+            Adding {conv.chosenName}…
+          </Typography>
+        </Stack>
+      )}
+      {conv.kind === 'done' && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          Added <strong>{conv.chosenName}</strong> to the chart.
+        </Typography>
+      )}
+      {conv.kind === 'no-match-remove' && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          I couldn&rsquo;t find &ldquo;{conv.intent.display}&rdquo; in the chart.
+        </Typography>
+      )}
+      {conv.kind === 'choose-remove' && (
+        <>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            I found {conv.matches.length} matches for &ldquo;{conv.intent.display}&rdquo;. Which one to remove?
+          </Typography>
+          <List dense sx={{ mt: 0.5 }}>
+            {conv.matches.map((m) => (
+              <ListItemButton key={m.resourceId} onClick={() => void handleRemovePick(m, conv.user)}>
+                <ListItemText primary={m.displayName} primaryTypographyProps={{ variant: 'body2' }} />
+              </ListItemButton>
+            ))}
+          </List>
+        </>
+      )}
+      {conv.kind === 'removing' && (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+          <CircularProgress size={14} />
+          <Typography variant="body2" color="text.secondary">
+            Removing {conv.chosenName}…
+          </Typography>
+        </Stack>
+      )}
+      {conv.kind === 'removed' && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          Removed <strong>{conv.chosenName}</strong> from the chart.
+        </Typography>
+      )}
+      {conv.kind === 'no-match-template' && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          I couldn&rsquo;t find a template matching &ldquo;{conv.intent.display}&rdquo;.
+        </Typography>
+      )}
+      {conv.kind === 'choose-template' && (
+        <>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            I found {conv.matches.length} templates matching &ldquo;{conv.intent.display}&rdquo;. Which one to apply?
+          </Typography>
+          <List dense sx={{ mt: 0.5 }}>
+            {conv.matches.map((m) => (
+              <ListItemButton key={m.id} onClick={() => void handleApplyTemplate(m, conv.user)}>
+                <ListItemText primary={m.title} primaryTypographyProps={{ variant: 'body2' }} />
+              </ListItemButton>
+            ))}
+          </List>
+        </>
+      )}
+      {conv.kind === 'applying-template' && (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+          <CircularProgress size={14} />
+          <Typography variant="body2" color="text.secondary">
+            Applying {conv.chosenName}…
+          </Typography>
+        </Stack>
+      )}
+      {conv.kind === 'applied-template' && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          Applied template <strong>{conv.chosenName}</strong>.
+        </Typography>
+      )}
+      {conv.kind === 'no-match-procedure' && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          I couldn&rsquo;t find a procedure matching &ldquo;{conv.intent.display}&rdquo; in this practice&rsquo;s quick
+          picks.
+        </Typography>
+      )}
+      {conv.kind === 'choose-procedure' && (
+        <>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            I found {conv.matches.length} procedures matching &ldquo;{conv.intent.display}&rdquo;. Which one to add?
+          </Typography>
+          <List dense sx={{ mt: 0.5 }}>
+            {conv.matches.map((m) => (
+              <ListItemButton key={m.id ?? m.name} onClick={() => void handleProcedurePick(m, conv.user)}>
+                <ListItemText primary={m.name} primaryTypographyProps={{ variant: 'body2' }} />
+              </ListItemButton>
+            ))}
+          </List>
+        </>
+      )}
+      {conv.kind === 'no-procedure-to-update' && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          There&rsquo;s no procedure on this chart yet to update. Try &ldquo;add lac repair procedure&rdquo; first.
+        </Typography>
+      )}
+      {conv.kind === 'choose-procedure-to-update' && (
+        <>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            There are {conv.candidates.length} procedures on this chart. Which one to update?
+          </Typography>
+          <List dense sx={{ mt: 0.5 }}>
+            {conv.candidates.map((p, i) => {
+              const label = p.procedureType ?? p.cptCodes?.[0]?.display ?? `Procedure ${i + 1}`;
+              return (
+                <ListItemButton
+                  key={p.resourceId ?? i}
+                  onClick={() => void handleProcedureUpdate(p, conv.intent, conv.user)}
+                >
+                  <ListItemText primary={label} primaryTypographyProps={{ variant: 'body2' }} />
+                </ListItemButton>
+              );
+            })}
+          </List>
+        </>
+      )}
+      {conv.kind === 'updating-procedure' && (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+          <CircularProgress size={14} />
+          <Typography variant="body2" color="text.secondary">
+            Updating {conv.chosenName}…
+          </Typography>
+        </Stack>
+      )}
+      {conv.kind === 'updated-procedure' && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          Updated <strong>{conv.chosenName}</strong>: {conv.summary}
+        </Typography>
+      )}
+      {conv.kind === 'editing-note-text' && (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+          <CircularProgress size={14} />
+          <Typography variant="body2" color="text.secondary">
+            Updating {conv.fieldLabel}…
+          </Typography>
+        </Stack>
+      )}
+      {conv.kind === 'edited-note-text' && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          Updated <strong>{conv.fieldLabel}</strong>.
+        </Typography>
+      )}
+      {conv.kind === 'no-match-exam' && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          I couldn&rsquo;t find an exam finding matching &ldquo;{conv.intent.display}&rdquo;.
+        </Typography>
+      )}
+      {conv.kind === 'choose-exam' && (
+        <>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            I found {conv.matches.length} exam findings matching &ldquo;{conv.intent.display}&rdquo;. Which one?
+          </Typography>
+          <List dense sx={{ mt: 0.5 }}>
+            {conv.matches.map((m) => (
+              <ListItemButton key={m.field} onClick={() => void handleExamPick(m, conv.user)}>
+                <ListItemText
+                  primary={m.label}
+                  secondary={`${m.section} · ${m.normalAbnormal}`}
+                  primaryTypographyProps={{ variant: 'body2' }}
+                  secondaryTypographyProps={{ variant: 'caption' }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        </>
+      )}
+      {conv.kind === 'no-match-exam-remove' && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          I couldn&rsquo;t find anything in the exam matching &ldquo;{conv.intent.display}&rdquo;.
+        </Typography>
+      )}
+      {conv.kind === 'choose-exam-remove' && (
+        <>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            I found {conv.matches.length} exam findings matching &ldquo;{conv.intent.display}&rdquo;. Which one to
+            remove?
+          </Typography>
+          <List dense sx={{ mt: 0.5 }}>
+            {conv.matches.map((m, i) => (
+              <ListItemButton
+                key={`${m.resourceId}-${m.componentCode ?? 'obs'}-${i}`}
+                onClick={() => void handleExamRemove(m, conv.user)}
+              >
+                <ListItemText
+                  primary={m.displayName}
+                  secondary={m.section}
+                  primaryTypographyProps={{ variant: 'body2' }}
+                  secondaryTypographyProps={{ variant: 'caption' }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        </>
+      )}
+      {conv.kind === 'error' && (
+        <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+          {conv.reply}
+        </Typography>
+      )}
+    </Paper>
+  );
+
+  const notePane = loading ? (
+    <Paper variant="outlined" sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
+      <CircularProgress size={20} />
+    </Paper>
+  ) : error ? (
+    <Paper variant="outlined" sx={{ p: 2, borderColor: 'error.main' }}>
+      <Typography variant="body2" color="error">
+        {error}
+      </Typography>
+    </Paper>
+  ) : chartData ? (
+    <NoteSections data={chartData} freshlyAdded={freshlyAdded} removingItems={removingItems} />
+  ) : null;
+
+  return (
+    <Container maxWidth={false} sx={{ py: 2 }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+        <Box>
+          <Typography variant="h5" fontWeight={600}>
+            Easy Chart
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Encounter {encounterId}
+          </Typography>
+        </Box>
+        {appointmentId && (
+          <Button
+            variant="outlined"
+            size="small"
+            component="a"
+            href={`/in-person/${appointmentId}/cc-and-intake-notes`}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{ textTransform: 'none' }}
+          >
+            Open in regular chart
+          </Button>
+        )}
+      </Stack>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '3fr minmax(280px, 1fr)' },
+          gap: 2,
+          // Constrain to viewport on md+ so each column scrolls independently
+          height: { md: `calc(100vh - ${topChrome.sm}px - 80px)` },
+        }}
+      >
+        {/* Left column: the note */}
+        <Box sx={{ overflowY: { md: 'auto' }, pr: { md: 1 } }}>{notePane}</Box>
+
+        {/* Right column: AI conversation */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <Box sx={{ overflowY: { md: 'auto' }, pr: { md: 1 } }}>
+            <Stack spacing={2}>
+              {refineBar}
+              {conversationCard}
+            </Stack>
+          </Box>
+        </Box>
+      </Box>
+    </Container>
+  );
+}

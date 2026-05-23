@@ -1,4 +1,5 @@
 import { progressNoteIcon } from '@ehrTheme/icons';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CallSplitIcon from '@mui/icons-material/CallSplit';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -1067,6 +1068,9 @@ export default function AppointmentTableRow({
             dataTestId={dataTestIds.dashboard.visitDetailsButton}
           >
             <MedicalInformationIcon />
+          </GoToButton>
+          <GoToButton text="Easy Chart" onClick={() => navigate(`/easy-chart/${encounterId}`)}>
+            <AutoAwesomeIcon />
           </GoToButton>
           {renderProgressNoteButton()}
         </Stack>
