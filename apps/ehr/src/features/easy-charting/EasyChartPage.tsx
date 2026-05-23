@@ -924,7 +924,12 @@ type ConvStep =
       intent: RemoveExamFindingIntent;
       matches: ExamRemoveItem[];
     }
-  | { kind: 'error'; user: string; reply: string };
+  | { kind: 'error'; user: string; reply: string }
+  // Plan preview: planner has returned a decomposed step list; provider sees it and clicks
+  // Approve to kick off execution. Holds the narrative + steps so we can pass them on to
+  // setPlan when approved. Not a terminal state in the plan-progression sense — there's no
+  // plan active yet.
+  | { kind: 'plan-preview'; user: string; narrative: string; steps: EasyChartAgentIntent[] };
 
 // A removable exam item — either a whole observation or one of its checked components.
 interface ExamRemoveItem {
@@ -2322,7 +2327,10 @@ export default function EasyChartPage(): JSX.Element {
           });
           return;
         }
-        setPlan({ narrative: message, steps, currentIdx: 0, results: [] });
+        // Surface a preview so the provider sees the full decomposed plan and explicitly
+        // approves before any chart writes. Avoids the "wait, what did the first 10 steps
+        // do?" confusion when a later step pauses on a picker.
+        setConv({ kind: 'plan-preview', user: message, narrative: message, steps });
         return;
       }
       const { intent } = await easyChartAgent(oystehrZambda, { message, noteContext });
@@ -2706,9 +2714,23 @@ export default function EasyChartPage(): JSX.Element {
     </Paper>
   );
 
+  // Status icon for a given step index in the currently-running plan. Reads from plan.results
+  // (which holds outcomes of completed steps, in order) and plan.currentIdx (the active step).
+  const planStepStatusIcon = (idx: number): string => {
+    if (!plan) return '·';
+    if (idx < plan.results.length) {
+      const r = plan.results[idx];
+      if (r.status === 'done') return '✓';
+      if (r.status === 'skipped') return '⏭';
+      return '✗';
+    }
+    if (idx === plan.currentIdx) return '▶';
+    return '·';
+  };
+
   const planProgress = plan && (
     <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'action.hover' }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 0.5 }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
           Plan — step {plan.currentIdx + 1} of {plan.steps.length}
         </Typography>
@@ -2724,9 +2746,30 @@ export default function EasyChartPage(): JSX.Element {
           Cancel plan
         </Button>
       </Stack>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-        {describePlanStep(plan.steps[plan.currentIdx])}
-      </Typography>
+      {/* Full step list with status icons — surfaces what was already done so the provider
+          can interpret a mid-plan picker in context. */}
+      <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
+        {plan.steps.map((step, i) => {
+          const isCurrent = i === plan.currentIdx;
+          const isDone = i < plan.results.length;
+          const color = isCurrent ? 'text.primary' : isDone ? 'text.secondary' : 'text.disabled';
+          return (
+            <Typography
+              key={i}
+              variant="caption"
+              sx={{
+                display: 'block',
+                color,
+                fontWeight: isCurrent ? 600 : 400,
+                fontFamily: 'monospace',
+                lineHeight: 1.5,
+              }}
+            >
+              {planStepStatusIcon(i)} {i + 1}. {describePlanStep(step)}
+            </Typography>
+          );
+        })}
+      </Box>
     </Paper>
   );
 
@@ -2983,6 +3026,54 @@ export default function EasyChartPage(): JSX.Element {
         <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
           {conv.reply}
         </Typography>
+      )}
+      {conv.kind === 'plan-preview' && (
+        <>
+          <Typography variant="body2" sx={{ mt: 0.5, mb: 1 }}>
+            Here&rsquo;s what I&rsquo;ll do ({conv.steps.length} step{conv.steps.length === 1 ? '' : 's'}):
+          </Typography>
+          <Box sx={{ maxHeight: 280, overflowY: 'auto', mb: 1 }}>
+            {conv.steps.map((step, i) => (
+              <Typography
+                key={i}
+                variant="caption"
+                sx={{
+                  display: 'block',
+                  color: 'text.secondary',
+                  fontFamily: 'monospace',
+                  lineHeight: 1.5,
+                }}
+              >
+                {i + 1}. {describePlanStep(step)}
+              </Typography>
+            ))}
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="small"
+              variant="contained"
+              sx={{ textTransform: 'none' }}
+              onClick={() => {
+                if (conv.kind !== 'plan-preview') return;
+                const { narrative, steps } = conv;
+                setPlan({ narrative, steps, currentIdx: 0, results: [] });
+              }}
+            >
+              Approve &amp; run
+            </Button>
+            <Button
+              size="small"
+              variant="text"
+              sx={{ textTransform: 'none' }}
+              onClick={() => {
+                if (conv.kind !== 'plan-preview') return;
+                setConv({ kind: 'unknown', user: conv.user, reply: 'Plan cancelled before execution.' });
+              }}
+            >
+              Cancel
+            </Button>
+          </Stack>
+        </>
       )}
     </Paper>
   );
