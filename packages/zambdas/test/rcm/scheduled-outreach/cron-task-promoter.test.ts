@@ -19,6 +19,14 @@ const mockOystehrClient = {
   },
 };
 
+vi.mock('utils', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    FEATURE_FLAGS_CONFIG: { automatedPatientOutreachEnabled: true },
+  };
+});
+
 vi.mock('../../../src/shared', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
