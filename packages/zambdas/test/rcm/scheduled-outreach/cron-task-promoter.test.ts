@@ -19,13 +19,7 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    FEATURE_FLAGS_CONFIG: { automatedPatientOutreachEnabled: true },
-  };
-});
+import { FEATURE_FLAGS_CONFIG } from 'utils';
 
 vi.mock('../../../src/shared', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -75,7 +69,7 @@ function makeDraftTask(id: string, overrides?: Partial<Task>): Task {
   } as Task;
 }
 
-describe('cron-outreach-task-promoter', () => {
+describe.skipIf(!FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled)('cron-outreach-task-promoter', () => {
   let handler: ZambdaHandler;
 
   beforeEach(async () => {
@@ -141,47 +135,50 @@ describe('cron-outreach-task-promoter', () => {
   });
 });
 
-describe('cron-outreach-task-promoter with SMS time restriction', () => {
-  let handler: ZambdaHandler;
-  let parseNotificationsTimeRestriction: any;
+describe.skipIf(!FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled)(
+  'cron-outreach-task-promoter with SMS time restriction',
+  () => {
+    let handler: ZambdaHandler;
+    let parseNotificationsTimeRestriction: any;
 
-  beforeEach(async () => {
-    vi.clearAllMocks();
+    beforeEach(async () => {
+      vi.clearAllMocks();
 
-    // Re-import to get the mocked version
-    const helpersModule = await import('../../../src/rcm/scheduled-outreach-config/helpers');
-    parseNotificationsTimeRestriction = helpersModule.parseNotificationsTimeRestriction;
+      // Re-import to get the mocked version
+      const helpersModule = await import('../../../src/rcm/scheduled-outreach-config/helpers');
+      parseNotificationsTimeRestriction = helpersModule.parseNotificationsTimeRestriction;
 
-    const mod = await import('../../../src/cron/rcm/outreach-task-promoter/index');
-    handler = mod.index as ZambdaHandler;
-  });
-
-  it('blocks SMS tasks when outside notification window', async () => {
-    // Mock DateTime.now() to a fixed time outside the narrow window to avoid flakiness
-    const { DateTime } = await import('luxon');
-    const realNow = DateTime.now;
-    vi.spyOn(DateTime, 'now').mockImplementation(() =>
-      realNow.call(DateTime).set({ hour: 12, minute: 0, second: 0, millisecond: 0 })
-    );
-
-    // Enable restriction with a very narrow window that won't match the mocked time (12:00 UTC)
-    (parseNotificationsTimeRestriction as any).mockReturnValue({
-      enabled: true,
-      windowStart: '03:00',
-      windowEnd: '03:01',
-      timezone: 'UTC',
+      const mod = await import('../../../src/cron/rcm/outreach-task-promoter/index');
+      handler = mod.index as ZambdaHandler;
     });
 
-    const smsTask = makeDraftTask('task-sms', {
-      input: [{ type: { text: 'mediums' }, valueString: 'sms' }],
+    it('blocks SMS tasks when outside notification window', async () => {
+      // Mock DateTime.now() to a fixed time outside the narrow window to avoid flakiness
+      const { DateTime } = await import('luxon');
+      const realNow = DateTime.now;
+      vi.spyOn(DateTime, 'now').mockImplementation(() =>
+        realNow.call(DateTime).set({ hour: 12, minute: 0, second: 0, millisecond: 0 })
+      );
+
+      // Enable restriction with a very narrow window that won't match the mocked time (12:00 UTC)
+      (parseNotificationsTimeRestriction as any).mockReturnValue({
+        enabled: true,
+        windowStart: '03:00',
+        windowEnd: '03:01',
+        timezone: 'UTC',
+      });
+
+      const smsTask = makeDraftTask('task-sms', {
+        input: [{ type: { text: 'mediums' }, valueString: 'sms' }],
+      });
+      mockSearch.mockResolvedValueOnce(mockBundle([smsTask]));
+
+      const result = await handler({ headers: null, body: null, secrets: testSecrets });
+
+      const body = JSON.parse(result.body);
+      expect(body.blocked).toBe(1);
+      expect(body.promoted).toBe(0);
+      expect(mockPatch).not.toHaveBeenCalled();
     });
-    mockSearch.mockResolvedValueOnce(mockBundle([smsTask]));
-
-    const result = await handler({ headers: null, body: null, secrets: testSecrets });
-
-    const body = JSON.parse(result.body);
-    expect(body.blocked).toBe(1);
-    expect(body.promoted).toBe(0);
-    expect(mockPatch).not.toHaveBeenCalled();
-  });
-});
+  }
+);

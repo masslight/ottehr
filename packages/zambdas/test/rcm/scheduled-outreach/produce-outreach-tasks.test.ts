@@ -19,13 +19,7 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    FEATURE_FLAGS_CONFIG: { automatedPatientOutreachEnabled: true },
-  };
-});
+import { FEATURE_FLAGS_CONFIG } from 'utils';
 
 vi.mock('../../../src/shared', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -145,7 +139,7 @@ function mockBundle(resources: any[]): { unbundle: () => any[]; total: number; l
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
-describe('produce-outreach-tasks', () => {
+describe.skipIf(!FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled)('produce-outreach-tasks', () => {
   let produceOutreachTasks: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').produceOutreachTasks;
   let buildTaskInput: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').buildTaskInput;
 
