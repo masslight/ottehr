@@ -76,3 +76,16 @@ export interface EasyChartAgentInput {
 export interface EasyChartAgentOutput {
   intent: EasyChartAgentIntent;
 }
+
+// Narrative-to-plan: the planner takes a longer prose request from the provider plus the
+// same chart context the agent gets, and returns an ordered list of intents the client can
+// execute one at a time (with pickers for ambiguous ones). Each step reuses the per-intent
+// handlers the single-shot agent flow already uses.
+export interface EasyChartPlannerInput {
+  narrative: string;
+  noteContext?: EasyChartNoteContext;
+}
+
+export interface EasyChartPlannerOutput {
+  steps: EasyChartAgentIntent[];
+}

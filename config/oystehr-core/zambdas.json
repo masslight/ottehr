@@ -1601,6 +1601,13 @@
       "src": "src/ehr/easy-chart-agent/index",
       "zip": ".dist/zips/easy-chart-agent.zip"
     },
+    "EASY-CHART-PLANNER": {
+      "name": "easy-chart-planner",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/easy-chart-planner/index",
+      "zip": ".dist/zips/easy-chart-planner.zip"
+    },
     "ADMIN-CREATE-TEMPLATE": {
       "name": "admin-create-template",
       "type": "http_auth",

@@ -103,6 +103,8 @@ import {
   DownloadPatientProfilePhotoInput,
   EasyChartAgentInput,
   EasyChartAgentOutput,
+  EasyChartPlannerInput,
+  EasyChartPlannerOutput,
   EHRVisitDetails,
   EmCodeOutput,
   GenerateChartPlanInput,
@@ -1644,6 +1646,22 @@ export const easyChartAgent = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'easy-chart-agent',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const easyChartPlanner = async (
+  oystehr: Oystehr,
+  parameters: EasyChartPlannerInput
+): Promise<EasyChartPlannerOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'easy-chart-planner',
       ...parameters,
     });
     return chooseJson(response);

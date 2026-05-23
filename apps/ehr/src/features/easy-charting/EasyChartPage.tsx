@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import type { ExamItemConfig } from 'config-types';
+import type { Encounter } from 'fhir/r4b';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -30,6 +31,7 @@ import {
   CPTCodeDTO,
   EasyChartAgentIntent,
   examConfig,
+  type ExamObservationDTO,
   GetChartDataResponse,
   HospitalizationDTO,
   MedicalConditionDTO,
@@ -47,7 +49,7 @@ import {
   TIME_SPENT_VALUE_SET_URL,
   VitalsObservationDTO,
 } from 'utils';
-import { applyTemplate, easyChartAgent, icd10Search, listTemplates } from '../../api/api';
+import { applyTemplate, easyChartAgent, easyChartPlanner, icd10Search, listTemplates } from '../../api/api';
 import { showEnvironmentBanner } from '../../App';
 import { HospitalizationOptions } from '../visits/in-person/components/hospitalization/hospitalizationOptions';
 import { SURGICAL_HISTORY_OPTIONS } from '../visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
@@ -1596,6 +1598,18 @@ export default function EasyChartPage(): JSX.Element {
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
   const [refineText, setRefineText] = useState('');
   const refineInputRef = useRef<HTMLTextAreaElement | null>(null);
+  // Narrative-plan execution state. `currentIdx` points at the step currently being run
+  // (or paused awaiting a picker click). `results` records per-step outcomes for the summary.
+  const [plan, setPlan] = useState<{
+    narrative: string;
+    steps: EasyChartAgentIntent[];
+    currentIdx: number;
+    results: { status: 'done' | 'skipped' | 'error'; label: string; message?: string }[];
+  } | null>(null);
+  // Track the last currentIdx we kicked off so we don't double-dispatch on conv changes that
+  // re-render the component, and the conv kinds we treat as "step finished" vs "waiting".
+  const planDispatchedIdxRef = useRef<number>(-1);
+  const planAdvancedIdxRef = useRef<number>(-1);
   const [freshlyAdded, setFreshlyAdded] = useState<Set<string>>(new Set());
   const [removingItems, setRemovingItems] = useState<Set<string>>(new Set());
   const [conv, setConv] = useState<ConvStep | null>(null);
@@ -1807,7 +1821,7 @@ export default function EasyChartPage(): JSX.Element {
     if (!oystehr || !encounterId) return;
     void (async () => {
       try {
-        const encounter = await oystehr.fhir.get<{ appointment?: { reference?: string }[] }>({
+        const encounter = await oystehr.fhir.get<Encounter>({
           resourceType: 'Encounter',
           id: encounterId,
         });
@@ -1823,32 +1837,140 @@ export default function EasyChartPage(): JSX.Element {
     };
   }, [oystehr, encounterId]);
 
-  const handleSend = async (): Promise<void> => {
-    const message = refineText.trim();
-    if (!message || !oystehrZambda || !encounterId) return;
-    setConv({ kind: 'thinking', user: message });
-    setRefineText('');
-    try {
-      const ctx = chartDataRef.current;
-      // CC↔HPI swap: in the in-person UI the "Chief Complaint" textarea is backed by the
-      // historyOfPresentIllness chart-data key, and the "History of Present Illness" textarea
-      // is backed by chiefComplaint. When we send context to the LLM we use the label-aligned
-      // mapping (so "chiefComplaint" context contains the text the provider sees under the
-      // CC heading), and on save we re-swap before writing to chart data.
-      const noteContext = ctx
-        ? {
-            chiefComplaint: ctx.historyOfPresentIllness?.text ?? undefined,
-            historyOfPresentIllness: ctx.chiefComplaint?.text ?? undefined,
-            mechanismOfInjury: ctx.mechanismOfInjury?.text ?? undefined,
-            ros: ctx.ros?.text ?? undefined,
-            medicalDecision: ctx.medicalDecision?.text ?? undefined,
-          }
-        : undefined;
-      const { intent } = await easyChartAgent(oystehrZambda, { message, noteContext });
-      if (intent.kind === 'unknown') {
-        setConv({ kind: 'unknown', user: message, reply: intent.message });
-        return;
+  // Human label for a step shown in the conversation header during plan execution.
+  const describePlanStep = (intent: EasyChartAgentIntent): string => {
+    switch (intent.kind) {
+      case 'add-allergy':
+      case 'add-condition':
+      case 'add-medication':
+      case 'add-surgical-history':
+      case 'add-hospitalization':
+        return `${intent.kind.replace(/-/g, ' ')}: ${intent.display}`;
+      case 'add-diagnosis':
+        return `add diagnosis${intent.isPrimary ? ' (primary)' : ''}: ${intent.display}`;
+      case 'remove-allergy':
+      case 'remove-condition':
+      case 'remove-medication':
+      case 'remove-surgical-history':
+      case 'remove-hospitalization':
+      case 'remove-diagnosis':
+      case 'remove-exam-finding':
+        return `${intent.kind.replace(/-/g, ' ')}: ${intent.display}`;
+      case 'set-em-code':
+        return `set E&M code ${intent.code}`;
+      case 'add-cpt':
+        return `add CPT ${intent.code}`;
+      case 'remove-em-code':
+        return 'remove E&M code';
+      case 'remove-cpt':
+        return `remove CPT ${intent.code}`;
+      case 'apply-template':
+        return `apply template: ${intent.display}`;
+      case 'add-procedure':
+        return `add procedure: ${intent.display}`;
+      case 'update-procedure':
+        return `update procedure${intent.procedureMatch ? ` (${intent.procedureMatch})` : ''}: ${intent.updates
+          .map((u) => `${u.field}=${u.value}`)
+          .join(', ')}`;
+      case 'edit-note-text':
+        return `edit ${intent.field}`;
+      case 'add-exam-finding':
+        return `add exam finding: ${intent.display}`;
+      case 'unknown':
+        return 'unknown action';
+    }
+  };
+
+  // Plan execution: dispatch the current step when the cursor moves to it.
+  useEffect(() => {
+    if (!plan) {
+      planDispatchedIdxRef.current = -1;
+      planAdvancedIdxRef.current = -1;
+      return;
+    }
+    if (planDispatchedIdxRef.current === plan.currentIdx) return; // already kicked off
+    planDispatchedIdxRef.current = plan.currentIdx;
+    const step = plan.steps[plan.currentIdx];
+    const label = `Step ${plan.currentIdx + 1}/${plan.steps.length} — ${describePlanStep(step)}`;
+    void dispatchIntent(step, label);
+    // Intentionally no other deps — we only want to fire when the cursor moves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan?.currentIdx, plan?.steps.length]);
+
+  // Plan progression: when conv reaches a settled (terminal) state for the current step,
+  // record the result and advance the cursor. Picker / in-progress conv kinds pause the plan.
+  useEffect(() => {
+    if (!plan) return;
+    if (!conv) return;
+    if (planAdvancedIdxRef.current >= plan.currentIdx) return; // already advanced this step
+    const terminal: ConvStep['kind'][] = [
+      'done',
+      'removed',
+      'applied-template',
+      'updated-procedure',
+      'edited-note-text',
+      'unknown',
+      'error',
+      'no-match',
+      'no-match-remove',
+      'no-match-template',
+      'no-match-procedure',
+      'no-procedure-to-update',
+      'no-match-exam',
+      'no-match-exam-remove',
+    ];
+    if (!terminal.includes(conv.kind)) return;
+    planAdvancedIdxRef.current = plan.currentIdx;
+    setPlan((prev) => {
+      if (!prev) return null;
+      const status: 'done' | 'skipped' | 'error' =
+        conv.kind === 'error' ? 'error' : conv.kind.startsWith('no-') || conv.kind === 'unknown' ? 'skipped' : 'done';
+      const stepLabel = describePlanStep(prev.steps[prev.currentIdx]);
+      const message = conv.kind === 'error' || conv.kind === 'unknown' ? (conv as { reply?: string }).reply : undefined;
+      const nextResults = [...prev.results, { status, label: stepLabel, message }];
+      const nextIdx = prev.currentIdx + 1;
+      if (nextIdx >= prev.steps.length) {
+        // Plan complete — leave a summary in the conversation, clear plan state.
+        const doneCount = nextResults.filter((r) => r.status === 'done').length;
+        const skipCount = nextResults.filter((r) => r.status === 'skipped').length;
+        const errCount = nextResults.filter((r) => r.status === 'error').length;
+        const summary =
+          `Plan complete: ${doneCount} applied` +
+          (skipCount > 0 ? `, ${skipCount} skipped` : '') +
+          (errCount > 0 ? `, ${errCount} error${errCount === 1 ? '' : 's'}` : '') +
+          '.';
+        setConv({ kind: 'unknown', user: prev.narrative, reply: summary });
+        return null;
       }
+      return { ...prev, currentIdx: nextIdx, results: nextResults };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conv?.kind, plan?.currentIdx]);
+
+  // Build the noteContext we send to the LLM. The in-person CC↔HPI swap is applied here so
+  // the LLM sees text under the labels the provider reads (chiefComplaint = CC label's text).
+  const buildNoteContext = (): NonNullable<Parameters<typeof easyChartAgent>[1]['noteContext']> | undefined => {
+    const ctx = chartDataRef.current;
+    if (!ctx) return undefined;
+    return {
+      chiefComplaint: ctx.historyOfPresentIllness?.text ?? undefined,
+      historyOfPresentIllness: ctx.chiefComplaint?.text ?? undefined,
+      mechanismOfInjury: ctx.mechanismOfInjury?.text ?? undefined,
+      ros: ctx.ros?.text ?? undefined,
+      medicalDecision: ctx.medicalDecision?.text ?? undefined,
+    };
+  };
+
+  // Take a classified intent and run the appropriate per-intent path. Used by both the
+  // single-shot agent flow and the plan executor — they only differ in how `intent` is
+  // produced. `message` is the user-facing label rendered in the conversation header.
+  const dispatchIntent = async (intent: EasyChartAgentIntent, message: string): Promise<void> => {
+    if (!oystehrZambda || !encounterId) return;
+    if (intent.kind === 'unknown') {
+      setConv({ kind: 'unknown', user: message, reply: intent.message });
+      return;
+    }
+    try {
       if (isRemoveIntent(intent)) {
         const matches = findRemoveMatches(intent, chartData);
         if (matches.length === 0) {
@@ -2010,7 +2132,46 @@ export default function EasyChartPage(): JSX.Element {
         setConv({ kind: 'choose', user: message, intent, results });
       }
     } catch (e) {
-      console.error('Agent failed:', e);
+      console.error('Dispatch failed:', e);
+      setConv({ kind: 'error', user: message, reply: 'Something went wrong. Please try again.' });
+    }
+  };
+
+  // Heuristic: if the provider's message is long-ish or visibly contains multiple sentences,
+  // route through the planner (narrative → ordered intents). Otherwise treat it as a single
+  // request and use the single-shot agent.
+  const looksLikeNarrative = (msg: string): boolean => {
+    if (msg.length >= 140) return true;
+    // Count sentence-end punctuation followed by whitespace/EOL — a couple of sentences in a
+    // shorter message is a narrative; a single declarative isn't.
+    const sentenceEnds = msg.match(/[.!?](?:\s|$)/g);
+    return (sentenceEnds?.length ?? 0) >= 2;
+  };
+
+  const handleSend = async (): Promise<void> => {
+    const message = refineText.trim();
+    if (!message || !oystehrZambda || !encounterId) return;
+    setConv({ kind: 'thinking', user: message });
+    setRefineText('');
+    try {
+      const noteContext = buildNoteContext();
+      if (looksLikeNarrative(message)) {
+        const { steps } = await easyChartPlanner(oystehrZambda, { narrative: message, noteContext });
+        if (steps.length === 0) {
+          setConv({
+            kind: 'unknown',
+            user: message,
+            reply: "I couldn't find any chart actions in that narrative.",
+          });
+          return;
+        }
+        setPlan({ narrative: message, steps, currentIdx: 0, results: [] });
+        return;
+      }
+      const { intent } = await easyChartAgent(oystehrZambda, { message, noteContext });
+      await dispatchIntent(intent, message);
+    } catch (e) {
+      console.error('Send failed:', e);
       setConv({ kind: 'error', user: message, reply: 'Something went wrong. Please try again.' });
     }
   };
@@ -2388,6 +2549,30 @@ export default function EasyChartPage(): JSX.Element {
     </Paper>
   );
 
+  const planProgress = plan && (
+    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'action.hover' }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+          Plan — step {plan.currentIdx + 1} of {plan.steps.length}
+        </Typography>
+        <Button
+          size="small"
+          variant="text"
+          sx={{ textTransform: 'none', minWidth: 0 }}
+          onClick={() => {
+            setPlan(null);
+            setConv({ kind: 'unknown', user: plan.narrative, reply: 'Plan cancelled.' });
+          }}
+        >
+          Cancel plan
+        </Button>
+      </Stack>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+        {describePlanStep(plan.steps[plan.currentIdx])}
+      </Typography>
+    </Paper>
+  );
+
   const conversationCard = conv && (
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
@@ -2702,6 +2887,7 @@ export default function EasyChartPage(): JSX.Element {
           <Box sx={{ overflowY: { md: 'auto' }, pr: { md: 1 } }}>
             <Stack spacing={2}>
               {refineBar}
+              {planProgress}
               {conversationCard}
             </Stack>
           </Box>
