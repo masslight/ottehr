@@ -1,8 +1,54 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { EasyChartAgentIntent, EasyChartPlannerOutput, INVALID_INPUT_ERROR } from 'utils';
-import { wrapHandler, ZambdaInput } from '../../shared';
+import { List } from 'fhir/r4b';
+import {
+  chunkThings,
+  EasyChartAgentIntent,
+  EasyChartPlannerOutput,
+  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
+  INVALID_INPUT_ERROR,
+} from 'utils';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
+import { createOystehrClient } from '../../shared/helpers';
+import { findHolderList } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+
+let m2mToken: string;
+
+// Fetch the practice's saved template titles so the LLM can name a real template when
+// suggesting apply-template. Without this the LLM has no idea what's available and
+// either invents names or skips apply-template entirely. Lightweight version of
+// list-templates that returns just titles (no version data, no contained resources).
+async function fetchTemplateTitles(oystehr: Oystehr): Promise<string[]> {
+  const holder = await findHolderList(oystehr);
+  if (!holder?.entry?.length) return [];
+  const templateIds = [
+    ...new Set(holder.entry.map((e) => e.item.reference?.replace('List/', '')).filter((id): id is string => !!id)),
+  ];
+  if (templateIds.length === 0) return [];
+  const idChunks = chunkThings(templateIds, 50);
+  const chunkResults = await Promise.all(
+    idChunks.map((chunk) =>
+      oystehr.fhir
+        .search<List>({
+          resourceType: 'List',
+          params: [
+            { name: '_id', value: chunk.join(',') },
+            { name: '_count', value: '50' },
+          ],
+        })
+        .then((r) => r.unbundle())
+    )
+  );
+  const titles = chunkResults
+    .flat()
+    .filter((t) => t.code?.coding?.some((c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM))
+    .map((t) => t.title?.trim())
+    .filter((t): t is string => !!t);
+  // Stable order so prompt cache hits are consistent across runs.
+  return titles.sort();
+}
 
 const ZAMBDA_NAME = 'easy-chart-planner';
 
@@ -157,7 +203,11 @@ const RESPONSE_SCHEMA = {
   required: ['steps'],
 };
 
-const buildPrompt = (narrative: string, noteContext?: Partial<Record<NoteTextField, string>>): string => {
+const buildPrompt = (
+  narrative: string,
+  noteContext?: Partial<Record<NoteTextField, string>>,
+  templateTitles?: string[]
+): string => {
   const labels: Record<NoteTextField, string> = {
     chiefComplaint: 'Chief Complaint',
     historyOfPresentIllness: 'History of Present Illness (HPI)',
@@ -179,6 +229,13 @@ const buildPrompt = (narrative: string, noteContext?: Partial<Record<NoteTextFie
   const contextBlock =
     contextLines.length > 0 ? `\nCurrent free-text fields on this encounter:\n${contextLines.join('\n')}\n` : '';
 
+  const templatesBlock =
+    templateTitles && templateTitles.length > 0
+      ? `\nAVAILABLE TEMPLATES in this practice (exact titles — match these when you apply-template; do NOT invent template names):\n${templateTitles
+          .map((t) => `- ${t}`)
+          .join('\n')}\n`
+      : '';
+
   return `
 You are an assistant helping a provider chart a clinical encounter. The provider just typed a
 free-text NARRATIVE describing everything they want done on the chart:
@@ -186,22 +243,37 @@ free-text NARRATIVE describing everything they want done on the chart:
 """
 ${narrative}
 """
-${contextBlock}
+${contextBlock}${templatesBlock}
 Decompose the narrative into an ordered sequence of charting ACTIONS. Each action is one of
 the kinds below; the client will execute them one at a time and ask the provider to disambiguate
 when needed. Emit a JSON array of "steps".
 
 ORDERING (follow this canonical note order — don't emit an action for things the narrative
 doesn't mention):
-  1. Patient history (add/remove-allergy, condition, medication, surgical-history, hospitalization)
-  2. Free-text fields, in note order: edit-note-text for chiefComplaint, historyOfPresentIllness,
-     mechanismOfInjury, ros, medicalDecision (only emit one edit-note-text per field).
-  3. Exam findings (add-exam-finding / remove-exam-finding)
-  4. Diagnoses (add-diagnosis — mark isPrimary=true for the primary; emit ONE primary)
-  5. Procedures (add-procedure, then update-procedure for any field changes referencing the
+  1. Apply chart template (apply-template) — FIRST step when one of the AVAILABLE TEMPLATES
+     above matches the narrative's primary presentation. Templates pre-fill CC/HPI structure,
+     default normal exam findings, default-diagnosis, default-MDM and patient instructions.
+     Examples: "Acute otitis media right ear" narrative → apply-template "AOM Right";
+     "asthma exacerbation" → "Asthma"; "ankle sprain" → "Ankle Sprain" (if present).
+     Match against the listed titles by primary diagnosis or chief complaint. Match by laterality
+     when the templates differ by side (AOM Right vs Left vs Bilateral). If no template matches
+     plausibly, OMIT apply-template — don't force a wrong template.
+  2. Patient history (add/remove-allergy, condition, medication, surgical-history, hospitalization)
+  3. Free-text fields, in note order: edit-note-text for chiefComplaint, historyOfPresentIllness,
+     mechanismOfInjury, ros, medicalDecision. When a template was applied in step 1, ONLY emit
+     edit-note-text for fields where the narrative has content that meaningfully DIFFERS from
+     what the template would default. The template typically fills CC, HPI structure, MDM and
+     patient instructions — don't re-emit those if the narrative content is what the template
+     already provides.
+  4. Exam findings (add-exam-finding / remove-exam-finding). When a template was applied, ONLY
+     emit add-exam-finding for ABNORMAL findings (or normal findings the narrative specifically
+     calls out that the template doesn't cover by default). Templates already check the default
+     normal findings for that section — don't re-add them.
+  5. Diagnoses (add-diagnosis — mark isPrimary=true for the primary; emit ONE primary). When the
+     template's title matches the diagnosis (e.g. AOM Right + Acute otitis media right ear),
+     OMIT this step — the template already adds the diagnosis.
+  6. Procedures (add-procedure, then update-procedure for any field changes referencing the
      same procedure by procedureMatch — match by procedure name)
-  6. Apply chart templates (apply-template) — usually apply BEFORE adding diagnoses/procedures
-     if the narrative implies a template plus modifications.
   7. Billing: set-em-code (one), add-cpt (any extra CPTs)
 
 ACTION SHAPES (use these intent kinds and the same fields the single-shot agent uses):
@@ -297,7 +369,24 @@ RULES:
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { narrative, noteContext, secrets } = validateRequestParameters(input);
-  const raw = await invokeChatbotVertexAI([{ text: buildPrompt(narrative, noteContext) }], secrets, RESPONSE_SCHEMA);
+
+  // Fetch available templates so the planner can suggest a real one. Best-effort — if the
+  // lookup fails (network, M2M auth, missing holder list), proceed without templates so the
+  // planner still produces a useful decomposition without apply-template suggestions.
+  let templateTitles: string[] = [];
+  try {
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
+    templateTitles = await fetchTemplateTitles(oystehr);
+  } catch (e) {
+    console.warn('Planner: template-list fetch failed, proceeding without:', e);
+  }
+
+  const raw = await invokeChatbotVertexAI(
+    [{ text: buildPrompt(narrative, noteContext, templateTitles) }],
+    secrets,
+    RESPONSE_SCHEMA
+  );
 
   let parsed: { steps?: unknown };
   try {
