@@ -268,6 +268,22 @@ RULES:
   note field, fold them into a single edit-note-text with the combined final text.
 - Steps that have no plausible classification or that the narrative doesn't justify should be
   omitted, not emitted as "unknown" — return an empty steps array if nothing applies.
+- NEGATIVE-CONFIRMATION statements are NOT chartable items — OMIT them entirely. Examples:
+    "No known drug allergies" / "NKDA" / "no allergies" → DO NOT emit add-allergy or add-condition.
+    "No current medications" / "no meds" → DO NOT emit add-medication.
+    "PMH unremarkable" / "no past medical history" → DO NOT emit add-condition.
+    "No prior surgeries" / "no surgical history" → DO NOT emit add-surgical-history.
+    "No hospitalizations" → DO NOT emit add-hospitalization.
+    "No vomiting", "no rash", "no fever", etc. → DO NOT emit add-exam-finding (the chart
+      defaults already capture the absence of these). Emit add-exam-finding ONLY for findings
+      the provider explicitly observed as ABNORMAL (e.g. "TM erythematous", "throat injected").
+  These statements ARE clinically important, but they belong in the HPI/MDM free text (which
+  the planner emits as edit-note-text), not as add-* actions whose pickers would match nothing
+  or, worse, the wrong thing.
+- DEMOGRAPHIC + INSURANCE + CONTACT details (address, phone, email, race, ethnicity, language,
+  insurance carrier/member ID, PCP info, responsible party, emergency contact) are NOT chart
+  actions — OMIT them entirely. They live on the Patient/Coverage resources via the intake
+  flow, not the easy-chart conversational interface.
 `;
 };
 
