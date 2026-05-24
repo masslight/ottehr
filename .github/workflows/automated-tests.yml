@@ -123,6 +123,8 @@ jobs:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
           NODE_OPTIONS: "--max-old-space-size=8192"
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
       - name: Upload spec coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('packages/spec/coverage/lcov.info') != '' }}
