@@ -1127,10 +1127,38 @@ function findTemplateMatches(intent: ApplyTemplateIntent, templates: TemplateMat
     .filter((tok) => tok.length >= 2)
     .filter((tok) => !TEMPLATE_QUERY_STOPWORDS.has(tok));
   if (queryTokens.length === 0) return [];
-  return templates.filter((t) => {
-    const titleTokens = tokenize(t.title);
-    return queryTokens.some((qt) => titleTokens.some((tt) => tt.startsWith(qt)));
-  });
+  const queryDisplay = intent.display.trim().toLowerCase();
+  // Score each template title:
+  //   - 1000 if title (case-insensitive) equals the provider's display verbatim — perfect match.
+  //   - +20 per query token that has an EXACT match (whole-token) in the title.
+  //   - +5 per query token that has a PREFIX match in the title (partial).
+  //   - +10 if every query token matched (allMatched bonus).
+  //   - −10 length penalty per extra title token beyond what the query asked for, so
+  //     "AOM Right" outranks "AOM Right (acute otitis media) with watch and wait" when the
+  //     provider just asked for "AOM Right".
+  const scored = templates
+    .map((t) => {
+      const titleTokens = tokenize(t.title);
+      const titleLower = t.title.trim().toLowerCase();
+      let score = 0;
+      let allMatched = true;
+      for (const qt of queryTokens) {
+        const exact = titleTokens.includes(qt);
+        const prefix = !exact && titleTokens.some((tt) => tt.startsWith(qt));
+        if (exact) score += 20;
+        else if (prefix) score += 5;
+        else allMatched = false;
+      }
+      if (allMatched && queryTokens.length > 1) score += 10;
+      if (titleLower === queryDisplay) score += 1000;
+      // Length penalty: extra tokens in the title beyond the query length are noise.
+      const extraTokens = Math.max(0, titleTokens.length - queryTokens.length);
+      score -= extraTokens * 2;
+      return { t, score };
+    })
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.map((s) => s.t);
 }
 
 // Same shape as template matching: forward substring match against quick-pick names,
@@ -2325,13 +2353,32 @@ export default function EasyChartPage(): JSX.Element {
         return;
       }
       if (intent.kind === 'add-exam-finding') {
-        const matches = findExamLeafMatches(intent, EXAM_LEAVES);
-        if (matches.length === 0) {
+        const allMatches = findExamLeafMatches(intent, EXAM_LEAVES);
+        // Filter out leaves already on the chart — e.g. the AOM Right template already checked
+        // "TM bulging, erythematous" on the right side, so re-adding it creates a duplicate.
+        // For plain checkbox leaves: skip if any observation with field=leaf.field has value=true.
+        // For modal-option leaves: skip if the parent observation already has this option's
+        // component code checked.
+        const existingObs = chartDataRef.current?.examObservations ?? [];
+        const isAlreadyChecked = (leaf: ExamLeaf): boolean => {
+          if (leaf.modalOption) {
+            const parent = existingObs.find((o) => o.field === leaf.field && o.value === true);
+            if (!parent) return false;
+            return (parent.components ?? []).some((c) => c.code === leaf.modalOption!.optionCode && c.value === true);
+          }
+          return existingObs.some((o) => o.field === leaf.field && o.value === true);
+        };
+        const remaining = allMatches.filter((m) => !isAlreadyChecked(m));
+        if (allMatches.length === 0) {
           setConv({ kind: 'no-match-exam', user: message, intent });
-        } else if (matches.length === 1) {
-          await handleExamPick(matches[0], message);
+        } else if (remaining.length === 0) {
+          // Every match is already on the chart — most commonly because a template added it.
+          // Mark the step skipped so the plan keeps moving without creating a duplicate.
+          setConv({ kind: 'skipped', user: message });
+        } else if (remaining.length === 1) {
+          await handleExamPick(remaining[0], message);
         } else {
-          setConv({ kind: 'choose-exam', user: message, intent, matches });
+          setConv({ kind: 'choose-exam', user: message, intent, matches: remaining });
         }
         return;
       }
