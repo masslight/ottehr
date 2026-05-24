@@ -17,6 +17,7 @@
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
     "preview": "vite preview",
     "test": "vitest --silent",
+    "test:ci": "vitest run --coverage --passWithNoTests",
     "coverage": "vitest run --coverage"
   },
   "dependencies": {

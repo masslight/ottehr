@@ -22,15 +22,63 @@
     },
     "test": {
       "env": ["ENV"],
+      "outputs": ["coverage/**"],
       "inputs": [
-        "apps/**/*.tsx",
-        "apps/**/*.ts",
-        "packages/**/*.ts",
-        "packages/**/*.tsx",
-        "src/**/*.tsx",
         "src/**/*.ts",
+        "src/**/*.tsx",
         "test/**/*.ts",
-        "test/**/*.tsx"
+        "test/**/*.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
+        "vitest.config.ts",
+        "vitest.config.*.ts",
+        "vitest.setup.ts",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    "test:ci": {
+      "env": ["ENV", "CI"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "test/**/*.ts",
+        "test/**/*.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
+        "vitest.config.ts",
+        "vitest.config.*.ts",
+        "vitest.setup.ts",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    "test:unit:ci": {
+      "env": ["ENV", "CI"],
+      "outputs": ["coverage/unit/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "test/**/*.ts",
+        "tests/**/*.ts",
+        "vitest.config.ts",
+        "vitest.setup.ts",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    "test:component:ci": {
+      "env": ["ENV", "CI"],
+      "outputs": ["coverage/component/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "tests/**/*.tsx",
+        "tests/component/**",
+        "vitest.config.component-tests.ts",
+        "tsconfig*.json",
+        "package.json"
       ]
     },
     "lint": {},

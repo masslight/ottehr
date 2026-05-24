@@ -7,6 +7,7 @@
     "lint-terraform": "terraform fmt",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
     "test": "vitest run",
+    "test:ci": "vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --passWithNoTests",
     "test:watch": "vitest"
   },
   "devDependencies": {
