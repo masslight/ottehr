@@ -2379,7 +2379,14 @@ export default function EasyChartPage(): JSX.Element {
           setConv({ kind: 'no-match-exam', user: message, intent });
         } else if (remaining.length === 0) {
           // Every match is already on the chart — most commonly because a template added it.
-          // Mark the step skipped so the plan keeps moving without creating a duplicate.
+          setConv({ kind: 'skipped', user: message });
+        } else if (allMatches[0] && isAlreadyChecked(allMatches[0])) {
+          // The TOP-scored match was already on the chart, even if lower-ranked variants
+          // weren't. The provider's intent is essentially satisfied — making them pick from
+          // weaker matches would be confusing (e.g. they asked for "Right TM erythematous and
+          // bulging with loss of light reflex" and the catalog's best match for that, which
+          // is on the chart, was removed by dedup; the picker would otherwise fall back to
+          // unrelated Left ear options).
           setConv({ kind: 'skipped', user: message });
         } else if (remaining.length === 1) {
           await handleExamPick(remaining[0], message);
