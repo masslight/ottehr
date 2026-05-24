@@ -2623,13 +2623,23 @@ export default function EasyChartPage(): JSX.Element {
       const planSnapshot = planRef.current;
       if (planSnapshot && oystehrZambda) {
         try {
-          const chartStateSummary = buildChartStateSummary(fresh);
+          // Lead with the applied template name — chartState alone (lists of findings/codes)
+          // didn't make it obvious enough and the LLM kept re-emitting apply-template.
+          const chartStateSummary = `Template "${
+            template.title
+          }" has ALREADY been applied to this chart — do NOT emit apply-template again.\n\n${buildChartStateSummary(
+            fresh
+          )}`;
           const noteContext = buildNoteContext();
           const { steps: refreshed } = await easyChartPlanner(oystehrZambda, {
             narrative: planSnapshot.narrative,
             noteContext,
             chartState: chartStateSummary,
           });
+          // Defense-in-depth: drop any apply-template from the refresh output. The template
+          // is already on the chart; a second apply-template would either duplicate (if it
+          // matches) or replace the wrong fields (if a different template name comes back).
+          const refreshedFiltered = refreshed.filter((s) => s.kind !== 'apply-template');
           // Splice: keep completed steps + their results; replace pending steps with refresh.
           // The apply-template step itself hasn't terminally settled yet (we're still inside
           // handleApplyTemplate), so it's still at currentIdx. Move forward into refreshed.
@@ -2638,7 +2648,7 @@ export default function EasyChartPage(): JSX.Element {
             const doneSteps = prev.steps.slice(0, prev.currentIdx + 1); // include apply-template
             return {
               ...prev,
-              steps: [...doneSteps, ...refreshed],
+              steps: [...doneSteps, ...refreshedFiltered],
             };
           });
         } catch (e) {
