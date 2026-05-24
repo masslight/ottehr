@@ -925,6 +925,9 @@ type ConvStep =
       matches: ExamRemoveItem[];
     }
   | { kind: 'error'; user: string; reply: string }
+  // Provider chose to skip the current picker without picking. Terminal — advances the plan
+  // cursor with status="skipped" so the running step list shows ⏭.
+  | { kind: 'skipped'; user: string }
   // Plan preview: planner has returned a decomposed step list; provider sees it and clicks
   // Approve to kick off execution. Holds the narrative + steps so we can pass them on to
   // setPlan when approved. Not a terminal state in the plan-progression sense — there's no
@@ -2127,6 +2130,7 @@ export default function EasyChartPage(): JSX.Element {
       'edited-note-text',
       'unknown',
       'error',
+      'skipped',
       'no-match',
       'no-match-remove',
       'no-match-template',
@@ -2141,7 +2145,11 @@ export default function EasyChartPage(): JSX.Element {
     setPlan((prev) => {
       if (!prev) return null;
       const status: 'done' | 'skipped' | 'error' =
-        conv.kind === 'error' ? 'error' : conv.kind.startsWith('no-') || conv.kind === 'unknown' ? 'skipped' : 'done';
+        conv.kind === 'error'
+          ? 'error'
+          : conv.kind === 'skipped' || conv.kind.startsWith('no-') || conv.kind === 'unknown'
+          ? 'skipped'
+          : 'done';
       const stepLabel = describePlanStep(prev.steps[prev.currentIdx]);
       const message = conv.kind === 'error' || conv.kind === 'unknown' ? (conv as { reply?: string }).reply : undefined;
       const nextResults = [...prev.results, { status, label: stepLabel, message }];
@@ -2363,6 +2371,52 @@ export default function EasyChartPage(): JSX.Element {
     // shorter message is a narrative; a single declarative isn't.
     const sentenceEnds = msg.match(/[.!?](?:\s|$)/g);
     return (sentenceEnds?.length ?? 0) >= 2;
+  };
+
+  // Per-picker refinement input. Keyed by the picker's user message so each picker session
+  // gets its own field; cleared on picker close.
+  const [pickerRefineText, setPickerRefineText] = useState('');
+
+  // Skip the active picker — sets conv to terminal 'skipped'. In plan mode this advances the
+  // cursor with status="skipped" so the running step list shows ⏭ for this step.
+  const handleSkipPicker = (): void => {
+    if (!conv) return;
+    setConv({ kind: 'skipped', user: conv.user });
+    setPickerRefineText('');
+  };
+
+  // Refine the active picker — append the provider's free-text refinement to the intent's
+  // display + searchTerms and re-dispatch. Works for any picker whose intent kind we can
+  // re-dispatch through dispatchIntent (all add-*, remove-*, exam-*, template, procedure).
+  const handleRefinePicker = (
+    intent:
+      | EasyChartAgentIntent
+      | RemoveIntent
+      | ApplyTemplateIntent
+      | AddProcedureIntent
+      | UpdateProcedureIntent
+      | AddExamFindingIntent
+      | RemoveExamFindingIntent,
+    refinement: string
+  ): void => {
+    const text = refinement.trim();
+    if (!text || !conv) return;
+    const userMsg = conv.user;
+    // Most intent kinds carry display + searchTerms. update-procedure / set-em-code / etc.
+    // don't have a display the matcher uses, so refine isn't meaningful for them — skip the
+    // re-dispatch and just clear the input.
+    if (!('display' in intent)) return;
+    const newDisplay = `${(intent as { display?: string }).display ?? ''} ${text}`.trim();
+    const existingTerms = Array.isArray((intent as { searchTerms?: string[] }).searchTerms)
+      ? (intent as { searchTerms?: string[] }).searchTerms ?? []
+      : [];
+    const augmented = {
+      ...intent,
+      display: newDisplay,
+      searchTerms: [...existingTerms, text],
+    } as EasyChartAgentIntent;
+    setPickerRefineText('');
+    void dispatchIntent(augmented, userMsg);
   };
 
   const handleSend = async (): Promise<void> => {
@@ -2828,6 +2882,64 @@ export default function EasyChartPage(): JSX.Element {
     </Paper>
   );
 
+  // Skip + Refine controls rendered at the bottom of every picker. Skip terminates the picker
+  // with status="skipped" (visible as ⏭ in the running plan). Refine appends free-text to
+  // the intent and re-dispatches to narrow the matches. Intent can be any kind that carries
+  // a display/searchTerms — update-procedure / code-only intents don't (Refine is a no-op).
+  const renderPickerActions = (
+    intent:
+      | EasyChartAgentIntent
+      | RemoveIntent
+      | ApplyTemplateIntent
+      | AddProcedureIntent
+      | UpdateProcedureIntent
+      | AddExamFindingIntent
+      | RemoveExamFindingIntent
+  ): JSX.Element => {
+    const refinable = 'display' in intent;
+    return (
+      <Stack direction="column" spacing={0.5} sx={{ mt: 1.5, pt: 1, borderTop: '1px dashed', borderColor: 'divider' }}>
+        {refinable && (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <TextField
+              size="small"
+              fullWidth
+              placeholder="Narrow with more detail (e.g. 'right side', 'tonsillar')"
+              value={pickerRefineText}
+              onChange={(e) => setPickerRefineText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && pickerRefineText.trim()) {
+                  e.preventDefault();
+                  handleRefinePicker(intent, pickerRefineText);
+                }
+              }}
+              inputProps={{ style: { fontSize: 13 } }}
+            />
+            <Button
+              size="small"
+              variant="outlined"
+              sx={{ textTransform: 'none', minWidth: 0 }}
+              disabled={!pickerRefineText.trim()}
+              onClick={() => handleRefinePicker(intent, pickerRefineText)}
+            >
+              Refine
+            </Button>
+          </Stack>
+        )}
+        {plan && (
+          <Button
+            size="small"
+            variant="text"
+            sx={{ textTransform: 'none', alignSelf: 'flex-start', minWidth: 0 }}
+            onClick={handleSkipPicker}
+          >
+            Skip this step
+          </Button>
+        )}
+      </Stack>
+    );
+  };
+
   const conversationCard = conv && (
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
@@ -2894,6 +3006,7 @@ export default function EasyChartPage(): JSX.Element {
               </ListItemButton>
             ))}
           </List>
+          {renderPickerActions(conv.intent)}
         </>
       )}
       {conv.kind === 'saving' && (
@@ -2926,6 +3039,7 @@ export default function EasyChartPage(): JSX.Element {
               </ListItemButton>
             ))}
           </List>
+          {renderPickerActions(conv.intent)}
         </>
       )}
       {conv.kind === 'removing' && (
@@ -2958,6 +3072,7 @@ export default function EasyChartPage(): JSX.Element {
               </ListItemButton>
             ))}
           </List>
+          {renderPickerActions(conv.intent)}
         </>
       )}
       {conv.kind === 'applying-template' && (
@@ -2991,6 +3106,7 @@ export default function EasyChartPage(): JSX.Element {
               </ListItemButton>
             ))}
           </List>
+          {renderPickerActions(conv.intent)}
         </>
       )}
       {conv.kind === 'no-procedure-to-update' && (
@@ -3016,6 +3132,7 @@ export default function EasyChartPage(): JSX.Element {
               );
             })}
           </List>
+          {renderPickerActions(conv.intent)}
         </>
       )}
       {conv.kind === 'updating-procedure' && (
@@ -3066,6 +3183,7 @@ export default function EasyChartPage(): JSX.Element {
               </ListItemButton>
             ))}
           </List>
+          {renderPickerActions(conv.intent)}
         </>
       )}
       {conv.kind === 'no-match-exam-remove' && (
@@ -3094,7 +3212,13 @@ export default function EasyChartPage(): JSX.Element {
               </ListItemButton>
             ))}
           </List>
+          {renderPickerActions(conv.intent)}
         </>
+      )}
+      {conv.kind === 'skipped' && (
+        <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
+          Skipped.
+        </Typography>
       )}
       {conv.kind === 'error' && (
         <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
