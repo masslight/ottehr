@@ -665,7 +665,7 @@ export const dataTestIds = {
     screeningNoteField: 'screening-note-field',
     screeningNoteItem: 'screening-note-item',
     addNoteButton: 'add-screening-note-button',
-    askPatientQuestion: 'ask-patient-question',
+    askPatientQuestion: (fieldId: string) => `ask-patient-question-${fieldId}`,
     vaccinationNoteField: 'vaccination-note-field',
     answerDropdown: 'answer-dropdown',
   },
