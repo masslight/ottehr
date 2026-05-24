@@ -1854,6 +1854,12 @@ export default function EasyChartPage(): JSX.Element {
   // → bug-advance to the next step). Storing the actual conv reference and requiring it to
   // differ guarantees we only advance once per real conv transition.
   const planLastAdvanceConvRef = useRef<ConvStep | null>(null);
+  // Live ref to the current plan so async handlers (e.g. handleApplyTemplate's post-template
+  // refresh) can read the latest state without a stale closure.
+  const planRef = useRef<typeof plan>(null);
+  useEffect(() => {
+    planRef.current = plan;
+  }, [plan]);
   const [freshlyAdded, setFreshlyAdded] = useState<Set<string>>(new Set());
   const [removingItems, setRemovingItems] = useState<Set<string>>(new Set());
   const [conv, setConv] = useState<ConvStep | null>(null);
@@ -2520,6 +2526,64 @@ export default function EasyChartPage(): JSX.Element {
     }
   };
 
+  // Build a free-text summary of what's currently on the chart, for the planner refresh
+  // after apply-template. Only includes the categories the planner can emit add-* steps for.
+  const buildChartStateSummary = (data: GetChartDataResponse | null | undefined): string => {
+    if (!data) return '';
+    const lines: string[] = [];
+    if (data.diagnosis?.length) {
+      lines.push(
+        `Diagnoses: ${data.diagnosis
+          .map((d) => `${d.code} — ${d.display}${d.isPrimary ? ' (primary)' : ''}`)
+          .join('; ')}`
+      );
+    }
+    if (data.conditions?.length) {
+      lines.push(`Past medical conditions: ${data.conditions.map((c) => `${c.code} — ${c.display}`).join('; ')}`);
+    }
+    if (data.medications?.length) {
+      lines.push(`Medications: ${data.medications.map((m) => m.name).join('; ')}`);
+    }
+    if (data.allergies?.length) {
+      lines.push(`Allergies: ${data.allergies.map((a) => a.name).join('; ')}`);
+    }
+    if (data.surgicalHistory?.length) {
+      lines.push(`Surgical history: ${data.surgicalHistory.map((s) => s.display).join('; ')}`);
+    }
+    if (data.episodeOfCare?.length) {
+      lines.push(`Hospitalizations: ${data.episodeOfCare.map((h) => h.display).join('; ')}`);
+    }
+    if (data.procedures?.length) {
+      lines.push(
+        `Procedures on encounter: ${data.procedures
+          .map((p) => p.procedureType ?? p.cptCodes?.[0]?.display ?? 'procedure')
+          .join('; ')}`
+      );
+    }
+    const checkedExam = (data.examObservations ?? []).filter((o) => o.value === true);
+    if (checkedExam.length > 0) {
+      // Group by section label for readability.
+      const bySection: Record<string, string[]> = {};
+      for (const o of checkedExam) {
+        const section = FIELD_TO_SECTION_LABEL[o.field] ?? 'Other';
+        const checked = (o.components ?? []).filter((c) => c.value);
+        const label =
+          checked.length > 0 ? `${o.label ?? o.field} (${checked.map((c) => c.label).join(', ')})` : o.label ?? o.field;
+        (bySection[section] ??= []).push(label);
+      }
+      lines.push(
+        'Exam findings already checked:\n' +
+          Object.entries(bySection)
+            .map(([sec, items]) => `  ${sec}: ${items.join('; ')}`)
+            .join('\n')
+      );
+    }
+    if (data.medicalDecision?.text?.trim()) {
+      lines.push(`MDM already present (length ${data.medicalDecision.text.trim().length} chars).`);
+    }
+    return lines.join('\n');
+  };
+
   const handleApplyTemplate = async (template: TemplateMatch, user: string): Promise<void> => {
     if (!apiClient || !oystehrZambda || !encounterId) return;
     setConv({ kind: 'applying-template', user, chosenName: template.title });
@@ -2549,6 +2613,37 @@ export default function EasyChartPage(): JSX.Element {
             return next;
           });
         }, 3000);
+      }
+      // Plan refresh: if a plan is active, re-call the planner with what's now on the chart so
+      // remaining steps reflect what the template did. The template typically pre-fills exam
+      // findings, a diagnosis, MDM, and patient instructions — without a refresh the planner's
+      // original "add-diagnosis", "add-exam-finding", "edit medicalDecision" steps would
+      // produce duplicates or overwrite the template's content. Best-effort: if the refresh
+      // fails for any reason, fall back to the original plan with the in-flight dedup checks.
+      const planSnapshot = planRef.current;
+      if (planSnapshot && oystehrZambda) {
+        try {
+          const chartStateSummary = buildChartStateSummary(fresh);
+          const noteContext = buildNoteContext();
+          const { steps: refreshed } = await easyChartPlanner(oystehrZambda, {
+            narrative: planSnapshot.narrative,
+            noteContext,
+            chartState: chartStateSummary,
+          });
+          // Splice: keep completed steps + their results; replace pending steps with refresh.
+          // The apply-template step itself hasn't terminally settled yet (we're still inside
+          // handleApplyTemplate), so it's still at currentIdx. Move forward into refreshed.
+          setPlan((prev) => {
+            if (!prev) return null;
+            const doneSteps = prev.steps.slice(0, prev.currentIdx + 1); // include apply-template
+            return {
+              ...prev,
+              steps: [...doneSteps, ...refreshed],
+            };
+          });
+        } catch (e) {
+          console.warn('Plan refresh after template failed; proceeding with original plan:', e);
+        }
       }
       setConv({ kind: 'applied-template', user, chosenName: template.title });
     } catch (e) {

@@ -206,7 +206,8 @@ const RESPONSE_SCHEMA = {
 const buildPrompt = (
   narrative: string,
   noteContext?: Partial<Record<NoteTextField, string>>,
-  templateTitles?: string[]
+  templateTitles?: string[],
+  chartState?: string
 ): string => {
   const labels: Record<NoteTextField, string> = {
     chiefComplaint: 'Chief Complaint',
@@ -236,6 +237,12 @@ const buildPrompt = (
           .join('\n')}\n`
       : '';
 
+  // When the caller is refreshing the plan after a template applied, they pass a summary of
+  // chart state so the LLM omits add-* steps for items already documented.
+  const chartStateBlock = chartState
+    ? `\nALREADY ON THE CHART (do NOT emit add-* steps for these — they're already documented; also do NOT emit apply-template again):\n${chartState}\n`
+    : '';
+
   return `
 You are an assistant helping a provider chart a clinical encounter. The provider just typed a
 free-text NARRATIVE describing everything they want done on the chart:
@@ -243,7 +250,7 @@ free-text NARRATIVE describing everything they want done on the chart:
 """
 ${narrative}
 """
-${contextBlock}${templatesBlock}
+${contextBlock}${templatesBlock}${chartStateBlock}
 Decompose the narrative into an ordered sequence of charting ACTIONS. Each action is one of
 the kinds below; the client will execute them one at a time and ask the provider to disambiguate
 when needed. Emit a JSON array of "steps".
@@ -368,7 +375,7 @@ RULES:
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { narrative, noteContext, secrets } = validateRequestParameters(input);
+  const { narrative, noteContext, chartState, secrets } = validateRequestParameters(input);
 
   // Fetch available templates so the planner can suggest a real one. Best-effort — if the
   // lookup fails (network, M2M auth, missing holder list), proceed without templates so the
@@ -383,7 +390,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   const raw = await invokeChatbotVertexAI(
-    [{ text: buildPrompt(narrative, noteContext, templateTitles) }],
+    [{ text: buildPrompt(narrative, noteContext, templateTitles, chartState) }],
     secrets,
     RESPONSE_SCHEMA
   );

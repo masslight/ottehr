@@ -92,6 +92,11 @@ export interface EasyChartAgentOutput {
 export interface EasyChartPlannerInput {
   narrative: string;
   noteContext?: EasyChartNoteContext;
+  // Optional summary of items ALREADY on the chart (typically populated when calling the
+  // planner again after a template has applied a batch of findings/diagnoses/meds). The
+  // planner uses this to skip add-* steps that would duplicate what's already present.
+  // Free text the LLM reads; format is up to the caller.
+  chartState?: string;
 }
 
 export interface EasyChartPlannerOutput {

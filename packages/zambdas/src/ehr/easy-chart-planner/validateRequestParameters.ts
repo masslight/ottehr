@@ -9,7 +9,7 @@ export function validateRequestParameters(input: ZambdaInput): EasyChartPlannerI
   if (!parsed || typeof parsed !== 'object') {
     throw INVALID_INPUT_ERROR('Request body must be a valid JSON object');
   }
-  const { narrative, noteContext } = parsed as Record<string, unknown>;
+  const { narrative, noteContext, chartState } = parsed as Record<string, unknown>;
   if (typeof narrative !== 'string' || !narrative.trim()) {
     throw MISSING_REQUIRED_PARAMETERS(['narrative']);
   }
@@ -29,5 +29,6 @@ export function validateRequestParameters(input: ZambdaInput): EasyChartPlannerI
     }
     if (Object.keys(ctx).length > 0) validatedContext = ctx;
   }
-  return { narrative, noteContext: validatedContext, secrets: input.secrets };
+  const validatedChartState = typeof chartState === 'string' && chartState.trim() ? chartState.trim() : undefined;
+  return { narrative, noteContext: validatedContext, chartState: validatedChartState, secrets: input.secrets };
 }
