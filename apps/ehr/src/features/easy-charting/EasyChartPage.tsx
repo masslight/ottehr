@@ -1775,6 +1775,12 @@ export default function EasyChartPage(): JSX.Element {
   // re-render the component, and the conv kinds we treat as "step finished" vs "waiting".
   const planDispatchedIdxRef = useRef<number>(-1);
   const planAdvancedIdxRef = useRef<number>(-1);
+  // Reference to the conv object whose terminal state we already consumed for an advance.
+  // The advance effect's dep on `plan.currentIdx` would otherwise re-fire it after each advance
+  // (currentIdx changed → effect fires → conv is STALE from the previous step but still terminal
+  // → bug-advance to the next step). Storing the actual conv reference and requiring it to
+  // differ guarantees we only advance once per real conv transition.
+  const planLastAdvanceConvRef = useRef<ConvStep | null>(null);
   const [freshlyAdded, setFreshlyAdded] = useState<Set<string>>(new Set());
   const [removingItems, setRemovingItems] = useState<Set<string>>(new Set());
   const [conv, setConv] = useState<ConvStep | null>(null);
@@ -2051,6 +2057,7 @@ export default function EasyChartPage(): JSX.Element {
     if (!plan) {
       planDispatchedIdxRef.current = -1;
       planAdvancedIdxRef.current = -1;
+      planLastAdvanceConvRef.current = null;
       return;
     }
     if (planDispatchedIdxRef.current === plan.currentIdx) return; // already kicked off
@@ -2067,7 +2074,9 @@ export default function EasyChartPage(): JSX.Element {
   useEffect(() => {
     if (!plan) return;
     if (!conv) return;
-    if (planAdvancedIdxRef.current >= plan.currentIdx) return; // already advanced this step
+    // Guard against the stale-conv double-advance: if this exact conv object already triggered
+    // an advance, ignore it. Each real step transition produces a new conv object via setConv.
+    if (planLastAdvanceConvRef.current === conv) return;
     const terminal: ConvStep['kind'][] = [
       'done',
       'removed',
@@ -2085,6 +2094,7 @@ export default function EasyChartPage(): JSX.Element {
       'no-match-exam-remove',
     ];
     if (!terminal.includes(conv.kind)) return;
+    planLastAdvanceConvRef.current = conv;
     planAdvancedIdxRef.current = plan.currentIdx;
     setPlan((prev) => {
       if (!prev) return null;
