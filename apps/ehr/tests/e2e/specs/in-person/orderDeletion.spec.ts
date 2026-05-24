@@ -268,8 +268,13 @@ test.describe('Order Deletion - Happy Path', () => {
         await page.waitForURL(new RegExp('/review-and-sign'));
         await expect(page.getByText('Progress Note')).toBeVisible({ timeout: 10000 });
 
-        // Verify deleted procedure is not shown
-        await expect(page.getByText(PROCEDURE_TYPE)).not.toBeVisible();
+        // Scope to the Procedures section's items. CPT codes are intentionally retained
+        // on the chart after a procedure is cancelled (and render in their own section),
+        // so a page-wide getByText() can collide with the cpt-code display string when an
+        // instance's procedure dropDown happens to match the CPT display.
+        await expect(
+          page.getByTestId(dataTestIds.progressNotePage.procedureItem).filter({ hasText: PROCEDURE_TYPE })
+        ).not.toBeVisible();
       });
     } finally {
       // Cleanup: close page and context for this test
