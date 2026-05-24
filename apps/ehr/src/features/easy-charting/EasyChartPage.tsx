@@ -2863,6 +2863,25 @@ export default function EasyChartPage(): JSX.Element {
           <Typography variant="body2" sx={{ mt: 0.5 }}>
             I found {conv.results.length} matches for &ldquo;{conv.intent.display}&rdquo;. Which one?
           </Typography>
+          {(() => {
+            // Strength-mismatch warning: when the provider asked for a specific medication
+            // strength (e.g. "400 mg/5 mL") that doesn't appear in ANY catalog result, surface
+            // the gap so they don't silently pick a different concentration. Checks the requested
+            // strength against each result's name+strength fields after normalization.
+            if (conv.intent.kind !== 'add-medication' || !conv.intent.strength) return null;
+            const want = conv.intent.strength.toLowerCase().replace(/\s+/g, '').replace(/\./g, '');
+            const present = conv.results.some((r) => {
+              const haystack = `${r.name} ${r.strength ?? ''}`.toLowerCase().replace(/\s+/g, '').replace(/\./g, '');
+              return haystack.includes(want);
+            });
+            if (present) return null;
+            return (
+              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'warning.dark', fontWeight: 600 }}>
+                ⚠ Requested strength <strong>{conv.intent.strength}</strong> is not in the formulary — these are the
+                closest available options.
+              </Typography>
+            );
+          })()}
           <List dense sx={{ mt: 0.5 }}>
             {conv.results.map((r, i) => (
               <ListItemButton key={`${r.code ?? r.id ?? i}`} onClick={() => void handlePick(conv.intent, r, conv.user)}>
