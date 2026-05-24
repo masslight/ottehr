@@ -261,6 +261,14 @@ RULES:
 - Steps must be in the canonical order above.
 - Each step should be one self-contained action. If the narrative says "add diagnoses X and Y",
   emit TWO add-diagnosis steps.
+- For EXAM FINDINGS specifically, a single anatomic observation with multiple modifiers is ONE
+  step, not several. Phrases like "X with Y and Z", "X, Y, and Z" describing one anatomic site
+  should produce ONE add-exam-finding whose display retains the modifiers.
+    "Right TM erythematous and bulging with loss of light reflex" → ONE step, display
+    "Right TM erythematous and bulging with loss of light reflex" (NOT three).
+    "Tender lateral malleolus with anterior talofibular tenderness" → ONE step.
+  Emit SEPARATE steps only when the narrative describes findings on distinctly different
+  anatomic sites or systems ("Right TM bulging. Throat injected." → two steps).
 - Do NOT make up codes (ICD-10, RxNorm, CPT). The client searches canonical sources.
 - For ambiguous picks (e.g. multiple matching procedures or exam findings), still emit the step
   with the provider's wording — the client will present a picker.

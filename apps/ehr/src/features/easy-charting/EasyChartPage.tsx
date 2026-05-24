@@ -1212,6 +1212,32 @@ EXAM_DESCRIPTOR_SYNONYMS.forEach((cls, i) => cls.forEach((t) => EXAM_DESCRIPTOR_
 
 const EXAM_NEGATION_TOKENS = new Set(['no', 'non', 'without', 'denies', 'absent', 'negative']);
 
+// Tokens that, when in the query, signal the provider is asking about an abnormal/lost/reduced
+// version of a finding. Catalog labels typically describe the POSITIVE/INTACT form ("pearly with
+// good light reflex", "reactive to light"). When the query has a negator like "loss" near a
+// descriptor token, we should NOT pick a positive-form leaf containing that descriptor.
+// Distinct from EXAM_NEGATION_TOKENS (which is about labels being structurally negated, like
+// "non-injected"); these are query-level negators that flip the polarity of the WHOLE finding.
+const EXAM_QUERY_NEGATORS = new Set([
+  'loss',
+  'lost',
+  'absent',
+  'absence',
+  'no',
+  'non',
+  'without',
+  'denies',
+  'reduced',
+  'decreased',
+  'diminished',
+  'impaired',
+  'poor',
+  'weak',
+  'abnormal',
+  'abnormality',
+  'abnormalities',
+]);
+
 function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): ExamLeaf[] {
   // Use only the provider's display phrase — LLM-expanded searchTerms produced too many ties.
   const queryTokens = tokenize(intent.display).filter((tok) => tok.length >= 2 && !EXAM_QUERY_STOPWORDS.has(tok));
@@ -1233,6 +1259,11 @@ function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): 
   // our query tokens (e.g. "non-injected" matches "injected" but they mean opposite things)
   // must be filtered out.
   const queryIsPositive = !queryTokens.some((t) => EXAM_NEGATION_TOKENS.has(t));
+  // Symmetric query-side polarity: if the query contains a negator like "loss" / "decreased"
+  // / "no", the provider is reporting an abnormal/missing form of a finding. Penalize
+  // positive-form leaves that share the descriptor (e.g. "loss of light reflex" should NOT
+  // pick "Right TM pearly with GOOD light reflex").
+  const queryIsNegative = queryTokens.some((t) => EXAM_QUERY_NEGATORS.has(t));
 
   // For each label, build the indices of negation tokens so we can check whether a matched
   // token sits immediately after one (e.g. "no" + "rash" or "non" + "injected").
@@ -1270,6 +1301,17 @@ function findExamLeafMatches(intent: AddExamFindingIntent, leaves: ExamLeaf[]): 
       if (qCls === undefined) return false;
       return EXAM_DESCRIPTOR_CLASS_OF.get(lt) === qCls;
     };
+
+    // Query-side polarity check: if query is negative ("loss of light reflex"), the right leaf
+    // is on the abnormal side OR has the same descriptor token negated in the label
+    // ("No CVA tenderness" for "no CVA tenderness"). A normal-form leaf describing the intact
+    // version of the feature (e.g. "pearly with GOOD light reflex") is a clinical mismatch.
+    if (queryIsNegative && leaf.normalAbnormal === 'normal') {
+      // Check whether the leaf already encodes the negation (a "No X" / "Without Y" normal leaf
+      // legitimately matches a negative query). If not, treat as polarity mismatch and skip.
+      const hasOwnNegation = labelInfo.isNegated.some(Boolean);
+      if (!hasOwnNegation) return 0;
+    }
 
     let total = 0;
     let anyTokenMatched = false;
