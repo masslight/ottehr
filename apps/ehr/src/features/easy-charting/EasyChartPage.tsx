@@ -2898,7 +2898,7 @@ export default function EasyChartPage(): JSX.Element {
   ): JSX.Element => {
     const refinable = 'display' in intent;
     return (
-      <Stack direction="column" spacing={0.5} sx={{ mt: 1.5, pt: 1, borderTop: '1px dashed', borderColor: 'divider' }}>
+      <Stack direction="column" spacing={0.5} sx={{ mt: 1, mb: 1 }}>
         {refinable && (
           <Stack direction="row" spacing={1} alignItems="center">
             <TextField
@@ -2994,6 +2994,7 @@ export default function EasyChartPage(): JSX.Element {
               </Typography>
             );
           })()}
+          {renderPickerActions(conv.intent)}
           <List dense sx={{ mt: 0.5 }}>
             {conv.results.map((r, i) => (
               <ListItemButton key={`${r.code ?? r.id ?? i}`} onClick={() => void handlePick(conv.intent, r, conv.user)}>
@@ -3006,7 +3007,6 @@ export default function EasyChartPage(): JSX.Element {
               </ListItemButton>
             ))}
           </List>
-          {renderPickerActions(conv.intent)}
         </>
       )}
       {conv.kind === 'saving' && (
@@ -3032,6 +3032,7 @@ export default function EasyChartPage(): JSX.Element {
           <Typography variant="body2" sx={{ mt: 0.5 }}>
             I found {conv.matches.length} matches for &ldquo;{conv.intent.display}&rdquo;. Which one to remove?
           </Typography>
+          {renderPickerActions(conv.intent)}
           <List dense sx={{ mt: 0.5 }}>
             {conv.matches.map((m) => (
               <ListItemButton key={m.resourceId} onClick={() => void handleRemovePick(m, conv.user)}>
@@ -3039,7 +3040,6 @@ export default function EasyChartPage(): JSX.Element {
               </ListItemButton>
             ))}
           </List>
-          {renderPickerActions(conv.intent)}
         </>
       )}
       {conv.kind === 'removing' && (
@@ -3065,6 +3065,7 @@ export default function EasyChartPage(): JSX.Element {
           <Typography variant="body2" sx={{ mt: 0.5 }}>
             I found {conv.matches.length} templates matching &ldquo;{conv.intent.display}&rdquo;. Which one to apply?
           </Typography>
+          {renderPickerActions(conv.intent)}
           <List dense sx={{ mt: 0.5 }}>
             {conv.matches.map((m) => (
               <ListItemButton key={m.id} onClick={() => void handleApplyTemplate(m, conv.user)}>
@@ -3072,7 +3073,6 @@ export default function EasyChartPage(): JSX.Element {
               </ListItemButton>
             ))}
           </List>
-          {renderPickerActions(conv.intent)}
         </>
       )}
       {conv.kind === 'applying-template' && (
@@ -3099,6 +3099,7 @@ export default function EasyChartPage(): JSX.Element {
           <Typography variant="body2" sx={{ mt: 0.5 }}>
             I found {conv.matches.length} procedures matching &ldquo;{conv.intent.display}&rdquo;. Which one to add?
           </Typography>
+          {renderPickerActions(conv.intent)}
           <List dense sx={{ mt: 0.5 }}>
             {conv.matches.map((m) => (
               <ListItemButton key={m.id ?? m.name} onClick={() => void handleProcedurePick(m, conv.user)}>
@@ -3106,7 +3107,6 @@ export default function EasyChartPage(): JSX.Element {
               </ListItemButton>
             ))}
           </List>
-          {renderPickerActions(conv.intent)}
         </>
       )}
       {conv.kind === 'no-procedure-to-update' && (
@@ -3119,6 +3119,7 @@ export default function EasyChartPage(): JSX.Element {
           <Typography variant="body2" sx={{ mt: 0.5 }}>
             There are {conv.candidates.length} procedures on this chart. Which one to update?
           </Typography>
+          {renderPickerActions(conv.intent)}
           <List dense sx={{ mt: 0.5 }}>
             {conv.candidates.map((p, i) => {
               const label = p.procedureType ?? p.cptCodes?.[0]?.display ?? `Procedure ${i + 1}`;
@@ -3132,7 +3133,6 @@ export default function EasyChartPage(): JSX.Element {
               );
             })}
           </List>
-          {renderPickerActions(conv.intent)}
         </>
       )}
       {conv.kind === 'updating-procedure' && (
@@ -3171,6 +3171,7 @@ export default function EasyChartPage(): JSX.Element {
           <Typography variant="body2" sx={{ mt: 0.5 }}>
             I found {conv.matches.length} exam findings matching &ldquo;{conv.intent.display}&rdquo;. Which one?
           </Typography>
+          {renderPickerActions(conv.intent)}
           <List dense sx={{ mt: 0.5 }}>
             {conv.matches.map((m) => (
               <ListItemButton key={m.field} onClick={() => void handleExamPick(m, conv.user)}>
@@ -3183,7 +3184,6 @@ export default function EasyChartPage(): JSX.Element {
               </ListItemButton>
             ))}
           </List>
-          {renderPickerActions(conv.intent)}
         </>
       )}
       {conv.kind === 'no-match-exam-remove' && (
@@ -3197,6 +3197,7 @@ export default function EasyChartPage(): JSX.Element {
             I found {conv.matches.length} exam findings matching &ldquo;{conv.intent.display}&rdquo;. Which one to
             remove?
           </Typography>
+          {renderPickerActions(conv.intent)}
           <List dense sx={{ mt: 0.5 }}>
             {conv.matches.map((m, i) => (
               <ListItemButton
@@ -3212,7 +3213,6 @@ export default function EasyChartPage(): JSX.Element {
               </ListItemButton>
             ))}
           </List>
-          {renderPickerActions(conv.intent)}
         </>
       )}
       {conv.kind === 'skipped' && (
