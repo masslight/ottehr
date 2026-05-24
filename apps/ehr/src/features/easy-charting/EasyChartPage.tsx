@@ -3319,7 +3319,7 @@ export default function EasyChartPage(): JSX.Element {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '3fr minmax(280px, 1fr)' },
+          gridTemplateColumns: { xs: '1fr', md: '2fr minmax(320px, 1fr)' },
           gap: 2,
           // Constrain to viewport on md+ so each column scrolls independently
           height: { md: `calc(100vh - ${topChrome.sm}px - 80px)` },
