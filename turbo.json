@@ -81,7 +81,32 @@
         "package.json"
       ]
     },
-    "lint": {},
+    "lint": {
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "src/**/*.js",
+        "src/**/*.jsx",
+        "lib/**/*.ts",
+        "lib/**/*.tsx",
+        "lib/**/*.js",
+        "lib/**/*.jsx",
+        "test/**/*.ts",
+        "test/**/*.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
+        "scripts/**/*.ts",
+        "*.ts",
+        "*.tsx",
+        "*.js",
+        "*.jsx",
+        ".eslintrc*",
+        ".eslintignore",
+        "eslint.config.*",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
     "lint:fix": {
       "cache": false
     },
