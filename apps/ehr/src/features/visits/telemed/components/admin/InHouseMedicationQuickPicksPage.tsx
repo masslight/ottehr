@@ -26,7 +26,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { InHouseMedicationQuickPickData } from 'utils';
 import {
   useInHouseMedicationQuickPicksQuery,
-  useRemoveQuickPickMutation,
+  useRemoveInHouseMedicationQuickPickMutation,
   useRenameInHouseMedicationQuickPickMutation,
 } from './admin.queries';
 
@@ -39,7 +39,7 @@ export default function InHouseMedicationQuickPicksPage(): ReactElement {
 
   const { data: quickPicks = [], isLoading } = useInHouseMedicationQuickPicksQuery();
   const renameMutation = useRenameInHouseMedicationQuickPickMutation();
-  const removeMutation = useRemoveQuickPickMutation();
+  const removeMutation = useRemoveInHouseMedicationQuickPickMutation();
 
   const handleOpenRename = (qp: InHouseMedicationQuickPickData): void => {
     setRenamingQuickPick(qp);

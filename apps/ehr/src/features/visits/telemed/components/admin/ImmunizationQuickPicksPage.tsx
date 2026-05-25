@@ -26,7 +26,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { ImmunizationQuickPickData } from 'utils';
 import {
   useImmunizationQuickPicksQuery,
-  useRemoveQuickPickMutation,
+  useRemoveImmunizationQuickPickMutation,
   useRenameImmunizationQuickPickMutation,
 } from './admin.queries';
 
@@ -39,7 +39,7 @@ export default function ImmunizationQuickPicksPage(): ReactElement {
 
   const { data: quickPicks = [], isLoading } = useImmunizationQuickPicksQuery();
   const renameMutation = useRenameImmunizationQuickPickMutation();
-  const removeMutation = useRemoveQuickPickMutation();
+  const removeMutation = useRemoveImmunizationQuickPickMutation();
 
   const handleOpenRename = (qp: ImmunizationQuickPickData): void => {
     setRenamingQuickPick(qp);

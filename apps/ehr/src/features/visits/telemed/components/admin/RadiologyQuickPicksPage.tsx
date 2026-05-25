@@ -26,7 +26,7 @@ import { useNavigate } from 'react-router-dom';
 import { RadiologyQuickPickData } from 'utils';
 import {
   useRadiologyQuickPicksQuery,
-  useRemoveQuickPickMutation,
+  useRemoveRadiologyQuickPickMutation,
   useRenameRadiologyQuickPickMutation,
 } from './admin.queries';
 
@@ -37,7 +37,7 @@ const RadiologyQuickPicksPage: React.FC = () => {
 
   const { data: quickPicks = [], isLoading } = useRadiologyQuickPicksQuery();
   const renameMutation = useRenameRadiologyQuickPickMutation();
-  const removeMutation = useRemoveQuickPickMutation();
+  const removeMutation = useRemoveRadiologyQuickPickMutation();
 
   const handleRename = (): void => {
     if (!renameTarget || !renameName.trim()) return;

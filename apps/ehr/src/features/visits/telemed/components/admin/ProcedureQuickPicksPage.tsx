@@ -26,7 +26,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { ProcedureQuickPickData } from 'utils';
 import {
   useProcedureQuickPicksQuery,
-  useRemoveQuickPickMutation,
+  useRemoveProcedureQuickPickMutation,
   useRenameProcedureQuickPickMutation,
 } from './admin.queries';
 
@@ -39,7 +39,7 @@ export default function ProcedureQuickPicksPage(): ReactElement {
 
   const { data: quickPicks = [], isLoading } = useProcedureQuickPicksQuery();
   const renameMutation = useRenameProcedureQuickPickMutation();
-  const removeMutation = useRemoveQuickPickMutation();
+  const removeMutation = useRemoveProcedureQuickPickMutation();
 
   const handleOpenRename = (qp: ProcedureQuickPickData): void => {
     setRenamingQuickPick(qp);

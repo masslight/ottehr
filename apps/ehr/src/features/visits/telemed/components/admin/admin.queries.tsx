@@ -254,23 +254,19 @@ function makeRenameQuickPickMutation<T extends { id?: string; name: string }>(
   };
 }
 
-export const useRemoveQuickPickMutation = (): UseMutationResult<void, Error, string> => {
-  const { oystehrZambda } = useApiClients();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      if (!oystehrZambda) throw new Error('oystehrZambda is not defined');
-      await removeQuickPick(oystehrZambda, id);
-    },
-    onSuccess: async () =>
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['immunization-quick-picks'] }),
-        queryClient.invalidateQueries({ queryKey: ['in-house-medication-quick-picks'] }),
-        queryClient.invalidateQueries({ queryKey: ['procedure-quick-picks'] }),
-        queryClient.invalidateQueries({ queryKey: ['radiology-quick-picks'] }),
-      ]),
-  });
-};
+function makeRemoveQuickPickMutation(queryKey: string): () => UseMutationResult<void, Error, string> {
+  return () => {
+    const { oystehrZambda } = useApiClients();
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: async (id: string) => {
+        if (!oystehrZambda) throw new Error('oystehrZambda is not defined');
+        await removeQuickPick(oystehrZambda, id);
+      },
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: [queryKey] }),
+    });
+  };
+}
 
 // ── Quick Pick hooks ──
 
@@ -282,6 +278,7 @@ export const useRenameImmunizationQuickPickMutation = makeRenameQuickPickMutatio
   'immunization-quick-picks',
   updateImmunizationQuickPick
 );
+export const useRemoveImmunizationQuickPickMutation = makeRemoveQuickPickMutation('immunization-quick-picks');
 
 export const useInHouseMedicationQuickPicksQuery = makeQuickPicksQuery(
   'in-house-medication-quick-picks',
@@ -291,18 +288,23 @@ export const useRenameInHouseMedicationQuickPickMutation = makeRenameQuickPickMu
   'in-house-medication-quick-picks',
   updateInHouseMedicationQuickPick
 );
+export const useRemoveInHouseMedicationQuickPickMutation = makeRemoveQuickPickMutation(
+  'in-house-medication-quick-picks'
+);
 
 export const useProcedureQuickPicksQuery = makeQuickPicksQuery('procedure-quick-picks', getProcedureQuickPicks);
 export const useRenameProcedureQuickPickMutation = makeRenameQuickPickMutation<ProcedureQuickPickData>(
   'procedure-quick-picks',
   updateProcedureQuickPick
 );
+export const useRemoveProcedureQuickPickMutation = makeRemoveQuickPickMutation('procedure-quick-picks');
 
 export const useRadiologyQuickPicksQuery = makeQuickPicksQuery('radiology-quick-picks', getRadiologyQuickPicks);
 export const useRenameRadiologyQuickPickMutation = makeRenameQuickPickMutation<RadiologyQuickPickData>(
   'radiology-quick-picks',
   updateRadiologyQuickPick
 );
+export const useRemoveRadiologyQuickPickMutation = makeRemoveQuickPickMutation('radiology-quick-picks');
 
 export const useAdminListInHouseLabs = (): UseQueryResult<AdminListInHouseLabsOutput, Error> => {
   const { oystehrZambda } = useApiClients();
