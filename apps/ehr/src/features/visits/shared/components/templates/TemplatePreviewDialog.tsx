@@ -39,8 +39,7 @@ import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination
 
 // Maps an exam field name (e.g. "soft", "tender") to the body-system section it
 // belongs to ("Abdomen"). Computed once per exam type at module load so the preview
-// can group finding chips under their owning section header. Picking by ExamType
-// keeps telemed templates from grouping every chip into "Other".
+// can group finding chips under their owning section header.
 // TelemedExamConfig isn't declared with the ExamItemConfig type (its items carry an
 // extra `code` field), so we cast through unknown. buildExamFieldToSectionMap only
 // reads the standard fields it shares with ExamItemConfig.

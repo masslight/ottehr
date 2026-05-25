@@ -1,4 +1,4 @@
-import { ExamType } from 'utils';
+import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../src/ehr/apply-template/validateRequestParameters';
 import { ZambdaInput } from '../../src/shared';
@@ -12,7 +12,7 @@ const createInput = (body: Record<string, unknown>): ZambdaInput => ({
 const baseBody = {
   encounterId: 'encounter-1',
   templateName: 'My Template',
-  examType: ExamType.IN_PERSON,
+  examType: DefaultExamComponentsConfig,
 };
 
 describe('Apply Template - validateRequestParameters', () => {
@@ -69,7 +69,7 @@ describe('Apply Template - validateRequestParameters', () => {
   });
 
   test('still throws when required fields are missing', () => {
-    const input = createInput({ templateName: 'foo', examType: ExamType.IN_PERSON });
+    const input = createInput({ templateName: 'foo', examType: DefaultExamComponentsConfig });
     expect(() => validateRequestParameters(input)).toThrow(/encounterId/);
   });
 });
