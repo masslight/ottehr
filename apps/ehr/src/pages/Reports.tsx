@@ -10,6 +10,8 @@ import SummarizeIcon from '@mui/icons-material/Summarize';
 import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { RoleType } from 'utils';
+import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 
 interface ReportTileProps {
@@ -85,8 +87,17 @@ function ReportTile({ title, description, icon, onClick }: ReportTileProps): Rea
   );
 }
 
+const ADMIN_ONLY_REPORTS = new Set([
+  'AI-Assisted Encounters',
+  'Practice KPIs',
+  'Invoiceable patients',
+  'Mailed Statements',
+]);
+
 export default function Reports(): React.ReactElement {
   const navigate = useNavigate();
+  const user = useEvolveUser();
+  const isAdmin = user?.hasRole([RoleType.Administrator]) ?? false;
 
   const reportTiles = [
     {
@@ -162,17 +173,19 @@ export default function Reports(): React.ReactElement {
         </Box>
 
         <Grid container spacing={3}>
-          {reportTiles.map((tile) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={tile.path}>
-              <ReportTile
-                title={tile.title}
-                description={tile.description}
-                icon={tile.icon}
-                path={tile.path}
-                onClick={() => handleTileClick(tile.path)}
-              />
-            </Grid>
-          ))}
+          {reportTiles
+            .filter((tile) => isAdmin || !ADMIN_ONLY_REPORTS.has(tile.title))
+            .map((tile) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={tile.path}>
+                <ReportTile
+                  title={tile.title}
+                  description={tile.description}
+                  icon={tile.icon}
+                  path={tile.path}
+                  onClick={() => handleTileClick(tile.path)}
+                />
+              </Grid>
+            ))}
         </Grid>
       </Box>
     </PageContainer>
