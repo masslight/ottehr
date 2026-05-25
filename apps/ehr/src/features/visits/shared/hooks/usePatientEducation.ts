@@ -184,7 +184,13 @@ export function usePatientEducation(): UsePatientEducationResult {
       } catch (error) {
         setPartialChartData({ instructions });
         revokeEducationBlobUrl(documentReferenceId);
-        await apiClient.deletePatientDocument({ documentRefId: documentReferenceId });
+
+        try {
+          await apiClient.deletePatientDocument({ documentRefId: documentReferenceId });
+        } catch (cleanupError) {
+          console.error('Failed to clean up patient education PDF after chart save failure:', cleanupError);
+        }
+
         throw error;
       }
     },
