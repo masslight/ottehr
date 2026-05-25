@@ -19,6 +19,7 @@ import {
   findQuestionnaireResponseItemLinkId,
   getSecret,
   getTimezone,
+  INVALID_INPUT_ERROR,
   pickFirstValueFromAnswerItem,
   PRIVATE_EXTENSION_BASE_URL,
   PUBLIC_EXTENSION_BASE_URL,
@@ -29,15 +30,17 @@ import {
 } from 'utils';
 import { ZambdaInput } from './types';
 
-export function createOystehrClient(token: string, secrets: Secrets | null): Oystehr {
-  const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
-  const PROJECT_API = getSecret(SecretsKeys.PROJECT_API, secrets);
-  const CLIENT_CONFIG: OystehrConfig = {
+export function createOystehrClient(
+  token: string,
+  secrets: Secrets | null,
+  overrides?: Partial<OystehrConfig>
+): Oystehr {
+  return new Oystehr({
     accessToken: token,
-    fhirApiUrl: FHIR_API,
-    projectApiUrl: PROJECT_API,
-  };
-  return new Oystehr(CLIENT_CONFIG);
+    fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
+    projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+    ...overrides,
+  });
 }
 
 export interface SMSModel {
@@ -149,7 +152,9 @@ export const fillMeta = (code: string, system: string): Meta => ({
 
 export const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 
-export const rcmMeta = (type: 'fee-schedule' | 'charge-master' | 'invoice-config'): Meta => ({
+export const rcmMeta = (
+  type: 'fee-schedule' | 'charge-master' | 'invoice-config' | 'scheduled-outreach-config'
+): Meta => ({
   tag: [
     { system: RCM_TAG_SYSTEM, code: 'rcm' },
     { system: RCM_TAG_SYSTEM, code: type },
@@ -158,26 +163,26 @@ export const rcmMeta = (type: 'fee-schedule' | 'charge-master' | 'invoice-config
 
 export function assertDefined<T>(value: T, name: string): NonNullable<T> {
   if (value == null) {
-    throw `"${name}" is undefined`;
+    throw new Error(`"${name}" is undefined`);
   }
   return value;
 }
 
 export const validateString = (value: any, propertyName: string): string => {
   if (typeof value !== 'string') {
-    throw new Error(`"${propertyName}" property must be a string`);
+    throw INVALID_INPUT_ERROR(`"${propertyName}" property must be a string`);
   }
   return value;
 };
 
 export function validateJsonBody(input: ZambdaInput): any {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw INVALID_INPUT_ERROR('Request body is required');
   }
   try {
     return JSON.parse(input.body);
   } catch {
-    throw new Error('Invalid JSON in request body');
+    throw INVALID_INPUT_ERROR('Invalid JSON in request body');
   }
 }
 

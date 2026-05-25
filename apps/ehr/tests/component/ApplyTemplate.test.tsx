@@ -264,7 +264,6 @@ describe('ApplyTemplate', () => {
         expect.objectContaining({
           encounterId: 'test-encounter-id',
           templateName: 'Brand New Template',
-          examType: 'inPerson',
         })
       );
     });
@@ -352,7 +351,6 @@ describe('ApplyTemplate', () => {
         expect.objectContaining({
           encounterId: 'test-encounter-id',
           templateName: 'Sore Throat',
-          examType: 'inPerson',
         })
       );
     });

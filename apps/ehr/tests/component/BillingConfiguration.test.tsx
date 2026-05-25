@@ -38,7 +38,7 @@ vi.mock('../../src/features/visits/telemed/components/admin/ChargeItemList', () 
   default: () => <div data-testid="fee-schedule-mock" />,
 }));
 
-import BillingConfiguration from '../../src/features/visits/telemed/components/admin/BillingConfiguration';
+import BillingConfiguration from '../../src/features/admin/BillingConfiguration';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -14,7 +14,9 @@ export const DetailsWithoutResults: React.FC<{
 
   return (
     <Stack data-testid={dataTestIds.externalLabs.detailsPg.pageContainer} spacing={2} sx={{ width: '100%' }}>
-      <PageTitleStyled>{labOrder.testItem}</PageTitleStyled>
+      <PageTitleStyled>
+        ({labOrder.testItemCode}) {labOrder.testItem}
+      </PageTitleStyled>
       <Stack
         direction="row"
         spacing={2}

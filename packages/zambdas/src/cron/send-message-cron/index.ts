@@ -193,7 +193,11 @@ export const index = wrapHandler('send-message-cron', async (input: ZambdaInput)
           address,
         };
         const emailClient = getEmailClient(secrets);
-        await emailClient.sendInPersonReminderEmail(patientEmail, templateData);
+        try {
+          await emailClient.sendInPersonReminderEmail(patientEmail, templateData);
+        } catch (e) {
+          console.error(`Failed to send reminder email for appointment ${fhirAppointment.id}:`, e);
+        }
       } else {
         console.log(`not sending email, missing data: ${missingData.join(', ')}`);
       }

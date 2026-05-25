@@ -1,6 +1,8 @@
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import PhoneIcon from '@mui/icons-material/Phone';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import SaveAltIcon from '@mui/icons-material/SaveAlt';
 import {
   Button,
@@ -22,12 +24,15 @@ import {
 } from '@mui/material';
 import { Box, Stack } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
+import { RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { SendInvoiceToPatientDialog, SendStatementToPatientDialog } from 'src/components/dialogs';
+import ChatModal from 'src/features/chat/ChatModal';
 import {
+  AppointmentMessaging,
   chooseJson,
   EXPORT_INVOICES_ZAMBDA_KEY,
   ExportInvoicesCsvKickOffResponse,
@@ -55,7 +60,6 @@ import { GenericToolTip } from '../../components/GenericToolTip';
 import { SelectInput } from '../../components/input/SelectInput';
 import { MappedStatusChip } from '../../components/MappedStatusChip';
 import { useApiClients } from '../../hooks/useAppClients';
-import PageContainer from '../../layout/PageContainer';
 
 const LOCAL_STORAGE_FILTERS_KEY = 'invoices-tasks.filters';
 
@@ -123,7 +127,7 @@ const INVOICEABLE_TASK_STATUS_COLORS_MAP: {
 };
 
 export default function InvoiceablePatients(): React.ReactElement {
-  const { oystehrZambda } = useApiClients();
+  const { oystehrZambda, oystehr } = useApiClients();
   const navigate = useNavigate();
   const methods = useForm();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -132,6 +136,7 @@ export default function InvoiceablePatients(): React.ReactElement {
   const [updatingTaskIds, setUpdatingTaskIds] = useState<Set<string>>(new Set());
   const [sendingTaskIds, setSendingTaskIds] = useState<Set<string>>(new Set());
   const [isExporting, setIsExporting] = useState(false);
+  const [chatAppointmentMessaging, setChatAppointmentMessaging] = useState<AppointmentMessaging | undefined>();
 
   const pageParam = searchParams.get(SP.page);
   const parsedPage = pageParam ? parseInt(pageParam, 10) : 0;
@@ -181,10 +186,6 @@ export default function InvoiceablePatients(): React.ReactElement {
   });
 
   const totalPages = Math.ceil((invoiceablePatients?.totalCount ?? 0) / INVOICEABLE_PATIENTS_PAGE_SIZE);
-
-  const handleBack = (): void => {
-    navigate('/reports');
-  };
 
   const setPage = (page: number): void => {
     searchParams.set(SP.page, page.toString());
@@ -344,6 +345,56 @@ export default function InvoiceablePatients(): React.ReactElement {
     }
   };
 
+  const handleOpenChat = async (report: InvoiceablePatientReport): Promise<void> => {
+    if (!oystehr) {
+      enqueueSnackbar('API client not available', { variant: 'error' });
+      return;
+    }
+    try {
+      // Look up the RelatedPerson for this patient to get the SMS resource URI
+      const bundle = await oystehr.fhir.search({
+        resourceType: 'RelatedPerson',
+        params: [{ name: 'patient', value: `Patient/${report.patient.patientId}` }],
+      });
+      const relatedPersons = bundle.unbundle().filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
+      const relatedPerson =
+        relatedPersons.find((rp) => rp.telecom?.some((t) => t.system === 'sms' || t.system === 'phone')) ??
+        relatedPersons[0];
+
+      if (!relatedPerson?.id) {
+        enqueueSnackbar('No related person found for this patient — cannot send SMS', { variant: 'warning' });
+        return;
+      }
+
+      const phoneNumber =
+        relatedPerson.telecom?.find((t) => t.system === 'sms')?.value ??
+        relatedPerson.telecom?.find((t) => t.system === 'phone')?.value ??
+        report.patient.phoneNumber;
+
+      const nameParts = report.patient.fullName.split(' ');
+
+      const messaging: AppointmentMessaging = {
+        id: report.task.id ?? report.claimId,
+        encounterId: report.claimId,
+        smsModel: {
+          recipients: [{ recipientResourceUri: `RelatedPerson/${relatedPerson.id}`, smsNumber: phoneNumber }],
+          hasUnreadMessages: false,
+        },
+        patient: {
+          id: report.patient.patientId,
+          firstName: nameParts[0],
+          lastName: nameParts.slice(1).join(' '),
+          dateOfBirth: report.patient.dob ?? '',
+        },
+      };
+
+      setChatAppointmentMessaging(messaging);
+    } catch (err) {
+      console.error('Failed to open chat', err);
+      enqueueSnackbar('Failed to open SMS chat', { variant: 'error' });
+    }
+  };
+
   useEffect(() => {
     setPageInputValue(String(pageSP + 1));
   }, [pageSP]);
@@ -405,327 +456,375 @@ export default function InvoiceablePatients(): React.ReactElement {
   }, [searchParams, setSearchParams]);
 
   return (
-    <PageContainer>
-      <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <IconButton onClick={handleBack} sx={{ mr: 2 }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <AssessmentIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-            <Typography variant="h4" component="h1" color="primary.dark" fontWeight={600}>
-              Invoiceable Patients Report
-            </Typography>
-          </Box>
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <AssessmentIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+          <Typography variant="h4" component="h1" color="primary.dark" fontWeight={600}>
+            Invoices
+          </Typography>
         </Box>
+      </Box>
 
-        <FormProvider {...methods}>
-          <Paper>
-            <Stack direction="row" spacing={2} padding="8px" alignItems="center" flexWrap="wrap">
-              <Box sx={{ width: '30%' }}>
-                <SelectInput name="status" label="Status" options={InvoiceTaskDisplayStatuses as unknown as string[]} />
-              </Box>
-              <TextField
-                {...methods.register('patient')}
-                label="Patient id"
-                sx={{ width: '30%', flex: 1 }}
-                size="small"
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={hideZeroBalanceSP}
-                    onChange={(e) => {
-                      searchParams.set(SP.hideZeroBalance, e.target.checked ? 'true' : 'false');
-                      searchParams.set(SP.page, '0');
-                      setSearchParams(searchParams);
-                    }}
-                  />
-                }
-                label="Hide $0 balances"
-                sx={{ whiteSpace: 'nowrap' }}
-              />
-              <Button
-                variant="text"
-                size="small"
-                startIcon={isExporting ? <CircularProgress size={16} /> : <SaveAltIcon />}
-                sx={{ textTransform: 'uppercase', whiteSpace: 'nowrap', ml: 'auto' }}
-                disabled={isExporting}
-                onClick={handleExportCsv}
-              >
-                Export
-              </Button>
-            </Stack>
-          </Paper>
-        </FormProvider>
-        <Paper sx={{ mt: 2 }}>
-          <Table sx={{ width: '100%' }}>
-            <TableHead>
+      <FormProvider {...methods}>
+        <Paper>
+          <Stack direction="row" spacing={2} padding="8px" alignItems="center" flexWrap="wrap">
+            <Box sx={{ width: '30%' }}>
+              <SelectInput name="status" label="Status" options={InvoiceTaskDisplayStatuses as unknown as string[]} />
+            </Box>
+            <TextField
+              {...methods.register('patient')}
+              label="Patient id"
+              sx={{ width: '30%', flex: 1 }}
+              size="small"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={hideZeroBalanceSP}
+                  onChange={(e) => {
+                    searchParams.set(SP.hideZeroBalance, e.target.checked ? 'true' : 'false');
+                    searchParams.set(SP.page, '0');
+                    setSearchParams(searchParams);
+                  }}
+                />
+              }
+              label="Hide $0 balances"
+              sx={{ whiteSpace: 'nowrap' }}
+            />
+            <Button
+              variant="text"
+              size="small"
+              startIcon={isExporting ? <CircularProgress size={16} /> : <SaveAltIcon />}
+              sx={{ textTransform: 'uppercase', whiteSpace: 'nowrap', ml: 'auto' }}
+              disabled={isExporting}
+              onClick={handleExportCsv}
+            >
+              Export
+            </Button>
+          </Stack>
+        </Paper>
+      </FormProvider>
+      <Paper sx={{ mt: 2 }}>
+        <Table sx={{ width: '100%' }}>
+          <TableHead>
+            <TableRow>
+              <TableCell>
+                <Typography fontWeight="500" fontSize="14px">
+                  Patient Name
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={sortFieldSP === InvoiceSortFieldValues.appointmentDate}
+                  direction={
+                    sortFieldSP === InvoiceSortFieldValues.appointmentDate
+                      ? sortDirectionSP
+                      : InvoiceSortDirectionValues.desc
+                  }
+                  onClick={() => setSortField(InvoiceSortFieldValues.appointmentDate)}
+                >
+                  <Typography fontWeight="500" fontSize="14px">
+                    Date of Service
+                  </Typography>
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={sortFieldSP === InvoiceSortFieldValues.finalizationDate}
+                  direction={
+                    sortFieldSP === InvoiceSortFieldValues.finalizationDate
+                      ? sortDirectionSP
+                      : InvoiceSortDirectionValues.desc
+                  }
+                  onClick={() => setSortField(InvoiceSortFieldValues.finalizationDate)}
+                >
+                  <Typography fontWeight="500" fontSize="14px">
+                    Finalization Date
+                  </Typography>
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <Typography fontWeight="500" fontSize="14px">
+                  Amount
+                </Typography>
+              </TableCell>
+              <TableCell>
+                <Typography fontWeight="500" fontSize="14px">
+                  Invoice Status
+                </Typography>
+              </TableCell>
+              <TableCell align="right">
+                <Typography fontWeight="500" fontSize="14px">
+                  Actions
+                </Typography>
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {isInvoiceablePatientsLoading ? (
               <TableRow>
-                <TableCell style={{ width: '200px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Patient Name
-                  </Typography>
-                </TableCell>
-                <TableCell style={{ width: '150px' }}>
-                  <TableSortLabel
-                    active={sortFieldSP === InvoiceSortFieldValues.appointmentDate}
-                    direction={
-                      sortFieldSP === InvoiceSortFieldValues.appointmentDate
-                        ? sortDirectionSP
-                        : InvoiceSortDirectionValues.desc
-                    }
-                    onClick={() => setSortField(InvoiceSortFieldValues.appointmentDate)}
-                  >
-                    <Typography fontWeight="500" fontSize="14px">
-                      Date of Service
-                    </Typography>
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell style={{ width: '150px' }}>
-                  <TableSortLabel
-                    active={sortFieldSP === InvoiceSortFieldValues.finalizationDate}
-                    direction={
-                      sortFieldSP === InvoiceSortFieldValues.finalizationDate
-                        ? sortDirectionSP
-                        : InvoiceSortDirectionValues.desc
-                    }
-                    onClick={() => setSortField(InvoiceSortFieldValues.finalizationDate)}
-                  >
-                    <Typography fontWeight="500" fontSize="14px">
-                      Finalization Date
-                    </Typography>
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell style={{ width: '120px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Amount
-                  </Typography>
-                </TableCell>
-                <TableCell style={{ width: '100px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Invoice Status
-                  </Typography>
-                </TableCell>
-                <TableCell style={{ width: '200px' }}>
-                  <Typography fontWeight="500" fontSize="14px">
-                    Actions
-                  </Typography>
+                <TableCell colSpan={6} align="center">
+                  <CircularProgress />
                 </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {isInvoiceablePatientsLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    <CircularProgress />
-                  </TableCell>
-                </TableRow>
-              ) : null}
-              {!isInvoiceablePatientsLoading && (invoiceablePatients?.reports ?? []).length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    <Typography variant="body2">No reports</Typography>
-                  </TableCell>
-                </TableRow>
-              ) : null}
-              {!isInvoiceablePatientsLoading &&
-                (invoiceablePatients?.reports ?? []).map((report) => {
-                  const isUpdating = report.task.id ? updatingTaskIds.has(report.task.id) : false;
-                  const isSending = report.task.id ? sendingTaskIds.has(report.task.id) : false;
-                  const displayStatus = isUpdating
-                    ? 'updating'
-                    : isSending
-                    ? 'sending'
-                    : mapInvoiceTaskStatusToDisplay(report.task.status);
-                  const lastTaskOutput = getLatestTaskOutput(report.task);
-                  const statusTooltipMessage = lastTaskOutput
-                    ? lastTaskOutput.type === 'success'
-                      ? 'Invoice id: ' + lastTaskOutput.message
-                      : 'Error: ' + lastTaskOutput.message
-                    : displayStatus;
-                  const maskedClaimId =
-                    report.claimId.length > 12
-                      ? `${report.claimId.slice(0, 6)}...${report.claimId.slice(-4)}`
-                      : report.claimId;
+            ) : null}
+            {!isInvoiceablePatientsLoading && (invoiceablePatients?.reports ?? []).length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  <Typography variant="body2">No reports</Typography>
+                </TableCell>
+              </TableRow>
+            ) : null}
+            {!isInvoiceablePatientsLoading &&
+              (invoiceablePatients?.reports ?? []).map((report) => {
+                const isUpdating = report.task.id ? updatingTaskIds.has(report.task.id) : false;
+                const isSending = report.task.id ? sendingTaskIds.has(report.task.id) : false;
+                const displayStatus = isUpdating
+                  ? 'updating'
+                  : isSending
+                  ? 'sending'
+                  : mapInvoiceTaskStatusToDisplay(report.task.status);
+                const lastTaskOutput = getLatestTaskOutput(report.task);
+                const statusTooltipMessage = lastTaskOutput
+                  ? lastTaskOutput.type === 'success'
+                    ? 'Invoice id: ' + lastTaskOutput.message
+                    : 'Error: ' + lastTaskOutput.message
+                  : displayStatus;
+                const maskedClaimId =
+                  report.claimId.length > 12
+                    ? `${report.claimId.slice(0, 6)}...${report.claimId.slice(-4)}`
+                    : report.claimId;
 
-                  return (
-                    <TableRow key={report.task.id}>
-                      <TableCell>
-                        <GenericToolTip
-                          customWidth={340}
-                          title={
-                            <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                              <Box>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                  DOB
+                return (
+                  <TableRow key={report.task.id}>
+                    <TableCell>
+                      <GenericToolTip
+                        customWidth={340}
+                        title={
+                          <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <Box>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                DOB
+                              </Typography>
+                              <Typography variant="body2">{report.patient.dob ?? '---'}</Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                Responsible Party
+                              </Typography>
+                              <Typography variant="body2">{report.responsibleParty.fullName ?? '---'}</Typography>
+                              <Typography variant="body2">
+                                {report.responsibleParty.relationshipToPatient ?? '---'}
+                              </Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                RCM Claim ID
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+                                  {maskedClaimId}
                                 </Typography>
-                                <Typography variant="body2">{report.patient.dob ?? '---'}</Typography>
-                              </Box>
-                              <Box>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                  Responsible Party
-                                </Typography>
-                                <Typography variant="body2">{report.responsibleParty.fullName ?? '---'}</Typography>
-                                <Typography variant="body2">
-                                  {report.responsibleParty.relationshipToPatient ?? '---'}
-                                </Typography>
-                              </Box>
-                              <Box>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                  RCM Claim ID
-                                </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
-                                    {maskedClaimId}
-                                  </Typography>
-                                  <IconButton
-                                    size="small"
-                                    onClick={(event) => {
-                                      event.preventDefault();
-                                      event.stopPropagation();
-                                      void navigator.clipboard
-                                        .writeText(report.claimId)
-                                        .then(() => enqueueSnackbar('Copied to clipboard', { variant: 'success' }));
-                                    }}
-                                  >
-                                    <ContentCopyIcon fontSize="small" />
-                                  </IconButton>
-                                </Box>
+                                <IconButton
+                                  size="small"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    void navigator.clipboard
+                                      .writeText(report.claimId)
+                                      .then(() => enqueueSnackbar('Copied to clipboard', { variant: 'success' }));
+                                  }}
+                                >
+                                  <ContentCopyIcon fontSize="small" />
+                                </IconButton>
                               </Box>
                             </Box>
-                          }
-                        >
-                          <Box sx={{ display: 'inline-flex' }}>
-                            <Link
-                              to={`/patient/${report.patient.patientId}`}
-                              style={{ textDecoration: 'underline', color: 'inherit' }}
-                            >
-                              <Typography variant="inherit">{report.patient.fullName}</Typography>
-                            </Link>
                           </Box>
-                        </GenericToolTip>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body1">{report.visitDate}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body1">
-                          {formatDateConfigurable({ isoDate: report.finalizationDateISO })}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body1">${(report.amountInvoiceable / 100).toFixed(2)}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={`${statusTooltipMessage} (click to copy)`}>
-                          <span
-                            onClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              void navigator.clipboard
-                                .writeText(statusTooltipMessage)
-                                .then(() => enqueueSnackbar('Status copied to clipboard', { variant: 'success' }));
-                            }}
-                            style={{ cursor: 'pointer' }}
+                        }
+                      >
+                        <Box sx={{ display: 'inline-flex' }}>
+                          <Link
+                            to={`/patient/${report.patient.patientId}`}
+                            style={{ textDecoration: 'underline', color: 'inherit' }}
                           >
-                            <MappedStatusChip status={displayStatus} mapper={INVOICEABLE_TASK_STATUS_COLORS_MAP} />
-                          </span>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          sx={{ mr: 1 }}
+                            <Typography variant="inherit">{report.patient.fullName}</Typography>
+                          </Link>
+                        </Box>
+                      </GenericToolTip>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body1">{report.visitDate}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body1">
+                        {formatDateConfigurable({ isoDate: report.finalizationDateISO })}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body1">${(report.amountInvoiceable / 100).toFixed(2)}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Tooltip title={`${statusTooltipMessage} (click to copy)`}>
+                        <span
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            void navigator.clipboard
+                              .writeText(statusTooltipMessage)
+                              .then(() => enqueueSnackbar('Status copied to clipboard', { variant: 'success' }));
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <MappedStatusChip status={displayStatus} mapper={INVOICEABLE_TASK_STATUS_COLORS_MAP} />
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <Tooltip title="Refresh invoice">
+                        <IconButton
+                          size="small"
+                          sx={{
+                            mr: 1,
+                            border: '2px solid',
+                            borderColor: 'primary.main',
+                            backgroundColor: '#fff',
+                            width: 36,
+                            height: 36,
+                            '&:hover': { backgroundColor: 'primary.50' },
+                          }}
                           onClick={() => {
                             updateInvoice(report.task.id);
                           }}
                         >
-                          Refresh
-                        </Button>
-                        <Button
-                          disabled={
-                            isUpdating || isSending || displayStatus === 'updating' || displayStatus === 'sending'
-                          }
-                          onClick={() => {
-                            setSelectedReportToSend(report);
+                          <RefreshIcon sx={{ fontSize: 20, color: 'primary.main' }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Button
+                        disabled={
+                          isUpdating || isSending || displayStatus === 'updating' || displayStatus === 'sending'
+                        }
+                        onClick={() => {
+                          setSelectedReportToSend(report);
+                        }}
+                        variant="contained"
+                      >
+                        Invoice
+                      </Button>
+                      <Button
+                        sx={{ ml: 1 }}
+                        variant="contained"
+                        disabled={
+                          isUpdating || isSending || displayStatus === 'updating' || displayStatus === 'sending'
+                        }
+                        onClick={() => {
+                          setSelectedReportForStatement(report);
+                        }}
+                      >
+                        Statement
+                      </Button>
+                      <Tooltip title="Send SMS">
+                        <IconButton
+                          sx={{
+                            ml: 1,
+                            backgroundColor: 'primary.main',
+                            width: 36,
+                            height: 36,
+                            borderRadius: '100%',
+                            '&:hover': { backgroundColor: 'primary.main' },
                           }}
-                          variant="contained"
+                          onClick={() => handleOpenChat(report)}
                         >
-                          Invoice
-                        </Button>
-                        <Button
-                          sx={{ ml: 1 }}
-                          variant="contained"
-                          disabled={
-                            isUpdating || isSending || displayStatus === 'updating' || displayStatus === 'sending'
-                          }
-                          onClick={() => {
-                            setSelectedReportForStatement(report);
-                          }}
-                        >
-                          Statement
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-            </TableBody>
-          </Table>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 2 }}>
-            <TablePagination
-              rowsPerPageOptions={[INVOICEABLE_PATIENTS_PAGE_SIZE]}
-              component="div"
-              count={invoiceablePatients?.totalCount ?? -1}
-              rowsPerPage={INVOICEABLE_PATIENTS_PAGE_SIZE}
-              page={pageSP}
-              onPageChange={(_e, newPageNumber) => {
-                setPage(newPageNumber);
+                          <ChatOutlinedIcon sx={{ color: '#fff', width: 20, height: 20 }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Contact by Phone">
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled
+                            sx={{
+                              ml: 1,
+                              backgroundColor: 'grey.400',
+                              width: 32,
+                              height: 32,
+                              '&.Mui-disabled': { backgroundColor: 'grey.300' },
+                            }}
+                          >
+                            <PhoneIcon sx={{ color: '#fff', fontSize: 18 }} />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+          </TableBody>
+        </Table>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 2 }}>
+          <TablePagination
+            rowsPerPageOptions={[INVOICEABLE_PATIENTS_PAGE_SIZE]}
+            component="div"
+            count={invoiceablePatients?.totalCount ?? -1}
+            rowsPerPage={INVOICEABLE_PATIENTS_PAGE_SIZE}
+            page={pageSP}
+            onPageChange={(_e, newPageNumber) => {
+              setPage(newPageNumber);
+            }}
+          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+              Go to page
+            </Typography>
+            <TextField
+              size="small"
+              value={pageInputValue}
+              onChange={(e) => setPageInputValue(e.target.value)}
+              onKeyDown={handlePageJump}
+              onBlur={handlePageJump}
+              disabled={isInvoiceablePatientsLoading || totalPages <= 1}
+              inputProps={{
+                style: { padding: '4px 8px', width: '35px', textAlign: 'center' },
+                'aria-label': 'Go to page',
               }}
             />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                Go to page
-              </Typography>
-              <TextField
-                size="small"
-                value={pageInputValue}
-                onChange={(e) => setPageInputValue(e.target.value)}
-                onKeyDown={handlePageJump}
-                onBlur={handlePageJump}
-                disabled={isInvoiceablePatientsLoading || totalPages <= 1}
-                inputProps={{
-                  style: { padding: '4px 8px', width: '35px', textAlign: 'center' },
-                  'aria-label': 'Go to page',
-                }}
-              />
-              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                of {totalPages}
-              </Typography>
-            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+              of {totalPages}
+            </Typography>
           </Box>
-        </Paper>
-        <SendInvoiceToPatientDialog
-          title="Send invoice"
-          modalOpen={selectedReportToSend !== undefined}
-          handleClose={() => {
-            setSelectedReportToSend(undefined);
+        </Box>
+      </Paper>
+      <SendInvoiceToPatientDialog
+        title="Send invoice"
+        modalOpen={selectedReportToSend !== undefined}
+        handleClose={() => {
+          setSelectedReportToSend(undefined);
+        }}
+        submitButtonName="Send Invoice"
+        onSubmit={sendInvoice}
+        report={selectedReportToSend}
+      />
+      <SendStatementToPatientDialog
+        modalOpen={selectedReportForStatement !== undefined}
+        handleClose={() => {
+          setSelectedReportForStatement(undefined);
+        }}
+        onSubmit={() => {
+          // TODO: implement send statement
+          setSelectedReportForStatement(undefined);
+        }}
+        report={selectedReportForStatement}
+      />
+      {chatAppointmentMessaging && (
+        <ChatModal
+          appointment={chatAppointmentMessaging}
+          onClose={() => {
+            setChatAppointmentMessaging(undefined);
           }}
-          submitButtonName="Send Invoice"
-          onSubmit={sendInvoice}
-          report={selectedReportToSend}
+          onMarkAllRead={() => {}}
+          quickTextsContext={{}}
         />
-        <SendStatementToPatientDialog
-          modalOpen={selectedReportForStatement !== undefined}
-          handleClose={() => {
-            setSelectedReportForStatement(undefined);
-          }}
-          onSubmit={() => {
-            // TODO: implement send statement
-            setSelectedReportForStatement(undefined);
-          }}
-          report={selectedReportForStatement}
-        />
-      </Box>
-    </PageContainer>
+      )}
+    </Box>
   );
 }

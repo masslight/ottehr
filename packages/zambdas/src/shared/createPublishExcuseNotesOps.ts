@@ -10,12 +10,15 @@ import {
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses } from './pdf/pdf-utils';
 
 export function createPublishExcuseNotesOps(
-  documentReferences: DocumentReference[]
+  documentReferences: DocumentReference[],
+  encounterId: string
 ): BatchInputPatchRequest<DocumentReference>[] {
+  const encounterRef = `Encounter/${encounterId}`;
   const resultBatchRequests: BatchInputPatchRequest<DocumentReference>[] = [];
   let workNoteDR: DocumentReference | undefined;
   let schoolNoteDR: DocumentReference | undefined;
   documentReferences.forEach((item) => {
+    if (!item.context?.encounter?.some((ref) => ref.reference === encounterRef)) return;
     const workSchoolNoteTag = item.meta?.tag?.find((tag) => tag.system === SCHOOL_WORK_NOTE_TYPE_META_SYSTEM);
     if (workSchoolNoteTag) {
       if (workSchoolNoteTag.code === SCHOOL_NOTE_CODE) schoolNoteDR = item;

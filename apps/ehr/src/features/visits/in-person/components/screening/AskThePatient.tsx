@@ -333,7 +333,7 @@ const AskThePatient = (): React.ReactElement => {
     switch (field.type) {
       case 'radio':
         return (
-          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion} item xs={12} key={field.id}>
+          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion(field.id)} item xs={12} key={field.id}>
             <Typography
               sx={{
                 color: theme.palette.primary.dark,
@@ -407,7 +407,7 @@ const AskThePatient = (): React.ReactElement => {
 
       case 'date':
         return (
-          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion} item xs={12} key={field.id}>
+          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion(field.id)} item xs={12} key={field.id}>
             <Grid item xs={6}>
               <Typography
                 sx={{
@@ -458,7 +458,7 @@ const AskThePatient = (): React.ReactElement => {
 
       case 'dateRange':
         return (
-          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion} item xs={12} key={field.id}>
+          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion(field.id)} item xs={12} key={field.id}>
             <Grid item xs={6}>
               <Typography
                 sx={{
@@ -634,7 +634,7 @@ const AskThePatient = (): React.ReactElement => {
 
       case 'select':
         return (
-          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion} item xs={12} key={field.id}>
+          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion(field.id)} item xs={12} key={field.id}>
             <Grid item xs={6}>
               <Typography
                 sx={{
@@ -729,7 +729,7 @@ const AskThePatient = (): React.ReactElement => {
 
       case 'text':
         return (
-          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion} item xs={12} key={field.id}>
+          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion(field.id)} item xs={12} key={field.id}>
             <Grid item xs={6}>
               <Typography
                 sx={{
@@ -766,7 +766,7 @@ const AskThePatient = (): React.ReactElement => {
 
       case 'textarea':
         return (
-          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion} item xs={12} key={field.id}>
+          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion(field.id)} item xs={12} key={field.id}>
             <Grid item xs={6}>
               <Typography
                 sx={{

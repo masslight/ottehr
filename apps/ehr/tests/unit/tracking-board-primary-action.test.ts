@@ -62,6 +62,18 @@ describe('getTrackingBoardPrimaryAction', () => {
     expect(getTrackingBoardPrimaryAction(status as VisitStatusLabel)).toEqual(expectedAction);
   });
 
+  test('returns a navigate-only start provider action for virtual ready for provider visits', () => {
+    expect(getTrackingBoardPrimaryAction('ready for provider', { isVirtualVisit: true })).toEqual({
+      dataTestId: dataTestIds.dashboard.startProviderButton,
+      label: 'Start Provider',
+      missingUserMessage: 'User is not available. Cannot start provider visit.',
+      navigateToChart: true,
+      skipStatusUpdate: true,
+      successMessage: undefined,
+      updatedStatus: 'provider',
+    });
+  });
+
   test.each(nonActionableStatuses)('returns no board action for %s', (status) => {
     expect(getTrackingBoardPrimaryAction(status)).toBeUndefined();
   });

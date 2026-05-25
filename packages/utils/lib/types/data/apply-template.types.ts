@@ -1,5 +1,3 @@
-import { ExamType } from '../../ottehr-config/examination';
-
 export type TemplateSectionAction = 'skip' | 'overwrite' | 'append';
 
 export type TemplateSectionKey =
@@ -51,7 +49,6 @@ export const TEMPLATE_SECTIONS_IN_ORDER: readonly TemplateSectionDescriptor[] = 
 
 export interface ApplyTemplateZambdaInput {
   encounterId: string;
-  examType: ExamType;
   templateName: string;
   sectionActions?: TemplateSectionActions;
 }

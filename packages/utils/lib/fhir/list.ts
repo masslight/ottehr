@@ -6,6 +6,15 @@ import { FOLDERS_CONFIG, ListConfig } from './constants';
 export const CUSTOM_FOLDERS_CATALOG_IDENTIFIER = 'ottehr-custom-folders-catalog';
 export const CUSTOM_FOLDER_KIND_SYSTEM = 'https://fhir.ottehr.com/r4/CodeSystem/folder-kind';
 export const CUSTOM_FOLDER_INTERNAL_NAME_PREFIX = 'custom-folder-';
+export const CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM = 'https://fhir.ottehr.com/r4/CodeSystem/custom-folder-entry-flag';
+export const CUSTOM_FOLDER_DELETED_FLAG_CODE = 'deleted';
+
+export const isCustomFolderCatalogEntryDeleted = (entry: {
+  flag?: { coding?: { system?: string; code?: string }[] };
+}): boolean =>
+  (entry.flag?.coding ?? []).some(
+    (c) => c.system === CUSTOM_FOLDER_ENTRY_FLAG_SYSTEM && c.code === CUSTOM_FOLDER_DELETED_FLAG_CODE
+  );
 
 // Custom-folder per-patient Lists are created lazily on first upload (see
 // create-upload-document-url zambda). On patient creation we only seed system folders.
@@ -46,10 +55,10 @@ export const createPatientDocumentList = (patientReference: string, listConfig: 
   ],
 });
 
-export const createCustomPatientDocumentList = (
-  patientReference: string,
-  { internalName, displayName }: CustomFolderDefinition
-): List => ({
+// The displayName is intentionally NOT stored on per-patient Lists. It is owned by
+// the catalog (active or soft-deleted) and resolved at read time so renames apply
+// retroactively to every patient who has documents in the folder.
+export const createCustomPatientDocumentList = (patientReference: string, internalName: string): List => ({
   resourceType: 'List',
   status: 'current',
   mode: 'working',
@@ -59,7 +68,6 @@ export const createCustomPatientDocumentList = (
       {
         system: 'https://fhir.zapehr.com/r4/StructureDefinitions',
         code: 'patient-docs-folder',
-        display: displayName,
       },
       {
         system: CUSTOM_FOLDER_KIND_SYSTEM,
@@ -106,12 +114,21 @@ export const deriveInternalFolderName = (displayName: string): string => {
 // pattern is a superset of what `deriveInternalFolderName` produces.
 export const SAFE_FOLDER_PATH_SEGMENT_REGEX = /^[a-zA-Z0-9_-]+$/;
 
+// Returns only active (non-deleted) catalog entries. Most call sites want this — the
+// admin catalog UI, uniqueness checks for create/rename, and the upload path. The
+// patient docs read path wants deleted entries too (to keep names of tombstoned
+// folders up to date) — it uses `parseCustomFoldersCatalogIncludingDeleted`.
 export const parseCustomFoldersCatalog = (catalogList: List | undefined): CustomFolderDefinition[] => {
+  return parseCustomFoldersCatalogIncludingDeleted(catalogList).filter((def) => !def.deleted);
+};
+
+export const parseCustomFoldersCatalogIncludingDeleted = (catalogList: List | undefined): CustomFolderDefinition[] => {
   if (!catalogList?.entry) return [];
   return catalogList.entry
     .map((entry) => ({
       internalName: entry.item?.identifier?.value ?? '',
       displayName: entry.item?.display ?? '',
+      deleted: isCustomFolderCatalogEntryDeleted(entry),
     }))
     .filter((def) => def.internalName && def.displayName);
 };

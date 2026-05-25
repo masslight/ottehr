@@ -47,7 +47,7 @@ import {
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   REASON_FOR_VISIT_SEPARATOR,
 } from '../../types';
-import { uuidRegex } from '../../validation';
+import { isValidUUID } from '../../validation';
 import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from '../helpers';
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
@@ -815,7 +815,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
     if (payerId && org) {
       primaryInsurancePlanReference = {
-        reference: org.id!.match(uuidRegex) ? `Organization/${org.id!}` : getPayerUrl(org.id!),
+        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id!}` : getPayerUrl(org.id!),
         display: org.name,
       };
     }
@@ -826,7 +826,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
     if (payerId && org) {
       secondaryInsurancePlanReference = {
-        reference: org.id!.match(uuidRegex) ? `Organization/${org.id!}` : getPayerUrl(org.id!),
+        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id!}` : getPayerUrl(org.id!),
         display: org.name,
       };
     }
@@ -1089,9 +1089,9 @@ const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): 
         if (coverage) {
           const payerId = coverage.class?.[0].value;
           const org = insuranceOrgs?.find((tempOrg) => getPayerId(tempOrg) === payerId);
-          if (org) {
+          if (payerId && org) {
             const coverageReference: Reference = {
-              reference: `Organization/${org.id!}`,
+              reference: isValidUUID(org.id ?? '') ? `Organization/${org.id!}` : getPayerUrl(org.id!),
               display: org?.name,
             };
             answer = makeAnswer(coverageReference, 'Reference');
