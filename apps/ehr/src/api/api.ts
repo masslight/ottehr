@@ -295,31 +295,23 @@ const VISIT_DETAILS_TO_PDF_ZAMBDA_ID = 'visit-details-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
 const BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID = 'bulk-update-insurance-status';
-const ADMIN_GET_PROCEDURE_QUICK_PICKS_ZAMBDA_ID = 'admin-get-procedure-quick-picks';
+const ADMIN_GET_QUICK_PICKS_ZAMBDA_ID = 'admin-get-quick-picks';
 const ADMIN_CREATE_PROCEDURE_QUICK_PICK_ZAMBDA_ID = 'admin-create-procedure-quick-pick';
 const ADMIN_UPDATE_PROCEDURE_QUICK_PICK_ZAMBDA_ID = 'admin-update-procedure-quick-pick';
-const ADMIN_GET_ALLERGY_QUICK_PICKS_ZAMBDA_ID = 'admin-get-allergy-quick-picks';
 const ADMIN_CREATE_ALLERGY_QUICK_PICK_ZAMBDA_ID = 'admin-create-allergy-quick-pick';
 const ADMIN_UPDATE_ALLERGY_QUICK_PICK_ZAMBDA_ID = 'admin-update-allergy-quick-pick';
-const ADMIN_GET_MEDICAL_CONDITION_QUICK_PICKS_ZAMBDA_ID = 'admin-get-medical-condition-quick-picks';
 const ADMIN_CREATE_MEDICAL_CONDITION_QUICK_PICK_ZAMBDA_ID = 'admin-create-medical-condition-quick-pick';
 const ADMIN_UPDATE_MEDICAL_CONDITION_QUICK_PICK_ZAMBDA_ID = 'admin-update-medical-condition-quick-pick';
-const ADMIN_GET_MEDICATION_HISTORY_QUICK_PICKS_ZAMBDA_ID = 'admin-get-medication-history-quick-picks';
 const ADMIN_CREATE_MEDICATION_HISTORY_QUICK_PICK_ZAMBDA_ID = 'admin-create-medication-history-quick-pick';
 const ADMIN_UPDATE_MEDICATION_HISTORY_QUICK_PICK_ZAMBDA_ID = 'admin-update-medication-history-quick-pick';
-const ADMIN_GET_INSURANCE_QUICK_PICKS_ZAMBDA_ID = 'admin-get-insurance-quick-picks';
 const ADMIN_CREATE_INSURANCE_QUICK_PICK_ZAMBDA_ID = 'admin-create-insurance-quick-pick';
 const ADMIN_UPDATE_INSURANCE_QUICK_PICK_ZAMBDA_ID = 'admin-update-insurance-quick-pick';
-const ADMIN_GET_IMMUNIZATION_QUICK_PICKS_ZAMBDA_ID = 'admin-get-immunization-quick-picks';
 const ADMIN_CREATE_IMMUNIZATION_QUICK_PICK_ZAMBDA_ID = 'admin-create-immunization-quick-pick';
 const ADMIN_UPDATE_IMMUNIZATION_QUICK_PICK_ZAMBDA_ID = 'admin-update-immunization-quick-pick';
-const ADMIN_GET_IN_HOUSE_MEDICATION_QUICK_PICKS_ZAMBDA_ID = 'admin-get-in-house-medication-quick-picks';
 const ADMIN_CREATE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID = 'admin-create-in-house-medication-quick-pick';
 const ADMIN_UPDATE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID = 'admin-update-in-house-medication-quick-pick';
-const ADMIN_GET_PATIENT_INSTRUCTION_QUICK_PICKS_ZAMBDA_ID = 'admin-get-patient-instruction-quick-picks';
 const ADMIN_CREATE_PATIENT_INSTRUCTION_QUICK_PICK_ZAMBDA_ID = 'admin-create-patient-instruction-quick-pick';
 const ADMIN_UPDATE_PATIENT_INSTRUCTION_QUICK_PICK_ZAMBDA_ID = 'admin-update-patient-instruction-quick-pick';
-const ADMIN_GET_QUICK_TEXT_QUICK_PICKS_ZAMBDA_ID = 'admin-get-quick-text-quick-picks';
 const ADMIN_CREATE_QUICK_TEXT_QUICK_PICK_ZAMBDA_ID = 'admin-create-quick-text-quick-pick';
 const ADMIN_UPDATE_QUICK_TEXT_QUICK_PICK_ZAMBDA_ID = 'admin-update-quick-text-quick-pick';
 const UPDATE_INVOICE_TASK_ZAMBDA_ID = 'update-invoice-task';
@@ -2154,7 +2146,8 @@ export const createTemplate = async (
 export const getProcedureQuickPicks = async (oystehr: Oystehr): Promise<GetProcedureQuickPicksResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_GET_PROCEDURE_QUICK_PICKS_ZAMBDA_ID,
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'procedure-quick-pick',
     });
     return chooseJson(response);
   } catch (error: unknown) {
@@ -2201,7 +2194,10 @@ export const updateProcedureQuickPick = async (
 
 export const getRadiologyQuickPicks = async (oystehr: Oystehr): Promise<GetRadiologyQuickPicksResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: 'admin-get-radiology-quick-picks' });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'radiology-quick-pick',
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -2292,7 +2288,10 @@ export const getTemplateDetail = async (
 
 export const getAllergyQuickPicks = async (oystehr: Oystehr): Promise<GetAllergyQuickPicksResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ADMIN_GET_ALLERGY_QUICK_PICKS_ZAMBDA_ID });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'allergy-quick-pick',
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -2337,7 +2336,10 @@ export const getMedicalConditionQuickPicks = async (
   oystehr: Oystehr
 ): Promise<GetMedicalConditionQuickPicksResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ADMIN_GET_MEDICAL_CONDITION_QUICK_PICKS_ZAMBDA_ID });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'medical-condition-quick-pick',
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -2385,7 +2387,10 @@ export const getMedicationHistoryQuickPicks = async (
   oystehr: Oystehr
 ): Promise<GetMedicationHistoryQuickPicksResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ADMIN_GET_MEDICATION_HISTORY_QUICK_PICKS_ZAMBDA_ID });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'medication-history-quick-pick',
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -2431,7 +2436,10 @@ export const updateMedicationHistoryQuickPick = async (
 
 export const getInsuranceQuickPicks = async (oystehr: Oystehr): Promise<GetInsuranceQuickPicksResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ADMIN_GET_INSURANCE_QUICK_PICKS_ZAMBDA_ID });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'insurance-quick-pick',
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -2477,7 +2485,10 @@ export const updateInsuranceQuickPick = async (
 
 export const getImmunizationQuickPicks = async (oystehr: Oystehr): Promise<GetImmunizationQuickPicksResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ADMIN_GET_IMMUNIZATION_QUICK_PICKS_ZAMBDA_ID });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'immunization-quick-pick',
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -2525,7 +2536,10 @@ export const getInHouseMedicationQuickPicks = async (
   oystehr: Oystehr
 ): Promise<GetInHouseMedicationQuickPicksResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ADMIN_GET_IN_HOUSE_MEDICATION_QUICK_PICKS_ZAMBDA_ID });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'in-house-medication-quick-pick',
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -2573,7 +2587,10 @@ export const getPatientInstructionQuickPicks = async (
   oystehr: Oystehr
 ): Promise<GetPatientInstructionQuickPicksResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ADMIN_GET_PATIENT_INSTRUCTION_QUICK_PICKS_ZAMBDA_ID });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'patient-instruction-quick-pick',
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -2667,7 +2684,10 @@ export const deleteCustomFolder = async (
 
 export const getQuickTextQuickPicks = async (oystehr: Oystehr): Promise<GetQuickTextQuickPicksResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ADMIN_GET_QUICK_TEXT_QUICK_PICKS_ZAMBDA_ID });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'quick-text-quick-pick',
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);

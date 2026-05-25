@@ -3,7 +3,8 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
 import { Secrets, UpdateProcedureQuickPickInput, UpdateProcedureQuickPickResponse } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import { activityDefinitionToQuickPick, quickPickToActivityDefinition } from '../admin-get-procedure-quick-picks';
+import { PROCEDURE_QUICK_PICK_CATEGORY } from '../shared/quick-pick-categories';
+import { activityDefinitionToQuickPick, quickPickToActivityDefinition } from '../shared/quick-pick-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'admin-update-procedure-quick-pick';
@@ -33,12 +34,12 @@ export const performEffect = async (
 
   console.log(`Updating procedure quick pick: ${quickPickId}`);
 
-  const activityDefinition = quickPickToActivityDefinition(quickPick, quickPickId);
+  const activityDefinition = quickPickToActivityDefinition(quickPick, PROCEDURE_QUICK_PICK_CATEGORY, quickPickId);
 
   const updated = await oystehr.fhir.update<ActivityDefinition>(activityDefinition);
   console.log(`Updated ActivityDefinition with id: ${updated.id}`);
 
-  const updatedQuickPick = activityDefinitionToQuickPick(updated);
+  const updatedQuickPick = activityDefinitionToQuickPick(updated, PROCEDURE_QUICK_PICK_CATEGORY);
 
   return {
     message: `Successfully updated procedure quick pick: ${quickPick.name}`,

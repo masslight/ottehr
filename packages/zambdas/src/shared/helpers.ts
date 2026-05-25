@@ -19,6 +19,7 @@ import {
   findQuestionnaireResponseItemLinkId,
   getSecret,
   getTimezone,
+  INVALID_INPUT_ERROR,
   pickFirstValueFromAnswerItem,
   PRIVATE_EXTENSION_BASE_URL,
   PUBLIC_EXTENSION_BASE_URL,
@@ -162,26 +163,26 @@ export const rcmMeta = (
 
 export function assertDefined<T>(value: T, name: string): NonNullable<T> {
   if (value == null) {
-    throw `"${name}" is undefined`;
+    throw new Error(`"${name}" is undefined`);
   }
   return value;
 }
 
 export const validateString = (value: any, propertyName: string): string => {
   if (typeof value !== 'string') {
-    throw new Error(`"${propertyName}" property must be a string`);
+    throw INVALID_INPUT_ERROR(`"${propertyName}" property must be a string`);
   }
   return value;
 };
 
 export function validateJsonBody(input: ZambdaInput): any {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw INVALID_INPUT_ERROR('Request body is required');
   }
   try {
     return JSON.parse(input.body);
   } catch {
-    throw new Error('Invalid JSON in request body');
+    throw INVALID_INPUT_ERROR('Invalid JSON in request body');
   }
 }
 

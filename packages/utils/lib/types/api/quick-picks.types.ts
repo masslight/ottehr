@@ -19,6 +19,10 @@ export interface QuickPickUpdateResponse<T> {
   quickPick: T;
 }
 
+export interface QuickPickListInput {
+  category: string;
+}
+
 export interface QuickPickListResponse<T> {
   message: string;
   quickPicks: T[];
