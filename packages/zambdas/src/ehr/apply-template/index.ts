@@ -146,6 +146,8 @@ const performEffect = async (
         { name: '_revinclude:iterate', value: 'Observation:encounter' },
         { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
         { name: '_revinclude:iterate', value: 'Communication:encounter' },
+        // NOTE: this pulls all Conditions that have ever been associated with an encounter
+        // not just the ones curently on the Encounter. Need to filter it down later
         { name: '_revinclude:iterate', value: 'Condition:encounter' },
         { name: '_revinclude:iterate', value: 'Procedure:encounter' },
       ],
@@ -281,16 +283,22 @@ const makeCreateRequests = (
 
   // Decide what to do with encounter.diagnosis based on the diagnoses action.
   // - skip:      leave it untouched (encounterDiagnoses stays null)
-  // - append:    start from existing (drop primary-diagnosis ranks), template entries get pushed in
+  // - append:    start from existing, keep ranks, template entries get pushed in
   // - overwrite: start from empty
   let encounterDiagnoses: NonNullable<Encounter['diagnosis']> | null = null;
+  let encounterDiagnosesConditions: Condition[] = [];
   if (actions.diagnoses !== 'skip') {
     if (actions.diagnoses === 'overwrite') {
       encounterDiagnoses = [];
+      encounterDiagnosesConditions = [];
     } else {
-      encounterDiagnoses = (encounter.diagnosis ?? []).map((d) => {
-        const { rank: _rank, ...rest } = d;
-        return rest;
+      // we take everything wholesale so we can maintain rank to keep the primary Dx
+      encounterDiagnoses = encounter.diagnosis ?? [];
+      encounterDiagnosesConditions = encounterBundle.filter((res): res is Condition => {
+        return (
+          res.resourceType === 'Condition' &&
+          encounterDiagnoses!.some((dx) => dx.condition.reference === `Condition/${res.id}`)
+        );
       });
     }
   }
@@ -313,7 +321,7 @@ const makeCreateRequests = (
   );
 
   const templateEncounter = templateList.contained?.find((r): r is Encounter => r.resourceType === 'Encounter');
-  const templateEncounterDiagnoses = templateEncounter?.diagnosis;
+  const templateEncounterDiagnoses = templateEncounter?.diagnosis ?? [];
   const templateEncounterExtensions = templateEncounter?.extension ?? [];
 
   let templateHpiCondition: Condition | undefined;
@@ -395,16 +403,21 @@ const makeCreateRequests = (
     // For Condition resources that are ICD-10 codes, we need to update the Encounter.diagnosis references
     if (
       resourceToCreate.resourceType === 'Condition' &&
-      resourceToCreate.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM) &&
+      resourceToCreate.code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM) &&
       encounterDiagnoses !== null
     ) {
-      const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
-        return d.condition.reference?.split('/')[1] === containedResource.id;
-      });
-      encounterDiagnoses.push({
-        ...diagnosisToAdd, // This pulls in the `rank: 1` if present.
-        condition: { reference: fullUrl },
-      });
+      const isDuplicate = isDuplicateDiagnosis(resourceToCreate, encounterDiagnosesConditions);
+
+      // we should only add to encounter diagnoses after a dedupe
+      if (!isDuplicate) {
+        const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
+          return d.condition.reference?.split('/')[1] === containedResource.id;
+        });
+        encounterDiagnoses.push({
+          ...diagnosisToAdd,
+          condition: { reference: fullUrl },
+        });
+      }
     }
 
     // Skip duplicate MOI Conditions from the template (only the first one is used)
@@ -515,4 +528,21 @@ const makeCreateRequests = (
   }
 
   return createResourcesRequests;
+};
+
+const isDuplicateDiagnosis = (templateDiagnosisCondition: Condition, encounterConditions: Condition[]): boolean => {
+  const getDxCode = (condition: Condition): string | undefined => {
+    return condition.code?.coding?.find((coding) => coding.system === ICD_10_CODE_SYSTEM)?.code;
+  };
+
+  console.log(
+    'Deduping these encounter diagnoses conditions: ',
+    JSON.stringify(encounterConditions.map((condition) => `Condition/${condition.id} code: ${getDxCode(condition)}`))
+  );
+  const encounterDiagnosesSet = new Set(
+    encounterConditions.map((cond) => getDxCode(cond)).filter((e) => e !== undefined)
+  );
+  const isDuplicate = encounterDiagnosesSet.has(getDxCode(templateDiagnosisCondition) ?? '');
+  console.log(`template dx ${getDxCode(templateDiagnosisCondition)} is duplicate of encounter Dx: `, isDuplicate);
+  return isDuplicate;
 };

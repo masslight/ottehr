@@ -59,6 +59,8 @@ const performEffect = async (
       { name: '_revinclude:iterate', value: 'Observation:encounter' },
       { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
       { name: '_revinclude:iterate', value: 'Communication:encounter' },
+      // NOTE: this pulls all Conditions that have ever been associated with an encounter
+      // not just the ones curently on the Encounter. Need to filter it down later
       { name: '_revinclude:iterate', value: 'Condition:encounter' },
       { name: '_revinclude:iterate', value: 'Procedure:encounter' },
     ],
@@ -66,6 +68,13 @@ const performEffect = async (
 
   if (!encounterBundle.entry) {
     throw new Error('No entries found in encounter bundle, cannot make a template');
+  }
+
+  const oldEncounter = encounterBundle.entry.find(
+    (entry) => entry.resource?.resourceType === 'Encounter'
+  ) as BundleEntry<Encounter>;
+  if (!oldEncounter) {
+    throw new Error('Unexpectedly found no Encounter when preparing template');
   }
 
   // Determine code system and version based on exam type
@@ -162,12 +171,18 @@ const performEffect = async (
     chartDataTagSystem('em-code'),
   ]);
 
+  const diagnosesRefFromEncounterSet = new Set(
+    oldEncounter.resource?.diagnosis?.map((dx) => dx.condition.reference).filter((elm) => elm !== undefined) ?? []
+  );
+
   encounterBundle.entry = encounterBundle.entry.filter((entry) => {
     if (!entry.resource || entry.resource.resourceType === 'Encounter') return true;
     // Keep ICD-10 Conditions (Assessment / Diagnoses)
+    // only include Condition Dx here that are still on Encounter.diagnosis
     if (
       entry.resource.resourceType === 'Condition' &&
-      (entry.resource as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
+      (entry.resource as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM) &&
+      diagnosesRefFromEncounterSet.has(`Condition/${entry.resource?.id}`)
     ) {
       return true;
     }
@@ -205,13 +220,6 @@ const performEffect = async (
   }
 
   // Create stub encounter with ICD-10 diagnosis references mapped to new IDs
-  const oldEncounter = encounterBundle.entry.find(
-    (entry) => entry.resource?.resourceType === 'Encounter'
-  ) as BundleEntry<Encounter>;
-  if (!oldEncounter) {
-    throw new Error('Unexpectedly found no Encounter when preparing template');
-  }
-
   const stubEncounter: Encounter = {
     resourceType: 'Encounter',
     id: uuidV4(),
