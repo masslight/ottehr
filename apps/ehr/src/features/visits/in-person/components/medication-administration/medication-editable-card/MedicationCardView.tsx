@@ -69,6 +69,7 @@ type MedicationCardViewProps = {
   isReadOnly?: boolean;
   onQuickPickSelect?: (quickPick: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number]) => void;
   fhirQuickPicks?: InHouseMedicationQuickPickData[];
+  fhirQuickPicksLoading?: boolean;
   onFhirQuickPickSelect?: (quickPick: InHouseMedicationQuickPickData) => void;
   showQuickPickAddOption?: boolean;
   isAdmin?: boolean;
@@ -99,6 +100,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   isReadOnly,
   onQuickPickSelect,
   fhirQuickPicks,
+  fhirQuickPicksLoading = false,
   onFhirQuickPickSelect,
   showQuickPickAddOption,
   isAdmin,
@@ -252,6 +254,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
           <Grid item xs={12}>
             <QuickPicksButton
               quickPicks={fhirQuickPicks ?? []}
+              loading={fhirQuickPicksLoading}
               getLabel={(qp) => {
                 const parts = [qp.name] as string[];
                 if (qp.dose != null && qp.units != null) {

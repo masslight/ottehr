@@ -15,6 +15,7 @@ interface UseImmunizationQuickPickManagementProps {
 
 interface UseImmunizationQuickPickManagementReturn {
   mergedQuickPicks: ImmunizationQuickPickData[];
+  mergedQuickPicksLoading: boolean;
   quickPickDialogOpen: boolean;
   setQuickPickDialogOpen: (open: boolean) => void;
   quickPickName: string;
@@ -33,7 +34,11 @@ export const useImmunizationQuickPickManagement = ({
   applyOrderDetails,
 }: UseImmunizationQuickPickManagementProps): UseImmunizationQuickPickManagementReturn => {
   const { oystehrZambda } = useApiClients();
-  const { quickPicks: mergedQuickPicks, refetch: refetchQuickPicks } = useMergedImmunizationQuickPicks();
+  const {
+    quickPicks: mergedQuickPicks,
+    loading: mergedQuickPicksLoading,
+    refetch: refetchQuickPicks,
+  } = useMergedImmunizationQuickPicks();
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<ImmunizationQuickPickData[]>([]);
@@ -140,6 +145,7 @@ export const useImmunizationQuickPickManagement = ({
 
   return {
     mergedQuickPicks,
+    mergedQuickPicksLoading,
     quickPickDialogOpen,
     setQuickPickDialogOpen,
     quickPickName,
