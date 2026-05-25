@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+type CandidApiHelper = typeof import('./candidApi');
+let helper: CandidApiHelper;
+let getOrCreateCandidApiClient: CandidApiHelper['getOrCreateCandidApiClient'];
+
 // ── Mocks ──────────────────────────────────────────────────────────────────────
 
 const mockGetToken = vi.fn();
@@ -38,14 +42,6 @@ function makeMockOystehr(): { secret: { get: ReturnType<typeof vi.fn>; set: Retu
   };
 }
 
-// Each test imports the helper fresh so the module-scope `cachedCandidApiClient`,
-// `inflightRefresh` state doesn't leak between cases.
-async function freshHelper(): Promise<typeof import('./candidApi')> {
-  vi.resetModules();
-  capturedTokenSupplier = undefined;
-  return import('./candidApi');
-}
-
 function futureExpiry(): string {
   return new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
 }
@@ -54,15 +50,20 @@ function nearExpiry(): string {
   return new Date(Date.now() + 60 * 1000).toISOString();
 }
 
+beforeEach(async () => {
+  vi.clearAllMocks();
+  if (!helper) {
+    helper = await import('./candidApi');
+    getOrCreateCandidApiClient = helper.getOrCreateCandidApiClient;
+  }
+  helper.__resetCandidApiClientForTests();
+  capturedTokenSupplier = undefined;
+});
+
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
 describe('getOrCreateCandidApiClient — cache layers', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('fetches from Candid and persists the token to the Oystehr secret on first call', async () => {
-    const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
     oystehr.secret.get.mockRejectedValue(new Error('secret does not exist yet'));
     mockGetToken.mockResolvedValue({
@@ -83,7 +84,6 @@ describe('getOrCreateCandidApiClient — cache layers', () => {
   });
 
   it('reuses the token from the Oystehr secret when it is still fresh', async () => {
-    const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
     oystehr.secret.get.mockResolvedValue({
       name: 'CANDID_OAUTH_TOKEN_CACHE',
@@ -99,7 +99,6 @@ describe('getOrCreateCandidApiClient — cache layers', () => {
   });
 
   it('refreshes from Candid when the stored token is within the 5-minute buffer', async () => {
-    const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
     oystehr.secret.get.mockResolvedValue({
       name: 'CANDID_OAUTH_TOKEN_CACHE',
@@ -120,12 +119,7 @@ describe('getOrCreateCandidApiClient — cache layers', () => {
 });
 
 describe('getOrCreateCandidApiClient — client cache', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('returns the same cached client instance on repeated calls', async () => {
-    const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
 
     const client1 = await getOrCreateCandidApiClient(oystehr as any, {} as any);
@@ -135,8 +129,6 @@ describe('getOrCreateCandidApiClient — client cache', () => {
   });
 
   it('uses the latest oystehr/secrets on warm invocations rather than the ones from the cold start', async () => {
-    const { getOrCreateCandidApiClient } = await freshHelper();
-
     const oystehr1 = makeMockOystehr();
     oystehr1.secret.get.mockRejectedValue(new Error('expired M2M token'));
     oystehr1.secret.set.mockRejectedValue(new Error('expired M2M token'));
@@ -158,7 +150,6 @@ describe('getOrCreateCandidApiClient — client cache', () => {
   });
 
   it('serves repeated getToken calls from the in-memory cache without re-reading the Oystehr secret', async () => {
-    const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
     oystehr.secret.get.mockResolvedValue({
       name: 'CANDID_OAUTH_TOKEN_CACHE',
@@ -180,12 +171,7 @@ describe('getOrCreateCandidApiClient — client cache', () => {
 });
 
 describe('getOrCreateCandidApiClient — concurrency', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('collapses concurrent token refreshes to a single upstream Candid auth call', async () => {
-    const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
     oystehr.secret.get.mockResolvedValue(undefined);
     mockGetToken.mockImplementation(
@@ -207,12 +193,7 @@ describe('getOrCreateCandidApiClient — concurrency', () => {
 });
 
 describe('getOrCreateCandidApiClient — error tolerance', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('falls through to Candid when the Oystehr secret read fails', async () => {
-    const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
     oystehr.secret.get.mockRejectedValue(new Error('transient failure'));
     mockGetToken.mockResolvedValue({
@@ -227,7 +208,6 @@ describe('getOrCreateCandidApiClient — error tolerance', () => {
   });
 
   it('returns the token to the caller even if persisting to the Oystehr secret fails', async () => {
-    const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
     oystehr.secret.get.mockResolvedValue(undefined);
     oystehr.secret.set.mockRejectedValue(new Error('write failed'));
@@ -241,7 +221,6 @@ describe('getOrCreateCandidApiClient — error tolerance', () => {
   });
 
   it('throws when Candid auth itself fails', async () => {
-    const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
     oystehr.secret.get.mockResolvedValue(undefined);
     mockGetToken.mockResolvedValue({ ok: false, error: { message: 'rate limited' } });
@@ -252,24 +231,15 @@ describe('getOrCreateCandidApiClient — error tolerance', () => {
 });
 
 describe('getOrCreateCandidApiClient', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('throws when any CANDID_* secret is missing', async () => {
     const utils = await import('utils');
     vi.mocked(utils.getOptionalSecret).mockReturnValueOnce(undefined);
 
-    const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
-    // Re-read MISSING_REQUEST_SECRETS from the post-reset module graph so this matches the exact
-    // instance candidApi throws (resetModules creates a fresh copy of every transitive module).
-    const { MISSING_REQUEST_SECRETS } = await import('utils');
-    await expect(getOrCreateCandidApiClient(oystehr as any, {} as any)).rejects.toBe(MISSING_REQUEST_SECRETS);
+    await expect(getOrCreateCandidApiClient(oystehr as any, {} as any)).rejects.toBe(utils.MISSING_REQUEST_SECRETS);
   });
 
   it('builds the client when all CANDID_* secrets are configured', async () => {
-    const { getOrCreateCandidApiClient } = await freshHelper();
     const oystehr = makeMockOystehr();
     oystehr.secret.get.mockResolvedValue({
       name: 'CANDID_OAUTH_TOKEN_CACHE',
