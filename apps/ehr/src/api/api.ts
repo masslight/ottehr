@@ -296,23 +296,15 @@ const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
 const BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID = 'bulk-update-insurance-status';
 const ADMIN_GET_QUICK_PICKS_ZAMBDA_ID = 'admin-get-quick-picks';
-const ADMIN_CREATE_PROCEDURE_QUICK_PICK_ZAMBDA_ID = 'admin-create-procedure-quick-pick';
+const ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID = 'admin-create-quick-pick';
 const ADMIN_UPDATE_PROCEDURE_QUICK_PICK_ZAMBDA_ID = 'admin-update-procedure-quick-pick';
-const ADMIN_CREATE_ALLERGY_QUICK_PICK_ZAMBDA_ID = 'admin-create-allergy-quick-pick';
 const ADMIN_UPDATE_ALLERGY_QUICK_PICK_ZAMBDA_ID = 'admin-update-allergy-quick-pick';
-const ADMIN_CREATE_MEDICAL_CONDITION_QUICK_PICK_ZAMBDA_ID = 'admin-create-medical-condition-quick-pick';
 const ADMIN_UPDATE_MEDICAL_CONDITION_QUICK_PICK_ZAMBDA_ID = 'admin-update-medical-condition-quick-pick';
-const ADMIN_CREATE_MEDICATION_HISTORY_QUICK_PICK_ZAMBDA_ID = 'admin-create-medication-history-quick-pick';
 const ADMIN_UPDATE_MEDICATION_HISTORY_QUICK_PICK_ZAMBDA_ID = 'admin-update-medication-history-quick-pick';
-const ADMIN_CREATE_INSURANCE_QUICK_PICK_ZAMBDA_ID = 'admin-create-insurance-quick-pick';
 const ADMIN_UPDATE_INSURANCE_QUICK_PICK_ZAMBDA_ID = 'admin-update-insurance-quick-pick';
-const ADMIN_CREATE_IMMUNIZATION_QUICK_PICK_ZAMBDA_ID = 'admin-create-immunization-quick-pick';
 const ADMIN_UPDATE_IMMUNIZATION_QUICK_PICK_ZAMBDA_ID = 'admin-update-immunization-quick-pick';
-const ADMIN_CREATE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID = 'admin-create-in-house-medication-quick-pick';
 const ADMIN_UPDATE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID = 'admin-update-in-house-medication-quick-pick';
-const ADMIN_CREATE_PATIENT_INSTRUCTION_QUICK_PICK_ZAMBDA_ID = 'admin-create-patient-instruction-quick-pick';
 const ADMIN_UPDATE_PATIENT_INSTRUCTION_QUICK_PICK_ZAMBDA_ID = 'admin-update-patient-instruction-quick-pick';
-const ADMIN_CREATE_QUICK_TEXT_QUICK_PICK_ZAMBDA_ID = 'admin-create-quick-text-quick-pick';
 const ADMIN_UPDATE_QUICK_TEXT_QUICK_PICK_ZAMBDA_ID = 'admin-update-quick-text-quick-pick';
 const UPDATE_INVOICE_TASK_ZAMBDA_ID = 'update-invoice-task';
 const GET_PATIENT_BALANCES_ZAMBDA_ID = 'get-patient-balances';
@@ -2162,7 +2154,8 @@ export const createProcedureQuickPick = async (
 ): Promise<CreateProcedureQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_CREATE_PROCEDURE_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'procedure-quick-pick',
       ...parameters,
     });
     return chooseJson(response);
@@ -2226,7 +2219,11 @@ export const createRadiologyQuickPick = async (
   parameters: CreateRadiologyQuickPickInput
 ): Promise<CreateRadiologyQuickPickResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: 'admin-create-radiology-quick-pick', ...parameters });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'radiology-quick-pick',
+      ...parameters,
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -2304,7 +2301,11 @@ export const createAllergyQuickPick = async (
   parameters: CreateAllergyQuickPickInput
 ): Promise<CreateAllergyQuickPickResponse> => {
   try {
-    const response = await oystehr.zambda.execute({ id: ADMIN_CREATE_ALLERGY_QUICK_PICK_ZAMBDA_ID, ...parameters });
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'allergy-quick-pick',
+      ...parameters,
+    });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -2353,7 +2354,8 @@ export const createMedicalConditionQuickPick = async (
 ): Promise<CreateMedicalConditionQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_CREATE_MEDICAL_CONDITION_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'medical-condition-quick-pick',
       ...parameters,
     });
     return chooseJson(response);
@@ -2404,7 +2406,8 @@ export const createMedicationHistoryQuickPick = async (
 ): Promise<CreateMedicationHistoryQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_CREATE_MEDICATION_HISTORY_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'medication-history-quick-pick',
       ...parameters,
     });
     return chooseJson(response);
@@ -2453,7 +2456,8 @@ export const createInsuranceQuickPick = async (
 ): Promise<CreateInsuranceQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_CREATE_INSURANCE_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'insurance-quick-pick',
       ...parameters,
     });
     return chooseJson(response);
@@ -2502,7 +2506,8 @@ export const createImmunizationQuickPick = async (
 ): Promise<CreateImmunizationQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_CREATE_IMMUNIZATION_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'immunization-quick-pick',
       ...parameters,
     });
     return chooseJson(response);
@@ -2553,7 +2558,8 @@ export const createInHouseMedicationQuickPick = async (
 ): Promise<CreateInHouseMedicationQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_CREATE_IN_HOUSE_MEDICATION_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'in-house-medication-quick-pick',
       ...parameters,
     });
     return chooseJson(response);
@@ -2604,7 +2610,8 @@ export const createPatientInstructionQuickPick = async (
 ): Promise<CreatePatientInstructionQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_CREATE_PATIENT_INSTRUCTION_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'patient-instruction-quick-pick',
       ...parameters,
     });
     return chooseJson(response);
@@ -2701,7 +2708,8 @@ export const createQuickTextQuickPick = async (
 ): Promise<CreateQuickTextQuickPickResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: ADMIN_CREATE_QUICK_TEXT_QUICK_PICK_ZAMBDA_ID,
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'quick-text-quick-pick',
       ...parameters,
     });
     return chooseJson(response);
