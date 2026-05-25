@@ -27,9 +27,19 @@ interface NavigationDestination {
    *  time. If the user is already on `to`, only the querystring is updated
    *  (replace) — no full navigation. Used for the tracking-board sub-tabs. */
   query?: Record<string, string>;
+  /** Keep the item visible even when it already matches the current path/query.
+   *  Used for tracking-board entries so the palette can act like tab-switching. */
+  keepVisibleOnSamePath?: boolean;
 }
 
 const ADMIN_ROLES = [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport];
+const VISIT_CREATION_ROLES = [
+  RoleType.Administrator,
+  RoleType.Manager,
+  RoleType.CustomerSupport,
+  RoleType.Staff,
+  RoleType.Provider,
+];
 
 const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
   {
@@ -38,6 +48,7 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
     to: '/visits',
     icon: LocalHospitalIcon,
     query: { tab: 'in-office' },
+    keepVisibleOnSamePath: true,
     keywords: ['visits', 'appointments', 'in-person', 'walk-in'],
   },
   {
@@ -47,6 +58,7 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
     icon: LocalHospitalIcon,
     parentId: 'nav-tracking-board',
     query: { tab: 'prebooked' },
+    keepVisibleOnSamePath: true,
     keywords: ['scheduled', 'upcoming', 'booked'],
   },
   {
@@ -56,6 +68,7 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
     icon: LocalHospitalIcon,
     parentId: 'nav-tracking-board',
     query: { tab: 'in-office' },
+    keepVisibleOnSamePath: true,
     keywords: ['in office', 'current', 'waiting'],
   },
   {
@@ -65,6 +78,7 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
     icon: LocalHospitalIcon,
     parentId: 'nav-tracking-board',
     query: { tab: 'completed' },
+    keepVisibleOnSamePath: true,
     keywords: ['completed', 'done', 'finished'],
   },
   {
@@ -74,6 +88,7 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
     icon: LocalHospitalIcon,
     parentId: 'nav-tracking-board',
     query: { tab: 'cancelled' },
+    keepVisibleOnSamePath: true,
     keywords: ['canceled', 'no show'],
   },
   {
@@ -81,7 +96,7 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
     label: 'Add New Visit',
     to: '/visits/add',
     icon: LocalHospitalIcon,
-    roles: ADMIN_ROLES,
+    roles: VISIT_CREATION_ROLES,
     keywords: ['create appointment', 'new patient visit', 'walk-in'],
   },
   {
@@ -90,6 +105,14 @@ const NAVIGATION_DESTINATIONS: NavigationDestination[] = [
     to: '/patients',
     icon: PersonSearchIcon,
     keywords: ['patients', 'find patient', 'lookup patient'],
+  },
+  {
+    id: 'nav-telemedicine',
+    label: 'Telemedicine',
+    to: '/visits',
+    icon: LocalHospitalIcon,
+    query: { visitType: 'virtual-walk-in,virtual-pre-booked' },
+    keywords: ['telemed', 'virtual visits', 'virtual appointments'],
   },
   {
     id: 'nav-schedules',
@@ -169,14 +192,24 @@ export function useNavigationQuickPicks(): void {
   const currentUser = useEvolveUser();
 
   const items = useMemo<CommandPaletteItem[]>(() => {
+    const currentSearchParams = new URLSearchParams(location.search);
+    const destinationMatchesCurrent = (destination: NavigationDestination): boolean => {
+      if (location.pathname !== destination.to) {
+        return false;
+      }
+
+      if (!destination.query) {
+        return true;
+      }
+
+      return Object.entries(destination.query).every(([key, value]) => currentSearchParams.get(key) === value);
+    };
+
     return NAVIGATION_DESTINATIONS.filter((destination) => {
       if (destination.roles && (!currentUser || !currentUser.hasRole(destination.roles))) {
         return false;
       }
-      // Hide items pointing at the current page UNLESS they carry a query
-      // (e.g. tracking-board sub-tabs are still useful on /visits — they let
-      // the user switch tab from the palette).
-      if (location.pathname === destination.to && !destination.query) {
+      if (destinationMatchesCurrent(destination) && !destination.keepVisibleOnSamePath) {
         return false;
       }
       return true;
@@ -204,7 +237,7 @@ export function useNavigationQuickPicks(): void {
         }
       },
     }));
-  }, [currentUser, location.pathname, navigate, setSearchParams]);
+  }, [currentUser, location.pathname, location.search, navigate, setSearchParams]);
 
   useCommandPaletteSource('navigation', items);
 }

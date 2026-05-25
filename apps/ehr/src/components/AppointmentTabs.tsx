@@ -62,22 +62,23 @@ export default function AppointmentTabs({
   const isApptTab = (v: unknown): v is ApptTab =>
     typeof v === 'string' && (Object.values(ApptTab) as string[]).includes(v);
   const tabFromUrl = searchParams.get('tab');
-  const initialTab: ApptTab = isApptTab(tabFromUrl)
+  const resolvedTab: ApptTab = isApptTab(tabFromUrl)
     ? tabFromUrl
     : isApptTab(routeLocation.state?.tab)
     ? (routeLocation.state.tab as ApptTab)
     : ApptTab['in-office'];
 
-  const [value, setValue] = useState<ApptTab>(initialTab);
+  const [value, setValue] = useState<ApptTab>(resolvedTab);
   const [now, setNow] = useState<DateTime>(DateTime.now());
 
   // Sync local state when the URL tab changes from outside this component
-  // (e.g. command-palette navigation, browser back/forward).
+  // (e.g. command-palette navigation, browser back/forward). This also resets
+  // back to the default tab when `?tab=` is removed from the URL.
   useEffect(() => {
-    if (isApptTab(tabFromUrl) && tabFromUrl !== value) {
-      setValue(tabFromUrl);
+    if (resolvedTab !== value) {
+      setValue(resolvedTab);
     }
-  }, [tabFromUrl, value]);
+  }, [resolvedTab, value]);
 
   const handleChange = useCallback(
     (_event: any, newValue: ApptTab): void => {
