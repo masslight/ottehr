@@ -10,6 +10,7 @@ import { ChangeEvent, FC, useEffect, useRef, useState } from 'react';
 import { createZ3Object } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { otherColors } from 'src/themes/ottehr/colors';
+import { convertHeicToJpegIfNeeded } from 'ui-components';
 import { GetPresignedFileURLInput, MIME_TYPES } from 'utils';
 
 interface UploadComponentProps {
@@ -22,7 +23,15 @@ interface UploadComponentProps {
   onScanClick?: () => void;
 }
 
-const FILE_TYPES_ACCEPTED = [MIME_TYPES.PNG, MIME_TYPES.JPEG, MIME_TYPES.JPG].join(', ');
+const FILE_TYPES_ACCEPTED = [
+  MIME_TYPES.PNG,
+  MIME_TYPES.JPEG,
+  MIME_TYPES.JPG,
+  MIME_TYPES.HEIC,
+  MIME_TYPES.HEIF,
+  '.heic',
+  '.heif',
+].join(', ');
 
 enum UploadState {
   initial,
@@ -53,7 +62,8 @@ const UploadComponent: FC<UploadComponentProps> = ({
 
       if (files && files.length > 0) {
         // Even though files is an array we know there is always only one file because we don't set the `multiple` attribute on the file input
-        const file = files[0];
+        const rawFile = files[0];
+        const file = await convertHeicToJpegIfNeeded(rawFile);
         let finalFile = file;
         const fileSizeInMb = file.size / (1024 * 1024);
         if (fileSizeInMb >= 5) {

@@ -1,0 +1,4 @@
+Last_Name,First_Name,Path,BirthDate,Sex,Patient Number,Clinic,DateOfVisit,Visit Type,Document Type,Description
+SMITH,JANE,scripts/data/sample-legacy-data/Data_Migration_v2/data/puppy1.tiff,2022-05-11,F,789123,,2020-09-20,,Patient Document,Composite
+SMITH,JANE,scripts/data/sample-legacy-data/Data_Migration_v2/data/pdf-test.pdf,2022-05-11,F,789123,,2023-07-20,,Patient Document,Patient Documentation
+SMITH,JANE,scripts/data/sample-legacy-data/Data_Migration_v2/data/pdf-test.pdf,2022-05-11,F,789123,,2023-07-20,,Patient Document,Imported Chart 12/24/2020

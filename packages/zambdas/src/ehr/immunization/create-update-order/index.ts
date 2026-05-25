@@ -29,8 +29,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
-  const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+  const userPractitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
   let response;
   if (validatedParameters.orderId) {
     response = await updateImmunizationOrder(oystehr, validatedParameters);

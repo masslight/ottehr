@@ -11,6 +11,7 @@ export const FeatureFlagsConfigSchema = z.object({
   formsEnabled: z.boolean(),
   legacyDataEnabled: z.boolean(),
   mailingPaperStatementsEnabled: z.boolean(),
+  automatedPatientOutreachEnabled: z.boolean(),
   legacyPatientFollowupsEnabled: z.boolean(),
   skipSendingVisitNoteToPatientPortalEnabled: z.boolean(),
   sendgridEnabled: z.boolean(),

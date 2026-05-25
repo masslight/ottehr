@@ -1,27 +1,13 @@
 import { createSimpleHash, validateExamConfig } from '../../config-helpers/examination';
-import { InPersonExamConfig, NORMAL_LABELS } from './in-person.config';
-import { TelemedExamConfig } from './telemed.config';
+import { DefaultExamComponentsConfig, NORMAL_LABELS } from './default-components.config';
 
 export const ExamConfig = {
-  telemed: {
-    default: {
-      version: createSimpleHash(JSON.stringify(TelemedExamConfig)),
-      components: TelemedExamConfig,
-    },
-  },
-  inPerson: {
-    default: {
-      version: createSimpleHash(JSON.stringify(InPersonExamConfig)),
-      components: InPersonExamConfig,
-      constants: { normalLabels: NORMAL_LABELS },
-    },
+  default: {
+    version: createSimpleHash(JSON.stringify(DefaultExamComponentsConfig)),
+    components: DefaultExamComponentsConfig,
+    constants: { normalLabels: NORMAL_LABELS },
   },
 };
-
-export enum ExamType {
-  TELEMED = 'telemed',
-  IN_PERSON = 'inPerson',
-}
 
 const DefaultExamConfig = Object.freeze(validateExamConfig(ExamConfig));
 

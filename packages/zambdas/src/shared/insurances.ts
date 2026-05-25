@@ -1,15 +1,8 @@
 import { Organization } from 'fhir/r4b';
-import {
-  eligibilityRequirementKeys,
-  getPayerId,
-  INSURANCE_REQ_EXTENSION_URL,
-  InsurancePlanDTO,
-  InsurancePlanRequirementKeyBooleans,
-  InsurancePlanRequirementKeys,
-} from 'utils';
+import { eligibilityRequirementKeys, getPayerId, InsurancePlanDTO, InsurancePlanRequirementKeyBooleans } from 'utils';
 
 export const createInsurancePlanDto = (insuranceOrg: Organization): InsurancePlanDTO => {
-  const { id, name, extension } = insuranceOrg;
+  const { id, name } = insuranceOrg;
 
   const payerId = getPayerId(insuranceOrg);
 
@@ -29,12 +22,6 @@ export const createInsurancePlanDto = (insuranceOrg: Organization): InsurancePla
       eligibilityRequirementKeys.map((key) => [key, false])
     ) as InsurancePlanRequirementKeyBooleans),
   };
-
-  extension
-    ?.find((extension) => extension.url === INSURANCE_REQ_EXTENSION_URL)
-    ?.extension?.forEach((requirement) => {
-      insurancePlanDto[requirement.url as InsurancePlanRequirementKeys] = requirement.valueBoolean || false;
-    });
 
   return insurancePlanDto;
 };

@@ -3,9 +3,9 @@ import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import InsightsIcon from '@mui/icons-material/Insights';
+import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
-import SummarizeIcon from '@mui/icons-material/Summarize';
 import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -131,10 +131,10 @@ export default function Reports(): React.ReactElement {
       path: '/reports/recent-patients',
     },
     {
-      title: 'Invoiceable patients',
-      description: 'View invoiceable patients report',
-      icon: <SummarizeIcon />,
-      path: '/reports/invoiceable-patients',
+      title: 'Mailed Statements',
+      description: 'View patient statements sent by mail',
+      icon: <MailOutlineIcon />,
+      path: '/reports/mailed-statements',
     },
   ];
 

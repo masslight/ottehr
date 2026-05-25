@@ -1,7 +1,8 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Oystehr_RCM_APIClient } from 'src/rcm/data/zapEHRApi';
-import { getSelectors, useSuccessQuery } from 'utils';
+import { getSelectors } from 'utils';
 import { ClaimsQueueGetResponse } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { useClaimsQueueStore } from './claims-queue.store';
 
 export const useGetClaims = ({

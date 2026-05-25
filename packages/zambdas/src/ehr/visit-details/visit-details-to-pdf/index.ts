@@ -89,6 +89,7 @@ export const performEffect = async (
     emergencyContactResource,
     attorneyRelatedPerson,
     employerOrganization,
+    occupationalMedicineEmployerOrganization,
   } = accountResources;
   const primaryCarePhysician = accountResources.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
@@ -124,6 +125,7 @@ export const performEffect = async (
       emergencyContactResource,
       attorneyRelatedPerson,
       employerOrganization,
+      occupationalMedicineEmployerOrganization,
       appointment,
       encounter,
       location,

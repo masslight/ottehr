@@ -33,7 +33,8 @@ export const composeContactData: DataComposer<PatientDataInput, ContactInfo> = (
 
 export const createContactInfoSection = <TData extends { contact?: ContactInfo }>(): PdfSection<TData, ContactInfo> => {
   return createConfiguredSection('patientContactInformation', (shouldShow) => ({
-    title: 'Contact information',
+    // Mirrors `PATIENT_RECORD_CONFIG.FormFields.patientContactInformation.title`.
+    title: 'Patient contact information',
     dataSelector: (data) => data.contact,
     render: (client, contactInfo, styles) => {
       if (shouldShow('patient-street-address')) {

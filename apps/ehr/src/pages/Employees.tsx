@@ -41,8 +41,8 @@ import {
   GetEmployeesResponse,
   RoleType,
   State,
-  useSuccessQuery,
 } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { deleteUser, getEmployees, updateUser } from '../api/api';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
 import { CustomDialog } from '../components/dialogs/CustomDialog';

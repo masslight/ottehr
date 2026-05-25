@@ -43,15 +43,22 @@ There are npm scripts for deploying to local, staging, and production, as well a
 
 ## Setting up a New Project
 
+If you are setting up in order to try out Ottehr by running locally, start with the terraform local backend so that you do not need to provision an AWS S3 bucket or alternative cloud infrastructure.
+
 ### Requirements
 
 - Install Terraform [as discussed above](#terraform)
 - Create an Oystehr project in the [Oystehr developer console](https://console.oystehr.com).
 - Create an M2M Client with full access rights in your Oystehr project; you can use the default M2M created during project setup.
-- Create an s3 bucket for your terraform state (example: ottehr-terraform-state)
-- Configure your Terraform Backend ([`deploy/backend.config`](/deploy/backend.config.template)).
-- Configure your local Terraform variables ([`deploy/${env}.tfvars`](/deploy/terraform.tfvars.template)).
-- Configure your application variables ([`config/.env/${env}.json`](/config/.env/local.template.json)):
+- Choose and configure your terraform backend:
+  - Local backend
+    - Change the terraform backend config to use the 'local' in [main.tf](./main.tf).
+    - Create an empty deploy/backend.config file (`touch deploy/backend.config` from the repo root). The terraform-init npm script always passes --backend-config=./backend.config, so the file must exist even though the local backend reads its state path from main.tf and needs no overrides.
+  - S3 backend
+    - Create an S3 bucket for your terraform state (example: ottehr-terraform-state).
+    - Configure your Terraform Backend ([`deploy/backend.config`](/deploy/backend.config.template)).
+- Configure your local env Terraform variables ([`deploy/${env}.tfvars`](/deploy/terraform.tfvars.template)). For local usage, skip configuring the optional AWS and GCP variables. To deploy the front-end apps to AWS or GCP, configure the appropriate variables.
+- Configure your application variables ([`config/.env/${env}.json`](/config/.env/local.template.json)) following the [config/.env README](/config/.env/README.md):
   - AUTH0_CLIENT
   - AUTH0_SECRET
   - ENVIRONMENT
@@ -61,38 +68,34 @@ There are npm scripts for deploying to local, staging, and production, as well a
   - lab-autolab-account-number - globally unique, can be for example `ottehr-local` and so on for every env
   - non-prod env: "lab-autolab-lab-id": "790b282d-77e9-4697-9f59-0cef8238033a"
   - prod env: "lab-autolab-lab-id": "713d14ef-c30a-4b9a-a13a-4ad4648ff3ed"
-  - for prod case: first create project, convert it to live mode for Autolabs to work properly, and then run apply
-  - Set up Sendgrid API key
-  - Set up Anthropic API key
-  - Set up Sentry secrets and vars
+
 - Change env names in the terraform-setup script in deploy/packages.json for envs that you want to create
-
-All three of those configuration files have examples with the `.template` extension that you can copy to start.
-
-**Run only once for all environments:**
-
-- Run `npm run terraform-setup` to configure remote state and workspaces.
+- Run `npm run terraform-setup` once. This creates a local Terraform workspace (and others) that apply.sh requires. ⚠️  Only run this once per project. On a fresh install it's safe; re-running with the local backend wipes your state.
 
 Finally, you're ready to deploy your project. You can either run apply on its own or start the entire application locally, which will apply all needed resource changes:
 
 ```bash
-# from deploy/
+# From deploy/. This runs terraform apply only.
 npm run apply-local
 
-# from repository root
+# From repository root. This runs terraform apply and starts all apps locally.
 npm run apps:start
 ```
 
-**After applying terraform**
+#### After Applying Terraform
+
+- Create a new EHR app user in the Oystehr console and grant them the 'Administrator' role which was provisioned by Terraform.
+
+#### To configure E2E tests
 
 - Use the created m2m client for e2e tests to get client and secret vars and put it into tests.{env}.json in ehr and intake env folders so e2e tests can run
   - add those client and secret as AUTH0_CLIENT_TESTS and AUTH0_SECRET_TESTS to zambda env file and to /apps/{intake|ehr}/env/tests.{env}.json
-  - Create a new EHR app user in console with username <e2euser@masslight.com> and add TEXT_USERNAME="<e2euser@masslight.com>" and TEXT_PASSWORD="password_you_set" fields into /apps/{intake|ehr}/env/tests.{env}.json
+  - Create a new EHR app user in the Oystehr Developer Console with the 'Administrator' role and then add TEXT_USERNAME and TEXT_PASSWORD fields into /apps/{intake|ehr}/env/tests.{env}.json with the email and password of the User.
   - Add PHONE_NUMBER, TEXT_USERNAME and TEXT_PASSWORD with username and a password to a ClickSend account so intake e2e tests can authorize
 
 All those steps can be done executing `npm run fill-env-with-created-resources-data.ts {env}` after apply in deploy folder, except setting phone, username and passwords, you will have to do it manually
 
-The rest of this section will discuss the configuration files in more depth.
+## Configuration Files
 
 ### Terraform Backend
 

@@ -460,6 +460,45 @@ export function getPatientContactEmail(patient: Patient): string | undefined {
   }
 }
 
+const hasNonEmptyName = (patient: Patient): boolean =>
+  !!patient.name?.some((name) => (name.given?.[0]?.trim().length ?? 0) > 0 && (name.family?.trim().length ?? 0) > 0);
+
+const hasNonEmptyBirthDate = (patient: Patient): boolean => !!patient.birthDate?.trim();
+
+const hasNonEmptyGender = (patient: Patient): boolean => !!patient.gender?.trim();
+
+const hasNonEmptyAddress = (patient: Patient): boolean =>
+  !!patient.address?.some(
+    (address) =>
+      (address.line?.[0]?.trim().length ?? 0) > 0 &&
+      (address.city?.trim().length ?? 0) > 0 &&
+      (address.state?.trim().length ?? 0) > 0 &&
+      (address.postalCode?.trim().length ?? 0) > 0
+  );
+
+const isReachableTelecom = (telecoms?: ContactPoint[]): boolean =>
+  !!telecoms?.some(
+    (telecom) => (telecom.system === 'phone' || telecom.system === 'email') && (telecom.value?.trim().length ?? 0) > 0
+  );
+
+const hasReachableGuardianContact = (patient: Patient): boolean =>
+  !!patient.contact?.some((contact) => isReachableTelecom(contact.telecom));
+
+const hasReachableContact = (patient: Patient): boolean =>
+  isReachableTelecom(patient.telecom) || hasReachableGuardianContact(patient);
+
+export const isPatientDemographicsComplete = (patient: Patient | undefined): boolean => {
+  if (!patient) return false;
+
+  return (
+    hasNonEmptyName(patient) &&
+    hasNonEmptyBirthDate(patient) &&
+    hasNonEmptyGender(patient) &&
+    hasReachableContact(patient) &&
+    hasNonEmptyAddress(patient)
+  );
+};
+
 type MightHaveTelecom = RelatedPerson | Patient | Person | Practitioner;
 export const getSMSNumberForIndividual = (individual: MightHaveTelecom): string | undefined => {
   const { telecom } = individual;

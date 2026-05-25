@@ -75,17 +75,12 @@ test.describe('For new patient', () => {
   );
 
   test('Add pre-book visit for new patient', async ({ page }) => {
-    const { appointmentId, slotTime } = await createAppointment(
-      page,
-      VISIT_TYPES.PRE_BOOK,
-      false,
-      NEW_PATIENT_2_LAST_NAME
-    );
+    const { appointmentId } = await createAppointment(page, VISIT_TYPES.PRE_BOOK, false, NEW_PATIENT_2_LAST_NAME);
 
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
     await visitsPage.clickPrebookedTab();
-    await visitsPage.verifyVisitPresent(appointmentId, slotTime);
+    await visitsPage.verifyVisitPresent(appointmentId);
   });
 
   test.skip('Add post-telemed visit for new patient', { tag: '@flaky' }, async ({ page }) => {

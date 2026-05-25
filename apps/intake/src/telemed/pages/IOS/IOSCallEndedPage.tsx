@@ -24,7 +24,7 @@ export function IOSCallEndedPage(): JSX.Element {
       if (!data) {
         return;
       }
-      if (data?.status == 'complete') {
+      if (data?.status == 'completed') {
         useIntakeCommonStore.setState({ error: 'The call has ended. Please, request another visit' });
         navigate(intakeFlowPageRoute.Homepage.path);
       }

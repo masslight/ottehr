@@ -7,9 +7,7 @@ import {
   collectKnownExamFields,
   collectKnownRosFields,
   examConfig,
-  ExamType,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
   TemplateInfo,
@@ -42,7 +40,7 @@ const performEffect = async (
   validatedInput: ListTemplatesZambdaInput,
   oystehr: Oystehr
 ): Promise<ListTemplatesZambdaOutput> => {
-  const { examType, includeVersionData } = validatedInput;
+  const { includeVersionData } = validatedInput;
 
   // Find the holder list
   const holderList = await findHolderList(oystehr);
@@ -83,9 +81,8 @@ const performEffect = async (
   );
   const filteredTemplates = chunkResults.flat();
 
-  const codeSystem =
-    examType === ExamType.IN_PERSON ? GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM : GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM;
-  const examTypeConfig = examType === ExamType.IN_PERSON ? examConfig.inPerson.default : examConfig.telemed.default;
+  const codeSystem = GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM;
+  const examTypeConfig = examConfig.default;
   const knownExamFields = collectKnownExamFields(examTypeConfig.components);
   const knownRosFields = collectKnownRosFields();
 

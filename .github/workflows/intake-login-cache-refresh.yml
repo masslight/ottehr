@@ -98,7 +98,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci
+        run: for i in {1..3}; do npm ci && s=0 && break || s=$? && sleep 5; done; (exit $s)
 
       - name: Install Playwright browsers
         run: npx playwright install chromium
@@ -231,7 +231,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci
+        run: for i in {1..3}; do npm ci && s=0 && break || s=$? && sleep 5; done; (exit $s)
 
       - name: Install Playwright browsers
         run: npx playwright install chromium
@@ -364,7 +364,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci
+        run: for i in {1..3}; do npm ci && s=0 && break || s=$? && sleep 5; done; (exit $s)
 
       - name: Install Playwright browsers
         run: npx playwright install chromium

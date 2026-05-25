@@ -33,6 +33,7 @@ export const FHIR_ZAPEHR_URL = 'https://fhir.zapehr.com';
 const TERMINOLOGY_BASE_URL = 'http://terminology.hl7.org/CodeSystem';
 
 export const SCHEDULE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
+export const LOCATION_REVIEW_LINK_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/review-link`;
 export const PROVIDER_TYPE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/provider-type';
 const RCM_TERMINOLOGY_BASE_URL = 'https://terminology.zapehr.com/rcm/cms1500';
 
@@ -54,9 +55,6 @@ export const FHIR_EXTENSION = {
   Appointment: {
     additionalInfo: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/additional-information`,
-    },
-    unconfirmedDateOfBirth: {
-      url: `${PRIVATE_EXTENSION_BASE_URL}/date-of-birth-not-confirmed`,
     },
     bookedBy: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/visit-booked-by`,
@@ -396,6 +394,7 @@ export const BUCKET_NAMES = {
   DISCHARGE_SUMMARIES: 'discharge-summaries',
   STATEMENTS: 'statements',
   REPORTS: 'invoiceable-patients-reports',
+  CUSTOM_FOLDERS: 'patient-docs-custom-folders',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -553,6 +552,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/answer-loading-options`,
     strategy: `${PRIVATE_EXTENSION_BASE_URL}/strategy`,
     source: `${PRIVATE_EXTENSION_BASE_URL}/source`,
+    expression: `${PRIVATE_EXTENSION_BASE_URL}/expression`,
   },
   complexValidation: {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/complex-validation`,
@@ -603,9 +603,13 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT = 'https://api.stripe.com/v1/accounts';
 export const SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/stripe-account-id';
-export const SCHEDULE_OWNER_STRIPE_TERMINAL_LOCATION_ID_EXTENSION_URL =
-  'https://fhir.ottehr.com/Extension/stripe-terminal-location-id';
+/** @deprecated Use Device resource with STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM and STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE instead */
 export const SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/advapacs-location-id';
+
+// Device-based terminal location storage
+export const STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM = 'https://api.stripe.com/v1/terminal/locations';
+export const STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/device-type';
+export const STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE = 'stripe-terminal-config';
 
 export const WALKIN_APPOINTMENT_TYPE_CODE = 'WALKIN';
 export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {
@@ -769,7 +773,6 @@ export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorn
 
 export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/global-template-list`;
 export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-in-person`;
-export const GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-telemed`;
 
 /** Builds the full meta.tag system URL from a chart data field name (e.g. 'chief-complaint' → full URL). */
 export const chartDataTagSystem = (fieldName: string): string => `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}`;
