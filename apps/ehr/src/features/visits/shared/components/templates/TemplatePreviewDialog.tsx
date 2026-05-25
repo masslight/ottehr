@@ -38,11 +38,9 @@ import {
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 
 // Maps an exam field name (e.g. "soft", "tender") to the body-system section it
-// belongs to ("Abdomen"). Computed once per exam type at module load so the preview
-// can group finding chips under their owning section header.
-// TelemedExamConfig isn't declared with the ExamItemConfig type (its items carry an
-// extra `code` field), so we cast through unknown. buildExamFieldToSectionMap only
-// reads the standard fields it shares with ExamItemConfig.
+// belongs to ("Abdomen"). Built once at module load from
+// `DefaultExamComponentsConfig` so the preview can group finding chips under their
+// owning section header.
 const DEFAULT_EXAM_FIELD_TO_SECTION = buildExamFieldToSectionMap(DefaultExamComponentsConfig);
 
 const EXAM_SECTION_KEYS_IN_ORDER = Object.keys(DefaultExamComponentsConfig);
@@ -477,8 +475,8 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
     // template doesn't carry content for - and therefore weren't shown to the user -
     // are explicitly set to 'skip'. Without this, the server's default action map
     // would fill those keys with their per-section defaults (e.g. examFindings,
-    // patientInstructions, accident default to 'overwrite'), which would silently
-    // delete the user's existing chart data for sections they never saw a control for.
+    // patientInstructions default to 'overwrite'), which would silently delete the
+    // user's existing chart data for sections they never saw a control for.
     const payload: TemplateSectionActions = {};
     const visibleKeys = new Set(sectionsWithContent.map((s) => s.key));
     for (const key of Object.keys(TEMPLATE_SECTION_DEFAULT_ACTIONS) as TemplateSectionKey[]) {

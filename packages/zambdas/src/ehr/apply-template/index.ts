@@ -147,7 +147,7 @@ const performEffect = async (
         { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
         { name: '_revinclude:iterate', value: 'Communication:encounter' },
         // NOTE: this pulls all Conditions that have ever been associated with an encounter
-        // not just the ones curently on the Encounter. Need to filter it down later
+        // not just the ones currently on the Encounter. Need to filter it down later
         { name: '_revinclude:iterate', value: 'Condition:encounter' },
         { name: '_revinclude:iterate', value: 'Procedure:encounter' },
       ],

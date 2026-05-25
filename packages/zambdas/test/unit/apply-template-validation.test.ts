@@ -32,7 +32,6 @@ describe('Apply Template - validateRequestParameters', () => {
       patientInstructions: 'skip',
       cptCodes: 'overwrite',
       emCode: 'skip',
-      accident: 'overwrite',
     };
     const result = validateRequestParameters(createInput({ ...baseBody, sectionActions }));
     expect(result.sectionActions).toEqual(sectionActions);
@@ -55,11 +54,6 @@ describe('Apply Template - validateRequestParameters', () => {
 
   test("rejects 'append' for emCode", () => {
     const input = createInput({ ...baseBody, sectionActions: { emCode: 'append' } });
-    expect(() => validateRequestParameters(input)).toThrow(/does not support the 'append' action/);
-  });
-
-  test("rejects 'append' for accident", () => {
-    const input = createInput({ ...baseBody, sectionActions: { accident: 'append' } });
     expect(() => validateRequestParameters(input)).toThrow(/does not support the 'append' action/);
   });
 
