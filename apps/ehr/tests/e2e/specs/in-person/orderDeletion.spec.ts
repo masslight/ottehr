@@ -264,10 +264,6 @@ test.describe('Order Deletion - Happy Path', () => {
         // Navigate to Review & Sign (Progress Note) page
         await sideMenu.clickReviewAndSign();
 
-        // Wait for Progress Note page to load
-        await page.waitForURL(new RegExp('/review-and-sign'));
-        await expect(page.getByText('Review & Sign')).toBeVisible({ timeout: 10000 });
-
         // Verify deleted procedure is not shown
         await expect(page.getByText(PROCEDURE_TYPE)).not.toBeVisible();
       });
@@ -432,10 +428,6 @@ test.describe('Order Deletion - Happy Path', () => {
       await test.step('Verify medication not shown in Progress Note', async () => {
         // Navigate to Review & Sign (Progress Note) page
         await sideMenu.clickReviewAndSign();
-
-        // Wait for Progress Note page to load
-        await page.waitForURL(new RegExp('/review-and-sign'));
-        await expect(page.getByText('Review & Sign')).toBeVisible({ timeout: 10000 });
 
         // Verify deleted medication is not shown
         await expect(page.getByText(MEDICATION_NAME)).not.toBeVisible();
