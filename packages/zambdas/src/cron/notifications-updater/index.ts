@@ -337,7 +337,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             title = task.description ?? `task ID ${task.id}`;
             // waiting room practitioners will always become "busy" (status "preparation"),
             // so we force "in-progress" to ensure they receive the notification
-            status = 'in-progress';
+            status = notificationSettings!.method === ProviderNotificationMethod.phone ? 'completed' : 'in-progress';
             break;
           }
           case ERX_TASK.code.providerNotification: {
