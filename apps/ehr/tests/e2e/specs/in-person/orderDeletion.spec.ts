@@ -100,12 +100,9 @@ test.beforeAll(async () => {
   } else {
     const nameIdentifier = firstMed.identifier?.find((id) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM);
     if (!nameIdentifier?.value) {
-      console.warn(
-        `In-house medication ${firstMed.id} is missing the name identifier (system=${MEDICATION_IDENTIFIER_NAME_SYSTEM}); the in-house medication deletion test will be skipped.`
-      );
-    } else {
-      MEDICATION_NAME = nameIdentifier.value;
+      throw new Error('Medication name identifier not found');
     }
+    MEDICATION_NAME = nameIdentifier.value;
   }
 
   await resourceHandler.setResources({ skipPaperwork: true });
