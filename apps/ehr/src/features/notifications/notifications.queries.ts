@@ -4,6 +4,7 @@ import { Communication, Encounter, Extension, FhirResource } from 'fhir/r4b';
 import {
   AppointmentProviderNotificationTypes,
   getPatchBinary,
+  getProviderNotificationSettingsForPractitioner,
   isPhoneNumberValid,
   PROVIDER_NOTIFICATION_METHOD_URL,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
@@ -27,6 +28,8 @@ export const useGetProviderNotifications = (
 ): UseQueryResult<ProviderNotification[], Error> => {
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
+  const isPhoneOnly =
+    getProviderNotificationSettingsForPractitioner(user?.profileResource)?.method === ProviderNotificationMethod.phone;
   const queryResult = useQuery({
     queryKey: ['provider-notifications'],
 
@@ -83,7 +86,7 @@ export const useGetProviderNotifications = (
       });
     },
 
-    enabled: !!(oystehr && user?.profile),
+    enabled: !!(oystehr && user?.profile) && !isPhoneOnly,
     refetchInterval: 10000,
     refetchIntervalInBackground: true,
   });

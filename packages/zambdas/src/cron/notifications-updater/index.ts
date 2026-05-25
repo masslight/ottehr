@@ -335,17 +335,11 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         switch (taskCode) {
           case VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE: {
             title = task.description ?? `task ID ${task.id}`;
-            // waiting room practitioners will always become "busy" (status "preparation"),
-            // so we force "in-progress" to ensure they receive the notification
-            status = 'in-progress';
+            status = getStatusOverridingBusy(notificationSettings!);
             break;
           }
           case ERX_TASK.code.providerNotification: {
-            // similarly, practitioners prescribing eRX are assigned to an
-            // appointment already. phone-only notifications require a
-            // status of "completed" but phone and computer ones require
-            // "in-progress".
-            status = notificationSettings!.method === ProviderNotificationMethod.phone ? 'completed' : 'in-progress';
+            status = getStatusOverridingBusy(notificationSettings!);
             break;
           }
           default: {
@@ -851,6 +845,15 @@ function getCommunicationStatus(
     status = 'completed';
   }
   return status;
+}
+
+// todo: if we remove busy practitioner filtering, rework this logic
+// waiting room practitioners will always become "busy" (status "preparation"), so we force
+// "in-progress" to ensure they receive the notification. similarly, practitioners prescribing eRX
+// are assigned to an appointment already. phone-only notifications require a status of "completed"
+// but phone and computer ones require "in-progress".
+export function getStatusOverridingBusy(notificationSettings: ProviderNotificationSettings): Communication['status'] {
+  return notificationSettings.method === ProviderNotificationMethod.phone ? 'completed' : 'in-progress';
 }
 
 const getTelemedEncounterAppointmentId = (encounterResource: Resource): string | undefined => {
