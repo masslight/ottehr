@@ -1,6 +1,5 @@
 import { expect, Page } from '@playwright/test';
-import { waitForResponseWithData } from 'test-utils';
-import { DeleteChartDataResponse } from 'utils';
+import { clickAndWaitForChartDataDeletion } from 'test-utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { BaseAssessmentPage } from '../abstract/BaseAssessmentPage';
 
@@ -52,8 +51,10 @@ export class InPersonAssessmentPage extends BaseAssessmentPage {
   }
 
   async deleteCptCode(code: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(code)).click();
-    await waitForResponseWithData<DeleteChartDataResponse>(this.#page, '/delete-chart-data', () => true);
+    await clickAndWaitForChartDataDeletion(
+      this.#page,
+      this.#page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(code))
+    );
   }
 
   async expectBillingCodesElement(): Promise<void> {

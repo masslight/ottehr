@@ -1,4 +1,4 @@
-import { Page, Response } from '@playwright/test';
+import { Locator, Page, Response } from '@playwright/test';
 import { Practitioner } from 'fhir/r4b';
 import { DeleteChartDataResponse, GetChartDataResponse, SaveChartDataResponse } from 'utils';
 
@@ -79,4 +79,52 @@ export async function waitForPractitionerResponse(
   predicate?: ResponsePredicate<Practitioner>
 ): Promise<Response> {
   return waitForResponseWithData(page, '/Practitioner/', predicate);
+}
+
+// page.waitForResponse only catches events emitted AFTER it subscribes, so calling it after
+// the action that triggers the request is a race: when the response lands faster than the
+// gap between `await click()` returning and the listener subscribing, the response is
+// missed and the helper hangs until its timeout. The wrappers below register the listener
+// first, then dispatch the action, eliminating the race.
+
+/**
+ * Click a locator and wait for a matching response. Registers the listener before
+ * dispatching the click to avoid a subscribe-after-the-action race.
+ */
+export async function clickAndWaitForResponse<T extends object = object>(
+  page: Page,
+  locator: Locator,
+  urlPart: string | RegExp,
+  predicate?: ResponsePredicate<T>,
+  options: {
+    method?: string;
+    status?: number;
+    timeout?: number;
+  } = {}
+): Promise<Response> {
+  const responsePromise = waitForResponseWithData<T>(page, urlPart, predicate, options);
+  await locator.click();
+  return responsePromise;
+}
+
+/**
+ * Click a locator and wait for a /save-chart-data response.
+ */
+export async function clickAndWaitForSaveChartData(
+  page: Page,
+  locator: Locator,
+  predicate?: ResponsePredicate<SaveChartDataResponse>
+): Promise<Response> {
+  const responsePromise = waitForSaveChartDataResponse(page, predicate);
+  await locator.click();
+  return responsePromise;
+}
+
+/**
+ * Click a locator and wait for a /delete-chart-data response.
+ */
+export async function clickAndWaitForChartDataDeletion(page: Page, locator: Locator): Promise<Response> {
+  const responsePromise = waitForChartDataDeletion(page);
+  await locator.click();
+  return responsePromise;
 }
