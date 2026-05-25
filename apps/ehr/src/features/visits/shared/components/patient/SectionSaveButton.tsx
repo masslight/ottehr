@@ -14,6 +14,7 @@ interface SectionSaveButtonProps {
   requiredFieldKeys: string[];
   patientId: string | undefined;
   encounterId?: string;
+  onSaveSuccess?: () => void;
 }
 
 export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
@@ -21,6 +22,7 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
   requiredFieldKeys,
   patientId,
   encounterId,
+  onSaveSuccess,
 }) => {
   const queryClient = useQueryClient();
   const { watch, formState, resetField, getValues } = useFormContext();
@@ -84,7 +86,8 @@ export const SectionSaveButton: FC<SectionSaveButtonProps> = ({
     fieldKeys.forEach((key) => {
       resetField(key, { defaultValue: currentValues[key], keepError: false });
     });
-  }, [patientId, encounterId, fieldKeys, dirtyFields, getValues, resetField, submitQR]);
+    onSaveSuccess?.();
+  }, [patientId, encounterId, fieldKeys, dirtyFields, getValues, resetField, submitQR, onSaveSuccess]);
 
   if (!isDirty) return null;
 

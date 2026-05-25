@@ -84,10 +84,10 @@ export default function PatientPage(): JSX.Element {
       if (wasMergeInProgressRef.current) {
         enqueueSnackbar('Patients merged successfully', { variant: 'success' });
       }
-      void queryClient.invalidateQueries({ queryKey: ['useGetPatientPatientResources'] });
-      void queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
-      void queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
-      void queryClient.invalidateQueries({ queryKey: ['otherPatientsWithSameNameResources'] });
+      void queryClient.refetchQueries({ queryKey: ['useGetPatientPatientResources'], type: 'all' });
+      void queryClient.refetchQueries({ queryKey: ['patient-account-get'], type: 'all' });
+      void queryClient.refetchQueries({ queryKey: ['patient-coverages'], type: 'all' });
+      void queryClient.refetchQueries({ queryKey: ['otherPatientsWithSameNameResources'], type: 'all' });
     }
     if (mergeInProgress) {
       wasMergeInProgressRef.current = true;

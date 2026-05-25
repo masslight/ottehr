@@ -5,8 +5,7 @@ import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedB
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
 import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
-import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
-import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
+import BillingConfiguration from '../features/admin/BillingConfiguration';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
@@ -14,6 +13,7 @@ import PageContainer from '../layout/PageContainer';
 import AdminCustomFoldersPage from './AdminCustomFoldersPage';
 import MedicationsConfigurationPage from './configuration/MedicationsConfiguration';
 import EmployeesPage, { EmployeeTypes } from './Employees';
+import OutreachTab from './OutreachTab';
 import SchedulesPage from './Schedules';
 
 enum PageTab {
@@ -26,6 +26,7 @@ enum PageTab {
   billing = 'billing',
   'quick-picks' = 'quick-picks',
   'in-house-labs' = 'in-house-labs',
+  outreach = 'outreach',
   'label-printing-config' = 'label-printing-config',
   'em-codes' = 'em-codes',
   'lab-sets' = 'lab-sets',
@@ -33,10 +34,14 @@ enum PageTab {
 }
 
 export function AdminPage(): JSX.Element {
-  const { adminTab, billingTab, insuranceTab } = useParams();
+  const { adminTab, billingTab, outreachSubTab, outreachDetailTab, insuranceTab } = useParams();
   const navigate = useNavigate();
 
-  const pageTab = billingTab ? PageTab.billing : (adminTab as PageTab) || PageTab.schedules;
+  const pageTab = billingTab
+    ? PageTab.billing
+    : outreachSubTab
+    ? PageTab.outreach
+    : (adminTab as PageTab) || PageTab.schedules;
 
   return (
     <PageContainer>
@@ -106,10 +111,10 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab['in-house-labs']}`)}
                 />
                 <Tab
-                  label="E&M Codes"
-                  value={PageTab['em-codes']}
+                  label="Outreach"
+                  value={PageTab.outreach}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab['em-codes']}`)}
+                  onClick={() => navigate(`/admin/${PageTab.outreach}`)}
                 />
                 <Tab
                   label="Lab Sets"
@@ -168,8 +173,8 @@ export function AdminPage(): JSX.Element {
           <TabPanel value={PageTab['in-house-labs']} sx={{ padding: 0 }}>
             <InHouseLabAdminPage />
           </TabPanel>
-          <TabPanel value={PageTab['em-codes']} sx={{ padding: 0 }}>
-            <EMCodesAdminPage />
+          <TabPanel value={PageTab.outreach} sx={{ padding: 0 }}>
+            <OutreachTab outreachSubTab={outreachSubTab} outreachDetailTab={outreachDetailTab} />
           </TabPanel>
           <TabPanel value={PageTab['lab-sets']} sx={{ padding: 0 }}>
             <LabSetsAdminPage />

@@ -16,6 +16,7 @@ import {
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { ReactElement } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   APIError,
   getLabelTypeMetadata,
@@ -55,7 +56,11 @@ export default function AdminLabelPrintingConfigForm(props: AdminPrintingConfigF
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(onSubmit)} noValidate>
+      <form
+        onSubmit={methods.handleSubmit(onSubmit)}
+        noValidate
+        data-testid={dataTestIds.adminLabelPrintingConfig.form}
+      >
         <Grid container direction="row" alignItems="center" justifyContent="space-between">
           <Grid item xs={10} sm={10} md={10}>
             <Grid container direction="row" rowSpacing={2}>
@@ -95,6 +100,7 @@ export default function AdminLabelPrintingConfigForm(props: AdminPrintingConfigF
                         fullWidth
                         onChange={(e) => field.onChange(e)}
                         error={!!fieldState.error}
+                        data-testid={dataTestIds.adminLabelPrintingConfig.modeSelect}
                       >
                         {PrintModeSchema.options.map((mode) => (
                           <MenuItem key={mode} value={mode}>
@@ -128,6 +134,7 @@ export default function AdminLabelPrintingConfigForm(props: AdminPrintingConfigF
                               methods.resetField('printerAndLabelConfig.labelType');
                             }}
                             error={!!fieldState.error}
+                            data-testid={dataTestIds.adminLabelPrintingConfig.manufacturerSelect}
                           >
                             {SupportedPrinterManufacturerSchema.options.map((manufacturer) => (
                               <MenuItem key={manufacturer} value={manufacturer}>
@@ -152,6 +159,7 @@ export default function AdminLabelPrintingConfigForm(props: AdminPrintingConfigF
                             label="Label Type"
                             value={field.value ?? ''}
                             fullWidth
+                            data-testid={dataTestIds.adminLabelPrintingConfig.labelTypeSelect}
                             onChange={(e) => {
                               const labelType = e.target.value;
                               field.onChange(labelType);
@@ -192,6 +200,7 @@ export default function AdminLabelPrintingConfigForm(props: AdminPrintingConfigF
                             fullWidth
                             onChange={field.onChange}
                             error={!!fieldState.error}
+                            data-testid={dataTestIds.adminLabelPrintingConfig.orientationSelect}
                           >
                             {LabelOrientationSchema.options.map((orientation) => (
                               <MenuItem key={orientation} value={orientation}>
@@ -223,6 +232,7 @@ export default function AdminLabelPrintingConfigForm(props: AdminPrintingConfigF
                                 },
                               }}
                               checked={!!field.value}
+                              data-testid={dataTestIds.adminLabelPrintingConfig.openPdfOnPrintCheckbox}
                             />
                           }
                         />
@@ -232,7 +242,13 @@ export default function AdminLabelPrintingConfigForm(props: AdminPrintingConfigF
                 </>
               )}
               <Grid item>
-                <LoadingButton type="submit" variant="contained" loading={isSubmitting} disabled={isSubmitting}>
+                <LoadingButton
+                  type="submit"
+                  variant="contained"
+                  loading={isSubmitting}
+                  disabled={isSubmitting}
+                  data-testid={dataTestIds.adminLabelPrintingConfig.submitButton}
+                >
                   Submit
                 </LoadingButton>
                 {hasFormErrors && <FormHelperText error={true}>Please fix errors: </FormHelperText>}
