@@ -70,8 +70,6 @@ export type CreateProcedureQuickPickResponse = QuickPickCreateResponse<Procedure
 export type UpdateProcedureQuickPickInput = QuickPickUpdateInput<ProcedureQuickPickData>;
 export type UpdateProcedureQuickPickResponse = QuickPickUpdateResponse<ProcedureQuickPickData>;
 export type GetProcedureQuickPicksResponse = QuickPickListResponse<ProcedureQuickPickData>;
-export type RemoveProcedureQuickPickInput = QuickPickRemoveInput;
-export type RemoveProcedureQuickPickResponse = QuickPickRemoveResponse;
 
 // ── Allergy Quick Picks ──
 
@@ -86,8 +84,6 @@ export type CreateAllergyQuickPickResponse = QuickPickCreateResponse<AllergyQuic
 export type UpdateAllergyQuickPickInput = QuickPickUpdateInput<AllergyQuickPickData>;
 export type UpdateAllergyQuickPickResponse = QuickPickUpdateResponse<AllergyQuickPickData>;
 export type GetAllergyQuickPicksResponse = QuickPickListResponse<AllergyQuickPickData>;
-export type RemoveAllergyQuickPickInput = QuickPickRemoveInput;
-export type RemoveAllergyQuickPickResponse = QuickPickRemoveResponse;
 
 // ── Medical Condition Quick Picks ──
 
@@ -102,8 +98,6 @@ export type CreateMedicalConditionQuickPickResponse = QuickPickCreateResponse<Me
 export type UpdateMedicalConditionQuickPickInput = QuickPickUpdateInput<MedicalConditionQuickPickData>;
 export type UpdateMedicalConditionQuickPickResponse = QuickPickUpdateResponse<MedicalConditionQuickPickData>;
 export type GetMedicalConditionQuickPicksResponse = QuickPickListResponse<MedicalConditionQuickPickData>;
-export type RemoveMedicalConditionQuickPickInput = QuickPickRemoveInput;
-export type RemoveMedicalConditionQuickPickResponse = QuickPickRemoveResponse;
 
 // ── Medication History Quick Picks ──
 
@@ -119,8 +113,6 @@ export type CreateMedicationHistoryQuickPickResponse = QuickPickCreateResponse<M
 export type UpdateMedicationHistoryQuickPickInput = QuickPickUpdateInput<MedicationHistoryQuickPickData>;
 export type UpdateMedicationHistoryQuickPickResponse = QuickPickUpdateResponse<MedicationHistoryQuickPickData>;
 export type GetMedicationHistoryQuickPicksResponse = QuickPickListResponse<MedicationHistoryQuickPickData>;
-export type RemoveMedicationHistoryQuickPickInput = QuickPickRemoveInput;
-export type RemoveMedicationHistoryQuickPickResponse = QuickPickRemoveResponse;
 
 // ── Radiology Quick Picks ──
 
@@ -141,8 +133,6 @@ export type CreateRadiologyQuickPickResponse = QuickPickCreateResponse<Radiology
 export type UpdateRadiologyQuickPickInput = QuickPickUpdateInput<RadiologyQuickPickData>;
 export type UpdateRadiologyQuickPickResponse = QuickPickUpdateResponse<RadiologyQuickPickData>;
 export type GetRadiologyQuickPicksResponse = QuickPickListResponse<RadiologyQuickPickData>;
-export type RemoveRadiologyQuickPickInput = QuickPickRemoveInput;
-export type RemoveRadiologyQuickPickResponse = QuickPickRemoveResponse;
 
 // ── Immunization Quick Picks ──
 
@@ -170,8 +160,6 @@ export type CreateImmunizationQuickPickResponse = QuickPickCreateResponse<Immuni
 export type UpdateImmunizationQuickPickInput = QuickPickUpdateInput<ImmunizationQuickPickData>;
 export type UpdateImmunizationQuickPickResponse = QuickPickUpdateResponse<ImmunizationQuickPickData>;
 export type GetImmunizationQuickPicksResponse = QuickPickListResponse<ImmunizationQuickPickData>;
-export type RemoveImmunizationQuickPickInput = QuickPickRemoveInput;
-export type RemoveImmunizationQuickPickResponse = QuickPickRemoveResponse;
 
 // ── In-House Medication Quick Picks ──
 
@@ -197,8 +185,6 @@ export type CreateInHouseMedicationQuickPickResponse = QuickPickCreateResponse<I
 export type UpdateInHouseMedicationQuickPickInput = QuickPickUpdateInput<InHouseMedicationQuickPickData>;
 export type UpdateInHouseMedicationQuickPickResponse = QuickPickUpdateResponse<InHouseMedicationQuickPickData>;
 export type GetInHouseMedicationQuickPicksResponse = QuickPickListResponse<InHouseMedicationQuickPickData>;
-export type RemoveInHouseMedicationQuickPickInput = QuickPickRemoveInput;
-export type RemoveInHouseMedicationQuickPickResponse = QuickPickRemoveResponse;
 
 // ── Patient Instruction Quick Picks (Practice Quick Picks) ──
 
@@ -213,8 +199,6 @@ export type CreatePatientInstructionQuickPickResponse = QuickPickCreateResponse<
 export type UpdatePatientInstructionQuickPickInput = QuickPickUpdateInput<PatientInstructionQuickPickData>;
 export type UpdatePatientInstructionQuickPickResponse = QuickPickUpdateResponse<PatientInstructionQuickPickData>;
 export type GetPatientInstructionQuickPicksResponse = QuickPickListResponse<PatientInstructionQuickPickData>;
-export type RemovePatientInstructionQuickPickInput = QuickPickRemoveInput;
-export type RemovePatientInstructionQuickPickResponse = QuickPickRemoveResponse;
 
 // ── Insurance Quick Picks ──
 
@@ -230,8 +214,6 @@ export type CreateInsuranceQuickPickResponse = QuickPickCreateResponse<Insurance
 export type UpdateInsuranceQuickPickInput = QuickPickUpdateInput<InsuranceQuickPickData>;
 export type UpdateInsuranceQuickPickResponse = QuickPickUpdateResponse<InsuranceQuickPickData>;
 export type GetInsuranceQuickPicksResponse = QuickPickListResponse<InsuranceQuickPickData>;
-export type RemoveInsuranceQuickPickInput = QuickPickRemoveInput;
-export type RemoveInsuranceQuickPickResponse = QuickPickRemoveResponse;
 
 // ── Quick Text Quick Picks ──
 
@@ -247,5 +229,3 @@ export type CreateQuickTextQuickPickResponse = QuickPickCreateResponse<QuickText
 export type UpdateQuickTextQuickPickInput = QuickPickUpdateInput<QuickTextQuickPickData>;
 export type UpdateQuickTextQuickPickResponse = QuickPickUpdateResponse<QuickTextQuickPickData>;
 export type GetQuickTextQuickPicksResponse = QuickPickListResponse<QuickTextQuickPickData>;
-export type RemoveQuickTextQuickPickInput = QuickPickRemoveInput;
-export type RemoveQuickTextQuickPickResponse = QuickPickRemoveResponse;

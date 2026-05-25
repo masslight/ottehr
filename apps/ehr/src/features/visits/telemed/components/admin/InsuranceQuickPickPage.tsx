@@ -1,5 +1,5 @@
 import { ReactElement, useCallback } from 'react';
-import { createInsuranceQuickPick, getInsuranceQuickPicks, removeInsuranceQuickPick } from 'src/api/api';
+import { createInsuranceQuickPick, getInsuranceQuickPicks, removeQuickPick } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { InsuranceQuickPickData } from 'utils';
 import { InsuranceSearchField } from './InsuranceSearchField';
@@ -26,7 +26,7 @@ export default function InsuranceQuickPickPage(): ReactElement {
   const removeInsurance = useCallback(
     async (id: string) => {
       if (!oystehrZambda) throw new Error('oystehrZambda was null');
-      await removeInsuranceQuickPick(oystehrZambda, id);
+      await removeQuickPick(oystehrZambda, id);
     },
     [oystehrZambda]
   );
