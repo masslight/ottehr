@@ -19,11 +19,14 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useCopyChartDataToFollowup } from 'src/features/visits/shared/components/patient/useCopyChartDataToFollowup';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
 import {
   BOOKING_CONFIG,
+  CopyableFollowupField,
   CreateAppointmentInputParams,
   CreateSlotParams,
+  FollowUpOptions,
   getAppointmentDurationFromSlot,
   getReasonForVisitOptionsForServiceCategory,
   GetScheduleRequestParams,
@@ -94,15 +97,15 @@ export default function AddPatient(): JSX.Element {
   const location = useLocation();
   const followUpState = location.state as
     | {
-        parentEncounterId?: string;
+        followUpOptions?: FollowUpOptions;
         parentLocation?: LocationWithWalkinSchedule;
         patientId?: string;
         patientInfo?: AddVisitPatientInfo;
+        clientCopyFields?: CopyableFollowupField[];
       }
     | undefined;
-  const parentEncounterId = followUpState?.parentEncounterId;
-  const isScheduledFollowUp = !!parentEncounterId;
-  console.log('[AddPatient] location.state:', location.state, 'parentEncounterId:', parentEncounterId);
+  const followUpOptions = followUpState?.followUpOptions;
+  const isScheduledFollowUp = !!followUpOptions?.parentEncounterId;
 
   const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule | undefined>(
     followUpState?.parentLocation
@@ -154,6 +157,7 @@ export default function AddPatient(): JSX.Element {
   // general variables
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
+  const copyChartDataToFollowupMutation = useCopyChartDataToFollowup();
   const reasonForVisitErrorMessage = `Input cannot be more than ${MAXIMUM_CHARACTER_LIMIT} characters`;
 
   const handleAdditionalReasonForVisitChange = (newValue: string): void => {
@@ -285,7 +289,7 @@ export default function AddPatient(): JSX.Element {
           reasonAdditional: reasonForVisitAdditional !== '' ? reasonForVisitAdditional : undefined,
         },
         slotId: persistedSlot.id!,
-        parentEncounterId,
+        ...(followUpOptions && { followUpOptions }),
       };
 
       let response;
@@ -296,14 +300,41 @@ export default function AddPatient(): JSX.Element {
         console.error(`Failed to add patient: ${error}`);
         enqueueSnackbar('An unexpected error occurred, please try again.', { variant: 'error' });
         apiErr = true;
-      } finally {
-        setLoading(false);
-        if (response && !apiErr) {
-          enqueueSnackbar('Visit added successfully', { variant: 'success' });
-          navigate('/visits');
-        } else {
-          setErrors({ submit: true });
+      }
+
+      // Best-effort copy: failure here must not block navigation since the visit is already created.
+      const clientCopyFields = followUpState?.clientCopyFields;
+      const parentEncounterIdForCopy = followUpOptions?.parentEncounterId;
+      let clientFailedFields: CopyableFollowupField[] = [];
+      if (response && !apiErr && parentEncounterIdForCopy && clientCopyFields && clientCopyFields.length > 0) {
+        try {
+          await copyChartDataToFollowupMutation.mutateAsync({
+            sourceEncounterId: parentEncounterIdForCopy,
+            targetEncounterId: response.encounterId,
+            fields: clientCopyFields,
+          });
+        } catch (e) {
+          console.error('Failed to copy chart data to follow-up visit:', e);
+          // save-chart-data is transactional — treat the whole batch as failed.
+          clientFailedFields = clientCopyFields;
         }
+      }
+
+      setLoading(false);
+
+      if (response && !apiErr) {
+        if (clientFailedFields.length > 0) {
+          enqueueSnackbar("Visit created, but some fields couldn't be copied from the previous visit.", {
+            variant: 'warning',
+          });
+        } else if (isScheduledFollowUp && (clientCopyFields?.length ?? 0) > 0) {
+          enqueueSnackbar('Visit added; notes copied from the previous visit.', { variant: 'success' });
+        } else {
+          enqueueSnackbar('Visit added successfully', { variant: 'success' });
+        }
+        navigate('/visits');
+      } else {
+        setErrors({ submit: true });
       }
     }
   };

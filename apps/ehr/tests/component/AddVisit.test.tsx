@@ -1,10 +1,21 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { ReactNode } from 'react';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { BOOKING_CONFIG, getReasonForVisitOptionsForServiceCategory } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import AddPatient from '../../src/pages/AddPatient';
+
+const TestProviders = ({ children }: { children: ReactNode }): JSX.Element => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>{children}</BrowserRouter>
+    </QueryClientProvider>
+  );
+};
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -87,9 +98,9 @@ describe('AddVisit', () => {
 
   it('Renders with appropriate fields', () => {
     render(
-      <BrowserRouter>
+      <TestProviders>
         <AddPatient />
-      </BrowserRouter>
+      </TestProviders>
     );
 
     const pageTitle = screen.getByTestId(dataTestIds.addPatientPage.pageTitle);
@@ -102,9 +113,9 @@ describe('AddVisit', () => {
     vi.mocked(useNavigate).mockReturnValue(navigateMock);
 
     render(
-      <BrowserRouter>
+      <TestProviders>
         <AddPatient />
-      </BrowserRouter>
+      </TestProviders>
     );
 
     const cancelButton = screen.getByTestId(dataTestIds.addPatientPage.cancelButton);
@@ -118,9 +129,9 @@ describe('AddVisit', () => {
     const user = userEvent.setup();
 
     render(
-      <BrowserRouter>
+      <TestProviders>
         <AddPatient />
-      </BrowserRouter>
+      </TestProviders>
     );
 
     await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
@@ -133,9 +144,9 @@ describe('AddVisit', () => {
     const user = userEvent.setup();
 
     render(
-      <BrowserRouter>
+      <TestProviders>
         <AddPatient />
-      </BrowserRouter>
+      </TestProviders>
     );
 
     const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
@@ -153,9 +164,9 @@ describe('AddVisit', () => {
     const user = userEvent.setup();
 
     render(
-      <BrowserRouter>
+      <TestProviders>
         <AddPatient />
-      </BrowserRouter>
+      </TestProviders>
     );
 
     // First, complete the phone search flow to reveal the date of birth field
@@ -186,9 +197,9 @@ describe('AddVisit', () => {
       const user = userEvent.setup();
 
       render(
-        <BrowserRouter>
+        <TestProviders>
           <AddPatient />
-        </BrowserRouter>
+        </TestProviders>
       );
 
       const addButton = screen.getByTestId(dataTestIds.addPatientPage.addButton);
@@ -206,9 +217,9 @@ describe('AddVisit', () => {
       const user = userEvent.setup();
 
       render(
-        <BrowserRouter>
+        <TestProviders>
           <AddPatient />
-        </BrowserRouter>
+        </TestProviders>
       );
 
       // Enter phone number but don't search
@@ -228,9 +239,9 @@ describe('AddVisit', () => {
       const user = userEvent.setup();
 
       render(
-        <BrowserRouter>
+        <TestProviders>
           <AddPatient />
-        </BrowserRouter>
+        </TestProviders>
       );
 
       // Complete phone search flow
@@ -273,9 +284,9 @@ describe('AddVisit', () => {
         const user = userEvent.setup();
 
         render(
-          <BrowserRouter>
+          <TestProviders>
             <AddPatient />
-          </BrowserRouter>
+          </TestProviders>
         );
 
         // Complete the form up to visit type selection
@@ -350,9 +361,9 @@ describe('AddVisit', () => {
         const user = userEvent.setup();
 
         render(
-          <BrowserRouter>
+          <TestProviders>
             <AddPatient />
-          </BrowserRouter>
+          </TestProviders>
         );
 
         // Complete the form up to visit type selection
@@ -426,9 +437,9 @@ describe('AddVisit', () => {
       const user = userEvent.setup();
 
       render(
-        <BrowserRouter>
+        <TestProviders>
           <AddPatient />
-        </BrowserRouter>
+        </TestProviders>
       );
 
       // Complete phone search flow to reveal the form
