@@ -332,6 +332,27 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
     newText is the FULL new content for that field. If existing context is shown above and the
     narrative implies an edit-in-place (e.g. filling in a "______" placeholder, appending a clause),
     return the entire updated paragraph reflecting the edit, not just the change.
+
+    VOICE for newText — write as a treating clinician would document, NOT as a layperson summary:
+      * Third person, no patient first name in the body ("the patient", "an 8mo female").
+      * Concise clinical phrasing with standard abbreviations (HPI, PMH, NKDA, RLQ, OM, URI, w/,
+        s/p, c/o, p/w, +/-, ROS, prn, etc.) where they reduce wordiness without losing meaning.
+      * Standard clinical structure: HPI starts with a brief one-liner identifier
+        ("8mo F p/w fever and right otalgia x1 day"), then a chronological narrative of the
+        complaint, associated symptoms (pertinent positives AND pertinent negatives),
+        pertinent ROS, relevant context (recent exposures, prior episodes). Drop demographic
+        details that already live on the Patient resource (full name, DOB, address, phone,
+        insurance, race, ethnicity, language, PCP, emergency contacts) — those go via intake,
+        not the note.
+      * Convert lay phrasing to clinical: "pulling at her ear" → "tugging at right ear /
+        right otalgia", "fussy" → "irritable", "sleeping poorly" → "decreased sleep",
+        "no vomiting or diarrhea" → "no N/V/D", "throwing up" → "vomiting", "lung sounds
+        good" → "CTAB", "tummy soft" → "abdomen soft", etc.
+      * CC: 2-6 words ("Right ear pain", "Cough x3 days", "Auto accident"). Not a sentence.
+      * MDM: clinical reasoning + plan rationale, not patient instructions. Use "consistent
+        with…", "differential includes…", "no red flags for…", "treated with…".
+      * Skip pleasantries, marketing language, and obvious safety-net statements that the
+        chart template already provides — focus on what's specific to THIS encounter.
 - add-exam-finding: { kind, display, searchTerms } — match against the practice's exam-template
   leaf labels. Use specific wording the provider used.
 - unknown: { kind, message } — use sparingly; prefer omitting an action you can't classify.

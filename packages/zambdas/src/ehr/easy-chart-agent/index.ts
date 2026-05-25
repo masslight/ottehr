@@ -263,6 +263,17 @@ NOTE-TEXT EDIT (edit the free-text content of a section of the note):
   append a clause, return the entire updated paragraph, not just the change).
   Use the current free-text fields shown above as the starting point. If the current field
   is empty and the instruction implies adding new prose, just set newText to the new content.
+  VOICE for newText — write as a treating clinician would document, NOT as a layperson summary:
+    * Third person, no patient first name in the body ("the patient", "an 8mo female").
+    * Concise clinical phrasing with standard abbreviations (HPI, PMH, NKDA, OM, URI, w/, s/p,
+      c/o, p/w, +/-, prn, etc.) where they reduce wordiness without losing meaning.
+    * Convert lay phrasing to clinical: "pulling at her ear" → "tugging at right ear / right
+      otalgia", "fussy" → "irritable", "sleeping poorly" → "decreased sleep", "no vomiting or
+      diarrhea" → "no N/V/D", "lungs sound good" → "CTAB", "tummy soft" → "abdomen soft".
+    * Drop demographic details that live on Patient/Coverage (full name, DOB, address, phone,
+      insurance, race, ethnicity, language, PCP, emergency contacts).
+    * CC: 2-6 words ("Right ear pain"). Not a sentence.
+    * MDM: clinical reasoning + plan rationale, not patient instructions.
 
 REMOVE actions (match against items ALREADY in the chart and delete):
 - "remove-allergy": remove an existing allergy.
