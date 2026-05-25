@@ -1,4 +1,10 @@
-import { Description as DescriptionIcon, Home as HomeIcon, People as PeopleIcon } from '@mui/icons-material';
+import {
+  Business as BusinessIcon,
+  Description as DescriptionIcon,
+  Home as HomeIcon,
+  MedicalServices as MedicalServicesIcon,
+  People as PeopleIcon,
+} from '@mui/icons-material';
 import { Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar } from '@mui/material';
 import { FC } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -10,6 +16,8 @@ const navItems = [
   { label: 'Home', path: '/', icon: <HomeIcon fontSize="small" /> },
   { label: 'Claims', path: '/claims', icon: <DescriptionIcon fontSize="small" /> },
   { label: 'Patients', path: '/patients', icon: <PeopleIcon fontSize="small" /> },
+  { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon fontSize="small" /> },
+  { label: 'Rendering Providers', path: '/rendering-providers', icon: <MedicalServicesIcon fontSize="small" /> },
 ];
 
 export const Sidebar: FC = () => {
