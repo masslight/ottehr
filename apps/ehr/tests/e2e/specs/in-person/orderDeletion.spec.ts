@@ -70,7 +70,7 @@ const PROCEDURE_CPT_CODE = SELECTED_PROCEDURE.cptCode;
 const PROCEDURE_CPT_DISPLAY = SELECTED_PROCEDURE.display;
 
 // Medications from FHIR and utils
-// Optional — instances without registered in-house medications (e.g. pedi-q) skip the
+// Optional — instances without registered in-house medications skip the
 // in-house medication deletion test rather than failing the whole spec at module init.
 let MEDICATION_NAME: string | undefined;
 const MEDICATION_DOSE = '2'; // Test value
@@ -285,7 +285,6 @@ test.describe('Order Deletion - Happy Path', () => {
 
   test('Delete in-house medication and verify it is removed from list', async ({ browser }) => {
     test.skip(!MEDICATION_NAME, 'No in-house medications registered in FHIR for this instance');
-    // Narrow for TypeScript: test.skip above guarantees this is defined by the time we get here.
     const medicationName = MEDICATION_NAME!;
     // Create isolated context and page for this test
     const context = await browser.newContext();
