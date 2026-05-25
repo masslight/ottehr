@@ -3,7 +3,8 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
 import { CreateProcedureQuickPickInput, CreateProcedureQuickPickResponse, Secrets } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import { activityDefinitionToQuickPick, quickPickToActivityDefinition } from '../admin-get-procedure-quick-picks';
+import { PROCEDURE_QUICK_PICK_CATEGORY } from '../shared/quick-pick-categories';
+import { activityDefinitionToQuickPick, quickPickToActivityDefinition } from '../shared/quick-pick-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'admin-create-procedure-quick-pick';
@@ -33,12 +34,12 @@ export const performEffect = async (
 
   console.log(`Creating procedure quick pick: ${quickPick.name}`);
 
-  const activityDefinition = quickPickToActivityDefinition(quickPick);
+  const activityDefinition = quickPickToActivityDefinition(quickPick, PROCEDURE_QUICK_PICK_CATEGORY);
 
   const created = await oystehr.fhir.create<ActivityDefinition>(activityDefinition);
   console.log(`Created ActivityDefinition with id: ${created.id}`);
 
-  const createdQuickPick = activityDefinitionToQuickPick(created);
+  const createdQuickPick = activityDefinitionToQuickPick(created, PROCEDURE_QUICK_PICK_CATEGORY);
 
   return {
     message: `Successfully created procedure quick pick: ${quickPick.name}`,
