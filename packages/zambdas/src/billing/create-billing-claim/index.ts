@@ -217,7 +217,10 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
   }
 
   if (params.diagnoses?.length) {
-    claim.diagnosis = params.diagnoses.map((dx, i) => ({
+    const uniqueDiagnoses = params.diagnoses.filter(
+      (dx, index, arr) => arr.findIndex((d) => d.code === dx.code) === index
+    );
+    claim.diagnosis = uniqueDiagnoses.map((dx, i) => ({
       sequence: i + 1,
       diagnosisCodeableConcept: {
         coding: [{ system: CODE_SYSTEM_ICD_10, code: dx.code, display: dx.display }],

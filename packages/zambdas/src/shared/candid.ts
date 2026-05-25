@@ -268,13 +268,15 @@ function getExtensionString(extensions: Extension[] | undefined, url: string): s
 }
 
 function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition[]): DiagnosisCreate[] {
+  const seenCodes = new Set<string>();
   return (encounter.diagnosis ?? []).flatMap<DiagnosisCreate>((encounterDiagnosis) => {
     const diagnosisResourceId = encounterDiagnosis.condition.reference?.split('/')[1];
     const diagnosisResource = diagnoses.find((resource) => resource.id === diagnosisResourceId);
     const diagnosisCode = diagnosisResource?.code?.coding?.[0].code;
-    if (diagnosisCode == null) {
+    if (diagnosisCode == null || seenCodes.has(diagnosisCode)) {
       return [];
     }
+    seenCodes.add(diagnosisCode);
     return [
       {
         codeType: (encounterDiagnosis.rank ?? -1) === 1 ? DiagnosisTypeCode.Abk : DiagnosisTypeCode.Abf,
