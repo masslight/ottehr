@@ -52,20 +52,24 @@ export default function ScheduledFollowupParentSelector({
   const parentEncounterId = selectedParentEncounter?.encounter.id;
   const queryEnabled = Boolean(apiClient) && Boolean(parentEncounterId);
 
-  const { data: parentChartData, isFetching } = useQuery({
+  const {
+    data: parentChartData,
+    isFetching,
+    isError: isChartDataError,
+  } = useQuery({
     queryKey: ['followup-copy-chart-data', parentEncounterId],
     queryFn: () => fetchCopySourceChartData(apiClient!, parentEncounterId!),
     enabled: queryEnabled,
   });
 
   // Cover the window where the query is expected to fire but data hasn't arrived yet
-  // (e.g. apiClient still null on first render). Without this, isFetching is false while
-  // parentChartData is undefined and we'd flash all-disabled checkboxes.
-  const isChartDataLoading = isFetching || (queryEnabled && parentChartData === undefined);
+  // (e.g. apiClient still null on first render). On error we stop showing loading so the
+  // provider can still continue (with no copy) instead of being stuck on a spinning button.
+  const isChartDataLoading = isFetching || (queryEnabled && parentChartData === undefined && !isChartDataError);
 
   const handleContinue = (): void => {
     if (!selectedParentEncounter || !parentEncounterId) {
-      setError('Please select a initial visit');
+      setError('Please select an initial visit');
       return;
     }
 

@@ -93,6 +93,27 @@ enum VisitType {
   VirtualScheduled = 'virtual-scheduled',
 }
 
+export const getPostAppointmentSnackbar = ({
+  hasClientCopyFailures,
+  isScheduledFollowUp,
+  copyAttempted,
+}: {
+  hasClientCopyFailures: boolean;
+  isScheduledFollowUp: boolean;
+  copyAttempted: boolean;
+}): { message: string; variant: 'warning' | 'success' } => {
+  if (hasClientCopyFailures) {
+    return {
+      message: "Visit created, but some fields couldn't be copied from the previous visit.",
+      variant: 'warning',
+    };
+  }
+  if (isScheduledFollowUp && copyAttempted) {
+    return { message: 'Visit added; notes copied from the previous visit.', variant: 'success' };
+  }
+  return { message: 'Visit added successfully', variant: 'success' };
+};
+
 export default function AddPatient(): JSX.Element {
   const location = useLocation();
   const followUpState = location.state as
@@ -323,15 +344,12 @@ export default function AddPatient(): JSX.Element {
       setLoading(false);
 
       if (response && !apiErr) {
-        if (clientFailedFields.length > 0) {
-          enqueueSnackbar("Visit created, but some fields couldn't be copied from the previous visit.", {
-            variant: 'warning',
-          });
-        } else if (isScheduledFollowUp && (clientCopyFields?.length ?? 0) > 0) {
-          enqueueSnackbar('Visit added; notes copied from the previous visit.', { variant: 'success' });
-        } else {
-          enqueueSnackbar('Visit added successfully', { variant: 'success' });
-        }
+        const { message, variant } = getPostAppointmentSnackbar({
+          hasClientCopyFailures: clientFailedFields.length > 0,
+          isScheduledFollowUp,
+          copyAttempted: (clientCopyFields?.length ?? 0) > 0,
+        });
+        enqueueSnackbar(message, { variant });
         navigate('/visits');
       } else {
         setErrors({ submit: true });
