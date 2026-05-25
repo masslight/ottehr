@@ -8,8 +8,7 @@ import {
 } from 'utils';
 
 // Meta-tag systems that mark a resource as belonging in a global template.
-// IMPORTANT: this is a positive allow-list, not "any Condition with an ICD-10 code". Medical Conditions are also
-// FHIR Conditions and can carry ICD-10 codes, but they are patient-specific history and must never be templated.
+// IMPORTANT: this is a positive allow-list
 export const TEMPLATE_TAG_SYSTEMS: ReadonlySet<string> = new Set([
   chartDataTagSystem('chief-complaint'),
   chartDataTagSystem('mechanism-of-injury'),
