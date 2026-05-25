@@ -57,6 +57,7 @@ export const EditApprovedPatientEducationCodesDialog: FC<DialogProps> = ({ open,
   );
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -108,7 +109,15 @@ export const EditApprovedPatientEducationCodesDialog: FC<DialogProps> = ({ open,
               debouncePrimary(() => setPrimaryDebounced(value));
             }}
             renderInput={(params) => (
-              <TextField {...params} size="small" label="Diagnosis" placeholder="Start typing to search" />
+              <TextField
+                {...params}
+                required
+                size="small"
+                label="Diagnosis"
+                placeholder="Start typing to search"
+                error={submitAttempted && !primary}
+                helperText={submitAttempted && !primary ? 'This field is required' : undefined}
+              />
             )}
           />
           <Autocomplete<Diagnosis, true>
@@ -153,8 +162,14 @@ export const EditApprovedPatientEducationCodesDialog: FC<DialogProps> = ({ open,
         </RoundedButton>
         <RoundedButton
           variant="contained"
-          onClick={() => saveMutation.mutate()}
-          disabled={!primary || isBusy}
+          onClick={() => {
+            if (!primary) {
+              setSubmitAttempted(true);
+              return;
+            }
+            saveMutation.mutate();
+          }}
+          disabled={isBusy}
           startIcon={isBusy ? <CircularProgress size={16} /> : null}
         >
           Save

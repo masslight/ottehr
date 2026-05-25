@@ -167,30 +167,37 @@ export function usePatientEducation(): UsePatientEducationResult {
       }
 
       const finalDoc = await PDFDocument.create();
+      const sectionsByCode = new Map(sections.map((section) => [section.icdCode, section]));
 
-      // 1. Copy pages from approved PDFs (in selection order)
+      const appendPdfPages = async (pdfBytes: Uint8Array | ArrayBuffer): Promise<void> => {
+        const sourceDoc = await PDFDocument.load(pdfBytes);
+        const copiedPages = await finalDoc.copyPages(sourceDoc, sourceDoc.getPageIndices());
+        copiedPages.forEach((page) => finalDoc.addPage(page));
+      };
+
       for (const dx of selection) {
         const approved = approvedByCode.get(dx.code);
-        if (!approved) continue;
-        if (!approved.pdfPresignedUrl) {
-          throw new Error(`Approved PDF for ${dx.code} is missing a presigned URL.`);
-        }
-        const response = await fetch(approved.pdfPresignedUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch approved PDF for ${dx.code}: ${response.status}`);
-        }
-        const bytes = await response.arrayBuffer();
-        const sourceDoc = await PDFDocument.load(bytes);
-        const copied = await finalDoc.copyPages(sourceDoc, sourceDoc.getPageIndices());
-        copied.forEach((page) => finalDoc.addPage(page));
-      }
+        if (approved) {
+          if (!approved.pdfPresignedUrl) {
+            throw new Error(`Approved PDF for ${dx.code} is missing a presigned URL.`);
+          }
 
-      // 2. Render & append the freshly-generated sections, if any
-      if (sections.length > 0) {
-        const generatedBytes = await generateCombinedPdf(sections);
-        const generatedDoc = await PDFDocument.load(generatedBytes);
-        const copied = await finalDoc.copyPages(generatedDoc, generatedDoc.getPageIndices());
-        copied.forEach((page) => finalDoc.addPage(page));
+          const response = await fetch(approved.pdfPresignedUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch approved PDF for ${dx.code}: ${response.status}`);
+          }
+
+          await appendPdfPages(await response.arrayBuffer());
+          continue;
+        }
+
+        const generatedSection = sectionsByCode.get(dx.code);
+        if (!generatedSection) {
+          throw new Error(`Generated content for ${dx.code} is missing.`);
+        }
+
+        const generatedBytes = await generateCombinedPdf([generatedSection]);
+        await appendPdfPages(generatedBytes);
       }
 
       const pdfBytes = await finalDoc.save();
