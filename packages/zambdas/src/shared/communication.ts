@@ -7,6 +7,7 @@ import {
   EmailTemplate,
   ErrorReportTemplateData,
   FEATURE_FLAGS_CONFIG,
+  GenericOutreachTemplateData,
   getPatientContactEmail,
   getRelatedPersonsForPatient,
   getSecret,
@@ -72,7 +73,7 @@ class EmailClient {
     const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
     let templateId = '';
     try {
-      templateId = getSecret(templateIdSecretName, this.secrets);
+      templateId = getSecret(templateIdSecretName, this.secrets).trim();
     } catch (error) {
       if (!this.featureFlag || template.disabled) {
         console.log(`${templateIdSecretName} not found but email sending is disabled, continuing`);
@@ -146,9 +147,10 @@ class EmailClient {
         )}`
       );
     } catch (error) {
-      const errorMessage = `Error sending email ${templateIdSecretName} to ${to} (${projectName}})`;
+      const errorMessage = `Error sending email ${templateIdSecretName} to ${to} (${projectName})`;
       console.error(`${errorMessage}: ${error}`);
       void sendErrors(errorMessage, ENVIRONMENT);
+      throw error;
     }
   }
 
@@ -225,6 +227,10 @@ class EmailClient {
 
   async sendOrderResultAlert(to: string | string[], templateData: OrderResultAlertTemplateData): Promise<void> {
     await this.sendEmail(to, this.config.templates.orderResultAlert, templateData);
+  }
+
+  async sendGenericOutreachEmail(to: string | string[], templateData: GenericOutreachTemplateData): Promise<void> {
+    await this.sendEmail(to, this.config.templates.genericOutreach, templateData);
   }
 }
 

@@ -4,6 +4,7 @@ import { Operation } from 'fast-json-patch';
 import { Communication, Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  FEATURE_FLAGS_CONFIG,
   generateStatement,
   getOrCreateCandidApiClient,
   getSecret,
@@ -50,6 +51,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     oystehr = createOystehrClient(m2mToken, secrets);
+
+    if (!FEATURE_FLAGS_CONFIG.mailingPaperStatementsEnabled) {
+      console.error(
+        `[${ZAMBDA_NAME}] Paper mail statements feature is disabled. Failing task ${task.id} for Encounter/${encounterId}.`
+      );
+      await patchTaskStatus(oystehr, task.id!, 'failed', 'Paper mail statements feature is disabled');
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          error: 'Paper mail statements feature is disabled',
+        }),
+      };
+    }
+
     const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
 
     await patchTaskStatus(oystehr, task.id!, 'in-progress');
