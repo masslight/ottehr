@@ -1,6 +1,5 @@
 import type { ExamCardComponent } from 'config-types';
-import { Operation } from 'fast-json-patch';
-import { Account, CodeableConcept, Encounter, QuestionnaireResponse } from 'fhir/r4b';
+import { CodeableConcept, QuestionnaireResponse } from 'fhir/r4b';
 import {
   convertToBoolean,
   examConfig,
@@ -9,7 +8,6 @@ import {
   ObservationDTO,
   patientScreeningQuestionsConfig,
 } from 'utils';
-import { mergeEncounterAccounts } from '../../../ehr/shared/harvest';
 
 export const createAdditionalQuestions = (questionnaireResponse: QuestionnaireResponse): ObservationDTO[] => {
   const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
@@ -239,35 +237,4 @@ export const createExamObservationComments = (): (ObservationDTO & { label: stri
   });
 
   return comments;
-};
-
-// accounts should be on the encounter, needed for ordering labs for workers comp visits
-// if no paperwork is updated, harvest does not run and the account is never added
-// so doing it initially via this subscription
-export const makeEncounterAccountPatchOp = (
-  currentEncounter: Encounter,
-  account: Account | undefined,
-  workersCompAccount: Account | undefined
-): Operation[] => {
-  if (!account && !workersCompAccount) return [];
-
-  const ops: Operation[] = [];
-
-  const patientAccountReference = account?.id ? `Account/${account.id}` : undefined;
-  const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
-
-  const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(
-    currentEncounter.account,
-    [patientAccountReference, workersCompAccountReference]
-  );
-
-  if (accountsChanged && updatedEncounterAccounts) {
-    ops.push({
-      op: currentEncounter.account ? 'replace' : 'add',
-      path: '/account',
-      value: updatedEncounterAccounts,
-    });
-  }
-
-  return ops;
 };

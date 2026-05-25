@@ -14,6 +14,7 @@ import {
   Secrets,
 } from 'utils';
 import { organizeAccounts } from '../../../ehr/shared/harvest';
+import { makeEncounterAccountPatchOp } from '../../../ehr/shared/harvest';
 import { checkOrCreateM2MClientToken, saveResourceRequest, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   createDispositionServiceRequest,
@@ -22,7 +23,6 @@ import {
   updateEncounterPatientInfoConfirmed,
 } from '../../../shared/chart-data';
 import { createOystehrClient, getVideoRoomResourceExtension } from '../../../shared/helpers';
-import { makeEncounterAccountPatchOp } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const CHUNK_SIZE = 50;
@@ -125,6 +125,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     )
   );
 
+  // accounts should be on the encounter, needed for ordering labs for workers comp visits
+  // if no paperwork is updated, harvest does not run and the account is never added
+  // so doing it initially via this subscription
+  const encounterAccountPatch = makeEncounterAccountPatchOp(encounter, existingAccount, workersCompAccount);
+
   encounterUpdateRequests.push(
     getPatchBinary({
       resourceId: encounter.id,
@@ -132,7 +137,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       patchOperations: [
         ...updateEncounterPatientInfoConfirmed(encounter, { value: false }),
         updateEncounterDischargeDisposition(encounter, disposition),
-        ...makeEncounterAccountPatchOp(encounter, existingAccount, workersCompAccount),
+        ...encounterAccountPatch,
       ],
     })
   );

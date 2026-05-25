@@ -4240,6 +4240,32 @@ function getAnswer(linkId: string, items: QuestionnaireResponseItem[]): Question
   return items.find((data) => data.linkId === linkId)?.answer?.[0];
 }
 
+export const makeEncounterAccountPatchOp = (
+  currentEncounter: Encounter,
+  account: Account | undefined,
+  workersCompAccount: Account | undefined
+): Operation[] => {
+  const ops: Operation[] = [];
+
+  const patientAccountReference = account?.id ? `Account/${account.id}` : undefined;
+  const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
+
+  const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(
+    currentEncounter.account,
+    [patientAccountReference, workersCompAccountReference]
+  );
+
+  if (accountsChanged && updatedEncounterAccounts) {
+    ops.push({
+      op: currentEncounter.account ? 'replace' : 'add',
+      path: '/account',
+      value: updatedEncounterAccounts,
+    });
+  }
+
+  return ops;
+};
+
 export const mergeEncounterAccounts = (
   existingAccounts: Encounter['account'],
   references: (string | undefined)[]
