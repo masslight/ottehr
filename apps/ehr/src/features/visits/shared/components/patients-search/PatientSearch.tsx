@@ -27,7 +27,12 @@ export const PatientSearch: React.FC = () => {
       const label = `${labelParts.join(' — ')}${labelSuffix}`;
 
       const addressString = patient.address
-        ? `${patient.address.city}, ${patient.address.state} ${patient.address.zip}`.trim()
+        ? [
+            patient.address.line,
+            [patient.address.city, patient.address.state, patient.address.zip].filter(Boolean).join(' '),
+          ]
+            .filter(Boolean)
+            .join(', ')
         : undefined;
 
       const keywords = [
