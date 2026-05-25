@@ -1,7 +1,6 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
 import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
@@ -136,15 +135,6 @@ export function AdminPage(): JSX.Element {
                 />
               </TabList>
             </Box>
-            <ButtonRounded
-              onClick={() => navigate(`/reports`)}
-              variant="outlined"
-              sx={{
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Reports
-            </ButtonRounded>
           </Box>
           <TabPanel value={PageTab.schedules} sx={{ padding: 0 }}>
             <SchedulesPage />
