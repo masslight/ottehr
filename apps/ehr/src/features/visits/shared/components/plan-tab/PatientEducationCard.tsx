@@ -14,7 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useCallback, useState } from 'react';
+import { FC, useCallback, useEffect, useRef, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { CommunicationDTO, getPresignedURL } from 'utils';
 import { AccordionCard } from '../../../../../components/AccordionCard';
@@ -35,7 +35,7 @@ export const PatientEducationCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const [educationModalOpen, setEducationModalOpen] = useState(false);
-  const [selectedDiagnoses, setSelectedDiagnoses] = useState<Set<string>>(new Set());
+  const [selectedDiagnoses, setSelectedDiagnoses] = useState<string[]>([]);
   const {
     prefetchAllDiagnoses,
     generateForDiagnoses,
@@ -50,10 +50,28 @@ export const PatientEducationCard: FC = () => {
     approvedByCode,
   } = usePatientEducation();
   const [editableSections, setEditableSections] = useState<EducationSection[]>([]);
+  const draftSectionsRef = useRef<Record<string, EducationSection>>({});
   const { chartData, setPartialChartData } = useChartData();
   const { mutate: deleteChartData } = useDeleteChartData();
   const educationItems = (chartData?.instructions || []).filter((item) => item.educationDocRefId);
   const { oystehr } = useApiClients();
+
+  useEffect(() => {
+    if (!generatedSections) return;
+
+    setEditableSections(
+      generatedSections.map((section) => {
+        return draftSectionsRef.current[section.icdCode] ?? section;
+      })
+    );
+  }, [generatedSections]);
+
+  const resetEducationFlow = useCallback(() => {
+    draftSectionsRef.current = {};
+    setEditableSections([]);
+    setSelectedDiagnoses([]);
+    clearGeneratedSections();
+  }, [clearGeneratedSections]);
 
   const openEducationPdf = useCallback(
     async (docRefId: string) => {
@@ -136,7 +154,8 @@ export const PatientEducationCard: FC = () => {
                 <span>
                   <RoundedButton
                     onClick={() => {
-                      setSelectedDiagnoses(new Set(allDiagnoses.map((d) => d.code)));
+                      resetEducationFlow();
+                      setSelectedDiagnoses(allDiagnoses.map((d) => d.code));
                       prefetchAllDiagnoses();
                       setEducationModalOpen(true);
                     }}
@@ -209,13 +228,13 @@ export const PatientEducationCard: FC = () => {
                   key={diagnosis.code}
                   control={
                     <Checkbox
-                      checked={selectedDiagnoses.has(diagnosis.code)}
+                      checked={selectedDiagnoses.includes(diagnosis.code)}
                       onChange={(e) => {
                         setSelectedDiagnoses((prev) => {
-                          const next = new Set(prev);
-                          if (e.target.checked) next.add(diagnosis.code);
-                          else next.delete(diagnosis.code);
-                          return next;
+                          if (e.target.checked) {
+                            return prev.includes(diagnosis.code) ? prev : [...prev, diagnosis.code];
+                          }
+                          return prev.filter((code) => code !== diagnosis.code);
                         });
                       }}
                       disabled={isEducationLoading}
@@ -256,17 +275,19 @@ export const PatientEducationCard: FC = () => {
           <RoundedButton
             variant="contained"
             onClick={async () => {
-              const selected = allDiagnoses.filter((d) => selectedDiagnoses.has(d.code));
+              const selected = selectedDiagnoses
+                .map((code) => allDiagnoses.find((diagnosis) => diagnosis.code === code))
+                .filter((diagnosis): diagnosis is NonNullable<typeof diagnosis> => !!diagnosis);
               const outcome = await generateForDiagnoses(selected);
               if (outcome === 'completed') {
+                resetEducationFlow();
                 setEducationModalOpen(false);
-                setSelectedDiagnoses(new Set());
               }
             }}
-            disabled={selectedDiagnoses.size === 0 || isEducationLoading || isEducationSaving}
+            disabled={selectedDiagnoses.length === 0 || isEducationLoading || isEducationSaving}
             startIcon={isEducationLoading || isEducationSaving ? <CircularProgress size={16} /> : <SchoolIcon />}
           >
-            Generate ({selectedDiagnoses.size})
+            Generate ({selectedDiagnoses.length})
           </RoundedButton>
         </DialogActions>
       </Dialog>
@@ -283,7 +304,12 @@ export const PatientEducationCard: FC = () => {
         <DialogContent>
           <PatientEducationSectionsEditor
             sections={editableSections.length > 0 ? editableSections : generatedSections ?? []}
-            onSectionsChange={setEditableSections}
+            onSectionsChange={(nextSections) => {
+              setEditableSections(nextSections);
+              nextSections.forEach((section) => {
+                draftSectionsRef.current[section.icdCode] = section;
+              });
+            }}
             disabled={isEducationSaving}
             errorMessage={educationError}
           />
@@ -292,8 +318,7 @@ export const PatientEducationCard: FC = () => {
           <Box sx={{ mr: 'auto', display: 'flex', gap: 1 }}>
             <RoundedButton
               onClick={() => {
-                clearGeneratedSections();
-                setEditableSections([]);
+                resetEducationFlow();
                 setEducationModalOpen(false);
               }}
               disabled={isEducationSaving}
@@ -302,7 +327,6 @@ export const PatientEducationCard: FC = () => {
             </RoundedButton>
             <RoundedButton
               onClick={() => {
-                setEditableSections([]);
                 clearGeneratedSections();
               }}
               disabled={isEducationSaving}
@@ -314,9 +338,9 @@ export const PatientEducationCard: FC = () => {
             variant="contained"
             onClick={async () => {
               const sections = editableSections.length > 0 ? editableSections : generatedSections ?? [];
-              await saveFromSections(sections);
-              if (!educationError) {
-                setEditableSections([]);
+              const didSave = await saveFromSections(sections);
+              if (didSave) {
+                resetEducationFlow();
                 setEducationModalOpen(false);
               }
             }}

@@ -13,6 +13,7 @@ export type GetOystehrTelemedAPIParams = {
   getPatientInstructionsZambdaID?: string;
   savePatientInstructionZambdaID?: string;
   deletePatientInstructionZambdaID?: string;
+  deletePatientDocumentZambdaID?: string;
   savePatientFollowupZambdaID?: string;
   icdSearchZambdaId?: string;
   aiSuggestionNotesZambdaID?: string;
