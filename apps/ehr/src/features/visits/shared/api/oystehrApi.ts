@@ -12,6 +12,8 @@ import {
   CommunicationDTO,
   DeleteChartDataRequest,
   DeleteChartDataResponse,
+  DeletePatientDocumentInput,
+  DeletePatientDocumentOutput,
   DeletePatientInstructionInput,
   GetChartDataRequest,
   GetChartDataResponse,
@@ -74,6 +76,7 @@ enum ZambdaNames {
   'get patient instructions' = 'get patient instructions',
   'save patient instruction' = 'save patient instruction',
   'delete patient instruction' = 'delete patient instruction',
+  'delete patient document' = 'delete patient document',
   'icd search' = 'icd search',
   'ai suggestion notes' = 'ai suggestion notes',
   'recommend billing suggestions' = 'recommend billing suggestions',
@@ -110,6 +113,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'get patient instructions': false,
   'save patient instruction': false,
   'delete patient instruction': false,
+  'delete patient document': false,
   'icd search': false,
   'ai suggestion notes': false,
   'recommend billing suggestions': false,
@@ -151,6 +155,7 @@ export const getOystehrTelemedAPI = (
   getPatientInstructions: typeof getPatientInstructions;
   savePatientInstruction: typeof savePatientInstruction;
   deletePatientInstruction: typeof deletePatientInstruction;
+  deletePatientDocument: typeof deletePatientDocument;
   aiSuggestionNotes: typeof aiSuggestionNotes;
   recommendBillingSuggestions: typeof recommendBillingSuggestions;
   recommendBillingCodes: typeof recommendBillingCodes;
@@ -187,6 +192,7 @@ export const getOystehrTelemedAPI = (
     getPatientInstructionsZambdaID,
     savePatientInstructionZambdaID,
     deletePatientInstructionZambdaID,
+    deletePatientDocumentZambdaID,
     icdSearchZambdaId,
     aiSuggestionNotesZambdaID,
     recommendBillingSuggestionsZambdaID,
@@ -223,6 +229,7 @@ export const getOystehrTelemedAPI = (
     'get patient instructions': getPatientInstructionsZambdaID,
     'save patient instruction': savePatientInstructionZambdaID,
     'delete patient instruction': deletePatientInstructionZambdaID,
+    'delete patient document': deletePatientDocumentZambdaID,
     'icd search': icdSearchZambdaId,
     'ai suggestion notes': aiSuggestionNotesZambdaID,
     'recommend billing suggestions': recommendBillingSuggestionsZambdaID,
@@ -314,6 +321,12 @@ export const getOystehrTelemedAPI = (
 
   const deletePatientInstruction = async (parameters: DeletePatientInstructionInput): Promise<void> => {
     return await makeZapRequest('delete patient instruction', parameters);
+  };
+
+  const deletePatientDocument = async (
+    parameters: DeletePatientDocumentInput
+  ): Promise<DeletePatientDocumentOutput> => {
+    return await makeZapRequest('delete patient document', parameters);
   };
 
   const savePatientFollowup = async (parameters: { id: 'test' }): Promise<void> => {
@@ -454,6 +467,7 @@ export const getOystehrTelemedAPI = (
     getPatientInstructions,
     savePatientInstruction,
     deletePatientInstruction,
+    deletePatientDocument,
     aiSuggestionNotes,
     recommendBillingSuggestions,
     recommendBillingCodes,

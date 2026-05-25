@@ -66,7 +66,7 @@ export type GenerateOutcome = 'review';
 export interface UsePatientEducationResult {
   prefetchAllDiagnoses: () => void;
   generateForDiagnoses: (diagnoses: DiagnosisOption[]) => Promise<GenerateOutcome | null>;
-  saveFromSections: (sections: EducationSection[]) => Promise<void>;
+  saveFromSections: (sections: EducationSection[]) => Promise<boolean>;
   generatedSections: EducationSection[] | null;
   clearGeneratedSections: () => void;
   isLoading: boolean;
@@ -162,24 +162,31 @@ export function usePatientEducation(): UsePatientEducationResult {
       const localInstructions = [...instructions, newInstruction];
       setPartialChartData({ instructions: localInstructions });
 
-      await saveChartData(
-        { instructions: [newInstruction] },
-        {
-          onSuccess: (data) => {
-            const saved = (data?.chartData?.instructions || [])[0];
-            if (saved) {
-              setPartialChartData({
-                instructions: localInstructions.map((item) =>
-                  item.resourceId ? item : { ...saved, educationDocRefId: documentReferenceId }
-                ),
-              });
-            }
-          },
-          onError: () => {
-            setPartialChartData({ instructions });
-          },
-        }
-      );
+      try {
+        await saveChartData(
+          { instructions: [newInstruction] },
+          {
+            onSuccess: (data) => {
+              const saved = (data?.chartData?.instructions || [])[0];
+              if (saved) {
+                setPartialChartData({
+                  instructions: localInstructions.map((item) =>
+                    item.resourceId ? item : { ...saved, educationDocRefId: documentReferenceId }
+                  ),
+                });
+              }
+            },
+            onError: () => {
+              setPartialChartData({ instructions });
+            },
+          }
+        );
+      } catch (error) {
+        setPartialChartData({ instructions });
+        revokeEducationBlobUrl(documentReferenceId);
+        await apiClient.deletePatientDocument({ documentRefId: documentReferenceId });
+        throw error;
+      }
     },
     [apiClient, chartData?.instructions, encounter, patient, saveChartData, setPartialChartData]
   );
@@ -249,20 +256,22 @@ export function usePatientEducation(): UsePatientEducationResult {
   );
 
   const saveFromSections = useCallback(
-    async (sections: EducationSection[]): Promise<void> => {
+    async (sections: EducationSection[]): Promise<boolean> => {
       if (!apiClient) {
         setError('API client not available.');
-        return;
+        return false;
       }
       setIsSaving(true);
       setError(null);
       try {
         await buildAndSavePdf(sections);
         setGeneratedSections(null);
+        return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'An unknown error occurred';
         setError(message);
         console.error('Patient education save failed:', err);
+        return false;
       } finally {
         setIsSaving(false);
       }
