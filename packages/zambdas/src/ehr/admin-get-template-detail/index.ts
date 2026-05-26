@@ -12,7 +12,6 @@ import {
   examConfig,
   getRosFindingStateFromKey,
   getSecret,
-  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   ICD_10_CODE_SYSTEM,
   SecretsKeys,
   TemplateAccidentInfo,
@@ -149,10 +148,6 @@ const performEffect = async (
   // Extract exam version from the List's code coding
   const examVersion = templateList.code?.coding?.[0]?.version ?? '';
 
-  // Determine exam type from template coding and select appropriate config
-  const isInPerson = templateList.code?.coding?.some((c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM);
-  const examTypeConfig = isInPerson ? examConfig.inPerson.default : examConfig.telemed.default;
-
   // Parse HPI note
   const hpiCondition = contained.find(
     (r) => r.resourceType === 'Condition' && hasTag(r, chartDataTagSystem('chief-complaint'))
@@ -171,7 +166,7 @@ const performEffect = async (
   const rosTagSystem = chartDataTagSystem('ros-observation-field');
   const legacyRosTagSystem = chartDataTagSystem('ros');
 
-  const knownExamFields = collectKnownExamFields(examTypeConfig.components);
+  const knownExamFields = collectKnownExamFields(examConfig.default.components);
   const knownRosFields = collectKnownRosFields();
 
   const { isCurrentVersion, unmatchedRosFields, examObservations, rosObservations, rosNote } =
@@ -195,8 +190,8 @@ const performEffect = async (
     return { fieldName: fieldCode, label, findingState, stale };
   });
 
-  const abnormalFieldCodes = buildAbnormalFieldCodes(examTypeConfig.components);
-  const fieldLabels = buildFieldLabels(examTypeConfig.components);
+  const abnormalFieldCodes = buildAbnormalFieldCodes(examConfig.default.components);
+  const fieldLabels = buildFieldLabels(examConfig.default.components);
 
   const examFindings: TemplateExamFinding[] = examObservations.map((obs) => {
     const fieldCode = getTagCode(obs, examTagSystem) ?? 'unknown';

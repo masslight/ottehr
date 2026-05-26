@@ -45,7 +45,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { sortQuickPicks, useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
@@ -256,7 +256,16 @@ export default function ProceduresNew(): ReactElement {
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<ProcedureQuickPickData[]>([]);
   const [quickPickSaving, setQuickPickSaving] = useState(false);
-  const { quickPicks: mergedQuickPicks } = useMergedProcedureQuickPicks();
+  // The quick-picks fetch is triggered by mounting this page (useMergedProcedureQuickPicks
+  // calls the zambda from a useEffect on mount), so picks start loading as soon as the
+  // user navigates to /procedures/new — not when they open the Quick Picks menu. We
+  // surface the loading flag below so the menu shows a "Loading…" item while in-flight,
+  // instead of appearing empty on a fast first click.
+  const { quickPicks: mergedQuickPicks, loading: mergedQuickPicksLoading } = useMergedProcedureQuickPicks();
+  const sortedMergedQuickPicks = useMemo(
+    () => [...mergedQuickPicks].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+    [mergedQuickPicks]
+  );
 
   const updateState = (stateMutator: (draft: PageState) => void): void => {
     setState((prev) => {
@@ -493,10 +502,10 @@ export default function ProceduresNew(): ReactElement {
     if (!oystehrZambda) return;
     try {
       const response = await getProcedureQuickPicks(oystehrZambda);
-      setExistingQuickPicks(response.quickPicks);
+      setExistingQuickPicks([...response.quickPicks].sort(sortQuickPicks));
     } catch (error) {
       console.error('Failed to load existing quick picks:', error);
-      setExistingQuickPicks(mergedQuickPicks);
+      setExistingQuickPicks(sortedMergedQuickPicks);
     }
     // Suggest name: procedure name | site location | side of body | complications | cpt codes
     const parts: string[] = [];
@@ -942,7 +951,8 @@ export default function ProceduresNew(): ReactElement {
             </Box>
 
             <QuickPicksButton
-              quickPicks={!procedureId ? mergedQuickPicks : []}
+              quickPicks={!procedureId ? sortedMergedQuickPicks : []}
+              loading={!procedureId && mergedQuickPicksLoading}
               getLabel={(quickPick) => quickPick.name}
               onSelect={onQuickPickSelect}
               showAddOption

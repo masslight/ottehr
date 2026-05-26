@@ -6,10 +6,8 @@ import {
   AdminCreateTemplateOutput,
   chartDataTagSystem,
   examConfig,
-  ExamType,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
   SecretsKeys,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
@@ -48,7 +46,7 @@ const performEffect = async (
   validatedInput: AdminCreateTemplateInput & Pick<ZambdaInput, 'secrets'>,
   oystehr: Oystehr
 ): Promise<AdminCreateTemplateOutput> => {
-  const { encounterId, templateName, examType } = validatedInput;
+  const { encounterId, templateName } = validatedInput;
 
   // Fetch encounter with all related clinical resources
   const encounterBundle = await oystehr.fhir.search({
@@ -68,11 +66,9 @@ const performEffect = async (
   }
 
   // Determine code system and version based on exam type
-  const codeSystem =
-    examType === ExamType.IN_PERSON ? GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM : GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM;
-  const examVersion =
-    examType === ExamType.IN_PERSON ? examConfig.inPerson.default.version : examConfig.telemed.default.version;
-  const displayName = examType === ExamType.IN_PERSON ? 'Global Template In-Person' : 'Global Template Telemed';
+  const codeSystem = GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM;
+  const examVersion = examConfig.default.version;
+  const displayName = 'Global Template';
 
   // Build List Resource with contained resources
   const listToCreate: List = {

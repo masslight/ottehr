@@ -13,9 +13,10 @@ type Props = {
   validate?: (value: string | undefined) => boolean | string;
   dataTestId?: string;
   disabled?: boolean;
+  size?: 'small' | 'medium';
 };
 
-export const DateInput: React.FC<Props> = ({ name, label, required, validate, dataTestId, disabled }) => {
+export const DateInput: React.FC<Props> = ({ name, label, required, validate, dataTestId, disabled, size }) => {
   const { control } = useFormContext();
   return (
     <Controller
@@ -31,7 +32,7 @@ export const DateInput: React.FC<Props> = ({ name, label, required, validate, da
               slotProps={{
                 textField: {
                   style: { width: '100%' },
-                  size: 'small',
+                  size: size ?? 'small',
                   error: error != null,
                   inputProps: {
                     'data-testid': dataTestId,

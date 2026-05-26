@@ -1,14 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CandidApiClient } from 'candidhealth';
 import { Operation } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
-import { createCandidApiClient, getOptionalSecret, SecretsKeys } from 'utils';
+import { getOrCreateCandidApiClient, MISSING_REQUEST_SECRETS } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   createEncounterFromAppointment,
   createOystehrClient,
   getAuth0Token,
+  shouldSendClaim,
+  shouldUseCandid,
+  shouldUseOttehrBilling,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -31,7 +33,6 @@ type TaskStatus =
 
 let oystehrToken: string;
 let oystehr: Oystehr;
-let candidApiClient: CandidApiClient | undefined;
 let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-send-claim';
@@ -77,51 +78,49 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       const { encounter } = visitResources;
 
-      // Check if candid encounter ID already exists in encounter identifier
-      const existingCandidEncounterId = encounter.identifier?.find(
-        (identifier) => identifier.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM
-      )?.value;
-
-      if (existingCandidEncounterId) {
-        console.log(
-          `[CLAIM SUBMISSION] Candid encounter already exists with ID ${existingCandidEncounterId}, skipping creation`
-        );
-      } else {
-        const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
-        if (candidClientId == null || candidClientId.length === 0) {
-          console.log('CANDID_CLIENT_ID is not set, skipping encounter submission to candid');
-        } else {
-          if (!candidApiClient) {
-            candidApiClient = createCandidApiClient(secrets);
+      if (shouldSendClaim(secrets, encounter)) {
+        if (shouldUseCandid(secrets)) {
+          let candidApiClient: Awaited<ReturnType<typeof getOrCreateCandidApiClient>> | undefined;
+          try {
+            candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
+          } catch (error) {
+            if (error !== MISSING_REQUEST_SECRETS) throw error;
+            console.log('Candid not configured, skipping encounter submission to candid.');
           }
-          console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
-          const candidEncounterId = await createEncounterFromAppointment(visitResources, oystehr, candidApiClient);
-          console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
+          if (candidApiClient) {
+            console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
+            const candidEncounterId = await createEncounterFromAppointment(visitResources, oystehr, candidApiClient);
+            console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
 
-          // Put candid encounter id on the encounter
-          const encounterPatchOps: Operation[] = [];
+            // Put candid encounter id on the encounter
+            const encounterPatchOps: Operation[] = [];
 
-          if (candidEncounterId != null) {
-            const identifier = {
-              system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-              value: candidEncounterId,
-            };
-            encounterPatchOps.push({
-              op: 'add',
-              path: encounter.identifier != null ? '/identifier/-' : '/identifier',
-              value: encounter.identifier != null ? identifier : [identifier],
+            if (candidEncounterId != null) {
+              const identifier = {
+                system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
+                value: candidEncounterId,
+              };
+              encounterPatchOps.push({
+                op: 'add',
+                path: encounter.identifier != null ? '/identifier/-' : '/identifier',
+                value: encounter.identifier != null ? identifier : [identifier],
+              });
+            }
+
+            if (!encounter.id) {
+              throw new Error('Encounter unexpectedly had no id');
+            }
+
+            await oystehr.fhir.patch({
+              resourceType: 'Encounter',
+              id: encounter.id,
+              operations: encounterPatchOps,
             });
           }
-
-          if (!encounter.id) {
-            throw new Error('Encounter unexpectedly had no id');
-          }
-
-          await oystehr.fhir.patch({
-            resourceType: 'Encounter',
-            id: encounter.id,
-            operations: encounterPatchOps,
-          });
+        }
+        // no else, these are not mutually exclusive
+        if (shouldUseOttehrBilling(secrets)) {
+          // currently a no op
         }
       }
 
