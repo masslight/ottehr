@@ -169,7 +169,9 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
     url: SCHEDULE_EXTENSION_URL,
     valueString: scheduleJson,
   });
-  if (timezone) {
+  if (timezone !== undefined) {
+    // Validator guarantees a non-empty IANA tz string here; the strict-undefined check is
+    // intentional so the truthy fast-path can't accidentally re-introduce an empty-string wipe.
     newExtension.push({
       url: TIMEZONE_EXTENSION_URL,
       valueString: timezone,
@@ -227,7 +229,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
     const ownerIdentifier = (owner.identifier ?? []).filter((id) =>
       ownerSlug !== undefined ? id.system !== SLUG_SYSTEM : true
     );
-    if (timezone) {
+    if (timezone !== undefined) {
       ownerExtension.push({
         url: TIMEZONE_EXTENSION_URL,
         valueString: timezone,

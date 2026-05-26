@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { Location, Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useEffect, useMemo, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RoleType, ScheduleDTO, scheduleTypeFromFHIRType, TIMEZONES, UpdateScheduleParams } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -53,7 +53,17 @@ export default function ScheduleGeneralTab({
   const [isVirtual, setIsVirtual] = useState<boolean>(Boolean(item.owner.isVirtual));
   const [stripeAccountId, setStripeAccountId] = useState<string>(item.owner.stripeAccountId ?? '');
   const [advapacsLocationId, setAdvapacsLocationId] = useState<string>(item.owner.advapacsLocationId ?? '');
-  const [rooms, setRooms] = useState<string[]>(item.owner.rooms ?? []);
+  type RoomEntry = { id: string; value: string };
+  const newRoomId = useCallback(
+    (): string =>
+      typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+    []
+  );
+  const toRoomEntries = useCallback(
+    (values: string[]): RoomEntry[] => values.map((value) => ({ id: newRoomId(), value })),
+    [newRoomId]
+  );
+  const [rooms, setRooms] = useState<RoomEntry[]>(toRoomEntries(item.owner.rooms ?? []));
   const [newRoom, setNewRoom] = useState<string>('');
   const [description, setDescription] = useState<string>(item.owner.description ?? '');
   const [addressLine, setAddressLine] = useState<string>(item.owner.address?.line?.[0] ?? '');
@@ -74,7 +84,7 @@ export default function ScheduleGeneralTab({
     setIsVirtual(Boolean(item.owner.isVirtual));
     setStripeAccountId(item.owner.stripeAccountId ?? '');
     setAdvapacsLocationId(item.owner.advapacsLocationId ?? '');
-    setRooms(item.owner.rooms ?? []);
+    setRooms(toRoomEntries(item.owner.rooms ?? []));
     setDescription(item.owner.description ?? '');
     setAddressLine(item.owner.address?.line?.[0] ?? '');
     setAddressCity(item.owner.address?.city ?? '');
@@ -83,7 +93,7 @@ export default function ScheduleGeneralTab({
     setTelecomPhone(item.owner.telecom?.find((cp) => cp.system === 'phone')?.value ?? '');
     setTelecomUrl(item.owner.telecom?.find((cp) => cp.system === 'url')?.value ?? '');
     setTelecomFax(item.owner.telecom?.find((cp) => cp.system === 'fax')?.value ?? '');
-  }, [item]);
+  }, [item, toRoomEntries]);
 
   const defaultIntakeUrl = useMemo(() => {
     const fhirType = item.owner.type;
@@ -142,20 +152,20 @@ export default function ScheduleGeneralTab({
   const handleAddRoom = (): void => {
     const trimmed = newRoom.trim();
     if (!trimmed) return;
-    if (rooms.includes(trimmed)) {
+    if (rooms.some((room) => room.value === trimmed)) {
       enqueueSnackbar('Room with this name already exists.', { variant: 'warning' });
       return;
     }
-    setRooms([...rooms, trimmed]);
+    setRooms([...rooms, { id: newRoomId(), value: trimmed }]);
     setNewRoom('');
   };
 
-  const handleRoomChange = (index: number, value: string): void => {
-    setRooms(rooms.map((room, i) => (i === index ? value : room)));
+  const handleRoomChange = (id: string, value: string): void => {
+    setRooms(rooms.map((room) => (room.id === id ? { ...room, value } : room)));
   };
 
-  const handleRoomDelete = (index: number): void => {
-    setRooms(rooms.filter((_, i) => i !== index));
+  const handleRoomDelete = (id: string): void => {
+    setRooms(rooms.filter((room) => room.id !== id));
   };
 
   const buildAddressPayload = (): UpdateScheduleParams['address'] => {
@@ -185,7 +195,7 @@ export default function ScheduleGeneralTab({
     };
     if (isLocation) {
       params.isVirtual = isVirtual;
-      params.rooms = rooms.map((room) => room.trim()).filter((room) => room !== '');
+      params.rooms = rooms.map((room) => room.value.trim()).filter((value) => value !== '');
       params.description = description.trim();
       params.address = buildAddressPayload();
       params.telecom = {
@@ -377,16 +387,16 @@ export default function ScheduleGeneralTab({
                   </Typography>
                 )}
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxWidth: 500 }}>
-                  {rooms.map((room, index) => (
-                    <Box key={`room-${index}`} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {rooms.map((room) => (
+                    <Box key={room.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <TextField
-                        value={room}
-                        onChange={(event) => handleRoomChange(index, event.target.value)}
+                        value={room.value}
+                        onChange={(event) => handleRoomChange(room.id, event.target.value)}
                         size="small"
                         fullWidth
                         placeholder="Room name"
                       />
-                      <IconButton aria-label="Delete room" onClick={() => handleRoomDelete(index)} size="small">
+                      <IconButton aria-label="Delete room" onClick={() => handleRoomDelete(room.id)} size="small">
                         <DeleteOutlineIcon fontSize="small" />
                       </IconButton>
                     </Box>
