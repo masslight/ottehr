@@ -51,10 +51,10 @@ class EmailClient {
   private config: SendgridConfig;
   private secrets: Secrets | null;
   private featureFlag: boolean;
-  private oystehr: Oystehr;
+  private oystehr?: Oystehr;
   private supportPhonesMapPromise?: Promise<Record<string, string>>;
 
-  constructor(config: SendgridConfig, featureFlag: boolean, secrets: Secrets | null, oystehr: Oystehr) {
+  constructor(config: SendgridConfig, featureFlag: boolean, secrets: Secrets | null, oystehr?: Oystehr) {
     this.config = config;
     this.secrets = secrets;
     this.featureFlag = featureFlag;
@@ -101,14 +101,24 @@ class EmailClient {
     const projectDomain = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
 
     const { sender, replyTo: configReplyTo, ...emailRest } = baseEmail;
-    if (!this.supportPhonesMapPromise) {
-      this.supportPhonesMapPromise = fetchLocationSupportPhonesMap(this.oystehr).catch((err) => {
-        this.supportPhonesMapPromise = undefined;
-        throw err;
-      });
+    const locationName = (templateData as any).location;
+    let supportPhoneNumber: string | undefined;
+    if (locationName) {
+      if (!this.oystehr) {
+        throw new Error(
+          `Email template ${templateIdSecretName} requires location support-phone resolution, but no Oystehr client was provided to EmailClient`
+        );
+      }
+      const oystehr = this.oystehr;
+      if (!this.supportPhonesMapPromise) {
+        this.supportPhonesMapPromise = fetchLocationSupportPhonesMap(oystehr).catch((err) => {
+          this.supportPhonesMapPromise = undefined;
+          throw err;
+        });
+      }
+      const supportPhonesMap = await this.supportPhonesMapPromise;
+      supportPhoneNumber = getSupportPhoneFor(locationName, supportPhonesMap);
     }
-    const supportPhonesMap = await this.supportPhonesMapPromise;
-    const supportPhoneNumber = getSupportPhoneFor((templateData as any).location, supportPhonesMap);
 
     const fromEmail = ENVIRONMENT !== 'local' ? sender : defaultLowersFromEmail;
     const replyTo = ENVIRONMENT !== 'local' ? configReplyTo : defaultLowersFromEmail;
@@ -252,7 +262,7 @@ class EmailClient {
   }
 }
 
-export const getEmailClient = (secrets: Secrets | null, oystehr: Oystehr): EmailClient => {
+export const getEmailClient = (secrets: Secrets | null, oystehr?: Oystehr): EmailClient => {
   return new EmailClient(SENDGRID_CONFIG, FEATURE_FLAGS_CONFIG.sendgridEnabled, secrets, oystehr);
 };
 

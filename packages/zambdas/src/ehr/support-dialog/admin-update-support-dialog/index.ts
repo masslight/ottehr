@@ -45,5 +45,5 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     await oystehr.fhir.create<Basic>(basicResource);
   }
 
-  return { statusCode: 204, body: JSON.stringify({}) };
+  return { statusCode: 204, body: '' };
 });

@@ -337,7 +337,7 @@ async function sendNotificationForMedium(
 
     const htmlContent = convertOutreachTextToHtml(resolvedMessage);
 
-    const emailClient = getEmailClient(secrets, oystehr);
+    const emailClient = getEmailClient(secrets);
     await emailClient.sendGenericOutreachEmail(email, {
       content: htmlContent,
       'subject-text': 'Update regarding your visit',

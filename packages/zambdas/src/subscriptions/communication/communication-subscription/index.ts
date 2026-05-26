@@ -165,7 +165,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log(`Sending issue report email to ${toEmail}`);
     try {
-      const emailClient = getEmailClient(secrets, oystehr);
+      const emailClient = getEmailClient(secrets);
       await emailClient.sendErrorEmail(toEmail, {
         environment: ENVIRONMENT,
         'error-message': errorMessage,

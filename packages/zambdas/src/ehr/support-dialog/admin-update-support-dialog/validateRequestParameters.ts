@@ -1,4 +1,10 @@
-import { AdminUpdateSupportDialogInput, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, Secrets } from 'utils';
+import {
+  AdminUpdateSupportDialogInput,
+  INVALID_INPUT_ERROR,
+  MISSING_AUTH_TOKEN,
+  MISSING_REQUEST_BODY,
+  Secrets,
+} from 'utils';
 import { z } from 'zod';
 import { ZambdaInput } from '../../../shared';
 
@@ -11,6 +17,9 @@ export function validateRequestParameters(
 ): AdminUpdateSupportDialogInput & { secrets: Secrets | null; userToken: string } {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
+  }
+  if (input.headers.Authorization === undefined) {
+    throw MISSING_AUTH_TOKEN;
   }
   const userToken = input.headers.Authorization.replace('Bearer ', '');
   const secrets = input.secrets;
