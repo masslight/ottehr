@@ -64,8 +64,6 @@ async function main(): Promise<void> {
     console.log('Preprocessing complete');
 
     console.log('Waiting for harvesting...');
-    // waitTillHarvestingDone also waits for the async eRx Patient.contact patch to settle, so the
-    // frozen seed matches the live e2e patient (otherwise the integration data-contract test drifts).
     await handler.waitTillHarvestingDone(appointmentId);
     console.log('Harvesting complete');
 
