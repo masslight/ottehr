@@ -5,7 +5,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { CommandPaletteInPersonRegistrations } from 'src/components/CommandPaletteRegistrations';
 import { ThemeProvider } from 'styled-components';
-import { getAdmitterPractitionerId, getAttendingPractitionerId, getSelectors, isTelemedAppointment } from 'utils';
+import { getAttendingPractitionerId, getSelectors, isTelemedAppointment } from 'utils';
 import { Sidebar } from '../../shared/components/Sidebar';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
@@ -49,7 +49,6 @@ export const InPersonLayout: React.FC = () => {
 
   useResetAppointmentStore();
   const { chartData } = useChartData({ shouldUpdateExams: true });
-  const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
   const assignedProviderId = getAttendingPractitionerId(encounter);
   const virtual = isTelemedAppointment(appointment);
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
@@ -102,7 +101,7 @@ export const InPersonLayout: React.FC = () => {
               padding: '20px 20px 24px 20px',
             }}
           >
-            {(isFollowup || assignedIntakePerformerId) && assignedProviderId ? (
+            {assignedProviderId ? (
               <>
                 <Outlet />
               </>
