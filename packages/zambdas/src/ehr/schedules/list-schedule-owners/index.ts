@@ -145,6 +145,15 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
       value: '1000',
     },
   ];
+  // Filter Location owners to status=active. Matches the canonical filter
+  // used at PR creation (apps/ehr/src/components/schedule/PractitionerRoleList
+  // uses `params: [{ name: 'status', value: 'active' }]`), so the admin
+  // surface here doesn't surface schedule owners the rest of the system
+  // treats as invisible. Practitioner/HealthcareService have different
+  // active-flag conventions; leave them alone for now to avoid scope creep.
+  if (ownerType === 'Location') {
+    ownerParams.push({ name: 'status', value: 'active' });
+  }
   const [scheduleRes, ownerRes] = await Promise.all([
     oystehr.fhir.search<Schedule>({
       resourceType: 'Schedule',

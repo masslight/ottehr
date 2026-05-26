@@ -19,7 +19,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { BatchInputRequest } from '@oystehr/sdk';
 import { useQuery } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, HealthcareService, Location, Practitioner, PractitionerRole, Resource } from 'fhir/r4b';
@@ -29,6 +28,7 @@ import { Link, useParams } from 'react-router-dom';
 import { listServiceCategories } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import {
+  getAllFhirSearchPages,
   getGroupAllLocations,
   getGroupAssignmentMode,
   getPatchBinary,
@@ -65,14 +65,11 @@ function GroupPageContent(): ReactElement {
   const [locations, setLocations] = useState<Location[] | undefined>(undefined);
   const [practitioners, setPractitioners] = useState<Practitioner[] | undefined>(undefined);
   const [practitionerRoles, setPractitionerRoles] = useState<PractitionerRole[] | undefined>(undefined);
-  // Two membership levers, both valid and composable. Location-based
-  // membership expands each selected Location into the PR-schedules at
-  // that Location via the `pools-providers` strategy. Per-PR membership
-  // adds individual PR-schedules to the pool by back-reference. A group
-  // can use either, both, or neither; selections from the two pickers
-  // union at slot-resolution time (dedup is keyed by Schedule).
+  // The group's `.location[]` — the admin-set location lever. Composes with
+  // any pre-existing PR.healthcareService[] back-references at slot-
+  // resolution time (PR back-refs are no longer managed from this page;
+  // edit them via per-PR config pages if needed).
   const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
-  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   // When true, the group pools from every active PR in the system, ignoring
   // any specific Location selection. The Location picker is disabled (but
   // still visible) while this is on; toggling off restores prior picker state.
@@ -151,14 +148,21 @@ function GroupPageContent(): ReactElement {
     return counts;
   }, [locations, practitionerRoles]);
 
-  // Picker order: Locations with at least one active provider come first,
+  // Picker options: only Locations with status=active are pickable. Matches
+  // the filter used when creating PractitionerRoles (PractitionerRoleList:
+  // `params: [{ name: 'status', value: 'active' }]`), so admins can't
+  // attach a Location to this group that's effectively invisible elsewhere.
+  // The raw `locations` fetch is intentionally not filtered — already-
+  // attached legacy Locations whose status has since flipped still need
+  // their name resolved for chips and the per-category subtext.
+  // Sort order: Locations with at least one active provider come first,
   // then Locations with none. Within each tier, sort alphabetically
   // ascending by Location name.
   const sortedLocationIds = useMemo(() => {
     const nameById = new Map((locations || []).filter((l) => l.id).map((l) => [l.id!, l.name || ''] as const));
     return (locations || [])
-      .map((l) => l.id)
-      .filter((id): id is string => !!id)
+      .filter((l) => !!l.id && l.status === 'active')
+      .map((l) => l.id!)
       .sort((a, b) => {
         const aHas = (providerCountByLocationId.get(a) ?? 0) > 0;
         const bHas = (providerCountByLocationId.get(b) ?? 0) > 0;
@@ -166,6 +170,80 @@ function GroupPageContent(): ReactElement {
         return (nameById.get(a) ?? '').localeCompare(nameById.get(b) ?? '');
       });
   }, [locations, providerCountByLocationId]);
+
+  // Read-only breakdown for the widget below the Location picker: active
+  // providers at each in-pool location, with the group-relevant services
+  // each one offers. Surfaces what the location-based composition will
+  // pool, without re-introducing a per-PR picker on this page. A provider
+  // with multiple PRs at the same location (e.g. intake + surgery
+  // schedules) shows once per location with the union of relevant services
+  // across their PRs there. Providers offering none of the group's
+  // services are hidden (they don't contribute).
+  //
+  // Output differs slightly between the two composition modes:
+  //   - selected locations: keep every selected location in the output,
+  //     including ones with no relevant providers, since the admin chose
+  //     each and "this one's empty" is actionable signal.
+  //   - all locations: filter out empty ones — admin chose "everywhere,"
+  //     not each individually, so flooding the widget with "no providers
+  //     here" rows for unrelated locations would drown out the signal.
+  const locationProviderRollup = useMemo(() => {
+    if (!allLocations && selectedLocationIds.length === 0) return [];
+    const relevantHsIdSet = new Set(supportedCategoryHsIds);
+    const locationById = new Map((locations || []).filter((l) => l.id).map((l) => [l.id!, l] as const));
+    const targetLocationIds = allLocations
+      ? (locations || []).map((l) => l.id).filter((id): id is string => !!id)
+      : selectedLocationIds;
+    const targetLocationIdSet = new Set(targetLocationIds);
+    const byLocation = new Map<string, Map<string, { name: string; services: Set<string> }>>();
+    for (const role of practitionerRoles || []) {
+      if (role.active === false) continue;
+      const pracId = role.practitioner?.reference?.split('/')[1];
+      if (!pracId) continue;
+      for (const locRef of role.location || []) {
+        const locId = locRef.reference?.split('/')[1];
+        if (!locId || !targetLocationIdSet.has(locId)) continue;
+        if (!byLocation.has(locId)) byLocation.set(locId, new Map());
+        const byPrac = byLocation.get(locId)!;
+        if (!byPrac.has(pracId)) {
+          const prac = (practitioners || []).find((p) => p.id === pracId);
+          const name = prac?.name?.[0] ? oystehr?.fhir.formatHumanName(prac.name[0]) || 'Unknown' : 'Unknown';
+          byPrac.set(pracId, { name, services: new Set<string>() });
+        }
+        const entry = byPrac.get(pracId)!;
+        for (const hsRef of role.healthcareService || []) {
+          const hsId = hsRef.reference?.split('/')[1];
+          if (!hsId || !relevantHsIdSet.has(hsId)) continue;
+          const catName = categoryByHsId.get(hsId)?.name;
+          if (catName) entry.services.add(catName);
+        }
+      }
+    }
+    const rows = targetLocationIds.map((locId) => {
+      const loc = locationById.get(locId);
+      const byPrac = byLocation.get(locId) ?? new Map();
+      const providers = Array.from(byPrac.values())
+        .filter((entry) => entry.services.size > 0)
+        .map((entry) => ({ name: entry.name, services: Array.from(entry.services).sort() }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return {
+        locationId: locId,
+        locationName: loc?.name || locId,
+        providers,
+      };
+    });
+    const filtered = allLocations ? rows.filter((r) => r.providers.length > 0) : rows;
+    return filtered.sort((a, b) => a.locationName.localeCompare(b.locationName));
+  }, [
+    allLocations,
+    selectedLocationIds,
+    locations,
+    practitionerRoles,
+    practitioners,
+    supportedCategoryHsIds,
+    categoryByHsId,
+    oystehr,
+  ]);
 
   // Build one booking link per (category × mode × flow) the category supports.
   // No location or provider targeting — the patient lands on the group's slot-
@@ -202,24 +280,22 @@ function GroupPageContent(): ReactElement {
       console.log('oystehr client is not defined');
       return;
     }
-    // Query PractitionerRoles directly (with their referenced Practitioners
-    // _included). Earlier this came in via Practitioner?_revinclude, but that
-    // pages on the Practitioner count — at 307 practitioners only the first 50
-    // had their PRs returned, hiding any provider beyond that page.
+    // Phase 1: fetch the group + PractitionerRoles. PRs come direct (with
+    // their referenced Practitioners _included) — earlier this came in via
+    // Practitioner?_revinclude, but that pages on Practitioner count, so at
+    // 307 practitioners only the first 50 had their PRs returned, hiding any
+    // provider beyond that page. The 1000 _count cap on PRs is still a latent
+    // risk on envs north of that.
     const request = await oystehr.fhir.batch({
       requests: [
         { method: 'GET', url: `/HealthcareService?_id=${groupID}` },
-        { method: 'GET', url: '/Location?_count=1000' },
         { method: 'GET', url: '/PractitionerRole?_include=PractitionerRole:practitioner&_count=1000' },
       ],
     });
     const groupTemp: HealthcareService = (request?.entry?.[0]?.resource as any).entry.map(
       (resourceTemp: any) => resourceTemp.resource
     )[0];
-    const locationsTemp: Location[] = (request?.entry?.[1]?.resource as any).entry.map(
-      (resourceTemp: any) => resourceTemp.resource
-    );
-    const practitionerResources: Resource[] = (request?.entry?.[2]?.resource as any).entry.map(
+    const practitionerResources: Resource[] = (request?.entry?.[1]?.resource as any).entry.map(
       (resourceTemp: any) => resourceTemp.resource
     );
     const practitionersTemp: Practitioner[] = practitionerResources.filter(
@@ -229,25 +305,50 @@ function GroupPageContent(): ReactElement {
       (r) => r.resourceType === 'PractitionerRole'
     ) as PractitionerRole[];
 
+    // Phase 2 (parallel): paginated active-Location fetch + supplemental
+    // fetch for already-attached Locations. Active Locations alone can
+    // exceed 1000 on real envs, so paginate; status=active is pushed to
+    // the server to keep each page small and the page count low. The
+    // supplemental fetch covers groups that have a Location attached whose
+    // status has since flipped to inactive — without it, those Locations
+    // would vanish from chips/widget/subtext as soon as we filter the main
+    // fetch by status.
+    const attachedLocationIds = (groupTemp.location ?? [])
+      .map((ref) => ref.reference?.split('/')[1])
+      .filter((id): id is string => !!id);
+    const [activeLocations, attachedLocations] = await Promise.all([
+      getAllFhirSearchPages<Location>(
+        {
+          resourceType: 'Location',
+          params: [{ name: 'status', value: 'active' }],
+        },
+        oystehr
+      ),
+      attachedLocationIds.length > 0
+        ? oystehr.fhir
+            .search<Location>({
+              resourceType: 'Location',
+              params: [{ name: '_id', value: attachedLocationIds.join(',') }],
+            })
+            .then((b) => b.unbundle())
+        : Promise.resolve<Location[]>([]),
+    ]);
+    const locationsTemp: Location[] = [...activeLocations];
+    const seenLocationIds = new Set(activeLocations.map((l) => l.id).filter((id): id is string => !!id));
+    for (const loc of attachedLocations) {
+      if (loc.id && !seenLocationIds.has(loc.id)) {
+        locationsTemp.push(loc);
+        seenLocationIds.add(loc.id);
+      }
+    }
+
     setGroup(groupTemp);
     setName(groupTemp.name ?? '');
     setSlug(getSlugForBookableResource(groupTemp) ?? '');
     setLocations(locationsTemp);
     setPractitioners(practitionersTemp);
     setPractitionerRoles(practitionerRolesTemp);
-
-    // Pre-select any PR that already references this group via .healthcareService[].
-    const initialSelectedRoleIds = practitionerRolesTemp
-      .filter((role) => role.healthcareService?.some((ref) => ref.reference === `HealthcareService/${groupTemp.id}`))
-      .map((role) => role.id!)
-      .filter((id) => !!id);
-    setSelectedRoleIds(initialSelectedRoleIds);
-
-    // Pre-select the group's currently-attached Locations.
-    const initialSelectedLocationIds = (groupTemp.location ?? [])
-      .map((ref) => ref.reference?.split('/')[1])
-      .filter((id): id is string => !!id);
-    setSelectedLocationIds(initialSelectedLocationIds);
+    setSelectedLocationIds(attachedLocationIds);
 
     setAssignmentMode(getGroupAssignmentMode(groupTemp) ?? 'anonymous');
     setAllLocations(getGroupAllLocations(groupTemp) ?? false);
@@ -283,53 +384,8 @@ function GroupPageContent(): ReactElement {
   async function onSubmit(event: any): Promise<void> {
     try {
       event.preventDefault();
-      if (!oystehr || !practitionerRoles) return;
+      if (!oystehr) return;
       setLoading(true);
-
-      // Previously-selected role ids (those with a healthcareService ref to us).
-      const wasSelected = new Set(
-        practitionerRoles
-          .filter((r) => r.healthcareService?.some((ref) => ref.reference === `HealthcareService/${groupID}`))
-          .map((r) => r.id!)
-      );
-      const nowSelected = new Set(selectedRoleIds);
-      const toAdd = selectedRoleIds.filter((id) => !wasSelected.has(id));
-      const toRemove = Array.from(wasSelected).filter((id) => !nowSelected.has(id));
-
-      const rolePatchRequests: BatchInputRequest<PractitionerRole>[] = [];
-      for (const roleId of toAdd) {
-        const role = practitionerRoles.find((r) => r.id === roleId);
-        if (!role) continue;
-        let value: any = { reference: `HealthcareService/${groupID}` };
-        if (!role.healthcareService) value = [value];
-        rolePatchRequests.push(
-          getPatchBinary({
-            resourceType: 'PractitionerRole',
-            resourceId: roleId,
-            patchOperations: [
-              {
-                op: 'add',
-                path: role.healthcareService ? '/healthcareService/-' : '/healthcareService',
-                value,
-              },
-            ],
-          })
-        );
-      }
-      for (const roleId of toRemove) {
-        const role = practitionerRoles.find((r) => r.id === roleId);
-        if (!role) continue;
-        const filtered = (role.healthcareService || []).filter(
-          (ref) => ref.reference !== `HealthcareService/${groupID}`
-        );
-        rolePatchRequests.push(
-          getPatchBinary({
-            resourceType: 'PractitionerRole',
-            resourceId: roleId,
-            patchOperations: [{ op: 'replace', path: '/healthcareService', value: filtered }],
-          })
-        );
-      }
 
       // Locations are admin-curated directly via selectedLocationIds (the
       // source of truth for the group's `.location[]`). The reader expands
@@ -400,8 +456,8 @@ function GroupPageContent(): ReactElement {
         patchOperations,
       });
 
-      await oystehr.fhir.transaction<PractitionerRole | HealthcareService>({
-        requests: [...rolePatchRequests, healthcareServicePatchRequest],
+      await oystehr.fhir.transaction<HealthcareService>({
+        requests: [healthcareServicePatchRequest],
       });
 
       enqueueSnackbar('Group saved successfully!', { variant: 'success' });
@@ -422,13 +478,6 @@ function GroupPageContent(): ReactElement {
     );
   }
 
-  // Selected PRs that have since been deactivated. These linger as group
-  // members until an admin deselects them — surface a warning so the cleanup
-  // is obvious.
-  const selectedInactiveRoles = (practitionerRoles || []).filter(
-    (r) => r.id && selectedRoleIds.includes(r.id) && r.active === false
-  );
-
   return (
     <>
       <CustomBreadcrumbs
@@ -443,32 +492,9 @@ function GroupPageContent(): ReactElement {
         Manage the schedule for {group?.name}
       </Typography>
       <Typography variant="body1">
-        This is a group schedule. Its availability is made up of the schedules of the provider roles selected below.
-        Each role carries its own Location and list of offered services; the group's offered services and locations are
-        derived from that union.
+        Group schedule. Patients booking through this group's link see slots from every active provider at the selected
+        locations, restricted to the services in the allow-list below.
       </Typography>
-      {selectedInactiveRoles.length > 0 && (
-        <Box
-          sx={{
-            mt: 2,
-            p: 2,
-            border: '1px solid',
-            borderColor: 'warning.main',
-            borderRadius: 1,
-            backgroundColor: 'warning.lighter',
-          }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {selectedInactiveRoles.length === 1
-              ? '1 inactive provider schedule is still selected as a member.'
-              : `${selectedInactiveRoles.length} inactive provider schedules are still selected as members.`}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Inactive schedules don't contribute to this group's bookable hours, locations, or services. Deselect them in
-            the picker below and Save to clean up.
-          </Typography>
-        </Box>
-      )}
       <Paper sx={{ marginTop: 2, padding: 3 }}>
         <form onSubmit={onSubmit}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 0 }}>
@@ -567,37 +593,39 @@ function GroupPageContent(): ReactElement {
               </Typography>
               <Typography variant="body1" sx={{ display: 'block', mb: 1, color: 'text.primary' }}>
                 The patient is allowed to book only the checked services through this group's link. Each row shows which
-                selected members currently offer the service.
+                selected locations currently offer the service.
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxWidth: 640 }}>
                 {Array.from(categoryByHsId.entries())
                   .sort(([, a], [, b]) => a.name.localeCompare(b.name))
                   .map(([hsId, info]) => {
                     const isInAllowList = supportedCategoryHsIds.includes(hsId);
-                    // Members of this group whose PR explicitly offers this category.
-                    const offeringNames: string[] = [];
-                    if (practitionerRoles && practitioners) {
-                      const seen = new Set<string>();
-                      for (const role of practitionerRoles) {
-                        if (!role.id || !selectedRoleIds.includes(role.id)) continue;
-                        const offers = role.healthcareService?.some(
-                          (ref) => ref.reference === `HealthcareService/${hsId}`
-                        );
-                        if (!offers) continue;
-                        const pracId = role.practitioner?.reference?.split('/')[1];
-                        const prac = practitioners.find((p) => p.id === pracId);
-                        const name = prac?.name?.[0]
-                          ? oystehr?.fhir.formatHumanName(prac.name[0]) || 'Unknown'
-                          : 'Unknown';
-                        if (!seen.has(name)) {
-                          seen.add(name);
-                          offeringNames.push(name);
-                        }
+                    // Selected locations where at least one active PR offers this
+                    // category. When `allLocations` is on, walk every Location.
+                    const targetLocationIdSet = allLocations
+                      ? new Set((locations || []).map((l) => l.id).filter((id): id is string => !!id))
+                      : new Set(selectedLocationIds);
+                    const offeringLocationNames = new Set<string>();
+                    for (const role of practitionerRoles || []) {
+                      if (role.active === false) continue;
+                      const offers = role.healthcareService?.some(
+                        (ref) => ref.reference === `HealthcareService/${hsId}`
+                      );
+                      if (!offers) continue;
+                      for (const locRef of role.location || []) {
+                        const locId = locRef.reference?.split('/')[1];
+                        if (!locId || !targetLocationIdSet.has(locId)) continue;
+                        const loc = (locations || []).find((l) => l.id === locId);
+                        if (loc?.name) offeringLocationNames.add(loc.name);
                       }
                     }
-                    const providerText =
-                      offeringNames.length > 0 ? offeringNames.join(', ') : 'no member offers this service';
-                    const isWarning = offeringNames.length === 0 && isInAllowList;
+                    const locationsText =
+                      targetLocationIdSet.size === 0
+                        ? 'no locations selected'
+                        : offeringLocationNames.size > 0
+                        ? Array.from(offeringLocationNames).sort().join(', ')
+                        : 'no selected location offers this service';
+                    const isWarning = isInAllowList && targetLocationIdSet.size > 0 && offeringLocationNames.size === 0;
                     return (
                       <Box
                         key={hsId}
@@ -627,7 +655,7 @@ function GroupPageContent(): ReactElement {
                             </Typography>
                           </Typography>
                           <Typography variant="caption" sx={{ color: isWarning ? 'warning.main' : 'text.secondary' }}>
-                            {providerText}
+                            {locationsText}
                           </Typography>
                         </Box>
                       </Box>
@@ -699,6 +727,49 @@ function GroupPageContent(): ReactElement {
                   />
                 )}
               />
+              {locationProviderRollup.length > 0 && (
+                <Box
+                  sx={{
+                    mt: 1,
+                    maxWidth: 640,
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+                    Providers per location
+                  </Typography>
+                  <Box sx={{ maxHeight: 280, overflow: 'auto', pr: 1 }}>
+                    {locationProviderRollup.map((row) => (
+                      <Box key={row.locationId} sx={{ mb: 1.5, '&:last-child': { mb: 0 } }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {row.locationName}
+                        </Typography>
+                        {row.providers.length === 0 ? (
+                          <Typography
+                            variant="caption"
+                            sx={{ color: 'text.secondary', fontStyle: 'italic', ml: 1, display: 'block' }}
+                          >
+                            No providers at this location offer this group's services.
+                          </Typography>
+                        ) : (
+                          row.providers.map((p) => (
+                            <Typography
+                              key={p.name}
+                              variant="caption"
+                              sx={{ color: 'text.secondary', display: 'block', ml: 1 }}
+                            >
+                              {p.name} — {p.services.join(', ')}
+                            </Typography>
+                          ))
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
             </Box>
             <Box>
               <LoadingButton loading={loading} type="submit" variant="contained" color="primary" size="medium">
