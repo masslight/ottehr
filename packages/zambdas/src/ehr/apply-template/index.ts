@@ -21,6 +21,7 @@ import {
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { hasTemplateRelevantTag, isDiagnosisCondition } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 interface ComplexValidationOutput {
@@ -120,10 +121,7 @@ const getSectionForResource = (resource: FhirResource): TemplateSectionKey | nul
   if (hasTagSystem(resource, chartDataTagSystem('patient-instruction'))) return 'patientInstructions';
   if (hasTagSystem(resource, chartDataTagSystem('em-code'))) return 'emCode';
   if (hasTagSystem(resource, chartDataTagSystem('cpt-code'))) return 'cptCodes';
-  if (
-    resource.resourceType === 'Condition' &&
-    (resource as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
-  ) {
+  if (isDiagnosisCondition(resource)) {
     return 'diagnoses';
   }
   return null;
@@ -336,6 +334,16 @@ const makeCreateRequests = (
       continue;
     }
 
+    // Defensive guard: only apply resources whose meta tag is template-relevant. Older templates created before
+    // the create-side filter was tightened may still contain patient-specific resources (e.g. Medical Conditions);
+    // skip them rather than recreate that data on this chart.
+    if (containedResource.resourceType !== 'Encounter' && !hasTemplateRelevantTag(containedResource)) {
+      console.log(
+        `Skipping contained resource ${containedResource.resourceType}/${containedResource.id}: no template-relevant meta tag`
+      );
+      continue;
+    }
+
     const section = getSectionForResource(containedResource);
     if (!section) {
       // Unknown contained resource — not managed by any section, skip.
@@ -400,15 +408,20 @@ const makeCreateRequests = (
       continue;
     }
 
-    // For Condition resources that are ICD-10 codes, we need to update the Encounter.diagnosis references
+    // For Diagnosis Conditions we also need to update the Encounter.diagnosis references.
+    // Use the `diagnosis` meta tag (not the presence of an ICD-10 code) so Medical Conditions are not picked up.
     if (
       resourceToCreate.resourceType === 'Condition' &&
-      resourceToCreate.code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM) &&
+      isDiagnosisCondition(resourceToCreate) &&
       encounterDiagnoses !== null
     ) {
+      const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
+        return d.condition.reference?.split('/')[1] === containedResource.id;
+      });
+
       const isDuplicate = isDuplicateDiagnosis(resourceToCreate, encounterDiagnosesConditions);
 
-      // we should only add to encounter diagnoses after a dedupe
+      // we should only add to encounter diagnoses after a dedupe, to ensure the template doesn't add Dx already on the chart
       if (!isDuplicate) {
         const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
           return d.condition.reference?.split('/')[1] === containedResource.id;
@@ -418,6 +431,11 @@ const makeCreateRequests = (
           condition: { reference: fullUrl },
         });
       }
+
+      encounterDiagnoses.push({
+        ...diagnosisToAdd, // This pulls in the `rank: 1` if present.
+        condition: { reference: fullUrl },
+      });
     }
 
     // Skip duplicate MOI Conditions from the template (only the first one is used)
@@ -532,6 +550,7 @@ const makeCreateRequests = (
 
 const isDuplicateDiagnosis = (templateDiagnosisCondition: Condition, encounterConditions: Condition[]): boolean => {
   const getDxCode = (condition: Condition): string | undefined => {
+    if (!isDiagnosisCondition(condition)) return undefined;
     return condition.code?.coding?.find((coding) => coding.system === ICD_10_CODE_SYSTEM)?.code;
   };
 
