@@ -1,23 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult, Handler } from 'aws-lambda';
-import {
-  QuickPickCreateResponse,
-  QuickPickListResponse,
-  QuickPickRemoveResponse,
-  QuickPickUpdateResponse,
-} from 'utils';
+import { QuickPickCreateResponse, QuickPickUpdateResponse } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import {
-  createQuickPick,
-  QuickPickCategory,
-  removeQuickPick,
-  searchQuickPicks,
-  updateQuickPick,
-} from './quick-pick-helpers';
+import { createQuickPick, QuickPickCategory, updateQuickPick } from './quick-pick-helpers';
 
 let m2mToken: string;
 
-function makeHandler(
+export function makeHandler(
   zambdaName: string,
   effect: (oystehr: Oystehr, input: ZambdaInput) => Promise<unknown>
 ): Handler<ZambdaInput, APIGatewayProxyResult> {
@@ -32,16 +21,6 @@ function makeHandler(
       statusCode: 200,
       body: JSON.stringify(response),
     };
-  });
-}
-
-export function makeGetHandler<T extends { id?: string }>(
-  zambdaName: string,
-  category: QuickPickCategory<T>
-): Handler<ZambdaInput, APIGatewayProxyResult> {
-  return makeHandler(zambdaName, async (oystehr): Promise<QuickPickListResponse<T>> => {
-    const quickPicks = await searchQuickPicks(oystehr, category);
-    return { message: `Found ${quickPicks.length} quick picks`, quickPicks };
   });
 }
 
@@ -74,19 +53,5 @@ export function makeUpdateHandler<T extends { id?: string }>(
     const quickPick = await updateQuickPick(oystehr, quickPickId, quickPickData, category);
     const displayName = category.getDisplayName(quickPickData);
     return { message: `Successfully updated quick pick: ${displayName}`, quickPick };
-  });
-}
-
-export function makeRemoveHandler<T extends { id?: string }>(
-  zambdaName: string,
-  category?: QuickPickCategory<T>
-): Handler<ZambdaInput, APIGatewayProxyResult> {
-  return makeHandler(zambdaName, async (oystehr, input): Promise<QuickPickRemoveResponse> => {
-    if (!input.body) throw new Error('No request body provided');
-    const parsed = JSON.parse(input.body) as Record<string, unknown>;
-    const quickPickId = parsed.quickPickId;
-    if (typeof quickPickId !== 'string') throw new Error('quickPickId must be a string');
-    await removeQuickPick(oystehr, quickPickId, category);
-    return { message: 'Successfully removed quick pick' };
   });
 }
