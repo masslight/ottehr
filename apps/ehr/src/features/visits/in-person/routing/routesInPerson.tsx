@@ -388,7 +388,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.PLAN]: {
     path: ROUTER_PATH.PLAN,
-    modes: ['main', 'readonly'],
+    modes: ['main', 'readonly', 'follow-up'],
     element: <Plan />,
     text: 'Plan',
     iconKey: 'Lab profile',
