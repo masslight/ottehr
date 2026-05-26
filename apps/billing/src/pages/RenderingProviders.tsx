@@ -47,17 +47,13 @@ export function RenderingProvidersList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        const body: Record<string, unknown> = {
+        const response = await oystehrZambda.zambda.execute({
           id: 'search-billing-providers',
           providerType: 'rendering',
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
-        };
-        if (name) {
-          body.name = name;
-          body.includeWorkingCopies = true;
-        }
-        const response = await oystehrZambda.zambda.execute(body);
+          ...(name ? { name, includeWorkingCopies: true } : {}),
+        });
         const data = chooseJson(response);
         setProviders(data.providers ?? []);
         setTotalRows(data.total ?? 0);
