@@ -1205,25 +1205,7 @@ async function candidCreateEncounterFromAppointmentRequest(
       modifiers = ['95'];
     }
 
-    let drugIdentification: DrugIdentification | undefined;
-    const maRef = procedure.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
-    if (maRef?.reference) {
-      const maId = maRef.reference.replace('MedicationAdministration/', '');
-      const ma = medicationAdministrations.find((m) => m.id === maId);
-      if (ma) {
-        const medication = getMedicationFromMA(ma);
-        const ndc = medication ? getNdcCodeFromMedication(medication) : undefined;
-        if (ndc) {
-          const dosage = getDosageFromMA(ma);
-          drugIdentification = {
-            serviceIdQualifier: ServiceIdQualifier.Ndc542Format,
-            nationalDrugCode: ndc,
-            nationalDrugUnitCount: dosage ? String(dosage.dose) : '1',
-            measurementUnitCode: dosage ? mapMedicationUnitToCandid(dosage.units) : MeasurementUnitCode.Units,
-          };
-        }
-      }
-    }
+    const drugIdentification = buildDrugIdentification(procedure, medicationAdministrations);
 
     serviceLines.push({
       procedureCode: procedureCode,
@@ -1327,7 +1309,32 @@ const isProcedureModifier = (code: unknown): code is ProcedureModifier => {
   return typeof code === 'string' && procedureModifierValues.has(code as ProcedureModifier);
 };
 
-function mapMedicationUnitToCandid(unit: MedicationUnitOptions): MeasurementUnitCode {
+export function buildDrugIdentification(
+  procedure: Procedure,
+  medicationAdministrations: MedicationAdministration[]
+): DrugIdentification | undefined {
+  const maRef = procedure.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
+  if (!maRef?.reference) return undefined;
+
+  const maId = maRef.reference.replace('MedicationAdministration/', '');
+  const ma = medicationAdministrations.find((m) => m.id === maId);
+  if (!ma) return undefined;
+
+  const medication = getMedicationFromMA(ma);
+  const ndc = medication ? getNdcCodeFromMedication(medication) : undefined;
+  if (!ndc) return undefined;
+
+  const dosage = getDosageFromMA(ma);
+  const doseValue = dosage?.dose ?? ma.dosage?.dose?.value;
+  return {
+    serviceIdQualifier: ServiceIdQualifier.Ndc542Format,
+    nationalDrugCode: ndc,
+    nationalDrugUnitCount: doseValue != null ? String(doseValue) : '1',
+    measurementUnitCode: dosage ? mapMedicationUnitToCandid(dosage.units) : MeasurementUnitCode.Units,
+  };
+}
+
+export function mapMedicationUnitToCandid(unit: MedicationUnitOptions): MeasurementUnitCode {
   switch (unit) {
     case 'mg':
       return MeasurementUnitCode.Milligram;
@@ -1340,6 +1347,9 @@ function mapMedicationUnitToCandid(unit: MedicationUnitOptions): MeasurementUnit
     case 'unit':
       return MeasurementUnitCode.Units;
     case 'application':
+      return MeasurementUnitCode.Units;
+    default:
+      console.warn(`[CANDID] Unexpected medication unit "${String(unit)}"; defaulting to Units`);
       return MeasurementUnitCode.Units;
   }
 }

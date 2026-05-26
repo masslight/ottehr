@@ -39,6 +39,7 @@ import {
   UpdateMedicationOrderInput,
 } from 'utils';
 import {
+  assertDefined,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
@@ -491,7 +492,10 @@ async function manageAdditionalCptCodesForOrder(
     const chartData = chooseJson(chartDataResponse) as GetChartDataResponse;
     const chartDataCptCodes = chartData.cptCodes?.map((code) => code.code) ?? [];
 
-    const patientId = medicationAdministration.subject.reference?.replace('Patient/', '') ?? '';
+    const patientId = assertDefined(
+      medicationAdministration.subject.reference?.replace('Patient/', ''),
+      'MedicationAdministration.subject.reference'
+    );
     const partOfRef = `MedicationAdministration/${medicationAdministration.id}`;
 
     const newCodes = orderCptCodes.filter((oc) => !chartDataCptCodes.includes(oc.code));
