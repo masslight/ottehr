@@ -409,10 +409,17 @@ const SAMPLE_INPUT: InvoicePlaceholderInput = {
   patientPortalLink: 'https://patient.ottehr.com/',
 };
 
-const OUTREACH_TOKEN_IDS = [...INVOICE_TOKEN_IDS, 'location-review-link'] as const;
+const OUTREACH_TOKEN_IDS = [
+  ...INVOICE_TOKEN_IDS,
+  // Canonical token name. `location-review-link` is kept as an alias for templates
+  // authored before the rename.
+  'location-google-review-link',
+  'location-review-link',
+] as const;
 
 const SAMPLE_PREVIEW_VALUES: Record<string, string> = {
   ...buildInvoicePlaceholders(SAMPLE_INPUT),
+  'location-google-review-link': 'https://g.page/r/example-clinic/review',
   'location-review-link': 'https://g.page/r/example-clinic/review',
 };
 

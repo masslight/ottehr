@@ -6,6 +6,7 @@ import {
   Closure,
   DailySchedule,
   getScheduleExtension,
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
   MISSING_SCHEDULE_EXTENSION_ERROR,
   PUBLIC_EXTENSION_BASE_URL,
   RoleType,
@@ -137,6 +138,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
     description,
     address,
     telecom,
+    googleReviewLink,
   } = updateDetails;
   const scheduleExtension: ScheduleExtension = getScheduleExtension(currentSchedule) ?? {
     schedule: definiteDailySchedule,
@@ -189,7 +191,8 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
       rooms !== undefined ||
       description !== undefined ||
       address !== undefined ||
-      telecom !== undefined);
+      telecom !== undefined ||
+      googleReviewLink !== undefined);
   // Name editing is only supported for Location owners — Practitioner has HumanName[],
   // HealthcareService isn't surfaced in the UI. For non-Location owners, ignore the field
   // entirely so we don't bump the resource version with no actual change.
@@ -220,6 +223,9 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
         return false;
       }
       if (ownerIsLocation && rooms !== undefined && ext.url === ROOM_EXTENSION_URL) {
+        return false;
+      }
+      if (ownerIsLocation && googleReviewLink !== undefined && ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL) {
         return false;
       }
       return true;
@@ -262,6 +268,12 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
         ownerExtension.push({
           url: SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
           valueString: advapacsLocationId.trim(),
+        });
+      }
+      if (typeof googleReviewLink === 'string' && googleReviewLink.trim() !== '') {
+        ownerExtension.push({
+          url: LOCATION_REVIEW_LINK_EXTENSION_URL,
+          valueUrl: googleReviewLink.trim(),
         });
       }
       if (rooms !== undefined) {
@@ -345,6 +357,7 @@ interface EffectInput {
     description?: string | null;
     address?: Address | null;
     telecom?: TelecomUpdate | null;
+    googleReviewLink?: string | null;
   };
   definiteDailySchedule: DailySchedule;
   currentSchedule: Schedule;
@@ -366,6 +379,7 @@ const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oyste
     description,
     address,
     telecom,
+    googleReviewLink,
   } = input;
   let definiteDailySchedule: DailySchedule;
   const schedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: scheduleId });
@@ -406,6 +420,7 @@ const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oyste
       description,
       address,
       telecom,
+      googleReviewLink,
     },
     definiteDailySchedule,
     owner,

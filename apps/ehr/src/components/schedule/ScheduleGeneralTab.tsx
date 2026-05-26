@@ -75,6 +75,7 @@ export default function ScheduleGeneralTab({
   const [telecomPhone, setTelecomPhone] = useState<string>(initialTelecomValue('phone'));
   const [telecomUrl, setTelecomUrl] = useState<string>(initialTelecomValue('url'));
   const [telecomFax, setTelecomFax] = useState<string>(initialTelecomValue('fax'));
+  const [googleReviewLink, setGoogleReviewLink] = useState<string>(item.owner.googleReviewLink ?? '');
   const [statusPatchLoading, setStatusPatchLoading] = useState(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
@@ -93,6 +94,7 @@ export default function ScheduleGeneralTab({
     setTelecomPhone(item.owner.telecom?.find((cp) => cp.system === 'phone')?.value ?? '');
     setTelecomUrl(item.owner.telecom?.find((cp) => cp.system === 'url')?.value ?? '');
     setTelecomFax(item.owner.telecom?.find((cp) => cp.system === 'fax')?.value ?? '');
+    setGoogleReviewLink(item.owner.googleReviewLink ?? '');
   }, [item, toRoomEntries]);
 
   const defaultIntakeUrl = useMemo(() => {
@@ -203,6 +205,7 @@ export default function ScheduleGeneralTab({
         url: telecomUrl.trim(),
         fax: telecomFax.trim(),
       };
+      params.googleReviewLink = googleReviewLink.trim();
       if (canEditPaymentFields) {
         params.stripeAccountId = stripeAccountId.trim();
         params.advapacsLocationId = advapacsLocationId.trim();
@@ -353,6 +356,14 @@ export default function ScheduleGeneralTab({
                     label="Fax"
                     value={telecomFax}
                     onChange={(event) => setTelecomFax(event.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Google review link"
+                    value={googleReviewLink}
+                    onChange={(event) => setGoogleReviewLink(event.target.value)}
+                    placeholder="https://g.page/r/..."
+                    helperText="Used in templates as {{location-google-review-link}}"
                     fullWidth
                   />
                 </Box>

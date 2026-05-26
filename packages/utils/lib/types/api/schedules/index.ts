@@ -18,6 +18,7 @@ export interface UpdateScheduleParams {
   description?: string | null;
   address?: Address | null;
   telecom?: TelecomUpdate | null;
+  googleReviewLink?: string | null;
 }
 
 export interface TelecomUpdate {

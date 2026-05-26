@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Extension, Location, Practitioner, Schedule } from 'fhir/r4b';
 import {
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
   M2MClientMockType,
   PUBLIC_EXTENSION_BASE_URL,
   RoleType,
@@ -1309,6 +1310,198 @@ describe('schedule zambdas — general tab fields', () => {
     });
   });
 
+  describe('update-schedule — googleReviewLink (Location review-link extension)', () => {
+    const findReviewExt = (loc: Location): Extension | undefined =>
+      (loc.extension ?? []).find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL);
+
+    it('writes the review-link extension as valueUrl', async () => {
+      const slug = `gentab-review-add-${randomUUID()}`;
+      const { schedule, location } = await persistLocationAndSchedule(makePhysicalLocation(slug));
+      expect(findReviewExt(location)).toBeUndefined();
+
+      await callUpdateSchedule({
+        id: 'update-schedule',
+        scheduleId: schedule.id!,
+        googleReviewLink: 'https://g.page/r/sample-google-review',
+      });
+
+      const refreshed = await readLocation(location.id!);
+      const ext = findReviewExt(refreshed);
+      expect(ext).toBeDefined();
+      expect(ext?.valueUrl).toBe('https://g.page/r/sample-google-review');
+    });
+
+    it('replaces an existing review-link without duplicating the extension', async () => {
+      const slug = `gentab-review-replace-${randomUUID()}`;
+      const baseLocation: Location = {
+        ...makePhysicalLocation(slug),
+        extension: [{ url: LOCATION_REVIEW_LINK_EXTENSION_URL, valueUrl: 'https://old.example/review' }],
+      };
+      const { schedule, location } = await persistLocationAndSchedule(baseLocation);
+
+      await callUpdateSchedule({
+        id: 'update-schedule',
+        scheduleId: schedule.id!,
+        googleReviewLink: 'https://g.page/r/new-google-review',
+      });
+
+      const refreshed = await readLocation(location.id!);
+      const matching = (refreshed.extension ?? []).filter((e) => e.url === LOCATION_REVIEW_LINK_EXTENSION_URL);
+      expect(matching).toHaveLength(1);
+      expect(matching[0]?.valueUrl).toBe('https://g.page/r/new-google-review');
+    });
+
+    it('removes the review-link extension when sent as an empty string', async () => {
+      const slug = `gentab-review-clear-${randomUUID()}`;
+      const baseLocation: Location = {
+        ...makePhysicalLocation(slug),
+        extension: [{ url: LOCATION_REVIEW_LINK_EXTENSION_URL, valueUrl: 'https://existing.example/review' }],
+      };
+      const { schedule, location } = await persistLocationAndSchedule(baseLocation);
+
+      await callUpdateSchedule({
+        id: 'update-schedule',
+        scheduleId: schedule.id!,
+        googleReviewLink: '',
+      });
+
+      const refreshed = await readLocation(location.id!);
+      expect(findReviewExt(refreshed)).toBeUndefined();
+    });
+
+    it('removes the review-link extension when sent as null', async () => {
+      const slug = `gentab-review-null-${randomUUID()}`;
+      const baseLocation: Location = {
+        ...makePhysicalLocation(slug),
+        extension: [{ url: LOCATION_REVIEW_LINK_EXTENSION_URL, valueUrl: 'https://existing.example/review' }],
+      };
+      const { schedule, location } = await persistLocationAndSchedule(baseLocation);
+
+      await callUpdateSchedule({
+        id: 'update-schedule',
+        scheduleId: schedule.id!,
+        googleReviewLink: null,
+      });
+
+      const refreshed = await readLocation(location.id!);
+      expect(findReviewExt(refreshed)).toBeUndefined();
+    });
+
+    it('trims whitespace before persisting', async () => {
+      const slug = `gentab-review-trim-${randomUUID()}`;
+      const { schedule, location } = await persistLocationAndSchedule(makePhysicalLocation(slug));
+
+      await callUpdateSchedule({
+        id: 'update-schedule',
+        scheduleId: schedule.id!,
+        googleReviewLink: '   https://g.page/r/trimmed-review   ',
+      });
+
+      const refreshed = await readLocation(location.id!);
+      expect(findReviewExt(refreshed)?.valueUrl).toBe('https://g.page/r/trimmed-review');
+    });
+
+    it('treats whitespace-only values as empty (no extension written)', async () => {
+      const slug = `gentab-review-whitespace-${randomUUID()}`;
+      const { schedule, location } = await persistLocationAndSchedule(makePhysicalLocation(slug));
+
+      await callUpdateSchedule({
+        id: 'update-schedule',
+        scheduleId: schedule.id!,
+        googleReviewLink: '   \t\n',
+      });
+
+      const refreshed = await readLocation(location.id!);
+      expect(findReviewExt(refreshed)).toBeUndefined();
+    });
+
+    it('does not touch the review-link when the field is not sent', async () => {
+      const slug = `gentab-review-untouched-${randomUUID()}`;
+      const baseLocation: Location = {
+        ...makePhysicalLocation(slug),
+        extension: [{ url: LOCATION_REVIEW_LINK_EXTENSION_URL, valueUrl: 'https://keep.example/review' }],
+      };
+      const { schedule, location } = await persistLocationAndSchedule(baseLocation);
+
+      await callUpdateSchedule({
+        id: 'update-schedule',
+        scheduleId: schedule.id!,
+        timezone: 'America/Chicago',
+      });
+
+      const refreshed = await readLocation(location.id!);
+      expect(findReviewExt(refreshed)?.valueUrl).toBe('https://keep.example/review');
+    });
+
+    it('round-trips through ehr-get-schedule as owner.googleReviewLink', async () => {
+      const slug = `gentab-review-roundtrip-${randomUUID()}`;
+      const { schedule } = await persistLocationAndSchedule(makePhysicalLocation(slug));
+
+      await callUpdateSchedule({
+        id: 'update-schedule',
+        scheduleId: schedule.id!,
+        googleReviewLink: 'https://g.page/r/round-trip-review',
+      });
+
+      const dto = await callGetSchedule(schedule.id!);
+      expect(dto.owner.googleReviewLink).toBe('https://g.page/r/round-trip-review');
+    });
+
+    it('is ignored for non-Location owners (Practitioner schedule)', async () => {
+      const practitioner = await oystehrAdmin.fhir.create<Practitioner>({
+        resourceType: 'Practitioner',
+        name: [{ family: 'NoReviewLink', given: ['Ignore'] }],
+        meta: {
+          tag: [
+            {
+              system: 'OTTEHR_AUTOMATED_TEST',
+              code: tagForProcessId(processId),
+              display: 'integration test practitioner',
+            },
+          ],
+        },
+      });
+      assert(practitioner.id);
+
+      const scheduleResource = await oystehrAdmin.fhir.create<Schedule>({
+        resourceType: 'Schedule',
+        active: true,
+        actor: [{ reference: `Practitioner/${practitioner.id}` }],
+        extension: [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
+            valueString: JSON.stringify(DEFAULT_SCHEDULE_JSON),
+          },
+          { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
+        ],
+        meta: {
+          tag: [
+            {
+              system: 'OTTEHR_AUTOMATED_TEST',
+              code: tagForProcessId(processId),
+              display: 'integration test schedule',
+            },
+          ],
+        },
+      });
+      assert(scheduleResource.id);
+
+      await callUpdateSchedule({
+        id: 'update-schedule',
+        scheduleId: scheduleResource.id!,
+        timezone: 'America/Chicago',
+        googleReviewLink: 'https://should-not-be-written.example',
+      });
+
+      const refreshed = await oystehrAdmin.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: practitioner.id!,
+      });
+      const stray = (refreshed.extension ?? []).find((e) => e.url === LOCATION_REVIEW_LINK_EXTENSION_URL);
+      expect(stray).toBeUndefined();
+    });
+  });
+
   describe('update-schedule — validation', () => {
     let validScheduleId: string;
     let validSlug: string;
@@ -1384,6 +1577,11 @@ describe('schedule zambdas — general tab fields', () => {
     it('rejects a non-string slug (null/number)', async () => {
       await expectInvalidInputError({ slug: 42 });
       await expectInvalidInputError({ slug: null });
+    });
+
+    it('rejects a non-string googleReviewLink', async () => {
+      await expectInvalidInputError({ googleReviewLink: 7 });
+      await expectInvalidInputError({ googleReviewLink: { not: 'a string' } });
     });
   });
 });
