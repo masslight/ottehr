@@ -70,7 +70,9 @@ const PROCEDURE_CPT_CODE = SELECTED_PROCEDURE.cptCode;
 const PROCEDURE_CPT_DISPLAY = SELECTED_PROCEDURE.display;
 
 // Medications from FHIR and utils
-let MEDICATION_NAME: string;
+// Optional — instances without registered in-house medications skip the
+// in-house medication deletion test rather than failing the whole spec at module init.
+let MEDICATION_NAME: string | undefined;
 const MEDICATION_DOSE = '2'; // Test value
 const MEDICATION_UNITS = UNIT_OPTIONS[0].label;
 const MEDICATION_ROUTE = medicationApplianceRoutes.ORAL.display || 'Oral route';
@@ -94,14 +96,14 @@ test.beforeAll(async () => {
 
   const firstMed = medications[0];
   if (!firstMed) {
-    throw new Error('No in-house medications found in FHIR');
+    console.warn('No in-house medications registered in FHIR; the in-house medication deletion test will be skipped.');
+  } else {
+    const nameIdentifier = firstMed.identifier?.find((id) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM);
+    if (!nameIdentifier?.value) {
+      throw new Error('Medication name identifier not found');
+    }
+    MEDICATION_NAME = nameIdentifier.value;
   }
-
-  const nameIdentifier = firstMed.identifier?.find((id) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM);
-  if (!nameIdentifier?.value) {
-    throw new Error('Medication name identifier not found');
-  }
-  MEDICATION_NAME = nameIdentifier.value;
 
   await resourceHandler.setResources({ skipPaperwork: true });
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
@@ -264,8 +266,13 @@ test.describe('Order Deletion - Happy Path', () => {
         // Navigate to Review & Sign (Progress Note) page
         await sideMenu.clickReviewAndSign();
 
-        // Verify deleted procedure is not shown
-        await expect(page.getByText(PROCEDURE_TYPE)).not.toBeVisible();
+        // Scope to the Procedures section's items. CPT codes are intentionally retained
+        // on the chart after a procedure is cancelled (and render in their own section),
+        // so a page-wide getByText() can collide with the cpt-code display string when an
+        // instance's procedure dropDown happens to match the CPT display.
+        await expect(
+          page.getByTestId(dataTestIds.progressNotePage.procedureItem).filter({ hasText: PROCEDURE_TYPE })
+        ).not.toBeVisible();
       });
     } finally {
       // Cleanup: close page and context for this test
@@ -275,6 +282,8 @@ test.describe('Order Deletion - Happy Path', () => {
   });
 
   test('Delete in-house medication and verify it is removed from list', async ({ browser }) => {
+    test.skip(!MEDICATION_NAME, 'No in-house medications registered in FHIR for this instance');
+    const medicationName = MEDICATION_NAME!;
     // Create isolated context and page for this test
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -313,7 +322,7 @@ test.describe('Order Deletion - Happy Path', () => {
 
         // Fill medication form using Page Object methods
         await orderMedicationPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
-        await orderMedicationPage.editMedicationCard.selectMedication(MEDICATION_NAME);
+        await orderMedicationPage.editMedicationCard.selectMedication(medicationName);
         await orderMedicationPage.editMedicationCard.enterDose(MEDICATION_DOSE);
         await orderMedicationPage.editMedicationCard.selectUnits(MEDICATION_UNITS);
         await orderMedicationPage.editMedicationCard.selectRoute(MEDICATION_ROUTE);
@@ -332,11 +341,11 @@ test.describe('Order Deletion - Happy Path', () => {
         const medicationRowPrefix = dataTestIds.inHouseMedicationsPage.marTable.medicationRowPrefix;
         const newMedicationRow = page
           .locator(`[data-testid^="${medicationRowPrefix}"]`)
-          .filter({ hasText: MEDICATION_NAME });
+          .filter({ hasText: medicationName });
         await expect(newMedicationRow).toBeVisible({ timeout: 30000 });
         const rowTestId = await newMedicationRow.getAttribute('data-testid');
         if (!rowTestId) {
-          throw new Error(`Failed to find medication row for: ${MEDICATION_NAME}`);
+          throw new Error(`Failed to find medication row for: ${medicationName}`);
         }
         medicationId = rowTestId.replace(medicationRowPrefix, '');
       });
@@ -369,12 +378,12 @@ test.describe('Order Deletion - Happy Path', () => {
         ).toBeVisible();
 
         // Verify medication name is visible in the MAR table
-        await expect(page.getByText(MEDICATION_NAME)).toBeVisible();
+        await expect(page.getByText(medicationName)).toBeVisible();
       });
 
       await test.step('Delete the medication', async () => {
         // Click on the medication row to open details
-        await page.getByText(MEDICATION_NAME).click();
+        await page.getByText(medicationName).click();
 
         // Wait for the medication details card to open and Delete Order button to be visible
         const deleteOrderButton = page.getByRole('button', { name: 'Delete Order' });
@@ -430,7 +439,7 @@ test.describe('Order Deletion - Happy Path', () => {
         await sideMenu.clickReviewAndSign();
 
         // Verify deleted medication is not shown
-        await expect(page.getByText(MEDICATION_NAME)).not.toBeVisible();
+        await expect(page.getByText(medicationName)).not.toBeVisible();
       });
     } finally {
       // Cleanup: close page and context for this test

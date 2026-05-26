@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.35.1",
+  "version": "1.35.3",
   "private": true,
   "packageManager": "npm@10.9.3",
   "engines": {
@@ -113,7 +113,9 @@
     "invite:demo": "tsx scripts/setup/invites/invite-demo-user.ts",
     "invite:e2e": "tsx scripts/setup/invites/invite-e2e-user.ts",
     "invite:devs": "tsx scripts/setup/invites/invite-devs.ts",
-    "invite:users": "tsx scripts/setup/invites/invite-users-batch.ts"
+    "invite:users": "tsx scripts/setup/invites/invite-users-batch.ts",
+    "find-deleted-referenced-payors": "tsx scripts/find-deleted-referenced-payors.ts",
+    "replace-payor-organization": "tsx scripts/replace-payor-organization.ts"
   },
   "workspaces": [
     "packages/**/*",
