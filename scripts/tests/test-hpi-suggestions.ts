@@ -1,47 +1,32 @@
 /**
- * Manual test script for the ai-suggestion-notes zambda.
+ * Manual test script for the ai-suggestion-notes zambda — missing-hpi type only.
  *
  * Requires the local zambda server to be running on port 3000:
  *   npm run zambdas:start
  *
  * Usage:
- *   npx tsx scripts/test-ai-suggestion-note.ts [--env local]
+ *   npx tsx scripts/test-hpi-suggestions.ts [--env local]
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { AISuggestionNotes, AISuggestionNotesInput } from 'utils';
-import { TEST_SCENARIOS } from './test-ai-suggestion-note-config';
+import { getToken } from './shared';
+import { TEST_SCENARIOS, TestScenario } from './test-hpi-suggestions-config';
 
-const RUNS_PER_SCENARIO = 2;
+const RUNS_PER_SCENARIO = 1;
 const ZAMBDA_URL = 'http://localhost:3000/local/zambda/ai-suggestion-notes/execute';
+
+const HPI_SCENARIOS = TEST_SCENARIOS;
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const envFlag = process.argv.indexOf('--env');
 const env = envFlag !== -1 ? process.argv[envFlag + 1] : 'local';
-const envFilePath = path.resolve(__dirname, '../packages/zambdas/.env', `${env}.json`);
+const jsonOutFlag = process.argv.indexOf('--json-out');
+const jsonOutPath = jsonOutFlag !== -1 ? process.argv[jsonOutFlag + 1] : null;
+const envFilePath = path.resolve(__dirname, '../../packages/zambdas/.env', `zambda-secrets-${env}.json`);
 const envConfig = JSON.parse(fs.readFileSync(envFilePath, 'utf8'));
-
-// ── Auth ──────────────────────────────────────────────────────────────────────
-
-async function getToken(): Promise<string> {
-  const response = await fetch(envConfig.AUTH0_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      client_id: envConfig.AUTH0_CLIENT,
-      client_secret: envConfig.AUTH0_SECRET,
-      audience: envConfig.AUTH0_AUDIENCE,
-    }),
-  });
-  if (!response.ok) {
-    throw new Error(`Auth0 token request failed: ${response.status} ${await response.text()}`);
-  }
-  const data = (await response.json()) as { access_token: string };
-  return data.access_token;
-}
 
 // ── Zambda call ───────────────────────────────────────────────────────────────
 
@@ -73,20 +58,21 @@ interface TestResult {
   error?: string;
 }
 
-function checkSuggestions(suggestions: string[], expectContains: string[]): boolean {
+function checkSuggestions(suggestions: string[], scenario: TestScenario): boolean {
+  if (scenario.expectEmpty) return suggestions.length === 0;
   const combined = suggestions.join(' ').toLowerCase();
-  return expectContains.some((phrase) => combined.includes(phrase.toLowerCase()));
+  return scenario.expectContains.every((phrase) => combined.includes(phrase.toLowerCase()));
 }
 
-async function runScenario(
-  token: string,
-  label: string,
-  input: AISuggestionNotesInput,
-  expectContains: string[]
-): Promise<TestResult[]> {
+async function runScenario(token: string, scenario: TestScenario): Promise<TestResult[]> {
+  const { label, input, expectContains, expectEmpty } = scenario;
   console.log(`\n${'─'.repeat(60)}`);
   console.log(`Scenario: ${label} (${RUNS_PER_SCENARIO} runs)`);
-  console.log(`Expecting one of: ${expectContains.map((s) => `"${s}"`).join(', ')}`);
+  if (expectEmpty) {
+    console.log('Expecting: empty suggestions');
+  } else {
+    console.log(`Expecting one of: ${expectContains.map((s) => `"${s}"`).join(', ')}`);
+  }
   console.log('─'.repeat(60));
 
   const results: TestResult[] = [];
@@ -99,7 +85,7 @@ async function runScenario(
     try {
       const output = await callAISuggestionNotes(token, input);
       suggestions = output.suggestions;
-      passed = checkSuggestions(suggestions, expectContains);
+      passed = checkSuggestions(suggestions, scenario);
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
@@ -122,17 +108,17 @@ async function runScenario(
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  console.log('AI Suggestion Notes – Accuracy Check');
+  console.log('HPI Suggestions – Accuracy Check');
   console.log(`Environment: ${env}`);
   console.log(`Zambda URL:  ${ZAMBDA_URL}`);
 
   console.log('\nAuthenticating...');
-  const token = await getToken();
+  const token = await getToken(envConfig);
   console.log('Authenticated.');
 
   const allResults: TestResult[] = [];
-  for (const scenario of TEST_SCENARIOS) {
-    const results = await runScenario(token, scenario.label, scenario.input, scenario.expectContains);
+  for (const scenario of HPI_SCENARIOS) {
+    const results = await runScenario(token, scenario);
     allResults.push(...results);
   }
 
@@ -142,6 +128,18 @@ async function main(): Promise<void> {
   console.log(`\n${'═'.repeat(60)}`);
   console.log(`Overall:  ${totalPassed}/${totalRuns} passed`);
   console.log('═'.repeat(60));
+
+  if (jsonOutPath) {
+    fs.writeFileSync(
+      jsonOutPath,
+      JSON.stringify({
+        suite: 'hpi-suggestions',
+        timestamp: new Date().toISOString(),
+        passed: totalPassed,
+        total: totalRuns,
+      })
+    );
+  }
 
   if (totalPassed < totalRuns) {
     process.exit(1);
