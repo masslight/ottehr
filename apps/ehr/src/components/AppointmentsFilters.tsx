@@ -148,7 +148,7 @@ export default function AppointmentsFilters(): ReactElement {
             />
           </Box>
           <Box style={{ flex: 0.75 }}>
-            <DateInput name="date" label="Select Date" size="medium" />
+            <DateInput name="date" label="Select Date" size="medium" dataTestId={dataTestIds.dashboard.dateFilter} />
           </Box>
           <Box style={{ flex: 1 }}>
             <EmployeeSelectInput name="provider" label="Providers" filter={PROVIDERS_FILTER} size="medium" multiple />

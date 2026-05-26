@@ -98,6 +98,19 @@ export class VisitsPage {
     await this.#page.locator(`li[role="option"]:has-text("${locationName}")`).first().click();
   }
 
+  /**
+   * Set the tracking-board date filter. Accepts MM/DD/YYYY format. The picker defaults
+   * to "today in the location's timezone" — call this when the appointment under test
+   * is scheduled for a different date (e.g. the first available pre-book slot rolled to
+   * tomorrow because the day's schedule is past closing).
+   */
+  async selectDate(date: string): Promise<void> {
+    const dateInput = this.#page.getByTestId(dataTestIds.dashboard.dateFilter);
+    await dateInput.click();
+    await dateInput.fill(date);
+    await dateInput.blur();
+  }
+
   async selectGroup(groupName: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.groupSelect).click();
     await this.#page.getByText(new RegExp(groupName, 'i')).click();

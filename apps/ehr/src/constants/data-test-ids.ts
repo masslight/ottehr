@@ -32,6 +32,7 @@ export const dataTestIds = {
     dischargeButton: 'discharge-button',
     prebookedTab: 'prebooked-tab',
     locationSelect: 'location-select',
+    dateFilter: 'tracking-board-date-filter',
     datePickerTodayButton: 'date-picker-today-button',
     loadingIndicator: 'loading-indicator',
     tableRowWrapper: (appointmentId: string) => `appointments-table-row-${appointmentId}`,
