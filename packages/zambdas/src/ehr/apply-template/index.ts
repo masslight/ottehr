@@ -415,10 +415,6 @@ const makeCreateRequests = (
       isDiagnosisCondition(resourceToCreate) &&
       encounterDiagnoses !== null
     ) {
-      const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
-        return d.condition.reference?.split('/')[1] === containedResource.id;
-      });
-
       const isDuplicate = isDuplicateDiagnosis(resourceToCreate, encounterDiagnosesConditions);
 
       // we should only add to encounter diagnoses after a dedupe, to ensure the template doesn't add Dx already on the chart
@@ -430,12 +426,8 @@ const makeCreateRequests = (
           ...diagnosisToAdd,
           condition: { reference: fullUrl },
         });
+        console.log('This is encounterDiagnoses after add: ', JSON.stringify(encounterDiagnoses));
       }
-
-      encounterDiagnoses.push({
-        ...diagnosisToAdd, // This pulls in the `rank: 1` if present.
-        condition: { reference: fullUrl },
-      });
     }
 
     // Skip duplicate MOI Conditions from the template (only the first one is used)
