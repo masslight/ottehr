@@ -335,17 +335,26 @@ export class ResourceHandler {
 
     const apiClient = await this.apiClient;
 
-    const schedule = (
-      await apiClient.fhir.search<Schedule>({
+    // Fetch the Schedule (for {{scheduleId}} substitution + its timezone) and the Location
+    // (so callers can use `appointmentLocation` to look up the location's timezone the same
+    // way the non-fast path does — needed by tests that align the tracking-board date filter
+    // to the appointment's local date).
+    const scheduleAndLocation = (
+      await apiClient.fhir.search<Schedule | Location>({
         resourceType: 'Schedule',
         params: [
           {
             name: 'actor',
             value: `Location/${process.env.LOCATION_ID}`,
           },
+          { name: '_include', value: 'Schedule:actor' },
         ],
       })
-    ).unbundle()[0] as Schedule;
+    ).unbundle();
+    const schedule = scheduleAndLocation.find((r) => r.resourceType === 'Schedule') as Schedule;
+    const selectedLocation = scheduleAndLocation.find(
+      (r) => r.resourceType === 'Location' && r.id === process.env.LOCATION_ID
+    ) as Location | undefined;
 
     // Seed data only needs the canonical URL+version pair, not a full Q body.
     const { url, version } = IN_PERSON_INTAKE_PAPERWORK_CANONICAL;
@@ -413,6 +422,7 @@ export class ResourceHandler {
       questionnaire: createdResources.find(
         (resource) => resource!.resourceType === 'QuestionnaireResponse'
       ) as QuestionnaireResponse,
+      selectedLocation,
     };
   }
 
