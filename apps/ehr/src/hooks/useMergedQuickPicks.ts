@@ -4,6 +4,7 @@ import {
   getAllergyQuickPicks,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
+  getInsuranceQuickPicks,
   getMedicalConditionQuickPicks,
   getMedicationHistoryQuickPicks,
   getProcedureQuickPicks,
@@ -13,6 +14,7 @@ import {
   AllergyQuickPickData,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
+  InsuranceQuickPickData,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   ProcedureQuickPickData,
@@ -103,4 +105,10 @@ export function useMergedInHouseMedicationQuickPicks(options?: {
   enabled?: boolean;
 }): UseFhirQuickPicksResult<InHouseMedicationQuickPickData> {
   return useFhirQuickPicks(getInHouseMedicationQuickPicks, options);
+}
+
+export function useMergedInsuranceQuickPicks(options?: {
+  enabled?: boolean;
+}): UseFhirQuickPicksResult<InsuranceQuickPickData> {
+  return useFhirQuickPicks(getInsuranceQuickPicks, options);
 }

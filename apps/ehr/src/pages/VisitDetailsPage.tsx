@@ -61,7 +61,7 @@ import {
   formatDateForDisplay,
   getCancellationReasonDisplay,
   getCoding,
-  getFullName,
+  getFormattedPatientFullName,
   getInPersonVisitStatus,
   getPatchOperationForNewMetaTag,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
@@ -532,16 +532,7 @@ export default function VisitDetailsPage(): ReactElement {
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patientId ?? '');
 
-  const { fullName } = useMemo(() => {
-    let fullName = '';
-
-    if (patient) {
-      fullName = getFullName(patient);
-    }
-    return {
-      fullName,
-    };
-  }, [patient]);
+  const fullName = (patient && getFormattedPatientFullName(patient)) ?? '';
 
   const isInPerson = isInPersonAppointment(appointment);
 

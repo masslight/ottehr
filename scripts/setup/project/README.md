@@ -14,11 +14,11 @@ export const OYSTEHR_AUTH_TOKEN = '';   // short-lived bearer token from console
 export const SENDGRID_AUTH_TOKEN = '';  // optional — leave empty to skip SendGrid key creation
 
 export const DEMO_USERS = [
-  { email: 'demo@example.com', firstName: 'Demo', lastName: 'User', password: 'your-password' },
+  { email: 'demo@example.com', firstName: 'Demo', lastName: 'User', password: 'your-password', npi: '1234567890' },
 ];
 
 export const E2E_USERS = [
-  { email: 'e2e@example.com', firstName: 'E2E', lastName: 'User', password: 'your-password' },
+  { email: 'e2e@example.com', firstName: 'E2E', lastName: 'User', password: 'your-password', npi: '1234567890' },
 ];
 
 export const DEVELOPERS = [

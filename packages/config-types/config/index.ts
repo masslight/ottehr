@@ -225,7 +225,6 @@ export {
   ExamCardComponentSchema,
   ExamCardSchema,
   ExamItemConfigSchema,
-  ExamTypeInstanceSchema,
   ExaminationConfigSchema,
   ExamModalCheckboxOptionSchema,
   ExamModalOptionGroupSchema,
@@ -257,7 +256,6 @@ export type {
   ExamItemConfig,
   ExamTypeInstance,
   ExaminationConfig,
-  ExamTypeValue,
 } from './examination';
 
 // Screening questions config types
