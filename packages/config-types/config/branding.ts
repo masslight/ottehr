@@ -34,6 +34,12 @@ export const LogoConfigSchema = z.object({
   default: z.string().optional(),
   email: z.string().optional(),
   pdf: z.string().optional(),
+  pdfDimensions: z
+    .object({
+      maxWidth: z.number().positive(),
+      maxHeight: z.number().positive(),
+    })
+    .optional(),
 });
 
 export type LogoConfig = z.infer<typeof LogoConfigSchema>;
