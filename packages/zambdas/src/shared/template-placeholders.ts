@@ -121,15 +121,13 @@ export async function resolveTemplatePlaceholders(
 }
 
 /**
- * Fills a template string with outreach placeholder values, including
- * both base invoice placeholders and outreach-specific ones like
- * {{location-review-link}}.
+ * Fills a template string with outreach placeholder values, including base invoice
+ * placeholders plus outreach-specific ones. The canonical token for the Location's
+ * review URL is `{{location-google-review-link}}`; `{{location-review-link}}` is kept
+ * as an alias resolving to the same value for templates authored before the rename.
  */
 export function fillOutreachTemplate(template: string, input: OutreachPlaceholderInput): string {
   const placeholders = buildInvoicePlaceholders(input);
-  // Add outreach-specific placeholders. `location-google-review-link` is the canonical
-  // token; `location-review-link` is kept as an alias for templates authored before the
-  // rename.
   if (input.locationReviewLink) {
     placeholders['location-google-review-link'] = input.locationReviewLink;
     placeholders['location-review-link'] = input.locationReviewLink;

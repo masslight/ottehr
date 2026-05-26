@@ -409,13 +409,10 @@ const SAMPLE_INPUT: InvoicePlaceholderInput = {
   patientPortalLink: 'https://patient.ottehr.com/',
 };
 
-const OUTREACH_TOKEN_IDS = [
-  ...INVOICE_TOKEN_IDS,
-  // Canonical token name. `location-review-link` is kept as an alias for templates
-  // authored before the rename.
-  'location-google-review-link',
-  'location-review-link',
-] as const;
+// Only the canonical token is surfaced in the editor UI. `location-review-link` is still
+// resolved at render time by fillOutreachTemplate for templates authored before the rename;
+// it stays in SAMPLE_PREVIEW_VALUES so previews of those legacy templates remain accurate.
+const OUTREACH_TOKEN_IDS = [...INVOICE_TOKEN_IDS, 'location-google-review-link'] as const;
 
 const SAMPLE_PREVIEW_VALUES: Record<string, string> = {
   ...buildInvoicePlaceholders(SAMPLE_INPUT),
