@@ -217,15 +217,19 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
   }
 
   if (params.diagnoses?.length) {
-    const uniqueDiagnoses = params.diagnoses.filter(
-      (dx, index, arr) => arr.findIndex((d) => d.code === dx.code) === index
-    );
-    claim.diagnosis = uniqueDiagnoses.map((dx, i) => ({
-      sequence: i + 1,
-      diagnosisCodeableConcept: {
-        coding: [{ system: CODE_SYSTEM_ICD_10, code: dx.code, display: dx.display }],
-      },
-    }));
+    const uniqueDiagnoses = new Set<string>();
+    claim.diagnosis = params.diagnoses
+      .filter((dx) => {
+        if (uniqueDiagnoses.has(dx.code)) return false;
+        uniqueDiagnoses.add(dx.code);
+        return true;
+      })
+      .map((dx, i) => ({
+        sequence: i + 1,
+        diagnosisCodeableConcept: {
+          coding: [{ system: CODE_SYSTEM_ICD_10, code: dx.code, display: dx.display }],
+        },
+      }));
   }
 
   if (params.serviceLines?.length) {
