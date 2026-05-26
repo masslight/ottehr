@@ -446,8 +446,7 @@ export const mapDiagnosesToClaimResource = (claim: Claim, diagnoses: DiagnosesFo
   const seenDxCodes = new Set<string>();
   claimCopy.diagnosis = diagnoses.items
     .filter((item) => {
-      if (!item?.code) return true;
-      if (seenDxCodes.has(item.code)) return false;
+      if (!item?.code || seenDxCodes.has(item.code)) return false;
       seenDxCodes.add(item.code);
       return true;
     })
