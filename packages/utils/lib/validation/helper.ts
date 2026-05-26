@@ -60,9 +60,10 @@ export const isValidUUID = (maybeUUID: string): boolean => {
 /**
  * Validates a resource ID that may be either a UUID (old-style FHIR Organization ID)
  * or a simple alphanumeric identifier (Oystehr RCM API payer ID).
- * Allows alphanumeric characters, underscores, and hyphens.
+ * Allows alphanumeric characters, underscores, and hyphens, but requires at least
+ * one alphanumeric character and limits the total length to 64 characters.
  */
-const resourceIdRegex = /^[a-zA-Z0-9_-]+$/;
+const resourceIdRegex = /^(?=.*[a-zA-Z0-9])[a-zA-Z0-9_-]{1,64}$/;
 export const isAlphaNumericID = (maybeId: string): boolean => {
   return resourceIdRegex.test(maybeId);
 };
