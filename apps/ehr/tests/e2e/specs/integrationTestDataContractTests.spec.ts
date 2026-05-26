@@ -30,11 +30,10 @@ test.beforeAll(async () => {
   await Promise.all([await integrationHandler.setResourcesFast(), await e2eHandler.setResources()]);
   await Promise.all([
     e2eHandler.waitTillAppointmentPreprocessed(e2eHandler.appointment.id!),
+    // waitTillHarvestingDone also waits for the async eRx Patient.contact patch to settle, matching
+    // the seed generator so neither side of the comparison races ahead of that harvest patch.
     e2eHandler.waitTillHarvestingDone(e2eHandler.appointment.id!),
   ]);
-  // Match the seed generator: let the async eRx Patient.contact patch land before we snapshot the
-  // live e2e patient, so neither side of the comparison races ahead of that harvest patch.
-  await e2eHandler.waitTillContactHarvested(e2eHandler.appointment.id!);
 });
 
 test.afterAll(async () => {
