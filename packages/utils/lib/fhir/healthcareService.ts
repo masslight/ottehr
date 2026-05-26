@@ -14,9 +14,10 @@
 //
 // 2. GROUP RESOURCES
 //    Untagged (no SERVICE_CATEGORY_TAG). characteristic[] carries the
-//    assignment-mode and uniform-qualifications toggles. type[] carries
+//    assignment-mode toggle and the all-locations toggle. type[] carries
 //    the group's allow-listed service-category codes. Members are
-//    discovered via PractitionerRole.healthcareService back-references.
+//    discovered via PractitionerRole.healthcareService back-references
+//    and (when the all-locations toggle is off) via Location overlap.
 //
 // 3. SCHEDULE-ACTOR HEALTHCARESERVICES
 //    A Schedule.actor that is a HealthcareService — used by the group-
@@ -30,15 +31,13 @@
 // Schedules. Those use different code systems (parallel concepts, per
 // design-debt-log.md D-2) and are intentionally not duplicated here.
 
-import { CodeableConcept, Coding, HealthcareService } from 'fhir/r4b';
+import { CodeableConcept, Coding, HealthcareService, PractitionerRole } from 'fhir/r4b';
 import { ServiceMode, ServiceVisitType } from '../types';
 import {
   GROUP_ALL_LOCATIONS_SYSTEM,
   GROUP_ASSIGNMENT_MODE_SYSTEM,
-  GROUP_UNIFORM_QUALIFICATIONS_SYSTEM,
   GroupAllLocationsCoding,
   GroupAssignmentModeCoding,
-  GroupUniformQualificationsCoding,
   SERVICE_CATEGORY_CADENCE_MINUTES_SYSTEM,
   SERVICE_CATEGORY_DURATION_MINUTES_SYSTEM,
   SERVICE_CATEGORY_MODE_SYSTEM,
@@ -90,18 +89,6 @@ export function getGroupAssignmentMode(hs: HealthcareService): GroupAssignmentMo
   return undefined;
 }
 
-export function getGroupUniformQualifications(hs: HealthcareService): boolean | undefined {
-  for (const cc of hs.characteristic || []) {
-    for (const coding of cc.coding || []) {
-      if (coding.system === GROUP_UNIFORM_QUALIFICATIONS_SYSTEM) {
-        if (coding.code === 'true') return true;
-        if (coding.code === 'false') return false;
-      }
-    }
-  }
-  return undefined;
-}
-
 /**
  * True when the group pools from every active PractitionerRole in the system
  * (ignoring its `.location[]` entries). Undefined when the toggle was never
@@ -130,11 +117,7 @@ export const SERVICE_CATEGORY_OWNED_CHARACTERISTIC_SYSTEMS = [
 ];
 
 /** Group characteristic systems this module owns. */
-export const GROUP_OWNED_CHARACTERISTIC_SYSTEMS = [
-  GROUP_ASSIGNMENT_MODE_SYSTEM,
-  GROUP_UNIFORM_QUALIFICATIONS_SYSTEM,
-  GROUP_ALL_LOCATIONS_SYSTEM,
-];
+export const GROUP_OWNED_CHARACTERISTIC_SYSTEMS = [GROUP_ASSIGNMENT_MODE_SYSTEM, GROUP_ALL_LOCATIONS_SYSTEM];
 
 /**
  * Build the characteristics that capture a service-category record's runtime
@@ -165,14 +148,12 @@ export function serviceCategoryCharacteristics(input: {
 }
 
 /**
- * Build the group's characteristics for assignment-mode, uniform-
- * qualifications, and the all-locations toggle. Caller is responsible for
- * preserving non-group characteristics on the resource (use
- * mergeOwnedCharacteristics).
+ * Build the group's characteristics for assignment-mode and the all-
+ * locations toggle. Caller is responsible for preserving non-group
+ * characteristics on the resource (use mergeOwnedCharacteristics).
  */
 export function groupCharacteristics(input: {
   assignmentMode: GroupAssignmentMode;
-  uniformQualifications: boolean;
   allLocations: boolean;
 }): CodeableConcept[] {
   return [
@@ -186,16 +167,37 @@ export function groupCharacteristics(input: {
       ],
     },
     {
-      coding: [
-        plainCoding(
-          input.uniformQualifications ? GroupUniformQualificationsCoding.true : GroupUniformQualificationsCoding.false
-        ),
-      ],
-    },
-    {
       coding: [plainCoding(input.allLocations ? GroupAllLocationsCoding.true : GroupAllLocationsCoding.false)],
     },
   ];
+}
+
+/**
+ * Whether a PractitionerRole is a member of a `pools-providers` group via
+ * any of three additive sources:
+ *   (a) back-reference — `role.healthcareService[]` includes a ref to the
+ *       group resource;
+ *   (b) location-overlap — `role.location[]` intersects the group's own
+ *       `location[]`;
+ *   (c) all-locations widening — the group is flagged "pool from every
+ *       active PR system-wide" (allLocationsFlag) and the role is active.
+ * Any single source is sufficient. Inactive roles are excluded from the
+ * all-locations source only (other sources don't check active to preserve
+ * caller-controlled inclusion).
+ */
+export function isPractitionerRoleMemberOfGroup(input: {
+  role: PractitionerRole;
+  group: HealthcareService;
+  allLocationsFlag: boolean;
+}): boolean {
+  const { role, group, allLocationsFlag } = input;
+  const groupLocationRefs = new Set(group.location?.map((l) => l.reference).filter((r): r is string => !!r) ?? []);
+  const isMemberByReference = role.healthcareService?.some((ref) => ref.reference === `HealthcareService/${group.id}`);
+  const isMemberByLocation = role.location?.some(
+    (ref) => ref.reference !== undefined && groupLocationRefs.has(ref.reference)
+  );
+  const isMemberByAllLocations = allLocationsFlag && role.active !== false;
+  return !!(isMemberByReference || isMemberByLocation || isMemberByAllLocations);
 }
 
 /**

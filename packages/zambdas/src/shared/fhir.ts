@@ -24,6 +24,7 @@ import {
   BookableScheduleData,
   checkResourceHasSlug,
   getGroupAllLocations,
+  isPractitionerRoleMemberOfGroup,
   isValidUUID,
   MISCONFIGURED_SCHEDULING_GROUP,
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
@@ -251,24 +252,14 @@ export async function getSchedules(
         }
       } else if (ownerResourceType === 'PractitionerRole' && ownerId) {
         const role = practitionerRoles.find((r) => r.id === ownerId);
-        // A PR is a member of a `pools-providers` group via any of three
-        // sources:
-        //   (a) .healthcareService[] back-references this group,
-        //   (b) .location[] overlaps with the group's own .location[], or
-        //   (c) the group is flagged "all locations" — any active PR qualifies.
-        // Any source alone is sufficient; multiple sources fire harmlessly
-        // since the outer loop iterates once per Schedule resource.
-        const groupLocationRefs = new Set(
-          (scheduleOwner as HealthcareService).location?.map((l) => l.reference).filter((r): r is string => !!r) ?? []
-        );
-        const isMemberByReference = role?.healthcareService?.some(
-          (ref) => ref.reference === `HealthcareService/${scheduleOwner.id}`
-        );
-        const isMemberByLocation = role?.location?.some(
-          (ref) => ref.reference !== undefined && groupLocationRefs.has(ref.reference)
-        );
-        const isMemberByAllLocations = allLocationsFlag && role?.active !== false;
-        if (role && (isMemberByReference || isMemberByLocation || isMemberByAllLocations)) {
+        if (
+          role &&
+          isPractitionerRoleMemberOfGroup({
+            role,
+            group: scheduleOwner as HealthcareService,
+            allLocationsFlag,
+          })
+        ) {
           scheduleList.push({
             schedule: scheduleObj,
             owner: role,

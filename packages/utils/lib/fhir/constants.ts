@@ -484,23 +484,6 @@ export const GroupAssignmentModeCoding = {
   },
 };
 
-/** Uniform-qualifications characteristic for a group HealthcareService: 'true' | 'false'. */
-export const GROUP_UNIFORM_QUALIFICATIONS_SYSTEM = ottehrCodeSystemUrl('group-uniform-qualifications');
-export const GroupUniformQualificationsCoding = {
-  true: {
-    system: GROUP_UNIFORM_QUALIFICATIONS_SYSTEM,
-    code: 'true',
-    display: 'Uniform qualifications',
-    fullParam: `${GROUP_UNIFORM_QUALIFICATIONS_SYSTEM}|true`,
-  },
-  false: {
-    system: GROUP_UNIFORM_QUALIFICATIONS_SYSTEM,
-    code: 'false',
-    display: 'Per-member qualifications',
-    fullParam: `${GROUP_UNIFORM_QUALIFICATIONS_SYSTEM}|false`,
-  },
-};
-
 /**
  * All-locations characteristic for a group HealthcareService: 'true' | 'false'.
  * When 'true', the group pools from every active PractitionerRole in the

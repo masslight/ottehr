@@ -155,26 +155,13 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     }
   }
 
-  // Group's "uniform qualifications" toggle: when true, every member is
-  // presumed qualified for every category the group supports. Skip the
-  // per-PR.healthcareService filter for this group's slot-list. Working
-  // hours and busy-slot subtraction still apply.
-  const groupHasUniformQualifications =
-    scheduleOwner.resourceType === 'HealthcareService' &&
-    (scheduleOwner as HealthcareService).characteristic
-      ?.flatMap((c) => c.coding || [])
-      ?.some(
-        (c) => c.system === 'https://fhir.ottehr.com/CodeSystem/group-uniform-qualifications' && c.code === 'true'
-      );
-
   // Filter PractitionerRole-owned schedules by healthcareService[]. When a
   // category is requested, drop any schedule whose PractitionerRole owner
   // doesn't list the category-tagged HealthcareService (matched by code on
   // the role's healthcareService references resolved through fhirMatches).
   // Schedules owned by Location / Practitioner / HealthcareService pass through
   // unchanged — we only use the role's service list to narrow the pool.
-  // Skip when the group declares uniform qualifications.
-  if (serviceCategoryCode && !groupHasUniformQualifications) {
+  if (serviceCategoryCode) {
     const categoryHealthcareServiceIds = new Set<string>();
     // Resolve the category-tagged HealthcareService(s) to their ids so we can
     // match against role.healthcareService[].reference.
