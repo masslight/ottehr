@@ -15,49 +15,56 @@
 
 import { parse } from 'csv-parse';
 import * as fs from 'fs';
-import { buildPatientFolder, type CsvRow, stripDateFromDescription } from './legacy-data-utils';
+import {
+  buildObjectPath,
+  buildPatientFolder,
+  type CsvRow,
+  readCsvRow,
+  stripDateFromDescription,
+  writeCsvToLegacyDataOutput,
+} from './legacy-data-utils';
 
 // ── Types ──────────────────────────────────────────────────────────
 // example: { Patient Document: { vitals: 8; insurance: 12; imported chart: 5 } }
 type DocumentMap = Record<string, Record<string, number>>;
 
 type Summary = {
-  totalDocuments: number;
+  totalRowsProcessed: number;
 
   uniquePatients: Set<string>; // based on first, last, dob, patient id
   patientsWithMultipleNames: Set<string>; // example: Mary Jane (first name) Vaughan Williams (last name)
   namesWithSpecialChars: Set<string>; // example: Mary Jane (first name) Vaughan Williams (last name)
 
   rowPrepFailures: number;
-  missingDob: number;
+  rowPrepFailuresDetails: { errorMsg: string; row: CsvRow }[];
 
   documentTypeSummary: DocumentMap;
   fileTypeSummary: Record<string, number>;
-  fileNameCounts: Map<string, number>;
+  z3filePaths: Map<string, number>;
 };
 
 // ── Consts ──────────────────────────────────────────────────────────
 const summary: Summary = {
-  totalDocuments: 0,
+  totalRowsProcessed: 0,
 
   uniquePatients: new Set(),
   patientsWithMultipleNames: new Set(),
   namesWithSpecialChars: new Set(),
 
   rowPrepFailures: 0,
-  missingDob: 0,
+  rowPrepFailuresDetails: [],
 
   documentTypeSummary: {},
   fileTypeSummary: {},
-  fileNameCounts: new Map(),
+  z3filePaths: new Map(),
 };
 
 const INDENT = '  ';
 
-const COUNT_TO_PRINT = 5000;
+const COUNT_TO_PRINT = 500;
 
-// const DOC_TYPES_TO_ANALYZE: string[] = ['Composite', 'Patient Documentation'];
-const DOC_TYPES_TO_ANALYZE: string[] = [];
+// if undefined, analyze everything
+const DOC_TYPES_TO_ANALYZE: string[] | undefined = undefined;
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -113,6 +120,8 @@ async function main(): Promise<void> {
   console.log(`CSV files:\n${csvFiles.map((f) => `  ${f}`).join('\n')}`);
   console.log('');
 
+  console.time('Reading Csvs');
+
   const rows: CsvRow[] = [];
 
   for (const file of csvFiles) {
@@ -121,30 +130,10 @@ async function main(): Promise<void> {
         .pipe(parse({ columns: true }))
         .on('data', (data) => {
           const description = stripDateFromDescription(data['Description']);
-          if (DOC_TYPES_TO_ANALYZE.length > 0) {
-            if (DOC_TYPES_TO_ANALYZE.includes(description)) {
-              rows.push({
-                lastName: data['Last_Name'],
-                firstName: data['First_Name'],
-                path: data['Path'],
-                dob: data['BirthDate'],
-                patientId: data['Patient Number'],
-                documentType: data['Document Type'],
-                description,
-                file,
-              });
-            }
-          } else {
-            rows.push({
-              lastName: data['Last_Name'],
-              firstName: data['First_Name'],
-              path: data['Path'],
-              dob: data['BirthDate'],
-              patientId: data['Patient Number'],
-              documentType: data['Document Type'],
-              description,
-              file,
-            });
+          if (DOC_TYPES_TO_ANALYZE === undefined) {
+            rows.push(readCsvRow(data, file));
+          } else if (DOC_TYPES_TO_ANALYZE.includes(description)) {
+            rows.push(readCsvRow(data, file));
           }
         })
         .on('end', resolve)
@@ -152,8 +141,10 @@ async function main(): Promise<void> {
     });
   }
 
+  console.timeEnd('Reading Csvs');
+
   for (const row of rows) {
-    summary.totalDocuments += 1;
+    summary.totalRowsProcessed += 1;
 
     for (const name of checkForMultipleNames(row)) {
       summary.patientsWithMultipleNames.add(name);
@@ -164,23 +155,32 @@ async function main(): Promise<void> {
     }
 
     let patientFolder: string | undefined;
+    let z3FilePath: string | undefined;
 
-    try {
-      if (row.dob === '') summary.missingDob++;
-      patientFolder = buildPatientFolder(row);
-    } catch (err) {
-      console.error(`  ✗ Failed to prepare file for row: ${JSON.stringify(row)}`);
-      console.error(`    Error: ${err instanceof Error ? err.message : String(err)}\n`);
+    if (row.dob === '') {
+      summary.rowPrepFailuresDetails.push({ errorMsg: 'missing dob', row });
       summary.rowPrepFailures++;
+      // won't bother trying to build folder because it will for sure fail without a dob
       continue;
+    } else {
+      try {
+        patientFolder = buildPatientFolder(row);
+        z3FilePath = buildObjectPath(row);
+      } catch (err) {
+        // console.error(`  ✗ Failed to prepare file for row: ${JSON.stringify(row)}`);
+        // console.error(`    Error: ${err instanceof Error ? err.message : String(err)}\n`);
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        summary.rowPrepFailuresDetails.push({ errorMsg, row });
+        summary.rowPrepFailures++;
+        continue;
+      }
     }
 
     summary.uniquePatients.add(patientFolder);
 
     const { path, documentType, description } = row;
 
-    const fileName = path.split('/').pop() ?? path;
-    summary.fileNameCounts.set(fileName, (summary.fileNameCounts.get(fileName) ?? 0) + 1);
+    summary.z3filePaths.set(z3FilePath, (summary.z3filePaths.get(z3FilePath) ?? 0) + 1);
 
     if (summary.documentTypeSummary[documentType]) {
       if (summary.documentTypeSummary[documentType][description]) {
@@ -205,8 +205,8 @@ async function main(): Promise<void> {
 
   console.log('');
   console.log('========== SUMMARY ==========');
-  console.log(`Total Documents:${INDENT}${INDENT}${summary.totalDocuments}`);
-  console.log(`Unique Patients:${INDENT}${INDENT}${summary.uniquePatients.size}`);
+  console.log(`Total Rows Processed:${INDENT}${INDENT}${summary.totalRowsProcessed}`);
+  console.log(`Unique Patients:${INDENT}${INDENT}${INDENT}${summary.uniquePatients.size}`);
 
   console.log('');
   console.log('========== DOCUMENT TYPES ==========');
@@ -255,41 +255,79 @@ async function main(): Promise<void> {
   console.log('========== NAMES ==========');
 
   if (summary.patientsWithMultipleNames.size > 0) {
-    console.log(`Total unique multiple names: ${summary.patientsWithMultipleNames.size}\n`);
+    console.log(`Total names with hyphens or spaces: ${summary.patientsWithMultipleNames.size}\n`);
     // console.log(`Names with hyphens or spaces: ${[...summary.patientsWithMultipleNames].join(', ')}\n`);
   } else {
     console.log('No names with hyphens or spaces found\n');
   }
 
   if (summary.namesWithSpecialChars.size > 0) {
-    console.log(`Total unique names with special characters: ${summary.namesWithSpecialChars.size}\n`);
+    console.log(`Total names with special characters: ${summary.namesWithSpecialChars.size}\n`);
     // console.log(`Names with special characters: ${[...summary.namesWithSpecialChars].join('; ')}\n`);
   } else {
     console.log('No names with special characters found\n');
   }
 
   console.log('========== DUPLICATE FILE NAMES ==========');
-  const duplicates = [...summary.fileNameCounts.entries()].filter(([, count]) => count > 1);
-  if (duplicates.length === 0) {
-    console.log('No duplicate file names\n');
+  const duplicateZ3FilePaths = [...summary.z3filePaths.entries()].filter(([, count]) => count > 1);
+  duplicateZ3FilePaths.sort((a, b) => b[1] - a[1]);
+  if (duplicateZ3FilePaths.length === 0) {
+    console.log('No duplicate file paths\n');
   } else {
-    duplicates.sort((a, b) => b[1] - a[1]);
-    console.log(`Total duplicate file names: ${duplicates.length}\n`);
-    for (const [name, count] of duplicates) {
-      console.log(`${INDENT}${name}: ${count}`);
-    }
-    console.log('');
+    console.log(`Total duplicate z3 file paths: ${duplicateZ3FilePaths.length}`);
+    console.log(`See output file for details on duplicates\n`);
   }
 
   console.log('========== FAILURES ==========');
   if (summary.rowPrepFailures === 0) {
-    console.log('none');
+    console.log('\nNo row prep failures');
   } else {
-    console.log(`Row prep failures: ${summary.rowPrepFailures}\n`);
+    console.log(`Row prep failures: ${summary.rowPrepFailures}`);
+    console.log('See output file for details on failures');
   }
-  if (summary.missingDob > 0) {
-    console.log(`Rows missing dob: ${summary.missingDob}\n`);
+
+  // ── CSV output ──────────────────────────────────────────────────────
+  console.log('\n========== WRITING CSVs ==========');
+
+  writeCsvToLegacyDataOutput(
+    'summary.csv',
+    ['metric', 'value'],
+    [
+      ['total_rows_processed', summary.totalRowsProcessed],
+      ['unique_patients', summary.uniquePatients.size],
+      ['row_prep_failures', summary.rowPrepFailures],
+      ['names_with_multiple_parts', summary.patientsWithMultipleNames.size],
+      ['names_with_special_chars', summary.namesWithSpecialChars.size],
+    ]
+  );
+
+  const docTypeRows: (string | number)[][] = [];
+  for (const [docType, descriptions] of Object.entries(summary.documentTypeSummary)) {
+    for (const [description, count] of Object.entries(descriptions)) {
+      docTypeRows.push([docType, description, count]);
+    }
   }
+  docTypeRows.sort((a, b) => String(a[0]).localeCompare(String(b[0])) || (b[2] as number) - (a[2] as number));
+  writeCsvToLegacyDataOutput('document_types.csv', ['document_type', 'description', 'count'], docTypeRows);
+
+  writeCsvToLegacyDataOutput(
+    'file_types.csv',
+    ['extension', 'count'],
+    Object.entries(summary.fileTypeSummary).sort((a, b) => b[1] - a[1])
+  );
+
+  writeCsvToLegacyDataOutput('duplicate_z3_file_paths.csv', ['file_path', 'count'], duplicateZ3FilePaths);
+
+  writeCsvToLegacyDataOutput(
+    'row_prep_failures.csv',
+    ['error_message', 'file', 'row detail'],
+    summary.rowPrepFailuresDetails.map((detail) => [
+      detail.errorMsg,
+      Object.values(detail.row).at(-1) || '',
+      Object.values(detail.row).slice(0, -1).join(','),
+    ])
+  );
+  console.log('');
 }
 
 main().catch((err) => {

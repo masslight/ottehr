@@ -1,5 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, MISSING_REQUIRED_PARAMETERS, Secrets, SecretsKeys } from 'utils';
+import {
+  FileType,
+  FileTypeFolderMap,
+  getSecret,
+  LegacyFile,
+  LegacyPatientRecord,
+  MISSING_REQUIRED_PARAMETERS,
+  SearchLegacyRecordsInput,
+  SearchLegacyRecordsOutput,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 
 const ZAMBDA_NAME = 'ehr-search-legacy-records';
@@ -12,40 +23,6 @@ const MAX_FILES_PER_RECORD_MAX = 200;
 const PRESIGNED_URL_CONCURRENCY = 10;
 
 let m2mToken: string;
-
-export interface SearchLegacyRecordsInput {
-  lastName: string;
-  firstName?: string;
-  dateOfBirth?: string;
-  /** 1-based page index (default: 1) */
-  page?: number;
-  /** Patient folders per page (default: 20, max: 50) */
-  pageSize?: number;
-  /** Max files returned per patient record (default: 50, max: 200) */
-  maxFilesPerRecord?: number;
-}
-
-export interface LegacyFile {
-  key: string;
-  fileName: string;
-  fileType: 'medical-summary' | 'progress-note' | 'other';
-  presignedUrl: string;
-}
-
-export interface LegacyPatientRecord {
-  patientFolder: string;
-  patientId: string;
-  displayName: string;
-  files: LegacyFile[];
-}
-
-export interface SearchLegacyRecordsOutput {
-  results: LegacyPatientRecord[];
-  /** Total number of matching patient folders (for pagination) */
-  total: number;
-  page: number;
-  pageSize: number;
-}
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets, lastName, firstName, dateOfBirth, page, pageSize, maxFilesPerRecord } =
@@ -134,11 +111,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         batch.map(async (key) => {
           const fileName = key.split('/').pop() ?? key;
           const lowerKey = key.toLowerCase();
-          const fileType: LegacyFile['fileType'] = lowerKey.includes('medical_summary')
-            ? 'medical-summary'
-            : lowerKey.includes('progressnotes') || lowerKey.includes('/enc/') || lowerKey.endsWith('/enc')
-            ? 'progress-note'
-            : 'other';
+
+          const fileType = getFileTypeFromKey(lowerKey);
+
           const presignedResponse = await oystehr.z3.getPresignedUrl({
             action: 'download',
             bucketName,
@@ -235,4 +210,20 @@ function validateRequestParameters(input: ZambdaInput): ValidatedParameters {
     pageSize,
     maxFilesPerRecord,
   };
+}
+
+function getFileTypeFromKey(key: string): FileType {
+  const lowerKey = key.toLowerCase();
+
+  for (const [fileType, folderName] of Object.entries(FileTypeFolderMap)) {
+    const matched = folderName.some((folder) => {
+      return lowerKey.includes(folder);
+    });
+
+    if (matched) {
+      return fileType as FileType;
+    }
+  }
+
+  return FileType.OTHER;
 }

@@ -25,3 +25,4 @@ export * from './delete-patient-document.types';
 export * from './printing';
 export * from './upload-patient-condition-photo.types';
 export * from './custom-folder.types';
+export * from './legacy-data';

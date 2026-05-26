@@ -190,6 +190,8 @@ import {
   SavePreliminaryReportZambdaInput,
   SavePreliminaryReportZambdaOutput,
   ScheduleDTO,
+  SearchLegacyRecordsInput,
+  SearchLegacyRecordsOutput,
   SendForFinalReadZambdaInput,
   SendForFinalReadZambdaOutput,
   SendReceiptByEmailZambdaInput,
@@ -2095,36 +2097,6 @@ export const generateLabelXml = async (
 };
 
 // ── Legacy Records ─────────────────────────────────────────────────────────────
-
-export interface SearchLegacyRecordsInput {
-  lastName: string;
-  firstName?: string;
-  dateOfBirth?: string;
-  page?: number;
-  pageSize?: number;
-  maxFilesPerRecord?: number;
-}
-
-export interface LegacyFile {
-  key: string;
-  fileName: string;
-  fileType: 'medical-summary' | 'progress-note' | 'other';
-  presignedUrl: string;
-}
-
-export interface LegacyPatientRecord {
-  patientFolder: string;
-  patientId: string;
-  displayName: string;
-  files: LegacyFile[];
-}
-
-export interface SearchLegacyRecordsOutput {
-  results: LegacyPatientRecord[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
 
 export const searchLegacyRecords = async (
   oystehr: Oystehr,
