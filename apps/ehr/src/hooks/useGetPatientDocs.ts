@@ -106,7 +106,7 @@ export type UseGetPatientDocsReturn = {
   isLoadingFolders: boolean;
   documentsFolders: PatientDocumentsFolder[];
   searchDocuments: (filters: PatientDocumentsFilters) => void;
-  downloadDocument: (documentId: string) => Promise<void>;
+  downloadDocument: (documentId: string, options?: { skipRelated?: boolean }) => Promise<void>;
   renameDocument: (documentId: string, newName: string) => Promise<void>;
   documentActions: UsePatientDocsActionsReturn;
   folderActions: FolderActionsReturn;
@@ -157,7 +157,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   );
 
   const downloadDocument = useCallback(
-    async (documentId: string): Promise<void> => {
+    async (documentId: string, options?: { skipRelated?: boolean }): Promise<void> => {
       const authToken = await getAccessTokenSilently();
 
       let patientDoc = getDocumentById(documentId);
@@ -237,6 +237,8 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
       } else {
         console.error(`No attachments found for a docId=[${documentId}]`);
       }
+
+      if (options?.skipRelated) return;
 
       const attachedDocumentIds =
         documentReferenceResource?.context?.related

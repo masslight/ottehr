@@ -3,11 +3,10 @@ import { AISuggestionNotesInput } from 'utils';
 export interface TestScenario {
   label: string;
   input: AISuggestionNotesInput;
-  /** At least one suggestion must contain one of these substrings (case-insensitive). */
   expectContains: string[];
+  expectEmpty?: true;
 }
 
-// Procedure: wound closure with all required details present.
 const COMPLETE_PROCEDURE: AISuggestionNotesInput = {
   type: 'procedure',
   details: {
@@ -16,7 +15,6 @@ const COMPLETE_PROCEDURE: AISuggestionNotesInput = {
   },
 };
 
-// Procedure: missing closure material and count.
 const INCOMPLETE_PROCEDURE: AISuggestionNotesInput = {
   type: 'procedure',
   details: {
