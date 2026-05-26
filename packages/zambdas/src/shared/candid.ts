@@ -40,6 +40,7 @@ import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resourc
 import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
 import { RelatedCausesCode } from 'candidhealth/api/resources/relatedCauses/resources/v1';
 import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
+import { APIResponse } from 'candidhealth/core';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -62,10 +63,12 @@ import {
   createReference,
   EmCodeOption,
   FHIR_IDENTIFIER_NPI,
+  findOrgMatchingReference,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
   getEmCodes,
   getPayerId,
+  getPayerUrl,
   getPaymentVariantFromEncounter,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -76,6 +79,7 @@ import {
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   OrderedCoveragesWithSubscribers,
   PaymentVariant,
+  Secrets,
   TIMEZONES,
 } from 'utils';
 import {
@@ -179,9 +183,7 @@ const createCandidCreateEncounterInput = async (
   const { coverages, insuranceOrgs } = await getAccountAndCoverageResourcesForPatient(patient.id, oystehr);
   const coverage = coverages.primary;
   const coverageSubscriber = coverages.primarySubscriber;
-  const coveragePayor = insuranceOrgs.find(
-    (insuranceOrg) => `Organization/${insuranceOrg.id}` === coverage?.payor[0]?.reference
-  );
+  const coveragePayor = findOrgMatchingReference(coverage?.payor[0]?.reference, insuranceOrgs);
   if (coverage && (!coverageSubscriber || !coveragePayor)) {
     throw MISSING_PATIENT_COVERAGE_INFO_ERROR;
   }
@@ -807,15 +809,27 @@ const createCandidCoverages = async (
   if (coverages === undefined) {
     return candidCoverages;
   }
-  const primaryInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.primary?.payor?.[0].reference
-  );
-  const secondaryInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.secondary?.payor?.[0].reference
-  );
-  const workersCompInsuranceOrg = insuranceOrgs.find(
-    (org) => createReference(org).reference === coverages.workersComp?.payor?.[0].reference
-  );
+  const primaryInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.primary?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.primary?.payor?.[0].reference)
+    );
+  });
+  const secondaryInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.secondary?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.secondary?.payor?.[0].reference)
+    );
+  });
+  const workersCompInsuranceOrg = insuranceOrgs.find((org) => {
+    const payerId = getPayerId(org);
+    return (
+      createReference(org).reference === coverages.workersComp?.payor?.[0].reference ||
+      (payerId !== undefined && getPayerUrl(payerId) === coverages.workersComp?.payor?.[0].reference)
+    );
+  });
 
   if (coverages.primary && coverages.primarySubscriber && primaryInsuranceOrg) {
     const candidCoverage = buildCandidCoverageCreateInput(
@@ -1040,13 +1054,20 @@ export async function createEncounterFromAppointment(
   const request = await candidCreateEncounterFromAppointmentRequest(createEncounterInput, candidApiClient);
   console.log('Candid request:' + JSON.stringify(request, null, 2));
   console.log(`[CLAIM SUBMISSION] Sending encounter to candid`);
-  const response = await candidApiClient.encounters.v4.createFromPreEncounterPatient(request);
+  const response = await retryCandidCall(() => candidApiClient.encounters.v4.createFromPreEncounterPatient(request));
   console.log(`[CLAIM SUBMISSION] Encounter sent to candid, response from candid ${JSON.stringify(response)}`);
+
+  let candidEncounterId: CandidApi.EncounterId | undefined;
   if (!response.ok) {
-    throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
+    if (response.rawResponse.status === 422) {
+      candidEncounterId = await recoverCandidEncounterAfter422(visitResources.encounter.id!, candidApiClient);
+    } else {
+      throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
+    }
+  } else {
+    candidEncounterId = response.body.encounterId;
+    console.log('Created Candid encounter:' + JSON.stringify(response.body));
   }
-  const encounter = response.body;
-  console.log('Created Candid encounter:' + JSON.stringify(encounter));
 
   // here we're setting claim type (self-pay or insurance-pay), if nothing provided it'll be insurance-pay
   const packageEncounter = visitResources.encounter;
@@ -1055,10 +1076,12 @@ export async function createEncounterFromAppointment(
     paymentVariantFromEncounter && paymentVariantFromEncounter === PaymentVariant.selfPay
       ? ResponsiblePartyType.SelfPay
       : ResponsiblePartyType.InsurancePay;
-  if (candidResponsibleParty) {
-    const updateResponse = await candidApiClient.encounters.v4.update(encounter.encounterId, {
-      responsibleParty: candidResponsibleParty,
-    });
+  if (candidResponsibleParty && candidEncounterId) {
+    const updateResponse = await retryCandidCall(() =>
+      candidApiClient.encounters.v4.update(candidEncounterId, {
+        responsibleParty: candidResponsibleParty,
+      })
+    );
     if (!updateResponse.ok) {
       throw new Error(`Error updating a Candid encounter. Response body: ${JSON.stringify(updateResponse.error)}`);
     } else {
@@ -1066,7 +1089,59 @@ export async function createEncounterFromAppointment(
     }
   }
 
-  return encounter.encounterId;
+  return candidEncounterId?.toString();
+}
+
+export async function recoverCandidEncounterAfter422(
+  fhirEncounterId: string,
+  candidApiClient: CandidApiClient
+): Promise<CandidApi.EncounterId | undefined> {
+  console.log(
+    `[CLAIM SUBMISSION] EncounterExternalIdUniquenessError occurred during encounter creation with ${fhirEncounterId} external id`
+  );
+  const existing = await candidApiClient.encounters.v4.getAll({
+    externalId: EncounterExternalId(fhirEncounterId),
+    limit: 1,
+  });
+  if (!existing.ok || existing.body.items.length === 0) {
+    throw new Error(
+      `EncounterExternalIdUniquenessError: encounter with externalId ${fhirEncounterId} exists but lookup failed: ${JSON.stringify(
+        existing
+      )}`
+    );
+  }
+  const candidEncounterId = existing.body.items.find((item) => item.externalId === fhirEncounterId)?.encounterId;
+  console.log(`[CLAIM SUBMISSION] Recovered existing Candid encounter: ${candidEncounterId}`);
+  return candidEncounterId;
+}
+
+export async function retryCandidCall<T, E>(
+  fn: () => Promise<APIResponse<T, E>>,
+  maxRetries = 3,
+  baseDelayMs = 500
+): Promise<APIResponse<T, E>> {
+  let response;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      response = await fn();
+      // Rate-limit may come back as a non-ok response with no HTTP status; detect by error name.
+      const isResponseRateLimited = !response.ok && (response.error as any)?.errorName === 'TooManyRequestsError';
+      if (response.ok || (!isResponseRateLimited && !response.ok) || attempt === maxRetries) return response;
+    } catch (error: any) {
+      if (attempt === maxRetries) throw error;
+      // "Too many requests" arrives as a thrown exception with no statusCode.
+      const isRetryable =
+        error?.body?.errorName === 'TooManyRequestsError' ||
+        error?.message?.toLowerCase().includes('too many requests');
+      if (!isRetryable) throw error;
+    }
+    const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 100;
+    console.warn(
+      `Candid request ok: ${response?.ok}, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`
+    );
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  throw new Error('Candid call failed after all retries');
 }
 
 async function candidCreateEncounterFromAppointmentRequest(
@@ -1289,3 +1364,36 @@ export const getCptModifierCodeFromProcedure = (
 
   return modifier;
 };
+
+export function shouldUseCandid(secrets: Secrets): boolean {
+  return (
+    ['candid', 'all'].includes(secrets.BILLING_INTEGRATION_FEATURE_FLAG) ||
+    // TODO: remove this once secrets migrated
+    !secrets.BILLING_INTEGRATION_FEATURE_FLAG
+  );
+}
+
+export function shouldUseOttehrBilling(secrets: Secrets): boolean {
+  return ['ottehr', 'all'].includes(secrets.BILLING_INTEGRATION_FEATURE_FLAG);
+}
+
+export function shouldSendClaim(secrets: Secrets, encounter: Encounter): boolean {
+  if (shouldUseCandid(secrets)) {
+    // Check if candid encounter ID already exists in encounter identifier
+    const existingCandidEncounterId = encounter.identifier?.find(
+      (identifier) => identifier.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM
+    )?.value;
+    if (existingCandidEncounterId) {
+      console.log(
+        `[CLAIM SUBMISSION] Candid encounter already exists with ID ${existingCandidEncounterId}, skipping creation`
+      );
+      return false;
+    }
+    return true;
+  }
+  if (shouldUseOttehrBilling(secrets)) {
+    // Always send to Ottehr billing
+    return true;
+  }
+  return false;
+}

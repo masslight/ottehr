@@ -212,7 +212,7 @@ export const Tasks: React.FC = () => {
         <FormProvider {...methods}>
           <Paper>
             <Stack direction="row" spacing={2} padding="8px">
-              <LocationSelectInput name="location" label="Location" />
+              <LocationSelectInput name="location" label="Location" type="in-person" />
               <SelectInput
                 name="category"
                 label="Category"

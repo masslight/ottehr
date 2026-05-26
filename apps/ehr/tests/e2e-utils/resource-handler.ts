@@ -35,6 +35,7 @@ import {
   formatPhoneNumber,
   genderMap,
   GetPaperworkAnswers,
+  getTimezone,
   IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
   RelationshipOption,
   SampleAppointmentResponse,
@@ -349,11 +350,18 @@ export class ResourceHandler {
     // Seed data only needs the canonical URL+version pair, not a full Q body.
     const { url, version } = IN_PERSON_INTAKE_PAPERWORK_CANONICAL;
 
+    // Use the location's timezone (not UTC) so the seeded appointment lands on the same
+    // calendar day the tracking board searches — it filters in the location's timezone,
+    // so a UTC-keyed date is wrong in the evenings local time (e.g. 8pm-midnight ET).
+    const locationTimezone = getTimezone(schedule);
     let seedDataString = JSON.stringify(fastSeedData);
     seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
     seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
     seedDataString = seedDataString.replace(/\{\{questionnaireUrl\}\}/g, `${url}|${version}`);
-    seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
+    seedDataString = seedDataString.replace(
+      /\{\{date\}\}/g,
+      DateTime.now().setZone(locationTimezone).toFormat('yyyy-MM-dd')
+    );
 
     // TODO do something about the DocumentReference attachments? For the moment all of these tests point to the exact same files. Maybe that's great. Or maybe we should upload images each time?
 

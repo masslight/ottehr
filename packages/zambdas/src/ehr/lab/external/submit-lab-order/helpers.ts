@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
 import {
   Account,
+  ActivityDefinition,
   Coverage,
   DocumentReference,
   Encounter,
@@ -21,17 +22,18 @@ import {
   EXTERNAL_LAB_ERROR,
   getOrderNumber,
   getPresignedURL,
+  getTestDetailsFromActivityDefinition,
   getTimezone,
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LabPaymentMethod,
   ORDER_ITEM_UNKNOWN,
-  OYSTEHR_LAB_OI_CODE_SYSTEM,
   paymentMethodFromCoverage,
   PaymentResources,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   Secrets,
 } from 'utils';
+import { validate } from 'uuid';
 import {
   createExternalLabsOrderFormPDF,
   getOrderFormDataConfig,
@@ -63,6 +65,7 @@ export type testDataForOrderForm = {
   serviceRequest: ServiceRequest;
   serviceRequestCreatedDate: string;
   testName: string;
+  testItemCode: string;
   testAssessments: { code: string; name: string }[]; // dx
   testPriority: string;
   aoeAnswers?: AOEDisplayForOrderForm[];
@@ -304,7 +307,7 @@ function makeLocationPromise(
     .then((location) => ({ serviceRequestID, location }));
 }
 
-function makeCoveragePromise(
+async function makeCoveragePromise(
   oystehr: Oystehr,
   serviceRequestID: string,
   patientIDToValidate: string | undefined,
@@ -316,25 +319,21 @@ function makeCoveragePromise(
   }
 
   const coverageIDs = insuranceRefs.map((ref) => ref.replace('Coverage/', ''));
-  return oystehr.fhir
-    .search<Coverage | Organization | Patient>({
-      resourceType: 'Coverage',
-      params: [
-        { name: '_id', value: coverageIDs.join(',') || 'UNKNOWN' },
-        { name: '_include', value: 'Coverage:payor' },
-        { name: '_include', value: 'Coverage:beneficiary' },
-      ],
-    })
-    .then((bundle) => {
-      const unbundledResults = bundle.unbundle();
-      const coverages = unbundledResults.filter((resource) => resource.resourceType === 'Coverage');
-      if (!coverages.length) throw EXTERNAL_LAB_ERROR('no coverage found');
+  const coveragesAndOrgs = await Promise.all(
+    coverageIDs.map(async (coverageId) => {
+      const unbundledResults = (
+        await oystehr.fhir.search<Coverage | Organization | Patient>({
+          resourceType: 'Coverage',
+          params: [
+            { name: '_id', value: coverageId || 'UNKNOWN' },
+            { name: '_include', value: 'Coverage:payor' },
+            { name: '_include', value: 'Coverage:beneficiary' },
+          ],
+        })
+      ).unbundle();
 
-      const insuranceOrganizations = unbundledResults.filter((resource) => resource.resourceType === 'Organization');
-      if (!insuranceOrganizations.length) throw EXTERNAL_LAB_ERROR('organizations for insurance were not found');
-      const payorRefToOrgMap = new Map<string, Organization>(
-        insuranceOrganizations.map((org) => [`Organization/${org.id}`, org])
-      );
+      const coverage = unbundledResults.filter((resource) => resource.resourceType === 'Coverage')[0];
+      if (!coverage) throw EXTERNAL_LAB_ERROR(`no coverage found for id ${coverageId}`);
 
       const coveragePatients = unbundledResults.filter((resource) => resource.resourceType === 'Patient');
       if (coveragePatients.length !== 1)
@@ -342,24 +341,44 @@ function makeCoveragePromise(
       const coveragePatient = coveragePatients[0];
 
       if (!coveragePatient || coveragePatient?.id !== patientIDToValidate) {
-        throw Error(
+        throw EXTERNAL_LAB_ERROR(
           `The coverage beneficiary does not match the patient from the service request. Coverage patient id: ${coveragePatient?.id}. ServiceRequest patient id: ${patientIDToValidate} `
         );
       }
 
       // map the coverage to its payor
-      const coveragesAndOrgs = coverages.map((coverage) => {
-        const orgRef = coverage.payor.length ? coverage.payor[0].reference : '';
-        const org = payorRefToOrgMap.get(orgRef ?? '');
-        if (!org) throw EXTERNAL_LAB_ERROR(`No payor found for Coverage/${coverage.id}`);
-        return {
-          coverage,
-          payorOrg: org,
-        };
-      });
+      let payorOrg: Organization | undefined;
+      const payorReference = coverage.payor[0]?.reference;
+      if (!payorReference) throw EXTERNAL_LAB_ERROR(`No payor reference found for Coverage/${coverage.id}`);
+      const payorReferenceMaybeUuid = payorReference.replace('Organization/', '');
+      if (validate(payorReferenceMaybeUuid)) {
+        payorOrg = unbundledResults.find(
+          (res): res is Organization => res.resourceType === 'Organization' && res.id === payorReferenceMaybeUuid
+        );
+      } else {
+        // grab the rcm reference
+        try {
+          console.log(`querying rcm for payor at url`, payorReference);
+          payorOrg = await oystehr.rcm.getPayerByUrl({ url: payorReference });
+        } catch (error) {
+          console.error(`Unable to query rcm payor at url ${payorReference}. Error: `, error);
+          throw EXTERNAL_LAB_ERROR(
+            `Unable to query rcm payor at url ${payorReference} for Coverage/${coverageId}. Ensure the payor is properly configured`
+          );
+        }
+      }
 
-      return { serviceRequestID, coveragesAndOrgs };
-    });
+      if (!payorOrg)
+        throw EXTERNAL_LAB_ERROR(`Payor organization for insurance were not found, Coverage/${coverageId}`);
+
+      return {
+        coverage,
+        payorOrg,
+      };
+    })
+  );
+
+  return { serviceRequestID, coveragesAndOrgs };
 }
 
 function makeQuestionnairePromise(
@@ -451,13 +470,17 @@ function getTestDataForOrderForm(
   mostRecentSampleCollectionDate?: DateTime<true>
 ): testDataForOrderForm {
   if (!sr.reasonCode) throw Error('ServiceRequest is missing a reasonCode to specify diagnosis');
+  const activityDefinition = sr.contained?.find(
+    (res): res is ActivityDefinition => res.resourceType === 'ActivityDefinition'
+  );
+  const { testName, testItemCode } = getTestDetailsFromActivityDefinition(activityDefinition);
 
   const data: testDataForOrderForm = {
     serviceRequestID: sr.id || ORDER_ITEM_UNKNOWN,
     serviceRequest: sr,
     serviceRequestCreatedDate: sr.authoredOn || '',
-    testName:
-      sr.code?.coding?.find((coding) => coding.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display || ORDER_ITEM_UNKNOWN,
+    testName,
+    testItemCode,
     testAssessments: sr.reasonCode?.map((code) => ({
       code: code.coding?.[0].code || ORDER_ITEM_UNKNOWN,
       name: code.text || ORDER_ITEM_UNKNOWN,
@@ -654,7 +677,17 @@ function makePaymentResourceConfig(
   } else if (selfPayCoverage && coveragesAndOrgs.length === 1) {
     return { type: LabPaymentMethod.SelfPay, coverage: selfPayCoverage.coverage };
   } else if (workersCompCoverage && coveragesAndOrgs.length === 1) {
-    return { type: LabPaymentMethod.WorkersComp, coverage: workersCompCoverage.coverage };
+    // for the moment ottehr only supports one insurance for worker's comp
+    return {
+      type: LabPaymentMethod.WorkersComp,
+      coverageAndOrgs: [
+        {
+          coverage: workersCompCoverage.coverage,
+          payorOrg: workersCompCoverage.payorOrg,
+          coverageRank: 1,
+        },
+      ],
+    };
   } else {
     const coverageIdWithPaymentMethod = coveragesAndOrgs.map((data) => ({
       coverageId: data.coverage.id,

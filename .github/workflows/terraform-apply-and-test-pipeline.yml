@@ -37,7 +37,7 @@ on:
         type: boolean
         default: false
   push:
-    branches: [main]
+    branches: [main, develop, "release/**"]
     paths:
       - "apps/ehr/**"
       - "apps/intake/**"
@@ -79,6 +79,7 @@ jobs:
     outputs:
       environment: ${{ steps.finalize-env.outputs.environment }}
       should-run-apply: ${{ steps.check.outputs.should-run-apply }}
+      coverage-only: ${{ steps.check.outputs.coverage-only }}
       concurrency-group: ${{ steps.concurrency.outputs.group }}
     steps:
       - name: Determine Environment
@@ -220,6 +221,17 @@ jobs:
               echo "Workflow dispatch without skip flag - running Terraform Apply"
               echo "should-run-apply=true" >> $GITHUB_OUTPUT
             fi
+            echo "coverage-only=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Push to non-main branches (develop, release/**): coverage-only run.
+          # Keeps Coveralls baselines fresh on PR target branches without doing a
+          # full deploy + E2E on every merge. See docs.coveralls.io/build-types.
+          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "Push to non-main branch - coverage-only run (skip terraform apply and E2E)"
+            echo "should-run-apply=false" >> $GITHUB_OUTPUT
+            echo "coverage-only=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -227,12 +239,14 @@ jobs:
           if [ "${{ contains(github.event.pull_request.body || '', '/skip-terraform-apply') }}" == "true" ]; then
             echo "Skipping Terraform Apply via PR command /skip-terraform-apply"
             echo "should-run-apply=false" >> $GITHUB_OUTPUT
+            echo "coverage-only=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
           # Default: run Terraform Apply for all push/pull_request events
           echo "Running Terraform Apply by default"
           echo "should-run-apply=true" >> $GITHUB_OUTPUT
+          echo "coverage-only=false" >> $GITHUB_OUTPUT
 
       - name: Determine Concurrency Group
         id: concurrency
@@ -315,8 +329,8 @@ jobs:
       aws_deploy_role: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
       secrets_repository: ${{ inputs.secrets_repository || vars.SECRETS_REPOSITORY }}
       run_automated_tests: ${{ github.event.inputs.run_automated_tests != 'false' || github.event_name != 'workflow_dispatch' }}
-      run_ehr_e2e: ${{ github.event.inputs.run_ehr_e2e != 'false' || github.event_name != 'workflow_dispatch' }}
-      run_intake_e2e: ${{ github.event.inputs.run_intake_e2e != 'false' || github.event_name != 'workflow_dispatch' }}
+      run_ehr_e2e: ${{ needs.determine-environment.outputs.coverage-only != 'true' && (github.event.inputs.run_ehr_e2e != 'false' || github.event_name != 'workflow_dispatch') }}
+      run_intake_e2e: ${{ needs.determine-environment.outputs.coverage-only != 'true' && (github.event.inputs.run_intake_e2e != 'false' || github.event_name != 'workflow_dispatch') }}
       pr_body: ${{ github.event.pull_request.body || '' }}
       github_ref: ${{ github.ref }}
       is_pull_request: ${{ github.event_name == 'pull_request' }}

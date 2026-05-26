@@ -13,7 +13,6 @@ import {
   getCriticalUpdateTagOp,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
-  getUnconfirmedDOBIdx,
   INVALID_INPUT_ERROR,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
@@ -89,28 +88,6 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     };
 
     patchRequests.push(patientPatch);
-
-    // Remove dobNotConfirmed extension from Appointment
-    const appointmentExt = appointment?.extension;
-    const dobNotConfirmedIdx = getUnconfirmedDOBIdx(appointment);
-
-    if (dobNotConfirmedIdx !== undefined && dobNotConfirmedIdx >= 0) {
-      appointmentExt?.splice(dobNotConfirmedIdx, 1);
-
-      const appointmentPatch: BatchInputJSONPatchRequest = {
-        url: '/Appointment/' + appointment.id,
-        method: 'PATCH',
-        operations: [
-          {
-            op: appointment?.extension ? 'replace' : 'add',
-            path: '/extension',
-            value: appointmentExt,
-          },
-        ],
-      };
-
-      patchRequests.push(appointmentPatch);
-    }
   }
   if (bookingDetails.patientName) {
     const {

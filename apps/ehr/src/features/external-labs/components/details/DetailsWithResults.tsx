@@ -28,7 +28,9 @@ export const DetailsWithResults: React.FC<{
 
   return (
     <Box data-testid={dataTestIds.externalLabs.detailsPg.pageContainer}>
-      <PageTitleStyled>{labOrder.testItem}</PageTitleStyled>
+      <PageTitleStyled>
+        ({labOrder.testItemCode}) {labOrder.testItem}
+      </PageTitleStyled>
 
       {!drCentricResult && (
         <Typography variant="body1" sx={{ fontWeight: 'medium' }}>

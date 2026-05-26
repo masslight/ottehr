@@ -50,7 +50,7 @@ export const createPrimaryCarePhysicianSection = <TData extends { pcp?: PrimaryC
       // hides the checkbox when its key is in hiddenFields).
       if (!details.hasPcp) {
         if (shouldShow('pcp-active') && NO_PCP_LABEL) {
-          client.drawText(NO_PCP_LABEL, styles.textStyles.regular);
+          client.drawText(NO_PCP_LABEL, { ...styles.textStyles.regular, spacing: 16 });
         }
         return;
       }

@@ -63,7 +63,8 @@
             "Z3:#{var/PROJECT_ID}-statements/*",
             "Z3:#{var/PROJECT_ID}-patient-education/*",
             "Z3:#{var/PROJECT_ID}-legacy-data/*",
-            "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*"
+            "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*",
+            "Z3:#{var/PROJECT_ID}-patient-docs-custom-folders/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject", "Z3:DeleteObject", "Z3:ListObjects"],
           "effect": "Allow"
@@ -97,6 +98,11 @@
           "action": ["Terminology:SearchCodes"],
           "effect": "Allow",
           "resource": ["Terminology:Code:*"]
+        },
+        {
+          "action": ["RCM:SearchPayer", "RCM:GetPayer"],
+          "effect": "Allow",
+          "resource": ["RCM:Payer"]
         }
       ]
     },
