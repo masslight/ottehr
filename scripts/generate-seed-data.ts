@@ -67,6 +67,12 @@ async function main(): Promise<void> {
     await handler.waitTillHarvestingDone(appointmentId);
     console.log('Harvesting complete');
 
+    // The eRx Patient.contact patch lands via an async page-harvest Task that the
+    // harvesting-completed tag does not reliably gate. Wait for it to settle so the frozen seed
+    // matches the live e2e patient (otherwise the integration data-contract test drifts).
+    console.log('Waiting for patient contact to settle...');
+    await handler.waitTillContactHarvested(appointmentId);
+
     console.log('Fetching all related resources...');
     const apiClient = await handler.apiClient;
     const resources = (

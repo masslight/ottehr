@@ -541,6 +541,37 @@ export class ResourceHandler {
     }
   }
 
+  // Waits until the harvested Patient carries a `contact` entry. The eRx contact patch is applied
+  // by an async page-harvest Task whose completion is NOT reliably gated by the
+  // intake-harvesting-completed tag, so a snapshot taken right after that tag can miss `contact`.
+  // Seed generation froze such a patient, which then drifted from the live e2e patient in the
+  // integration data-contract test. Polling here lets the patient settle before we snapshot it.
+  // Not every flow produces a `contact` (e.g. instances without the contact-information page or a
+  // verified phone), so on timeout we log and return rather than throw — callers that legitimately
+  // never get a contact still proceed, and their live patient won't have one either.
+  async waitTillContactHarvested(appointmentId: string): Promise<void> {
+    const apiClient = await this.apiClient;
+    const maxAttempts = 30; // 30 * 3s = 90s ceiling; the patch normally lands within a few seconds
+    const delayMs = 3_000;
+
+    const patientId = await this.patientIdByAppointmentId(appointmentId);
+
+    for (let i = 0; i < maxAttempts; i++) {
+      const patient = await apiClient.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
+      if ((patient.contact?.length ?? 0) > 0) {
+        console.log(`Patient ${patientId} contact harvested after ${i + 1} attempts`);
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
+    console.warn(
+      `Patient ${patientId} never gained a contact entry after ${
+        (maxAttempts * delayMs) / 1000
+      }s; proceeding (this flow may not produce a patient contact)`
+    );
+  }
+
   async waitTillVisitNotePdfCreated(): Promise<DocumentReference> {
     const apiClient = await this.apiClient;
 

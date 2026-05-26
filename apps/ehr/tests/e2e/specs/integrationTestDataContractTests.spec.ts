@@ -32,6 +32,9 @@ test.beforeAll(async () => {
     e2eHandler.waitTillAppointmentPreprocessed(e2eHandler.appointment.id!),
     e2eHandler.waitTillHarvestingDone(e2eHandler.appointment.id!),
   ]);
+  // Match the seed generator: let the async eRx Patient.contact patch land before we snapshot the
+  // live e2e patient, so neither side of the comparison races ahead of that harvest patch.
+  await e2eHandler.waitTillContactHarvested(e2eHandler.appointment.id!);
 });
 
 test.afterAll(async () => {
