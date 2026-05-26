@@ -67,9 +67,15 @@ export function fhirName(resource?: Patient | Practitioner): string {
 
 // Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
 export function prepareWorkingCopy<T extends Resource>(resource: T, originalId: string): T {
+  const copy = prepareCopy<T>(resource, originalId);
+  copy.meta = { tag: [BILLING_WORKING_COPY_TAG] };
+  return copy;
+}
+
+// Clone a billing resource into a working copy: strips id, tags it, adds source identifier.
+export function prepareCopy<T extends Resource>(resource: T, originalId: string): T {
   const copy: T & { identifier?: { system: string; value: string }[] } = structuredClone(resource);
   delete copy.id;
-  copy.meta = { tag: [BILLING_WORKING_COPY_TAG] };
   const existing = (copy.identifier ?? []).filter((id) => id.system !== SOURCE_IDENTIFIER_SYSTEM);
   copy.identifier = [
     ...existing,

@@ -8,6 +8,7 @@ import {
   Encounter,
   HumanName,
   Identifier,
+  Location,
   Organization,
   Patient,
   Period,
@@ -781,8 +782,8 @@ export const checkEncounterHasPractitioner = (encounter: Encounter, practitioner
   );
 };
 
-export const getPractitionerNPIIdentifier = (practitioner: Practitioner): Identifier | undefined => {
-  return practitioner.identifier?.find((existIdentifier) => existIdentifier.system === FHIR_IDENTIFIER_NPI);
+export const getNPIIdentifier = (resource: Practitioner | Location | Organization): Identifier | undefined => {
+  return resource.identifier?.find((existIdentifier) => existIdentifier.system === FHIR_IDENTIFIER_NPI);
 };
 
 export const getPatientFormUser = (patient: Patient | undefined): 'Parent' | 'Self' | undefined => {
