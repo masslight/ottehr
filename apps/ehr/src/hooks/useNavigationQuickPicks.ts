@@ -220,7 +220,7 @@ export function useNavigationQuickPicks(): void {
       keywords: destination.keywords,
       parentId: destination.parentId,
       onSelect: () => {
-        if (destination.query && location.pathname === destination.to) {
+        if (destination.query && destination.keepVisibleOnSamePath && location.pathname === destination.to) {
           // Same path — just update the query in place so the page reacts
           // (e.g. AppointmentTabs's useSearchParams syncs to the new tab).
           setSearchParams(
