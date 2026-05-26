@@ -4,6 +4,7 @@ import {
   Home as HomeIcon,
   MedicalServices as MedicalServicesIcon,
   People as PeopleIcon,
+  Receipt as ReceiptIcon,
 } from '@mui/icons-material';
 import { Drawer, List, ListItemButton, ListItemIcon, ListItemText, Toolbar } from '@mui/material';
 import { FC } from 'react';
@@ -18,6 +19,7 @@ const navItems = [
   { label: 'Patients', path: '/patients', icon: <PeopleIcon fontSize="small" /> },
   { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon fontSize="small" /> },
   { label: 'Rendering Providers', path: '/rendering-providers', icon: <MedicalServicesIcon fontSize="small" /> },
+  { label: 'ERAs', path: '/eras', icon: <ReceiptIcon fontSize="small" /> },
 ];
 
 export const Sidebar: FC = () => {

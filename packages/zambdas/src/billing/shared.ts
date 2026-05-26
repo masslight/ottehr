@@ -30,6 +30,8 @@ export const BILLS_TAG = 'https://fhir.ottehr.com/billing/bills-services';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://ottehr.com/billing/source-resource';
+export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
+export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 
 const PROTECTED_OVERRIDE_KEYS = new Set(['id', 'meta', 'resourceType', 'extension']);
 

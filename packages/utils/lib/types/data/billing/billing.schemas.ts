@@ -17,6 +17,29 @@ export const GetClaimDetailInputSchema = z.object({
   claimId: nonEmptyString,
 });
 
+export const GetEraDetailInputSchema = z.object({
+  eraId: nonEmptyString,
+});
+
+export const SearchErasInputSchema = z.object({
+  // ERA-level filters (work for matched + unmatched)
+  eraId: nonEmptyString.optional(),
+  checkNumber: nonEmptyString.optional(),
+  eraDateFrom: nonEmptyString.optional(),
+  eraDateTo: nonEmptyString.optional(),
+  eraStatus: nonEmptyString.optional(),
+  payerId: nonEmptyString.optional(),
+  payerName: nonEmptyString.optional(),
+  // Claim-level filters (only ERAs with matched claims satisfying these)
+  claimStatus: nonEmptyString.optional(),
+  dosFrom: nonEmptyString.optional(),
+  dosTo: nonEmptyString.optional(),
+  patientId: nonEmptyString.optional(),
+  searchText: nonEmptyString.optional(),
+  offset: nonNegativeInt.optional(),
+  pageSize: nonNegativeInt.optional(),
+});
+
 export const GetPatientDetailInputSchema = z.object({
   patientId: nonEmptyString,
 });
@@ -176,6 +199,8 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
 ]);
 
 export type GetClaimDetailInput = z.infer<typeof GetClaimDetailInputSchema>;
+export type GetEraDetailInput = z.infer<typeof GetEraDetailInputSchema>;
+export type SearchErasInput = z.infer<typeof SearchErasInputSchema>;
 export type GetPatientDetailInput = z.infer<typeof GetPatientDetailInputSchema>;
 export type GetPatientCoveragesInput = z.infer<typeof GetPatientCoveragesInputSchema>;
 export type SearchBillingClaimsInput = z.infer<typeof SearchBillingClaimsInputSchema>;

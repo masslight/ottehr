@@ -11,6 +11,8 @@ import ClaimDetail from './pages/ClaimDetail';
 import ClaimsList from './pages/ClaimsList';
 import CreateClaim from './pages/CreateClaim';
 import Dashboard from './pages/Dashboard';
+import ERADetail from './pages/ERADetail';
+import ERAList from './pages/ERAList';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
 import { RenderingProviderDetail, RenderingProvidersList } from './pages/RenderingProviders';
@@ -48,6 +50,8 @@ export default function App(): ReactElement {
             <Route path="/billing-providers/:id" element={<BillingProviderDetail />} />
             <Route path="/rendering-providers" element={<RenderingProvidersList />} />
             <Route path="/rendering-providers/:id" element={<RenderingProviderDetail />} />
+            <Route path="/eras" element={<ERAList />} />
+            <Route path="/eras/:id" element={<ERADetail />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Route>
         </Routes>

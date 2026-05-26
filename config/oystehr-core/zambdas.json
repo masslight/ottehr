@@ -641,6 +641,20 @@
       "src": "src/billing/get-billing-patient-detail/index",
       "zip": ".dist/zips/get-billing-patient-detail.zip"
     },
+    "SEARCH-BILLING-ERAS": {
+      "name": "search-billing-eras",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-eras/index",
+      "zip": ".dist/zips/search-billing-eras.zip"
+    },
+    "GET-BILLING-ERA-DETAIL": {
+      "name": "get-billing-era-detail",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-era-detail/index",
+      "zip": ".dist/zips/get-billing-era-detail.zip"
+    },
     "UPDATE-BILLING-CLAIM": {
       "name": "update-billing-claim",
       "type": "http_auth",

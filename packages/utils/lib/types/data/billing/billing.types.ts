@@ -1,3 +1,44 @@
+export interface EraListItem {
+  id: string;
+  eraId: string;
+  checkNumber: string;
+  payerName: string;
+  paymentDate: string;
+  paymentAmount: number;
+  status: string;
+  claimCount: number;
+  matchedCount: number;
+  unmatchedCount: number;
+}
+
+export interface EraDetailResponse {
+  id: string;
+  eraId: string;
+  checkNumber: string;
+  checkDate: string;
+  checkAmount: number;
+  payerName: string;
+  payerFhirId: string;
+  status: string;
+  source: string;
+  payeeNpi: string;
+  paymentMethod: string;
+  totalClaims: number;
+  matchedClaims: number;
+  unmatchedClaims: number;
+  claims: {
+    claimId: string;
+    patientName: string;
+    dos: string;
+    billed: number;
+    allowed: number;
+    paid: number;
+    posted: number;
+    source: string;
+    status: string;
+  }[];
+}
+
 export interface BillingClaimItem {
   id: string;
   status: string;
