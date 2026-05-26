@@ -1,4 +1,5 @@
 import Oystehr, { BatchInput, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Account,
@@ -33,6 +34,7 @@ import {
   FhirEncounterStatus,
   FOLLOWUP_SUBTYPE_SYSTEM,
   FOLLOWUP_SYSTEMS,
+  FollowUpOptions,
   formatPhoneNumber,
   formatPhoneNumberDisplay,
   getAppointmentDurationFromSlot,
@@ -81,7 +83,7 @@ interface CreateAppointmentInput {
   language?: string;
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
-  parentEncounterId?: string;
+  followUpOptions?: FollowUpOptions;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -117,7 +119,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     questionnaireCanonical,
     visitType,
     appointmentMetadata: maybeMetadata,
-    parentEncounterId,
+    followUpOptions,
   } = effectInput;
   console.log('effectInput', effectInput);
   console.timeEnd('performing-complex-validation');
@@ -150,7 +152,7 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       visitType,
       questionnaireCanonical,
       appointmentMetadata,
-      parentEncounterId,
+      followUpOptions,
     },
     oystehr
   );
@@ -279,7 +281,7 @@ export async function createAppointment(
     createdBy,
     slot,
     appointmentMetadata,
-    parentEncounterId: input.parentEncounterId,
+    followUpOptions: input.followUpOptions,
   });
 
   let relatedPersonId = '';
@@ -370,7 +372,7 @@ interface TransactionInput {
   formUser?: string;
   slot?: Slot;
   appointmentMetadata?: Appointment['meta'];
-  parentEncounterId?: string;
+  followUpOptions?: FollowUpOptions;
 }
 interface TransactionOutput {
   appointment: Appointment;
@@ -403,13 +405,16 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     serviceMode,
     slot,
     appointmentMetadata,
-    parentEncounterId,
+    followUpOptions,
   } = input;
+
+  const parentEncounterId = followUpOptions?.parentEncounterId;
 
   // Validate parent encounter for scheduled follow-ups — no nesting allowed.
   // Also collect the parent encounter's diagnoses so they can be carried over to the follow-up.
   let carriedOverDiagnoses: { condition: Condition; rank?: number }[] = [];
   if (parentEncounterId) {
+    // Validation invariant (NOT part of copy flow): parent must exist and not be a follow-up itself.
     const parentEncounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',
       id: parentEncounterId,
@@ -418,23 +423,32 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       throw new Error('Cannot create a follow-up of a follow-up. Please select a top-level encounter as the parent.');
     }
 
-    const parentDiagnosisEntries = (parentEncounter.diagnosis ?? []).filter((entry) => {
-      const ref = entry.condition?.reference;
-      return typeof ref === 'string' && ref.startsWith('Condition/');
-    });
-    if (parentDiagnosisEntries.length > 0) {
-      const fetchedConditions = await Promise.all(
-        parentDiagnosisEntries.map((entry) =>
-          oystehr.fhir.get<Condition>({
-            resourceType: 'Condition',
-            id: entry.condition!.reference!.split('/')[1],
-          })
-        )
-      );
-      carriedOverDiagnoses = parentDiagnosisEntries.map((entry, idx) => ({
-        condition: fetchedConditions[idx],
-        rank: entry.rank,
-      }));
+    // Best-effort diagnosis carry-over: isolated so a failure here does not roll back the visit.
+    if (!followUpOptions?.skipPatientDiagnosis) {
+      try {
+        const parentDiagnosisEntries = (parentEncounter.diagnosis ?? []).filter((entry) => {
+          const ref = entry.condition?.reference;
+          return typeof ref === 'string' && ref.startsWith('Condition/');
+        });
+        if (parentDiagnosisEntries.length > 0) {
+          const fetchedConditions = await Promise.all(
+            parentDiagnosisEntries.map((entry) =>
+              oystehr.fhir.get<Condition>({
+                resourceType: 'Condition',
+                id: entry.condition!.reference!.split('/')[1],
+              })
+            )
+          );
+          carriedOverDiagnoses = parentDiagnosisEntries.map((entry, idx) => ({
+            condition: fetchedConditions[idx],
+            rank: entry.rank,
+          }));
+        }
+      } catch (e) {
+        console.error(`Failed to carry over diagnoses from parent encounter ${parentEncounterId}:`, e);
+        captureException(e);
+        carriedOverDiagnoses = [];
+      }
     }
   }
 
@@ -788,8 +802,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   };
   console.log('making transaction request');
   const bundle = await oystehr.fhir.transaction(transactionInput);
-  const resources = extractResourcesFromBundle(bundle);
-  return resources;
+  return extractResourcesFromBundle(bundle);
 };
 
 const extractResourcesFromBundle = (bundle: Bundle<Resource>): TransactionOutput => {
