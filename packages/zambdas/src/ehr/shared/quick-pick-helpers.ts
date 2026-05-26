@@ -82,24 +82,3 @@ export async function searchQuickPicks<T extends { id?: string }>(
 
   return activityDefinitions.map((ad) => activityDefinitionToQuickPick(ad, category));
 }
-
-export async function createQuickPick<T extends { id?: string }>(
-  oystehr: Oystehr,
-  quickPick: Omit<T, 'id'>,
-  category: QuickPickCategory<T>
-): Promise<T> {
-  const ad = quickPickToActivityDefinition(quickPick, category);
-  const created = await oystehr.fhir.create<ActivityDefinition>(ad);
-  return activityDefinitionToQuickPick(created, category);
-}
-
-export async function updateQuickPick<T extends { id?: string }>(
-  oystehr: Oystehr,
-  quickPickId: string,
-  quickPick: Omit<T, 'id'>,
-  category: QuickPickCategory<T>
-): Promise<T> {
-  const ad = quickPickToActivityDefinition(quickPick, category, quickPickId);
-  const updated = await oystehr.fhir.update<ActivityDefinition>(ad);
-  return activityDefinitionToQuickPick(updated, category);
-}
