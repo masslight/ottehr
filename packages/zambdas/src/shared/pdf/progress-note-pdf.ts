@@ -1,4 +1,4 @@
-import { BUCKET_NAMES, Secrets } from 'utils';
+import { BUCKET_NAMES, getPdfLogoDimensions, Secrets } from 'utils';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import {
@@ -296,10 +296,7 @@ const createProgressNoteStyles: StyleFactory = (assets) => ({
 const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
   header: {
     title: (data) => (data.encounter.isFollowup ? 'Follow-up Visit Note' : 'Visit Note'),
-    logo: {
-      width: 110,
-      height: 28,
-    },
+    logo: getPdfLogoDimensions(),
   },
   headerBodySeparator: false,
   assetPaths: progressNoteAssetPaths,

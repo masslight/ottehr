@@ -37,10 +37,15 @@ export const BRANDING_CONFIG = Object.freeze(BRANDING_DATA);
 // (types/constants.ts cannot import from ottehr-config without creating a cycle)
 export const PROJECT_WEBSITE = `https://${BRANDING_CONFIG.projectDomain}`;
 
-type LogoTarget = Exclude<keyof LogoConfig, 'default'>;
+type LogoTarget = Exclude<keyof LogoConfig, 'default' | 'pdfDimensions'>;
 
 export function getLogoFor(target: LogoTarget): string | undefined {
-  const { logo } = BRANDING_CONFIG;
+  const value = BRANDING_CONFIG.logo?.[target];
+  return (typeof value === 'string' ? value : undefined) || BRANDING_CONFIG.logo?.default;
+}
 
-  return logo?.[target] || logo?.default;
+const DEFAULT_PDF_LOGO_DIMENSIONS = { maxWidth: 110, maxHeight: 28 };
+
+export function getPdfLogoDimensions(): { maxWidth: number; maxHeight: number } {
+  return BRANDING_CONFIG.logo?.pdfDimensions ?? DEFAULT_PDF_LOGO_DIMENSIONS;
 }
