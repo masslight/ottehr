@@ -151,9 +151,12 @@ const performEffect = async (
   });
 
   // Filter to only resources relevant to template sections
-
   const diagnosesRefFromEncounterSet = new Set(
     oldEncounter.resource?.diagnosis?.map((dx) => dx.condition.reference).filter((elm) => elm !== undefined) ?? []
+  );
+  console.log(
+    `these are the diagnoses from encounter set in create, Encounter/${oldEncounter.resource?.id}`,
+    JSON.stringify([...diagnosesRefFromEncounterSet])
   );
 
   // Keep only the Encounter and resources tagged as template content. See TEMPLATE_TAG_SYSTEMS for the allow-list.
@@ -162,9 +165,20 @@ const performEffect = async (
 
     // Keep ICD-10 Conditions (Assessment / Diagnoses)
     // only include Condition Dx here that are still on Encounter.diagnosis
-    if (isDiagnosisCondition(entry.resource) && diagnosesRefFromEncounterSet.has(`Condition/${entry.resource?.id}`)) {
-      return true;
+    console.log(
+      `Resource is: ${entry.resource.resourceType}/${entry.resource.id}. isDiagnosisCondition: ${isDiagnosisCondition(
+        entry.resource
+      )}. In diagnosesRefFromEncounterSet: ${diagnosesRefFromEncounterSet.has(`Condition/${entry.resource?.id}`)}`
+    );
+    if (isDiagnosisCondition(entry.resource)) {
+      if (diagnosesRefFromEncounterSet.has(`Condition/${entry.resource?.id}`)) {
+        console.log(`Keeping Condition/${entry.resource.id} in bundle`);
+        return true;
+      } else {
+        return false;
+      }
     }
+
     return hasTemplateRelevantTag(entry.resource);
   });
 

@@ -260,7 +260,7 @@ const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInput
   url: `${resourceType}/${id}`,
 });
 
-const makeCreateRequests = (
+export const makeCreateRequests = (
   encounter: Encounter,
   templateList: List,
   encounterBundle: FhirResource[],
@@ -319,6 +319,7 @@ const makeCreateRequests = (
   );
 
   const templateEncounter = templateList.contained?.find((r): r is Encounter => r.resourceType === 'Encounter');
+  // this pulls in the rank of any diagnoses from when the template was created
   const templateEncounterDiagnoses = templateEncounter?.diagnosis ?? [];
   const templateEncounterExtensions = templateEncounter?.extension ?? [];
 
@@ -417,14 +418,17 @@ const makeCreateRequests = (
     ) {
       const isDuplicate = isDuplicateDiagnosis(resourceToCreate, encounterDiagnosesConditions);
 
-      // we should only add to encounter diagnoses after a dedupe, to ensure the template doesn't add Dx already on the chart
-      if (!isDuplicate) {
+      // we should only add to encounter diagnoses after a dedupe when appending, to ensure the template doesn't add Dx already on the chart
+      if ((!isDuplicate && action === 'append') || action === 'overwrite') {
         const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
           return d.condition.reference?.split('/')[1] === containedResource.id;
         });
         encounterDiagnoses.push({
           ...diagnosisToAdd,
           condition: { reference: fullUrl },
+          // we'll take the rank of the template's diagnosis unless the existing encounter already has a primary Dx
+          rank:
+            action === 'append' && encounterDiagnoses.some((dx) => dx.rank === 1) ? undefined : diagnosisToAdd?.rank,
         });
         console.log('This is encounterDiagnoses after add: ', JSON.stringify(encounterDiagnoses));
       }
@@ -506,7 +510,7 @@ const makeCreateRequests = (
   // Patch HPI Condition note when appending and existing exists
   if (existingHpiCondition && actions.hpi === 'append' && templateHpiCondition) {
     const condition = existingHpiCondition;
-    const encounterDiagnosisPatch: BatchInputJSONPatchRequest = {
+    const hpiPatchRequest: BatchInputJSONPatchRequest = {
       method: 'PATCH',
       url: `Condition/${condition.id}`,
       operations: [
@@ -517,13 +521,13 @@ const makeCreateRequests = (
         },
       ],
     };
-    createResourcesRequests.push(encounterDiagnosisPatch);
+    createResourcesRequests.push(hpiPatchRequest);
   }
 
   // Patch ROS note when appending and existing exists
   if (existingRosCondition && actions.ros === 'append' && templateRosCondition) {
     const condition = existingRosCondition;
-    const encounterDiagnosisPatch: BatchInputJSONPatchRequest = {
+    const rosPatchRequest: BatchInputJSONPatchRequest = {
       method: 'PATCH',
       url: `Condition/${condition.id}`,
       operations: [
@@ -534,7 +538,7 @@ const makeCreateRequests = (
         },
       ],
     };
-    createResourcesRequests.push(encounterDiagnosisPatch);
+    createResourcesRequests.push(rosPatchRequest);
   }
 
   return createResourcesRequests;
