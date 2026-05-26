@@ -69,10 +69,17 @@ npm run setup:all-envs           # Full setup: create projects, run Terraform ap
 npm run setup:cloudfront-urls    # After apply: fetch CloudFront domains from AWS and update env files
 npm run create:project           # Create/re-key a single environment
 npm run create:project -- <id>   # Reuse existing project id (still rotates M2M secret)
-npm run invite:demo              # Invite demo user + set password via browser
-npm run invite:e2e               # Invite E2E user + set password via browser
+
+# Invite commands — omit --env to use PROJECT_ID from setup.config.ts
+npm run invite:demo              # Invite demo user
+npm run invite:e2e               # Invite E2E user
 npm run invite:devs              # Invite all DEVELOPERS (full platform access, no roles)
 npm run invite:users             # Invite all REGULAR_USERS
+
+# Pass --env=<env> to target a specific environment (reads PROJECT_ID from config/.env/{env}.json)
+npm run invite:devs -- --env=production
+npm run invite:users -- --env=staging
+npm run invite:demo -- --env=local
 ```
 
 ---
