@@ -21,10 +21,10 @@ export const FileTypeLabel: Record<FileType, string> = {
 // assumes folders have been set to lowercase
 export const FileTypeFolderMap: Record<FileType, string[]> = {
   [FileType.MEDICAL_SUMMARY]: ['medical_summary'],
-  [FileType.INSURANCE_CARD]: ['insurancecard'],
-  [FileType.PROGRESS_NOTE]: ['progressnotes', '/enc/', '/enc'],
-  [FileType.GENERATED_FORM]: ['generatedform'],
-  [FileType.OTHER]: [],
+  [FileType.INSURANCE_CARD]: ['InsuranceCard'],
+  [FileType.PROGRESS_NOTE]: ['ProgressNotes', '/enc/', '/enc'],
+  [FileType.GENERATED_FORM]: ['GeneratedForm'],
+  [FileType.OTHER]: ['Other'],
 };
 
 export interface LegacyFile {

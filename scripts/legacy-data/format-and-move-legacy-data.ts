@@ -295,14 +295,13 @@ async function processRow(
 
 function writeErrorCsv(rows: ErrorRow[]): void {
   const errorFileName = `errors-${Date.now()}.csv`;
+  const mappingHeaderKeys = Object.keys(MAPPING_HEADERS) as (keyof typeof MAPPING_HEADERS)[];
 
-  const headers = ['Error', 'File', ...Object.values(MAPPING_HEADERS)];
+  const headers = ['Error', 'File', ...mappingHeaderKeys.map((key) => MAPPING_HEADERS[key])];
 
-  writeCsvToLegacyDataOutput(
-    errorFileName,
-    headers,
-    rows.map((r) => [r.error, r.fileName, ...Object.values(r.csvRow)])
-  );
+  const rowsToWrite = rows.map((r) => [r.error, r.fileName, ...mappingHeaderKeys.map((key) => r.csvRow[key])]);
+
+  writeCsvToLegacyDataOutput(errorFileName, headers, rowsToWrite);
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────

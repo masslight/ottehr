@@ -217,7 +217,7 @@ function getFileTypeFromKey(key: string): FileType {
 
   for (const [fileType, folderName] of Object.entries(FileTypeFolderMap)) {
     const matched = folderName.some((folder) => {
-      return lowerKey.includes(folder);
+      return lowerKey.includes(folder.toLowerCase());
     });
 
     if (matched) {

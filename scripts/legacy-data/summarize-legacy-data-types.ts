@@ -154,26 +154,26 @@ async function main(): Promise<void> {
       summary.namesWithSpecialChars.add(name);
     }
 
-    let patientFolder: string | undefined;
-    let z3FilePath: string | undefined;
-
     if (row.dob === '') {
       summary.rowPrepFailuresDetails.push({ errorMsg: 'missing dob', row });
       summary.rowPrepFailures++;
       // won't bother trying to build folder because it will for sure fail without a dob
       continue;
-    } else {
-      try {
-        patientFolder = buildPatientFolder(row);
-        z3FilePath = buildObjectPath(row);
-      } catch (err) {
-        // console.error(`  ✗ Failed to prepare file for row: ${JSON.stringify(row)}`);
-        // console.error(`    Error: ${err instanceof Error ? err.message : String(err)}\n`);
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        summary.rowPrepFailuresDetails.push({ errorMsg, row });
-        summary.rowPrepFailures++;
-        continue;
-      }
+    }
+
+    let patientFolder: string | undefined;
+    let z3FilePath: string | undefined;
+
+    try {
+      patientFolder = buildPatientFolder(row);
+      z3FilePath = buildObjectPath(row);
+    } catch (err) {
+      // console.error(`  ✗ Failed to prepare file for row: ${JSON.stringify(row)}`);
+      // console.error(`    Error: ${err instanceof Error ? err.message : String(err)}\n`);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      summary.rowPrepFailuresDetails.push({ errorMsg, row });
+      summary.rowPrepFailures++;
+      continue;
     }
 
     summary.uniquePatients.add(patientFolder);
@@ -268,7 +268,7 @@ async function main(): Promise<void> {
     console.log('No names with special characters found\n');
   }
 
-  console.log('========== DUPLICATE FILE NAMES ==========');
+  console.log('========== DUPLICATE Z3 FILE PATHS ==========');
   const duplicateZ3FilePaths = [...summary.z3filePaths.entries()].filter(([, count]) => count > 1);
   duplicateZ3FilePaths.sort((a, b) => b[1] - a[1]);
   if (duplicateZ3FilePaths.length === 0) {
@@ -321,11 +321,13 @@ async function main(): Promise<void> {
   writeCsvToLegacyDataOutput(
     'row_prep_failures.csv',
     ['error_message', 'file', 'row detail'],
-    summary.rowPrepFailuresDetails.map((detail) => [
-      detail.errorMsg,
-      Object.values(detail.row).at(-1) || '',
-      Object.values(detail.row).slice(0, -1).join(','),
-    ])
+    summary.rowPrepFailuresDetails.map((detail) => {
+      const rowDetail = Object.keys(detail.row)
+        .filter((key) => key !== 'file')
+        .map((key) => `${String((detail.row as Record<string, unknown>)[key] ?? '')}`)
+        .join(',');
+      return [detail.errorMsg, detail.row.file || '', rowDetail];
+    })
   );
   console.log('');
 }

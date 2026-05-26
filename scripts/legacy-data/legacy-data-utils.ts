@@ -1,5 +1,7 @@
 import * as fs from 'fs';
-import { basename, join } from 'path';
+import { basename, dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+import { FileType, FileTypeFolderMap } from '../../packages/utils/lib/types/data/legacy-data';
 
 // ── V1 data ──────────────────────────────────────────────────────────
 
@@ -130,19 +132,21 @@ export function stripDateFromDescription(description: string): string {
  * @param description values are should be specific to the data set being parsed
  * @returns folder name for z3 object path
  */
+// todo sarah this will need to be built out more after getting finalized description mapping from product
 export function mapRowDescriptionToDocumentFolder(description: string): string {
-  if (['Composite', 'Patient Documentation'].includes(description)) {
-    return 'ProgressNotes';
-  } else if (description.includes('Insurance Card')) {
-    return 'InsuranceCard';
+  const lowerKey = description.toLowerCase();
+  if (['composite', 'patient documentation'].includes(lowerKey)) {
+    return FileTypeFolderMap[FileType.PROGRESS_NOTE][0];
+  } else if (lowerKey.includes('insurance card')) {
+    return FileTypeFolderMap[FileType.INSURANCE_CARD][0];
   } else {
-    return 'Other';
+    return FileTypeFolderMap[FileType.OTHER][0];
   }
 }
 
 /**
- * File these under ProgressNotes so that the front end shows them with the correct tag
- * @returns patientFolder/ProgressNotes/fileName
+ * File these under their applicable folders based on the description so that the front end shows them with the correct tag
+ * @returns patientFolder/documentType/fileName
  */
 export function buildObjectPath(row: CsvRow): string {
   const patientFolder = buildPatientFolder(row);
@@ -157,8 +161,12 @@ export function buildObjectPath(row: CsvRow): string {
 }
 
 export function writeCsvToLegacyDataOutput(filename: string, headers: string[], rows: (string | number)[][]): void {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+
   // this dir is git ignored to make sure no client data gets pushed
   const outputDir = join(__dirname, 'legacy-data-output');
+
   fs.mkdirSync(outputDir, { recursive: true });
   const outPath = join(outputDir, filename);
 
