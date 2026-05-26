@@ -4,6 +4,7 @@ import {
   getAllergyQuickPicks,
   getImmunizationQuickPicks,
   getInHouseMedicationQuickPicks,
+  getInsuranceQuickPicks,
   getMedicalConditionQuickPicks,
   getMedicationHistoryQuickPicks,
   getProcedureQuickPicks,
@@ -13,6 +14,7 @@ import {
   AllergyQuickPickData,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
+  InsuranceQuickPickData,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   ProcedureQuickPickData,
@@ -25,6 +27,12 @@ interface UseFhirQuickPicksResult<T> {
   loading: boolean;
   refetch: () => Promise<void>;
 }
+
+export const sortQuickPicks = (a: any, b: any): number => {
+  const aLabel = a.name ?? a.display ?? '';
+  const bLabel = b.name ?? b.display ?? '';
+  return aLabel.localeCompare(bLabel);
+};
 
 /**
  * Generic hook that fetches FHIR-based quick picks from a zambda endpoint.
@@ -47,7 +55,7 @@ export function useFhirQuickPicks<T>(
     setLoading(true);
     try {
       const response = await fetchFn(oystehrZambda);
-      setQuickPicks(response.quickPicks);
+      setQuickPicks([...response.quickPicks].sort(sortQuickPicks));
     } catch (error) {
       console.error('Failed to load quick picks:', error);
       enqueueSnackbar('Failed to load quick picks', { variant: 'error' });
@@ -103,4 +111,10 @@ export function useMergedInHouseMedicationQuickPicks(options?: {
   enabled?: boolean;
 }): UseFhirQuickPicksResult<InHouseMedicationQuickPickData> {
   return useFhirQuickPicks(getInHouseMedicationQuickPicks, options);
+}
+
+export function useMergedInsuranceQuickPicks(options?: {
+  enabled?: boolean;
+}): UseFhirQuickPicksResult<InsuranceQuickPickData> {
+  return useFhirQuickPicks(getInsuranceQuickPicks, options);
 }

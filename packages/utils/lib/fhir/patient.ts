@@ -776,14 +776,9 @@ export const getProviderNotificationSettingsForPractitioner = (
 };
 
 export const checkEncounterHasPractitioner = (encounter: Encounter, practitioner: Practitioner): boolean => {
-  const practitionerId = practitioner?.id;
-
-  const encounterPractitioner = encounter.participant?.find(
-    (item) => item.individual?.reference?.startsWith('Practitioner/')
-  )?.individual?.reference;
-  const encounterPractitionerId = encounterPractitioner && removePrefix('Practitioner/', encounterPractitioner);
-
-  return !!practitioner && !!encounterPractitioner && practitionerId === encounterPractitionerId;
+  return (
+    encounter.participant?.find((item) => item.individual?.reference === 'Practitioner/' + practitioner?.id) != null
+  );
 };
 
 export const getPractitionerNPIIdentifier = (practitioner: Practitioner): Identifier | undefined => {

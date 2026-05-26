@@ -1,6 +1,6 @@
 {
   "name": "billing-ui",
-  "version": "0.1.0",
+  "version": "1.35.6",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,8 +8,16 @@
     "npm": ">=10.0.0"
   },
   "browserslist": {
-    "production": [">0.2%", "not dead", "not op_mini all"],
-    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   },
   "scripts": {
     "start": "vite --mode $([ \"$ENV\" = \"local\" ] && echo default || echo ${ENV:-default})",
