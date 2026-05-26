@@ -23,6 +23,7 @@ import { uuid } from 'short-uuid';
 import {
   BookableScheduleData,
   checkResourceHasSlug,
+  getGroupAllLocations,
   isValidUUID,
   MISCONFIGURED_SCHEDULING_GROUP,
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
@@ -111,6 +112,12 @@ export async function getSchedules(
         name: '_include:iterate',
         value: 'PractitionerRole:service',
       },
+      // Also pull in PRs whose .location references one of the group's
+      // Locations (additive to the .healthcareService back-reference path
+      // above). This is the location-based pooling for `pools-providers`
+      // groups whose membership is defined by Locations rather than by
+      // direct PR back-references.
+      { name: '_revinclude:iterate', value: 'PractitionerRole:location' },
       { name: '_revinclude:iterate', value: 'Schedule:actor:Location' },
       // Pull in any Schedule whose actor is one of the PractitionerRoles we
       // included above — the per-provider schedule lives on a PractitionerRole.
@@ -147,6 +154,37 @@ export async function getSchedules(
   if (scheduleResources.length === 0) {
     console.log(`schedule for ${fhirType} with identifier "${slug}" was not found`);
     throw SCHEDULE_NOT_FOUND_ERROR;
+  }
+
+  // If the group is flagged as "all locations," widen the bundle with every
+  // active PractitionerRole + their Practitioners + their Schedules. The
+  // poolsProviders branch below then accepts any PR (regardless of whether
+  // it back-references this group or sits at one of the group's Locations).
+  const allLocationsFlag =
+    scheduleOwner?.resourceType === 'HealthcareService' &&
+    getGroupAllLocations(scheduleOwner as HealthcareService) === true;
+  if (allLocationsFlag) {
+    const widened = (
+      await oystehr.fhir.search<PractitionerRole | Practitioner | Schedule>({
+        resourceType: 'PractitionerRole',
+        params: [
+          { name: 'active', value: 'true' },
+          { name: '_include', value: 'PractitionerRole:practitioner' },
+          { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+          { name: '_count', value: '1000' },
+        ],
+      })
+    ).unbundle();
+    // Dedup by `${resourceType}/${id}` so we don't double-count resources
+    // that were already pulled in by the initial search's _include chains.
+    const seen = new Set(scheduleResources.map((r) => `${r.resourceType}/${r.id}`));
+    for (const r of widened) {
+      const key = `${r.resourceType}/${r.id}`;
+      if (!seen.has(key)) {
+        scheduleResources.push(r);
+        seen.add(key);
+      }
+    }
   }
 
   const schedule = scheduleResources.find((res) => {
@@ -213,13 +251,24 @@ export async function getSchedules(
         }
       } else if (ownerResourceType === 'PractitionerRole' && ownerId) {
         const role = practitionerRoles.find((r) => r.id === ownerId);
-        // Only include PractitionerRole schedules whose role references this
-        // group via .healthcareService[] — this is what makes the role a
-        // member of the pool.
-        const isMember = role?.healthcareService?.some(
+        // A PR is a member of a `pools-providers` group via any of three
+        // sources:
+        //   (a) .healthcareService[] back-references this group,
+        //   (b) .location[] overlaps with the group's own .location[], or
+        //   (c) the group is flagged "all locations" — any active PR qualifies.
+        // Any source alone is sufficient; multiple sources fire harmlessly
+        // since the outer loop iterates once per Schedule resource.
+        const groupLocationRefs = new Set(
+          (scheduleOwner as HealthcareService).location?.map((l) => l.reference).filter((r): r is string => !!r) ?? []
+        );
+        const isMemberByReference = role?.healthcareService?.some(
           (ref) => ref.reference === `HealthcareService/${scheduleOwner.id}`
         );
-        if (role && isMember) {
+        const isMemberByLocation = role?.location?.some(
+          (ref) => ref.reference !== undefined && groupLocationRefs.has(ref.reference)
+        );
+        const isMemberByAllLocations = allLocationsFlag && role?.active !== false;
+        if (role && (isMemberByReference || isMemberByLocation || isMemberByAllLocations)) {
           scheduleList.push({
             schedule: scheduleObj,
             owner: role,

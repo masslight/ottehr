@@ -33,8 +33,10 @@
 import { CodeableConcept, Coding, HealthcareService } from 'fhir/r4b';
 import { ServiceMode, ServiceVisitType } from '../types';
 import {
+  GROUP_ALL_LOCATIONS_SYSTEM,
   GROUP_ASSIGNMENT_MODE_SYSTEM,
   GROUP_UNIFORM_QUALIFICATIONS_SYSTEM,
+  GroupAllLocationsCoding,
   GroupAssignmentModeCoding,
   GroupUniformQualificationsCoding,
   SERVICE_CATEGORY_CADENCE_MINUTES_SYSTEM,
@@ -100,6 +102,23 @@ export function getGroupUniformQualifications(hs: HealthcareService): boolean | 
   return undefined;
 }
 
+/**
+ * True when the group pools from every active PractitionerRole in the system
+ * (ignoring its `.location[]` entries). Undefined when the toggle was never
+ * set; callers should treat undefined as false.
+ */
+export function getGroupAllLocations(hs: HealthcareService): boolean | undefined {
+  for (const cc of hs.characteristic || []) {
+    for (const coding of cc.coding || []) {
+      if (coding.system === GROUP_ALL_LOCATIONS_SYSTEM) {
+        if (coding.code === 'true') return true;
+        if (coding.code === 'false') return false;
+      }
+    }
+  }
+  return undefined;
+}
+
 // ── Writers (return characteristics; caller merges with preserved foreign ones) ──
 
 /** Service-category characteristic systems this module owns. */
@@ -111,7 +130,11 @@ export const SERVICE_CATEGORY_OWNED_CHARACTERISTIC_SYSTEMS = [
 ];
 
 /** Group characteristic systems this module owns. */
-export const GROUP_OWNED_CHARACTERISTIC_SYSTEMS = [GROUP_ASSIGNMENT_MODE_SYSTEM, GROUP_UNIFORM_QUALIFICATIONS_SYSTEM];
+export const GROUP_OWNED_CHARACTERISTIC_SYSTEMS = [
+  GROUP_ASSIGNMENT_MODE_SYSTEM,
+  GROUP_UNIFORM_QUALIFICATIONS_SYSTEM,
+  GROUP_ALL_LOCATIONS_SYSTEM,
+];
 
 /**
  * Build the characteristics that capture a service-category record's runtime
@@ -142,13 +165,15 @@ export function serviceCategoryCharacteristics(input: {
 }
 
 /**
- * Build the group's characteristics for assignment-mode and uniform-
- * qualifications. Caller is responsible for preserving non-group
- * characteristics on the resource (use mergeOwnedCharacteristics).
+ * Build the group's characteristics for assignment-mode, uniform-
+ * qualifications, and the all-locations toggle. Caller is responsible for
+ * preserving non-group characteristics on the resource (use
+ * mergeOwnedCharacteristics).
  */
 export function groupCharacteristics(input: {
   assignmentMode: GroupAssignmentMode;
   uniformQualifications: boolean;
+  allLocations: boolean;
 }): CodeableConcept[] {
   return [
     {
@@ -166,6 +191,9 @@ export function groupCharacteristics(input: {
           input.uniformQualifications ? GroupUniformQualificationsCoding.true : GroupUniformQualificationsCoding.false
         ),
       ],
+    },
+    {
+      coding: [plainCoding(input.allLocations ? GroupAllLocationsCoding.true : GroupAllLocationsCoding.false)],
     },
   ];
 }

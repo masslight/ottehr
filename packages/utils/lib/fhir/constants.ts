@@ -501,6 +501,28 @@ export const GroupUniformQualificationsCoding = {
   },
 };
 
+/**
+ * All-locations characteristic for a group HealthcareService: 'true' | 'false'.
+ * When 'true', the group pools from every active PractitionerRole in the
+ * system (not constrained to the group's `.location[]` entries). Set on the
+ * group admin form via a single toggle.
+ */
+export const GROUP_ALL_LOCATIONS_SYSTEM = ottehrCodeSystemUrl('group-all-locations');
+export const GroupAllLocationsCoding = {
+  true: {
+    system: GROUP_ALL_LOCATIONS_SYSTEM,
+    code: 'true',
+    display: 'All locations',
+    fullParam: `${GROUP_ALL_LOCATIONS_SYSTEM}|true`,
+  },
+  false: {
+    system: GROUP_ALL_LOCATIONS_SYSTEM,
+    code: 'false',
+    display: 'Specific locations',
+    fullParam: `${GROUP_ALL_LOCATIONS_SYSTEM}|false`,
+  },
+};
+
 export const BUCKET_NAMES = {
   VISIT_NOTES: 'visit-notes',
   CONSENT_FORMS: 'consent-forms',

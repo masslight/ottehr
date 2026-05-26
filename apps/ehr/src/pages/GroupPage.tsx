@@ -29,6 +29,7 @@ import { Link, useParams } from 'react-router-dom';
 import { listServiceCategories } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import {
+  getGroupAllLocations,
   getGroupAssignmentMode,
   getGroupUniformQualifications,
   getPatchBinary,
@@ -36,7 +37,7 @@ import {
   GROUP_OWNED_CHARACTERISTIC_SYSTEMS,
   groupCharacteristics,
   mergeOwnedCharacteristics,
-  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
+  SCHEDULE_STRATEGY_SYSTEM,
   SERVICE_CATEGORY_SYSTEM,
   SLUG_SYSTEM,
 } from 'utils';
@@ -65,9 +66,18 @@ function GroupPageContent(): ReactElement {
   const [locations, setLocations] = useState<Location[] | undefined>(undefined);
   const [practitioners, setPractitioners] = useState<Practitioner[] | undefined>(undefined);
   const [practitionerRoles, setPractitionerRoles] = useState<PractitionerRole[] | undefined>(undefined);
-  // The ONLY membership lever exposed to the admin now. Locations and offered
-  // categories are derived from the selected roles at save time.
+  // Two membership levers, both valid and composable. Location-based
+  // membership expands each selected Location into the PR-schedules at
+  // that Location via the `pools-providers` strategy. Per-PR membership
+  // adds individual PR-schedules to the pool by back-reference. A group
+  // can use either, both, or neither; selections from the two pickers
+  // union at slot-resolution time (dedup is keyed by Schedule).
+  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+  // When true, the group pools from every active PR in the system, ignoring
+  // any specific Location selection. The Location picker is disabled (but
+  // still visible) while this is on; toggling off restores prior picker state.
+  const [allLocations, setAllLocations] = useState<boolean>(false);
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('anonymous');
   // Categories the group supports. Authoritative — what the patient is allowed
   // to book through this group. Admin-curated; a Massage group containing a
@@ -123,6 +133,45 @@ function GroupPageContent(): ReactElement {
     }
     return map;
   }, [categoryData]);
+
+  // For each Location, count the distinct active providers that picking the
+  // Location would pull into the group's pool. "Provider" = distinct
+  // Practitioner reference among active PRs that reference the Location via
+  // their .location[]. Multiple PRs of the same provider at the same
+  // Location (e.g. intake + surgery schedules) count once — this is a
+  // people-count hint for the admin, not a slot-count.
+  const providerCountByLocationId = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const loc of locations || []) {
+      if (!loc.id) continue;
+      const providerRefs = new Set<string>();
+      for (const role of practitionerRoles || []) {
+        if (role.active === false) continue;
+        const hits = role.location?.some((ref) => ref.reference === `Location/${loc.id}`);
+        if (!hits) continue;
+        const pracRef = role.practitioner?.reference;
+        if (pracRef) providerRefs.add(pracRef);
+      }
+      counts.set(loc.id, providerRefs.size);
+    }
+    return counts;
+  }, [locations, practitionerRoles]);
+
+  // Picker order: Locations with at least one active provider come first,
+  // then Locations with none. Within each tier, sort alphabetically
+  // ascending by Location name.
+  const sortedLocationIds = useMemo(() => {
+    const nameById = new Map((locations || []).filter((l) => l.id).map((l) => [l.id!, l.name || ''] as const));
+    return (locations || [])
+      .map((l) => l.id)
+      .filter((id): id is string => !!id)
+      .sort((a, b) => {
+        const aHas = (providerCountByLocationId.get(a) ?? 0) > 0;
+        const bHas = (providerCountByLocationId.get(b) ?? 0) > 0;
+        if (aHas !== bHas) return aHas ? -1 : 1;
+        return (nameById.get(a) ?? '').localeCompare(nameById.get(b) ?? '');
+      });
+  }, [locations, providerCountByLocationId]);
 
   // Derive the selected roles' (location × category) combinations for display
   // and for booking-link generation. Memberships are expressed solely through
@@ -317,15 +366,22 @@ function GroupPageContent(): ReactElement {
     setPractitioners(practitionersTemp);
     setPractitionerRoles(practitionerRolesTemp);
 
-    // Pre-select any role that already references this group.
+    // Pre-select any PR that already references this group via .healthcareService[].
     const initialSelectedRoleIds = practitionerRolesTemp
       .filter((role) => role.healthcareService?.some((ref) => ref.reference === `HealthcareService/${groupTemp.id}`))
       .map((role) => role.id!)
       .filter((id) => !!id);
     setSelectedRoleIds(initialSelectedRoleIds);
 
+    // Pre-select the group's currently-attached Locations.
+    const initialSelectedLocationIds = (groupTemp.location ?? [])
+      .map((ref) => ref.reference?.split('/')[1])
+      .filter((id): id is string => !!id);
+    setSelectedLocationIds(initialSelectedLocationIds);
+
     setAssignmentMode(getGroupAssignmentMode(groupTemp) ?? 'anonymous');
     setUniformQualifications(getGroupUniformQualifications(groupTemp) ?? false);
+    setAllLocations(getGroupAllLocations(groupTemp) ?? false);
   }, [oystehr, groupID]);
 
   // Resolve the group's authoritative supported-categories list. group.type[]
@@ -406,14 +462,19 @@ function GroupPageContent(): ReactElement {
         );
       }
 
-      // Locations stay derived from membership — they're a fact of who's in the
-      // group, not a separate admin choice. Categories, on the other hand, are
-      // explicitly admin-curated (Option A): the supportedCategoryHsIds list
-      // is what the patient is allowed to book through this group, even if a
-      // multi-skill member's PR exposes more.
-      const derivedLocationRefs = derivedMembership.derivedLocationIds.map((id) => ({
-        reference: `Location/${id}`,
-      }));
+      // Locations are admin-curated directly via selectedLocationIds (the
+      // source of truth for the group's `.location[]`). The reader expands
+      // each Location into the PR-schedules at that Location via the
+      // `pools-providers` strategy set below. Categories are also admin-
+      // curated (Option A): supportedCategoryHsIds is what the patient is
+      // allowed to book through this group, regardless of what a member's
+      // PR additionally exposes.
+      // When the all-locations toggle is on, write an empty .location[] so
+      // the persisted shape reflects "pool everywhere" cleanly. Toggling off
+      // later starts the admin from a fresh picker.
+      const selectedLocationRefs = allLocations
+        ? []
+        : selectedLocationIds.map((id) => ({ reference: `Location/${id}` }));
       const supportedTypes: CodeableConcept[] = supportedCategoryHsIds
         .map((hsId) => categoryByHsId.get(hsId))
         .filter((x): x is NonNullable<typeof x> => !!x)
@@ -423,18 +484,22 @@ function GroupPageContent(): ReactElement {
         }));
 
       const patchOperations: Operation[] = [
-        { op: group?.location ? 'replace' : 'add', path: '/location', value: derivedLocationRefs },
+        { op: group?.location ? 'replace' : 'add', path: '/location', value: selectedLocationRefs },
         { op: group?.type ? 'replace' : 'add', path: '/type', value: supportedTypes },
       ];
 
       // Replace this page's own characteristic codings on save; preserve any
-      // characteristic codings owned by other systems (e.g., service-mode set
-      // at group creation).
-      const newCharacteristics = mergeOwnedCharacteristics(
-        group?.characteristic,
-        GROUP_OWNED_CHARACTERISTIC_SYSTEMS,
-        groupCharacteristics({ assignmentMode, uniformQualifications })
-      );
+      // characteristic codings owned by other systems. Strategy lives here
+      // too — the group form sets `pools-providers` so the reader knows to
+      // expand .location[] (and .healthcareService[] back-refs) into PR
+      // schedules at slot-resolution time.
+      const ownedCharacteristicSystems = [...GROUP_OWNED_CHARACTERISTIC_SYSTEMS, SCHEDULE_STRATEGY_SYSTEM];
+      const newCharacteristics = mergeOwnedCharacteristics(group?.characteristic, ownedCharacteristicSystems, [
+        ...groupCharacteristics({ assignmentMode, uniformQualifications, allLocations }),
+        {
+          coding: [{ system: SCHEDULE_STRATEGY_SYSTEM, code: 'pools-providers', display: 'Pools Providers' }],
+        },
+      ]);
       patchOperations.push({
         op: group?.characteristic ? 'replace' : 'add',
         path: '/characteristic',
@@ -487,41 +552,6 @@ function GroupPageContent(): ReactElement {
       </div>
     );
   }
-
-  // Show schedule-bearing PRs (those with a Location reference); group-only
-  // membership PRs without a Location aren't real schedules and would clutter
-  // the picker. Inactive (soft-deleted) PRs are also excluded as new options.
-  // Already-selected roles always stay in the list so admins can deselect
-  // them — they get an "(inactive)" suffix in labelForRole.
-  const roleOptions = (practitionerRoles || []).filter((role) => {
-    if (!role.practitioner?.reference) return false;
-    if (selectedRoleIds.includes(role.id!)) return true;
-    if (role.active === false) return false;
-    return !!role.location?.[0]?.reference;
-  });
-
-  const labelForRole = (role: PractitionerRole): string => {
-    const inactiveSuffix = role.active === false ? ' (inactive)' : '';
-    // Always lead with the provider's name — otherwise a schedule renamed to
-    // something like "Massage Schedule" is impossible to attribute back to a
-    // provider when picking group members. Format: "Provider: Schedule Name"
-    // when a display-name extension is set, falling back to
-    // "Provider: Location Name" when not.
-    const pracId = role.practitioner?.reference?.split('/')[1];
-    const pracResource = (practitioners || []).find((p) => p.id === pracId);
-    const providerName = pracResource?.name?.[0]
-      ? oystehr?.fhir.formatHumanName(pracResource.name[0]) || 'Unknown provider'
-      : 'Unknown provider';
-    const explicitName = (role.extension ?? [])
-      .find((ext) => ext.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL)
-      ?.valueString?.trim();
-    const locRef = role.location?.[0]?.reference;
-    const locId = locRef?.split('/')[1];
-    const locName = (locations || []).find((l) => l.id === locId)?.name;
-    const scheduleName = explicitName || locName;
-    const base = scheduleName ? `${providerName}: ${scheduleName}` : providerName;
-    return `${base}${inactiveSuffix}`;
-  };
 
   // Selected PRs that have since been deactivated. These linger as group
   // members until an admin deselects them — surface a warning so the cleanup
@@ -764,27 +794,41 @@ function GroupPageContent(): ReactElement {
                   </Typography>
                 )}
               </Box>
-              <Typography variant="body1" sx={{ color: 'text.primary', mt: 2, mb: 2 }}>
-                Each provider schedule binds a provider to a location and a set of service categories — created from the
-                Employees admin page. The group's offered service categories and locations are the union of its
-                members'.
+              <Typography variant="h4" color="primary.dark" marginBottom={2} marginTop={2}>
+                Members
               </Typography>
+              <Typography variant="body1" sx={{ color: 'text.primary', mt: 2, mb: 2 }}>
+                Selecting a Location pools every qualified provider's schedule at that Location.
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Checkbox checked={allLocations} onChange={(e) => setAllLocations(e.target.checked)} size="small" />
+                }
+                label="Pool from all locations"
+                sx={{ mb: 1 }}
+              />
               <Autocomplete
                 multiple
                 disableCloseOnSelect
                 size="small"
-                sx={{ width: 640 }}
-                options={roleOptions.map((r) => r.id!).filter((id) => !!id)}
-                value={selectedRoleIds}
-                onChange={(_e, v) => setSelectedRoleIds(v)}
+                disabled={allLocations}
+                sx={{ width: 640, mb: 2 }}
+                options={sortedLocationIds}
+                value={selectedLocationIds}
+                onChange={(_e, v) => setSelectedLocationIds(v)}
                 isOptionEqualToValue={(option, v) => option === v}
                 getOptionLabel={(id) => {
-                  const role = (practitionerRoles || []).find((r) => r.id === id);
-                  return role ? labelForRole(role) : id;
+                  const loc = (locations || []).find((l) => l.id === id);
+                  return loc?.name || id;
                 }}
                 renderOption={(props, id) => {
-                  const role = (practitionerRoles || []).find((r) => r.id === id);
-                  const selected = selectedRoleIds.includes(id);
+                  const loc = (locations || []).find((l) => l.id === id);
+                  const selected = selectedLocationIds.includes(id);
+                  const providerCount = providerCountByLocationId.get(id) ?? 0;
+                  const subtext =
+                    providerCount === 0
+                      ? 'no active providers'
+                      : `${providerCount} active provider${providerCount === 1 ? '' : 's'}`;
                   return (
                     <li {...props} key={id}>
                       <Checkbox
@@ -793,31 +837,23 @@ function GroupPageContent(): ReactElement {
                         style={{ marginRight: 8 }}
                         checked={selected}
                       />
-                      {role ? labelForRole(role) : id}
+                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Typography variant="body2">{loc?.name || id}</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          {subtext}
+                        </Typography>
+                      </Box>
                     </li>
                   );
                 }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Group Members (Provider Schedules)"
-                    placeholder={selectedRoleIds.length === 0 ? 'Add a provider schedule…' : ''}
+                    label="Group Locations"
+                    placeholder={selectedLocationIds.length === 0 ? 'Add a location…' : ''}
                   />
                 )}
               />
-            </Box>
-            <Box>
-              <Typography variant="h4" color="primary.dark" marginBottom={2}>
-                Locations from selected members
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                {derivedMembership.roleRows.length === 0
-                  ? 'none'
-                  : Array.from(new Set(derivedMembership.roleRows.map((r) => r.locationName))).join(', ')}
-              </Typography>
-              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
-                Locations are derived from membership — change them by selecting different members above.
-              </Typography>
             </Box>
             <Box>
               <LoadingButton loading={loading} type="submit" variant="contained" color="primary" size="medium">
