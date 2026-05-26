@@ -1,5 +1,3 @@
-import { ExamType } from '../../ottehr-config/examination';
-
 export type TemplateSectionAction = 'skip' | 'overwrite' | 'append';
 
 export type TemplateSectionKey =
@@ -12,7 +10,6 @@ export type TemplateSectionKey =
   | 'patientInstructions'
   | 'cptCodes'
   | 'emCode'
-  | 'accident'
   | 'inHouseLabs';
 
 export type TemplateSectionActions = Partial<Record<TemplateSectionKey, TemplateSectionAction>>;
@@ -27,14 +24,12 @@ export const TEMPLATE_SECTION_DEFAULT_ACTIONS: Record<TemplateSectionKey, Templa
   patientInstructions: 'overwrite',
   cptCodes: 'append',
   emCode: 'overwrite',
-  accident: 'overwrite',
   inHouseLabs: 'append',
 };
 
 export const TEMPLATE_SECTIONS_NO_APPEND: ReadonlySet<TemplateSectionKey> = new Set<TemplateSectionKey>([
   'examFindings',
   'emCode',
-  'accident',
 ]);
 
 // In-house lab orders are additive only - replacing existing in-flight orders on
@@ -44,10 +39,26 @@ export const TEMPLATE_SECTIONS_NO_APPEND: ReadonlySet<TemplateSectionKey> = new 
 export const TEMPLATE_SECTIONS_NO_OVERWRITE: ReadonlySet<TemplateSectionKey> = new Set<TemplateSectionKey>([
   'inHouseLabs',
 ]);
+export interface TemplateSectionDescriptor {
+  key: TemplateSectionKey;
+  label: string;
+}
+
+export const TEMPLATE_SECTIONS_IN_ORDER: readonly TemplateSectionDescriptor[] = [
+  { key: 'hpi', label: 'HPI (History of Present Illness)' },
+  { key: 'moi', label: 'MOI (Mechanism of Injury)' },
+  { key: 'ros', label: 'Review of Systems (ROS)' },
+  { key: 'examFindings', label: 'Exam Findings' },
+  { key: 'mdm', label: 'Medical Decision Making (MDM)' },
+  { key: 'diagnoses', label: 'Assessment / ICD-10 Diagnoses' },
+  { key: 'patientInstructions', label: 'Patient Instructions' },
+  { key: 'cptCodes', label: 'CPT Codes' },
+  { key: 'emCode', label: 'E&M Code' },
+  { key: 'inHouseLabs', label: 'In-House Lab Orders' },
+];
 
 export interface ApplyTemplateZambdaInput {
   encounterId: string;
-  examType: ExamType;
   templateName: string;
   sectionActions?: TemplateSectionActions;
 }

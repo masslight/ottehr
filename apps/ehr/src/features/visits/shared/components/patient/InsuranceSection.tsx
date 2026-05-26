@@ -39,6 +39,7 @@ export const InsuranceSection: FC<{
   isAddingInsurance: boolean;
   onStartAddInsurance: () => void;
   onCancelAddInsurance: () => void;
+  onCloseAddInsurance: () => void;
   newInsuranceOrdinal: number;
   encounterId?: string;
 }> = ({
@@ -50,6 +51,7 @@ export const InsuranceSection: FC<{
   isAddingInsurance,
   onStartAddInsurance,
   onCancelAddInsurance,
+  onCloseAddInsurance,
   newInsuranceOrdinal,
   encounterId,
 }) => {
@@ -81,6 +83,7 @@ export const InsuranceSection: FC<{
           requiredFieldKeys={requiredFieldKeys}
           patientId={patient.id}
           encounterId={encounterId}
+          onSaveSuccess={isAddingInsurance ? onCloseAddInsurance : undefined}
         />
       }
     >

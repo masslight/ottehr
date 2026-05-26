@@ -247,31 +247,32 @@ export const index = wrapHandler(
     if (suggestions?.cptCodes) {
       await Promise.all(
         suggestions.cptCodes.map(async (code) => {
+          const cptCode = code.code.split('-')[0]; // Remove modifiers before lookup
           const terminologyResponse = await oystehr?.terminology.searchCpt({
-            query: code.code,
+            query: cptCode,
             searchType: 'code',
             limit: 100,
             strictMatch: true,
           });
           if (terminologyResponse.codes.length === 0) {
             const hcpcsSearchResponse = await oystehr?.terminology.searchHcpcs({
-              query: code.code,
+              query: cptCode,
               searchType: 'code',
               limit: 100,
               strictMatch: true,
             });
             if (hcpcsSearchResponse.codes.length === 1) {
               cptSuggestions.push({
-                code: code.code,
+                code: cptCode,
                 description: hcpcsSearchResponse.codes[0].display,
                 reason: code.reason,
               });
             } else {
-              console.log("Didn't get an CPT or HCPCS code", code.code);
+              console.log("Didn't get an CPT or HCPCS code", cptCode);
             }
           } else if (terminologyResponse.codes.length === 1) {
             cptSuggestions.push({
-              code: code.code,
+              code: cptCode,
               description: terminologyResponse.codes[0].display,
               reason: code.reason,
             });

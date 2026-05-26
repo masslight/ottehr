@@ -24,7 +24,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
-import { ExamType, RoleType, TemplateSectionActions } from 'utils';
+import { RoleType, TEMPLATE_SECTIONS_IN_ORDER, TemplateSectionActions } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
@@ -34,18 +34,7 @@ import { TemplateOption, useListTemplates } from './useListTemplates';
 
 const ADD_NEW_SENTINEL = '__ADD_NEW__';
 
-const TEMPLATE_SECTIONS = [
-  'HPI (History of Present Illness)',
-  'MOI (Mechanism of Injury)',
-  'Review of Systems (ROS)',
-  'Exam findings',
-  'Medical Decision Making (MDM)',
-  'Assessment / ICD-10 Diagnoses',
-  'Patient Instructions',
-  'CPT Codes',
-  'E&M Code',
-  'In-House Lab Orders',
-];
+const TEMPLATE_SECTIONS = TEMPLATE_SECTIONS_IN_ORDER.map((section) => section.label);
 
 const ADD_OR_UPDATE_LABEL = '+ Add or Update Template From Note';
 
@@ -66,7 +55,7 @@ export const ApplyTemplate: React.FC = () => {
   const isAdmin = currentUser?.hasRole?.([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
 
   // Load templates using custom react-query hook
-  const { templates, isLoading: isLoadingTemplates, error: templatesError } = useListTemplates(ExamType.IN_PERSON);
+  const { templates, isLoading: isLoadingTemplates, error: templatesError } = useListTemplates();
 
   // Show error toast when template loading fails
   React.useEffect(() => {
@@ -127,7 +116,6 @@ export const ApplyTemplate: React.FC = () => {
         const result = await applyTemplate(oystehrZambda, {
           encounterId: encounter.id,
           templateName: pendingTemplate.value,
-          examType: ExamType.IN_PERSON,
           sectionActions,
         });
 
@@ -230,7 +218,6 @@ export const ApplyTemplate: React.FC = () => {
       await createTemplate(oystehrZambda, {
         encounterId: encounter.id,
         templateName: trimmedName,
-        examType: ExamType.IN_PERSON,
       });
       await queryClient.invalidateQueries({ queryKey: ['list-templates'] });
       enqueueSnackbar(
@@ -317,7 +304,6 @@ export const ApplyTemplate: React.FC = () => {
         open={dialogOpen}
         templateId={pendingTemplate?.id ?? null}
         templateName={pendingTemplate?.label ?? ''}
-        examType={ExamType.IN_PERSON}
         isApplying={isApplyingTemplate}
         onCancel={handleDialogClose}
         onApply={handleApplyTemplate}

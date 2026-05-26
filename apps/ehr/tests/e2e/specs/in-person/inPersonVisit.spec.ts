@@ -210,7 +210,6 @@ test.describe('In-person visit', async () => {
       verifyVisitNotePdfDocumentReference(visitNoteDocRef, resourceHandler);
 
       await openVisitsPage(page);
-      await visitsPage.selectLocation(ENV_LOCATION_NAME!);
       await visitsPage.clickDischargedTab();
       await visitsPage.verifyVisitPresent(resourceHandler.appointment.id!);
     });

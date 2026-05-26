@@ -11,6 +11,7 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   formsEnabled: true,
   legacyDataEnabled: true,
   mailingPaperStatementsEnabled: true,
+  automatedPatientOutreachEnabled: true,
   legacyPatientFollowupsEnabled: false,
   skipSendingVisitNoteToPatientPortalEnabled: false,
   sendgridEnabled: false,

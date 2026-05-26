@@ -103,21 +103,3 @@ export async function updateQuickPick<T extends { id?: string }>(
   const updated = await oystehr.fhir.update<ActivityDefinition>(ad);
   return activityDefinitionToQuickPick(updated, category);
 }
-
-export async function removeQuickPick(oystehr: Oystehr, quickPickId: string): Promise<void> {
-  let existing: ActivityDefinition;
-  try {
-    existing = await oystehr.fhir.get<ActivityDefinition>({
-      resourceType: 'ActivityDefinition',
-      id: quickPickId,
-    });
-  } catch {
-    throw new Error(`ActivityDefinition with id ${quickPickId} not found`);
-  }
-  const hasQuickPickTag = existing.meta?.tag?.some((t) => t.system === QUICK_PICK_TAG_SYSTEM);
-  if (!hasQuickPickTag) {
-    throw new Error(`ActivityDefinition ${quickPickId} is not a quick pick resource`);
-  }
-  existing.status = 'retired';
-  await oystehr.fhir.update(existing);
-}

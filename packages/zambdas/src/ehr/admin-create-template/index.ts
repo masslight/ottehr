@@ -1,23 +1,20 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { BundleEntry, Condition, Encounter, List, Patient, ServiceRequest } from 'fhir/r4b';
+import { BundleEntry, Encounter, List, Patient, ServiceRequest } from 'fhir/r4b';
 import {
   AdminCreateTemplateInput,
   AdminCreateTemplateOutput,
   chartDataTagSystem,
   examConfig,
-  ExamType,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
-  ICD_10_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
   SecretsKeys,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { findHolderList } from '../shared/template-helpers';
+import { findHolderList, hasTemplateRelevantTag, isDiagnosisCondition } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -50,7 +47,7 @@ const performEffect = async (
   validatedInput: AdminCreateTemplateInput & Pick<ZambdaInput, 'secrets'>,
   oystehr: Oystehr
 ): Promise<AdminCreateTemplateOutput> => {
-  const { encounterId, templateName, examType } = validatedInput;
+  const { encounterId, templateName } = validatedInput;
 
   // Fetch encounter with all related clinical resources
   const encounterBundle = await oystehr.fhir.search({
@@ -60,6 +57,8 @@ const performEffect = async (
       { name: '_revinclude:iterate', value: 'Observation:encounter' },
       { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
       { name: '_revinclude:iterate', value: 'Communication:encounter' },
+      // NOTE: this pulls all Conditions that have ever been associated with an encounter
+      // not just the ones currently on the Encounter. Need to filter it down later
       { name: '_revinclude:iterate', value: 'Condition:encounter' },
       { name: '_revinclude:iterate', value: 'Procedure:encounter' },
       // Pulled in so in-house lab orders on this encounter can be saved as
@@ -72,12 +71,17 @@ const performEffect = async (
     throw new Error('No entries found in encounter bundle, cannot make a template');
   }
 
+  const oldEncounter = encounterBundle.entry.find(
+    (entry) => entry.resource?.resourceType === 'Encounter'
+  ) as BundleEntry<Encounter>;
+  if (!oldEncounter) {
+    throw new Error('Unexpectedly found no Encounter when preparing template');
+  }
+
   // Determine code system and version based on exam type
-  const codeSystem =
-    examType === ExamType.IN_PERSON ? GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM : GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM;
-  const examVersion =
-    examType === ExamType.IN_PERSON ? examConfig.inPerson.default.version : examConfig.telemed.default.version;
-  const displayName = examType === ExamType.IN_PERSON ? 'Global Template In-Person' : 'Global Template Telemed';
+  const codeSystem = GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM;
+  const examVersion = examConfig.default.version;
+  const displayName = 'Global Template';
 
   // Build List Resource with contained resources
   const listToCreate: List = {
@@ -131,13 +135,10 @@ const performEffect = async (
 
   const seenTags = new Set<string>();
   encounterBundle.entry = encounterBundle.entry.filter((entry) => {
-    // ICD-10 diagnoses are additive (multiple per encounter), so skip deduplication for them
-    if (
-      entry.resource?.resourceType === 'Condition' &&
-      (entry.resource as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
-    ) {
-      return true;
-    }
+    // Diagnoses are additive (multiple per encounter), so skip deduplication for them.
+    // We identify diagnoses by the `diagnosis` meta tag, NOT by ICD-10 code — Medical Conditions can also
+    // carry ICD-10 codes but they are patient-specific history, not template content.
+    if (isDiagnosisCondition(entry.resource)) return true;
     const tags = entry.resource?.meta?.tag?.map((tag) => `${tag.system}|${tag.code}`);
     if (!tags) return true;
     // CPT codes and patient instructions are additive (multiple per encounter), so skip deduplication for them
@@ -179,29 +180,35 @@ const performEffect = async (
     );
 
   // Filter to only resources relevant to template sections
-  const TEMPLATE_TAG_SYSTEMS = new Set([
-    chartDataTagSystem('chief-complaint'),
-    chartDataTagSystem('mechanism-of-injury'),
-    chartDataTagSystem('ros'), // legacy
-    chartDataTagSystem('exam-observation-field'),
-    chartDataTagSystem('ros-observation-field'),
-    chartDataTagSystem('medical-decision'),
-    chartDataTagSystem('patient-instruction'),
-    chartDataTagSystem('cpt-code'),
-    chartDataTagSystem('em-code'),
-  ]);
+  const diagnosesRefFromEncounterSet = new Set(
+    oldEncounter.resource?.diagnosis?.map((dx) => dx.condition.reference).filter((elm) => elm !== undefined) ?? []
+  );
+  console.log(
+    `these are the diagnoses from encounter set in create, Encounter/${oldEncounter.resource?.id}`,
+    JSON.stringify([...diagnosesRefFromEncounterSet])
+  );
 
+  // Keep only the Encounter and resources tagged as template content. See TEMPLATE_TAG_SYSTEMS for the allow-list.
   encounterBundle.entry = encounterBundle.entry.filter((entry) => {
     if (!entry.resource || entry.resource.resourceType === 'Encounter') return true;
+
     // Keep ICD-10 Conditions (Assessment / Diagnoses)
-    if (
-      entry.resource.resourceType === 'Condition' &&
-      (entry.resource as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
-    ) {
-      return true;
+    // only include Condition Dx here that are still on Encounter.diagnosis
+    console.log(
+      `Resource is: ${entry.resource.resourceType}/${entry.resource.id}. isDiagnosisCondition: ${isDiagnosisCondition(
+        entry.resource
+      )}. In diagnosesRefFromEncounterSet: ${diagnosesRefFromEncounterSet.has(`Condition/${entry.resource?.id}`)}`
+    );
+    if (isDiagnosisCondition(entry.resource)) {
+      if (diagnosesRefFromEncounterSet.has(`Condition/${entry.resource?.id}`)) {
+        console.log(`Keeping Condition/${entry.resource.id} in bundle`);
+        return true;
+      } else {
+        return false;
+      }
     }
-    // Keep resources with a template-relevant meta tag
-    return entry.resource.meta?.tag?.some((tag) => tag.system && TEMPLATE_TAG_SYSTEMS.has(tag.system));
+
+    return hasTemplateRelevantTag(entry.resource);
   });
 
   console.log('Count of resources after filtering to template-relevant:', encounterBundle.entry.length);
@@ -273,13 +280,6 @@ const performEffect = async (
   }
 
   // Create stub encounter with ICD-10 diagnosis references mapped to new IDs
-  const oldEncounter = encounterBundle.entry.find(
-    (entry) => entry.resource?.resourceType === 'Encounter'
-  ) as BundleEntry<Encounter>;
-  if (!oldEncounter) {
-    throw new Error('Unexpectedly found no Encounter when preparing template');
-  }
-
   const stubEncounter: Encounter = {
     resourceType: 'Encounter',
     id: uuidV4(),

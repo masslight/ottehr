@@ -120,7 +120,6 @@ const mockTemplateDetail = {
     patientInstructions: [{ title: 'Hydration', text: 'Drink plenty of fluids.' }],
     cptCodes: [{ code: '99213', display: 'Office visit' }],
     emCode: { code: '99213', display: 'Office visit' },
-    accident: null,
     inHouseLabs: [
       {
         planId: 'plan-1',
@@ -246,7 +245,7 @@ describe('ApplyTemplate', () => {
     // Check that section list is displayed
     expect(screen.getByText(/HPI \(History of Present Illness\)/)).toBeInTheDocument();
     expect(screen.getByText(/Review of Systems \(ROS\)/)).toBeInTheDocument();
-    expect(screen.getByText(/Exam findings/)).toBeInTheDocument();
+    expect(screen.getByText(/Exam Findings/)).toBeInTheDocument();
     expect(screen.getByText(/Medical Decision Making \(MDM\)/)).toBeInTheDocument();
     expect(screen.getByText(/CPT Codes/)).toBeInTheDocument();
     expect(screen.getByText(/E&M Code/)).toBeInTheDocument();
@@ -286,7 +285,6 @@ describe('ApplyTemplate', () => {
         expect.objectContaining({
           encounterId: 'test-encounter-id',
           templateName: 'Brand New Template',
-          examType: 'inPerson',
         })
       );
     });
@@ -374,7 +372,6 @@ describe('ApplyTemplate', () => {
         expect.objectContaining({
           encounterId: 'test-encounter-id',
           templateName: 'Sore Throat',
-          examType: 'inPerson',
         })
       );
     });
@@ -402,14 +399,13 @@ describe('ApplyTemplate', () => {
       expect(screen.getByText(/Review what will be applied/)).toBeInTheDocument();
     });
 
-    // Only sections with content in the fixture should render. moiNote is null, accident is null.
+    // Only sections with content in the fixture should render. moiNote is null.
     await waitFor(() => {
       expect(screen.getByTestId('template-section-hpi')).toBeInTheDocument();
     });
     expect(screen.getByTestId('template-section-mdm')).toBeInTheDocument();
     expect(screen.getByTestId('template-section-examFindings')).toBeInTheDocument();
     expect(screen.queryByTestId('template-section-moi')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('template-section-accident')).not.toBeInTheDocument();
   });
 
   it('should send default actions to applyTemplate when applied without changes', async () => {
@@ -439,7 +435,6 @@ describe('ApplyTemplate', () => {
         expect.objectContaining({
           encounterId: 'test-encounter-id',
           templateName: 'Sore Throat',
-          examType: 'inPerson',
           sectionActions: {
             hpi: 'append',
             // moi section is hidden because the template carries no MOI content; the
@@ -453,7 +448,6 @@ describe('ApplyTemplate', () => {
             patientInstructions: 'overwrite',
             cptCodes: 'append',
             emCode: 'overwrite',
-            accident: 'skip',
             inHouseLabs: 'append',
           },
         })

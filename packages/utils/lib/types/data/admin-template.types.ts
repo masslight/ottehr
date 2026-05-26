@@ -1,12 +1,10 @@
 import { RosFindingState } from 'utils';
-import { ExamType } from '../../ottehr-config';
 
 // ── admin-create-template ──
 
 export interface AdminCreateTemplateInput {
   encounterId: string;
   templateName: string;
-  examType: ExamType;
 }
 
 export interface AdminCreateTemplateOutput {

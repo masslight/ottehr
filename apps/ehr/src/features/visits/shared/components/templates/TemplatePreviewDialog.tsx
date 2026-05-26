@@ -25,66 +25,38 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminGetTemplateDetailOutput,
   buildExamFieldToSectionMap,
-  ExamFieldSectionInfo,
-  ExamType,
-  InPersonExamConfig,
   RosFindingState,
   RosFindingStateLabel,
-  TelemedExamConfig,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
+  TEMPLATE_SECTIONS_IN_ORDER,
   TEMPLATE_SECTIONS_NO_APPEND,
   TEMPLATE_SECTIONS_NO_OVERWRITE,
   TemplateInHouseLabPlan,
   TemplateSectionAction,
   TemplateSectionActions,
+  TemplateSectionDescriptor,
   TemplateSectionKey,
 } from 'utils';
+import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 
 // Maps an exam field name (e.g. "soft", "tender") to the body-system section it
-// belongs to ("Abdomen"). Computed once per exam type at module load so the preview
-// can group finding chips under their owning section header. Picking by ExamType
-// keeps telemed templates from grouping every chip into "Other".
-// TelemedExamConfig isn't declared with the ExamItemConfig type (its items carry an
-// extra `code` field), so we cast through unknown. buildExamFieldToSectionMap only
-// reads the standard fields it shares with ExamItemConfig.
-const EXAM_FIELD_TO_SECTION_BY_TYPE: Record<ExamType, Map<string, ExamFieldSectionInfo>> = {
-  [ExamType.IN_PERSON]: buildExamFieldToSectionMap(InPersonExamConfig),
-  [ExamType.TELEMED]: buildExamFieldToSectionMap(TelemedExamConfig as unknown as typeof InPersonExamConfig),
-};
-const EXAM_SECTION_KEYS_IN_ORDER_BY_TYPE: Record<ExamType, string[]> = {
-  [ExamType.IN_PERSON]: Object.keys(InPersonExamConfig),
-  [ExamType.TELEMED]: Object.keys(TelemedExamConfig),
-};
+// belongs to ("Abdomen"). Built once at module load from
+// `DefaultExamComponentsConfig` so the preview can group finding chips under their
+// owning section header.
+const DEFAULT_EXAM_FIELD_TO_SECTION = buildExamFieldToSectionMap(DefaultExamComponentsConfig);
+
+const EXAM_SECTION_KEYS_IN_ORDER = Object.keys(DefaultExamComponentsConfig);
+
 const EXAM_OTHER_SECTION_KEY = '__other__';
 
 interface TemplatePreviewDialogProps {
   open: boolean;
   templateId: string | null;
   templateName: string;
-  examType: ExamType;
   isApplying: boolean;
   onCancel: () => void;
   onApply: (actions: TemplateSectionActions) => void;
 }
-
-interface SectionDescriptor {
-  key: TemplateSectionKey;
-  label: string;
-}
-
-const SECTIONS_IN_ORDER: readonly SectionDescriptor[] = [
-  { key: 'hpi', label: 'HPI (History of Present Illness)' },
-  { key: 'moi', label: 'MOI (Mechanism of Injury)' },
-  { key: 'ros', label: 'Review of Systems (ROS)' },
-  { key: 'examFindings', label: 'Exam Findings' },
-  { key: 'mdm', label: 'Medical Decision Making (MDM)' },
-  { key: 'diagnoses', label: 'Assessment / ICD-10 Diagnoses' },
-  { key: 'patientInstructions', label: 'Patient Instructions' },
-  { key: 'cptCodes', label: 'CPT Codes' },
-  { key: 'emCode', label: 'E&M Code' },
-  { key: 'accident', label: 'Accident' },
-  { key: 'inHouseLabs', label: 'In-House Lab Orders' },
-];
 
 const ACTION_LABELS: Record<TemplateSectionAction, string> = {
   skip: 'Skip',
@@ -162,14 +134,6 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
     }
     case 'emCode':
       return sections.emCode ? sections.emCode.code : '';
-    case 'accident': {
-      if (!sections.accident) return '';
-      const flags: string[] = [];
-      if (sections.accident.autoAccident) flags.push('Auto');
-      if (sections.accident.employment) flags.push('Employment');
-      if (sections.accident.otherAccident) flags.push('Other');
-      return flags.length > 0 ? flags.join(', ') : 'Yes';
-    }
     case 'inHouseLabs': {
       const names = sections.inHouseLabs
         .slice(0, 2)
@@ -205,8 +169,6 @@ const sectionHasContent = (sections: AdminGetTemplateDetailOutput['sections'], k
       return sections.cptCodes.length > 0;
     case 'emCode':
       return Boolean(sections.emCode);
-    case 'accident':
-      return Boolean(sections.accident);
     case 'inHouseLabs':
       return sections.inHouseLabs.length > 0;
     default:
@@ -241,10 +203,7 @@ const CodeList: React.FC<{ items: { code: string; display: string }[] }> = ({ it
 const SectionPreview: React.FC<{
   sectionKey: TemplateSectionKey;
   sections: AdminGetTemplateDetailOutput['sections'];
-  examType: ExamType;
-}> = ({ sectionKey, sections, examType }) => {
-  const examFieldToSection = EXAM_FIELD_TO_SECTION_BY_TYPE[examType];
-  const examSectionKeysInOrder = EXAM_SECTION_KEYS_IN_ORDER_BY_TYPE[examType];
+}> = ({ sectionKey, sections }) => {
   switch (sectionKey) {
     case 'hpi':
       return <TextBlock value={sections.hpiNote} />;
@@ -296,7 +255,7 @@ const SectionPreview: React.FC<{
       // (e.g. comment fields with custom keys) falls into an "Other" bucket.
       const groupedByKey = new Map<string, typeof sections.examFindings>();
       for (const finding of sections.examFindings) {
-        const info = examFieldToSection.get(finding.fieldName);
+        const info = DEFAULT_EXAM_FIELD_TO_SECTION.get(finding.fieldName);
         const key = info?.sectionKey ?? EXAM_OTHER_SECTION_KEY;
         const existing = groupedByKey.get(key);
         if (existing) existing.push(finding);
@@ -304,7 +263,7 @@ const SectionPreview: React.FC<{
       }
 
       const orderedKeys = [
-        ...examSectionKeysInOrder.filter((k) => groupedByKey.has(k)),
+        ...EXAM_SECTION_KEYS_IN_ORDER.filter((k) => groupedByKey.has(k)),
         ...(groupedByKey.has(EXAM_OTHER_SECTION_KEY) ? [EXAM_OTHER_SECTION_KEY] : []),
       ];
 
@@ -315,7 +274,7 @@ const SectionPreview: React.FC<{
             const label =
               key === EXAM_OTHER_SECTION_KEY
                 ? 'Other'
-                : examFieldToSection.get(findings[0].fieldName)?.sectionLabel ?? key;
+                : DEFAULT_EXAM_FIELD_TO_SECTION.get(findings[0].fieldName)?.sectionLabel ?? key;
             return (
               <Box key={key}>
                 <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase' }}>
@@ -363,33 +322,6 @@ const SectionPreview: React.FC<{
       return <CodeList items={sections.cptCodes} />;
     case 'emCode':
       return sections.emCode ? <CodeList items={[sections.emCode]} /> : null;
-    case 'accident': {
-      const accident = sections.accident;
-      if (!accident) return null;
-      const flags: string[] = [];
-      if (accident.autoAccident) flags.push('Auto accident');
-      if (accident.employment) flags.push('Employment');
-      if (accident.otherAccident) flags.push('Other accident');
-      return (
-        <Stack spacing={0.5}>
-          {flags.length > 0 ? (
-            <Typography variant="body2" sx={{ color: 'text.primary' }}>
-              <strong>Type:</strong> {flags.join(', ')}
-            </Typography>
-          ) : null}
-          {accident.date ? (
-            <Typography variant="body2" sx={{ color: 'text.primary' }}>
-              <strong>Date:</strong> {accident.date}
-            </Typography>
-          ) : null}
-          {accident.state ? (
-            <Typography variant="body2" sx={{ color: 'text.primary' }}>
-              <strong>State:</strong> {accident.state}
-            </Typography>
-          ) : null}
-        </Stack>
-      );
-    }
     case 'inHouseLabs':
       return <InHouseLabPlansList plans={sections.inHouseLabs} />;
     default:
@@ -456,13 +388,12 @@ const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlan[] }> = ({ pl
 );
 
 const SectionCard: React.FC<{
-  descriptor: SectionDescriptor;
+  descriptor: TemplateSectionDescriptor;
   sections: AdminGetTemplateDetailOutput['sections'];
   action: TemplateSectionAction;
   onActionChange: (action: TemplateSectionAction) => void;
   disabled: boolean;
-  examType: ExamType;
-}> = ({ descriptor, sections, action, onActionChange, disabled, examType }) => {
+}> = ({ descriptor, sections, action, onActionChange, disabled }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const noAppend = TEMPLATE_SECTIONS_NO_APPEND.has(descriptor.key);
@@ -572,7 +503,7 @@ const SectionCard: React.FC<{
           id={`template-section-${descriptor.key}-body`}
           sx={{ px: 2, pb: 2, pt: 2, borderTop: `1px solid ${theme.palette.divider}`, ...previewSx }}
         >
-          <SectionPreview sectionKey={descriptor.key} sections={sections} examType={examType} />
+          <SectionPreview sectionKey={descriptor.key} sections={sections} />
         </Box>
       </Collapse>
     </Box>
@@ -583,7 +514,6 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   open,
   templateId,
   templateName,
-  examType,
   isApplying,
   onCancel,
   onApply,
@@ -610,7 +540,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
 
   const sectionsWithContent = useMemo(() => {
     if (!detailQuery.data) return [];
-    return SECTIONS_IN_ORDER.filter((s) => sectionHasContent(detailQuery.data.sections, s.key));
+    return TEMPLATE_SECTIONS_IN_ORDER.filter((s) => sectionHasContent(detailQuery.data.sections, s.key));
   }, [detailQuery.data]);
 
   const handleActionChange = (key: TemplateSectionKey, action: TemplateSectionAction): void => {
@@ -622,8 +552,8 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
     // template doesn't carry content for - and therefore weren't shown to the user -
     // are explicitly set to 'skip'. Without this, the server's default action map
     // would fill those keys with their per-section defaults (e.g. examFindings,
-    // patientInstructions, accident default to 'overwrite'), which would silently
-    // delete the user's existing chart data for sections they never saw a control for.
+    // patientInstructions default to 'overwrite'), which would silently delete the
+    // user's existing chart data for sections they never saw a control for.
     const payload: TemplateSectionActions = {};
     const visibleKeys = new Set(sectionsWithContent.map((s) => s.key));
     for (const key of Object.keys(TEMPLATE_SECTION_DEFAULT_ACTIONS) as TemplateSectionKey[]) {
@@ -678,9 +608,8 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
                 descriptor={section}
                 sections={detailQuery.data!.sections}
                 action={actions[section.key]}
-                onActionChange={(next) => handleActionChange(section.key, next)}
+                onActionChange={(action) => handleActionChange(section.key, action)}
                 disabled={isApplying}
-                examType={examType}
               />
             ))}
           </Stack>

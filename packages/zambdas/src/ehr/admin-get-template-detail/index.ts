@@ -21,7 +21,6 @@ import {
   examConfig,
   getRosFindingStateFromKey,
   getSecret,
-  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   ICD_10_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
   SecretsKeys,
@@ -37,7 +36,7 @@ import {
   indexLatestActivityDefinitionsByUrl,
   urlFromInstantiatesCanonical,
 } from '../../shared/in-house-lab/resolve-activity-definition';
-import { analyzeTemplateVersionData, verifyIsTemplate } from '../shared/template-helpers';
+import { analyzeTemplateVersionData, isDiagnosisCondition, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -164,10 +163,6 @@ const performEffect = async (
   // Extract exam version from the List's code coding
   const examVersion = templateList.code?.coding?.[0]?.version ?? '';
 
-  // Determine exam type from template coding and select appropriate config
-  const isInPerson = templateList.code?.coding?.some((c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM);
-  const examTypeConfig = isInPerson ? examConfig.inPerson.default : examConfig.telemed.default;
-
   // Parse HPI note
   const hpiCondition = contained.find(
     (r) => r.resourceType === 'Condition' && hasTag(r, chartDataTagSystem('chief-complaint'))
@@ -186,7 +181,7 @@ const performEffect = async (
   const rosTagSystem = chartDataTagSystem('ros-observation-field');
   const legacyRosTagSystem = chartDataTagSystem('ros');
 
-  const knownExamFields = collectKnownExamFields(examTypeConfig.components);
+  const knownExamFields = collectKnownExamFields(examConfig.default.components);
   const knownRosFields = collectKnownRosFields();
 
   const { isCurrentVersion, unmatchedRosFields, examObservations, rosObservations, rosNote } =
@@ -210,8 +205,8 @@ const performEffect = async (
     return { fieldName: fieldCode, label, findingState, stale };
   });
 
-  const abnormalFieldCodes = buildAbnormalFieldCodes(examTypeConfig.components);
-  const fieldLabels = buildFieldLabels(examTypeConfig.components);
+  const abnormalFieldCodes = buildAbnormalFieldCodes(examConfig.default.components);
+  const fieldLabels = buildFieldLabels(examConfig.default.components);
 
   const examFindings: TemplateExamFinding[] = examObservations.map((obs) => {
     const fieldCode = getTagCode(obs, examTagSystem) ?? 'unknown';
@@ -227,10 +222,9 @@ const performEffect = async (
   ) as ClinicalImpression | undefined;
   const mdm = mdmResource?.summary ?? null;
 
-  // Parse diagnoses (ICD-10 coded Conditions)
-  const diagnosisConditions = contained.filter(
-    (r) => r.resourceType === 'Condition' && (r as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
-  ) as Condition[];
+  // Parse diagnoses. Identify them by the `diagnosis` meta tag — Medical Conditions are also Conditions with
+  // ICD-10 codes, so a code-system check alone would surface them as diagnoses incorrectly.
+  const diagnosisConditions = contained.filter((r) => isDiagnosisCondition(r)) as Condition[];
 
   const diagnoses: TemplateCodeInfo[] = diagnosisConditions.map((cond) => {
     const icdCoding = cond.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM);

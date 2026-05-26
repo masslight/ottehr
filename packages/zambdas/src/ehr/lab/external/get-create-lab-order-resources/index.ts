@@ -70,7 +70,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       let staticLabName: string | undefined;
       if (lab.labGuid === STATIC_COMPENDIUM_LAB_GUID) {
-        staticLabName = lab.display?.split('/')?.[1]?.trim();
+        // lab.display is formatted as such: `(code) Test Name / Lab Name`
+        // we want "Lab Name" which will always be the last item in array split on '/'
+        staticLabName = lab.display?.split('/').pop()?.trim();
       }
 
       return { labSearchRes, staticLabName };

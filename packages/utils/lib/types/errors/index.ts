@@ -56,6 +56,7 @@ export enum APIErrorCode {
   IN_HOUSE_LAB_GENERAL = 4402,
   MISSING_WC_INFO_FOR_LABS = 4403,
   ADMIN_IN_HOUSE_TEST_EXISTS = 4404,
+  LABEL_PRINTING_GENERAL = 4405,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -243,7 +244,7 @@ export const PATIENT_NOT_FOUND_ERROR = {
 
 export const CANNOT_JOIN_CALL_NOT_STARTED_ERROR = {
   code: APIErrorCode.CANNOT_JOIN_CALL_NOT_IN_PROGRESS,
-  message: "This video call cannot be joined because it's either ended or not have been started",
+  message: 'This video call is not yet available or has already ended',
 };
 
 export const MISSING_REQUEST_BODY = {
@@ -458,6 +459,13 @@ export const ADMIN_IN_HOUSE_LAB_TEST_EXISTS_ERROR = (testName?: string): APIErro
     message: `A test matching that name${
       testName ? ` "${testName}"` : ''
     } already exists. Please change the name, or update the existing test`,
+  };
+};
+
+export const LABEL_PRINTING_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.LABEL_PRINTING_GENERAL,
+    message,
   };
 };
 

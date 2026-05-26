@@ -27,6 +27,7 @@ import { LabSets } from 'src/features/external-labs/components/LabSets';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { usePrintVisitLabel } from 'src/features/visits/shared/hooks/usePrintVisitLabel';
 import {
   useGetCreateInHouseLabResources,
   useICD10SearchNew,
@@ -68,6 +69,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
   const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
+
+  const { printVisitLabel } = usePrintVisitLabel();
 
   const diagnosis = useMemo<DiagnosisDTO[]>(
     () => (isFollowup ? mainEncounterChartData?.diagnosis || [] : chartData?.diagnosis || []),
@@ -186,7 +189,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           }
 
           const labelPdf = labelPdfs[0];
-          window.open(labelPdf.presignedURL, '_blank');
+
+          await printVisitLabel({ pdfPresignedUrl: labelPdf?.presignedURL ?? '', encounterId: encounter.id! });
         }
 
         if (res.serviceRequestIds.length === 1) {

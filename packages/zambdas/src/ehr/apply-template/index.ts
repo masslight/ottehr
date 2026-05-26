@@ -32,6 +32,7 @@ import {
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { hasTemplateRelevantTag, isDiagnosisCondition } from '../shared/template-helpers';
 import { applyInHouseLabPlans } from './apply-in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -163,11 +164,7 @@ const getSectionForResource = (resource: FhirResource): TemplateSectionKey | nul
   if (hasTagSystem(resource, chartDataTagSystem('patient-instruction'))) return 'patientInstructions';
   if (hasTagSystem(resource, chartDataTagSystem('em-code'))) return 'emCode';
   if (hasTagSystem(resource, chartDataTagSystem('cpt-code'))) return 'cptCodes';
-  if (hasTagSystem(resource, chartDataTagSystem('accident'))) return 'accident';
-  if (
-    resource.resourceType === 'Condition' &&
-    (resource as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
-  ) {
+  if (isDiagnosisCondition(resource)) {
     return 'diagnoses';
   }
   return null;
@@ -202,6 +199,8 @@ const performEffect = async (
         { name: '_revinclude:iterate', value: 'Observation:encounter' },
         { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
         { name: '_revinclude:iterate', value: 'Communication:encounter' },
+        // NOTE: this pulls all Conditions that have ever been associated with an encounter
+        // not just the ones currently on the Encounter. Need to filter it down later
         { name: '_revinclude:iterate', value: 'Condition:encounter' },
         { name: '_revinclude:iterate', value: 'Procedure:encounter' },
       ],
@@ -236,11 +235,13 @@ const performEffect = async (
   });
 
   const observationRequests = createRequests.filter(
-    (request) => request.method === 'POST' && request.resource.resourceType === 'Observation'
+    (request): request is BatchInputPostRequest<Observation> =>
+      request.method === 'POST' && request.resource.resourceType === 'Observation'
   );
 
   const procedureRequests = createRequests.filter(
-    (request) => request.method === 'POST' && request.resource.resourceType === 'Procedure'
+    (request): request is BatchInputPostRequest<Procedure> =>
+      request.method === 'POST' && request.resource.resourceType === 'Procedure'
   );
 
   const createObservationBatches = chunkThings(observationRequests, 5).map((chunk) =>
@@ -319,7 +320,7 @@ const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInput
   url: `${resourceType}/${id}`,
 });
 
-const makeCreateRequests = (
+export const makeCreateRequests = (
   encounter: Encounter,
   templateList: List,
   encounterBundle: FhirResource[],
@@ -341,41 +342,46 @@ const makeCreateRequests = (
 
   // Decide what to do with encounter.diagnosis based on the diagnoses action.
   // - skip:      leave it untouched (encounterDiagnoses stays null)
-  // - append:    start from existing (drop primary-diagnosis ranks), template entries get pushed in
+  // - append:    start from existing, keep ranks, template entries get pushed in
   // - overwrite: start from empty
   let encounterDiagnoses: NonNullable<Encounter['diagnosis']> | null = null;
+  let encounterDiagnosesConditions: Condition[] = [];
   if (actions.diagnoses !== 'skip') {
     if (actions.diagnoses === 'overwrite') {
       encounterDiagnoses = [];
+      encounterDiagnosesConditions = [];
     } else {
-      encounterDiagnoses = (encounter.diagnosis ?? []).map((d) => {
-        const { rank: _rank, ...rest } = d;
-        return rest;
+      // we take everything wholesale so we can maintain rank to keep the primary Dx
+      encounterDiagnoses = encounter.diagnosis ?? [];
+      encounterDiagnosesConditions = encounterBundle.filter((res): res is Condition => {
+        return (
+          res.resourceType === 'Condition' &&
+          encounterDiagnoses!.some((dx) => dx.condition.reference === `Condition/${res.id}`)
+        );
       });
     }
   }
 
   // Existing resources we may patch instead of recreate (HPI, ROS note, MDM).
-  const existingHpiCondition = encounterBundle.find((r) => hasTagSystem(r, chartDataTagSystem('chief-complaint'))) as
-    | Condition
-    | undefined;
+  const existingHpiCondition = encounterBundle.find((r): r is Condition =>
+    hasTagSystem(r, chartDataTagSystem('chief-complaint'))
+  );
 
-  const existingMoiCondition = encounterBundle.find((r) =>
+  const existingMoiCondition = encounterBundle.find((r): r is Condition =>
     hasTagSystem(r, chartDataTagSystem('mechanism-of-injury'))
-  ) as Condition | undefined;
+  );
 
   const existingRosCondition = encounterBundle.find(
-    (r) => hasTagSystem(r, chartDataTagSystem('ros')) && r.resourceType === 'Condition'
-  ) as Condition | undefined;
+    (r): r is Condition => hasTagSystem(r, chartDataTagSystem('ros')) && r.resourceType === 'Condition'
+  );
 
-  const existingMdm = encounterBundle.find((r) => hasTagSystem(r, chartDataTagSystem('medical-decision'))) as
-    | ClinicalImpression
-    | undefined;
+  const existingMdm = encounterBundle.find((r): r is ClinicalImpression =>
+    hasTagSystem(r, chartDataTagSystem('medical-decision'))
+  );
 
-  const templateEncounter = templateList.contained?.find((r) => r.resourceType === 'Encounter') as
-    | Encounter
-    | undefined;
-  const templateEncounterDiagnoses = templateEncounter?.diagnosis;
+  const templateEncounter = templateList.contained?.find((r): r is Encounter => r.resourceType === 'Encounter');
+  // this pulls in the rank of any diagnoses from when the template was created
+  const templateEncounterDiagnoses = templateEncounter?.diagnosis ?? [];
   const templateEncounterExtensions = templateEncounter?.extension ?? [];
 
   let templateHpiCondition: Condition | undefined;
@@ -387,6 +393,16 @@ const makeCreateRequests = (
     const containedResource = templateList.contained?.find((r) => r.id === resource.item.reference?.replace('#', ''));
     if (!containedResource) {
       console.error('no contained resource found');
+      continue;
+    }
+
+    // Defensive guard: only apply resources whose meta tag is template-relevant. Older templates created before
+    // the create-side filter was tightened may still contain patient-specific resources (e.g. Medical Conditions);
+    // skip them rather than recreate that data on this chart.
+    if (containedResource.resourceType !== 'Encounter' && !hasTemplateRelevantTag(containedResource)) {
+      console.log(
+        `Skipping contained resource ${containedResource.resourceType}/${containedResource.id}: no template-relevant meta tag`
+      );
       continue;
     }
 
@@ -433,11 +449,6 @@ const makeCreateRequests = (
       continue;
     }
 
-    // Skip duplicate MOI Conditions from the template (only the first one is used)
-    if (hasTagSystem(containedResource, chartDataTagSystem('mechanism-of-injury')) && moiHandled) {
-      continue;
-    }
-
     // For MDM on append: if an existing MDM ClinicalImpression exists, patch its summary instead of creating.
     if (action === 'append' && hasTagSystem(containedResource, chartDataTagSystem('medical-decision')) && existingMdm) {
       const existingSummary = existingMdm.summary ?? '';
@@ -473,19 +484,34 @@ const makeCreateRequests = (
       continue;
     }
 
-    // For Condition resources that are ICD-10 codes, we need to update the Encounter.diagnosis references
+    // For Diagnosis Conditions we also need to update the Encounter.diagnosis references.
+    // Use the `diagnosis` meta tag (not the presence of an ICD-10 code) so Medical Conditions are not picked up.
     if (
       resourceToCreate.resourceType === 'Condition' &&
-      resourceToCreate.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM) &&
+      isDiagnosisCondition(resourceToCreate) &&
       encounterDiagnoses !== null
     ) {
-      const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
-        return d.condition.reference?.split('/')[1] === containedResource.id;
-      });
-      encounterDiagnoses.push({
-        ...diagnosisToAdd, // This pulls in the `rank: 1` if present.
-        condition: { reference: fullUrl },
-      });
+      const isDuplicate = isDuplicateDiagnosis(resourceToCreate, encounterDiagnosesConditions);
+
+      // we should only add to encounter diagnoses after a dedupe when appending, to ensure the template doesn't add Dx already on the chart
+      if ((!isDuplicate && action === 'append') || action === 'overwrite') {
+        const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
+          return d.condition.reference?.split('/')[1] === containedResource.id;
+        });
+        encounterDiagnoses.push({
+          ...diagnosisToAdd,
+          condition: { reference: fullUrl },
+          // we'll take the rank of the template's diagnosis unless the existing encounter already has a primary Dx
+          rank:
+            action === 'append' && encounterDiagnoses.some((dx) => dx.rank === 1) ? undefined : diagnosisToAdd?.rank,
+        });
+        console.log('This is encounterDiagnoses after add: ', JSON.stringify(encounterDiagnoses));
+      }
+    }
+
+    // Skip duplicate MOI Conditions from the template (only the first one is used)
+    if (hasTagSystem(containedResource, chartDataTagSystem('mechanism-of-injury')) && moiHandled) {
+      continue;
     }
 
     // For MOI on append: concatenate existing text into the template text before creating.
@@ -559,7 +585,7 @@ const makeCreateRequests = (
   // Patch HPI Condition note when appending and existing exists
   if (existingHpiCondition && actions.hpi === 'append' && templateHpiCondition) {
     const condition = existingHpiCondition;
-    const encounterDiagnosisPatch: BatchInputJSONPatchRequest = {
+    const hpiPatchRequest: BatchInputJSONPatchRequest = {
       method: 'PATCH',
       url: `Condition/${condition.id}`,
       operations: [
@@ -570,13 +596,13 @@ const makeCreateRequests = (
         },
       ],
     };
-    createResourcesRequests.push(encounterDiagnosisPatch);
+    createResourcesRequests.push(hpiPatchRequest);
   }
 
   // Patch ROS note when appending and existing exists
   if (existingRosCondition && actions.ros === 'append' && templateRosCondition) {
     const condition = existingRosCondition;
-    const encounterDiagnosisPatch: BatchInputJSONPatchRequest = {
+    const rosPatchRequest: BatchInputJSONPatchRequest = {
       method: 'PATCH',
       url: `Condition/${condition.id}`,
       operations: [
@@ -587,8 +613,26 @@ const makeCreateRequests = (
         },
       ],
     };
-    createResourcesRequests.push(encounterDiagnosisPatch);
+    createResourcesRequests.push(rosPatchRequest);
   }
 
   return createResourcesRequests;
+};
+
+const isDuplicateDiagnosis = (templateDiagnosisCondition: Condition, encounterConditions: Condition[]): boolean => {
+  const getDxCode = (condition: Condition): string | undefined => {
+    if (!isDiagnosisCondition(condition)) return undefined;
+    return condition.code?.coding?.find((coding) => coding.system === ICD_10_CODE_SYSTEM)?.code;
+  };
+
+  console.log(
+    'Deduping these encounter diagnoses conditions: ',
+    JSON.stringify(encounterConditions.map((condition) => `Condition/${condition.id} code: ${getDxCode(condition)}`))
+  );
+  const encounterDiagnosesSet = new Set(
+    encounterConditions.map((cond) => getDxCode(cond)).filter((e) => e !== undefined)
+  );
+  const isDuplicate = encounterDiagnosesSet.has(getDxCode(templateDiagnosisCondition) ?? '');
+  console.log(`template dx ${getDxCode(templateDiagnosisCondition)} is duplicate of encounter Dx: `, isDuplicate);
+  return isDuplicate;
 };

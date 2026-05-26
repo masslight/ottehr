@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { listTemplates } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { ExamType, ListTemplatesZambdaOutput } from 'utils';
+import { ListTemplatesZambdaOutput } from 'utils';
 
 export interface TemplateOption {
   value: string;
@@ -17,17 +17,17 @@ export interface UseListTemplatesResult {
   error: Error | null;
 }
 
-export const useListTemplates = (examType: ExamType, options?: { enabled?: boolean }): UseListTemplatesResult => {
+export const useListTemplates = (options?: { enabled?: boolean }): UseListTemplatesResult => {
   const { oystehrZambda } = useApiClients();
   const enabled = (options?.enabled ?? true) && !!oystehrZambda;
 
   const queryResult = useQuery<ListTemplatesZambdaOutput, Error>({
-    queryKey: ['list-templates', examType],
+    queryKey: ['list-templates'],
     queryFn: async () => {
       if (!oystehrZambda) {
         throw new Error('API client not available');
       }
-      return await listTemplates(oystehrZambda, { examType, includeVersionData: true });
+      return await listTemplates(oystehrZambda, { includeVersionData: true });
     },
     enabled,
     staleTime: QUERY_STALE_TIME,

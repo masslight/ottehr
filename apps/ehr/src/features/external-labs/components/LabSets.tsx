@@ -5,7 +5,7 @@ import { Box, Dialog, DialogContent, DialogTitle, Divider, Grid, IconButton, Typ
 import Oystehr from '@oystehr/sdk';
 import { FC, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { LabSetDTO } from 'utils';
+import { LabSetDTO, LabType } from 'utils';
 
 type LabSetsProps = {
   labSets: LabSetDTO[];
@@ -29,6 +29,12 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
     } finally {
       setLoadingId(null);
     }
+  };
+
+  // lab sets get their item code added in admin on create/edit. This just covers historical cases
+  const formatLabSetDisplay = (display: string, itemCode: string): string => {
+    if (display.startsWith(`(${itemCode})`)) return display;
+    return `(${itemCode}) ${display}`;
   };
 
   if (labSets.length === 0) return <></>;
@@ -89,9 +95,15 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
                   <Typography variant="h6" fontWeight="700" color="primary.dark">
                     {set.listName}:
                   </Typography>
-                  {set.labs.map((lab, idx) => (
-                    <Typography key={`set-item-${set.listId}-${idx}`}>{lab.display}</Typography>
-                  ))}
+                  {set.listType === LabType.external
+                    ? set.labs.map((lab, idx) => (
+                        <Typography key={`set-item-${set.listId}-${idx}`}>
+                          {formatLabSetDisplay(lab.display, lab.itemCode)}
+                        </Typography>
+                      ))
+                    : set.labs.map((lab, idx) => (
+                        <Typography key={`set-item-${set.listId}-${idx}`}>{lab.display}</Typography>
+                      ))}
                 </Grid>
                 <Grid item xs={3} sx={{ textAlign: 'right' }}>
                   <LoadingButton

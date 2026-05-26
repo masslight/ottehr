@@ -21,7 +21,8 @@ async function main(): Promise<void> {
     user.email,
     user.firstName,
     user.lastName,
-    roleIds
+    roleIds,
+    user.npi
   );
 
   console.log(`Invite sent! User ID: ${inviteResponse.id}`);

@@ -1,15 +1,39 @@
 import Oystehr from '@oystehr/sdk';
 import { Condition, List, Observation, Resource } from 'fhir/r4b';
-import {
-  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
-  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
-} from 'utils';
+import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils';
+// Meta-tag systems that mark a resource as belonging in a global template.
+// IMPORTANT: this is a positive allow-list
+export const TEMPLATE_TAG_SYSTEMS: ReadonlySet<string> = new Set([
+  chartDataTagSystem('chief-complaint'),
+  chartDataTagSystem('mechanism-of-injury'),
+  chartDataTagSystem('ros'), // legacy
+  chartDataTagSystem('exam-observation-field'),
+  chartDataTagSystem('ros-observation-field'),
+  chartDataTagSystem('medical-decision'),
+  chartDataTagSystem('patient-instruction'),
+  chartDataTagSystem('cpt-code'),
+  chartDataTagSystem('em-code'),
+  chartDataTagSystem('diagnosis'),
+]);
+
+// Minimal shape for tag-based predicates so callers can pass resources from any FHIR version (R4B / R5) without
+// fighting cross-version type unions. The runtime shape of meta.tag is identical across versions.
+type TaggedResource = {
+  resourceType?: string;
+  meta?: { tag?: Array<{ system?: string; code?: string }> };
+};
+
+export function hasTemplateRelevantTag(resource: TaggedResource | undefined): boolean {
+  return resource?.meta?.tag?.some((tag) => !!tag.system && TEMPLATE_TAG_SYSTEMS.has(tag.system)) ?? false;
+}
+
+export function isDiagnosisCondition(resource: TaggedResource | undefined): boolean {
+  if (resource?.resourceType !== 'Condition') return false;
+  return resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('diagnosis')) ?? false;
+}
 
 export function verifyIsTemplate(templateList: List, templateId: string): void {
-  const isTemplate = templateList.code?.coding?.some(
-    (c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM || c.system === GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM
-  );
+  const isTemplate = templateList.code?.coding?.some((c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM);
   if (!isTemplate) {
     throw new Error(`List ${templateId} is not a global template`);
   }
