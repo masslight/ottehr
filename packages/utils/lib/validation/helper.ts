@@ -56,3 +56,13 @@ const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-
 export const isValidUUID = (maybeUUID: string): boolean => {
   return uuidRegex.test(maybeUUID);
 };
+
+/**
+ * Validates a resource ID that may be either a UUID (old-style FHIR Organization ID)
+ * or a simple alphanumeric identifier (Oystehr RCM API payer ID).
+ * Allows alphanumeric characters, underscores, and hyphens.
+ */
+const resourceIdRegex = /^[a-zA-Z0-9_-]+$/;
+export const isAlphaNumericID = (maybeId: string): boolean => {
+  return resourceIdRegex.test(maybeId);
+};
