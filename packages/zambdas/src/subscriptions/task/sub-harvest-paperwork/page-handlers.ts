@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   DocumentReference,
@@ -34,7 +33,7 @@ import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
-  mergeEncounterAccounts,
+  makeEncounterAccountPatchOp,
   updatePatientAccountFromQuestionnaire,
 } from '../../../ehr/shared/harvest';
 import { getAuth0Token, reportMissingUserRelatedPerson } from '../../../shared';
@@ -125,29 +124,12 @@ const accountCoverageStrategy: HarvestStrategyHandler = async (ctx) => {
 
   // Update encounter account references
   await patchWithOptimisticLock(oystehr, encounter, async (currentEncounter) => {
-    const ops: Operation[] = [];
-
     const { account: latestAccount, workersCompAccount } = await getAccountAndCoverageResourcesForPatient(
       patient.id!,
       oystehr
     );
 
-    const patientAccountReference = latestAccount?.id ? `Account/${latestAccount.id}` : undefined;
-    const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
-    const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(
-      currentEncounter.account,
-      [patientAccountReference, workersCompAccountReference]
-    );
-
-    if (accountsChanged && updatedEncounterAccounts) {
-      ops.push({
-        op: currentEncounter.account ? 'replace' : 'add',
-        path: '/account',
-        value: updatedEncounterAccounts,
-      });
-    }
-
-    return ops;
+    return makeEncounterAccountPatchOp(currentEncounter, latestAccount, workersCompAccount);
   });
 
   console.log(`account and coverage resources updated for encounter ${encounter.id}`);

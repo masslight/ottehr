@@ -55,13 +55,7 @@ export const ClaimsQueueColumns: Record<string, GridColDef<ClaimsQueueItem, any,
       return (
         <Box>
           <Tooltip title={params.row.appointment.id}>
-            <Link
-              component={RouterLink}
-              to={`${
-                params.row.appointment.appointmentType?.text === 'virtual' ? '/telemed/appointments/' : '/visit/'
-              }${params.row.appointment.id}`}
-              target="_blank"
-            >
+            <Link component={RouterLink} to={`/visit/${params.row.appointment.id}`} target="_blank">
               {params.row.appointment.id}
             </Link>
           </Tooltip>

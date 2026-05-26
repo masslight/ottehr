@@ -179,6 +179,7 @@ export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessmen
   testDetails: testDataForOrderForm[];
   insuranceDetails?: OrderFormInsuranceInfo[];
   brandingProjectName?: string;
+  isWorkersCompOrder: boolean;
 }
 
 export interface ExternalLabResult {
@@ -237,6 +238,7 @@ export interface LabResultsData
     | 'isManualOrder'
   > {
   testName: string;
+  testItemCode: string;
   resultStatus: string;
   abnormalResult?: boolean;
   patientVisitNote?: string;
@@ -376,7 +378,6 @@ export interface PatientInfo extends PdfData {
   fullName: string;
   preferredName: string;
   dob: string;
-  unconfirmedDOB?: string;
   sex: Gender;
   id: string;
   phone: string;
@@ -552,7 +553,7 @@ export interface CptCodes extends PdfData {
 }
 
 export interface PlanData extends PdfData {
-  patientInstructions?: { text?: string; title?: string }[];
+  patientInstructions?: string[];
   disposition: {
     header: string;
     text: string;
@@ -870,10 +871,7 @@ export interface ErxMedicationsData extends PdfData {
 }
 
 export interface PatientInstructionsData extends PdfData {
-  instructions: {
-    title?: string;
-    text?: string;
-  }[];
+  instructions: string[];
 }
 
 export interface EducationDocumentsData extends PdfData {

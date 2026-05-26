@@ -8,7 +8,6 @@ import {
   chooseJson,
   DOB_DATE_FORMAT,
   EHRImageUploadType,
-  FHIR_EXTENSION,
   GetPresignedFileURLInput,
   UpdateVisitFilesInput,
   VisitDocuments,
@@ -34,7 +33,6 @@ describe('saving card files from EHR', () => {
     existingPatientId?: string;
     patientAge?: { units: 'years' | 'months'; value: number };
     patientSex?: 'male' | 'female';
-    unconfirmedDob?: string;
   }
 
   const makeCardInZ3AndReturnAttachment = async (
@@ -84,7 +82,6 @@ describe('saving card files from EHR', () => {
     patientAge,
     existingPatientId,
     patientSex,
-    unconfirmedDob,
   }: MakeTestResourcesParams): Promise<{
     encounter: Encounter;
     appointment: Appointment;
@@ -123,14 +120,6 @@ describe('saving card files from EHR', () => {
           status: 'accepted',
         },
       ],
-      extension: unconfirmedDob
-        ? [
-            {
-              url: FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url,
-              valueString: unconfirmedDob,
-            },
-          ]
-        : undefined,
     };
     const batchInputApp: BatchInputPostRequest<Appointment> = {
       method: 'POST',

@@ -9,15 +9,14 @@ import {
   GetTelemedLocationsResponse,
   PatientInfo,
   PromiseReturnType,
-  useSuccessQuery,
 } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 
 export const useCreateAppointmentMutation = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrAPIClient['createAppointment']>>,
   Error,
   {
     apiClient: OystehrAPIClient;
-    unconfirmedDateOfBirth?: string;
     patientInfo: PatientInfo;
     stateInfo: { locationState: string };
   }
@@ -25,13 +24,11 @@ export const useCreateAppointmentMutation = (): UseMutationResult<
   useMutation({
     mutationFn: ({
       apiClient,
-      unconfirmedDateOfBirth,
       patientInfo,
       stateInfo,
     }: {
       apiClient: OystehrAPIClient;
       patientInfo: PatientInfo;
-      unconfirmedDateOfBirth?: string;
       stateInfo: { locationState: string };
     }) => {
       return apiClient.createAppointment({
@@ -39,7 +36,6 @@ export const useCreateAppointmentMutation = (): UseMutationResult<
         patient: patientInfo,
         timezone: DateTime.now().zoneName,
         locationState: stateInfo.locationState,
-        unconfirmedDateOfBirth,
       });
     },
   });

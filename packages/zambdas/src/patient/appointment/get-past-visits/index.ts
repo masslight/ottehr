@@ -29,6 +29,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { patientId, secrets } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
+  console.log(`patientId from request: ${patientId ?? '(none)'}`);
 
   oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
   const fhirAPI = getSecret(SecretsKeys.FHIR_API, secrets);
@@ -37,10 +38,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('getting user');
 
   const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
+  console.log(`user id: ${user.id}`);
   console.log('getting patients for user');
   const patients = await getPatientsForUser(user, oystehr);
   console.log('getPatientsForUser awaited');
   const patientIDs = patients.map((patient) => `Patient/${patient.id}`);
+  console.log(`patient IDs for user: [${patientIDs.join(', ')}]`);
 
   if (patientId && !patientIDs.includes(`Patient/${patientId}`)) {
     throw new Error('Not authorized to get this patient');
@@ -97,7 +100,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const status = getInPersonVisitStatus(fhirAppointment, encounter);
 
       if (!status) {
-        console.log('No visit status for appointment');
+        console.log(`No visit status for appointment: ${fhirAppointment.id}`);
         return;
       }
 
@@ -120,8 +123,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       appointments.push(appointment);
     });
 
+  const sorted = appointments.sort((a, b) => new Date(b.start || '').getTime() - new Date(a.start || '').getTime());
+  console.log(`returning ${sorted.length} past visit(s)`);
+
   const response: GetPastVisitsResponse = {
-    appointments: appointments.sort((a, b) => new Date(b.start || '').getTime() - new Date(a.start || '').getTime()),
+    appointments: sorted,
   };
 
   return {

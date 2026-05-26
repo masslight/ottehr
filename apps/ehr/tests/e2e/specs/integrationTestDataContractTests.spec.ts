@@ -520,6 +520,13 @@ const cleanPatient = (patient: Patient): Patient => {
       id.system?.startsWith('https://identifiers.fhir.oystehr.com/friendly-patient-id') ? { ...id, value: SKIP_ME } : id
     );
   }
+  // FHIR extension is a set, not a sequence — order isn't semantically meaningful. The
+  // generate→harvest→prefill pipeline and the fast integration path can write the same
+  // extensions in different orders (e.g. preferred-communication-method and send-marketing
+  // can land at the front or back depending on instance config), which trips toEqual.
+  if (cleanedPatient.extension) {
+    cleanedPatient.extension = [...cleanedPatient.extension].sort((a, b) => (a.url ?? '').localeCompare(b.url ?? ''));
+  }
   return cleanedPatient;
 };
 

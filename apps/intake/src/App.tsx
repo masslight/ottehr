@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
-import { parseCommaSeparatedTags, setupSentry } from 'utils';
+import { parseCommaSeparatedTags } from 'utils';
+import { setupSentry } from 'utils/lib/frontend';
 import { ScrollToTop } from './components/ScrollToTop';
 import { TestErrorPage } from './components/TestErrorPage';
 import { IntakeThemeProvider } from './IntakeThemeProvider';
@@ -13,7 +14,6 @@ import CancellationConfirmation from './pages/CancellationConfirmation';
 import CancellationReason from './pages/CancellationReason';
 import CheckIn from './pages/CheckIn';
 import WelcomeBack from './pages/ChoosePatient';
-import ConfirmDateOfBirth from './pages/ConfirmDateOfBirth';
 import Homepage from './pages/Homepage';
 import MyPatients from './pages/MyPatients';
 import { PaperworkHome, PaperworkPage } from './pages/PaperworkPage';
@@ -247,10 +247,6 @@ export const intakeFlowPageRoute = {
     path: `${bookingBasePath}/get-ready`,
     getPage: () => <GetReadyForVisit />,
   },
-  ConfirmDateOfBirth: {
-    path: `${bookingBasePath}/confirm-date-of-birth`,
-    getPage: () => <ConfirmDateOfBirth />,
-  },
   PatientInfoCollection: {
     path: `${bookingBasePath}/patient-information`,
     getPage: () => <PatientInfoCollection />,
@@ -394,10 +390,6 @@ function App(): JSX.Element {
                         element={intakeFlowPageRoute.PatientInformation.getPage()}
                       />
                     </Route>
-                    <Route
-                      path={intakeFlowPageRoute.ConfirmDateOfBirth.path}
-                      element={intakeFlowPageRoute.ConfirmDateOfBirth.getPage()}
-                    />
                     <Route path={intakeFlowPageRoute.Review.path} element={intakeFlowPageRoute.Review.getPage()} />
                   </Route>
                   <Route

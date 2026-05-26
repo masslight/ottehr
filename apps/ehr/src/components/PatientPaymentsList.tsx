@@ -24,7 +24,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Markdown as TiptapMarkdown } from '@tiptap/markdown';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { Appointment, ChargeItemDefinition, DocumentReference, Encounter, Organization, Patient } from 'fhir/r4b';
+import { Appointment, ChargeItemDefinition, DocumentReference, Encounter, List, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, Fragment, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
@@ -45,7 +45,8 @@ import {
   CoverageCheckWithDetails,
   CPT_CODE_SYSTEM,
   CPT_MODIFIER_EXTENSION_URL,
-  FHIR_EXTENSION,
+  extractPayerIdFromUrl,
+  findOrgMatchingReference,
   getCoding,
   getLocationIdFromAppointment,
   getPaymentVariantFromEncounter,
@@ -61,6 +62,7 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   updateEncounterPaymentVariantExtension,
 } from 'utils';
+import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { sendReceiptByEmail } from '../api/api';
 import PaymentDialog from './dialogs/PaymentDialog';
 import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendReceiptByEmailDialog';
@@ -242,6 +244,18 @@ export default function PatientPaymentList({
     },
     enabled: !!oystehrZambda && !!patient?.id && !!appointment?.id,
   });
+  const { data: insuranceOverrideList } = useQuery({
+    queryKey: ['insurance-override-list'],
+    queryFn: async () => {
+      if (!oystehrZambda) return undefined;
+      const result = await oystehrZambda.zambda.execute({
+        id: 'get-insurance-override-list',
+        listName: 'ehr',
+      });
+      return result.output as List;
+    },
+    enabled: !!oystehrZambda,
+  });
 
   const {
     data: encounter,
@@ -262,9 +276,18 @@ export default function PatientPaymentList({
     patientId: patient?.id ?? null,
   });
 
-  const insuranceOrgId = insuranceCoverages?.coverages?.primary?.identifier
-    ?.find((id) => id.type?.coding?.find((c) => c.code === 'MB'))
-    ?.assigner?.reference?.replace('Organization/', '');
+  const primaryInsurancePayerRef = insuranceCoverages?.coverages.primary?.payor.find((p) => !!p.reference)?.reference;
+  const insuranceOrgId =
+    extractPayerIdFromUrl(primaryInsurancePayerRef) ?? primaryInsurancePayerRef?.replace('Organization/', '');
+  const insuranceOrganization = findOrgMatchingReference(primaryInsurancePayerRef, insuranceCoverages?.insuranceOrgs);
+  const insuranceName = insuranceOrganization?.name;
+  const insuranceNotesFromOrg = insuranceOrganization?.extension?.find(
+    (extensionTemp) => extensionTemp.url === ottehrExtensionUrl('insurance-override-note')
+  )?.valueString;
+  const insuranceNotesFromList = insuranceOverrideList?.entry
+    ?.find((e) => e.item.reference === primaryInsurancePayerRef)
+    ?.extension?.find((ext) => ext.url === ottehrExtensionUrl('insurance-override-note'))?.valueString;
+  const insuranceNotes = insuranceNotesFromList ?? insuranceNotesFromOrg;
 
   const employerOrgId = useMemo(() => {
     if (paymentVariant !== PaymentVariant.employer) return undefined;
@@ -623,17 +646,6 @@ export default function PatientPaymentList({
     }
     return null;
   })();
-
-  const insurance = insuranceCoverages?.coverages?.primary?.identifier?.find(
-    (temp) => temp.type?.coding?.find((temp) => temp.code === 'MB')
-  )?.assigner;
-  const insuranceOrganization = insuranceCoverages?.insuranceOrgs?.find(
-    (organization) => organization.id === insurance?.reference?.replace('Organization/', '')
-  );
-  const insuranceName = insuranceOrganization?.name;
-  const insuranceNotes = insuranceOrganization?.extension?.find(
-    (extensionTemp) => extensionTemp.url === FHIR_EXTENSION.InsurancePlan.notes.url
-  )?.valueString;
 
   let coverageCheck: CoverageCheckWithDetails | undefined = undefined;
   if (insuranceCoverages?.coverages?.primary && insuranceData?.coverageChecks) {

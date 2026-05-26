@@ -1,6 +1,5 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   expectInPersonProgressNotePage,
   InPersonProgressNotePage,
@@ -151,10 +150,7 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
 
   for (const field of askPatientFields) {
     // Check if the question exists on the page before filling
-    const questionLocator = screeningPage
-      .page()
-      .getByTestId(dataTestIds.screeningPage.askPatientQuestion)
-      .filter({ hasText: field.question });
+    const questionLocator = screeningPage.askPatientQuestionLocator(field.id);
 
     const questionExists = await questionLocator.isVisible({ timeout: 2000 }).catch(() => false);
 
@@ -165,9 +161,9 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
         // fieldValue is an option index
         const answer = field.options?.[fieldValue as number]?.label ?? '';
         if (field.type === 'radio') {
-          await screeningPage.selectRadioAnswer(field.question, answer);
+          await screeningPage.selectRadioAnswer(field.id, answer);
         } else if (field.type === 'select') {
-          await screeningPage.selectDropdownAnswer(field.question, answer);
+          await screeningPage.selectDropdownAnswer(field.id, answer);
         }
 
         // Handle noteField if it exists for this radio/select field
@@ -177,11 +173,9 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
             // If noteValue exists in fieldValues, it means noteField MUST be visible
             // (conditionalValue was already checked during data generation)
             // Wait for it to appear - if it doesn't, the test should fail
-            const questionLocatorRefreshed = screeningPage
-              .page()
-              .getByTestId(dataTestIds.screeningPage.askPatientQuestion)
-              .filter({ hasText: field.question });
-            const noteFieldLocator = questionLocatorRefreshed.getByRole('textbox', { name: field.noteField.label });
+            const noteFieldLocator = screeningPage
+              .askPatientQuestionLocator(field.id)
+              .getByRole('textbox', { name: field.noteField.label });
 
             await noteFieldLocator.waitFor({ state: 'visible', timeout: 30_000 });
             await noteFieldLocator.fill(noteValue);
@@ -191,17 +185,17 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
         // fieldValue is {startDate: DateTime, endDate: DateTime}
         const dateRangeValue = fieldValue as { startDate: DateTime; endDate: DateTime };
         if (dateRangeValue?.startDate && dateRangeValue?.endDate) {
-          await screeningPage.selectDateRange(field.question, dateRangeValue.startDate, dateRangeValue.endDate);
+          await screeningPage.selectDateRange(field.id, dateRangeValue.startDate, dateRangeValue.endDate);
         }
       } else if (field.type === 'text') {
         // fieldValue is a string
         if (fieldValue) {
-          await screeningPage.enterTextAnswer(field.question, fieldValue as string);
+          await screeningPage.enterTextAnswer(field.id, fieldValue as string);
         }
       } else if (field.type === 'textarea') {
         // fieldValue is a string
         if (fieldValue) {
-          await screeningPage.enterTextareaAnswer(field.question, fieldValue as string);
+          await screeningPage.enterTextareaAnswer(field.id, fieldValue as string);
         }
       }
     } else {
@@ -252,13 +246,13 @@ function createProgressNoteLines(screeningInfo: ScreeningInfo): string[] {
         const textValue = fieldValue as string;
         if (textValue) {
           return field.question + ' - ' + textValue;
-        } else {
-          return field.question + ' - ';
         }
+        // No value entered — nothing rendered on progress note, skip.
+        return '';
       } else {
-        // For any future field types not yet supported
-        console.warn(`Unsupported field type: ${field.type}`);
-        return field.question + ' - ';
+        // Field types not exercised by enterScreeningInfo (e.g. 'date') aren't filled,
+        // so the progress note has nothing to show for them. Skip the expected line.
+        return '';
       }
     })
     .filter((line) => line); // Filter out any empty lines

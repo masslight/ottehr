@@ -10,8 +10,6 @@ import {
   Box,
   Button,
   Checkbox,
-  CircularProgress,
-  FormControl,
   Grid,
   IconButton,
   Link as MUILink,
@@ -66,12 +64,11 @@ import {
   formatDateForDisplay,
   getCancellationReasonDisplay,
   getCoding,
-  getFullName,
+  getFormattedPatientFullName,
   getInPersonVisitStatus,
   getPatchOperationForNewMetaTag,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
-  getUnconfirmedDOBForAppointment,
   GetVisitFaxHistoryOutput,
   isApiError,
   isInPersonAppointment,
@@ -108,7 +105,6 @@ import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
-import { ChangeStatusDropdown } from '../features/visits/in-person/components/ChangeStatusDropdown';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {
@@ -564,16 +560,7 @@ export default function VisitDetailsPage(): ReactElement {
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patientId ?? '');
 
-  const { fullName } = useMemo(() => {
-    let fullName = '';
-
-    if (patient) {
-      fullName = getFullName(patient);
-    }
-    return {
-      fullName,
-    };
-  }, [patient]);
+  const fullName = (patient && getFormattedPatientFullName(patient)) ?? '';
 
   const isInPerson = isInPersonAppointment(appointment);
 
@@ -721,7 +708,6 @@ export default function VisitDetailsPage(): ReactElement {
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
-  const unconfirmedDOB = appointment && getUnconfirmedDOBForAppointment(appointment);
   const getAppointmentType = (appointmentType: FhirAppointmentType | undefined): string => {
     return appointmentType === 'prebook'
       ? 'Scheduled'
@@ -1219,13 +1205,10 @@ export default function VisitDetailsPage(): ReactElement {
                         title="Booking details"
                         loading={loading}
                         patientDetails={{
-                          ...(unconfirmedDOB
-                            ? {
-                                "Patient's date of birth (Unmatched)": formatDateForDisplay(unconfirmedDOB),
-                              }
-                            : {}),
                           'Service category': serviceCategoryLabel,
-                          'Reason for visit': `${reasonForVisit} ${additionalDetails ? `- ${additionalDetails}` : ''}`,
+                          'Reason for visit': reasonForVisit
+                            ? `${reasonForVisit}${additionalDetails ? ` - ${additionalDetails}` : ''}`
+                            : undefined,
                           'Authorized non-legal guardian(s)': patient?.extension?.find(
                             (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
                           )?.valueString || <></>,
@@ -1243,10 +1226,7 @@ export default function VisitDetailsPage(): ReactElement {
                                 setEditDialogConfig({
                                   type: 'dob',
                                   values: {
-                                    dob:
-                                      unconfirmedDOB && DateTime.fromISO(unconfirmedDOB).isValid
-                                        ? DateTime.fromISO(unconfirmedDOB)
-                                        : null,
+                                    dob: null,
                                   },
                                   keyTitleMap: {
                                     dob: 'DOB',
@@ -1461,27 +1441,6 @@ export default function VisitDetailsPage(): ReactElement {
             </Grid>
           </Grid>
         </Grid>
-        {!loading && encounter && (
-          <Grid container direction="row" justifyContent="space-between">
-            <Grid item>
-              {loading || !status ? (
-                <Skeleton sx={{ marginLeft: { xs: 0, sm: 2 } }} aria-busy="true" width={200} />
-              ) : (
-                <div id="user-set-appointment-status">
-                  <FormControl size="small" sx={{ marginTop: 2, marginLeft: { xs: 0, sm: 8 } }}>
-                    <ChangeStatusDropdown
-                      appointmentID={appointmentID}
-                      onStatusChange={setStatus}
-                      getAndSetResources={getAndSetHistoricResources}
-                      dataTestId={dataTestIds.appointmentPage.changeStatusDropdown}
-                    />
-                  </FormControl>
-                  {loading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}
-                </div>
-              )}
-            </Grid>
-          </Grid>
-        )}
         <Grid container direction="row">
           <Grid item sx={{ marginLeft: { xs: 0, sm: 8 }, marginTop: 2, marginBottom: 50 }}>
             <Stack direction="row" spacing={1} useFlexGap>
@@ -1659,15 +1618,6 @@ export default function VisitDetailsPage(): ReactElement {
                   </Grid>
                   <Grid item>{formatDateForDisplay(patient?.birthDate)}</Grid>
                 </Grid>
-
-                {unconfirmedDOB && (
-                  <Grid container item>
-                    <Grid item width="35%">
-                      Unmatched DOB:
-                    </Grid>
-                    <Grid item>{formatDateForDisplay(unconfirmedDOB)}</Grid>
-                  </Grid>
-                )}
               </Grid>
             ) : undefined
           }

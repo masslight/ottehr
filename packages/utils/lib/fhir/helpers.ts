@@ -48,6 +48,9 @@ import {
   getMimeType,
   getPatchOperationsForNewMetaTags,
   getPatchOperationToRemoveMetaTags,
+  getPayerId,
+  getPayerUrl,
+  isValidUUID,
   LAB_RESULT_DOC_REF_CODING_CODE,
   PatientMasterRecordResourceType,
   replaceOperation,
@@ -822,21 +825,6 @@ export async function getInsuranceOrgById(id: string, oystehr: Oystehr): Promise
   return insuranceOrg;
 }
 
-export const getUnconfirmedDOBForAppointment = (appointment?: Appointment): string | undefined => {
-  if (!appointment) return;
-  const unconfirmedDobExt = appointment.extension?.find((ext) => {
-    return ext.url.replace('http:', 'https:') === FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url;
-  });
-  return unconfirmedDobExt?.valueString || unconfirmedDobExt?.valueDate;
-};
-
-export const getUnconfirmedDOBIdx = (appointment?: Appointment): number | undefined => {
-  if (!appointment) return;
-  return appointment.extension?.findIndex((ext) => {
-    return ext.url.replace('http:', 'https:') === FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url;
-  });
-};
-
 export function filterResources(allResources: Resource[], resourceType: string): Resource[] {
   return allResources.filter((res) => res.resourceType === resourceType && res.id);
 }
@@ -1063,11 +1051,12 @@ export const getMemberIdFromCoverage = (coverage: Coverage): string | undefined 
 };
 
 export const createCoverageMemberIdentifier = (memberId: string, insuranceOrg: Organization): Identifier => {
+  const payerId = getPayerId(insuranceOrg);
   return {
     ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
     value: memberId,
     assigner: {
-      reference: `Organization/${insuranceOrg.id}`,
+      reference: isValidUUID(insuranceOrg.id ?? '') ? `Organization/${insuranceOrg.id}` : getPayerUrl(payerId!),
       display: insuranceOrg.name,
     },
   };

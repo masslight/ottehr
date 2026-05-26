@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition, UsageContext } from 'fhir/r4b';
+import { getPayerUrl, orgIdMatchesReference, uuidRegex } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -18,8 +19,8 @@ export const index = wrapHandler('associate-payer', async (input: ZambdaInput): 
   const newContextEntries: UsageContext[] = [];
 
   if (organizationId) {
-    const alreadyAssociated = existing.useContext?.some(
-      (uc) => uc.valueReference?.reference === `Organization/${organizationId}`
+    const alreadyAssociated = existing.useContext?.some((uc) =>
+      orgIdMatchesReference(uc.valueReference?.reference, organizationId)
     );
     if (!alreadyAssociated) {
       newContextEntries.push({
@@ -29,7 +30,7 @@ export const index = wrapHandler('associate-payer', async (input: ZambdaInput): 
           display: 'Payer',
         },
         valueReference: {
-          reference: `Organization/${organizationId}`,
+          reference: organizationId.match(uuidRegex) ? `Organization/${organizationId}` : getPayerUrl(organizationId),
         },
       });
     }

@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
+import { orgIdMatchesReference } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -41,7 +42,7 @@ export const index = wrapHandler(
           .filter(
             (cm) =>
               cm.status === 'active' &&
-              cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${orgId}`) &&
+              cm.useContext?.some((uc) => orgIdMatchesReference(uc.valueReference?.reference, orgId)) &&
               cm.date &&
               cm.date <= cutoffDate
           )

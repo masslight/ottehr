@@ -16,13 +16,18 @@ export const ExternalSelectedTests: React.FC<ExternalSelectedTestsProps> = ({ se
         <ActionsList
           data={selectedLabs}
           getKey={(value, index) => `selected-lab-${index}-${value.lab.labName}-${value.item.itemCode}`}
-          renderItem={(value) => <Typography>{nameLabTest(value.item.itemName, value.lab.labName, false)}</Typography>}
+          renderItem={(value) => (
+            <Typography>{nameLabTest(value.item.itemName, value.item.itemCode, value.lab.labName, false)}</Typography>
+          )}
           renderActions={(lab) => (
             <DeleteIconButton
               onClick={() =>
                 setSelectedLabs((prev) =>
                   prev.filter((tempLab) => {
-                    return tempLab.item.uniqueName !== lab.item.uniqueName;
+                    // we need the lab name for generic compendium labs (unique name will be the same)
+                    const selectedUniqueNameWithLab = `${lab.item.uniqueName}${lab.lab.labName}`;
+                    const tempLabUniqueNameWithLab = `${tempLab.item.uniqueName}${tempLab.lab.labName}`;
+                    return tempLabUniqueNameWithLab !== selectedUniqueNameWithLab;
                   })
                 )
               }
