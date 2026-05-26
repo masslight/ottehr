@@ -25,7 +25,6 @@ import {
   Secrets,
 } from 'utils';
 import {
-  authorizeAndPrepareAddendumNotes,
   checkOrCreateM2MClientToken,
   createAccidentCondition,
   createDispositionServiceRequest,
@@ -48,6 +47,7 @@ import {
   makeRosObservationResource,
   makeSchoolWorkDR,
   makeServiceRequestResource,
+  prepareAddendumNotes,
   saveOrUpdateResourceRequest,
   updateEncounterAddendumNote,
   updateEncounterAddToVisitNote,
@@ -478,17 +478,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
   }
 
-  // Enforce edit-own-only on addendum notes and pin authorship server-side. The returned map
-  // carries the existing Communications so we can reuse their `sent` timestamp on edit.
   let existingByAddendumId = new Map<string, Communication>();
   if (notes && notes.length > 0) {
     const practitionerDisplay = getProviderNameWithProfession(currentPractitioner);
-    existingByAddendumId = await authorizeAndPrepareAddendumNotes(
-      oystehr,
-      notes,
-      currentPractitioner.id!,
-      practitionerDisplay
-    );
+    existingByAddendumId = await prepareAddendumNotes(oystehr, notes, currentPractitioner.id!, practitionerDisplay);
   }
 
   // convert notes to Communication (FHIR) resources

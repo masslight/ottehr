@@ -4,7 +4,6 @@ export interface CustomizableNotesConfig {
   separateEncounterNotes?: boolean; // notes from another encounters should be shown by "show more" button
   // Addendum-style behaviors. All opt-in; default `false` preserves the existing notes UX.
   alwaysEditable?: boolean; // ignore appointment read-only state (addendum notes work after the progress note is locked)
-  ownerOnly?: boolean; // only the original author sees edit/delete buttons
   showEditedMarker?: boolean; // append "(edited)" when the server flags the note as edited
   softDeleteWithTombstone?: boolean; // render "(time) (name) deleted the note" tombstone
 }

@@ -14,28 +14,15 @@ export const NoteEntity: React.FC<{
   onDelete: (entity: EditableNote) => Promise<void>;
   locales: NoteLocales;
   isReadOnly: boolean;
-  ownerOnly?: boolean;
   showEditedMarker?: boolean;
   softDeleteWithTombstone?: boolean;
-  currentPractitionerId?: string;
-}> = ({
-  entity,
-  onEdit,
-  onDelete,
-  locales,
-  isReadOnly,
-  ownerOnly,
-  showEditedMarker,
-  softDeleteWithTombstone,
-  currentPractitionerId,
-}) => {
+}> = ({ entity, onEdit, onDelete, locales, isReadOnly, showEditedMarker, softDeleteWithTombstone }) => {
   const theme = useTheme();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const isDeleted = !!entity.deleted;
-  const isOwn = !ownerOnly || (!!currentPractitionerId && entity.authorId === currentPractitionerId);
-  const showButtons = !isReadOnly && isOwn && !isDeleted;
+  const showButtons = !isReadOnly && !isDeleted;
   const edited = !isDeleted && !!showEditedMarker && !!entity.edited;
 
   const handleDeleteClick = (): void => {

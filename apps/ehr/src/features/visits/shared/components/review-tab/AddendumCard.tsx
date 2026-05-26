@@ -58,7 +58,6 @@ export const AddendumCard: FC = () => {
           locales={addendumNotesConfig.locales}
           separateEncounterNotes={false}
           alwaysEditable
-          ownerOnly
           showEditedMarker
           softDeleteWithTombstone
         />

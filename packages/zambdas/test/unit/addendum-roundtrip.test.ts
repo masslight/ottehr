@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Communication } from 'fhir/r4b';
 import { NOTE_TYPE, NoteDTO } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
-import { authorizeAndPrepareAddendumNotes, makeNoteDTO, makeNoteResource } from '../../src/shared/chart-data';
+import { makeNoteDTO, makeNoteResource, prepareAddendumNotes } from '../../src/shared/chart-data';
 import { composePlanData } from '../../src/shared/pdf/sections/visit-note/plan';
 import { AllChartData } from '../../src/shared/pdf/visit-details-pdf/types';
 
@@ -86,7 +86,7 @@ describe('addendum round-trip: DTO → Communication → DTO → PDF data', () =
 
     const oystehr = makeFakeOystehr([existing]);
     const notes = [fePayload];
-    const existingByAddendumId = await authorizeAndPrepareAddendumNotes(oystehr, notes, 'prac-1', 'Dr. Smith');
+    const existingByAddendumId = await prepareAddendumNotes(oystehr, notes, 'prac-1', 'Dr. Smith');
 
     // After authorize, `deleted: true` MUST survive — otherwise makeNoteResource
     // won't flip status and the PDF will mis-render as "(edited)".

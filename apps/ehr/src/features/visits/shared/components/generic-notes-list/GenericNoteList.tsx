@@ -8,7 +8,6 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
   locales,
   separateEncounterNotes = true,
   alwaysEditable,
-  ownerOnly,
   showEditedMarker,
   softDeleteWithTombstone,
   addNoteButtonDataTestId,
@@ -25,7 +24,6 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
     <EditableNotesList
       separateEncounterNotes={separateEncounterNotes}
       alwaysEditable={alwaysEditable}
-      ownerOnly={ownerOnly}
       showEditedMarker={showEditedMarker}
       softDeleteWithTombstone={softDeleteWithTombstone}
       encounterId={encounterId}

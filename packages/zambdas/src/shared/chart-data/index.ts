@@ -747,19 +747,7 @@ async function fetchCommunicationsByIds(oystehr: Oystehr, ids: string[]): Promis
   return byId;
 }
 
-function assertCallerIsAddendumAuthor(existing: NoteDTO, callerPractitionerId: string, verb: 'edit' | 'delete'): void {
-  if (existing.authorId !== callerPractitionerId) {
-    throw new Error(`Forbidden: only the author can ${verb} this addendum`);
-  }
-}
-
-/**
- * Enforces edit/delete-own-only on addendum notes. Mutates the input array in place to pin
- * authorship server-side, and returns the prefetched existing Communications keyed by id so
- * the caller can thread them into `makeNoteResource` to preserve the original `sent` timestamp.
- * Non-addendum notes (intake, internal, etc.) pass through unchanged.
- */
-export async function authorizeAndPrepareAddendumNotes(
+export async function prepareAddendumNotes(
   oystehr: Oystehr,
   notes: NoteDTO[],
   callerPractitionerId: string,
@@ -778,16 +766,17 @@ export async function authorizeAndPrepareAddendumNotes(
         throw new Error(`Addendum ${note.resourceId} not found`);
       }
       const existingDto = makeNoteDTO(existing);
-      assertCallerIsAddendumAuthor(existingDto, callerPractitionerId, note.deleted ? 'delete' : 'edit');
-      // Once an addendum is soft-deleted, the original text is what the audit trail keeps —
-      // don't trust whatever text the FE sends along with the delete flag.
       if (note.deleted) {
+        // Tombstone shows the deleter; keep the original text as the audit record.
         note.text = existingDto.text;
+        note.authorId = callerPractitionerId;
+        note.authorName = callerPractitionerName;
+      } else {
+        // Edits keep the original author.
+        note.authorId = existingDto.authorId;
+        note.authorName = existingDto.authorName;
       }
-      note.authorId = callerPractitionerId;
-      note.authorName = existingDto.authorName;
     } else {
-      // New addendum can't be created already-deleted — guard against a malformed payload.
       if (note.deleted) {
         throw new Error('Cannot create an addendum in deleted state');
       }
@@ -797,27 +786,6 @@ export async function authorizeAndPrepareAddendumNotes(
   }
 
   return existingById;
-}
-
-/**
- * Enforces delete-own-only for addendum notes referenced by resourceId.
- * Throws if any of the referenced Communications was authored by someone other than the caller.
- */
-export async function authorizeAddendumNoteDeletion(
-  oystehr: Oystehr,
-  notes: NoteDTO[],
-  callerPractitionerId: string
-): Promise<void> {
-  const addendumIds = notes.filter((n) => n.type === NOTE_TYPE.ADDENDUM && n.resourceId).map((n) => n.resourceId!);
-  if (addendumIds.length === 0) return;
-
-  const existingById = await fetchCommunicationsByIds(oystehr, addendumIds);
-
-  for (const id of addendumIds) {
-    const existing = existingById.get(id);
-    if (!existing) continue; // already gone; let the delete be a no-op
-    assertCallerIsAddendumAuthor(makeNoteDTO(existing), callerPractitionerId, 'delete');
-  }
 }
 
 export function makeNoteDTO(resource: Communication): NoteDTO {
