@@ -41,9 +41,10 @@ async function performEffect(
     { name: '_sort', value: 'name' },
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },
-    EXCLUDE_WORKING_COPIES_PARAM,
   ];
+  if (!params.includeWorkingCopies) searchParams.push(EXCLUDE_WORKING_COPIES_PARAM);
   if (params.providerId) searchParams.push({ name: '_id', value: params.providerId });
+  if (params.name) searchParams.push({ name: 'name', value: params.name });
 
   // TODO: rendering providers may need to support Organization in addition to Practitioner
   if (params.providerType === 'rendering') {

@@ -1,5 +1,5 @@
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
-import { Alert, Box, Button, CircularProgress, IconButton, Typography } from '@mui/material';
+import { ArrowBack as ArrowBackIcon, Search as SearchIcon } from '@mui/icons-material';
+import { Alert, Box, Button, CircularProgress, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -33,19 +33,32 @@ export function BillingProvidersList(): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [searchName, setSearchName] = useState('');
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return (): void => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
 
   const fetchProviders = useCallback(
-    async (pagination: GridPaginationModel): Promise<void> => {
+    async (pagination: GridPaginationModel, name?: string): Promise<void> => {
       if (!oystehrZambda) return;
       setLoading(true);
       setError(null);
       try {
-        const response = await oystehrZambda.zambda.execute({
+        const body: Record<string, unknown> = {
           id: 'search-billing-providers',
           providerType: 'billing',
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
-        });
+        };
+        if (name) {
+          body.name = name;
+          body.includeWorkingCopies = true;
+        }
+        const response = await oystehrZambda.zambda.execute(body);
         const data = chooseJson(response);
         setProviders(data.providers ?? []);
         setTotalRows(data.total ?? 0);
@@ -65,9 +78,18 @@ export function BillingProvidersList(): ReactElement {
     void fetchProviders(paginationModel);
   }, [oystehrZambda, fetchProviders, paginationModel]);
 
+  const handleSearchChange = (value: string): void => {
+    setSearchName(value);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+      void fetchProviders({ ...paginationModel, page: 0 }, value || undefined);
+    }, 400);
+  };
+
   const handlePaginationChange = (model: GridPaginationModel): void => {
     setPaginationModel(model);
-    void fetchProviders(model);
+    void fetchProviders(model, searchName || undefined);
   };
 
   return (
@@ -75,6 +97,22 @@ export function BillingProvidersList(): ReactElement {
       <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
         Billing Providers
       </Typography>
+
+      <TextField
+        fullWidth
+        size="small"
+        placeholder="Search by name..."
+        value={searchName}
+        onChange={(e) => handleSearchChange(e.target.value)}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon fontSize="small" color="action" />
+            </InputAdornment>
+          ),
+        }}
+        sx={{ mb: 2 }}
+      />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -123,7 +161,7 @@ export function BillingProvidersList(): ReactElement {
           },
           '& .MuiDataGrid-row': { cursor: 'pointer' },
           '& .MuiDataGrid-row:hover': { bgcolor: otherColors.apptHover },
-          height: 'calc(100vh - 240px)',
+          height: 'calc(100vh - 310px)',
         }}
       />
     </Box>

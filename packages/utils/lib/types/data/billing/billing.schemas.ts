@@ -40,8 +40,10 @@ export const SearchBillingClaimsInputSchema = z.object({
 export const SearchBillingProvidersInputSchema = z.object({
   providerType: z.enum(['rendering', 'billing']),
   providerId: nonEmptyString.optional(),
+  name: nonEmptyString.optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
+  includeWorkingCopies: z.boolean().optional(),
 });
 
 export const SearchBillingPatientsInputSchema = z.object({
