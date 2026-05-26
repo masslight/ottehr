@@ -63,9 +63,8 @@ export const composePlanData: DataComposer<
   });
 
   const addendumNote = chartData?.addendumNote?.text;
-  // Notes are searched by patient (not encounter), so for a follow-up visit the response includes
-  // addendum notes from the parent encounter too. Filter them out when we know which encounter this PDF
-  // is for — only show addendum notes that belong to this encounter.
+  // Notes are searched by patient, so on a follow-up the response can include the parent encounter's
+  // addendum notes — scope to this encounter when we know it.
   const currentEncounterId = encounter?.id;
   const addendumNotes: AddendumEntry[] =
     additionalChartData?.notes
@@ -76,11 +75,6 @@ export const composePlanData: DataComposer<
         return {
           text: note.text,
           authorName: note.authorName || note.authorId || 'Unknown',
-          // Always show meta.lastUpdated — same as the frontend NoteEntity. For a fresh note that's
-          // the create time, for an edited note it's the edit time, and for a soft-deleted note it's
-          // the deletion time. Keeping the two surfaces in sync avoids confusion when comparing the
-          // EHR view to the generated PDF. Pre-formatted in the appointment timezone so the render
-          // pass doesn't need to know about zones (matches the immunization composer pattern).
           timestamp: formatAddendumTimestamp(note.lastUpdated, timezone),
           edited: !deleted && !!note.edited,
           deleted,

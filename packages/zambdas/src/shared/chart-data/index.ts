@@ -706,9 +706,8 @@ export function makeNoteResource(
   data: NoteDTO,
   existing?: Communication
 ): Communication {
-  // Preserve the original creation timestamp on edit by reusing the prior resource's `sent`.
-  // For new notes, stamp `sent` with now so the FE can detect edits by comparing it against
-  // meta.lastUpdated on subsequent reads.
+  // Reuse the prior `sent` on edit so the server's `isNoteEdited(sent, lastUpdated)` check
+  // sees drift and flags the note as edited on subsequent reads.
   const sent = existing?.sent ?? new Date().toISOString();
   const resource: Communication = {
     id: data.resourceId,

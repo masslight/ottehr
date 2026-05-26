@@ -6,8 +6,8 @@ import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 import { UseDeleteNote } from '../types';
 
 // Soft-deletes a note by re-saving it with `deleted: true`. The backend flips
-// Communication.status to 'entered-in-error' and preserves the original text/author for the audit
-// trail. Matches the UseDeleteNote signature so callers can swap it in for the hard-delete hook.
+// Communication.status to 'entered-in-error', preserves the original text, and stamps the caller
+// as the deleter so the tombstone shows who removed it.
 export const useSoftDeleteNote: UseDeleteNote = ({ appointmentId, apiConfig, locales }) => {
   const apiClient = useOystehrAPIClient();
   const { setQueryCache } = useChartFields({
