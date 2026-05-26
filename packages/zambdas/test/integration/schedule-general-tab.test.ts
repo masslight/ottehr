@@ -4,6 +4,7 @@ import { Extension, Location, Practitioner, Schedule } from 'fhir/r4b';
 import {
   M2MClientMockType,
   PUBLIC_EXTENSION_BASE_URL,
+  RoleType,
   ROOM_EXTENSION_URL,
   SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
@@ -71,6 +72,23 @@ describe('schedule zambdas — general tab fields', () => {
     oystehrAdmin = setup.oystehr;
     oystehrTestUserM2M = setup.oystehrTestUserM2M;
     processId = setup.processId;
+
+    // The Stripe/Advapacs zambda paths require the caller to have CustomerSupport role.
+    // setupIntegrationTest provisions the test M2M with Provider only — grant CustomerSupport here
+    // so this test file can exercise the payment-field paths. (Idempotent across reruns.)
+    const m2mList = (await oystehrAdmin.m2m.listV2({ name: 'integration/schedule-general-tab.test.ts' })).data;
+    if (m2mList.length > 0) {
+      const testM2M = await oystehrAdmin.m2m.get({ id: m2mList[0].id });
+      const existingRoleIds = (testM2M.roles ?? []).map((role) => role.id);
+      const allRoles = await oystehrAdmin.role.list();
+      const customerSupportRole = allRoles.find((role) => role.name === RoleType.CustomerSupport);
+      if (customerSupportRole && !existingRoleIds.includes(customerSupportRole.id)) {
+        await oystehrAdmin.m2m.update({
+          id: testM2M.id,
+          roles: [...existingRoleIds, customerSupportRole.id],
+        });
+      }
+    }
   }, 120_000);
 
   afterAll(async () => {
@@ -717,6 +735,25 @@ describe('schedule zambdas — general tab fields', () => {
       expect(dto.owner.name).toBe(newName);
     });
 
+    it('preserves owner timezone/slug when only "name" is updated (no silent wipes)', async () => {
+      const slug = `gentab-name-preserves-${randomUUID()}`;
+      const { schedule, location } = await persistLocationAndSchedule(makePhysicalLocation(slug));
+      const originalTimezoneExt = (location.extension ?? []).find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
+      const originalSlugIdentifier = (location.identifier ?? []).find((id) => id.system === SLUG_SYSTEM);
+
+      await callUpdateSchedule({
+        id: 'update-schedule',
+        scheduleId: schedule.id!,
+        name: 'Renamed but timezone & slug must survive',
+      });
+
+      const refreshed = await readLocation(location.id!);
+      const refreshedTimezoneExt = (refreshed.extension ?? []).find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
+      const refreshedSlugIdentifier = (refreshed.identifier ?? []).find((id) => id.system === SLUG_SYSTEM);
+      expect(refreshedTimezoneExt?.valueString).toBe(originalTimezoneExt?.valueString);
+      expect(refreshedSlugIdentifier?.value).toBe(originalSlugIdentifier?.value);
+    });
+
     it('trims whitespace around the new name before saving', async () => {
       const slug = `gentab-name-trim-${randomUUID()}`;
       const { schedule, location } = await persistLocationAndSchedule(makePhysicalLocation(slug));
@@ -797,6 +834,63 @@ describe('schedule zambdas — general tab fields', () => {
       });
       // HumanName[] should be preserved as-is.
       expect(refreshed.name).toEqual([{ family: 'NameUntouched', given: ['Original'] }]);
+    });
+
+    it('does not bump the Practitioner version when only "name" is sent (no other updates)', async () => {
+      const practitioner = await oystehrAdmin.fhir.create<Practitioner>({
+        resourceType: 'Practitioner',
+        name: [{ family: 'NoBump', given: ['Should'] }],
+        meta: {
+          tag: [
+            {
+              system: 'OTTEHR_AUTOMATED_TEST',
+              code: tagForProcessId(processId),
+              display: 'integration test practitioner',
+            },
+          ],
+        },
+      });
+      assert(practitioner.id);
+
+      const scheduleResource = await oystehrAdmin.fhir.create<Schedule>({
+        resourceType: 'Schedule',
+        active: true,
+        actor: [{ reference: `Practitioner/${practitioner.id}` }],
+        extension: [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
+            valueString: JSON.stringify(DEFAULT_SCHEDULE_JSON),
+          },
+          { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
+        ],
+        meta: {
+          tag: [
+            {
+              system: 'OTTEHR_AUTOMATED_TEST',
+              code: tagForProcessId(processId),
+              display: 'integration test schedule',
+            },
+          ],
+        },
+      });
+      assert(scheduleResource.id);
+
+      const beforeVersion = (
+        await oystehrAdmin.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitioner.id! })
+      ).meta?.versionId;
+
+      await callUpdateSchedule({
+        id: 'update-schedule',
+        scheduleId: scheduleResource.id!,
+        // ONLY name — nothing else. For a non-Location owner this should be a no-op
+        // (name editing isn't supported for Practitioners and we shouldn't bump the version).
+        name: 'A name that must be ignored',
+      });
+
+      const afterVersion = (
+        await oystehrAdmin.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitioner.id! })
+      ).meta?.versionId;
+      expect(afterVersion).toBe(beforeVersion);
     });
   });
 
@@ -1274,6 +1368,22 @@ describe('schedule zambdas — general tab fields', () => {
 
     it('rejects non-string address.state', async () => {
       await expectInvalidInputError({ address: { state: 7 } });
+    });
+
+    it('rejects an empty-string timezone (would otherwise silently wipe the existing value)', async () => {
+      // Override the default `slug: validSlug` since the helper merges it in; just supply timezone here.
+      await expect(
+        oystehrTestUserM2M.zambda.execute({
+          id: 'update-schedule',
+          scheduleId: validScheduleId,
+          timezone: '',
+        } as any)
+      ).rejects.toThrow();
+    });
+
+    it('rejects a non-string slug (null/number)', async () => {
+      await expectInvalidInputError({ slug: 42 });
+      await expectInvalidInputError({ slug: null });
     });
   });
 });

@@ -93,7 +93,7 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     throw INVALID_RESOURCE_ID_ERROR('scheduleId');
   }
 
-  if (timezone) {
+  if (timezone !== undefined) {
     if (typeof timezone !== 'string') {
       throw INVALID_INPUT_ERROR('"timezone" must be a string');
     }

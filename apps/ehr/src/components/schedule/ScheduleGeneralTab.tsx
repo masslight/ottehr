@@ -122,10 +122,9 @@ export default function ScheduleGeneralTab({
         newActiveStatus = patched.active === true;
       }
       // Preserve old behavior: toggling active also persists current timezone/slug.
-      // Fire-and-forget but surface rejections to the user instead of letting them go unhandled.
-      onSave({ scheduleId: item.id, timezone, slug }).catch(() => {
-        enqueueSnackbar('Status updated, but persisting timezone/slug failed.', { variant: 'error' });
-      });
+      // Fire-and-forget; the parent mutation's onError already surfaces a snackbar,
+      // so we just swallow here to avoid an unhandled rejection.
+      onSave({ scheduleId: item.id, timezone, slug }).catch(() => undefined);
       onSchedulePersisted({
         ...item,
         owner: {
@@ -199,10 +198,12 @@ export default function ScheduleGeneralTab({
         params.advapacsLocationId = advapacsLocationId.trim();
       }
     }
+    // The parent mutation's onError already surfaces a snackbar; swallow here just
+    // to avoid an unhandled rejection from the async form handler.
     try {
       await onSave(params);
     } catch {
-      enqueueSnackbar('Oops. Something went wrong. Changes were not saved.', { variant: 'error' });
+      // intentionally empty — see comment above
     }
   };
 

@@ -2,11 +2,13 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Address, ContactPoint, Extension, Location, Schedule } from 'fhir/r4b';
 import {
+  APIErrorCode,
   Closure,
   DailySchedule,
   getScheduleExtension,
   MISSING_SCHEDULE_EXTENSION_ERROR,
   PUBLIC_EXTENSION_BASE_URL,
+  RoleType,
   ROOM_EXTENSION_URL,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NOT_FOUND_ERROR,
@@ -18,6 +20,7 @@ import {
   SLUG_SYSTEM,
   TelecomUpdate,
   TIMEZONE_EXTENSION_URL,
+  userMe,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { UpdateScheduleBasicInput, validateUpdateScheduleParameters } from '../shared';
@@ -26,12 +29,44 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'update-schedule';
 
+const PAYMENT_FIELD_ROLES: ReadonlyArray<string> = [RoleType.CustomerSupport];
+
+const callerCanEditPaymentFields = async (
+  authorizationHeader: string | undefined,
+  secrets: ZambdaInput['secrets']
+): Promise<boolean> => {
+  if (!authorizationHeader) return false;
+  const token = authorizationHeader.replace(/^Bearer\s+/i, '');
+  if (!token) return false;
+  try {
+    const caller = await userMe(token, secrets);
+    const callerRoles = (caller.roles ?? []).map((role) => role.name);
+    return callerRoles.some((role) => PAYMENT_FIELD_ROLES.includes(role));
+  } catch (err) {
+    console.error('Failed to resolve caller from Authorization header:', err);
+    return false;
+  }
+};
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const validatedParameters = validateUpdateScheduleParameters(input);
   console.groupEnd();
   console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
   const { secrets } = validatedParameters;
+
+  // Authorization gate for payment-related fields: only CustomerSupport may set these.
+  // (Caller's UI may also hide them for Administrators, but the backend is the source of truth.)
+  if (validatedParameters.stripeAccountId !== undefined || validatedParameters.advapacsLocationId !== undefined) {
+    const allowed = await callerCanEditPaymentFields(input.headers?.Authorization, secrets);
+    if (!allowed) {
+      throw {
+        code: APIErrorCode.NOT_AUTHORIZED,
+        message: 'Only Customer Support may modify stripeAccountId or advapacsLocationId.',
+      };
+    }
+  }
+
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
   const effectInput = await complexValidation(validatedParameters, oystehr);
@@ -153,7 +188,10 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
       description !== undefined ||
       address !== undefined ||
       telecom !== undefined);
-  const nameToUpdate = name !== undefined;
+  // Name editing is only supported for Location owners — Practitioner has HumanName[],
+  // HealthcareService isn't surfaced in the UI. For non-Location owners, ignore the field
+  // entirely so we don't bump the resource version with no actual change.
+  const nameToUpdate = ownerIsLocation && name !== undefined;
   if (owner && (timezone || ownerSlug !== undefined || locationFieldsToUpdate || nameToUpdate)) {
     const ownerExtension = (owner.extension ?? []).filter((ext: Extension) => {
       // Preserve existing timezone extension unless caller is explicitly updating timezone.
@@ -279,11 +317,6 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
           }
         }
       }
-    } else if (typeof name === 'string') {
-      // For non-Location owners (Practitioner/HealthcareService), we currently don't
-      // support inline name editing from the UI; ignore the field defensively.
-      // (Practitioner name is HumanName[], HealthcareService.name is a plain string —
-      // when/if that UI lands, extend this branch.)
     }
 
     await oystehr.fhir.update(ownerUpdate);
