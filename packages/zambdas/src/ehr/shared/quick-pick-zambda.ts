@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult, Handler } from 'aws-lambda';
-import { QuickPickCreateResponse, QuickPickListResponse, QuickPickUpdateResponse } from 'utils';
+import { QuickPickCreateResponse, QuickPickUpdateResponse } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import { createQuickPick, QuickPickCategory, searchQuickPicks, updateQuickPick } from './quick-pick-helpers';
+import { createQuickPick, QuickPickCategory, updateQuickPick } from './quick-pick-helpers';
 
 let m2mToken: string;
 
@@ -21,16 +21,6 @@ export function makeHandler(
       statusCode: 200,
       body: JSON.stringify(response),
     };
-  });
-}
-
-export function makeGetHandler<T extends { id?: string }>(
-  zambdaName: string,
-  category: QuickPickCategory<T>
-): Handler<ZambdaInput, APIGatewayProxyResult> {
-  return makeHandler(zambdaName, async (oystehr): Promise<QuickPickListResponse<T>> => {
-    const quickPicks = await searchQuickPicks(oystehr, category);
-    return { message: `Found ${quickPicks.length} quick picks`, quickPicks };
   });
 }
 
