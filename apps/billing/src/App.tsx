@@ -16,6 +16,7 @@ import ERAList from './pages/ERAList';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
 import { RenderingProviderDetail, RenderingProvidersList } from './pages/RenderingProviders';
+import Tags from './pages/Tags';
 import { theme } from './themes/ottehr';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
@@ -52,6 +53,7 @@ export default function App(): ReactElement {
             <Route path="/rendering-providers/:id" element={<RenderingProviderDetail />} />
             <Route path="/eras" element={<ERAList />} />
             <Route path="/eras/:id" element={<ERADetail />} />
+            <Route path="/tags" element={<Tags />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Route>
         </Routes>

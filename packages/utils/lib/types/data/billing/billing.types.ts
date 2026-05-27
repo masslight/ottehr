@@ -1,3 +1,9 @@
+export interface BillingTag {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface EraListItem {
   id: string;
   eraId: string;
@@ -57,6 +63,7 @@ export interface BillingClaimItem {
   patientPaid: number;
   claimBalance: number;
   responsibleParty: string;
+  tags: string[];
 }
 
 export interface PatientDetailResponse {
@@ -152,4 +159,5 @@ export interface ClaimDetailResponse {
     billed: number;
     cptCodes: string[];
   }[];
+  tags: string[];
 }

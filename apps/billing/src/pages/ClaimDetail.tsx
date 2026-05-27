@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { chooseJson, ClaimDetailResponse } from 'utils';
+import { BillingTag, chooseJson, ClaimDetailResponse } from 'utils';
 import { EditableSection } from '../components/claim/EditableSection';
 import { CLAIM_STATUS_COLORS, formatClaimStatus } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
@@ -83,6 +83,19 @@ export default function ClaimDetail(): ReactElement {
     [oystehrZambda, fetchDetail]
   );
 
+  const handleTagAction = useCallback(
+    async (action: 'add' | 'remove', tagName: string): Promise<void> => {
+      if (!oystehrZambda || !id) return;
+      try {
+        await oystehrZambda.zambda.execute({ id: 'tag-billing-claim', claimId: id, action, tagName });
+        await fetchDetail();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to update tag');
+      }
+    },
+    [oystehrZambda, id, fetchDetail]
+  );
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -126,8 +139,18 @@ export default function ClaimDetail(): ReactElement {
         </Box>
       </Box>
 
-      <Box sx={{ ml: 5, mb: 2 }}>
+      <Box sx={{ ml: 5, mb: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
         <Chip label={statusLabel} color={statusColor} variant="outlined" size="small" sx={{ borderRadius: '4px' }} />
+        {claim.tags.map((tag) => (
+          <Chip
+            key={tag}
+            label={tag}
+            size="small"
+            onDelete={() => void handleTagAction('remove', tag)}
+            sx={{ borderRadius: '4px' }}
+          />
+        ))}
+        <TagAdder claimId={claim.id} oystehrZambda={oystehrZambda} onAdded={fetchDetail} existingTags={claim.tags} />
       </Box>
 
       <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
@@ -661,5 +684,85 @@ function Row({ label, value }: { label: string; value: string }): ReactElement {
       </Typography>
       <Typography variant="body2">{value || '-'}</Typography>
     </Box>
+  );
+}
+
+function TagAdder({
+  claimId,
+  oystehrZambda,
+  onAdded,
+  existingTags,
+}: {
+  claimId: string;
+  oystehrZambda: ReturnType<typeof useApiClients>['oystehrZambda'];
+  onAdded: () => Promise<void>;
+  existingTags: string[];
+}): ReactElement {
+  const [open, setOpen] = useState(false);
+  const [allTags, setAllTags] = useState<BillingTag[]>([]);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  const loadTags = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda) return;
+    setAddError(null);
+    try {
+      const res = await oystehrZambda.zambda.execute({ id: 'search-billing-tags' });
+      setAllTags(chooseJson(res).tags ?? []);
+    } catch (err) {
+      setAllTags([]);
+      setAddError(err instanceof Error ? err.message : 'Failed to load tags');
+    }
+  }, [oystehrZambda]);
+
+  const handleAdd = useCallback(
+    async (tagName: string): Promise<void> => {
+      if (!oystehrZambda) return;
+      setAddError(null);
+      try {
+        await oystehrZambda.zambda.execute({ id: 'tag-billing-claim', claimId, action: 'add', tagName });
+        setOpen(false);
+        await onAdded();
+      } catch (err) {
+        setAddError(err instanceof Error ? err.message : 'Failed to add tag');
+      }
+    },
+    [oystehrZambda, claimId, onAdded]
+  );
+
+  const available = allTags.filter((t) => !existingTags.includes(t.name));
+
+  return (
+    <>
+      <Chip
+        label="+ Tag"
+        size="small"
+        variant="outlined"
+        onClick={() => {
+          setOpen(!open);
+          if (!open) void loadTags();
+        }}
+        sx={{ borderRadius: '4px', cursor: 'pointer', borderStyle: 'dashed' }}
+      />
+      {open && available.length > 0 && (
+        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          {available.map((t) => (
+            <Chip
+              key={t.id}
+              label={t.name}
+              size="small"
+              color="primary"
+              variant="outlined"
+              onClick={() => void handleAdd(t.name)}
+              sx={{ borderRadius: '4px', cursor: 'pointer' }}
+            />
+          ))}
+          {addError && (
+            <Typography variant="caption" color="error">
+              {addError}
+            </Typography>
+          )}
+        </Box>
+      )}
+    </>
   );
 }

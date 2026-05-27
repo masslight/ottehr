@@ -2,6 +2,7 @@ import {
   Business as BusinessIcon,
   Description as DescriptionIcon,
   Home as HomeIcon,
+  Label as LabelIcon,
   MedicalServices as MedicalServicesIcon,
   People as PeopleIcon,
   Receipt as ReceiptIcon,
@@ -20,6 +21,7 @@ const navItems = [
   { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon fontSize="small" /> },
   { label: 'Rendering Providers', path: '/rendering-providers', icon: <MedicalServicesIcon fontSize="small" /> },
   { label: 'ERAs', path: '/eras', icon: <ReceiptIcon fontSize="small" /> },
+  { label: 'Tags', path: '/tags', icon: <LabelIcon fontSize="small" /> },
 ];
 
 export const Sidebar: FC = () => {

@@ -39,6 +39,7 @@ interface PatientOption {
 interface Filters {
   searchText?: string;
   status?: string;
+  tag?: string;
   createdFrom?: string;
   createdTo?: string;
   payerId?: string;
@@ -97,6 +98,8 @@ export default function ClaimsList(): ReactElement {
 
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
+  const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
   const [createdFrom, setDosFrom] = useState('');
   const [createdTo, setDosTo] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<PayerOption | null>(null);
@@ -126,6 +129,7 @@ export default function ClaimsList(): ReactElement {
         };
         if (filters.searchText) body.searchText = filters.searchText;
         if (filters.status) body.status = filters.status;
+        if (filters.tag) body.tag = filters.tag;
         if (filters.createdFrom) body.createdFrom = filters.createdFrom;
         if (filters.createdTo) body.createdTo = filters.createdTo;
         if (filters.payerId) body.payerId = filters.payerId;
@@ -182,18 +186,26 @@ export default function ClaimsList(): ReactElement {
     if (!oystehrZambda || initialLoadDone.current) return;
     initialLoadDone.current = true;
     void fetchClaims({}, paginationModel);
+    oystehrZambda.zambda
+      .execute({ id: 'search-billing-tags' })
+      .then((res) => setTagOptions(chooseJson(res).tags ?? []))
+      .catch((err) => {
+        console.error('Failed to load tags:', err);
+        setTagOptions([]);
+      });
   }, [oystehrZambda, fetchClaims, paginationModel]);
 
   const currentFilters = useCallback(
     (overrides?: Filters): Filters => ({
       searchText: overrides?.searchText ?? searchText,
       status: overrides?.status ?? statusFilter,
+      tag: overrides?.tag ?? tagFilter,
       createdFrom: overrides?.createdFrom ?? createdFrom,
       createdTo: overrides?.createdTo ?? createdTo,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
       patientId: overrides?.patientId ?? selectedPatient?.id,
     }),
-    [searchText, statusFilter, createdFrom, createdTo, selectedPayer, selectedPatient]
+    [searchText, statusFilter, tagFilter, createdFrom, createdTo, selectedPayer, selectedPatient]
   );
 
   const applyFilters = useCallback(
@@ -218,6 +230,7 @@ export default function ClaimsList(): ReactElement {
   const clearFilters = (): void => {
     setSearchText('');
     setStatusFilter('');
+    setTagFilter('');
     setDosFrom('');
     setDosTo('');
     setSelectedPayer(null);
@@ -227,7 +240,8 @@ export default function ClaimsList(): ReactElement {
     void fetchClaims({}, resetPage);
   };
 
-  const hasFilters = searchText || statusFilter || createdFrom || createdTo || selectedPayer || selectedPatient;
+  const hasFilters =
+    searchText || statusFilter || tagFilter || createdFrom || createdTo || selectedPayer || selectedPatient;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -271,6 +285,25 @@ export default function ClaimsList(): ReactElement {
             {ClaimsQueueItemStatuses.map((s) => (
               <MenuItem key={s} value={s}>
                 {formatClaimStatus(s)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 140 }} disabled={tagOptions.length === 0}>
+          <InputLabel>Tag</InputLabel>
+          <Select
+            value={tagFilter}
+            label="Tag"
+            onChange={(e) => {
+              setTagFilter(e.target.value);
+              applyFilters({ tag: e.target.value });
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            {tagOptions.map((t) => (
+              <MenuItem key={t.id} value={t.name}>
+                {t.name}
               </MenuItem>
             ))}
           </Select>

@@ -40,6 +40,22 @@ export const SearchErasInputSchema = z.object({
   pageSize: nonNegativeInt.optional(),
 });
 
+export const SaveBillingTagInputSchema = z.object({
+  tagId: nonEmptyString.optional(),
+  name: nonEmptyString,
+  description: z.string().optional(),
+});
+
+export const DeleteBillingTagInputSchema = z.object({
+  tagId: nonEmptyString,
+});
+
+export const TagBillingClaimInputSchema = z.object({
+  claimId: nonEmptyString,
+  action: z.enum(['add', 'remove']),
+  tagName: nonEmptyString,
+});
+
 export const GetPatientDetailInputSchema = z.object({
   patientId: nonEmptyString,
 });
@@ -51,6 +67,7 @@ export const GetPatientCoveragesInputSchema = z.object({
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   status: nonEmptyString.optional(),
+  tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
@@ -201,6 +218,9 @@ export const UpdateBillingResourceInputSchema = z.discriminatedUnion('resourceTy
 export type GetClaimDetailInput = z.infer<typeof GetClaimDetailInputSchema>;
 export type GetEraDetailInput = z.infer<typeof GetEraDetailInputSchema>;
 export type SearchErasInput = z.infer<typeof SearchErasInputSchema>;
+export type SaveBillingTagInput = z.infer<typeof SaveBillingTagInputSchema>;
+export type DeleteBillingTagInput = z.infer<typeof DeleteBillingTagInputSchema>;
+export type TagBillingClaimInput = z.infer<typeof TagBillingClaimInputSchema>;
 export type GetPatientDetailInput = z.infer<typeof GetPatientDetailInputSchema>;
 export type GetPatientCoveragesInput = z.infer<typeof GetPatientCoveragesInputSchema>;
 export type SearchBillingClaimsInput = z.infer<typeof SearchBillingClaimsInputSchema>;

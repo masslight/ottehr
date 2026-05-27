@@ -10,7 +10,15 @@ import {
   getTaxID,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, fhirName, findRef, formatAddress, getClaimStatus, sortClaimInsurance } from '../shared';
+import {
+  CLAIM_TAG_SYSTEM,
+  createBillingClient,
+  fhirName,
+  findRef,
+  formatAddress,
+  getClaimStatus,
+  sortClaimInsurance,
+} from '../shared';
 import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -158,6 +166,10 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     patientPaid: 0,
     balance: billed,
     otherClaims,
+    tags: (claim.meta?.tag ?? [])
+      .filter((t) => t.system === CLAIM_TAG_SYSTEM)
+      .map((t) => t.code ?? '')
+      .filter(Boolean),
   };
 }
 

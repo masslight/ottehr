@@ -3,7 +3,14 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { BillingClaimItem, getPayerId } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, fhirName, findRef, getClaimStatus, sortClaimInsurance } from '../shared';
+import {
+  CLAIM_TAG_SYSTEM,
+  createBillingClient,
+  fhirName,
+  findRef,
+  getClaimStatus,
+  sortClaimInsurance,
+} from '../shared';
 import { SearchBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -42,6 +49,7 @@ async function performEffect(
   if (params.searchText) searchParams.push({ name: 'patient.name', value: params.searchText });
   if (params.payerName) searchParams.push({ name: 'insurer.name', value: params.payerName });
   if (params.payerId) searchParams.push({ name: 'insurer.identifier', value: params.payerId });
+  if (params.tag) searchParams.push({ name: '_tag', value: `${CLAIM_TAG_SYSTEM}|${params.tag}` });
 
   // Use fhir.search directly to access Bundle.total for real pagination
   const bundle = await oystehr.fhir.search<Claim>({ resourceType: 'Claim', params: searchParams });
@@ -117,5 +125,9 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
     patientPaid: 0,
     claimBalance: billed,
     responsibleParty: 'Primary',
+    tags: (claim.meta?.tag ?? [])
+      .filter((t) => t.system === CLAIM_TAG_SYSTEM)
+      .map((t) => t.code ?? '')
+      .filter(Boolean),
   };
 }
