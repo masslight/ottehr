@@ -166,11 +166,8 @@ test.describe('In-person visit', async () => {
       const visitsPage = await openVisitsPage(page);
       await visitsPage.selectLocation(ENV_LOCATION_NAME!);
 
-      // The demo books a pre-booked in-person visit, but on some instances (e.g. walk-in-only) the
-      // appointment resolves to a walk-in, which is correctly created in 'arrived' status and lands
-      // on the In Office tab rather than Pre-booked. Drive the Pre-booked → arrived transition only
-      // when the appointment is still booked; a walk-in has already arrived, so continue from the
-      // In Office tab. Both visit types must work here.
+      // If it was a prebook, find on prebook tab and move to arrived
+      // else it is a walk in go straight to in office tab.
       const oystehr = await ResourceHandler.getOystehr();
       const createdAppointment = await oystehr.fhir.get<Appointment>({
         resourceType: 'Appointment',
@@ -329,11 +326,8 @@ test.describe('In-person visit', async () => {
       const visitsPage = await openVisitsPage(page);
       await visitsPage.selectLocation(ENV_LOCATION_NAME!);
 
-      // The demo books a pre-booked in-person visit, but on some instances (e.g. walk-in-only) the
-      // appointment resolves to a walk-in, which is correctly created in 'arrived' status and lands
-      // on the In Office tab rather than Pre-booked. Drive the Pre-booked → arrived transition only
-      // when the appointment is still booked; a walk-in has already arrived, so continue from the
-      // In Office tab. Both visit types must work here.
+      // If it was a prebook, find on prebook tab and move to arrived
+      // else it is a walk in go straight to in office tab.
       const oystehr = await ResourceHandler.getOystehr();
       const createdAppointment = await oystehr.fhir.get<Appointment>({
         resourceType: 'Appointment',
