@@ -1,6 +1,6 @@
 import MergeIcon from '@mui/icons-material/MergeType';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Alert, Box, Button, CircularProgress, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Paper, Skeleton, Stack, Tab, Tooltip, Typography } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -95,12 +95,6 @@ export default function PatientPage(): JSX.Element {
   }, [mergeTaskData, mergeInProgress, queryClient]);
 
   const handleMergeClick = (): void => {
-    if (!isAdmin) {
-      enqueueSnackbar('You are not authorized to make this action. Please contact the administrator.', {
-        variant: 'error',
-      });
-      return;
-    }
     if (mergeInProgress) {
       enqueueSnackbar('A merge is already in progress for this patient.', { variant: 'info' });
       return;
@@ -234,9 +228,22 @@ export default function PatientPage(): JSX.Element {
                 <Alert
                   severity="warning"
                   action={
-                    <Button color="warning" size="small" startIcon={<MergeIcon />} onClick={handleMergeClick}>
-                      Merge Patients
-                    </Button>
+                    <Tooltip
+                      title={!isAdmin ? 'To merge patients you must have the Administrator role' : ''}
+                      placement="top"
+                    >
+                      <span>
+                        <Button
+                          color="warning"
+                          size="small"
+                          startIcon={<MergeIcon />}
+                          onClick={handleMergeClick}
+                          disabled={!isAdmin}
+                        >
+                          Merge Patients
+                        </Button>
+                      </span>
+                    </Tooltip>
                   }
                 >
                   Potential duplicate patients found
