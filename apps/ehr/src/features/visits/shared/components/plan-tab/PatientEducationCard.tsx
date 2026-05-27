@@ -26,9 +26,9 @@ import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import {
+  clearEducationPdfUrl,
   EducationSection,
-  getEducationBlobUrl,
-  revokeEducationBlobUrl,
+  getEducationPdfUrl,
   usePatientEducation,
 } from '../../hooks/usePatientEducation';
 import { useChartData, useDeleteChartData } from '../../stores/appointment/appointment.store';
@@ -93,9 +93,9 @@ export const PatientEducationCard: FC = () => {
 
   const openEducationPdf = useCallback(
     async (docRefId: string) => {
-      const blobUrl = getEducationBlobUrl(docRefId);
-      if (blobUrl) {
-        window.open(blobUrl, '_blank');
+      const cachedUrl = getEducationPdfUrl(docRefId);
+      if (cachedUrl) {
+        window.open(cachedUrl, '_blank');
         return;
       }
       if (!oystehr) return;
@@ -138,9 +138,7 @@ export const PatientEducationCard: FC = () => {
       },
       {
         onSuccess: () => {
-          if (value.educationDocRefId) {
-            revokeEducationBlobUrl(value.educationDocRefId);
-          }
+          if (value.educationDocRefId) clearEducationPdfUrl(value.educationDocRefId);
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting patient education. Please try again.', {

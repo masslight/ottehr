@@ -5,6 +5,7 @@ import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, PATIENT_EDUCATION_DOC_TYPE_CODE } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { createPatientEducationPdf } from '../../shared/pdf/patient-education-pdf';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -17,17 +18,14 @@ export const index = wrapHandler(
     try {
       console.log('save-patient-education-pdf started');
 
-      const { encounterId, patientId, pdfBase64, title, secrets } = validateRequestParameters(input);
-      console.log('Validated params:', { encounterId, patientId, title, pdfBase64Length: pdfBase64.length });
+      const { encounterId, patientId, sections, title, secrets } = validateRequestParameters(input);
+      console.log('Validated params:', { encounterId, patientId, title, sectionCount: sections.length });
 
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      console.log('Got m2m token');
       const oystehr = createOystehrClient(m2mToken, secrets);
-      console.log('Created oystehr client');
 
-      // Decode base64 PDF
-      const pdfBytes = new Uint8Array(Buffer.from(pdfBase64, 'base64'));
-      console.log('Decoded PDF bytes:', pdfBytes.length);
+      const pdfBytes = await createPatientEducationPdf(sections);
+      console.log('Rendered PDF bytes:', pdfBytes.length);
 
       const z3Url = makeZ3Url({
         secrets,
@@ -35,13 +33,14 @@ export const index = wrapHandler(
         patientID: patientId,
         fileName: 'PatientEducation.pdf',
       });
-      console.log('Z3 URL:', z3Url);
       const presignedUploadUrl = await createPresignedUrl(m2mToken, z3Url, 'upload');
-      console.log('Got presigned upload URL');
       await uploadObjectToZ3(pdfBytes, presignedUploadUrl);
       console.log('Uploaded patient education PDF to Z3');
 
-      // Create DocumentReference
+      // Return a download URL alongside the DocumentReference so the UI can open the newly
+      // approved PDF without a second round-trip (DocumentReference fetch + presign).
+      const presignedDownloadUrl = await createPresignedUrl(m2mToken, z3Url, 'download');
+
       const docRefRequest: BatchInputPostRequest<DocumentReference> = {
         method: 'POST',
         fullUrl: randomUUID(),
@@ -75,7 +74,6 @@ export const index = wrapHandler(
         },
       };
 
-      console.log('Creating DocumentReference...');
       const result = await oystehr.fhir.transaction<DocumentReference>({
         requests: [docRefRequest],
       });
@@ -91,6 +89,7 @@ export const index = wrapHandler(
         statusCode: 200,
         body: JSON.stringify({
           documentReferenceId: docRef.id,
+          presignedDownloadUrl,
         }),
       };
     } catch (error) {

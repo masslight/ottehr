@@ -447,9 +447,9 @@ export const getOystehrTelemedAPI = (
   const savePatientEducationPdf = async (parameters: {
     encounterId: string;
     patientId: string;
-    pdfBase64: string;
+    sections: { content: string; patientTitle: string; icdCode: string; icdDescription: string }[];
     title: string;
-  }): Promise<{ documentReferenceId: string }> => {
+  }): Promise<{ documentReferenceId: string; presignedDownloadUrl: string }> => {
     return await makeZapRequest('save patient education pdf', parameters);
   };
 
