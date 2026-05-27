@@ -14,7 +14,6 @@ import {
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useState } from 'react';
-import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import {
   GetVitalsForListOfEncountersResponseData,
   GetVitalsResponseData,
@@ -30,7 +29,6 @@ import { ApptTab } from './AppointmentTabs';
 
 interface AppointmentTableProps {
   appointments: InPersonAppointmentInformation[];
-  location: LocationWithWalkinSchedule | undefined;
   tab: ApptTab;
   now: DateTime;
   updateAppointments: () => void;
@@ -41,7 +39,6 @@ interface AppointmentTableProps {
 
 export default function AppointmentTable({
   appointments,
-  location,
   tab,
   now,
   updateAppointments,
@@ -142,7 +139,6 @@ export default function AppointmentTable({
                           <AppointmentTableRow
                             key={appointment.id}
                             appointment={appointment}
-                            location={location}
                             now={now}
                             updateAppointments={updateAppointments}
                             setEditingComment={setEditingComment}
@@ -159,7 +155,6 @@ export default function AppointmentTable({
                     <AppointmentTableRow
                       key={appointment.id}
                       appointment={appointment}
-                      location={location}
                       now={now}
                       updateAppointments={updateAppointments}
                       setEditingComment={setEditingComment}
@@ -214,7 +209,6 @@ export default function AppointmentTable({
                         <AppointmentTableRow
                           key={appointment.id}
                           appointment={appointment}
-                          location={location}
                           now={now}
                           vitals={vitalsForAppointment(appointment)}
                           updateAppointments={updateAppointments}

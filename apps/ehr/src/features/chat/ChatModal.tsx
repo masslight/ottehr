@@ -20,10 +20,9 @@ import {
   useTheme,
 } from '@mui/material';
 import Typography from '@mui/material/Typography';
-import { Patient } from 'fhir/r4b';
+import { Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ChangeEvent, memo, ReactElement, UIEvent, useEffect, useMemo, useState } from 'react';
-import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { getPatientName } from 'src/shared/utils/getPatientName';
 import { AppointmentMessaging, ConversationMessage, initialsFromName, markAllMessagesRead, Timezone } from 'utils';
 import { CompleteConfiguration } from '../../components/CompleteConfiguration';
@@ -87,7 +86,7 @@ const ChatModal = memo(
   }: {
     appointment: AppointmentMessaging;
     patient?: Patient;
-    currentLocation?: LocationWithWalkinSchedule;
+    currentLocation?: Location;
     onClose: () => void;
     onMarkAllRead: () => void;
     quickTextsContext: QuickTextsContext;

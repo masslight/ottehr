@@ -33,6 +33,7 @@ export const FHIR_ZAPEHR_URL = 'https://fhir.zapehr.com';
 const TERMINOLOGY_BASE_URL = 'http://terminology.hl7.org/CodeSystem';
 
 export const SCHEDULE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
+export const LOCATION_REVIEW_LINK_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/review-link`;
 export const PROVIDER_TYPE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/provider-type';
 const RCM_TERMINOLOGY_BASE_URL = 'https://terminology.zapehr.com/rcm/cms1500';
 
@@ -772,7 +773,6 @@ export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorn
 
 export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/global-template-list`;
 export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-in-person`;
-export const GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-telemed`;
 
 /** Builds the full meta.tag system URL from a chart data field name (e.g. 'chief-complaint' → full URL). */
 export const chartDataTagSystem = (fieldName: string): string => `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}`;
