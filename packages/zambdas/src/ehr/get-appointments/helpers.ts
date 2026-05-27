@@ -139,7 +139,7 @@ export const getTimezone = async ({
         console.error(`timezone not set for ${resourceId}`);
       }
     } catch (e: any) {
-      if (e?.code === 404) {
+      if (e?.code === 404 || e?.code === 410) {
         console.log(`resource "${resourceType}/${resourceId}" not found`, e);
         return undefined;
       }
@@ -161,13 +161,9 @@ export const getAppointmentQueryInput = async (input: {
   resourceId: string;
   resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
   searchDate: string;
+  timezone: string;
 }): Promise<AppointmentQueryInput> => {
-  const { oystehr, resourceId, resourceType, searchDate } = input;
-  const timezone = await getTimezone({
-    oystehr,
-    resourceType,
-    resourceId,
-  });
+  const { searchDate, timezone } = input;
 
   const searchDateInTargetTimezone = DateTime.fromISO(searchDate, { zone: timezone });
   const startDay = searchDateInTargetTimezone.startOf('day').toUTC().toISO();

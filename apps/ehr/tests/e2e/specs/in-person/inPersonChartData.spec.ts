@@ -2,7 +2,7 @@ import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { HospitalizationOptions } from 'src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
-import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
+import { clickAndWaitForChartDataDeletion, waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
 import { HospitalizationPage } from 'tests/e2e/page/HospitalizationPage';
 import { InPersonAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
 import { expectExamPage } from 'tests/e2e/page/in-person/InPersonExamsPage';
@@ -523,8 +523,9 @@ test.describe('In-Person Visit Chart Data', async () => {
     });
 
     test('Remove MDM and check missing required fields on review and sign page', async () => {
+      const mdmDeleted = waitForChartDataDeletion(page);
       await assessmentPage.fillMdmField('');
-      await waitForChartDataDeletion(page);
+      await mdmDeleted;
 
       await sideMenu.clickReviewAndSign();
       await progressNotePage.expectLoaded();
@@ -548,14 +549,15 @@ test.describe('In-Person Visit Chart Data', async () => {
 
       // Test ICD 10 code search
       await test.step('Search for ICD 10 code', async () => {
-        await assessmentPage.selectDiagnosis({ diagnosisCode: DIAGNOSIS_CODE });
-        await waitForSaveChartDataResponse(
+        const diagnosisSaved = waitForSaveChartDataResponse(
           page,
           (json) =>
             !!json.chartData.diagnosis?.some((x) =>
               x.code.toLocaleLowerCase().includes(DIAGNOSIS_CODE.toLocaleLowerCase())
             )
         );
+        await assessmentPage.selectDiagnosis({ diagnosisCode: DIAGNOSIS_CODE });
+        await diagnosisSaved;
       });
 
       let primaryDiagnosisValue: string | null = null;
@@ -570,14 +572,15 @@ test.describe('In-Person Visit Chart Data', async () => {
 
       // Test diagnosis name search
       await test.step('Search for diagnosis name', async () => {
-        await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS_NAME });
-        await waitForSaveChartDataResponse(
+        const diagnosisSaved = waitForSaveChartDataResponse(
           page,
           (json) =>
             !!json.chartData.diagnosis?.some((x) =>
               x.display.toLocaleLowerCase().includes(DIAGNOSIS_NAME.toLocaleLowerCase())
             )
         );
+        await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS_NAME });
+        await diagnosisSaved;
       });
 
       let secondaryDiagnosis: Locator | null = null;
@@ -646,9 +649,12 @@ test.describe('In-Person Visit Chart Data', async () => {
 
       // Delete primary diagnosis
       await test.step('Delete primary diagnosis', async () => {
+        // One click triggers both the delete (removing the primary) and a save (promoting
+        // the secondary to primary). Register both listeners before clicking.
+        const deletion = waitForChartDataDeletion(page);
+        const save = waitForSaveChartDataResponse(page);
         await page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosisDeleteButton).first().click();
-        await waitForChartDataDeletion(page);
-        await waitForSaveChartDataResponse(page);
+        await Promise.all([deletion, save]);
 
         // Verify secondary diagnosis is promoted to primary
         await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).toBeVisible();
@@ -679,8 +685,9 @@ test.describe('In-Person Visit Chart Data', async () => {
 
       // Edit the text and wait for the debounced save to complete
       const newText = 'Updated medical decision making text';
+      const mdmSaved = waitForSaveChartDataResponse(page, (json) => json.chartData.medicalDecision?.text === newText);
       await assessmentPage.fillMdmField(newText);
-      await waitForSaveChartDataResponse(page, (json) => json.chartData.medicalDecision?.text === newText);
+      await mdmSaved;
 
       // Verify text is updated
       await assessmentPage.expectMdmField({ text: newText });
@@ -745,11 +752,15 @@ test.describe('In-Person Visit Chart Data', async () => {
       const value2 = await page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(CPT_CODE_2)).textContent();
       expect(value2).toContain(CPT_CODE_2);
 
-      await page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(CPT_CODE)).click();
-      await waitForChartDataDeletion(page);
+      await clickAndWaitForChartDataDeletion(
+        page,
+        page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(CPT_CODE))
+      );
 
-      await page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(CPT_CODE_2)).click();
-      await waitForChartDataDeletion(page);
+      await clickAndWaitForChartDataDeletion(
+        page,
+        page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(CPT_CODE_2))
+      );
 
       await sideMenu.clickReviewAndSign();
       await progressNotePage.expectLoaded();

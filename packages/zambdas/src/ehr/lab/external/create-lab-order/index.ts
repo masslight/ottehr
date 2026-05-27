@@ -52,6 +52,7 @@ import {
 import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler } from '../../../../shared';
 import { createOystehrClient } from '../../../../shared/helpers';
 import { ZambdaInput } from '../../../../shared/types';
+import { isOtherInsurance } from '../../shared/helpers';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
 import { labOrderCommunicationType } from '../get-lab-orders/helpers';
 import {
@@ -777,6 +778,11 @@ const getCreateOrderResources = async (input: GetCreateOrderResourcesInput): Pro
       if (!coveragesSortedByPriority) {
         throw EXTERNAL_LAB_ERROR(`Payment method is insurance but no insurances were found`);
       }
+      if (coveragesSortedByPriority.some((coverage) => isOtherInsurance(coverage))) {
+        throw EXTERNAL_LAB_ERROR(
+          'Cannot order lab with "Other" insurance. Update the insurance or select a new payment method'
+        );
+      }
       coverageDetails = {
         type: LabPaymentMethod.Insurance,
         insuranceCoverages: coveragesSortedByPriority,
@@ -790,6 +796,11 @@ const getCreateOrderResources = async (input: GetCreateOrderResourcesInput): Pro
     case LabPaymentMethod.WorkersComp:
       if (!workersCompInsurance) {
         throw new Error(`workersCompInsurance not found for encounter: ${encounter.id}`);
+      }
+      if (isOtherInsurance(workersCompInsurance)) {
+        throw EXTERNAL_LAB_ERROR(
+          `Cannot order lab with "Other" insurance. Update the Worker's Comp insurance or select a new payment method`
+        );
       }
       coverageDetails = {
         type: LabPaymentMethod.WorkersComp,
