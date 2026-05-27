@@ -39,7 +39,12 @@ import { Coverage as CandidPreEncounterCoverage } from 'candidhealth/api/resourc
 import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/MutableCoverage';
 import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
 import { RelatedCausesCode } from 'candidhealth/api/resources/relatedCauses/resources/v1';
-import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
+import {
+  DrugIdentification,
+  MeasurementUnitCode,
+  ServiceIdQualifier,
+  ServiceLineCreate,
+} from 'candidhealth/api/resources/serviceLines/resources/v2';
 import { APIResponse } from 'candidhealth/core';
 import { Operation } from 'fast-json-patch';
 import {
@@ -50,6 +55,7 @@ import {
   Extension,
   Identifier,
   Location,
+  MedicationAdministration,
   Organization,
   Patient,
   Practitioner,
@@ -66,7 +72,10 @@ import {
   findOrgMatchingReference,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
+  getDosageFromMA,
   getEmCodes,
+  getMedicationFromMA,
+  getNdcCodeFromMedication,
   getPayerId,
   getPayerUrl,
   getPaymentVariantFromEncounter,
@@ -76,6 +85,7 @@ import {
   isAppointmentOccupationalMedicine,
   isAppointmentWorkersComp,
   isTelemedAppointment,
+  MedicationUnitOptions,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   OrderedCoveragesWithSubscribers,
   PaymentVariant,
@@ -136,6 +146,7 @@ interface CreateEncounterInput {
   practitioner: Practitioner;
   diagnoses: Condition[];
   procedures: Procedure[];
+  medicationAdministrations: MedicationAdministration[];
   insuranceResources?: InsuranceResources;
   accident?: Condition;
   emCodes: EmCodeOption[];
@@ -213,6 +224,44 @@ const createCandidCreateEncounterInput = async (
     getEmCodes(oystehr),
   ]);
 
+  const procedures = (
+    await oystehr.fhir.search<Procedure>({
+      resourceType: 'Procedure',
+      params: [
+        {
+          name: 'subject',
+          value: assertDefined(encounter.subject?.reference, `Patient id on encounter ${encounterId}`),
+        },
+        {
+          name: 'encounter',
+          value: `Encounter/${encounterId}`,
+        },
+      ],
+    })
+  )
+    .unbundle()
+    .filter(
+      (procedure) =>
+        chartDataResourceHasMetaTagByCode(procedure, 'cpt-code') ||
+        chartDataResourceHasMetaTagByCode(procedure, 'em-code')
+    );
+
+  const maIds = procedures
+    .flatMap((p) => p.partOf ?? [])
+    .map((ref) => ref.reference)
+    .filter((ref): ref is string => ref != null && ref.startsWith('MedicationAdministration/'))
+    .map((ref) => ref.replace('MedicationAdministration/', ''));
+  const uniqueMaIds = [...new Set(maIds)];
+  let medicationAdministrations: MedicationAdministration[] = [];
+  if (uniqueMaIds.length > 0) {
+    medicationAdministrations = (
+      await oystehr.fhir.search<MedicationAdministration>({
+        resourceType: 'MedicationAdministration',
+        params: [{ name: '_id', value: uniqueMaIds.join(',') }],
+      })
+    ).unbundle() as MedicationAdministration[];
+  }
+
   return {
     appointment: appointment,
     location,
@@ -223,27 +272,8 @@ const createCandidCreateEncounterInput = async (
       (condition) =>
         encounter.diagnosis?.find((diagnosis) => diagnosis.condition?.reference === 'Condition/' + condition.id) != null
     ),
-    procedures: (
-      await oystehr.fhir.search<Procedure>({
-        resourceType: 'Procedure',
-        params: [
-          {
-            name: 'subject',
-            value: assertDefined(encounter.subject?.reference, `Patient id on encounter ${encounterId}`),
-          },
-          {
-            name: 'encounter',
-            value: `Encounter/${encounterId}`,
-          },
-        ],
-      })
-    )
-      .unbundle()
-      .filter(
-        (procedure) =>
-          chartDataResourceHasMetaTagByCode(procedure, 'cpt-code') ||
-          chartDataResourceHasMetaTagByCode(procedure, 'em-code')
-      ),
+    procedures,
+    medicationAdministrations,
     insuranceResources: coverage
       ? {
           coverage,
@@ -1157,6 +1187,7 @@ async function candidCreateEncounterFromAppointmentRequest(
     practitioner,
     diagnoses,
     procedures,
+    medicationAdministrations,
     insuranceResources,
     location,
     accident,
@@ -1237,6 +1268,9 @@ async function candidCreateEncounterFromAppointmentRequest(
     if (isEAndMCode && isTelemedAppointment(appointment)) {
       modifiers = ['95'];
     }
+
+    const drugIdentification = buildDrugIdentification(procedure, medicationAdministrations);
+
     serviceLines.push({
       procedureCode: procedureCode,
       modifiers,
@@ -1245,6 +1279,7 @@ async function candidCreateEncounterFromAppointmentRequest(
       diagnosisPointers: [primaryDiagnosisIndex],
       dateOfService:
         dateOfServiceString ?? getLocalDateOfService(assertDefined(appointment.start, 'Appointment start'), location),
+      drugIdentification,
     });
   });
 
@@ -1337,6 +1372,51 @@ const procedureModifierValues = new Set(Object.values(ProcedureModifier));
 const isProcedureModifier = (code: unknown): code is ProcedureModifier => {
   return typeof code === 'string' && procedureModifierValues.has(code as ProcedureModifier);
 };
+
+export function buildDrugIdentification(
+  procedure: Procedure,
+  medicationAdministrations: MedicationAdministration[]
+): DrugIdentification | undefined {
+  const maRef = procedure.partOf?.find((ref) => ref.reference?.startsWith('MedicationAdministration/'));
+  if (!maRef?.reference) return undefined;
+
+  const maId = maRef.reference.replace('MedicationAdministration/', '');
+  const ma = medicationAdministrations.find((m) => m.id === maId);
+  if (!ma) return undefined;
+
+  const medication = getMedicationFromMA(ma);
+  const ndc = medication ? getNdcCodeFromMedication(medication) : undefined;
+  if (!ndc) return undefined;
+
+  const dosage = getDosageFromMA(ma);
+  const doseValue = dosage?.dose ?? ma.dosage?.dose?.value;
+  return {
+    serviceIdQualifier: ServiceIdQualifier.Ndc542Format,
+    nationalDrugCode: ndc,
+    nationalDrugUnitCount: doseValue != null ? String(doseValue) : '1',
+    measurementUnitCode: dosage ? mapMedicationUnitToCandid(dosage.units) : MeasurementUnitCode.Units,
+  };
+}
+
+export function mapMedicationUnitToCandid(unit: MedicationUnitOptions): MeasurementUnitCode {
+  switch (unit) {
+    case 'mg':
+      return MeasurementUnitCode.Milligram;
+    case 'ml':
+      return MeasurementUnitCode.Milliliters;
+    case 'g':
+      return MeasurementUnitCode.Grams;
+    case 'cc':
+      return MeasurementUnitCode.Milliliters;
+    case 'unit':
+      return MeasurementUnitCode.Units;
+    case 'application':
+      return MeasurementUnitCode.Units;
+    default:
+      console.warn(`[CANDID] Unexpected medication unit "${String(unit)}"; defaulting to Units`);
+      return MeasurementUnitCode.Units;
+  }
+}
 
 export const makeCptModifierExtension = (input: { code: string; display: string }[]): Extension => {
   return {
