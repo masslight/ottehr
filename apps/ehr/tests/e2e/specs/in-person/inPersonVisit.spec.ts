@@ -1,5 +1,5 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { Appointment, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
@@ -165,8 +165,21 @@ test.describe('In-person visit', async () => {
 
       const visitsPage = await openVisitsPage(page);
       await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-      await visitsPage.clickPrebookedTab();
-      await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+
+      // The demo books a pre-booked in-person visit, but on some instances (e.g. walk-in-only) the
+      // appointment resolves to a walk-in, which is correctly created in 'arrived' status and lands
+      // on the In Office tab rather than Pre-booked. Drive the Pre-booked → arrived transition only
+      // when the appointment is still booked; a walk-in has already arrived, so continue from the
+      // In Office tab. Both visit types must work here.
+      const oystehr = await ResourceHandler.getOystehr();
+      const createdAppointment = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: resourceHandler.appointment.id!,
+      });
+      if (createdAppointment.status === 'booked') {
+        await visitsPage.clickPrebookedTab();
+        await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+      }
       await visitsPage.clickInOfficeTab();
       await visitsPage.verifyVisitsStatus(resourceHandler.appointment.id!, 'arrived');
       await visitsPage.clickReadyButton(resourceHandler.appointment.id!);
@@ -315,8 +328,21 @@ test.describe('In-person visit', async () => {
 
       const visitsPage = await openVisitsPage(page);
       await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-      await visitsPage.clickPrebookedTab();
-      await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+
+      // The demo books a pre-booked in-person visit, but on some instances (e.g. walk-in-only) the
+      // appointment resolves to a walk-in, which is correctly created in 'arrived' status and lands
+      // on the In Office tab rather than Pre-booked. Drive the Pre-booked → arrived transition only
+      // when the appointment is still booked; a walk-in has already arrived, so continue from the
+      // In Office tab. Both visit types must work here.
+      const oystehr = await ResourceHandler.getOystehr();
+      const createdAppointment = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: resourceHandler.appointment.id!,
+      });
+      if (createdAppointment.status === 'booked') {
+        await visitsPage.clickPrebookedTab();
+        await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+      }
       await visitsPage.clickInOfficeTab();
       await visitsPage.verifyVisitsStatus(resourceHandler.appointment.id!, 'arrived');
       await visitsPage.clickReadyButton(resourceHandler.appointment.id!);
