@@ -88,7 +88,7 @@ export function RenderingProvidersList(): ReactElement {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 0 }}>
       <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
         Rendering Providers
       </Typography>
@@ -205,7 +205,7 @@ export function RenderingProviderDetail(): ReactElement {
 
   if (error || !provider) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: 0 }}>
         <Alert severity="error">{error ?? 'Provider not found'}</Alert>
         <Button sx={{ mt: 2 }} onClick={() => navigate('/rendering-providers')}>
           Back to Rendering Providers
@@ -215,7 +215,7 @@ export function RenderingProviderDetail(): ReactElement {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <IconButton onClick={() => navigate('/rendering-providers')} size="small">
           <ArrowBackIcon />

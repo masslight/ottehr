@@ -271,7 +271,7 @@ export default function ERAList(): ReactElement {
     selectedPatient;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 0 }}>
       <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
         ERAs
       </Typography>

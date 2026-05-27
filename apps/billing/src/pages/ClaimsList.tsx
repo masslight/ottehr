@@ -244,7 +244,7 @@ export default function ClaimsList(): ReactElement {
     searchText || statusFilter || tagFilter || createdFrom || createdTo || selectedPayer || selectedPatient;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
           Claims

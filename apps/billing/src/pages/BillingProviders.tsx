@@ -89,7 +89,7 @@ export function BillingProvidersList(): ReactElement {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 0 }}>
       <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
         Billing Providers
       </Typography>
@@ -206,7 +206,7 @@ export function BillingProviderDetail(): ReactElement {
 
   if (error || !provider) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: 0 }}>
         <Alert severity="error">{error ?? 'Provider not found'}</Alert>
         <Button sx={{ mt: 2 }} onClick={() => navigate('/billing-providers')}>
           Back to Billing Providers
@@ -216,7 +216,7 @@ export function BillingProviderDetail(): ReactElement {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <IconButton onClick={() => navigate('/billing-providers')} size="small">
           <ArrowBackIcon />

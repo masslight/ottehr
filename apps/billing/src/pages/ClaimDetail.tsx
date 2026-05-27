@@ -106,7 +106,7 @@ export default function ClaimDetail(): ReactElement {
 
   if (error || !claim) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: 0 }}>
         <Alert severity="error">{error ?? 'Claim not found'}</Alert>
         <Button sx={{ mt: 2 }} onClick={() => navigate('/claims')}>
           Back to Claims
@@ -120,7 +120,7 @@ export default function ClaimDetail(): ReactElement {
   const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
         <IconButton onClick={() => navigate('/claims')} size="small" sx={{ mt: 0.5 }}>
           <ArrowBackIcon />

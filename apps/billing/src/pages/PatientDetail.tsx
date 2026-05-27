@@ -113,7 +113,7 @@ export default function PatientDetail(): ReactElement {
 
   if (error || !patient) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: 0 }}>
         <Alert severity="error">{error ?? 'Patient not found'}</Alert>
         <Button sx={{ mt: 2 }} onClick={() => navigate('/patients')}>
           Back to Patients
@@ -125,7 +125,7 @@ export default function PatientDetail(): ReactElement {
   const patientName = `${patient.firstName} ${patient.lastName}`.trim() || 'Unknown';
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
         <IconButton onClick={() => navigate('/patients')} size="small" sx={{ mt: 0.5 }}>
           <ArrowBackIcon />

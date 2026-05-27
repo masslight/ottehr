@@ -2,6 +2,8 @@ export interface BillingTag {
   id: string;
   name: string;
   description: string;
+  usage: number;
+  updatedAt: string;
 }
 
 export interface EraListItem {

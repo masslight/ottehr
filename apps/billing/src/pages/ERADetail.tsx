@@ -123,7 +123,7 @@ export default function ERADetail(): ReactElement {
 
   if (error || !era) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: 0 }}>
         <Alert severity="error">{error ?? 'ERA not found'}</Alert>
         <Button sx={{ mt: 2 }} onClick={() => navigate('/eras')}>
           Back to ERAs
@@ -133,7 +133,7 @@ export default function ERADetail(): ReactElement {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2 }}>
         <IconButton onClick={() => navigate('/eras')} size="small" sx={{ mt: 0.5 }}>
           <ArrowBackIcon />

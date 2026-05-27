@@ -103,6 +103,16 @@ export default function CreateClaim(): ReactElement {
   const [dxInput, setDxInput] = useState('');
   const [serviceLines, setServiceLines] = useState<ServiceLine[]>([{ ...emptyLine }]);
 
+  // Override fields — populated from selection, editable by user
+  const [patientFirstName, setPatientFirstName] = useState('');
+  const [patientLastName, setPatientLastName] = useState('');
+  const [patientDob, setPatientDob] = useState('');
+  const [patientGender, setPatientGender] = useState('');
+  const [practFirstName, setPractFirstName] = useState('');
+  const [practLastName, setPractLastName] = useState('');
+  const [practNpi, setPractNpi] = useState('');
+  const [facilityName, setFacilityName] = useState('');
+
   useEffect(() => {
     return (): void => {
       if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -188,6 +198,11 @@ export default function CreateClaim(): ReactElement {
     setSelectedPatient(value);
     setSelectedCoverage(null);
     setCoverages([]);
+    setSubscriberId('');
+    setPatientFirstName(value?.firstName ?? '');
+    setPatientLastName(value?.lastName ?? '');
+    setPatientDob(value?.dob ?? '');
+    setPatientGender(value?.gender ?? '');
     if (value) void fetchCoverages(value.id);
   };
 
@@ -214,14 +229,37 @@ export default function CreateClaim(): ReactElement {
     try {
       const payload: Record<string, unknown> = { patientId: selectedPatient.id };
 
+      // Patient overrides — only send fields that differ from original
+      const patOverrides: Record<string, string> = {};
+      if (patientFirstName && patientFirstName !== selectedPatient.firstName) patOverrides.firstName = patientFirstName;
+      if (patientLastName && patientLastName !== selectedPatient.lastName) patOverrides.lastName = patientLastName;
+      if (patientDob && patientDob !== selectedPatient.dob) patOverrides.dob = patientDob;
+      if (patientGender && patientGender !== selectedPatient.gender) patOverrides.gender = patientGender;
+      if (Object.keys(patOverrides).length) payload.patientOverrides = patOverrides;
+
       if (selectedCoverage) {
         payload.coverageId = selectedCoverage.id;
         if (subscriberId && subscriberId !== selectedCoverage.subscriberId) {
           payload.coverageOverrides = { subscriberId };
         }
       }
-      if (selectedPractitioner) payload.practitionerId = selectedPractitioner.id;
-      if (selectedFacility) payload.facilityId = selectedFacility.id;
+
+      if (selectedPractitioner) {
+        payload.practitionerId = selectedPractitioner.id;
+        const practOverrides: Record<string, string> = {};
+        if (practFirstName && practFirstName !== selectedPractitioner.firstName) practOverrides.firstName = practFirstName;
+        if (practLastName && practLastName !== selectedPractitioner.lastName) practOverrides.lastName = practLastName;
+        if (practNpi && practNpi !== selectedPractitioner.npi) practOverrides.npi = practNpi;
+        if (Object.keys(practOverrides).length) payload.practitionerOverrides = practOverrides;
+      }
+
+      if (selectedFacility) {
+        payload.facilityId = selectedFacility.id;
+        if (facilityName && facilityName !== selectedFacility.name) {
+          payload.facilityOverrides = { name: facilityName };
+        }
+      }
+
       if (selectedBillingProvider) payload.billingProviderId = selectedBillingProvider.id;
 
       if (diagnoses.length) payload.diagnoses = diagnoses.map((code) => ({ code }));
@@ -339,8 +377,42 @@ export default function CreateClaim(): ReactElement {
           )}
           renderInput={(params) => <TextField {...params} label="Search Patient" size="small" />}
           isOptionEqualToValue={(o, v) => o.id === v.id}
-          sx={{ mb: 2 }}
+          sx={{ mb: selectedPatient ? 2 : 0 }}
         />
+        {selectedPatient && (
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <TextField
+              size="small"
+              label="First Name"
+              value={patientFirstName}
+              onChange={(e) => setPatientFirstName(e.target.value)}
+              sx={{ flex: 1, minWidth: 160 }}
+            />
+            <TextField
+              size="small"
+              label="Last Name"
+              value={patientLastName}
+              onChange={(e) => setPatientLastName(e.target.value)}
+              sx={{ flex: 1, minWidth: 160 }}
+            />
+            <TextField
+              size="small"
+              type="date"
+              label="Date of Birth"
+              value={patientDob}
+              onChange={(e) => setPatientDob(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 160 }}
+            />
+            <TextField
+              size="small"
+              label="Gender"
+              value={patientGender}
+              onChange={(e) => setPatientGender(e.target.value)}
+              sx={{ width: 120 }}
+            />
+          </Box>
+        )}
       </FormSection>
 
       <Divider />
@@ -381,7 +453,12 @@ export default function CreateClaim(): ReactElement {
         <Autocomplete
           options={practitioners}
           value={selectedPractitioner}
-          onChange={(_, v) => setSelectedPractitioner(v)}
+          onChange={(_, v) => {
+            setSelectedPractitioner(v);
+            setPractFirstName(v?.firstName ?? '');
+            setPractLastName(v?.lastName ?? '');
+            setPractNpi(v?.npi ?? '');
+          }}
           onInputChange={(_, val, reason) => {
             if (reason === 'input') searchPractitioners(val || undefined);
           }}
@@ -402,7 +479,33 @@ export default function CreateClaim(): ReactElement {
           )}
           renderInput={(p) => <TextField {...p} size="small" label="Choose Rendering Provider" />}
           isOptionEqualToValue={(o, v) => o.id === v.id}
+          sx={{ mb: selectedPractitioner ? 2 : 0 }}
         />
+        {selectedPractitioner && (
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              size="small"
+              label="First Name"
+              value={practFirstName}
+              onChange={(e) => setPractFirstName(e.target.value)}
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              size="small"
+              label="Last Name"
+              value={practLastName}
+              onChange={(e) => setPractLastName(e.target.value)}
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              size="small"
+              label="NPI"
+              value={practNpi}
+              onChange={(e) => setPractNpi(e.target.value)}
+              sx={{ width: 160 }}
+            />
+          </Box>
+        )}
       </FormSection>
 
       <Divider />
@@ -411,7 +514,10 @@ export default function CreateClaim(): ReactElement {
         <Autocomplete
           options={locations}
           value={selectedFacility}
-          onChange={(_, v) => setSelectedFacility(v)}
+          onChange={(_, v) => {
+            setSelectedFacility(v);
+            setFacilityName(v?.name ?? '');
+          }}
           onInputChange={(_, val, reason) => {
             if (reason === 'input') searchLocations(val || undefined);
           }}
@@ -432,7 +538,21 @@ export default function CreateClaim(): ReactElement {
           )}
           renderInput={(p) => <TextField {...p} size="small" label="Choose Service Facility" />}
           isOptionEqualToValue={(o, v) => o.id === v.id}
+          sx={{ mb: selectedFacility ? 2 : 0 }}
         />
+        {selectedFacility && (
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              size="small"
+              label="Facility Name"
+              value={facilityName}
+              onChange={(e) => setFacilityName(e.target.value)}
+              sx={{ flex: 1 }}
+            />
+            <TextField size="small" label="NPI" value={selectedFacility.npi} disabled sx={{ width: 160 }} />
+            <TextField size="small" label="Address" value={selectedFacility.address} disabled sx={{ flex: 1 }} />
+          </Box>
+        )}
       </FormSection>
 
       <Divider />

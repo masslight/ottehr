@@ -135,7 +135,7 @@ export default function PatientsList(): ReactElement {
   const hasFilters = searchName || searchDob || searchId || searchUuid;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 0 }}>
       <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
         Patients
       </Typography>

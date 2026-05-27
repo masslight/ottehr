@@ -1,25 +1,19 @@
-import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, Search as SearchIcon } from '@mui/icons-material';
 import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  InputAdornment,
   TextField,
   Typography,
 } from '@mui/material';
-import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BillingTag, chooseJson } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
@@ -30,6 +24,7 @@ export default function Tags(): ReactElement {
   const [tags, setTags] = useState<BillingTag[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTag, setEditingTag] = useState<BillingTag | null>(null);
@@ -58,6 +53,13 @@ export default function Tags(): ReactElement {
     initialLoadDone.current = true;
     void fetchTags();
   }, [oystehrZambda, fetchTags]);
+
+  // only client side filter here, tag list is small and already loaded
+  const filtered = useMemo(() => {
+    if (!search) return tags;
+    const q = search.toLowerCase();
+    return tags.filter((t) => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q));
+  }, [tags, search]);
 
   const openCreate = (): void => {
     setEditingTag(null);
@@ -103,16 +105,44 @@ export default function Tags(): ReactElement {
     }
   };
 
+  const thSx = {
+    fontWeight: 600,
+    fontSize: 13,
+    color: 'primary.dark',
+    borderBottom: `1px solid ${otherColors.lightDivider}`,
+  };
+
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" color="primary.dark" fontWeight={600}>
-          Tags
-        </Typography>
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+        <Box>
+          <Typography variant="h4" color="primary.dark" fontWeight={600}>
+            Tags
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Reusable labels for organizing claims.
+          </Typography>
+        </Box>
         <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
-          Create
+          New tag
         </Button>
       </Box>
+
+      <TextField
+        fullWidth
+        size="small"
+        placeholder="Search tags..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon fontSize="small" color="action" />
+            </InputAdornment>
+          ),
+        }}
+        sx={{ mb: 2 }}
+      />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
@@ -121,80 +151,144 @@ export default function Tags(): ReactElement {
       )}
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress size={32} />
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress size={28} />
         </Box>
-      ) : tags.length === 0 ? (
-        <Box sx={{ bgcolor: 'background.paper', borderRadius: 1, p: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary">No tags yet. Create one to get started.</Typography>
+      ) : filtered.length === 0 ? (
+        <Box sx={{ py: 6, textAlign: 'center' }}>
+          <Typography color="text.primary" fontWeight={500}>
+            {tags.length === 0 ? 'No tags yet' : 'No results'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            {tags.length === 0 ? 'Create your first tag to start organizing claims.' : 'Try a different search term.'}
+          </Typography>
         </Box>
       ) : (
-        <TableContainer sx={{ bgcolor: 'background.paper', borderRadius: 1 }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ backgroundColor: '#FAFAFA' }}>
-                <TableCell
-                  sx={{
-                    fontWeight: 600,
-                    fontSize: 13,
-                    color: 'primary.dark',
-                    borderBottom: `1px solid ${otherColors.lightDivider}`,
-                  }}
+        <Box
+          sx={{
+            bgcolor: 'background.paper',
+            border: `1px solid ${otherColors.lightDivider}`,
+            borderRadius: 2,
+            overflow: 'hidden',
+          }}
+        >
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+            <thead>
+              <tr style={{ backgroundColor: '#FAFAFA' }}>
+                <th style={{ ...thSx, padding: '11px 16px', paddingLeft: 22, width: 240, textAlign: 'left' }}>Name</th>
+                <th style={{ ...thSx, padding: '11px 16px', textAlign: 'left' }}>Description</th>
+                <th style={{ ...thSx, padding: '11px 16px', textAlign: 'right', width: 70 }}>Usage</th>
+                <th style={{ ...thSx, padding: '11px 16px', textAlign: 'left', width: 110 }}>Updated</th>
+                <th style={{ ...thSx, padding: '11px 16px', paddingRight: 22, width: 70 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((tag) => (
+                <tr
+                  key={tag.id}
+                  style={{ cursor: 'pointer', transition: 'background 0.08s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = otherColors.apptHover)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = '')}
                 >
-                  Name
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 600,
-                    fontSize: 13,
-                    color: 'primary.dark',
-                    borderBottom: `1px solid ${otherColors.lightDivider}`,
-                  }}
-                >
-                  Description
-                </TableCell>
-                <TableCell
-                  align="right"
-                  sx={{
-                    fontWeight: 600,
-                    fontSize: 13,
-                    color: 'primary.dark',
-                    borderBottom: `1px solid ${otherColors.lightDivider}`,
-                    width: 100,
-                  }}
-                >
-                  Actions
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {tags.map((tag) => (
-                <TableRow key={tag.id} sx={{ '&:hover': { bgcolor: otherColors.apptHover } }}>
-                  <TableCell sx={{ borderBottom: `1px solid ${otherColors.lightDivider}`, fontSize: 14 }}>
-                    <Chip label={tag.name} size="small" variant="outlined" sx={{ borderRadius: '4px' }} />
-                  </TableCell>
-                  <TableCell
-                    sx={{
+                  <td
+                    style={{
+                      padding: '14px 16px',
+                      paddingLeft: 22,
                       borderBottom: `1px solid ${otherColors.lightDivider}`,
-                      fontSize: 14,
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 7,
+                        padding: '3px 10px 3px 9px',
+                        borderRadius: 6,
+                        fontSize: 13,
+                        fontWeight: 500,
+                        border: `1px solid ${otherColors.solidLine}`,
+                      }}
+                    >
+                      <span
+                        style={{ width: 6, height: 6, borderRadius: '50%', background: '#2169F5', flexShrink: 0 }}
+                      />
+                      {tag.name}
+                    </span>
+                  </td>
+                  <td
+                    style={{
+                      padding: '14px 16px',
+                      borderBottom: `1px solid ${otherColors.lightDivider}`,
                       color: otherColors.tableRow,
                     }}
                   >
                     {tag.description || '—'}
-                  </TableCell>
-                  <TableCell align="right" sx={{ borderBottom: `1px solid ${otherColors.lightDivider}` }}>
-                    <IconButton size="small" onClick={() => openEdit(tag)} sx={{ mr: 0.5 }}>
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" onClick={() => void handleDelete(tag)} color="error">
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
+                  </td>
+                  <td
+                    style={{
+                      padding: '14px 16px',
+                      borderBottom: `1px solid ${otherColors.lightDivider}`,
+                      textAlign: 'right',
+                      color: otherColors.tableRow,
+                    }}
+                  >
+                    {tag.usage.toLocaleString()}
+                  </td>
+                  <td
+                    style={{
+                      padding: '14px 16px',
+                      borderBottom: `1px solid ${otherColors.lightDivider}`,
+                      fontSize: 13,
+                    }}
+                  >
+                    {tag.updatedAt ? formatRelativeTime(tag.updatedAt) : '—'}
+                  </td>
+                  <td
+                    style={{
+                      padding: '14px 16px',
+                      paddingRight: 22,
+                      borderBottom: `1px solid ${otherColors.lightDivider}`,
+                      textAlign: 'right',
+                    }}
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEdit(tag);
+                        }}
+                        sx={{
+                          width: 28,
+                          height: 28,
+                          color: 'action.disabled',
+                          '&:hover': { bgcolor: otherColors.apptHover, color: 'primary.dark' },
+                        }}
+                      >
+                        <EditIcon sx={{ fontSize: 15 }} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleDelete(tag);
+                        }}
+                        sx={{
+                          width: 28,
+                          height: 28,
+                          color: 'action.disabled',
+                          '&:hover': { bgcolor: 'error.light', color: 'error.dark' },
+                        }}
+                      >
+                        <DeleteIcon sx={{ fontSize: 15 }} />
+                      </IconButton>
+                    </span>
+                  </td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+            </tbody>
+          </table>
+        </Box>
       )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -217,7 +311,8 @@ export default function Tags(): ReactElement {
           <TextField
             fullWidth
             size="small"
-            label="Description"
+            label="Description (optional)"
+            placeholder="What is this tag used for?"
             value={tagDescription}
             onChange={(e) => setTagDescription(e.target.value)}
             multiline
@@ -233,4 +328,16 @@ export default function Tags(): ReactElement {
       </Dialog>
     </Box>
   );
+}
+
+function formatRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'yesterday';
+  return `${days} days ago`;
 }
