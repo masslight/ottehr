@@ -1,5 +1,5 @@
 import retry from 'retry';
-import { MIME_TYPES } from 'utils';
+import { MIME_TYPES, MimeType } from 'utils';
 
 export async function createPresignedUrl(
   token: string,
@@ -22,7 +22,11 @@ export async function createPresignedUrl(
   return presignedURLResponse.signedUrl;
 }
 
-export async function uploadObjectToZ3(fileBytes: Uint8Array, presignedUploadUrl: string): Promise<void> {
+export async function uploadObjectToZ3(
+  fileBytes: Uint8Array,
+  presignedUploadUrl: string,
+  mimeType: MimeType = MIME_TYPES.PDF
+): Promise<void> {
   const operation = retry.operation({
     retries: 3,
     factor: 2,
@@ -39,7 +43,7 @@ export async function uploadObjectToZ3(fileBytes: Uint8Array, presignedUploadUrl
         const uploadRequest = await fetch(presignedUploadUrl, {
           method: 'PUT',
           headers: {
-            'Content-Type': MIME_TYPES.PDF,
+            'Content-Type': mimeType,
           },
           body: fileBytes,
         });

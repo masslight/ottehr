@@ -33,7 +33,7 @@ import { GLOBAL_TEMPLATES_URL } from 'src/App';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { ExamType, ListTemplatesZambdaOutput, TemplateInfo, TemplateVersionData } from 'utils';
+import { ListTemplatesZambdaOutput, TemplateInfo, TemplateVersionData } from 'utils';
 
 export default function GlobalTemplatesAdminPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -50,12 +50,12 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
   const [scanResultsMap, setScanResultsMap] = useState<Record<string, TemplateVersionData> | null>(null);
 
   const { data, isLoading, error } = useQuery<ListTemplatesZambdaOutput, Error>({
-    queryKey: ['list-templates', ExamType.IN_PERSON],
+    queryKey: ['list-templates'],
     queryFn: async () => {
       if (!oystehrZambda) {
         throw new Error('API client not available');
       }
-      return await listTemplates(oystehrZambda, { examType: ExamType.IN_PERSON, includeVersionData: false });
+      return await listTemplates(oystehrZambda, { includeVersionData: false });
     },
     enabled: !!oystehrZambda,
     staleTime: QUERY_STALE_TIME,
@@ -84,7 +84,6 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
 
     try {
       const list = await listTemplates(oystehrZambda, {
-        examType: ExamType.IN_PERSON,
         includeVersionData: true,
       });
 

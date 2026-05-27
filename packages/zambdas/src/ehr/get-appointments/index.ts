@@ -25,6 +25,7 @@ import {
   flattenItems,
   GetAppointmentsZambdaInput,
   getAttendingPractitionerId,
+  getAttestedConsentFromEncounter,
   getChatContainsUnreadMessages,
   getCoding,
   getInPersonVisitStatus,
@@ -32,13 +33,13 @@ import {
   getPatientFirstName,
   getPatientLastName,
   getSMSNumberForIndividual,
-  getUnconfirmedDOBForAppointment,
   getVisitStatusHistory,
   InPersonAppointmentInformation,
   INSURANCE_CARD_CODE,
   isAnnotationFollowupEncounter,
   isInPersonAppointment,
   isNonPaperworkQuestionnaireResponse,
+  isPatientDemographicsComplete,
   isTruthy,
   PHOTO_ID_CARD_CODE,
   PRIVATE_EXTENSION_BASE_URL,
@@ -87,11 +88,18 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   // "start": "2025-03-21T00:15:00.000Z",
   // "end": "2025-03-21T00:30:00.000Z",
   // But in local time (e.g., America/New_York) this may actually be 2025-03-20.
-  // We should use the appointment's timezone to request the correct appointments.
-  // The approach: use date without timezone from client and convert it to Zulu (UTC)
-  // with the appointment's timezone.
-  const { visitType, searchDate, locationID, providerIDs, serviceCategories, supervisorApprovalEnabled, secrets } =
-    validatedParameters;
+  // We should use the supplied timezone to request the correct appointments.
+  // The approach: use date with timezone from client and convert it to a range of date-time in Zulu (UTC)
+  const {
+    visitType,
+    searchDate,
+    timezone,
+    locationIds,
+    providerIds,
+    serviceCategories,
+    supervisorApprovalEnabled,
+    secrets,
+  } = validatedParameters;
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
@@ -107,13 +115,15 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
   }[] = (() => {
     const resources: { resourceId: string; resourceType: 'Location' | 'Practitioner' }[] = [];
 
-    if (locationID) {
-      resources.push({ resourceId: locationID, resourceType: 'Location' });
+    if (locationIds) {
+      resources.push(
+        ...locationIds.map((locationId) => ({ resourceId: locationId, resourceType: 'Location' }) as const)
+      );
     }
 
-    if (providerIDs) {
+    if (providerIds) {
       resources.push(
-        ...providerIDs.map((providerID) => ({ resourceId: providerID, resourceType: 'Practitioner' }) as const)
+        ...providerIds.map((providerId) => ({ resourceId: providerId, resourceType: 'Practitioner' }) as const)
       );
     }
 
@@ -153,6 +163,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
           resourceId: options.resourceId,
           resourceType: options.resourceType,
           searchDate,
+          timezone,
         });
 
         const appointmentRequest = {
@@ -735,8 +746,6 @@ const makeAppointmentInformation = (
   const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
   const status = getInPersonVisitStatus(appointment, encounter, supervisorApprovalEnabled);
 
-  const unconfirmedDOB = getUnconfirmedDOBForAppointment(appointment);
-
   const waitingMinutesString = appointment.meta?.tag?.find((tag) => tag.system === 'waiting-minutes-estimate')?.code;
   const waitingMinutes = waitingMinutesString ? parseInt(waitingMinutesString) : undefined;
 
@@ -751,7 +760,11 @@ const makeAppointmentInformation = (
   }
 
   // if the QR has been updated at least once, this tag will not be present
-  const paperworkHasBeenSubmitted = !!questionnaireResponse?.authored;
+  const demographicsByPaperworkSubmission = !!questionnaireResponse?.authored;
+
+  const demographicsByPatientResource = isPatientDemographicsComplete(patient);
+  const consentByPaperworkSignatures = !!consentComplete;
+  const consentByStaffAttestation = !!(encounter && getAttestedConsentFromEncounter(encounter));
 
   const participants = parseEncounterParticipants(encounter, practitionerIdToResourceMap);
   const attenderProviderType = parseAttenderProviderType(encounter, practitionerIdToResourceMap);
@@ -781,7 +794,6 @@ const makeAppointmentInformation = (
     smsModel,
     reasonForVisit: appointment.description || 'Unknown',
     comment: appointment.comment,
-    unconfirmedDOB: unconfirmedDOB ?? '',
     appointmentType: appointmentTypeForAppointment(appointment),
     appointmentAttendanceType: appointmentAttendanceTypeAppointment(appointment),
     appointmentStatus: appointment.status,
@@ -793,16 +805,15 @@ const makeAppointmentInformation = (
     group: group ? group.name : undefined,
     room: room,
     paperwork: {
-      demographics: paperworkHasBeenSubmitted,
+      demographics: demographicsByPaperworkSubmission || demographicsByPatientResource,
       photoID: idCard,
       insuranceCard: insuranceCard,
-      consent: consentComplete ? true : false,
+      consent: consentByPaperworkSignatures || consentByStaffAttestation,
       ovrpInterest: Boolean(ovrpInterest && ovrpInterest.startsWith('Yes')),
     },
     participants,
     next,
     visitStatusHistory: getVisitStatusHistory(encounter),
-    needsDOBConfirmation: !!unconfirmedDOB,
     waitingMinutes,
     serviceCategory: appointment.serviceCategory
       ?.flatMap((codeableConcept) => codeableConcept.coding ?? [])

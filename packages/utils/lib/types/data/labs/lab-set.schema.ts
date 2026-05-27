@@ -1,6 +1,8 @@
 import z from 'zod';
 import { LabType } from './labs.types';
 
+const nonEmptyString = (message?: string): z.ZodString => z.string().trim().nonempty(message);
+
 export const ExternalLabListItemSchema = z.object({
   display: z.string(),
   itemCode: z.string(),
@@ -19,7 +21,7 @@ export enum LabSetStatus {
 
 export const BaseLabSetSchema = z.object({
   listId: z.string(),
-  listName: z.string().min(1, { message: 'Lab set name is required' }),
+  listName: nonEmptyString('Lab set name is required'),
   listStatus: z.nativeEnum(LabSetStatus),
 });
 

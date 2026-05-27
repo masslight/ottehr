@@ -11,7 +11,7 @@ type Props = {
 };
 
 const DEFAULT_HELPER_TEXT =
-  'Review and edit the content below. Use markdown formatting: ## for section headers, - for bullet points.';
+  'Review and edit the content below. Use markdown formatting: "#", "##" for section headers, "- " for bullet points.';
 
 export const PatientEducationSectionsEditor: FC<Props> = ({
   sections,

@@ -15,8 +15,8 @@ import {
   SyncUserResponse,
   User,
   USER_TIMEZONE_EXTENSION_URL,
-  useSuccessQuery,
 } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { create } from 'zustand';
 import { getUser } from '../api/api';
 import { useApiClients } from './useAppClients';

@@ -47,7 +47,8 @@ import {
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   REASON_FOR_VISIT_SEPARATOR,
 } from '../../types';
-import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId } from '../helpers';
+import { isValidUUID } from '../../validation';
+import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from '../helpers';
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
 interface PrePopulationInput {
@@ -60,7 +61,6 @@ interface PrePopulationInput {
   questionnaire: Questionnaire;
   contactInfo: { phone: string; email: string } | undefined;
   newPatientDob?: string;
-  unconfirmedDateOfBirth?: string;
   rp?: RelatedPerson;
   documents?: DocumentReference[];
   accountInfo?: PatientAccountResponse | undefined;
@@ -70,7 +70,6 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   const {
     patient,
     newPatientDob,
-    unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
     appointmentServiceCategory,
     reasonForVisit,
@@ -181,13 +180,10 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           let answer: QuestionnaireResponseItemAnswer[] | undefined;
           const { linkId } = item;
           if (linkId === 'patient-will-be-18') {
-            answer = makeAnswer(
-              checkPatientWillBe18(startTime ?? '', patient, newPatientDob, unconfirmedDateOfBirth),
-              'Boolean'
-            );
+            answer = makeAnswer(checkPatientWillBe18(startTime ?? '', patient, newPatientDob), 'Boolean');
           }
           if (linkId === 'patient-birthdate') {
-            const patientDOB = getPatientDOB(patient, newPatientDob, unconfirmedDateOfBirth);
+            const patientDOB = getPatientDOB(patient, newPatientDob);
             if (patientDOB) {
               answer = makeAnswer(patientDOB);
             }
@@ -362,12 +358,8 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   return item;
 };
 
-const getPatientDOB = (
-  patient?: Patient,
-  newPatientDob?: string,
-  unconfirmedDateOfBirth?: string
-): string | undefined => {
-  const dobStringToUse = unconfirmedDateOfBirth ?? patient?.birthDate ?? newPatientDob;
+const getPatientDOB = (patient?: Patient, newPatientDob?: string): string | undefined => {
+  const dobStringToUse = patient?.birthDate ?? newPatientDob;
   if (dobStringToUse === undefined) {
     return undefined;
   }
@@ -375,17 +367,10 @@ const getPatientDOB = (
   return patientDOB.isValid ? dobStringToUse : undefined;
 };
 
-const checkPatientWillBe18 = (
-  appointmentStart: string,
-  patient?: Patient,
-  newPatientDob?: string,
-  unconfirmedDateOfBirth?: string
-): boolean => {
+const checkPatientWillBe18 = (appointmentStart: string, patient?: Patient, newPatientDob?: string): boolean => {
   // intentionally not worrying about time zone here. the extra accuracy is not worth the query.
   const appointmentStartTime = DateTime.fromISO(appointmentStart);
-  const patientDOB = DateTime.fromISO(
-    getPatientDOB(patient, newPatientDob, unconfirmedDateOfBirth) ?? DateTime.now().toISO()
-  );
+  const patientDOB = DateTime.fromISO(getPatientDOB(patient, newPatientDob) ?? DateTime.now().toISO());
 
   if (!appointmentStartTime.isValid && patientDOB.isValid) {
     return false;
@@ -830,7 +815,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
     if (payerId && org) {
       primaryInsurancePlanReference = {
-        reference: `Organization/${org.id}`,
+        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id!}` : getPayerUrl(org.id!),
         display: org.name,
       };
     }
@@ -841,12 +826,13 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
     if (payerId && org) {
       secondaryInsurancePlanReference = {
-        reference: `Organization/${org.id}`,
+        reference: isValidUUID(org.id ?? '') ? `Organization/${org.id!}` : getPayerUrl(org.id!),
         display: org.name,
       };
     }
   }
 
+  // These checks are brittle if there is drift between payor and identifier
   if (primary) {
     primaryMemberId =
       primary.identifier?.find(
@@ -1103,11 +1089,13 @@ const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): 
         if (coverage) {
           const payerId = coverage.class?.[0].value;
           const org = insuranceOrgs?.find((tempOrg) => getPayerId(tempOrg) === payerId);
-          const coverageReference: Reference = {
-            reference: `Organization/${org?.id}`,
-            display: org?.name,
-          };
-          answer = makeAnswer(coverageReference, 'Reference');
+          if (payerId && org) {
+            const coverageReference: Reference = {
+              reference: isValidUUID(org.id ?? '') ? `Organization/${org.id!}` : getPayerUrl(org.id!),
+              display: org?.name,
+            };
+            answer = makeAnswer(coverageReference, 'Reference');
+          }
         }
         break;
       case 'workers-comp-insurance-member-id':

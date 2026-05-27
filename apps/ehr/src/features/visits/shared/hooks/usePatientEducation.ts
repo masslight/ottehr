@@ -1,27 +1,10 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { deletePatientDocument } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { ApprovedPatientEducationItem, CommunicationDTO } from 'utils';
 import { useAppointmentData, useChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
-
-function wrapText(text: string, fontSize: number, maxWidth: number): string[] {
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let currentLine = '';
-
-  for (const word of words) {
-    const testLine = currentLine ? `${currentLine} ${word}` : word;
-    const approxWidth = testLine.length * fontSize * 0.48;
-    if (approxWidth > maxWidth && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = testLine;
-    }
-  }
-  if (currentLine) lines.push(currentLine);
-  return lines;
-}
 
 export interface DiagnosisOption {
   code: string;
@@ -29,29 +12,17 @@ export interface DiagnosisOption {
   isPrimary: boolean;
 }
 
-// Map of education doc ref IDs to blob URLs for the current session
-const educationBlobUrls = new Map<string, string>();
+// Presigned download URLs returned by save-patient-education-pdf, keyed by DocumentReference id.
+// Lets the UI open a just-approved PDF without a second fetch+presign round-trip.
+// Presigned URLs eventually expire; PatientEducationCard falls back to fetching a fresh URL.
+const educationPdfUrls = new Map<string, string>();
 
-export function getEducationBlobUrl(docRefId: string): string | undefined {
-  return educationBlobUrls.get(docRefId);
+export function getEducationPdfUrl(docRefId: string): string | undefined {
+  return educationPdfUrls.get(docRefId);
 }
 
-export function revokeEducationBlobUrl(docRefId: string): void {
-  const url = educationBlobUrls.get(docRefId);
-  if (url) {
-    URL.revokeObjectURL(url);
-    educationBlobUrls.delete(docRefId);
-  }
-}
-
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
-  }
-  return btoa(binary);
+export function clearEducationPdfUrl(docRefId: string): void {
+  educationPdfUrls.delete(docRefId);
 }
 
 export interface EducationSection {
@@ -87,6 +58,7 @@ export function usePatientEducation(): UsePatientEducationResult {
   const { encounter, patient } = useAppointmentData();
   const { mutateAsync: saveChartData } = useSaveChartData();
   const apiClient = useOystehrAPIClient();
+  const { oystehrZambda } = useApiClients();
 
   const allDiagnoses: DiagnosisOption[] = (chartData?.diagnosis ?? []).map((d) => ({
     code: d.code,
@@ -200,11 +172,11 @@ export function usePatientEducation(): UsePatientEducationResult {
         await appendPdfPages(generatedBytes);
       }
 
-      const pdfBytes = await finalDoc.save();
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const blobUrl = URL.createObjectURL(blob);
-
-      const pdfBase64 = uint8ArrayToBase64(pdfBytes);
+      // The merged PDF (finalDoc) is built so each approved/generated section is appended in
+      // selection order. Server-side rendering takes over from here: savePatientEducationPdf
+      // re-renders from `sections`. The client-side merge is retained because the same helpers
+      // are used elsewhere (e.g. ApprovedPatientEducationDialog preview).
+      await finalDoc.save();
 
       const titleParts: string[] = [];
       for (const dx of selection) {
@@ -218,14 +190,14 @@ export function usePatientEducation(): UsePatientEducationResult {
       }
       const title = 'Patient Education: ' + titleParts.join(', ');
 
-      const { documentReferenceId } = await apiClient.savePatientEducationPdf({
+      const { documentReferenceId, presignedDownloadUrl } = await apiClient.savePatientEducationPdf({
         encounterId: encounter.id!,
         patientId: patient!.id!,
-        pdfBase64,
+        sections,
         title,
       });
 
-      educationBlobUrls.set(documentReferenceId, blobUrl);
+      educationPdfUrls.set(documentReferenceId, presignedDownloadUrl);
 
       const instructions = chartData?.instructions || [];
       const newInstruction: CommunicationDTO = {
@@ -256,18 +228,29 @@ export function usePatientEducation(): UsePatientEducationResult {
         );
       } catch (error) {
         setPartialChartData({ instructions });
-        revokeEducationBlobUrl(documentReferenceId);
+        clearEducationPdfUrl(documentReferenceId);
 
-        try {
-          await apiClient.deletePatientDocument({ documentRefId: documentReferenceId });
-        } catch (cleanupError) {
-          console.error('Failed to clean up patient education PDF after chart save failure:', cleanupError);
+        if (oystehrZambda) {
+          try {
+            await deletePatientDocument(oystehrZambda, { documentRefId: documentReferenceId });
+          } catch (cleanupError) {
+            console.error('Failed to clean up patient education PDF after chart save failure:', cleanupError);
+          }
         }
 
         throw error;
       }
     },
-    [apiClient, approvedByCode, chartData?.instructions, encounter, patient, saveChartData, setPartialChartData]
+    [
+      apiClient,
+      approvedByCode,
+      chartData?.instructions,
+      encounter,
+      patient,
+      saveChartData,
+      setPartialChartData,
+      oystehrZambda,
+    ]
   );
 
   const generateForDiagnoses = useCallback(
@@ -388,7 +371,25 @@ export function usePatientEducation(): UsePatientEducationResult {
   };
 }
 
-// Color constants
+function wrapText(text: string, fontSize: number, maxWidth: number): string[] {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const approxWidth = testLine.length * fontSize * 0.48;
+    if (approxWidth > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines;
+}
+
 const BRAND_BLUE = rgb(0.06, 0.2, 0.49); // #0F347C
 const BRAND_LIGHT_BLUE = rgb(0.88, 0.93, 0.98); // #E0EDFA
 const ACCENT_ORANGE = rgb(0.9, 0.45, 0.1);

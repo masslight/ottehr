@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { createImmunizationQuickPick, getImmunizationQuickPicks, updateImmunizationQuickPick } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { sortQuickPicks, useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { ImmunizationQuickPickData } from 'utils';
 
@@ -33,7 +33,8 @@ export const useImmunizationQuickPickManagement = ({
   applyOrderDetails,
 }: UseImmunizationQuickPickManagementProps): UseImmunizationQuickPickManagementReturn => {
   const { oystehrZambda } = useApiClients();
-  const { quickPicks: mergedQuickPicks, refetch: refetchQuickPicks } = useMergedImmunizationQuickPicks();
+  const { quickPicks: rawQuickPicks, refetch: refetchQuickPicks } = useMergedImmunizationQuickPicks();
+  const mergedQuickPicks = [...rawQuickPicks].sort((a, b) => a.name.localeCompare(b.name));
   const [quickPickDialogOpen, setQuickPickDialogOpen] = useState(false);
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<ImmunizationQuickPickData[]>([]);
@@ -72,7 +73,7 @@ export const useImmunizationQuickPickManagement = ({
     if (!oystehrZambda) return;
     try {
       const response = await getImmunizationQuickPicks(oystehrZambda);
-      setExistingQuickPicks(response.quickPicks);
+      setExistingQuickPicks([...response.quickPicks].sort(sortQuickPicks));
     } catch (error) {
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(mergedQuickPicks);

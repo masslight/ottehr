@@ -30,7 +30,7 @@ import {
 // bare-specifier subpaths, so the only reliably-importable surface is utils's
 // main barrel — which already loads this module.
 export const IN_PERSON_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson';
-export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.1.7';
+export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.0';
 export const IN_PERSON_INTAKE_PAPERWORK_CANONICAL = {
   url: IN_PERSON_INTAKE_PAPERWORK_URL,
   version: IN_PERSON_INTAKE_PAPERWORK_VERSION,
@@ -531,8 +531,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           type: 'reference',
           dataSource: {
             answerSource: {
-              resourceType: 'Organization',
-              query: 'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|pay',
+              zambdaId: 'get-patient-insurance-payers',
             },
           },
           triggers: [
@@ -949,8 +948,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               type: 'reference',
               dataSource: {
                 answerSource: {
-                  resourceType: 'Organization',
-                  query: 'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|pay',
+                  zambdaId: 'get-patient-insurance-payers',
                 },
               },
               triggers: [
@@ -1200,6 +1198,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           type: 'reference',
           dataSource: {
             answerSource: {
+              zambdaId: 'get-answer-options',
               resourceType: 'Organization',
               query:
                 'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer',

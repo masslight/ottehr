@@ -1,24 +1,20 @@
+import { GeneratePatientEducationInput, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../shared';
-
-export interface GeneratePatientEducationInput {
-  icdCode: string;
-  icdDescription: string;
-}
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): GeneratePatientEducationInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { icdCode, icdDescription } = JSON.parse(input.body);
 
-  if (!icdCode) {
-    throw new Error('icdCode is required');
-  }
-  if (!icdDescription) {
-    throw new Error('icdDescription is required');
+  const missingFields: string[] = [];
+  if (!icdCode) missingFields.push('icdCode');
+  if (!icdDescription) missingFields.push('icdDescription');
+  if (missingFields.length > 0) {
+    throw MISSING_REQUIRED_PARAMETERS(missingFields);
   }
 
   return {

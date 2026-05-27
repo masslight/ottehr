@@ -3,7 +3,7 @@ import DoneIcon from '@mui/icons-material/Done';
 import { Box, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { BRANDING_CONFIG, CommunicationDTO } from 'utils';
+import { CommunicationDTO } from 'utils';
 import { AccordionCard } from '../../../../../components/AccordionCard';
 import { ActionsList } from '../../../../../components/ActionsList';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
@@ -15,8 +15,8 @@ import { PatientInstructionsTemplatesDialog } from './components/PatientInstruct
 
 export const PatientInstructionsCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [myTemplatesOpen, setMyTemplatesOpen] = useState(false);
-  const [defaultTemplatesOpen, setDefaultTemplatesOpen] = useState(false);
+  const [myQuickPicksOpen, setMyQuickPicksOpen] = useState(false);
+  const [practiceQuickPicksOpen, setPracticeQuickPicksOpen] = useState(false);
   const [instruction, setInstruction] = useState('');
   const [instructionTitle, setInstructionTitle] = useState('');
   const { mutate: savePatientInstruction, isPending: isSavePatientInstructionLoading } = useSavePatientInstruction();
@@ -26,7 +26,7 @@ export const PatientInstructionsCard: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { chartData, setPartialChartData } = useChartData();
   const allInstructions = chartData?.instructions || [];
-  const instructions = allInstructions.filter((item) => !item.educationDocRefId);
+  const instructionsWithoutEduDocs = allInstructions.filter((item) => !item.educationDocRefId);
 
   const onAddAndSave = (): void => {
     savePatientInstruction(
@@ -142,15 +142,13 @@ export const PatientInstructionsCard: FC = () => {
                     onChange={(e) => setInstruction(e.target.value)}
                     size="small"
                     label="Instruction"
-                    placeholder={`Enter a new instruction of select from own saved or ${BRANDING_CONFIG.projectName} template`}
+                    placeholder="Enter a new instruction or select from My Quick Picks or Practice Quick Picks"
                     multiline
                     fullWidth
                   />
                 </Box>
-                <RoundedButton onClick={() => setMyTemplatesOpen(true)}>My Templates</RoundedButton>
-                <RoundedButton onClick={() => setDefaultTemplatesOpen(true)}>
-                  {BRANDING_CONFIG.projectName} Templates
-                </RoundedButton>
+                <RoundedButton onClick={() => setMyQuickPicksOpen(true)}>My Quick Picks</RoundedButton>
+                <RoundedButton onClick={() => setPracticeQuickPicksOpen(true)}>Practice Quick Picks</RoundedButton>
               </Box>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <RoundedButton
@@ -165,15 +163,15 @@ export const PatientInstructionsCard: FC = () => {
                   disabled={(!instruction.trim() && !instructionTitle.trim()) || isLoading}
                   startIcon={<DoneIcon />}
                 >
-                  Add & Save as Template
+                  Add & Save to My Quick Picks
                 </RoundedButton>
               </Box>
             </>
           )}
 
-          {instructions.length > 0 && (
+          {instructionsWithoutEduDocs.length > 0 && (
             <ActionsList
-              data={instructions}
+              data={instructionsWithoutEduDocs}
               getKey={(value, index) => value.resourceId || index}
               renderItem={(value) => (
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -191,16 +189,16 @@ export const PatientInstructionsCard: FC = () => {
             />
           )}
 
-          {instructions.length === 0 && isReadOnly && (
+          {instructionsWithoutEduDocs.length === 0 && isReadOnly && (
             <Typography color="secondary.light">No patient instructions provided</Typography>
           )}
         </Box>
       </AccordionCard>
 
-      {myTemplatesOpen && (
+      {myQuickPicksOpen && (
         <PatientInstructionsTemplatesDialog
-          open={myTemplatesOpen}
-          onClose={() => setMyTemplatesOpen(false)}
+          open={true}
+          onClose={() => setMyQuickPicksOpen(false)}
           type="provider"
           onSelect={(value) => {
             setInstruction(value.text ?? '');
@@ -208,10 +206,10 @@ export const PatientInstructionsCard: FC = () => {
           }}
         />
       )}
-      {defaultTemplatesOpen && (
+      {practiceQuickPicksOpen && (
         <PatientInstructionsTemplatesDialog
-          open={defaultTemplatesOpen}
-          onClose={() => setDefaultTemplatesOpen(false)}
+          open={true}
+          onClose={() => setPracticeQuickPicksOpen(false)}
           type="organization"
           onSelect={(value) => {
             setInstruction(value.text ?? '');

@@ -1,7 +1,7 @@
 import { ErxGetConfigurationResponse } from '@oystehr/sdk';
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useSuccessQuery } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 
 export const useGetErxConfigQuery = (
   onSuccess?: (data: ErxGetConfigurationResponse | null) => void
