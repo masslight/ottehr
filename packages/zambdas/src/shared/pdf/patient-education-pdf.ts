@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { BRANDING_CONFIG, PatientEducationSection } from 'utils';
-import { rgbNormalized } from './pdf-utils';
+import { rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
 
 export type { PatientEducationSection };
 
@@ -8,25 +8,6 @@ export type { PatientEducationSection };
 function parseHexChannels(hex: string): [number, number, number] {
   const clean = hex.replace('#', '');
   return [parseInt(clean.slice(0, 2), 16), parseInt(clean.slice(2, 4), 16), parseInt(clean.slice(4, 6), 16)];
-}
-
-function wrapText(text: string, fontSize: number, maxWidth: number): string[] {
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let currentLine = '';
-
-  for (const word of words) {
-    const testLine = currentLine ? `${currentLine} ${word}` : word;
-    const approxWidth = testLine.length * fontSize * HELVETICA_AVG_CHAR_WIDTH_RATIO;
-    if (approxWidth > maxWidth && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = testLine;
-    }
-  }
-  if (currentLine) lines.push(currentLine);
-  return lines;
 }
 
 // Brand color: wired to the project-wide branding config so the PDF header and the
@@ -58,8 +39,6 @@ const FOOTER_FONT_SIZE = 8;
 const LINE_HEIGHT_RATIO = 1.55; // multiplier applied to body font size for normal text
 const SECTION_HEADER_LINE_HEIGHT_RATIO = 2;
 const TITLE_LINE_HEIGHT_RATIO = 1.3;
-// wrapText's character-width estimate — Helvetica averages ~0.48 × fontSize per char.
-const HELVETICA_AVG_CHAR_WIDTH_RATIO = 0.48;
 
 // Title banner
 const TITLE_BANNER_HEIGHT = 60;
@@ -163,7 +142,12 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
       height: bannerHeight,
       color: BRAND_BLUE,
     });
-    const titleLines = wrapText(section.patientTitle, titleFontSize, maxWidth - TITLE_HORIZONTAL_PADDING);
+    const titleLines = splitLongStringToPageSize(
+      section.patientTitle,
+      helveticaBold,
+      titleFontSize,
+      maxWidth - TITLE_HORIZONTAL_PADDING
+    );
     const titleBlockHeight = titleLines.length * titleFontSize * TITLE_LINE_HEIGHT_RATIO;
     const bannerCenterY = pageHeight - bannerHeight / 2;
     let titleY = bannerCenterY + titleBlockHeight / 2 - titleFontSize * TITLE_BASELINE_NUDGE_RATIO;
@@ -223,7 +207,7 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
       let height = WARNING_VERTICAL_PADDING;
       let idx = startIdx;
 
-      const firstLines = wrapText(blocks[idx].cleanText, bodyFontSize, warningTextWidth);
+      const firstLines = splitLongStringToPageSize(blocks[idx].cleanText, helvetica, bodyFontSize, warningTextWidth);
       height += firstLines.length * lineHeight;
       idx++;
 
@@ -233,10 +217,15 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
         if (block.type === 'text' && !block.isWarningLine) break;
         if (block.type === 'bullet') {
           const bulletText = block.cleanText.replace(/^[-•]\s*/, '');
-          const bulletLines = wrapText(bulletText, bodyFontSize, warningTextWidth - WARNING_BULLET_INDENT);
+          const bulletLines = splitLongStringToPageSize(
+            bulletText,
+            helvetica,
+            bodyFontSize,
+            warningTextWidth - WARNING_BULLET_INDENT
+          );
           height += bulletLines.length * lineHeight;
         } else {
-          const textLines = wrapText(block.cleanText, bodyFontSize, warningTextWidth);
+          const textLines = splitLongStringToPageSize(block.cleanText, helvetica, bodyFontSize, warningTextWidth);
           height += textLines.length * lineHeight;
         }
         idx++;
@@ -291,7 +280,12 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
         blockIdx++;
       } else if (block.type === 'bullet' && !block.isWarningLine) {
         const bulletText = block.cleanText.replace(/^[-•]\s*/, '');
-        const bulletLines = wrapText(bulletText, bodyFontSize, maxWidth - TITLE_HORIZONTAL_PADDING);
+        const bulletLines = splitLongStringToPageSize(
+          bulletText,
+          helvetica,
+          bodyFontSize,
+          maxWidth - TITLE_HORIZONTAL_PADDING
+        );
         for (let i = 0; i < bulletLines.length; i++) {
           if (y < margin + 40) {
             page = pdfDoc.addPage([pageWidth, pageHeight]);
@@ -345,7 +339,12 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
           const wBlock = blocks[wi];
           if (wBlock.type === 'bullet') {
             const bulletText = wBlock.cleanText.replace(/^[-•]\s*/, '');
-            const bulletLines = wrapText(bulletText, bodyFontSize, warningTextWidth - WARNING_BULLET_INDENT);
+            const bulletLines = splitLongStringToPageSize(
+              bulletText,
+              helvetica,
+              bodyFontSize,
+              warningTextWidth - WARNING_BULLET_INDENT
+            );
             for (let i = 0; i < bulletLines.length; i++) {
               if (i === 0) {
                 page.drawCircle({
@@ -365,7 +364,7 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
               y -= lineHeight;
             }
           } else {
-            const lines = wrapText(wBlock.cleanText, bodyFontSize, warningTextWidth);
+            const lines = splitLongStringToPageSize(wBlock.cleanText, helvetica, bodyFontSize, warningTextWidth);
             for (const line of lines) {
               page.drawText(line, {
                 x: warningTextX,
@@ -382,7 +381,7 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
         y -= 4;
         blockIdx = endIdx;
       } else {
-        const lines = wrapText(block.cleanText, bodyFontSize, maxWidth);
+        const lines = splitLongStringToPageSize(block.cleanText, helvetica, bodyFontSize, maxWidth);
         for (const line of lines) {
           if (y < margin + 40) {
             page = pdfDoc.addPage([pageWidth, pageHeight]);
