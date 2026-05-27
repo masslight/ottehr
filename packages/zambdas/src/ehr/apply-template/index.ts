@@ -7,16 +7,11 @@ import Oystehr, {
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { ClinicalImpression, Communication, Condition, Encounter, List, Observation, Procedure } from 'fhir/r4b';
-import {
-  ApplyTemplateZambdaInput,
-  chartDataTagSystem,
-  chunkThings,
-  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
-  ICD_10_CODE_SYSTEM,
-} from 'utils';
+import { ApplyTemplateZambdaInput, chartDataTagSystem, chunkThings, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { hasTemplateRelevantTag, isDiagnosisCondition } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 interface ComplexValidationOutput {
@@ -264,6 +259,16 @@ const makeCreateRequests = (
       continue;
     }
 
+    // Defensive guard: only apply resources whose meta tag is template-relevant. Older templates created before
+    // the create-side filter was tightened may still contain patient-specific resources (e.g. Medical Conditions);
+    // skip them rather than recreate that data on this chart.
+    if (containedResource.resourceType !== 'Encounter' && !hasTemplateRelevantTag(containedResource)) {
+      console.log(
+        `Skipping contained resource ${containedResource.resourceType}/${containedResource.id}: no template-relevant meta tag`
+      );
+      continue;
+    }
+
     // For Chief Complaint, if there is an existing HPI Condition, instead of creating, we will patch so skip.
     if (
       containedResource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('chief-complaint')) &&
@@ -308,11 +313,9 @@ const makeCreateRequests = (
       continue;
     }
 
-    // For Condition resources that are ICD-10 codes, we need to update the Encounter.diagnosis references
-    if (
-      resourceToCreate.resourceType === 'Condition' &&
-      resourceToCreate.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM)
-    ) {
+    // For Diagnosis Conditions we also need to update the Encounter.diagnosis references.
+    // Use the `diagnosis` meta tag (not the presence of an ICD-10 code) so Medical Conditions are not picked up.
+    if (isDiagnosisCondition(resourceToCreate)) {
       const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
         return d.condition.reference?.split('/')[1] === containedResource.id;
       });
