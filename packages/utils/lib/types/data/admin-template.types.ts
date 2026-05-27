@@ -80,11 +80,13 @@ export interface TemplateInHouseLabPlan {
   // ServiceRequest.id of the plan inside the template's contained resources.
   // Useful as a stable React key and for "remove this plan" admin flows.
   planId: string;
-  testName: string;
+  testName: string; // why do we store this test name if the idea is to be future change resiliant?
   activityDefinitionRef: string;
   code: string;
   diagnoses: TemplateCodeInfo[];
   notes: string[];
+  // ATHENA TODO: wouldn't you want to pull the cpt code info off of the AD rather than the template? for example if things changed on the AD between when the template was created and applied?
+
   // CPT codes that will be materialized when this plan is applied, taken from
   // the plan's stored code.coding (which preserved the AD's CPT codings at
   // save time). Surfaced to the preview UI so providers see what the lab
