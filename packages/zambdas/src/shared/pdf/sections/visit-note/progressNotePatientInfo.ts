@@ -35,7 +35,9 @@ export const createProgressNotePatientInfoSection = <
     render: (client, patientInfo, styles) => {
       drawFieldLine(client, styles, { label: 'Patient name', value: patientInfo.patientName });
       drawFieldLine(client, styles, { label: 'Date of birth', value: patientInfo.patientDOB });
-      drawFieldLine(client, styles, { label: 'PID', value: patientInfo.patientId });
+      if (patientInfo.patientId) {
+        drawFieldLine(client, styles, { label: 'PID', value: patientInfo.patientId });
+      }
       if (patientInfo.personAccompanying) {
         drawFieldLine(client, styles, {
           label: 'Person accompanying the minor patient',

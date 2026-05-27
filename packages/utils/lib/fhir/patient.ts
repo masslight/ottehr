@@ -880,9 +880,5 @@ export const mapGenderToLabel: { [name in Exclude<Patient['gender'], undefined>]
 };
 
 export const getPatientFriendlyId = (patient: Patient): string => {
-  return (
-    patient.identifier?.find((ident) => ident.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ??
-    patient.id ??
-    ''
-  );
+  return patient.identifier?.find((ident) => ident.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
 };
