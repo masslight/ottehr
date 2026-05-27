@@ -16,11 +16,19 @@ export const index = wrapHandler(
       })
     ).unbundle();
 
-    // Fetch all questionnaires to find system ones (for association options)
+    // Fetch all questionnaires to find system ones (for association options). Projecting only
+    // identifying fields — including `item` blows past the 6 MB SDK response cap because the
+    // page-item trees are huge across hundreds of versioned questionnaires. Intake forms are
+    // instead identified below via URL pattern, which is reliable for Ottehr's canonical
+    // intake-paperwork-{inperson,virtual} URL convention.
     const all = (
       await oystehr.fhir.search<Questionnaire>({
         resourceType: 'Questionnaire',
-        params: [{ name: 'status', value: 'active' }],
+        params: [
+          { name: 'status', value: 'active' },
+          { name: '_elements', value: 'id,url,name,title' },
+          { name: '_count', value: '500' },
+        ],
       })
     ).unbundle();
 
@@ -35,14 +43,11 @@ export const index = wrapHandler(
 
     for (const q of all) {
       if (practiceManagedIds.has(q.id) || !q.url) continue;
-      // Only include patient-facing intake questionnaires. We identify these by checking
-      // for group items with "page" in the linkId, which is the Ottehr convention for
-      // multi-page intake forms. This heuristic has been verified across all known instances
-      // but is fragile — a more robust approach would be to tag intake questionnaires with
-      // a meta tag like "intake-paperwork" so they can be identified without inspecting
-      // their internal structure.
-      const hasPages = q.item?.some((item) => item.type === 'group' && item.linkId?.includes('page'));
-      if (!hasPages) continue;
+      // Only include patient-facing intake questionnaires. Ottehr's intake URLs follow the
+      // convention `…/Questionnaire/intake-paperwork-{inperson,virtual}` — matching on that
+      // pattern is reliable and lets us avoid pulling the full `item` tree (8.5 MB across
+      // versioned questionnaires) just to check linkId structure.
+      if (!q.url.includes('intake-paperwork')) continue;
       const key = q.url;
       if (seenUrls.has(key)) continue;
       seenUrls.add(key);
