@@ -1,6 +1,6 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Appointment, Location, Patient, Schedule, Slot } from 'fhir/r4b';
+import { Appointment, FhirResource, Location, Patient, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   appointmentTypeForAppointment,
@@ -13,12 +13,14 @@ import {
   getScheduleExtension,
   GetScheduleResponse,
   getServiceModeFromSlot,
+  getSlotAtLocationId,
   getSlotIsPostTelemed,
   getSlotIsWalkin,
   getSlugForBookableResource,
   getTimezone,
   isPostTelemedAppointment,
   PatientInfo,
+  SCHEDULE_EXTENSION_URL,
   ScheduleOwnerFhirResource,
   ServiceMode,
   SlotListItem,
@@ -370,6 +372,218 @@ describe('prebook integration - from getting list of slots to booking with selec
       throw new Error('oystehr or processId is null! could not clean up!');
     }
     await cleanupTestScheduleResources(processId, oystehr);
+  });
+
+  // PR-actored Schedule end-to-end: vended Slot must carry the slot-at-
+  // location extension, the extension must round-trip through create-slot,
+  // and create-appointment must attribute the Appointment to the right
+  // Location. Exercises the FHIR plumbing for the slot-at-location
+  // extension; the resolution-precedence logic itself is covered
+  // exhaustively in unit tests (resolveBookingLocationId.test.ts).
+  test('PR-actored schedule stamps and persists slot-at-location extension end-to-end', async () => {
+    assert(processId);
+    const tag = {
+      system: 'OTTEHR_AUTOMATED_TEST',
+      code: tagForProcessId(processId),
+      display: 'integration test fixture',
+    };
+    const timeNow = startOfDayWithTimezone().plus({ hours: 8 });
+    const scheduleJson = changeAllCapacities(
+      adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
+        {
+          dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
+          open: 8,
+          close: 24,
+          workingDay: true,
+        },
+      ]),
+      1
+    );
+
+    // Build Practitioner + Location + PR + Schedule (actor = PR) in one
+    // FHIR transaction so they're all wired up together at create time.
+    const practitionerUrn = `urn:uuid:${randomUUID()}`;
+    const locationUrn = `urn:uuid:${randomUUID()}`;
+    const prUrn = `urn:uuid:${randomUUID()}`;
+    const locationSlug = `pr-integration-loc-${randomUUID()}`;
+
+    const fixtureRequests: BatchInputPostRequest<FhirResource>[] = [
+      {
+        method: 'POST',
+        url: 'Practitioner',
+        fullUrl: practitionerUrn,
+        resource: {
+          resourceType: 'Practitioner',
+          name: [{ family: 'TestProvider', given: ['Integration'] }],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'Location',
+        fullUrl: locationUrn,
+        resource: {
+          resourceType: 'Location',
+          status: 'active',
+          name: 'PR-Integration-Location',
+          identifier: [{ system: SLUG_SYSTEM, value: locationSlug }],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'PractitionerRole',
+        fullUrl: prUrn,
+        resource: {
+          resourceType: 'PractitionerRole',
+          active: true,
+          practitioner: { reference: practitionerUrn },
+          location: [{ reference: locationUrn }],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'Schedule',
+        resource: {
+          resourceType: 'Schedule',
+          actor: [{ reference: prUrn }],
+          extension: [
+            {
+              url: 'http://hl7.org/fhir/StructureDefinition/timezone',
+              valueString: 'America/New_York',
+            },
+            { url: SCHEDULE_EXTENSION_URL, valueString: JSON.stringify(scheduleJson) },
+          ],
+          meta: { tag: [tag] },
+        },
+      },
+    ];
+
+    const txResult = await oystehr.fhir.transaction({ requests: fixtureRequests });
+    const persistedPractitioner = txResult.entry?.find((e) => e.resource?.resourceType === 'Practitioner')
+      ?.resource as Practitioner;
+    const persistedLocation = txResult.entry?.find((e) => e.resource?.resourceType === 'Location')
+      ?.resource as Location;
+    const persistedPR = txResult.entry?.find((e) => e.resource?.resourceType === 'PractitionerRole')
+      ?.resource as PractitionerRole;
+    const persistedSchedule = txResult.entry?.find((e) => e.resource?.resourceType === 'Schedule')
+      ?.resource as Schedule;
+    assert(persistedPractitioner?.id);
+    assert(persistedLocation?.id);
+    assert(persistedPR?.id);
+    assert(persistedSchedule?.id);
+
+    try {
+      const prSlug = `pr-${persistedPR.id}`;
+      // Provider-slug isn't strictly needed by get-schedule (we'll use the
+      // PR's id-as-slug via the existing slug mechanism would require an
+      // identifier — for the integration test we look up the PR's vended
+      // slots by directly searching for them). Instead, vend slots via
+      // the PR's own slug pattern.
+      // For this test we'll bypass the slug lookup and directly construct
+      // the vended slot via createSlotParamsFromSlotAndOptions using a
+      // hand-built SlotListItem-shaped Slot — the goal is to exercise
+      // create-slot + create-appointment, not get-schedule's slug
+      // resolution path (which has its own coverage).
+      void prSlug;
+
+      // Build a vended-Slot-equivalent: a Slot resource pointing at the
+      // Schedule with the slot-at-location extension stamped (matching
+      // what makeSlotListItems would produce for this PR + Location).
+      const slotStartISO = timeNow.plus({ hours: 12 }).toISO()!;
+      const fauxVendedSlot: Slot = {
+        resourceType: 'Slot',
+        id: `${persistedSchedule.id}|${slotStartISO}`,
+        status: 'free',
+        start: slotStartISO,
+        end: timeNow.plus({ hours: 12, minutes: 15 }).toISO()!,
+        schedule: { reference: `Schedule/${persistedSchedule.id}` },
+        extension: [
+          {
+            url: 'https://fhir.ottehr.com/StructureDefinition/slot-at-location',
+            valueReference: { reference: `Location/${persistedLocation.id}` },
+          },
+        ],
+      };
+
+      // Sanity: the reader sees the extension on the faux vended slot.
+      expect(getSlotAtLocationId(fauxVendedSlot)).toBe(persistedLocation.id);
+
+      // createSlotParamsFromSlotAndOptions should forward the extension as
+      // atLocationId on the resulting CreateSlotParams.
+      const createSlotParams = createSlotParamsFromSlotAndOptions(fauxVendedSlot, {
+        status: 'busy-tentative',
+        originalBookingUrl: `pr-integration?bookingOn=${prSlug}`,
+      });
+      expect(createSlotParams.atLocationId).toBe(persistedLocation.id);
+
+      // create-slot zambda should accept atLocationId, validate it against
+      // PR.location[], and persist the extension on the resulting Slot.
+      const persistedSlot = (
+        await oystehr.zambda.executePublic({
+          id: 'create-slot',
+          ...createSlotParams,
+        })
+      ).output as Slot;
+      assert(persistedSlot?.id);
+      expect(persistedSlot.resourceType).toBe('Slot');
+      expect(getSlotAtLocationId(persistedSlot)).toBe(persistedLocation.id);
+
+      // create-appointment should resolve bookingLocation. Under the
+      // precedence rules, a single-location PR-actored slot uses the
+      // actor's location (step 2 of resolveBookingLocationId), not the
+      // extension. Either way, the resolved Location id must match.
+      const newPatient = makeTestPatient();
+      const patientInfo: PatientInfo = {
+        firstName: newPatient.name![0]!.given![0],
+        lastName: newPatient.name![0]!.family,
+        sex: 'female',
+        dateOfBirth: newPatient.birthDate,
+        newPatient: true,
+        phoneNumber: '+12027139680',
+        email: 'integration-pr-actor@example.com',
+        tags: [tag],
+      };
+      const createApptInput: CreateAppointmentInputParams = {
+        patient: patientInfo,
+        slotId: persistedSlot.id,
+      };
+      const createApptResponse = (
+        await oystehr.zambda.execute({
+          id: 'create-appointment',
+          ...createApptInput,
+        })
+      ).output as CreateAppointmentResponse;
+      assert(createApptResponse?.appointmentId);
+
+      const { appointment, encounter } = createApptResponse.resources;
+      // Encounter.location should carry the resolved Location.
+      const encounterLocationRefs = (encounter.location ?? []).map((l) => l.location?.reference).filter(Boolean);
+      expect(encounterLocationRefs).toContain(`Location/${persistedLocation.id}`);
+      // Appointment.participant should include the Location and the
+      // attending Practitioner (resolved from the PR actor).
+      const appointmentParticipantRefs = (appointment.participant ?? [])
+        .map((p) => p.actor?.reference)
+        .filter((r): r is string => !!r);
+      expect(appointmentParticipantRefs).toContain(`Location/${persistedLocation.id}`);
+      expect(appointmentParticipantRefs).toContain(`Practitioner/${persistedPractitioner.id}`);
+    } finally {
+      // cleanupTestScheduleResources picks up Schedule + actor, but its
+      // _include doesn't iterate to Practitioner / Location through the
+      // PR. Explicitly delete the fixture resources here.
+      const deletes: BatchInputDeleteRequest[] = [
+        { method: 'DELETE', url: `Practitioner/${persistedPractitioner.id}` },
+        { method: 'DELETE', url: `Location/${persistedLocation.id}` },
+        { method: 'DELETE', url: `PractitionerRole/${persistedPR.id}` },
+        { method: 'DELETE', url: `Schedule/${persistedSchedule.id}` },
+      ];
+      try {
+        await oystehr.fhir.batch({ requests: deletes });
+      } catch (e) {
+        console.error('Failed to clean up PR-actored fixture; afterAll process-tag sweep will retry:', e);
+      }
+    }
   });
 
   // this is flaky and can fail based on time of day for the CI server

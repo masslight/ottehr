@@ -255,7 +255,7 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
   if (scheduleOwnerId !== undefined && permittedScheduleOwnerTypes.includes(scheduleOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;
-    }) as ScheduleOwnerFhirResource;
+    }) as Location | HealthcareService | PractitionerRole | undefined;
   }
 
   if (!owner) {

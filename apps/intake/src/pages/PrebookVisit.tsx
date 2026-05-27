@@ -2,7 +2,7 @@ import { Autocomplete, Skeleton, Tab, Tabs, TextField, Typography } from '@mui/m
 import { Box, styled } from '@mui/system';
 import { Slot } from 'fhir/r4b';
 import noop from 'lodash/noop';
-import { FC, useEffect, useState } from 'react';
+import { FC, useState } from 'react';
 import { generatePath, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   APIError,
@@ -61,10 +61,6 @@ const findSelectedSlotFromAvailable = (available: SlotListItem[], selectedSlotId
     }
   })?.slot;
 };
-
-// Key used to stash the `atLocation` URL param so it survives navigation from
-// the slot picker through the patient-info flow to Review.
-export const BOOKING_AT_LOCATION_STORAGE_KEY = 'booking-at-location-slug';
 
 const useBookingParams = (
   selectedLocation: BookableItem | null
@@ -197,16 +193,8 @@ const PrebookVisit: FC = () => {
   const selectedLocation =
     (serviceModeFromParam ?? serviceMode) === 'in-person' ? selectedInPersonLocation : selectedVirtualLocation;
 
-  const { bookingOn, scheduleType, selectedSlot, slugToFetch, serviceCategoryCode, atLocationSlug } =
+  const { bookingOn, scheduleType, selectedSlot, slugToFetch, serviceCategoryCode } =
     useBookingParams(selectedLocation);
-
-  // Persist atLocation so it survives the nav from slot-pick to Review, where
-  // it gets forwarded to create-appointment.
-  useEffect(() => {
-    if (atLocationSlug) {
-      sessionStorage.setItem(BOOKING_AT_LOCATION_STORAGE_KEY, atLocationSlug);
-    }
-  }, [atLocationSlug]);
 
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
 

@@ -15,13 +15,23 @@ export function validateRequestParameters(input: ZambdaInput): GetScheduleReques
     throw MISSING_REQUEST_BODY;
   }
 
-  const { slug, scheduleType, selectedDate, serviceCategoryCode: maybeServiceCategoryCode } = JSON.parse(input.body);
+  const {
+    slug,
+    scheduleType,
+    selectedDate,
+    serviceCategoryCode: maybeServiceCategoryCode,
+    atLocationSlug,
+  } = JSON.parse(input.body);
   if (!slug) {
     throw MISSING_REQUIRED_PARAMETERS(['slug']);
   }
 
   if (!SCHEDULE_TYPES.includes(scheduleType)) {
     throw INVALID_INPUT_ERROR(`scheduleType must be either ${SCHEDULE_TYPES}`);
+  }
+
+  if (atLocationSlug != null && typeof atLocationSlug !== 'string') {
+    throw INVALID_INPUT_ERROR('"atLocationSlug" must be a string if provided');
   }
 
   console.log('SERVICE CATEGORIES FOR SLOT GENERATION maybe:', maybeServiceCategoryCode);
@@ -32,7 +42,7 @@ export function validateRequestParameters(input: ZambdaInput): GetScheduleReques
     const schema = getServiceCategoryCodeSchema();
     serviceCategoryCode = schema.safeParse(maybeServiceCategoryCode).data;
     if (!serviceCategoryCode) {
-      throw INVALID_INPUT_ERROR(`"serviceCategoryCode" must be one of ${schema.options.join(', ')}`);
+      throw INVALID_INPUT_ERROR('"serviceCategoryCode" must be a URL-safe slug (1-64 chars, letters/digits/hyphens)');
     }
   }
 
@@ -42,5 +52,6 @@ export function validateRequestParameters(input: ZambdaInput): GetScheduleReques
     secrets: input.secrets,
     selectedDate,
     serviceCategoryCode,
+    atLocationSlug,
   };
 }

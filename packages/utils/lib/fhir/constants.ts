@@ -801,6 +801,21 @@ export const makeBookingOriginExtensionEntry = (url: string): { url: string; val
   };
 };
 
+// Extension recording the Location a Slot is being offered at. Stamped at
+// slot-vending time so the Slot is self-describing — create-appointment
+// reads this rather than re-resolving from the Schedule.actor graph (which
+// is ambiguous for multi-location PractitionerRoles).
+export const SLOT_AT_LOCATION_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-at-location`;
+
+export const makeSlotAtLocationExtensionEntry = (
+  locationId: string
+): { url: string; valueReference: { reference: string } } => {
+  return {
+    url: SLOT_AT_LOCATION_EXTENSION_URL,
+    valueReference: { reference: `Location/${locationId}` },
+  };
+};
+
 // Extension for specifying which questionnaire should be used for appointments booked on this slot
 export const SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-questionnaire-canonical`;
 

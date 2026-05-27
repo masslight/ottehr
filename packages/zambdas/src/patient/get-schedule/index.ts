@@ -22,6 +22,7 @@ import {
   SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
   SlotListItem,
+  SLUG_SYSTEM,
   Timezone,
 } from 'utils';
 import { createOystehrClient, getAuth0Token, getSchedules, wrapHandler, ZambdaInput } from '../../shared';
@@ -35,7 +36,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
 
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
-  const { secrets, scheduleType, slug, selectedDate } = validatedParameters;
+  const { secrets, scheduleType, slug, selectedDate, atLocationSlug } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
@@ -193,12 +194,91 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     scheduleList.push(...filtered);
   }
 
+  // Resolve atLocationSlug → Location id, then narrow scheduleList to
+  // entries that actually operate at that Location. If atLocationSlug isn't
+  // provided but the remaining scheduleList spans more than one Location,
+  // error out — the caller must disambiguate so vended slots carry a
+  // definite Location attribution. The Location chosen here is the one
+  // stamped on every vended Slot via the slot-at-location extension.
+  let atLocationId: string | undefined;
+  if (atLocationSlug) {
+    const candidates = (
+      await oystehr.fhir.search<Location>({
+        resourceType: 'Location',
+        params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${atLocationSlug}` }],
+      })
+    ).unbundle();
+    const candidate = candidates[0];
+    if (!candidate?.id) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: `"atLocationSlug" did not match any Location: ${atLocationSlug}`,
+          code: 'AT_LOCATION_NOT_FOUND',
+        }),
+      };
+    }
+    atLocationId = candidate.id;
+  }
+
+  const qualifyingLocationIds = new Set<string>();
+  for (const entry of scheduleList) {
+    if (entry.owner.resourceType === 'Location' && entry.owner.id) {
+      qualifyingLocationIds.add(entry.owner.id);
+    } else if (entry.owner.resourceType === 'PractitionerRole') {
+      for (const ref of (entry.owner as PractitionerRole).location ?? []) {
+        const id = ref.reference?.split('/')[1];
+        if (id) qualifyingLocationIds.add(id);
+      }
+    }
+  }
+
+  if (atLocationId) {
+    if (!qualifyingLocationIds.has(atLocationId)) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'No bookable schedules at the specified location.',
+          code: 'NO_SCHEDULES_AT_LOCATION',
+        }),
+      };
+    }
+    const narrowed = scheduleList.filter((entry) => {
+      if (entry.owner.resourceType === 'Location') return entry.owner.id === atLocationId;
+      if (entry.owner.resourceType === 'PractitionerRole') {
+        return ((entry.owner as PractitionerRole).location ?? []).some(
+          (ref) => ref.reference?.split('/')[1] === atLocationId
+        );
+      }
+      // Practitioner / HealthcareService owners pass through (rare in the
+      // current model). They have no Location of their own to filter on.
+      return true;
+    });
+    scheduleList.length = 0;
+    scheduleList.push(...narrowed);
+  } else if (qualifyingLocationIds.size > 1) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        message: 'Multiple Locations qualify for this booking; please specify atLocationSlug.',
+        code: 'AT_LOCATION_REQUIRED',
+      }),
+    };
+  }
+
+  // Effective Location stamp for vended Slots: explicit input, or the
+  // single qualifying Location if there's only one. Undefined for the
+  // (degenerate) zero-qualifying-Locations case — vended slots get no
+  // stamp and create-appointment falls back to its actor walk.
+  const effectiveAtLocationId =
+    atLocationId ?? (qualifyingLocationIds.size === 1 ? Array.from(qualifyingLocationIds)[0] : undefined);
+
   // Cadence is a service-level property — resolved above from
   // ServiceCategoryRuntimeConfig alongside slotLengthMinutes.
 
   console.log(
     'SERVICE CATEGORIES FOR SLOT GENERATION:',
-    JSON.stringify({ serviceCategories, slotLengthMinutes, cadenceMinutes }, null, 2)
+    JSON.stringify({ serviceCategories, slotLengthMinutes, cadenceMinutes, effectiveAtLocationId }, null, 2)
   );
 
   console.time('synchronous_data_processing');
@@ -211,6 +291,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
       serviceCategories,
       slotLengthMinutes,
       cadenceMinutes,
+      atLocationId: effectiveAtLocationId,
     },
     oystehr
   );

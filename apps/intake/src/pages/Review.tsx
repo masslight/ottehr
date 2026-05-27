@@ -28,7 +28,6 @@ import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import i18n from '../lib/i18n';
 import { PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
-import { BOOKING_AT_LOCATION_STORAGE_KEY } from './PrebookVisit';
 
 interface ReviewItem {
   name: string;
@@ -139,19 +138,16 @@ const Review = (): JSX.Element => {
         patientInfo.id = undefined;
       }
 
-      // Create the appointment. When the slot belongs to a group schedule and
-      // the original booking URL carried an atLocation param, forward the
-      // location slug so the zambda can attribute the booking to that Location.
-      const atLocationSlug = sessionStorage.getItem(BOOKING_AT_LOCATION_STORAGE_KEY) ?? undefined;
+      // Create the appointment. The slot already carries any location
+      // attribution (via the slot-at-location extension stamped at vending
+      // time), so we don't need to forward an atLocation param here.
       const res = await ottehrApi.createAppointment(zambdaClient, {
         slotId,
         patient: patientInfo,
         language: 'en', // replace with i18n.language to enable
-        atLocationSlug,
       });
       const fhirAppointmentId = res.appointmentId;
 
-      sessionStorage.removeItem(BOOKING_AT_LOCATION_STORAGE_KEY);
       navigate(getNextPath(fhirAppointmentId));
       completeBooking();
     } catch (err) {

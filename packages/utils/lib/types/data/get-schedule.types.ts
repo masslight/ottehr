@@ -18,4 +18,11 @@ export interface GetScheduleRequestParams {
   originalBookingUrl?: string;
   selectedDate?: string;
   serviceCategoryCode?: ServiceCategoryCode;
+  /**
+   * Slug of the Location at which slots are being requested. Required when
+   * the schedule owner (or, for groups, its pool) spans multiple Locations.
+   * Vended Slots carry this as the slot-at-location extension so booking
+   * downstream is self-describing.
+   */
+  atLocationSlug?: string;
 }

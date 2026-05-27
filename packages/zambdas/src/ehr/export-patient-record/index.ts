@@ -8,6 +8,7 @@ import {
   DiagnosticReport,
   DocumentReference,
   Encounter,
+  Location as FhirLocation,
   MedicationAdministration,
   MedicationRequest,
   MedicationStatement,
@@ -40,8 +41,13 @@ export const index = wrapHandler(
     const patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
 
     // 2. Fetch all encounters for this patient
+    // The search returns Encounters plus the _included Appointments,
+    // Practitioners, and Locations. Type the bundle as the union so the
+    // resourceType narrowing below type-checks cleanly. (Locations are
+    // included by Encounter:location but aren't used in the current
+    // export flow — the union just satisfies the type-checker.)
     const encounters = (
-      await oystehr.fhir.search<Encounter>({
+      await oystehr.fhir.search<Encounter | Appointment | Practitioner | FhirLocation>({
         resourceType: 'Encounter',
         params: [
           { name: 'patient', value: `Patient/${patientId}` },
@@ -54,9 +60,9 @@ export const index = wrapHandler(
       })
     ).unbundle();
 
-    const encounterResources = encounters.filter((r) => r.resourceType === 'Encounter') as Encounter[];
-    const appointments = encounters.filter((r) => r.resourceType === 'Appointment') as Appointment[];
-    const practitioners = encounters.filter((r) => r.resourceType === 'Practitioner') as Practitioner[];
+    const encounterResources = encounters.filter((r): r is Encounter => r.resourceType === 'Encounter');
+    const appointments = encounters.filter((r): r is Appointment => r.resourceType === 'Appointment');
+    const practitioners = encounters.filter((r): r is Practitioner => r.resourceType === 'Practitioner');
 
     // 3. Fetch related persons (emergency contacts, guarantors)
     const relatedPersons = (
@@ -456,8 +462,16 @@ export const index = wrapHandler(
     // 9. Build ZIP archive
     const finalZipBuffer = await new Promise<Buffer>((resolve, reject) => {
       const archive = archiver('zip', { zlib: { level: 9 } });
-      const chunks: Buffer[] = [];
-      archive.on('data', (chunk) => chunks.push(chunk));
+      const chunks: Uint8Array[] = [];
+      // archiver yields Buffer chunks; copy each into a plain Uint8Array
+      // view so the array's generic stays Uint8Array<ArrayBuffer>[]. Newer
+      // @types/node parameterise Buffer with ArrayBufferLike (which
+      // includes SharedArrayBuffer), and that variance breaks both push
+      // and Buffer.concat without an explicit narrowing. Runtime shapes
+      // are identical.
+      archive.on('data', (chunk: Buffer) =>
+        chunks.push(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength))
+      );
       archive.on('end', () => resolve(Buffer.concat(chunks)));
       archive.on('error', reject);
 
@@ -480,7 +494,10 @@ export const index = wrapHandler(
       fileName: 'MedicalRecordExport.zip',
     });
     const presignedUploadUrl = await createPresignedUrl(m2mToken, z3Url, 'upload');
-    await uploadObjectToZ3(finalZipBuffer, presignedUploadUrl);
+    // Buffer extends Uint8Array but @types/node parameterises it with a
+    // wider ArrayBufferLike than the upload function expects. The runtime
+    // shapes are identical; cast to satisfy the type-checker.
+    await uploadObjectToZ3(finalZipBuffer as unknown as Uint8Array, presignedUploadUrl);
 
     // 10. Get download URL
     const downloadUrl = await createPresignedUrl(m2mToken, z3Url, 'download');

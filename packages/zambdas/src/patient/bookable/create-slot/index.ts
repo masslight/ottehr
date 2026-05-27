@@ -1,18 +1,20 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Schedule, Slot } from 'fhir/r4b';
+import { HealthcareService, Location, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BOOKING_CONFIG,
   CanonicalUrl,
   CreateSlotParams,
   FHIR_RESOURCE_NOT_FOUND,
+  getGroupAllLocations,
   getServiceCategoryCodeSchema,
   getTimezone,
   INVALID_INPUT_ERROR,
   isValidUUID,
   makeBookingOriginExtensionEntry,
   makeQuestionnaireCanonicalExtensionEntry,
+  makeSlotAtLocationExtensionEntry,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
@@ -80,6 +82,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     originalBookingUrl,
     serviceCategoryCode: maybeServiceCategoryCode,
     questionnaireCanonical,
+    atLocationId,
   } = JSON.parse(input.body);
 
   // required param checks
@@ -159,6 +162,9 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
       throw INVALID_INPUT_ERROR('"questionnaireCanonical.version" must be a string');
     }
   }
+  if (atLocationId != null && typeof atLocationId !== 'string') {
+    throw INVALID_INPUT_ERROR('"atLocationId" must be a string if provided');
+  }
   const apptLength: ApptLengthDef = { length: 0, unit: 'minutes' };
   if (lengthInMinutes) {
     apptLength.length = lengthInMinutes;
@@ -174,7 +180,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     const schema = getServiceCategoryCodeSchema();
     serviceCategoryCode = schema.safeParse(maybeServiceCategoryCode).data;
     if (!serviceCategoryCode) {
-      throw INVALID_INPUT_ERROR(`"serviceCategoryCode" must be one of ${schema.options.join(', ')}`);
+      throw INVALID_INPUT_ERROR('"serviceCategoryCode" must be a URL-safe slug (1-64 chars, letters/digits/hyphens)');
     }
   }
 
@@ -190,6 +196,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     originalBookingUrl,
     serviceCategoryCode,
     questionnaireCanonical: questionnaireCanonical as CanonicalUrl | undefined,
+    atLocationId,
   };
 };
 
@@ -209,6 +216,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     originalBookingUrl,
     serviceCategoryCode,
     questionnaireCanonical,
+    atLocationId,
   } = input;
   // query up the schedule that owns the slot
   const schedule: Schedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: scheduleId });
@@ -216,6 +224,58 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     throw FHIR_RESOURCE_NOT_FOUND('Schedule');
   }
   const timezone = getTimezone(schedule);
+
+  // Decide whether to stamp the slot-at-location extension based on the
+  // schedule's actor:
+  //   - HealthcareService (group): verify the Location is a member of the
+  //     group (or accept any Location when the group is flagged all-
+  //     locations). Membership check moves here from create-appointment so
+  //     the failure surfaces when the patient picks a time, not later at
+  //     booking-create time.
+  //   - PractitionerRole: verify the Location is in PR.location[].
+  //   - Location actor: drop. Schedule.actor IS the Location; stamping
+  //     would just duplicate state.
+  //   - Practitioner actor: drop. No Location concept to attribute to.
+  let shouldStampAtLocation = false;
+  if (atLocationId) {
+    const actorRef = schedule.actor?.[0]?.reference;
+    const [actorType, actorId] = actorRef?.split('/') ?? [];
+    if (!actorType || !actorId) {
+      throw INVALID_INPUT_ERROR('Schedule has no resolvable actor; cannot interpret "atLocationId"');
+    }
+    if (actorType === 'HealthcareService' || actorType === 'PractitionerRole') {
+      let atLocation: Location;
+      try {
+        atLocation = await oystehr.fhir.get<Location>({ resourceType: 'Location', id: atLocationId });
+      } catch {
+        throw INVALID_INPUT_ERROR(`"atLocationId" did not match any Location: ${atLocationId}`);
+      }
+      if (actorType === 'HealthcareService') {
+        const group = await oystehr.fhir.get<HealthcareService>({ resourceType: 'HealthcareService', id: actorId });
+        const isAllLocations = getGroupAllLocations(group) === true;
+        const groupLocationRefs = new Set(
+          (group.location ?? []).map((l) => l.reference).filter((r): r is string => !!r)
+        );
+        const isMember = isAllLocations || groupLocationRefs.has(`Location/${atLocation.id}`);
+        if (!isMember) {
+          throw INVALID_INPUT_ERROR(
+            `"atLocationId" resolves to a Location that is not a member of the group: ${atLocationId}`
+          );
+        }
+      } else {
+        // PractitionerRole
+        const role = await oystehr.fhir.get<PractitionerRole>({ resourceType: 'PractitionerRole', id: actorId });
+        const hasLocation = (role.location ?? []).some((ref) => ref.reference === `Location/${atLocation.id}`);
+        if (!hasLocation) {
+          throw INVALID_INPUT_ERROR(
+            `"atLocationId" resolves to a Location not associated with the PractitionerRole owning this schedule: ${atLocationId}`
+          );
+        }
+      }
+      shouldStampAtLocation = true;
+    }
+    // Location, Practitioner: silently drop.
+  }
 
   // setZone: true preserves the timezone from the input ISO string instead of converting to system timezone
   // This prevents DST offset issues when the system timezone differs from the intended timezone
@@ -258,6 +318,9 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   }
   if (questionnaireCanonical) {
     extension.push(makeQuestionnaireCanonicalExtensionEntry(questionnaireCanonical));
+  }
+  if (shouldStampAtLocation && atLocationId) {
+    extension.push(makeSlotAtLocationExtensionEntry(atLocationId));
   }
   const slot: Slot = {
     resourceType: 'Slot',

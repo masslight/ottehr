@@ -22,11 +22,13 @@ import {
   isAnnotationFollowupEncounter,
   isLocationVirtual,
   makeBookingOriginExtensionEntry,
+  makeSlotAtLocationExtensionEntry,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NUM_DAYS,
   ScheduleAndOwner,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
+  SLOT_AT_LOCATION_EXTENSION_URL,
   SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
   SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
@@ -813,6 +815,14 @@ interface GetSlotsInput {
   slotLengthMinutes?: number;
   /** Cadence (step) between offered slot start times, in minutes. */
   cadenceMinutes?: number;
+  /**
+   * Location the vended slots will be offered at. Stamped onto each Slot
+   * via the slot-at-location extension so downstream code can read it
+   * without re-resolving from Schedule.actor. Caller is expected to have
+   * already narrowed the scheduleList to entries that operate at this
+   * Location.
+   */
+  atLocationId?: string;
 }
 
 export const getAvailableSlotsForSchedules = async (
@@ -831,6 +841,7 @@ export const getAvailableSlotsForSchedules = async (
     serviceCategories,
     slotLengthMinutes,
     cadenceMinutes,
+    atLocationId,
   } = input;
   // Schedule.serviceType is not consulted for filtering — service-category
   // scoping now lives on the group (HealthcareService.type). Direct Location
@@ -904,6 +915,7 @@ export const getAvailableSlotsForSchedules = async (
       originalBookingUrl,
       serviceCategories,
       appointmentLengthInMinutes: slotLengthMinutes,
+      atLocationId,
     });
 
     const telemed = makeSlotListItems({
@@ -913,6 +925,7 @@ export const getAvailableSlotsForSchedules = async (
       timezone: tz,
       originalBookingUrl,
       serviceCategories,
+      atLocationId,
     });
 
     return { available, telemed };
@@ -1116,6 +1129,16 @@ interface MakeSlotListItemsInput {
   appointmentLengthInMinutes?: number;
   originalBookingUrl?: string;
   serviceCategories?: Coding[];
+  /**
+   * Location the vended slots are being offered at. When the owner is NOT
+   * itself a Location, stamped onto each Slot via the slot-at-location
+   * extension so create-appointment can read it directly rather than re-
+   * resolving from Schedule.actor (which is ambiguous for multi-location
+   * PRs and groups). When the owner IS a Location, the stamp is skipped —
+   * Schedule.actor already conveys the Location, and a redundant extension
+   * can only conflict or agree with that.
+   */
+  atLocationId?: string;
 }
 
 export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[] => {
@@ -1127,12 +1150,18 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
     appointmentLengthInMinutes = DEFAULT_APPOINTMENT_LENGTH_MINUTES,
     originalBookingUrl,
     serviceCategories = [],
+    atLocationId,
   } = input;
   return startTimes.map((startTime) => {
     const end = DateTime.fromISO(startTime).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
-    let extension: Slot['extension'];
+    const extensionEntries: NonNullable<Slot['extension']> = [];
     if (originalBookingUrl) {
-      extension = [makeBookingOriginExtensionEntry(originalBookingUrl)];
+      extensionEntries.push(makeBookingOriginExtensionEntry(originalBookingUrl));
+    }
+    // Skip stamping when the owner IS the Location — Schedule.actor already
+    // carries it; stamping would just duplicate state.
+    if (atLocationId && ownerResource.resourceType !== 'Location') {
+      extensionEntries.push(makeSlotAtLocationExtensionEntry(atLocationId));
     }
     const slot: Slot = {
       resourceType: 'Slot',
@@ -1142,7 +1171,7 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
       end,
       schedule: { reference: `Schedule/${scheduleId}` },
       status: 'free',
-      extension,
+      ...(extensionEntries.length > 0 && { extension: extensionEntries }),
     };
     const owner = makeSlotOwnerFromResource(ownerResource);
     return {
@@ -2301,6 +2330,19 @@ export const getOriginalBookingUrlFromSlot = (slot: Slot): string | undefined =>
   return slot.extension?.find((ext) => ext.url === SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL)?.valueString;
 };
 
+/**
+ * Reads the Location id stamped onto a Slot via the slot-at-location
+ * extension. Returns undefined for legacy slots created before the
+ * extension was rolled out — callers in those cases fall back to walking
+ * Slot.schedule → Schedule.actor.
+ */
+export const getSlotAtLocationId = (slot: Slot): string | undefined => {
+  const ref = slot.extension?.find((ext) => ext.url === SLOT_AT_LOCATION_EXTENSION_URL)?.valueReference?.reference;
+  if (!ref) return undefined;
+  const [resourceType, id] = ref.split('/');
+  return resourceType === 'Location' && id ? id : undefined;
+};
+
 interface CreateSlotOptions {
   status: Slot['status'];
   originalBookingUrl?: string;
@@ -2319,5 +2361,6 @@ export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSl
     originalBookingUrl,
     postTelemedLabOnly,
     serviceCategoryCode: getServiceCategoryFromSlot(slot) ?? 'urgent-care',
+    atLocationId: getSlotAtLocationId(slot),
   };
 };

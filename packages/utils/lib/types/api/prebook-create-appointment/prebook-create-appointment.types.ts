@@ -11,15 +11,6 @@ export interface CreateAppointmentInputParams {
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
   parentEncounterId?: string;
-  /**
-   * When booking against a group (HealthcareService) schedule, optionally
-   * scopes the booking to a specific Location that's a member of the group.
-   * The resolved Location is stamped onto Encounter.location and added to
-   * Appointment.participant so billing, tracking-board filtering, and other
-   * location-dependent features behave as if the patient booked the Location
-   * directly. Accepts the Location's slug.
-   */
-  atLocationSlug?: string;
 }
 
 export interface CreateAppointmentResponse {
@@ -50,6 +41,15 @@ export interface CreateSlotParams {
   originalBookingUrl?: string;
   /** Optional questionnaire canonical URL to use for appointments booked on this slot */
   questionnaireCanonical?: CanonicalUrl;
+  /**
+   * Location the slot is being offered at. Persisted via the slot-at-
+   * location extension so create-appointment can read it directly. Omitted
+   * for direct-Location bookings (where the Schedule.actor IS the Location
+   * — recording it again would be pure duplication). Carried for groups
+   * and PR-direct bookings where Schedule.actor doesn't uniquely identify
+   * a Location.
+   */
+  atLocationId?: string;
 }
 
 export interface GetSlotDetailsParams {

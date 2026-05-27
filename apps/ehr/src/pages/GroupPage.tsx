@@ -21,7 +21,7 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
-import { CodeableConcept, HealthcareService, Location, Practitioner, PractitionerRole, Resource } from 'fhir/r4b';
+import { CodeableConcept, HealthcareService, Location, Practitioner, PractitionerRole } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -280,43 +280,35 @@ function GroupPageContent(): ReactElement {
       console.log('oystehr client is not defined');
       return;
     }
-    // Phase 1: fetch the group + PractitionerRoles. PRs come direct (with
-    // their referenced Practitioners _included) — earlier this came in via
-    // Practitioner?_revinclude, but that pages on Practitioner count, so at
-    // 307 practitioners only the first 50 had their PRs returned, hiding any
-    // provider beyond that page. The 1000 _count cap on PRs is still a latent
-    // risk on envs north of that.
-    const request = await oystehr.fhir.batch({
-      requests: [
-        { method: 'GET', url: `/HealthcareService?_id=${groupID}` },
-        { method: 'GET', url: '/PractitionerRole?_include=PractitionerRole:practitioner&_count=1000' },
-      ],
+    // Phase 1: load the group so the rest of the fetch graph knows which
+    // Locations are already attached. Standalone GET — short and gates
+    // phase 2.
+    const groupTemp = await oystehr.fhir.get<HealthcareService>({
+      resourceType: 'HealthcareService',
+      id: groupID,
     });
-    const groupTemp: HealthcareService = (request?.entry?.[0]?.resource as any).entry.map(
-      (resourceTemp: any) => resourceTemp.resource
-    )[0];
-    const practitionerResources: Resource[] = (request?.entry?.[1]?.resource as any).entry.map(
-      (resourceTemp: any) => resourceTemp.resource
-    );
-    const practitionersTemp: Practitioner[] = practitionerResources.filter(
-      (r) => r.resourceType === 'Practitioner'
-    ) as Practitioner[];
-    const practitionerRolesTemp: PractitionerRole[] = practitionerResources.filter(
-      (r) => r.resourceType === 'PractitionerRole'
-    ) as PractitionerRole[];
-
-    // Phase 2 (parallel): paginated active-Location fetch + supplemental
-    // fetch for already-attached Locations. Active Locations alone can
-    // exceed 1000 on real envs, so paginate; status=active is pushed to
-    // the server to keep each page small and the page count low. The
-    // supplemental fetch covers groups that have a Location attached whose
-    // status has since flipped to inactive — without it, those Locations
-    // would vanish from chips/widget/subtext as soon as we filter the main
-    // fetch by status.
     const attachedLocationIds = (groupTemp.location ?? [])
       .map((ref) => ref.reference?.split('/')[1])
       .filter((id): id is string => !!id);
-    const [activeLocations, attachedLocations] = await Promise.all([
+
+    // Phase 2 (parallel): paginated PRs (with their Practitioners _included),
+    // paginated active Locations, and a supplemental fetch for any already-
+    // attached Locations. PRs are paginated for the same reason Locations
+    // are — at scale, `_count=1000` silently truncates and the widget loses
+    // anyone beyond the first page. Active Locations alone can exceed 1000,
+    // so paginate with `status=active` pushed to the server to keep each
+    // page small. The supplemental Locations fetch covers groups that have
+    // a Location attached whose status has since flipped to inactive —
+    // without it, those Locations would vanish from chips/widget/subtext
+    // as soon as we filter the main fetch by status.
+    const [practitionerResources, activeLocations, attachedLocations] = await Promise.all([
+      getAllFhirSearchPages<PractitionerRole | Practitioner>(
+        {
+          resourceType: 'PractitionerRole',
+          params: [{ name: '_include', value: 'PractitionerRole:practitioner' }],
+        },
+        oystehr
+      ),
       getAllFhirSearchPages<Location>(
         {
           resourceType: 'Location',
@@ -333,6 +325,12 @@ function GroupPageContent(): ReactElement {
             .then((b) => b.unbundle())
         : Promise.resolve<Location[]>([]),
     ]);
+
+    const practitionersTemp = practitionerResources.filter((r): r is Practitioner => r.resourceType === 'Practitioner');
+    const practitionerRolesTemp = practitionerResources.filter(
+      (r): r is PractitionerRole => r.resourceType === 'PractitionerRole'
+    );
+
     const locationsTemp: Location[] = [...activeLocations];
     const seenLocationIds = new Set(activeLocations.map((l) => l.id).filter((id): id is string => !!id));
     for (const loc of attachedLocations) {
