@@ -1,5 +1,5 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { Appointment, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
@@ -177,8 +177,18 @@ test.describe('In-person visit', async () => {
         const appointmentLocalDate = DateTime.fromISO(appointmentStart).setZone(timezone).toFormat('MM/dd/yyyy');
         await visitsPage.selectDate(appointmentLocalDate);
       }
-      await visitsPage.clickPrebookedTab();
-      await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+
+      // If it was a prebook, find on prebook tab and move to arrived
+      // else it is a walk in go straight to in office tab.
+      const oystehr = await ResourceHandler.getOystehr();
+      const createdAppointment = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: resourceHandler.appointment.id!,
+      });
+      if (createdAppointment.status === 'booked') {
+        await visitsPage.clickPrebookedTab();
+        await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+      }
       await visitsPage.clickInOfficeTab();
       await visitsPage.verifyVisitsStatus(resourceHandler.appointment.id!, 'arrived');
       await visitsPage.clickReadyButton(resourceHandler.appointment.id!);
@@ -336,8 +346,18 @@ test.describe('In-person visit', async () => {
         const appointmentLocalDate = DateTime.fromISO(appointmentStart).setZone(timezone).toFormat('MM/dd/yyyy');
         await visitsPage.selectDate(appointmentLocalDate);
       }
-      await visitsPage.clickPrebookedTab();
-      await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+
+      // If it was a prebook, find on prebook tab and move to arrived
+      // else it is a walk in go straight to in office tab.
+      const oystehr = await ResourceHandler.getOystehr();
+      const createdAppointment = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: resourceHandler.appointment.id!,
+      });
+      if (createdAppointment.status === 'booked') {
+        await visitsPage.clickPrebookedTab();
+        await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+      }
       await visitsPage.clickInOfficeTab();
       await visitsPage.verifyVisitsStatus(resourceHandler.appointment.id!, 'arrived');
       await visitsPage.clickReadyButton(resourceHandler.appointment.id!);
