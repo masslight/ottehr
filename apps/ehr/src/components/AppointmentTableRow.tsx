@@ -48,6 +48,7 @@ import {
   getVisitTotalTime,
   GetVitalsResponseData,
   InPersonAppointmentInformation,
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
   makeAbbreviation,
   mdyStringFromISOString,
   NON_LOS_STATUSES,
@@ -521,6 +522,8 @@ export default function AppointmentTableRow({
     patientLastName: appointment.patient.lastName,
     visitId: appointment.id,
     locationName: appointment.location?.name,
+    locationReviewLink: appointment.location?.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)
+      ?.valueUrl,
     bookingTime: start,
     officePhone: officePhoneNumber,
     supportPhone: getSupportPhoneFor(appointment.location?.name) || '',
