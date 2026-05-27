@@ -247,7 +247,8 @@ export default function CreateClaim(): ReactElement {
       if (selectedPractitioner) {
         payload.practitionerId = selectedPractitioner.id;
         const practOverrides: Record<string, string> = {};
-        if (practFirstName && practFirstName !== selectedPractitioner.firstName) practOverrides.firstName = practFirstName;
+        if (practFirstName && practFirstName !== selectedPractitioner.firstName)
+          practOverrides.firstName = practFirstName;
         if (practLastName && practLastName !== selectedPractitioner.lastName) practOverrides.lastName = practLastName;
         if (practNpi && practNpi !== selectedPractitioner.npi) practOverrides.npi = practNpi;
         if (Object.keys(practOverrides).length) payload.practitionerOverrides = practOverrides;
