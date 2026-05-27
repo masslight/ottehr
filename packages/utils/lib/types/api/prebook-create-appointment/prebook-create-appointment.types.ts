@@ -1,6 +1,6 @@
 import { Appointment, Encounter, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { ServiceCategoryCode } from '../../../ottehr-config';
-import { CanonicalUrl, ServiceMode, Timezone } from '../../common';
+import { AppointmentPaperworkSubtype, CanonicalUrl, ServiceMode, Timezone } from '../../common';
 import { PatientInfo } from '../../data';
 import { ScheduleOwnerFhirResource } from '../schedules';
 
@@ -11,6 +11,12 @@ export interface CreateAppointmentInputParams {
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
   parentEncounterId?: string;
+  // Optional override that picks an alternate paperwork flow for this appointment.
+  // When set to 'consent-form-only', create-appointment scaffolds the encounter's
+  // QuestionnaireResponse against LITE_INTAKE_PAPERWORK_CANONICAL instead of the
+  // ServiceMode-based default. Also written to Appointment.appointmentType.coding
+  // so the EHR can surface a paperwork-type badge without re-reading the QR.
+  paperworkSubtype?: AppointmentPaperworkSubtype;
 }
 
 export interface CreateAppointmentResponse {

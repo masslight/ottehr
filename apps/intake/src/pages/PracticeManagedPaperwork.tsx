@@ -40,9 +40,18 @@ export const PracticeManagedPaperwork: FC = () => {
 
   const methods = useForm();
 
-  // Fetch practice-managed questionnaires
+  // Fetch practice-managed questionnaires.
+  // Clear state up front so route transitions (custom/<idA> → custom/<idB>) don't briefly
+  // render the previous PM Q's pages indexed by the new currentPageIndex, which would
+  // flash "Questionnaire not found" before the new fetch resolves.
   useEffect(() => {
     if (!zambdaClient || !appointmentId) return;
+
+    setLoading(true);
+    setQuestionnaire(null);
+    setQrId(undefined);
+    setCurrentPageIndex(0);
+    setAllAnswers({});
 
     const fetchData = async (): Promise<void> => {
       try {

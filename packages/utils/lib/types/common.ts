@@ -543,6 +543,18 @@ export const Task_Patient_Payment_Candid_Sync_And_Receipt_Url =
 export const Task_Generate_Patient_Statement_Url = 'https://fhir.ottehr.com/CodeSystem/generate-patient-statement';
 export const Task_Send_Patient_Statement_By_Mail_Url = 'https://fhir.ottehr.com/CodeSystem/patient-statement-mail';
 
+// Appointment.appointmentType.coding system + codes for which paperwork flow an
+// appointment scaffolds. When the coding's `code` is APPOINTMENT_PAPERWORK_SUBTYPE.CONSENT_FORM_ONLY,
+// create-appointment scaffolds the encounter's QR against the lite Questionnaire
+// (LITE_INTAKE_PAPERWORK_CANONICAL) instead of the full in-person/virtual canonical.
+// When absent, the existing ServiceMode-based mapping applies.
+export const APPOINTMENT_PAPERWORK_SUBTYPE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/appointment-paperwork-subtype';
+export const APPOINTMENT_PAPERWORK_SUBTYPE = {
+  CONSENT_FORM_ONLY: 'consent-form-only',
+} as const;
+export type AppointmentPaperworkSubtype =
+  (typeof APPOINTMENT_PAPERWORK_SUBTYPE)[keyof typeof APPOINTMENT_PAPERWORK_SUBTYPE];
+
 type Task_System_Member =
   | typeof Task_Email_Communication_Url
   | typeof Task_Text_Communication_Url
