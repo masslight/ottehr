@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { BundleEntry, Encounter, List, Patient } from 'fhir/r4b';
+import { Encounter, List, Patient } from 'fhir/r4b';
 import {
   AdminCreateTemplateInput,
   AdminCreateTemplateOutput,
@@ -61,9 +61,7 @@ const performEffect = async (
     throw new Error('No entries found in encounter bundle, cannot make a template');
   }
 
-  const oldEncounter = encounterBundle.find(
-    (resource) => resource.resourceType === 'Encounter'
-  ) as BundleEntry<Encounter>;
+  const oldEncounter = encounterBundle.find((resource) => resource.resourceType === 'Encounter') as Encounter;
   if (!oldEncounter) {
     throw new Error('Unexpectedly found no Encounter when preparing template');
   }
@@ -146,10 +144,10 @@ const performEffect = async (
 
   // Filter to only resources relevant to template sections
   const diagnosesRefFromEncounterSet = new Set(
-    oldEncounter.resource?.diagnosis?.map((dx) => dx.condition.reference).filter((elm) => elm !== undefined) ?? []
+    oldEncounter.diagnosis?.map((dx) => dx.condition.reference).filter((elm) => elm !== undefined) ?? []
   );
   console.log(
-    `these are the diagnoses from encounter set in create, Encounter/${oldEncounter.resource?.id}`,
+    `these are the diagnoses from encounter set in create, Encounter/${oldEncounter.id}`,
     JSON.stringify([...diagnosesRefFromEncounterSet])
   );
 
@@ -195,7 +193,7 @@ const performEffect = async (
       code: 'AMB',
       display: 'Ambulatory',
     },
-    diagnosis: oldEncounter.resource?.diagnosis
+    diagnosis: oldEncounter.diagnosis
       ?.map((diagnosis) => {
         if (!diagnosis.condition?.reference) {
           throw new Error('Unexpectedly found no condition reference in diagnosis');
