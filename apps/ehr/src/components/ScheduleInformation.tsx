@@ -234,7 +234,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
               )}
               <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>{capitalize(scheduleType)} name</TableCell>
               <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Address</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Today&apos;s hours</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Today's hours</TableCell>
               <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Upcoming schedule changes</TableCell>
               {isLocationTab && <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Support phone</TableCell>}
             </TableRow>
