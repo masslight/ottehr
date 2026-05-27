@@ -138,7 +138,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
     description,
     address,
     telecom,
-    googleReviewLink,
+    reviewLink,
   } = updateDetails;
   const scheduleExtension: ScheduleExtension = getScheduleExtension(currentSchedule) ?? {
     schedule: definiteDailySchedule,
@@ -192,7 +192,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
       description !== undefined ||
       address !== undefined ||
       telecom !== undefined ||
-      googleReviewLink !== undefined);
+      reviewLink !== undefined);
   // Name editing is only supported for Location owners — Practitioner has HumanName[],
   // HealthcareService isn't surfaced in the UI. For non-Location owners, ignore the field
   // entirely so we don't bump the resource version with no actual change.
@@ -225,7 +225,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
       if (ownerIsLocation && rooms !== undefined && ext.url === ROOM_EXTENSION_URL) {
         return false;
       }
-      if (ownerIsLocation && googleReviewLink !== undefined && ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL) {
+      if (ownerIsLocation && reviewLink !== undefined && ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL) {
         return false;
       }
       return true;
@@ -270,10 +270,10 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
           valueString: advapacsLocationId.trim(),
         });
       }
-      if (typeof googleReviewLink === 'string' && googleReviewLink.trim() !== '') {
+      if (typeof reviewLink === 'string' && reviewLink.trim() !== '') {
         ownerExtension.push({
           url: LOCATION_REVIEW_LINK_EXTENSION_URL,
-          valueUrl: googleReviewLink.trim(),
+          valueUrl: reviewLink.trim(),
         });
       }
       if (rooms !== undefined) {
@@ -357,7 +357,7 @@ interface EffectInput {
     description?: string | null;
     address?: Address | null;
     telecom?: TelecomUpdate | null;
-    googleReviewLink?: string | null;
+    reviewLink?: string | null;
   };
   definiteDailySchedule: DailySchedule;
   currentSchedule: Schedule;
@@ -379,7 +379,7 @@ const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oyste
     description,
     address,
     telecom,
-    googleReviewLink,
+    reviewLink,
   } = input;
   let definiteDailySchedule: DailySchedule;
   const schedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: scheduleId });
@@ -420,7 +420,7 @@ const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oyste
       description,
       address,
       telecom,
-      googleReviewLink,
+      reviewLink,
     },
     definiteDailySchedule,
     owner,

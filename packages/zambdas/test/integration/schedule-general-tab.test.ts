@@ -1310,7 +1310,7 @@ describe('schedule zambdas — general tab fields', () => {
     });
   });
 
-  describe('update-schedule — googleReviewLink (Location review-link extension)', () => {
+  describe('update-schedule — reviewLink (Location review-link extension)', () => {
     const findReviewExt = (loc: Location): Extension | undefined =>
       (loc.extension ?? []).find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL);
 
@@ -1322,7 +1322,7 @@ describe('schedule zambdas — general tab fields', () => {
       await callUpdateSchedule({
         id: 'update-schedule',
         scheduleId: schedule.id!,
-        googleReviewLink: 'https://g.page/r/sample-google-review',
+        reviewLink: 'https://g.page/r/sample-google-review',
       });
 
       const refreshed = await readLocation(location.id!);
@@ -1342,7 +1342,7 @@ describe('schedule zambdas — general tab fields', () => {
       await callUpdateSchedule({
         id: 'update-schedule',
         scheduleId: schedule.id!,
-        googleReviewLink: 'https://g.page/r/new-google-review',
+        reviewLink: 'https://g.page/r/new-google-review',
       });
 
       const refreshed = await readLocation(location.id!);
@@ -1362,7 +1362,7 @@ describe('schedule zambdas — general tab fields', () => {
       await callUpdateSchedule({
         id: 'update-schedule',
         scheduleId: schedule.id!,
-        googleReviewLink: '',
+        reviewLink: '',
       });
 
       const refreshed = await readLocation(location.id!);
@@ -1380,7 +1380,7 @@ describe('schedule zambdas — general tab fields', () => {
       await callUpdateSchedule({
         id: 'update-schedule',
         scheduleId: schedule.id!,
-        googleReviewLink: null,
+        reviewLink: null,
       });
 
       const refreshed = await readLocation(location.id!);
@@ -1394,7 +1394,7 @@ describe('schedule zambdas — general tab fields', () => {
       await callUpdateSchedule({
         id: 'update-schedule',
         scheduleId: schedule.id!,
-        googleReviewLink: '   https://g.page/r/trimmed-review   ',
+        reviewLink: '   https://g.page/r/trimmed-review   ',
       });
 
       const refreshed = await readLocation(location.id!);
@@ -1408,7 +1408,7 @@ describe('schedule zambdas — general tab fields', () => {
       await callUpdateSchedule({
         id: 'update-schedule',
         scheduleId: schedule.id!,
-        googleReviewLink: '   \t\n',
+        reviewLink: '   \t\n',
       });
 
       const refreshed = await readLocation(location.id!);
@@ -1433,18 +1433,18 @@ describe('schedule zambdas — general tab fields', () => {
       expect(findReviewExt(refreshed)?.valueUrl).toBe('https://keep.example/review');
     });
 
-    it('round-trips through ehr-get-schedule as owner.googleReviewLink', async () => {
+    it('round-trips through ehr-get-schedule as owner.reviewLink', async () => {
       const slug = `gentab-review-roundtrip-${randomUUID()}`;
       const { schedule } = await persistLocationAndSchedule(makePhysicalLocation(slug));
 
       await callUpdateSchedule({
         id: 'update-schedule',
         scheduleId: schedule.id!,
-        googleReviewLink: 'https://g.page/r/round-trip-review',
+        reviewLink: 'https://g.page/r/round-trip-review',
       });
 
       const dto = await callGetSchedule(schedule.id!);
-      expect(dto.owner.googleReviewLink).toBe('https://g.page/r/round-trip-review');
+      expect(dto.owner.reviewLink).toBe('https://g.page/r/round-trip-review');
     });
 
     it('is ignored for non-Location owners (Practitioner schedule)', async () => {
@@ -1490,7 +1490,7 @@ describe('schedule zambdas — general tab fields', () => {
         id: 'update-schedule',
         scheduleId: scheduleResource.id!,
         timezone: 'America/Chicago',
-        googleReviewLink: 'https://should-not-be-written.example',
+        reviewLink: 'https://should-not-be-written.example',
       });
 
       const refreshed = await oystehrAdmin.fhir.get<Practitioner>({
@@ -1579,9 +1579,9 @@ describe('schedule zambdas — general tab fields', () => {
       await expectInvalidInputError({ slug: null });
     });
 
-    it('rejects a non-string googleReviewLink', async () => {
-      await expectInvalidInputError({ googleReviewLink: 7 });
-      await expectInvalidInputError({ googleReviewLink: { not: 'a string' } });
+    it('rejects a non-string reviewLink', async () => {
+      await expectInvalidInputError({ reviewLink: 7 });
+      await expectInvalidInputError({ reviewLink: { not: 'a string' } });
     });
   });
 });

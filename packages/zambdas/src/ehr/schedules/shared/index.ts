@@ -82,7 +82,7 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     description,
     address,
     telecom,
-    googleReviewLink,
+    reviewLink,
   } = JSON.parse(input.body);
   const createMode = Boolean(ownerId) && Boolean(ownerType);
 
@@ -198,8 +198,8 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     }
   }
 
-  if (googleReviewLink !== undefined && googleReviewLink !== null && typeof googleReviewLink !== 'string') {
-    throw INVALID_INPUT_ERROR('"googleReviewLink" must be a string or null');
+  if (reviewLink !== undefined && reviewLink !== null && typeof reviewLink !== 'string') {
+    throw INVALID_INPUT_ERROR('"reviewLink" must be a string or null');
   }
 
   if (telecom !== undefined && telecom !== null) {
@@ -234,6 +234,6 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     description,
     address,
     telecom,
-    googleReviewLink,
+    reviewLink,
   };
 };

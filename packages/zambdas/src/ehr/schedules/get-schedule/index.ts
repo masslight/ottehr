@@ -93,7 +93,7 @@ const performEffect = (input: EffectInput, options: { includePaymentFields: bool
   let description: string | undefined = undefined;
   let address: Location['address'] | undefined = undefined;
   let telecom: Location['telecom'] | undefined = undefined;
-  let googleReviewLink: string | undefined = undefined;
+  let reviewLink: string | undefined = undefined;
 
   if (ownerResource.resourceType === 'Location') {
     const loc = ownerResource as Location;
@@ -104,7 +104,7 @@ const performEffect = (input: EffectInput, options: { includePaymentFields: bool
     description = loc.description;
     telecom = loc.telecom;
     isVirtual = isLocationVirtual(loc);
-    googleReviewLink = loc.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)?.valueUrl;
+    reviewLink = loc.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)?.valueUrl;
     if (options.includePaymentFields) {
       stripeAccountId = loc.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)
         ?.valueString;
@@ -133,7 +133,7 @@ const performEffect = (input: EffectInput, options: { includePaymentFields: bool
     description,
     address,
     telecom,
-    googleReviewLink,
+    reviewLink,
   };
 
   return {

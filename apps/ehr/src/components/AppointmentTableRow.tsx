@@ -522,9 +522,8 @@ export default function AppointmentTableRow({
     patientLastName: appointment.patient.lastName,
     visitId: appointment.id,
     locationName: appointment.location?.name,
-    locationGoogleReviewLink: appointment.location?.extension?.find(
-      (ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL
-    )?.valueUrl,
+    locationReviewLink: appointment.location?.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)
+      ?.valueUrl,
     bookingTime: start,
     officePhone: officePhoneNumber,
     supportPhone: getSupportPhoneFor(appointment.location?.name) || '',

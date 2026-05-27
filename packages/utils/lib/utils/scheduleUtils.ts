@@ -130,7 +130,7 @@ export interface ScheduleDTOOwner {
   description?: string;
   address?: Location['address'];
   telecom?: Location['telecom'];
-  googleReviewLink?: string;
+  reviewLink?: string;
 }
 export interface ScheduleDTO {
   id: string;
