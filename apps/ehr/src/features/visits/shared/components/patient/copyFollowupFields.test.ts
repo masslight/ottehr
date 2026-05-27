@@ -178,4 +178,12 @@ describe('fetchCopySourceChartData', () => {
     const client = { getChartData: vi.fn().mockRejectedValue(new Error('forbidden')) };
     await expect(fetchCopySourceChartData(client, 'enc-1')).rejects.toThrow('forbidden');
   });
+
+  it('never falls back to the unscoped accident (it can belong to a different visit)', async () => {
+    // Scoped call (selected visit) has no accident; unscoped call returns one from another
+    // visit (its Conditions are fetched by-patient). The result must stay undefined. (OTR-2467)
+    const { client } = makeClient({}, { accident: { resourceId: 'other-visit', date: '2020-01-01' } });
+    const result = await fetchCopySourceChartData(client, 'enc-1');
+    expect(result.accident).toBeUndefined();
+  });
 });

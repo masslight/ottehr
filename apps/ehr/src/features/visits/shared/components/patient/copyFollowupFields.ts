@@ -106,6 +106,6 @@ export async function fetchCopySourceChartData(
     chiefComplaint: scalarOrUndefined(noteFields.chiefComplaint),
     historyOfPresentIllness: scalarOrUndefined(noteFields.historyOfPresentIllness),
     mechanismOfInjury: scalarOrUndefined(noteFields.mechanismOfInjury),
-    accident: scalarOrUndefined(noteFields.accident) ?? scalarOrUndefined(fullChart.accident),
+    accident: scalarOrUndefined(noteFields.accident),
   };
 }
