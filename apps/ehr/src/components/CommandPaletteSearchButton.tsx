@@ -23,7 +23,7 @@ export const CommandPaletteSearchButton: FC<CommandPaletteSearchButtonProps> = (
 
   return (
     <ButtonBase
-      onClick={() => openCommandPalette()}
+      onClick={openCommandPalette}
       aria-label="Open command palette"
       sx={{
         display: { xs: 'none', sm: 'flex' },
