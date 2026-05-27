@@ -1,5 +1,5 @@
 import { BrowserContext, Page, test } from '@playwright/test';
-import { isLocationVirtual } from 'utils/lib/fhir';
+import { isLocationVirtual } from 'utils';
 import locationsSpec from '../../../../../../config/oystehr/locations-and-schedules.json' assert { type: 'json' };
 import {
   expectPaymentLocationDetailPage,
