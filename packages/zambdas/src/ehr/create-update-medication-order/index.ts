@@ -303,9 +303,13 @@ async function createOrder(
 
   const routeCoding = searchRouteByCode(orderData.route);
   if (!routeCoding) throw INVALID_INPUT_ERROR(`No medication appliance route was found for code: ${orderData.route}`);
-  const locationCoding = orderData.location ? searchMedicationLocation(orderData.location) : undefined;
+  const locationCoding = orderData.location
+    ? searchMedicationLocation(orderData.location.code, orderData.location.name)
+    : undefined;
   if (orderData.location && !locationCoding)
-    throw INVALID_INPUT_ERROR(`No location found with code provided: ${orderData.location}`);
+    throw INVALID_INPUT_ERROR(
+      `No location found with code/name provided: ${orderData.location.code} / ${orderData.location.name}`
+    );
 
   const medicationRequestToCreate = createMedicationRequest(orderData, interactions, medicationCopy);
   const medicationRequestFullUrl = 'urn:uuid:' + randomUUID();

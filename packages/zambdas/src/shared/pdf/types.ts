@@ -309,6 +309,7 @@ export interface Medication {
   name: string;
   dose?: string;
   route?: string;
+  location?: string;
   date?: string;
 }
 

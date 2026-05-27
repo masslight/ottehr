@@ -22,6 +22,8 @@ import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { MedicationFieldType } from './fieldsConfig';
 import { InHouseMedicationFieldType, medicationOrderFieldsWithOptions } from './utils';
 
+type MedicationLocation = NonNullable<MedicationData['location']>;
+
 const POPULAR_SEPARATOR = 'popular-separator';
 const OTHER_SEPARATOR = 'other-separator';
 
@@ -29,7 +31,7 @@ interface MedicationCardFieldProps {
   field: MedicationFieldType;
   label: string;
   type?: InHouseMedicationFieldType;
-  value: string | number | undefined;
+  value?: string | number | MedicationLocation;
   onChange: <Field extends keyof MedicationData>(field: Field, value: MedicationData[Field]) => void;
   required?: boolean;
   showError?: boolean;
@@ -53,7 +55,7 @@ const emptySelectsOptions: OrderFieldsSelectsOptions = {
   route: { options: [], status: 'loading' },
   associatedDx: { options: [], status: 'loading' },
   units: { options: [], status: 'loading' },
-  location: { options: [], status: 'loading' },
+  location: { options: [], status: 'loaded' },
   providerId: { options: [], status: 'loading' },
 };
 
@@ -139,6 +141,26 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
           format="yyyy-MM-dd"
         />
       </LocalizationProvider>
+    );
+  }
+
+  if (field === 'location') {
+    const options = selectsOptions.location.options;
+    // getMedicationFieldValue coerces unset fields to '' — treat anything non-object as no selection.
+    const currentValue = value && typeof value === 'object' ? value : null;
+    return (
+      <StyledFormControl data-testid={dataTestIds.orderMedicationPage.inputField(field)} disabled={!isEditable}>
+        <Autocomplete
+          disabled={!isEditable}
+          options={options}
+          value={currentValue}
+          getOptionLabel={(option) => option.name}
+          getOptionKey={(option) => `${option.code}|${option.name}`}
+          isOptionEqualToValue={(option, val) => option.code === val.code && option.name === val.name}
+          onChange={(_e, opt) => onChange(field, opt ? { code: opt.code, name: opt.name } : undefined)}
+          renderInput={(params) => <TextField {...params} label={label} placeholder={`Search ${label}`} />}
+        />
+      </StyledFormControl>
     );
   }
 
