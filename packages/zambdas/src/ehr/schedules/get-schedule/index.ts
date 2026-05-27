@@ -10,17 +10,23 @@ import {
   INVALID_RESOURCE_ID_ERROR,
   isLocationVirtual,
   isValidUUID,
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   MISSING_SCHEDULE_EXTENSION_ERROR,
+  RoleType,
+  ROOM_EXTENSION_URL,
   SCHEDULE_NOT_FOUND_ERROR,
+  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
   SCHEDULE_OWNER_NOT_FOUND_ERROR,
+  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
   ScheduleDTO,
   ScheduleDTOOwner,
   ScheduleExtension,
   ScheduleOwnerFhirResource,
   Secrets,
   TIMEZONES,
+  userMe,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
@@ -28,6 +34,25 @@ import { addressStringFromAddress, getNameForOwner } from '../shared';
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'get-schedule';
+
+const PAYMENT_FIELD_VIEWER_ROLES: ReadonlyArray<string> = [RoleType.Administrator, RoleType.CustomerSupport];
+
+const callerCanViewPaymentFields = async (
+  authorizationHeader: string | undefined,
+  secrets: ZambdaInput['secrets']
+): Promise<boolean> => {
+  if (!authorizationHeader) return false;
+  const token = authorizationHeader.replace(/^Bearer\s+/i, '');
+  if (!token) return false;
+  try {
+    const caller = await userMe(token, secrets);
+    const callerRoles = (caller.roles ?? []).map((role) => role.name);
+    return callerRoles.some((role) => PAYMENT_FIELD_VIEWER_ROLES.includes(role));
+  } catch (err) {
+    console.error('Failed to resolve caller from Authorization header:', err);
+    return false;
+  }
+};
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
@@ -37,9 +62,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
-  const effectInput = await complexValidation(validatedParameters, oystehr);
+  const [effectInput, includePaymentFields] = await Promise.all([
+    complexValidation(validatedParameters, oystehr),
+    callerCanViewPaymentFields(input.headers?.Authorization, secrets),
+  ]);
 
-  const scheduleDTO = performEffect(effectInput);
+  const scheduleDTO = performEffect(effectInput, { includePaymentFields });
 
   return {
     statusCode: 200,
@@ -47,7 +75,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-const performEffect = (input: EffectInput): ScheduleDTO => {
+const performEffect = (input: EffectInput, options: { includePaymentFields: boolean }): ScheduleDTO => {
   const { scheduleExtension, scheduleId, timezone, owner: ownerResource, scheduleActive } = input;
 
   let active = false;
@@ -59,14 +87,34 @@ const performEffect = (input: EffectInput): ScheduleDTO => {
 
   let detailText: string | undefined = undefined;
   let isVirtual: boolean | undefined = undefined;
+  let stripeAccountId: string | undefined = undefined;
+  let advapacsLocationId: string | undefined = undefined;
+  let rooms: string[] | undefined = undefined;
+  let description: string | undefined = undefined;
+  let address: Location['address'] | undefined = undefined;
+  let telecom: Location['telecom'] | undefined = undefined;
+  let reviewLink: string | undefined = undefined;
 
   if (ownerResource.resourceType === 'Location') {
     const loc = ownerResource as Location;
-    const address = loc.address;
+    address = loc.address;
     if (address) {
       detailText = addressStringFromAddress(address);
     }
+    description = loc.description;
+    telecom = loc.telecom;
     isVirtual = isLocationVirtual(loc);
+    reviewLink = loc.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)?.valueUrl;
+    if (options.includePaymentFields) {
+      stripeAccountId = loc.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)
+        ?.valueString;
+      advapacsLocationId = loc.extension?.find((ext) => ext.url === SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL)
+        ?.valueString;
+    }
+    rooms = loc.extension
+      ?.filter((ext) => ext.url === ROOM_EXTENSION_URL)
+      .map((ext) => ext.valueString)
+      .filter((value): value is string => typeof value === 'string');
   }
 
   const owner: ScheduleDTOOwner = {
@@ -77,9 +125,15 @@ const performEffect = (input: EffectInput): ScheduleDTO => {
     timezone: getTimezone(ownerResource),
     active,
     detailText,
-    infoMessage: '',
     hoursOfOperation: (ownerResource as Location)?.hoursOfOperation,
     isVirtual,
+    stripeAccountId,
+    advapacsLocationId,
+    rooms,
+    description,
+    address,
+    telecom,
+    reviewLink,
   };
 
   return {
