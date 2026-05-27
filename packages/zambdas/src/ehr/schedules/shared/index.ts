@@ -82,6 +82,7 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     description,
     address,
     telecom,
+    reviewLink,
   } = JSON.parse(input.body);
   const createMode = Boolean(ownerId) && Boolean(ownerType);
 
@@ -197,6 +198,10 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     }
   }
 
+  if (reviewLink !== undefined && reviewLink !== null && typeof reviewLink !== 'string') {
+    throw INVALID_INPUT_ERROR('"reviewLink" must be a string or null');
+  }
+
   if (telecom !== undefined && telecom !== null) {
     if (typeof telecom !== 'object' || Array.isArray(telecom)) {
       throw INVALID_INPUT_ERROR('"telecom" must be an object or null');
@@ -229,5 +234,6 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     description,
     address,
     telecom,
+    reviewLink,
   };
 };
