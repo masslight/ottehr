@@ -1,17 +1,27 @@
-import { UpdateApprovedPatientEducationCodesInput } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, UpdateApprovedPatientEducationCodesInput } from 'utils';
+import { z } from 'zod';
+import { safeValidate, ZambdaInput } from '../../shared';
+
+const icdCodeSchema = z.object({
+  code: z.string().min(1, 'Each icdCode must have a code'),
+  display: z.string(),
+});
+
+const updateApprovedPatientEducationCodesInputSchema: z.ZodType<UpdateApprovedPatientEducationCodesInput> = z.object({
+  documentReferenceId: z.string().min(1, 'documentReferenceId is required'),
+  icdCodes: z.array(icdCodeSchema).min(1, 'icdCodes must be a non-empty array'),
+});
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): UpdateApprovedPatientEducationCodesInput & Pick<ZambdaInput, 'secrets'> {
-  if (!input.body) throw new Error('No request body provided');
-  const { documentReferenceId, icdCodes } = JSON.parse(input.body) as Partial<UpdateApprovedPatientEducationCodesInput>;
-  if (!documentReferenceId) throw new Error('documentReferenceId is required');
-  if (!icdCodes || !Array.isArray(icdCodes) || icdCodes.length === 0) {
-    throw new Error('icdCodes is required and must be a non-empty array');
-  }
-  for (const c of icdCodes) {
-    if (!c?.code) throw new Error('Each icdCode must have a code');
-  }
-  return { documentReferenceId, icdCodes, secrets: input.secrets };
+  if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
+
+  const parsed = safeValidate(updateApprovedPatientEducationCodesInputSchema, JSON.parse(input.body));
+
+  return {
+    ...parsed,
+    secrets: input.secrets,
+  };
 }
