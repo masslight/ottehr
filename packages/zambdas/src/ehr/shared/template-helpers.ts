@@ -164,6 +164,9 @@ export const getTemplateEncounterBundle = async (
         // not just the ones currently on the Encounter. Need to filter it down later
         { name: '_revinclude:iterate', value: 'Condition:encounter' },
         { name: '_revinclude:iterate', value: 'Procedure:encounter' },
+        // Pulled in so in-house lab orders on this encounter can be saved as
+        // template plans when creating templates.
+        { name: '_revinclude:iterate', value: 'ServiceRequest:encounter' },
       ],
     })
   ).unbundle();
