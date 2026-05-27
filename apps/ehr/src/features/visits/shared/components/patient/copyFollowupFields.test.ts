@@ -30,23 +30,42 @@ describe('COPYABLE_FOLLOWUP_FIELDS', () => {
   });
 
   describe('Chief Complaint / HPI swap', () => {
-    // The "Chief Complaint" checkbox copies from `historyOfPresentIllness`, and "HPI" copies
-    // from `chiefComplaint` — mirrors the swap in ChiefComplaintField.tsx / HpiField.tsx.
+    // "Chief Complaint" = the whole Chief Complaint section: staff-confirmed Reason for visit
+    // (reasonForVisit) + Additional Information (historyOfPresentIllness, storage key swapped).
+    // "HPI" = History of Present Illness, backed by the chiefComplaint key.
     const chiefComplaint = fieldByKey('chiefComplaint');
     const hpi = fieldByKey('historyOfPresentIllness');
 
-    it('"Chief Complaint" checkbox reads from historyOfPresentIllness storage', () => {
+    it('"Chief Complaint" copies both reasonForVisit and Additional Information', () => {
       const data = chartWith({
+        reasonForVisit: { resourceId: 'rfv', text: 'ear pain' },
         historyOfPresentIllness: { resourceId: 'r1', text: 'sore throat' },
         chiefComplaint: { resourceId: 'r2', text: 'unused for this checkbox' },
       });
+      expect(chiefComplaint.isEmpty(data)).toBe(false);
+      expect(chiefComplaint.extract!(data)).toEqual({
+        reasonForVisit: { resourceId: undefined, text: 'ear pain' },
+        historyOfPresentIllness: { resourceId: undefined, text: 'sore throat' },
+      });
+    });
+
+    it('"Chief Complaint" is non-empty when only reasonForVisit is present', () => {
+      const data = chartWith({ reasonForVisit: { resourceId: 'rfv', text: 'ear pain' } });
+      expect(chiefComplaint.isEmpty(data)).toBe(false);
+      expect(chiefComplaint.extract!(data)).toEqual({
+        reasonForVisit: { resourceId: undefined, text: 'ear pain' },
+      });
+    });
+
+    it('"Chief Complaint" is non-empty when only Additional Information is present', () => {
+      const data = chartWith({ historyOfPresentIllness: { resourceId: 'r1', text: 'sore throat' } });
       expect(chiefComplaint.isEmpty(data)).toBe(false);
       expect(chiefComplaint.extract!(data)).toEqual({
         historyOfPresentIllness: { resourceId: undefined, text: 'sore throat' },
       });
     });
 
-    it('"HPI" checkbox reads from chiefComplaint storage', () => {
+    it('"HPI" reads from chiefComplaint storage', () => {
       const data = chartWith({ chiefComplaint: { resourceId: 'r2', text: 'narrative' } });
       expect(hpi.isEmpty(data)).toBe(false);
       expect(hpi.extract!(data)).toEqual({
@@ -54,9 +73,14 @@ describe('COPYABLE_FOLLOWUP_FIELDS', () => {
       });
     });
 
-    it('both fields are empty on empty chart', () => {
+    it('both checkboxes are empty on an empty chart', () => {
       expect(chiefComplaint.isEmpty(chartWith())).toBe(true);
       expect(hpi.isEmpty(chartWith())).toBe(true);
+    });
+
+    it('"Chief Complaint" is empty when reasonForVisit text is blank', () => {
+      // get-chart-data returns { text: '' } for an absent reason-for-visit extension.
+      expect(chiefComplaint.isEmpty(chartWith({ reasonForVisit: { text: '' } }))).toBe(true);
     });
   });
 
@@ -149,6 +173,7 @@ describe('fetchCopySourceChartData', () => {
       historyOfPresentIllness: { resourceId: 'r2', text: 'B' },
       mechanismOfInjury: { resourceId: 'r3', text: 'C' },
       accident: { resourceId: 'r4', date: '2025-01-01' },
+      reasonForVisit: { text: 'ear pain' },
     };
     const full = {
       diagnosis: [{ resourceId: 'd1', display: 'Dx' }],
@@ -161,6 +186,7 @@ describe('fetchCopySourceChartData', () => {
     expect(result.historyOfPresentIllness).toEqual(note.historyOfPresentIllness);
     expect(result.mechanismOfInjury).toEqual(note.mechanismOfInjury);
     expect(result.accident).toEqual(note.accident);
+    expect(result.reasonForVisit).toEqual(note.reasonForVisit);
     expect(result.diagnosis).toEqual(full.diagnosis);
     expect(result.examObservations).toEqual(full.examObservations);
     expect(result.rosObservations).toEqual(full.rosObservations);
