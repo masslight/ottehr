@@ -6,7 +6,6 @@ import {
   FRONT_DESK_RULES,
   INACTIVE_RULES,
   MANAGER_RULES,
-  PRESCRIBER_RULES,
   PROVIDER_RULES,
   STAFF_RULES,
 } from '../shared/';
@@ -38,7 +37,6 @@ export const allNonPatientRoles = [
   { name: RoleType.FrontDesk, accessPolicy: FRONT_DESK_RULES },
   { name: RoleType.Inactive, accessPolicy: INACTIVE_RULES },
   { name: RoleType.Manager, accessPolicy: MANAGER_RULES },
-  { name: RoleType.Prescriber, accessPolicy: PRESCRIBER_RULES },
   { name: RoleType.Provider, accessPolicy: PROVIDER_RULES },
   { name: RoleType.Staff, accessPolicy: STAFF_RULES },
 ];

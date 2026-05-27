@@ -50,13 +50,13 @@ import {
   getPatchOperationToRemoveMetaTags,
   getPayerId,
   getPayerUrl,
+  isValidUUID,
   LAB_RESULT_DOC_REF_CODING_CODE,
   PatientMasterRecordResourceType,
   replaceOperation,
   TaskCoding,
   TELEMED_VIDEO_ROOM_CODE,
   User,
-  uuidRegex,
   VisitStatusWithoutUnknown,
 } from 'utils';
 import { PROJECT_WEBSITE } from '../ottehr-config/branding';
@@ -1056,11 +1056,7 @@ export const createCoverageMemberIdentifier = (memberId: string, insuranceOrg: O
     ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
     value: memberId,
     assigner: {
-      reference: payerId
-        ? getPayerUrl(payerId)
-        : insuranceOrg.id?.match(uuidRegex)
-        ? `Organization/${insuranceOrg.id}`
-        : getPayerUrl(insuranceOrg.id!),
+      reference: isValidUUID(insuranceOrg.id ?? '') ? `Organization/${insuranceOrg.id}` : getPayerUrl(payerId!),
       display: insuranceOrg.name,
     },
   };
@@ -1550,3 +1546,11 @@ export function makeOptimisticLockIfMatchHeader(res: FhirResource | string): str
 
   return versionId ? `W/"${versionId}"` : undefined;
 }
+
+export const resourceHasTagSystem = (resource: FhirResource, system: string): boolean =>
+  resource.meta?.tag?.some((t) => t.system === system) ?? false;
+
+export const getTag = (resource: Resource, tagSystem: string, tagCode?: string): Coding | undefined => {
+  if (tagCode) return resource.meta?.tag?.find((tag) => tag.system === tagSystem && tag.code === tagCode);
+  else return resource.meta?.tag?.find((tag) => tag.system === tagSystem);
+};

@@ -41,12 +41,14 @@ import {
   formatMinutes,
   getAbnormalVitals,
   getAdmitterPractitionerId,
+  getAttendingPractitionerId,
   getDurationOfStatus,
   getPatchBinary,
   getSupportPhoneFor,
   getVisitTotalTime,
   GetVitalsResponseData,
   InPersonAppointmentInformation,
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
   makeAbbreviation,
   mdyStringFromISOString,
   NON_LOS_STATUSES,
@@ -70,6 +72,7 @@ import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusU
 import { getTrackingBoardPrimaryAction } from '../helpers/trackingBoardPrimaryAction';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
+import { useSupportPhonesMap } from '../hooks/useLocationSupportPhones';
 import AppointmentNote from './AppointmentNote';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
@@ -184,6 +187,7 @@ export default function AppointmentTableRow({
 }: AppointmentTableRowProps): ReactElement | null {
   const { oystehr, oystehrZambda } = useApiClients();
   const apiClient = useOystehrAPIClient();
+  const { phonesByLocationName } = useSupportPhonesMap();
   const theme = useTheme();
   const navigate = useNavigate();
   const { encounter } = appointment;
@@ -520,9 +524,11 @@ export default function AppointmentTableRow({
     patientLastName: appointment.patient.lastName,
     visitId: appointment.id,
     locationName: appointment.location?.name,
+    locationReviewLink: appointment.location?.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)
+      ?.valueUrl,
     bookingTime: start,
     officePhone: officePhoneNumber,
-    supportPhone: getSupportPhoneFor(appointment.location?.name) || '',
+    supportPhone: getSupportPhoneFor(appointment.location?.name, phonesByLocationName) || '',
   };
 
   const onCloseChat = useCallback(() => {
@@ -557,8 +563,9 @@ export default function AppointmentTableRow({
     return null;
   }
   const encounterId: string = encounter.id;
-  const primaryAction = getTrackingBoardPrimaryAction(appointment.status);
+  const primaryAction = getTrackingBoardPrimaryAction(appointment.status, { isVirtualVisit: isVirtual(appointment) });
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
+  const assignedProviderId = getAttendingPractitionerId(encounter);
 
   const handleStatusAction = async (
     updatedStatus: VisitStatusWithoutUnknown,
@@ -658,6 +665,16 @@ export default function AppointmentTableRow({
       return;
     }
 
+    if (appointment.status === 'ready for provider' && !assignedProviderId) {
+      enqueueSnackbar('Please assign provider', { variant: 'error' });
+      return;
+    }
+
+    if (primaryAction.skipStatusUpdate && primaryAction.navigateToChart) {
+      navigate(getInPersonUrlByAppointmentType(appointment, 'patient-info'));
+      return;
+    }
+
     await handleStatusAction(primaryAction.updatedStatus, {
       missingUserMessage: primaryAction.missingUserMessage,
       navigateTo: primaryAction.navigateToChart
@@ -727,7 +744,7 @@ export default function AppointmentTableRow({
         encounterId: encounterId,
       });
       await updateAppointments();
-      navigate('/visits', { state: { tab: ApptTab.completed } });
+      navigate(`/visits?tab=${ApptTab.completed}`);
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred while approving. Please try again.', { variant: 'error' });

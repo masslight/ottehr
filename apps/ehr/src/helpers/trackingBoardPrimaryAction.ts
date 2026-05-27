@@ -6,8 +6,13 @@ export interface TrackingBoardPrimaryAction {
   label: string;
   missingUserMessage: string;
   navigateToChart?: boolean;
+  skipStatusUpdate?: boolean;
   successMessage?: string;
   updatedStatus: VisitStatusWithoutUnknown;
+}
+
+interface TrackingBoardPrimaryActionOptions {
+  isVirtualVisit?: boolean;
 }
 
 type ActionableVisitStatus = 'arrived' | 'ready' | 'intake' | 'ready for provider' | 'provider';
@@ -50,5 +55,24 @@ const trackingBoardPrimaryActions = {
   },
 } satisfies Record<ActionableVisitStatus, TrackingBoardPrimaryAction>;
 
-export const getTrackingBoardPrimaryAction = (status: VisitStatusLabel): TrackingBoardPrimaryAction | undefined =>
-  status in trackingBoardPrimaryActions ? trackingBoardPrimaryActions[status as ActionableVisitStatus] : undefined;
+export const getTrackingBoardPrimaryAction = (
+  status: VisitStatusLabel,
+  options?: TrackingBoardPrimaryActionOptions
+): TrackingBoardPrimaryAction | undefined => {
+  if (!(status in trackingBoardPrimaryActions)) {
+    return undefined;
+  }
+
+  const action = trackingBoardPrimaryActions[status as ActionableVisitStatus];
+
+  if (status === 'ready for provider' && options?.isVirtualVisit) {
+    return {
+      ...action,
+      navigateToChart: true,
+      skipStatusUpdate: true,
+      successMessage: undefined,
+    };
+  }
+
+  return action;
+};

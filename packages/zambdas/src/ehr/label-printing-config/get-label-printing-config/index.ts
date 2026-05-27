@@ -107,7 +107,7 @@ export const getPrintingConfigAndDevice = async (
   return { printingConfig: parsedConfig, device };
 };
 
-const parsePrintingConfig = (device: Device): LabelPrintingConfig => {
+export const parsePrintingConfig = (device: Device): LabelPrintingConfig => {
   console.log(`Parsing printing config from Device/${device.id}`);
 
   // determine the printing mode

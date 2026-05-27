@@ -49,7 +49,7 @@ export class ClaudeClient {
 let chatbot: ChatAnthropic;
 // let chatbotVertexAI: ChatVertexAI;
 
-function getPrompt(patientInfoDetails: string, fields: string): string {
+export function getPrompt(patientInfoDetails: string, fields: string): string {
   return `I'll give you a transcript of a chat between a healthcare provider and a patient.
 Patient details: ${patientInfoDetails}
 Please generate ${fields} based on the transcript.
@@ -152,9 +152,14 @@ export async function invokeChatbotVertexAI(
 
     try {
       const response = await fetch(
-        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-3.1-flash-lite-preview:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
+        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Vertex-AI-LLM-Request-Type': 'shared',
+            'X-Vertex-AI-LLM-Shared-Request-Type': 'priority',
+          },
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [input] }],
             generationConfig: {

@@ -1,9 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CandidApiClient } from 'candidhealth';
 import { Operation } from 'fast-json-patch';
 import { Task } from 'fhir/r4b';
-import { createCandidApiClient, getOptionalSecret, SecretsKeys } from 'utils';
+import { getOrCreateCandidApiClient, MISSING_REQUEST_SECRETS } from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   createEncounterFromAppointment,
@@ -34,7 +33,6 @@ type TaskStatus =
 
 let oystehrToken: string;
 let oystehr: Oystehr;
-let candidApiClient: CandidApiClient | undefined;
 let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-send-claim';
@@ -81,14 +79,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const { encounter } = visitResources;
 
       if (shouldSendClaim(secrets, encounter)) {
-        const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
-        if (shouldUseCandid(secrets) && (candidClientId == null || candidClientId.length === 0)) {
-          console.log('CANDID_CLIENT_ID is not set, skipping encounter submission to candid');
-        } else {
-          if (shouldUseCandid(secrets)) {
-            if (!candidApiClient) {
-              candidApiClient = createCandidApiClient(secrets);
-            }
+        if (shouldUseCandid(secrets)) {
+          let candidApiClient: Awaited<ReturnType<typeof getOrCreateCandidApiClient>> | undefined;
+          try {
+            candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
+          } catch (error) {
+            if (error !== MISSING_REQUEST_SECRETS) throw error;
+            console.log('Candid not configured, skipping encounter submission to candid.');
+          }
+          if (candidApiClient) {
             console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
             const candidEncounterId = await createEncounterFromAppointment(visitResources, oystehr, candidApiClient);
             console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
@@ -118,10 +117,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               operations: encounterPatchOps,
             });
           }
-          // no else, these are not mutually exclusive
-          if (shouldUseOttehrBilling(secrets)) {
-            // currently a no op
-          }
+        }
+        // no else, these are not mutually exclusive
+        if (shouldUseOttehrBilling(secrets)) {
+          // currently a no op
         }
       }
 
