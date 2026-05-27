@@ -39,6 +39,9 @@ const FOOTER_FONT_SIZE = 8;
 const LINE_HEIGHT_RATIO = 1.55; // multiplier applied to body font size for normal text
 const SECTION_HEADER_LINE_HEIGHT_RATIO = 2;
 const TITLE_LINE_HEIGHT_RATIO = 1.3;
+// Derived line heights — computed once at module scope rather than every render.
+const LINE_HEIGHT = BODY_FONT_SIZE * LINE_HEIGHT_RATIO;
+const SECTION_HEADER_LINE_HEIGHT = SECTION_HEADER_FONT_SIZE * SECTION_HEADER_LINE_HEIGHT_RATIO;
 
 // Title banner
 const TITLE_BANNER_HEIGHT = 60;
@@ -76,19 +79,9 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const helveticaOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
-  const pageWidth = PAGE_WIDTH;
-  const pageHeight = PAGE_HEIGHT;
-  const margin = MARGIN;
-  const maxWidth = MAX_CONTENT_WIDTH;
-  const bodyFontSize = BODY_FONT_SIZE;
-  const sectionHeaderFontSize = SECTION_HEADER_FONT_SIZE;
-  const titleFontSize = TITLE_FONT_SIZE;
-  const lineHeight = bodyFontSize * LINE_HEIGHT_RATIO;
-  const sectionHeaderLineHeight = sectionHeaderFontSize * SECTION_HEADER_LINE_HEIGHT_RATIO;
-
   function addNewPage(): { page: ReturnType<typeof pdfDoc.addPage>; y: number } {
-    const page = pdfDoc.addPage([pageWidth, pageHeight]);
-    return { page, y: pageHeight - margin };
+    const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    return { page, y: PAGE_HEIGHT - MARGIN };
   }
 
   function drawFooter(
@@ -98,29 +91,29 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
     icdLabel: string
   ): void {
     page.drawLine({
-      start: { x: margin, y: margin - FOOTER_RULE_OFFSET },
-      end: { x: pageWidth - margin, y: margin - FOOTER_RULE_OFFSET },
+      start: { x: MARGIN, y: MARGIN - FOOTER_RULE_OFFSET },
+      end: { x: PAGE_WIDTH - MARGIN, y: MARGIN - FOOTER_RULE_OFFSET },
       thickness: FOOTER_DIVIDER_THICKNESS,
       color: DIVIDER_COLOR,
     });
     page.drawText(icdLabel, {
-      x: margin,
-      y: margin - FOOTER_PRIMARY_LINE_OFFSET,
+      x: MARGIN,
+      y: MARGIN - FOOTER_PRIMARY_LINE_OFFSET,
       size: FOOTER_FONT_SIZE,
       font: helveticaOblique,
       color: TEXT_LIGHT,
     });
     const formattedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     page.drawText(`Generated: ${formattedDate}  |  Source: MedlinePlus`, {
-      x: margin,
-      y: margin - FOOTER_SECONDARY_LINE_OFFSET,
+      x: MARGIN,
+      y: MARGIN - FOOTER_SECONDARY_LINE_OFFSET,
       size: FOOTER_FONT_SIZE,
       font: helvetica,
       color: TEXT_LIGHT,
     });
     page.drawText(`Page ${pageNum} of ${totalPages}`, {
-      x: pageWidth - margin - FOOTER_PAGE_NUMBER_RIGHT_INSET,
-      y: margin - FOOTER_PRIMARY_LINE_OFFSET,
+      x: PAGE_WIDTH - MARGIN - FOOTER_PAGE_NUMBER_RIGHT_INSET,
+      y: MARGIN - FOOTER_PRIMARY_LINE_OFFSET,
       size: FOOTER_FONT_SIZE,
       font: helvetica,
       color: TEXT_LIGHT,
@@ -137,31 +130,31 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
     const bannerHeight = TITLE_BANNER_HEIGHT;
     page.drawRectangle({
       x: 0,
-      y: pageHeight - bannerHeight,
-      width: pageWidth,
+      y: PAGE_HEIGHT - bannerHeight,
+      width: PAGE_WIDTH,
       height: bannerHeight,
       color: BRAND_BLUE,
     });
     const titleLines = splitLongStringToPageSize(
       section.patientTitle,
       helveticaBold,
-      titleFontSize,
-      maxWidth - TITLE_HORIZONTAL_PADDING
+      TITLE_FONT_SIZE,
+      MAX_CONTENT_WIDTH - TITLE_HORIZONTAL_PADDING
     );
-    const titleBlockHeight = titleLines.length * titleFontSize * TITLE_LINE_HEIGHT_RATIO;
-    const bannerCenterY = pageHeight - bannerHeight / 2;
-    let titleY = bannerCenterY + titleBlockHeight / 2 - titleFontSize * TITLE_BASELINE_NUDGE_RATIO;
+    const titleBlockHeight = titleLines.length * TITLE_FONT_SIZE * TITLE_LINE_HEIGHT_RATIO;
+    const bannerCenterY = PAGE_HEIGHT - bannerHeight / 2;
+    let titleY = bannerCenterY + titleBlockHeight / 2 - TITLE_FONT_SIZE * TITLE_BASELINE_NUDGE_RATIO;
     for (const line of titleLines) {
-      const titleWidth = helveticaBold.widthOfTextAtSize(line, titleFontSize);
-      const titleX = (pageWidth - titleWidth) / 2;
-      page.drawText(line, { x: titleX, y: titleY, size: titleFontSize, font: helveticaBold, color: rgb(1, 1, 1) });
-      titleY -= titleFontSize * TITLE_LINE_HEIGHT_RATIO;
+      const titleWidth = helveticaBold.widthOfTextAtSize(line, TITLE_FONT_SIZE);
+      const titleX = (PAGE_WIDTH - titleWidth) / 2;
+      page.drawText(line, { x: titleX, y: titleY, size: TITLE_FONT_SIZE, font: helveticaBold, color: rgb(1, 1, 1) });
+      titleY -= TITLE_FONT_SIZE * TITLE_LINE_HEIGHT_RATIO;
     }
-    y = pageHeight - bannerHeight - ACCENT_RULE_GAP;
+    y = PAGE_HEIGHT - bannerHeight - ACCENT_RULE_GAP;
 
     page.drawLine({
-      start: { x: margin, y },
-      end: { x: pageWidth - margin, y },
+      start: { x: MARGIN, y },
+      end: { x: PAGE_WIDTH - MARGIN, y },
       thickness: ACCENT_RULE_THICKNESS,
       color: ACCENT_ORANGE,
     });
@@ -203,12 +196,12 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
     }
 
     const calcWarningGroupHeight = (startIdx: number): { endIdx: number; totalHeight: number } => {
-      const warningTextWidth = maxWidth - WARNING_HORIZONTAL_PADDING * 2;
+      const warningTextWidth = MAX_CONTENT_WIDTH - WARNING_HORIZONTAL_PADDING * 2;
       let height = WARNING_VERTICAL_PADDING;
       let idx = startIdx;
 
-      const firstLines = splitLongStringToPageSize(blocks[idx].cleanText, helvetica, bodyFontSize, warningTextWidth);
-      height += firstLines.length * lineHeight;
+      const firstLines = splitLongStringToPageSize(blocks[idx].cleanText, helvetica, BODY_FONT_SIZE, warningTextWidth);
+      height += firstLines.length * LINE_HEIGHT;
       idx++;
 
       while (idx < blocks.length) {
@@ -220,13 +213,13 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
           const bulletLines = splitLongStringToPageSize(
             bulletText,
             helvetica,
-            bodyFontSize,
+            BODY_FONT_SIZE,
             warningTextWidth - WARNING_BULLET_INDENT
           );
-          height += bulletLines.length * lineHeight;
+          height += bulletLines.length * LINE_HEIGHT;
         } else {
-          const textLines = splitLongStringToPageSize(block.cleanText, helvetica, bodyFontSize, warningTextWidth);
-          height += textLines.length * lineHeight;
+          const textLines = splitLongStringToPageSize(block.cleanText, helvetica, BODY_FONT_SIZE, warningTextWidth);
+          height += textLines.length * LINE_HEIGHT;
         }
         idx++;
       }
@@ -240,100 +233,100 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
       const block = blocks[blockIdx];
 
       if (block.type === 'empty') {
-        y -= lineHeight * 0.4;
+        y -= LINE_HEIGHT * 0.4;
         blockIdx++;
         continue;
       }
 
-      const neededSpace = block.type === 'header' ? sectionHeaderLineHeight + 30 : lineHeight + 5;
-      if (y < margin + 40 + neededSpace) {
-        page = pdfDoc.addPage([pageWidth, pageHeight]);
+      const neededSpace = block.type === 'header' ? SECTION_HEADER_LINE_HEIGHT + 30 : LINE_HEIGHT + 5;
+      if (y < MARGIN + 40 + neededSpace) {
+        page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
         allPages.push({ page, icdLabel });
-        y = pageHeight - margin;
+        y = PAGE_HEIGHT - MARGIN;
       }
 
       if (block.type === 'header') {
         y -= 8;
-        const headerBoxHeight = sectionHeaderFontSize * 1.6;
+        const headerBoxHeight = SECTION_HEADER_FONT_SIZE * 1.6;
         page.drawRectangle({
-          x: margin,
-          y: y - headerBoxHeight + sectionHeaderFontSize + 2,
-          width: maxWidth,
+          x: MARGIN,
+          y: y - headerBoxHeight + SECTION_HEADER_FONT_SIZE + 2,
+          width: MAX_CONTENT_WIDTH,
           height: headerBoxHeight,
           color: BRAND_LIGHT_BLUE,
         });
         page.drawRectangle({
-          x: margin,
-          y: y - headerBoxHeight + sectionHeaderFontSize + 2,
+          x: MARGIN,
+          y: y - headerBoxHeight + SECTION_HEADER_FONT_SIZE + 2,
           width: 3,
           height: headerBoxHeight,
           color: BRAND_BLUE,
         });
         page.drawText(block.cleanText, {
-          x: margin + 10,
+          x: MARGIN + 10,
           y: y,
-          size: sectionHeaderFontSize,
+          size: SECTION_HEADER_FONT_SIZE,
           font: helveticaBold,
           color: BRAND_BLUE,
         });
-        y -= sectionHeaderLineHeight;
+        y -= SECTION_HEADER_LINE_HEIGHT;
         blockIdx++;
       } else if (block.type === 'bullet' && !block.isWarningLine) {
         const bulletText = block.cleanText.replace(/^[-•]\s*/, '');
         const bulletLines = splitLongStringToPageSize(
           bulletText,
           helvetica,
-          bodyFontSize,
-          maxWidth - TITLE_HORIZONTAL_PADDING
+          BODY_FONT_SIZE,
+          MAX_CONTENT_WIDTH - TITLE_HORIZONTAL_PADDING
         );
         for (let i = 0; i < bulletLines.length; i++) {
-          if (y < margin + 40) {
-            page = pdfDoc.addPage([pageWidth, pageHeight]);
+          if (y < MARGIN + 40) {
+            page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
             allPages.push({ page, icdLabel });
-            y = pageHeight - margin;
+            y = PAGE_HEIGHT - MARGIN;
           }
           if (i === 0) {
             page.drawCircle({
-              x: margin + 6,
-              y: y + bodyFontSize * 0.3,
+              x: MARGIN + 6,
+              y: y + BODY_FONT_SIZE * 0.3,
               size: 2,
               color: ACCENT_ORANGE,
             });
           }
           page.drawText(bulletLines[i], {
-            x: margin + 16,
+            x: MARGIN + 16,
             y,
-            size: bodyFontSize,
+            size: BODY_FONT_SIZE,
             font: helvetica,
             color: TEXT_DARK,
           });
-          y -= lineHeight;
+          y -= LINE_HEIGHT;
         }
         blockIdx++;
       } else if (block.isWarningLine && (block.type === 'text' || block.type === 'bullet')) {
         const { endIdx, totalHeight } = calcWarningGroupHeight(blockIdx);
 
-        if (y < margin + 40 + totalHeight) {
-          page = pdfDoc.addPage([pageWidth, pageHeight]);
+        if (y < MARGIN + 40 + totalHeight) {
+          page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
           allPages.push({ page, icdLabel });
-          y = pageHeight - margin;
+          y = PAGE_HEIGHT - MARGIN;
         }
 
         y -= 4;
-        const boxTop = y + bodyFontSize + 4;
+        const boxTop = y + BODY_FONT_SIZE + 4;
         page.drawRectangle({
-          x: margin,
+          x: MARGIN,
           y: boxTop - totalHeight,
-          width: maxWidth,
+          width: MAX_CONTENT_WIDTH,
           height: totalHeight,
           color: WARNING_BG,
           borderColor: WARNING_BORDER,
           borderWidth: 1,
         });
-        page.drawText('!', { x: margin + 9, y: y - 1, size: 14, font: helveticaBold, color: WARNING_BORDER });
+        page.drawText('!', { x: MARGIN + 9, y: y - 1, size: 14, font: helveticaBold, color: WARNING_BORDER });
 
-        const warningTextX = margin + 22;
-        const warningTextWidth = maxWidth - WARNING_HORIZONTAL_PADDING * 2;
+        const warningTextX = MARGIN + 22;
+        const warningTextWidth = MAX_CONTENT_WIDTH - WARNING_HORIZONTAL_PADDING * 2;
 
         for (let wi = blockIdx; wi < endIdx; wi++) {
           const wBlock = blocks[wi];
@@ -342,14 +335,14 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
             const bulletLines = splitLongStringToPageSize(
               bulletText,
               helvetica,
-              bodyFontSize,
+              BODY_FONT_SIZE,
               warningTextWidth - WARNING_BULLET_INDENT
             );
             for (let i = 0; i < bulletLines.length; i++) {
               if (i === 0) {
                 page.drawCircle({
                   x: warningTextX + 4,
-                  y: y + bodyFontSize * 0.3,
+                  y: y + BODY_FONT_SIZE * 0.3,
                   size: 2,
                   color: WARNING_BORDER,
                 });
@@ -357,23 +350,23 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
               page.drawText(bulletLines[i], {
                 x: warningTextX + 14,
                 y,
-                size: bodyFontSize,
+                size: BODY_FONT_SIZE,
                 font: helvetica,
                 color: TEXT_DARK,
               });
-              y -= lineHeight;
+              y -= LINE_HEIGHT;
             }
           } else {
-            const lines = splitLongStringToPageSize(wBlock.cleanText, helvetica, bodyFontSize, warningTextWidth);
+            const lines = splitLongStringToPageSize(wBlock.cleanText, helvetica, BODY_FONT_SIZE, warningTextWidth);
             for (const line of lines) {
               page.drawText(line, {
                 x: warningTextX,
                 y,
-                size: bodyFontSize,
+                size: BODY_FONT_SIZE,
                 font: helvetica,
                 color: TEXT_DARK,
               });
-              y -= lineHeight;
+              y -= LINE_HEIGHT;
             }
           }
         }
@@ -381,21 +374,21 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
         y -= 4;
         blockIdx = endIdx;
       } else {
-        const lines = splitLongStringToPageSize(block.cleanText, helvetica, bodyFontSize, maxWidth);
+        const lines = splitLongStringToPageSize(block.cleanText, helvetica, BODY_FONT_SIZE, MAX_CONTENT_WIDTH);
         for (const line of lines) {
-          if (y < margin + 40) {
-            page = pdfDoc.addPage([pageWidth, pageHeight]);
+          if (y < MARGIN + 40) {
+            page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
             allPages.push({ page, icdLabel });
-            y = pageHeight - margin;
+            y = PAGE_HEIGHT - MARGIN;
           }
           page.drawText(line, {
-            x: margin,
+            x: MARGIN,
             y,
-            size: bodyFontSize,
+            size: BODY_FONT_SIZE,
             font: helvetica,
             color: TEXT_DARK,
           });
-          y -= lineHeight;
+          y -= LINE_HEIGHT;
         }
         blockIdx++;
       }
