@@ -1,4 +1,4 @@
-import { GeneratePatientEducationInput, MISSING_REQUEST_BODY } from 'utils';
+import { GeneratePatientEducationInput, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
 import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
@@ -10,9 +10,8 @@ const generatePatientEducationInputSchema: z.ZodType<GeneratePatientEducationInp
 export function validateRequestParameters(
   input: ZambdaInput
 ): GeneratePatientEducationInput & Pick<ZambdaInput, 'secrets'> {
-  if (!input.body) {
-    throw MISSING_REQUEST_BODY;
-  }
+  if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
   const parsed = safeValidate(generatePatientEducationInputSchema, JSON.parse(input.body));
 

@@ -1,4 +1,4 @@
-import { MISSING_REQUEST_BODY, SavePatientEducationPdfInput } from 'utils';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, SavePatientEducationPdfInput } from 'utils';
 import { z } from 'zod';
 import { safeValidate, ZambdaInput } from '../../shared';
 
@@ -19,9 +19,8 @@ const savePatientEducationPdfInputSchema: z.ZodType<SavePatientEducationPdfInput
 export function validateRequestParameters(
   input: ZambdaInput
 ): SavePatientEducationPdfInput & Pick<ZambdaInput, 'secrets'> {
-  if (!input.body) {
-    throw MISSING_REQUEST_BODY;
-  }
+  if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
   const parsed = safeValidate(savePatientEducationPdfInputSchema, JSON.parse(input.body));
 

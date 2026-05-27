@@ -2,7 +2,8 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { GeneratePatientEducationInput, GeneratePatientEducationOutput, getSecret, SecretsKeys } from 'utils';
 import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
-import { buildEducationPrompt, fetchMedlineLinks } from './helpers';
+import { fetchMedlineLinks } from '../../shared/medlineplus';
+import { buildEducationPrompt } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export const index = wrapHandler(

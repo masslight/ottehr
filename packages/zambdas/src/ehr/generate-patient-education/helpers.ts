@@ -1,38 +1,4 @@
-const MEDLINE_BASE_URL = 'https://connect.medlineplus.gov/service';
-const ICD10_CODE_SYSTEM = '2.16.840.1.113883.6.90';
-
-interface MedlineEntry {
-  title: { _value: string };
-  link: { href: string; rel: string }[];
-  summary: { _value: string; type: string };
-}
-
-interface MedlineResponse {
-  feed: {
-    entry?: MedlineEntry[];
-  };
-}
-
-export interface MedlineLink {
-  title: string;
-  url: string;
-}
-
-export async function fetchMedlineLinks(icdCode: string): Promise<MedlineLink[]> {
-  const url = `${MEDLINE_BASE_URL}?mainSearchCriteria.v.cs=${ICD10_CODE_SYSTEM}&mainSearchCriteria.v.c=${encodeURIComponent(
-    icdCode
-  )}&knowledgeResponseType=application/json`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`MedlinePlus request failed: ${response.status}`);
-  }
-  const data: MedlineResponse = await response.json();
-  const entries = data.feed.entry ?? [];
-  return entries.map((entry) => ({
-    title: entry.title._value,
-    url: entry.link[0]?.href ?? '',
-  }));
-}
+import { MedlineLink } from '../../shared/medlineplus';
 
 export function buildEducationPrompt(icdDescription: string, links: MedlineLink[]): string {
   const linksText = links.map((l) => `- ${l.title}: ${l.url}`).join('\n');

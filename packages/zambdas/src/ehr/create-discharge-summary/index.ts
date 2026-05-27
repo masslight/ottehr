@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import { captureException, withScope } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { PDFDocument } from 'pdf-lib';
@@ -162,9 +162,10 @@ export const performEffect = async (
           console.log(`Appended education PDF from DocumentReference/${docRef.id}`);
         } catch (err) {
           console.error(`Failed to append education PDF DocumentReference/${docRef.id}:`, err);
-          captureException(err, {
-            tags: { zambda: 'create-discharge-summary', stage: 'append-education-pdf' },
-            extra: { documentReferenceId: docRef.id },
+          withScope((scope) => {
+            scope.setTag('stage', 'append-education-pdf');
+            if (docRef.id) scope.setTag('documentReferenceId', docRef.id);
+            captureException(err);
           });
         }
       }
@@ -177,9 +178,11 @@ export const performEffect = async (
     }
   } catch (err) {
     console.error('Failed to merge education PDFs into discharge summary:', err);
-    captureException(err, {
-      tags: { zambda: 'create-discharge-summary', stage: 'merge-education-pdfs' },
-      extra: { encounterId: encounter.id, patientId: patient.id },
+    withScope((scope) => {
+      scope.setTag('stage', 'merge-education-pdfs');
+      if (encounter.id) scope.setTag('encounterId', encounter.id);
+      if (patient.id) scope.setTag('patientId', patient.id);
+      captureException(err);
     });
     // Non-fatal: proceed with the discharge summary without education PDFs
   }
