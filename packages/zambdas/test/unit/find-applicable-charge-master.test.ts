@@ -14,6 +14,7 @@ vi.mock('../../src/shared', () => ({
 
 const RCM_TAG_SYSTEM = 'https://fhir.zapehr.com/r4/StructureDefinitions/rcm';
 
+import { getPayerUrl } from 'utils';
 import { index as _handler } from '../../src/rcm/charge-masters/find-applicable-charge-master/index';
 import { createOystehrClient } from '../../src/shared';
 import { ZambdaInput } from '../../src/shared/types';
@@ -47,24 +48,24 @@ function makeChargeMaster(
 
 function cmWithOrg(
   id: string,
-  orgId: string,
+  orgRef: string,
   date: string,
   extra?: Partial<ChargeItemDefinition>
 ): ChargeItemDefinition {
   return makeChargeMaster({
     id,
     date,
-    useContext: [{ code: { code: 'payer' }, valueReference: { reference: `Organization/${orgId}` } } as any],
+    useContext: [{ code: { code: 'payer' }, valueReference: { reference: orgRef } } as any],
     ...extra,
   });
 }
 
-function cmWithOrgAndLocation(id: string, orgId: string, locationId: string, date: string): ChargeItemDefinition {
+function cmWithOrgAndLocation(id: string, orgRef: string, locationId: string, date: string): ChargeItemDefinition {
   return makeChargeMaster({
     id,
     date,
     useContext: [
-      { code: { code: 'payer' }, valueReference: { reference: `Organization/${orgId}` } } as any,
+      { code: { code: 'payer' }, valueReference: { reference: orgRef } } as any,
       { code: { code: 'venue' }, valueReference: { reference: `Location/${locationId}` } } as any,
     ],
   });
@@ -125,7 +126,7 @@ describe('find-applicable-charge-master', () => {
   // -----------------------------------------------------------------------
   describe('employer-specific resolution', () => {
     it('returns employer-specific charge master when employer matches', async () => {
-      const cm = cmWithOrg('cm-emp', EMPLOYER_1, '2025-01-01');
+      const cm = cmWithOrg('cm-emp', `Organization/${EMPLOYER_1}`, '2025-01-01');
       stubSearch([cm]);
 
       const result = await handler(makeInput({ employerOrganizationId: EMPLOYER_1, dateOfService: '2025-06-01' }));
@@ -137,8 +138,8 @@ describe('find-applicable-charge-master', () => {
     });
 
     it('prefers employer over payer when both are provided', async () => {
-      const cmEmp = cmWithOrg('cm-emp', EMPLOYER_1, '2025-01-01');
-      const cmPayer = cmWithOrg('cm-payer', PAYER_1, '2025-01-01');
+      const cmEmp = cmWithOrg('cm-emp', `Organization/${EMPLOYER_1}`, '2025-01-01');
+      const cmPayer = cmWithOrg('cm-payer', getPayerUrl(PAYER_1), '2025-01-01');
       stubSearch([cmEmp, cmPayer]);
 
       const result = await handler(
@@ -155,7 +156,7 @@ describe('find-applicable-charge-master', () => {
     });
 
     it('falls back to payer when employer has no match', async () => {
-      const cmPayer = cmWithOrg('cm-payer', PAYER_1, '2025-01-01');
+      const cmPayer = cmWithOrg('cm-payer', getPayerUrl(PAYER_1), '2025-01-01');
       stubSearch([cmPayer]);
 
       const result = await handler(
@@ -177,7 +178,7 @@ describe('find-applicable-charge-master', () => {
   // -----------------------------------------------------------------------
   describe('payer-specific resolution', () => {
     it('returns payer-specific charge master', async () => {
-      const cm = cmWithOrg('cm-payer', PAYER_1, '2025-01-01');
+      const cm = cmWithOrg('cm-payer', getPayerUrl(PAYER_1), '2025-01-01');
       stubSearch([cm]);
 
       const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
@@ -188,9 +189,9 @@ describe('find-applicable-charge-master', () => {
     });
 
     it('selects the most recent effective date on or before dateOfService', async () => {
-      const cmOld = cmWithOrg('cm-old', PAYER_1, '2024-01-01');
-      const cmRecent = cmWithOrg('cm-recent', PAYER_1, '2025-03-01');
-      const cmFuture = cmWithOrg('cm-future', PAYER_1, '2025-07-01');
+      const cmOld = cmWithOrg('cm-old', getPayerUrl(PAYER_1), '2024-01-01');
+      const cmRecent = cmWithOrg('cm-recent', getPayerUrl(PAYER_1), '2025-03-01');
+      const cmFuture = cmWithOrg('cm-future', getPayerUrl(PAYER_1), '2025-07-01');
       stubSearch([cmOld, cmRecent, cmFuture]);
 
       const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
@@ -200,8 +201,8 @@ describe('find-applicable-charge-master', () => {
     });
 
     it('ignores inactive charge masters', async () => {
-      const cmInactive = cmWithOrg('cm-inactive', PAYER_1, '2025-01-01', { status: 'retired' });
-      const cmActive = cmWithOrg('cm-active', PAYER_1, '2024-06-01');
+      const cmInactive = cmWithOrg('cm-inactive', getPayerUrl(PAYER_1), '2025-01-01', { status: 'retired' });
+      const cmActive = cmWithOrg('cm-active', getPayerUrl(PAYER_1), '2024-06-01');
       stubSearch([cmInactive, cmActive]);
 
       const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
@@ -275,8 +276,8 @@ describe('find-applicable-charge-master', () => {
   // -----------------------------------------------------------------------
   describe('location filtering', () => {
     it('prefers location-specific charge master over general', async () => {
-      const cmGeneral = cmWithOrg('cm-general', PAYER_1, '2025-01-01');
-      const cmLocation = cmWithOrgAndLocation('cm-loc', PAYER_1, LOC_1, '2025-01-01');
+      const cmGeneral = cmWithOrg('cm-general', getPayerUrl(PAYER_1), '2025-01-01');
+      const cmLocation = cmWithOrgAndLocation('cm-loc', getPayerUrl(PAYER_1), LOC_1, '2025-01-01');
       stubSearch([cmGeneral, cmLocation]);
 
       const result = await handler(
@@ -288,8 +289,8 @@ describe('find-applicable-charge-master', () => {
     });
 
     it('falls back to charge master with no location when locationId does not match', async () => {
-      const cmGeneral = cmWithOrg('cm-general', PAYER_1, '2025-01-01');
-      const cmOtherLoc = cmWithOrgAndLocation('cm-other-loc', PAYER_1, LOC_OTHER, '2025-01-01');
+      const cmGeneral = cmWithOrg('cm-general', getPayerUrl(PAYER_1), '2025-01-01');
+      const cmOtherLoc = cmWithOrgAndLocation('cm-other-loc', getPayerUrl(PAYER_1), LOC_OTHER, '2025-01-01');
       stubSearch([cmGeneral, cmOtherLoc]);
 
       const result = await handler(
@@ -302,7 +303,7 @@ describe('find-applicable-charge-master', () => {
     });
 
     it('returns null when locationId is provided but only location-specific CMs exist for other locations', async () => {
-      const cmOtherLoc = cmWithOrgAndLocation('cm-other-loc', PAYER_1, LOC_OTHER, '2025-01-01');
+      const cmOtherLoc = cmWithOrgAndLocation('cm-other-loc', getPayerUrl(PAYER_1), LOC_OTHER, '2025-01-01');
       stubSearch([cmOtherLoc]);
 
       const result = await handler(
@@ -330,7 +331,7 @@ describe('find-applicable-charge-master', () => {
     });
 
     it('returns null when all charge masters are in the future', async () => {
-      const cmFuture = cmWithOrg('cm-future', PAYER_1, '2026-01-01');
+      const cmFuture = cmWithOrg('cm-future', getPayerUrl(PAYER_1), '2026-01-01');
       stubSearch([cmFuture]);
 
       const result = await handler(makeInput({ payerOrganizationId: PAYER_1, dateOfService: '2025-06-01' }));
@@ -338,6 +339,37 @@ describe('find-applicable-charge-master', () => {
       const body = parseBody(result);
       expect(body.chargeMaster).toBeNull();
       expect(body.source).toBeNull();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Non-UUID payer IDs (Oystehr RCM API payer IDs)
+  // -----------------------------------------------------------------------
+  describe('non-UUID payer ID support', () => {
+    it('accepts a non-UUID alphanumeric payer ID and matches via payer URL', async () => {
+      const payerId = '60054';
+      const cm = cmWithOrg('cm-rcm-payer', getPayerUrl(payerId), '2025-01-01');
+      stubSearch([cm]);
+
+      const result = await handler(makeInput({ payerOrganizationId: payerId, dateOfService: '2025-06-01' }));
+
+      const body = parseBody(result);
+      expect(result.statusCode).toBe(200);
+      expect(body.source).toBe('payer-specific');
+      expect(body.chargeMaster.id).toBe('cm-rcm-payer');
+    });
+
+    it('accepts an alphanumeric payer ID with letters', async () => {
+      const payerId = 'J1859';
+      const cm = cmWithOrg('cm-alpha-payer', getPayerUrl(payerId), '2025-01-01');
+      stubSearch([cm]);
+
+      const result = await handler(makeInput({ payerOrganizationId: payerId, dateOfService: '2025-06-01' }));
+
+      const body = parseBody(result);
+      expect(result.statusCode).toBe(200);
+      expect(body.source).toBe('payer-specific');
+      expect(body.chargeMaster.id).toBe('cm-alpha-payer');
     });
   });
 });

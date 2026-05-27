@@ -27,7 +27,7 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.0.22';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.0';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
@@ -793,8 +793,7 @@ function buildFormFields(
           type: 'reference',
           dataSource: {
             answerSource: {
-              resourceType: 'Organization',
-              query: 'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|pay',
+              zambdaId: 'get-patient-insurance-payers',
             },
           },
           disabledDisplay: 'hidden',
@@ -1212,8 +1211,7 @@ function buildFormFields(
               type: 'reference',
               dataSource: {
                 answerSource: {
-                  resourceType: 'Organization',
-                  query: 'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|pay',
+                  zambdaId: 'get-patient-insurance-payers',
                 },
               },
               triggers: [
@@ -1462,6 +1460,7 @@ function buildFormFields(
           type: 'reference',
           dataSource: {
             answerSource: {
+              zambdaId: 'get-answer-options',
               resourceType: 'Organization',
               query:
                 'active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer',

@@ -1,5 +1,6 @@
 import SearchIcon from '@mui/icons-material/Search';
 import { ButtonBase, InputBase, Typography } from '@mui/material';
+import { SxProps, Theme } from '@mui/material/styles';
 import { FC } from 'react';
 import { useCommandPaletteStore } from 'src/state/command-palette.store';
 
@@ -7,15 +8,14 @@ interface CommandPaletteSearchButtonProps {
   /** Optional min-width override — the in-person header has less room than the main nav. */
   minWidth?: number;
   /** Extra sx spacing (e.g. mr/ml) applied to the outer button. */
-  sx?: object;
+  sx?: SxProps<Theme>;
 }
 
 /**
  * Search-styled ButtonBase that opens the command palette on click. Embedded
  * InputBase is read-only and non-focusable so focus lands on the palette's
- * real search field once it opens. Reused by the main Navbar, the in-person
- * per-visit header, and the telemed appointment header so the shortcut
- * affordance is visible from every major screen.
+ * real search field once it opens. Reused by the main navbar and the in-person
+ * per-visit header. Hidden on xs viewports to preserve the mobile layout.
  */
 export const CommandPaletteSearchButton: FC<CommandPaletteSearchButtonProps> = ({ minWidth = 240, sx }) => {
   const openCommandPalette = useCommandPaletteStore((s) => s.open);
@@ -23,7 +23,7 @@ export const CommandPaletteSearchButton: FC<CommandPaletteSearchButtonProps> = (
 
   return (
     <ButtonBase
-      onClick={() => openCommandPalette()}
+      onClick={openCommandPalette}
       aria-label="Open command palette"
       sx={{
         display: { xs: 'none', sm: 'flex' },
@@ -50,6 +50,7 @@ export const CommandPaletteSearchButton: FC<CommandPaletteSearchButtonProps> = (
         inputProps={{ tabIndex: -1, 'aria-hidden': 'true' }}
         sx={{
           flexGrow: 1,
+          minWidth: 0,
           pointerEvents: 'none',
           color: 'inherit',
           fontSize: '0.875rem',

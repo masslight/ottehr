@@ -196,7 +196,7 @@ const ChoosePatient = (): JSX.Element => {
           });
         } else {
           // Continue prebook flow for returning patient
-          navigateInFlow('confirm-date-of-birth');
+          navigateInFlow('patient-information');
         }
       }
     } else {
@@ -262,7 +262,7 @@ const ChoosePatient = (): JSX.Element => {
   ): Promise<void> => {
     if (!cancels.length && !checkIns.length) {
       // Continue walk-in flow for returning patient
-      navigateInFlow('confirm-date-of-birth');
+      navigateInFlow('patient-information');
     } else if (!cancels.length && checkIns.length) {
       // Check in or walk in to location where appointment is booked
       const appointment = checkIns[0];
@@ -271,7 +271,7 @@ const ChoosePatient = (): JSX.Element => {
       if (checkIsMoreThan4HoursInFuture(start) && visitType !== VisitType.PostTelemed) {
         // If patient walks in more than 4 hours before their pre-booked slot then cancel the appointment and walk-in
         await handleCancelAppointmentForSelectedLocation(appointment.id, zambdaClient);
-        navigateInFlow('confirm-date-of-birth');
+        navigateInFlow('patient-information');
       } else {
         // If patient walks in less than 4 hours before their prebook time then check in to the earliest pre-booked appointment
         navigate(`/visit/${appointment.id}/check-in`);

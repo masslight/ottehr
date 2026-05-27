@@ -1,17 +1,19 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import InHouseLabAdminPage from 'src/features/visits/telemed/components/admin/in-house-labs/InHouseLabAdminPage';
 import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-sets/LabSetsAdminPage';
-import BillingConfiguration from '../features/visits/telemed/components/admin/BillingConfiguration';
-import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
+import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
+import SupportDialogAdminPage from 'src/features/visits/telemed/components/admin/support-dialog/SupportDialogAdminPage';
+import BillingConfiguration from '../features/admin/BillingConfiguration';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
 import States from '../features/visits/telemed/components/admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
+import AdminCustomFoldersPage from './AdminCustomFoldersPage';
 import MedicationsConfigurationPage from './configuration/MedicationsConfiguration';
 import EmployeesPage, { EmployeeTypes } from './Employees';
+import OutreachTab from './OutreachTab';
 import SchedulesPage from './Schedules';
 
 enum PageTab {
@@ -24,23 +26,37 @@ enum PageTab {
   billing = 'billing',
   'quick-picks' = 'quick-picks',
   'in-house-labs' = 'in-house-labs',
+  outreach = 'outreach',
+  'label-printing-config' = 'label-printing-config',
   'em-codes' = 'em-codes',
   'lab-sets' = 'lab-sets',
+  'docs-folders' = 'docs-folders',
+  'support-dialog' = 'support-dialog',
 }
 
 export function AdminPage(): JSX.Element {
-  const { adminTab, billingTab } = useParams();
+  const { adminTab, billingTab, outreachSubTab, outreachDetailTab, insuranceTab } = useParams();
   const navigate = useNavigate();
 
-  const pageTab = billingTab ? PageTab.billing : (adminTab as PageTab) || PageTab.schedules;
+  const pageTab = billingTab
+    ? PageTab.billing
+    : outreachSubTab
+    ? PageTab.outreach
+    : (adminTab as PageTab) || PageTab.schedules;
 
   return (
     <PageContainer>
       <Box sx={{ width: '100%', marginTop: 3 }}>
         <TabContext value={pageTab}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-            <Box sx={{ flex: 1, borderBottom: 1, borderColor: 'divider' }}>
-              <TabList onChange={() => {}} aria-label={`${pageTab} page`}>
+            <Box sx={{ flex: 1, minWidth: 0, borderBottom: 1, borderColor: 'divider' }}>
+              <TabList
+                onChange={() => {}}
+                aria-label={`${pageTab} page`}
+                variant="scrollable"
+                scrollButtons="auto"
+                allowScrollButtonsMobile
+              >
                 <Tab
                   label="Schedules"
                   value={PageTab.schedules}
@@ -96,10 +112,10 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab['in-house-labs']}`)}
                 />
                 <Tab
-                  label="E&M Codes"
-                  value={PageTab['em-codes']}
+                  label="Outreach"
+                  value={PageTab.outreach}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab['em-codes']}`)}
+                  onClick={() => navigate(`/admin/${PageTab.outreach}`)}
                 />
                 <Tab
                   label="Lab Sets"
@@ -107,17 +123,26 @@ export function AdminPage(): JSX.Element {
                   sx={{ textTransform: 'none', fontWeight: 500 }}
                   onClick={() => navigate(`/admin/${PageTab['lab-sets']}`)}
                 />
+                <Tab
+                  label="Label Printing Config"
+                  value={PageTab['label-printing-config']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['label-printing-config']}`)}
+                />
+                <Tab
+                  label="Docs Folders"
+                  value={PageTab['docs-folders']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['docs-folders']}`)}
+                />
+                <Tab
+                  label="Support Dialog"
+                  value={PageTab['support-dialog']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/admin/${PageTab['support-dialog']}`)}
+                />
               </TabList>
             </Box>
-            <ButtonRounded
-              onClick={() => navigate(`/reports`)}
-              variant="outlined"
-              sx={{
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Reports
-            </ButtonRounded>
           </Box>
           <TabPanel value={PageTab.schedules} sx={{ padding: 0 }}>
             <SchedulesPage />
@@ -135,7 +160,7 @@ export function AdminPage(): JSX.Element {
             <MedicationsConfigurationPage />
           </TabPanel>
           <TabPanel value={PageTab.billing} sx={{ padding: 0 }}>
-            <BillingConfiguration billingTab={billingTab} />
+            <BillingConfiguration billingTab={billingTab} insuranceTab={insuranceTab} />
           </TabPanel>
           <TabPanel value={PageTab['quick-picks']} sx={{ padding: 0 }}>
             <QuickPicksAdminPage />
@@ -146,11 +171,20 @@ export function AdminPage(): JSX.Element {
           <TabPanel value={PageTab['in-house-labs']} sx={{ padding: 0 }}>
             <InHouseLabAdminPage />
           </TabPanel>
-          <TabPanel value={PageTab['em-codes']} sx={{ padding: 0 }}>
-            <EMCodesAdminPage />
+          <TabPanel value={PageTab.outreach} sx={{ padding: 0 }}>
+            <OutreachTab outreachSubTab={outreachSubTab} outreachDetailTab={outreachDetailTab} />
           </TabPanel>
           <TabPanel value={PageTab['lab-sets']} sx={{ padding: 0 }}>
             <LabSetsAdminPage />
+          </TabPanel>
+          <TabPanel value={PageTab['label-printing-config']} sx={{ padding: 0 }}>
+            <AdminPrintingConfig />
+          </TabPanel>
+          <TabPanel value={PageTab['docs-folders']} sx={{ padding: 0 }}>
+            <AdminCustomFoldersPage />
+          </TabPanel>
+          <TabPanel value={PageTab['support-dialog']} sx={{ padding: 0 }}>
+            <SupportDialogAdminPage />
           </TabPanel>
         </TabContext>
       </Box>

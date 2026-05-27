@@ -17,6 +17,7 @@ import {
   GetEligibilityInsuranceData,
   GetEligibilityPolicyHolder,
   GetEligibilityResponse,
+  getPayerUrl,
   INSURANCE_COVERAGE_CODING,
   InsuranceEligibilityCheckStatus,
   InsurancePlanDTO,
@@ -166,7 +167,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
     coverage.id = id;
     const coverageReference = `#${coverage.id}`;
     const patientReference = `Patient/${patientId}`;
-    const payorReference = `Organization/${isPrimary ? primary.id : secondary.id}`;
+    const payorReference = getPayerUrl(isPrimary ? primary.id! : secondary.id!);
     const contained: FhirResource[] = [coverage];
     if (rps[idx]) {
       contained.push(rps[idx]);
@@ -276,7 +277,7 @@ const makeCoverage = (input: CoverageInput): Coverage => {
     subscriber,
     payor: [
       {
-        reference: `Organization/${payor.id}`,
+        reference: getPayerUrl(payor.id!),
       },
     ],
     relationship: {

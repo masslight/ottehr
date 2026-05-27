@@ -418,12 +418,6 @@
       "Photo ID": "Photo ID",
       "Complete consent forms": "Complete consent forms"
     },
-    "confirmPatient": {
-      "confirm": "Confirm",
-      "dob": "date of birth",
-      "knownPatient": "'s",
-      "unknownPatient": "patient's"
-    },
     "consentToTerms": "I have reviewed and accept",
     "dateAndTime": "Select date and time",
     "description": "Schedule time to meet with our BH Patient Liaison, who will give you information about our service and schedule an appointment. If you do not see an appointment time that is convenient for you, please call 516-207-7840.",

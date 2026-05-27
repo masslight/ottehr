@@ -9,9 +9,8 @@ import {
   Practitioner,
   Schedule,
 } from 'fhir/r4b';
+import type { AppointmentType, CanonicalUrl } from '../types';
 import {
-  AppointmentType,
-  CanonicalUrl,
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   INSURANCE_CARD_CODE,
@@ -23,7 +22,7 @@ import {
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   STATEMENT_CODE,
   VISIT_NOTE_SUMMARY_CODE,
-} from '../types';
+} from '../types/data/paperwork/paperwork.constants';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
 
 // nota bene: some legacy resources could be using 'http' instead of 'https' here, and there are still some string vals out there with http
@@ -33,6 +32,7 @@ export const FHIR_ZAPEHR_URL = 'https://fhir.zapehr.com';
 const TERMINOLOGY_BASE_URL = 'http://terminology.hl7.org/CodeSystem';
 
 export const SCHEDULE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
+export const LOCATION_REVIEW_LINK_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/review-link`;
 export const PROVIDER_TYPE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/provider-type';
 const RCM_TERMINOLOGY_BASE_URL = 'https://terminology.zapehr.com/rcm/cms1500';
 
@@ -54,9 +54,6 @@ export const FHIR_EXTENSION = {
   Appointment: {
     additionalInfo: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/additional-information`,
-    },
-    unconfirmedDateOfBirth: {
-      url: `${PRIVATE_EXTENSION_BASE_URL}/date-of-birth-not-confirmed`,
     },
     bookedBy: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/visit-booked-by`,
@@ -396,6 +393,7 @@ export const BUCKET_NAMES = {
   DISCHARGE_SUMMARIES: 'discharge-summaries',
   STATEMENTS: 'statements',
   REPORTS: 'invoiceable-patients-reports',
+  CUSTOM_FOLDERS: 'patient-docs-custom-folders',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -553,6 +551,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/answer-loading-options`,
     strategy: `${PRIVATE_EXTENSION_BASE_URL}/strategy`,
     source: `${PRIVATE_EXTENSION_BASE_URL}/source`,
+    expression: `${PRIVATE_EXTENSION_BASE_URL}/expression`,
   },
   complexValidation: {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/complex-validation`,
@@ -773,7 +772,6 @@ export const ATTORNEY_FIRM_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/attorn
 
 export const GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/global-template-list`;
 export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-in-person`;
-export const GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_URL}/global-template-telemed`;
 
 /** Builds the full meta.tag system URL from a chart data field name (e.g. 'chief-complaint' → full URL). */
 export const chartDataTagSystem = (fieldName: string): string => `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}`;

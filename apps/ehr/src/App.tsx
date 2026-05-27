@@ -5,7 +5,8 @@ import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { parseCommaSeparatedTags, RoleType, setupSentry } from 'utils';
+import { parseCommaSeparatedTags, RoleType } from 'utils';
+import { setupSentry } from 'utils/lib/frontend';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
 import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
@@ -87,7 +88,9 @@ export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
 export const CHARGE_MASTERS_URL = '/admin/charge-masters';
 export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
 export const BILLING_URL = '/admin/billing';
+export const BILLING_INSURANCE_URL = '/admin/billing/insurance';
 export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';
+export const OUTREACH_URL = '/admin/outreach';
 export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
@@ -100,7 +103,7 @@ export const showEnvironmentBanner = import.meta.env.VITE_APP_ENV !== 'productio
 function App(): ReactElement {
   useApiClients();
   const currentUser = useEvolveUser();
-  const currentTab = useNavStore((state) => state.currentTab) || 'In Person';
+  const currentTab = useNavStore((state) => state.currentTab) || 'Tracking Board';
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
 
@@ -195,18 +198,30 @@ function App(): ReactElement {
                 <Route path="*" element={<LoadingScreen />} />
               </>
             )}
-            {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
+            {currentUser?.hasRole([
+              RoleType.Administrator,
+              RoleType.Manager,
+              RoleType.Staff,
+              RoleType.Provider,
+              RoleType.CustomerSupport,
+            ]) && (
               <>
-                <Route path="/tasks-observability" element={<TaskAdmin />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
                 <Route path="/reports/complete-encounters" element={<CompleteEncounters />} />
-                <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                 <Route path="/reports/daily-payments" element={<DailyPayments />} />
-                <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
-                <Route path="/reports/data-exports" element={<DataExports />} />
                 <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 <Route path="/reports/recent-patients" element={<RecentPatients />} />
+              </>
+            )}
+            {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
+              <Route path="/tasks-observability" element={<TaskAdmin />} />
+            )}
+            {currentUser?.hasRole([RoleType.Administrator]) && (
+              <>
+                <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
+                <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
+                <Route path="/reports/data-exports" element={<DataExports />} />
                 <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
                 <Route path="/reports/mailed-statements" element={<MailedStatements />} />
               </>
@@ -228,7 +243,10 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                 )}
                 <Route path="/admin" element={<AdminPage />} />
-                <Route path="/admin/billing/:billingTab" element={<AdminPage />} />
+                <Route path={`${BILLING_URL}/:billingTab`} element={<AdminPage />} />
+                <Route path={`${BILLING_URL}/:billingTab/:insuranceTab`} element={<AdminPage />} />
+                <Route path={`${OUTREACH_URL}/:outreachSubTab`} element={<AdminPage />} />
+                <Route path={`${OUTREACH_URL}/:outreachSubTab/:outreachDetailTab`} element={<AdminPage />} />
                 <Route path="/admin/:adminTab" element={<AdminPage />} />
                 <Route path="/admin/:adminTab/:subTab" element={<AdminPage />} />
                 <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
@@ -250,7 +268,8 @@ function App(): ReactElement {
                 <Route path="/admin/medications/add" element={<AddMedicationPage />} />
                 <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
                 <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
-                <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
+                <Route path={`${INSURANCES_URL}/:insuranceTab/:insurance`} element={<EditInsurance />} />
+                <Route path={`${BILLING_URL}/:billingTab/:insuranceTab/:insurance`} element={<EditInsurance />} />
                 <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
                 <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
                 <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />

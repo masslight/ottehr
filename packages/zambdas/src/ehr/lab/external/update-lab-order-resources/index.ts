@@ -20,17 +20,14 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  DYMO_30334_LABEL_CONFIG,
-  getAccountNumberFromLocationAndOrganization,
   getFullestAvailableName,
   getOrderNumber,
   getPatchBinary,
-  getPatientFirstName,
-  getPatientLastName,
   getSecret,
   getTestNameFromDr,
   isPSCOrder,
   LAB_ORDER_UPDATE_RESOURCES_EVENTS,
+  makeExternalLabLabelConfig,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SaveOrderCollectionData,
   Secrets,
@@ -46,7 +43,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
-import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../../../shared/pdf/external-labs-label-pdf';
+import { createExternalLabsLabelPDF } from '../../../../shared/pdf/external-labs-label-pdf';
 import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
@@ -440,6 +437,7 @@ const handleReviewedEvent = async ({
         fhirPatient: patient,
         emailDetails: { orderType: 'lab', testName, visitDate, appointmentId: appointment?.id || '', locationName },
         secrets,
+        oystehr,
       });
     } catch (e) {
       const errorMessage = `Error sending the patient alert to review lab results, ${e}`;
@@ -559,7 +557,7 @@ const handleSaveCollectionData = async (
     requests.push(qrPatchRequest);
   }
 
-  let presignedLabelURL: string | undefined = undefined;
+  let presignedLabelPdfUrl: string | undefined = undefined;
   // update pst task to complete, add agent and relevant history (provenance created)
   // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask
   const pstCompletedRequests = await makePstCompletePatchRequests(
@@ -573,27 +571,17 @@ const handleSaveCollectionData = async (
 
   // make specimen label
   if (!isPSCOrder(serviceRequest)) {
-    const labelConfig: ExternalLabsLabelConfig = {
-      labelConfig: DYMO_30334_LABEL_CONFIG,
-      content: {
-        patientId: patient.id!,
-        patientFirstName: getPatientFirstName(patient) ?? '',
-        patientLastName: getPatientLastName(patient) ?? '',
-        patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
-        sampleCollectionDateAndTimezone: mostRecentSampleCollectionDate
-          ? {
-              sampleCollectionDate: mostRecentSampleCollectionDate,
-              timezone: userTimezone,
-            }
-          : undefined,
-        orderNumber: orderNumber,
-        accountNumber:
-          (labOrganization && location && getAccountNumberFromLocationAndOrganization(location, labOrganization)) || '',
-      },
-    };
+    const labelConfig = makeExternalLabLabelConfig({
+      patient,
+      orderNumber,
+      location,
+      labOrganization,
+      specimenCollectionDateTime: mostRecentSampleCollectionDate,
+      userTimezone,
+    });
 
     console.log('creating labs order label and getting url');
-    presignedLabelURL = (
+    presignedLabelPdfUrl = (
       await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mToken, oystehr)
     ).presignedURL;
   }
@@ -601,5 +589,5 @@ const handleSaveCollectionData = async (
   console.log('making fhir requests');
   await oystehr.fhir.transaction({ requests });
 
-  return { presignedLabelURL };
+  return { presignedLabelURL: presignedLabelPdfUrl };
 };

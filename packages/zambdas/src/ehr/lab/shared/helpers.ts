@@ -1,11 +1,13 @@
 import { BatchInputPatchRequest } from '@oystehr/sdk';
 import {
   Communication,
+  Coverage,
   DiagnosticReport,
   DocumentReference,
   List,
   ListEntry,
   Observation,
+  Organization,
   Patient,
   QuestionnaireResponse,
   Reference,
@@ -13,8 +15,10 @@ import {
   Specimen,
   Task,
 } from 'fhir/r4b';
+import { isEqual } from 'lodash';
 import { DateTime } from 'luxon';
 import {
+  COVERAGE_MEMBER_IDENTIFIER_BASE,
   DR_UNSOLICITED_PATIENT_REF,
   getLabListStatus,
   getLabListType,
@@ -253,4 +257,30 @@ export const formatListEntry = (labSet: LabSetDTO): ListEntry[] => {
   }
 
   return entry;
+};
+
+export const isOtherInsurance = (resource: Coverage | Organization): boolean => {
+  const OTHER = 'other';
+  const RCM_OTHER_PAYER_REF = 'https://rcm-api.zapehr.com/v1/payer/00000';
+
+  if (resource.resourceType === 'Coverage') {
+    // to avoid another query, we'll check the assigner on the member number
+    const memberNumIdentifier = resource.identifier?.find(
+      (id) => id.type?.coding?.some((coding) => isEqual(COVERAGE_MEMBER_IDENTIFIER_BASE.type?.coding?.[0], coding))
+    );
+
+    if (!memberNumIdentifier) {
+      console.warn(`No member number identifier on Coverage/${resource.id}, cannot determine if is "Other" insurance`);
+      return false;
+    }
+
+    return (
+      memberNumIdentifier.assigner?.display?.toLowerCase() === OTHER ||
+      memberNumIdentifier.assigner?.reference === RCM_OTHER_PAYER_REF ||
+      false
+    );
+  } else {
+    // we're looking at the org itself
+    return resource.name?.toLowerCase() === OTHER || resource.id === '00000' || false;
+  }
 };

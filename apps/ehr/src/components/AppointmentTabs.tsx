@@ -5,7 +5,6 @@ import { Box, Grid, Tab, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import {
   GetVitalsForListOfEncountersResponseData,
   InPersonAppointmentInformation,
@@ -22,10 +21,24 @@ export enum ApptTab {
   'cancelled' = 'cancelled',
 }
 
+export const SELECTED_TAB_STORAGE_KEY = 'selectedAppointmentTab';
+
+const getStoredTab = (): ApptTab | undefined => {
+  const stored = localStorage.getItem(SELECTED_TAB_STORAGE_KEY);
+  if (!stored) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    if (typeof parsed === 'string' && (Object.values(ApptTab) as string[]).includes(parsed)) {
+      return parsed as ApptTab;
+    }
+  } catch {
+    // malformed storage value, fall through
+  }
+  return undefined;
+};
+
 interface AppointmentsTabProps {
-  location: LocationWithWalkinSchedule | undefined;
-  providers: string[] | undefined;
-  serviceCategories: string[] | undefined;
+  showSelectFiltersMessage: boolean;
   preBookedAppointments: InPersonAppointmentInformation[];
   completedAppointments: InPersonAppointmentInformation[];
   cancelledAppointments: InPersonAppointmentInformation[];
@@ -38,9 +51,7 @@ interface AppointmentsTabProps {
 }
 
 export default function AppointmentTabs({
-  location,
-  providers,
-  serviceCategories,
+  showSelectFiltersMessage,
   preBookedAppointments,
   completedAppointments,
   cancelledAppointments,
@@ -54,11 +65,13 @@ export default function AppointmentTabs({
   const routeLocation = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Selected tab is read from `?tab=` (the canonical, bookmarkable source) and
-  // falls back to `location.state?.tab` (legacy nav-state pattern still used by
-  // a couple of callers we haven't migrated yet) and finally to the default.
-  // Both sources are validated against the ApptTab enum so a bogus value
-  // (`?tab=foo`) is ignored rather than left in `value` as a non-tab.
+  // Selected tab is read from `?tab=` (the canonical, bookmarkable source),
+  // then falls back to `location.state?.tab` (legacy nav-state pattern still
+  // used by a couple of callers we haven't migrated yet), then to the
+  // localStorage-persisted tab from the user's last session, and finally to
+  // the default. All sources are validated against the ApptTab enum so a
+  // bogus value (`?tab=foo`) is ignored rather than left in `value` as a
+  // non-tab.
   const isApptTab = (v: unknown): v is ApptTab =>
     typeof v === 'string' && (Object.values(ApptTab) as string[]).includes(v);
   const tabFromUrl = searchParams.get('tab');
@@ -66,7 +79,7 @@ export default function AppointmentTabs({
     ? tabFromUrl
     : isApptTab(routeLocation.state?.tab)
     ? (routeLocation.state.tab as ApptTab)
-    : ApptTab['in-office'];
+    : getStoredTab() ?? ApptTab['in-office'];
 
   const [value, setValue] = useState<ApptTab>(resolvedTab);
   const [now, setNow] = useState<DateTime>(DateTime.now());
@@ -91,6 +104,9 @@ export default function AppointmentTabs({
         },
         { replace: true }
       );
+      // Persist for the next session — `?tab=` wins on load, this is just the
+      // fallback when the user returns without one.
+      localStorage.setItem(SELECTED_TAB_STORAGE_KEY, JSON.stringify(newValue));
     },
     [setSearchParams]
   );
@@ -107,7 +123,7 @@ export default function AppointmentTabs({
     return () => clearInterval(timeInterval);
   }, []);
 
-  const selectLocationMsg = !location && providers?.length === 0 && serviceCategories?.length === 0 && (
+  const selectLocationMsg = showSelectFiltersMessage && (
     <Grid container sx={{ width: '100%' }} padding={4}>
       <Grid item>
         <FmdBadOutlinedIcon
@@ -143,7 +159,6 @@ export default function AppointmentTabs({
           appointments={appointments}
           orders={orders}
           vitals={vitals}
-          location={location}
           tab={value}
           now={now}
           updateAppointments={updateAppointments}
@@ -151,7 +166,7 @@ export default function AppointmentTabs({
         />
       );
     },
-    [orders, vitals, location, value, now, updateAppointments, setEditingComment]
+    [orders, vitals, value, now, updateAppointments, setEditingComment]
   );
 
   return (

@@ -1,10 +1,12 @@
 import { otherColors } from '@ehrTheme/colors';
-import { Add } from '@mui/icons-material';
+import { Add, Edit as EditIcon } from '@mui/icons-material';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   Button,
   capitalize,
+  Checkbox,
+  IconButton,
   Paper,
   Table,
   TableBody,
@@ -23,10 +25,13 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { APIError, isApiError, SchedulesAndOwnerListItem, useErrorQuery } from 'utils';
+import { useAdminUpdateLocationSupportPhones } from 'src/features/visits/telemed/components/admin/admin.queries';
+import { APIError, isApiError, SchedulesAndOwnerListItem } from 'utils';
+import { useErrorQuery } from 'utils/lib/frontend';
 import { listScheduleOwners } from '../api/api';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
+import { EditSupportPhoneDialog } from './EditSupportPhoneDialog';
 import Loading from './Loading';
 
 export type ScheduleType = 'location' | 'provider' | 'group';
@@ -64,6 +69,10 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [pageNumber, setPageNumber] = useState(0);
   const [searchText, setSearchText] = useState('');
+  const [selectedLocationIds, setSelectedLocationIds] = useState<Set<string>>(new Set());
+  const [editTarget, setEditTarget] = useState<{ ids: string[]; initialValue: string } | null>(null);
+
+  const isLocationTab = scheduleType === 'location';
 
   const ownerType = (() => {
     if (scheduleType === 'location') {
@@ -76,7 +85,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
   })();
 
   const { data, error, isLoading, isFetching, isRefetching } = useQuery({
-    queryKey: ['schedule-list'],
+    queryKey: ['schedule-list', ownerType],
     queryFn: () => (oystehrZambda ? listScheduleOwners({ ownerType }, oystehrZambda) : null),
     enabled: !!oystehrZambda,
   });
@@ -93,6 +102,8 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
       });
     }
   });
+
+  const updatePhonesMutation = useAdminUpdateLocationSupportPhones();
 
   const loading = isLoading || isFetching || isRefetching;
 
@@ -113,6 +124,34 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     [pageNumber, filteredItems, rowsPerPage]
   );
 
+  const pageLocationIds = useMemo(
+    () => pageItems.filter((i) => i.owner.resourceType === 'Location').map((i) => i.owner.id),
+    [pageItems]
+  );
+  const pageAllSelected = pageLocationIds.length > 0 && pageLocationIds.every((id) => selectedLocationIds.has(id));
+  const pageSomeSelected = pageLocationIds.some((id) => selectedLocationIds.has(id));
+
+  const togglePageSelection = (): void => {
+    setSelectedLocationIds((prev) => {
+      const next = new Set(prev);
+      if (pageAllSelected) {
+        pageLocationIds.forEach((id) => next.delete(id));
+      } else {
+        pageLocationIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const toggleRowSelection = (id: string): void => {
+    setSelectedLocationIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const handleChangePage = (event: unknown, newPageNumber: number): void => {
     setPageNumber(newPageNumber);
   };
@@ -125,6 +164,28 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
   const handleChangeSearchText = (event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>): void => {
     setSearchText(event.target.value);
   };
+
+  const openSingleEdit = (item: SchedulesAndOwnerListItem): void => {
+    setEditTarget({ ids: [item.owner.id], initialValue: item.owner.supportPhoneNumber ?? '' });
+  };
+
+  const openBulkEdit = (): void => {
+    const ids = Array.from(selectedLocationIds);
+    setEditTarget({ ids, initialValue: '' });
+  };
+
+  const handleSavePhone = async (phoneNumber: string): Promise<void> => {
+    if (!editTarget) return;
+    await updatePhonesMutation.mutateAsync({
+      updates: editTarget.ids.map((locationId) => ({ locationId, phoneNumber })),
+    });
+    setEditTarget(null);
+    if (editTarget.ids.length > 1) {
+      setSelectedLocationIds(new Set());
+    }
+  };
+
+  const selectedCount = isLocationTab ? selectedLocationIds.size : 0;
 
   return (
     <Paper sx={{ padding: 2 }}>
@@ -146,6 +207,11 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
               Add {scheduleType}
             </Button>
           </Link>
+          {selectedCount > 0 && (
+            <Button variant="outlined" sx={{ marginLeft: 1 }} startIcon={<EditIcon />} onClick={openBulkEdit}>
+              Edit support phone for {selectedCount} selected
+            </Button>
+          )}
           {loading && (
             <Box sx={{ marginLeft: 'auto' }}>
               <Loading />
@@ -156,37 +222,86 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
         <Table sx={{ minWidth: 650 }} aria-label={`${scheduleType}sTable`}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>{capitalize(scheduleType)} name</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Address</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Today&apos;s hours</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Upcoming schedule changes</TableCell>
+              {isLocationTab && (
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    indeterminate={pageSomeSelected && !pageAllSelected}
+                    checked={pageAllSelected}
+                    onChange={togglePageSelection}
+                    inputProps={{ 'aria-label': 'select all locations on page' }}
+                  />
+                </TableCell>
+              )}
+              <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>{capitalize(scheduleType)} name</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Address</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Today's hours</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Upcoming schedule changes</TableCell>
+              {isLocationTab && <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Support phone</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
-            {pageItems.map((item) => (
-              <TableRow key={item.owner.id}>
-                <TableCell>
-                  <Link to={getLinkForItem(item)} style={{ textDecoration: 'none' }}>
-                    <Typography color="primary">{item.owner.name}</Typography>
-                  </Link>
-                </TableCell>
-                <TableCell align="left">
-                  <Typography>{item.owner.address ?? ''}</Typography>
-                </TableCell>
-                <TableCell align="left">
-                  <Typography>{getHoursOfOperationText(item)}</Typography>
-                </TableCell>
-                <TableCell align="left">
-                  <Typography
-                    style={{
-                      color: item.schedules[0]?.upcomingScheduleChanges ? 'inherit' : otherColors.none,
-                    }}
-                  >
-                    {item.schedules[0]?.upcomingScheduleChanges ?? 'No upcoming schedule changes'}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ))}
+            {pageItems.map((item) => {
+              const isLocationRow = item.owner.resourceType === 'Location';
+              const isSelected = isLocationRow && selectedLocationIds.has(item.owner.id);
+              return (
+                <TableRow key={item.owner.id} selected={isSelected}>
+                  {isLocationTab && (
+                    <TableCell padding="checkbox">
+                      {isLocationRow && (
+                        <Checkbox
+                          checked={isSelected}
+                          onChange={() => toggleRowSelection(item.owner.id)}
+                          inputProps={{ 'aria-label': `select ${item.owner.name}` }}
+                        />
+                      )}
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <Link to={getLinkForItem(item)} style={{ textDecoration: 'none' }}>
+                      <Typography color="primary">{item.owner.name}</Typography>
+                    </Link>
+                  </TableCell>
+                  <TableCell align="left">
+                    <Typography>{item.owner.address ?? ''}</Typography>
+                  </TableCell>
+                  <TableCell align="left">
+                    <Typography>{getHoursOfOperationText(item)}</Typography>
+                  </TableCell>
+                  <TableCell align="left">
+                    <Typography
+                      style={{
+                        color: item.schedules[0]?.upcomingScheduleChanges ? 'inherit' : otherColors.none,
+                      }}
+                    >
+                      {item.schedules[0]?.upcomingScheduleChanges ?? 'No upcoming schedule changes'}
+                    </Typography>
+                  </TableCell>
+                  {isLocationTab && (
+                    <TableCell align="left">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography
+                          sx={{
+                            color: item.owner.supportPhoneNumber ? 'inherit' : otherColors.none,
+                            flexGrow: 1,
+                          }}
+                        >
+                          {item.owner.supportPhoneNumber ?? 'Not set'}
+                        </Typography>
+                        {isLocationRow && (
+                          <IconButton
+                            size="small"
+                            aria-label={`edit support phone for ${item.owner.name}`}
+                            onClick={() => openSingleEdit(item)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        )}
+                      </Box>
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
 
@@ -202,6 +317,17 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
           data-testid={dataTestIds.pagination.paginationContainer}
         />
       </TableContainer>
+
+      {editTarget && (
+        <EditSupportPhoneDialog
+          open
+          initialValue={editTarget.initialValue}
+          bulkCount={editTarget.ids.length > 1 ? editTarget.ids.length : undefined}
+          isSaving={updatePhonesMutation.isPending}
+          onClose={() => setEditTarget(null)}
+          onSave={handleSavePhone}
+        />
+      )}
     </Paper>
   );
 };

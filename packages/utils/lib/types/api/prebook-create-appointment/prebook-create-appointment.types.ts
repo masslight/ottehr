@@ -4,14 +4,29 @@ import { CanonicalUrl, ServiceMode, Timezone } from '../../common';
 import { PatientInfo } from '../../data';
 import { ScheduleOwnerFhirResource } from '../schedules';
 
+/** Fields the scheduled-follow-up flow can copy from the initial visit (OTR-2467). */
+export type CopyableFollowupField =
+  | 'chiefComplaint'
+  | 'historyOfPresentIllness'
+  | 'mechanismOfInjury'
+  | 'diagnosis'
+  | 'examObservations'
+  | 'rosObservations';
+
+/** Settings for the scheduled-follow-up creation flow. */
+export interface FollowUpOptions {
+  parentEncounterId: string;
+  /** Skips server-side diagnosis carry-over from the parent encounter. */
+  skipPatientDiagnosis?: boolean;
+}
+
 export interface CreateAppointmentInputParams {
   patient: PatientInfo;
   slotId: string;
   language?: string;
   locationState?: string;
-  unconfirmedDateOfBirth?: string | undefined;
   appointmentMetadata?: Appointment['meta'];
-  parentEncounterId?: string;
+  followUpOptions?: FollowUpOptions;
 }
 
 export interface CreateAppointmentResponse {

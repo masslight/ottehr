@@ -28,13 +28,21 @@ if (process.env.IS_OFFLINE === 'true') {
 
 export interface GetEmployeesInput {
   secrets: Secrets | null;
+  /**
+   * When true, skips the expensive Encounter queries and the heavy Practitioner enrichment
+   * (qualifications, telecom, notification settings, last-login meta). Use this when the caller
+   * only needs id, name, and role classification — e.g. populating dropdowns. The fields that
+   * depend on the skipped work (`seenPatientRecently`, `gettingAlerts`, `licenses`,
+   * `phoneNumber`, `lastLogin`) are returned as empty/default values.
+   */
+  lite?: boolean;
 }
 
 let oystehrToken: string;
 export const index = wrapHandler('get-employees', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
-  const { secrets } = validatedParameters;
+  const { secrets, lite } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
@@ -59,17 +67,25 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     throw new Error('Error searching for Inactive, Provider or CustomerSupport role.');
   }
 
-  console.log('Preparing the FHIR batch request.');
+  console.log(`Preparing the FHIR batch request (lite=${Boolean(lite)}).`);
 
   const practitionerIds = allEmployees
     .filter((employee) => employee.profile?.startsWith('Practitioner/'))
     .map((employee) => employee.profile.split('/')[1]);
-  const encounterCutDate = DateTime.now().minus({ minutes: 30 }).toFormat("yyyy-MM-dd'T'HH:mm");
-  const getResourcesRequest = getResourcesFromBatchInlineRequests(oystehr, [
-    `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension,telecom`,
-    `Encounter?status=in-progress&_elements=id,participant`,
-    `Encounter?status=finished&date=gt${encounterCutDate}&_elements=id,participant`,
-  ]);
+
+  // Lite mode skips the organization-wide Encounter queries (used only for `seenPatientRecently`)
+  // and trims Practitioner _elements to just what's needed for names.
+  const fhirRequests = lite
+    ? [`Practitioner?_id=${practitionerIds.join(',')}&_elements=id,name`]
+    : (() => {
+        const encounterCutDate = DateTime.now().minus({ minutes: 30 }).toFormat("yyyy-MM-dd'T'HH:mm");
+        return [
+          `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension,telecom`,
+          `Encounter?status=in-progress&_elements=id,participant`,
+          `Encounter?status=finished&date=gt${encounterCutDate}&_elements=id,participant`,
+        ];
+      })();
+  const getResourcesRequest = getResourcesFromBatchInlineRequests(oystehr, fhirRequests);
 
   console.log('Do mixed promises in parallel...');
 
@@ -98,7 +114,9 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
   const providerMemberIds = providerRoleMembers.map((member: { id: string }) => member.id);
   const customerSupportMemberIds = customerSupportRoleMembers.map((member: { id: string }) => member.id);
 
-  const recentlyActivePractitioners: string[] = extractParticipantsRefsFromResources(resources as FhirResource[]);
+  const recentlyActivePractitioners: string[] = lite
+    ? []
+    : extractParticipantsRefsFromResources(resources as FhirResource[]);
 
   console.log('recentlyActivePractitioners.length:', recentlyActivePractitioners.length);
 
@@ -110,10 +128,10 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       ? (resources.find((resource) => resource.id === practitionerId) as Practitioner | undefined)
       : undefined;
 
-    const phone = practitioner?.telecom?.find((telecom) => telecom.system === 'sms')?.value;
+    const phone = lite ? undefined : practitioner?.telecom?.find((telecom) => telecom.system === 'sms')?.value;
 
     const licenses: PractitionerLicense[] = [];
-    if (practitioner?.qualification) {
+    if (!lite && practitioner?.qualification) {
       practitioner.qualification.forEach((qualification: PractitionerQualification) => {
         const qualificationStatusCode =
           qualification.extension?.[0].extension?.[1].valueCodeableConcept?.coding?.[0].code;
@@ -129,7 +147,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       });
     }
 
-    const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
+    const notificationSettings = lite ? undefined : getProviderNotificationSettingsForPractitioner(practitioner);
     return {
       id: employee.id,
       profile: employee.profile,
@@ -138,7 +156,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       status: status,
       isProvider: Boolean(providerMemberIds.includes(employee.id)),
       isCustomerSupport: Boolean(customerSupportMemberIds.includes(employee.id)),
-      lastLogin: practitioner?.meta?.tag?.find((tag) => tag.system === 'last-login')?.code ?? '',
+      lastLogin: lite ? '' : practitioner?.meta?.tag?.find((tag) => tag.system === 'last-login')?.code ?? '',
       firstName: getFirstName(practitioner) ?? '',
       lastName: getLastName(practitioner) ?? '',
       phoneNumber: phone ? standardizePhoneNumber(phone)! : '',

@@ -31,6 +31,7 @@ import {
 } from 'utils';
 import { CopayWidget } from './CopayWidget';
 import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
+import { InsuranceCarrierQuickPicks } from './InsuranceCarrierQuickPicks';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
 
@@ -176,6 +177,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     },
   });
 
+  // left side is claimmd type enum from eligibility
+  // right side is the candid enum -- not candid, availity?
+  // plan type : insurance plan type :: 1:1?
   const insuranceCodeToCandidCode = {
     '12': '16',
     '13': '16',
@@ -473,6 +477,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         requiredFormFields={requiredFields}
         hiddenFormFields={hiddenFields}
       />
+      <InsuranceCarrierQuickPicks fieldKey={FormFields.insuranceCarrier.key} />
       <PatientRecordFormField
         item={FormFields.insuranceCarrier}
         isLoading={false}

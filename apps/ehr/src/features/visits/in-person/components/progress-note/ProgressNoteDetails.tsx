@@ -44,7 +44,6 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   examConfig,
   getSupervisorApprovalStatus,
-  isInPersonAppointment,
   LabType,
   NOTE_TYPE,
   progressNoteChartDataRequestedFields,
@@ -60,8 +59,7 @@ export const ProgressNoteDetails: FC = () => {
   const apiClient = useOystehrAPIClient();
   // Appointment-scoped: must match how save-chart-data picks the config, otherwise
   // telemed appointments opened under /in-person/:id/* mismatch the backend.
-  const examConfigComponents =
-    examConfig[isInPersonAppointment(appointment) ? 'inPerson' : 'telemed'].default.components;
+  const examConfigComponents = examConfig.default.components;
   const unmatchedExamFields = useUnmatchedExamFields(examConfigComponents);
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const rosState = useRosObservationsStore();

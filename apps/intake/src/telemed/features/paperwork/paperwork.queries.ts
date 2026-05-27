@@ -1,8 +1,8 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
 import { OystehrAPIClient } from 'ui-components';
-import { useSuccessQuery } from 'utils';
 import { GetAnswerOptionsRequest, isNullOrUndefined, PromiseReturnType } from 'utils';
+import { useSuccessQuery } from 'utils/lib/frontend';
 import { useOystehrAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 
@@ -64,6 +64,7 @@ export const useUpdatePaperworkMutation = () => {
 };
 
 export const useAnswerOptionsQuery = (
+  queryKey: string,
   enabled = true,
   params: GetAnswerOptionsRequest | undefined,
   onSuccess?: (data: QuestionnaireItemAnswerOption[] | null) => void
@@ -71,15 +72,36 @@ export const useAnswerOptionsQuery = (
   const apiClient = useOystehrAPIClient();
 
   const queryResult = useQuery({
-    queryKey: ['insurances', { apiClient }],
+    queryKey: [queryKey, { apiClient }],
 
     queryFn: async () => {
       if (!apiClient) {
         throw new Error('App client is not provided');
       }
 
-      const resources = await apiClient.getAnswerOptions(params as GetAnswerOptionsRequest);
-      return resources;
+      if (params && params.answerSource) {
+        let f:
+          | typeof apiClient.getAnswerOptions
+          | typeof apiClient.getAllInsuranceOptions
+          | typeof apiClient.getPatientInsuranceOptions;
+        switch (params.answerSource.zambdaId) {
+          case 'get-answer-options':
+            f = apiClient.getAnswerOptions;
+            break;
+          case 'get-all-insurance-payers':
+            f = apiClient.getAllInsuranceOptions;
+            break;
+          case 'get-patient-insurance-payers':
+            f = apiClient.getPatientInsuranceOptions;
+            break;
+          default:
+            // @ts-expect-error this is handling a failure of the type system
+            throw new Error(`Unknown zambdaId "${params.answerSource.zambdaId}" for queryKey "${queryKey}"`);
+        }
+        const resources = await f(params);
+        return resources;
+      }
+      throw new Error(`Missing params or answerSource for queryKey "${queryKey}"`);
     },
 
     enabled: !!apiClient && enabled && params !== undefined,

@@ -1,5 +1,37 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { InviteConfig } from './types';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const OTTEHR_ROOT = resolve(__dirname, '../../../');
+
+const ENV_CONFIG_FILES: Record<string, string> = {
+  local: 'local.json',
+  staging: 'staging.json',
+  production: 'production.json',
+};
+
+export function resolveProjectId(fallbackId: string): string {
+  const args = process.argv.slice(2);
+  const envArg = args.find((a) => a.startsWith('--env='));
+  const env = envArg ? envArg.slice('--env='.length) : undefined;
+  if (!env) return fallbackId;
+  const filename = ENV_CONFIG_FILES[env];
+  if (!filename) {
+    console.error(`ERROR: Unknown env "${env}". Use --env=local, --env=staging, or --env=production.`);
+    process.exit(1);
+  }
+  const cfg = JSON.parse(readFileSync(resolve(OTTEHR_ROOT, 'config/.env', filename), 'utf8'));
+  if (!cfg.PROJECT_ID) {
+    console.error(`ERROR: PROJECT_ID not found in config/.env/${filename}`);
+    process.exit(1);
+  }
+  console.log(`Using project ID from config/.env/${filename} (${env})`);
+  return cfg.PROJECT_ID as string;
+}
 
 const API_URL = 'https://project-api.zapehr.com/v1';
 
@@ -95,7 +127,8 @@ export async function sendUserInvite(
   email: string,
   firstName: string,
   lastName: string,
-  roleIds: string[]
+  roleIds: string[],
+  npi?: string
 ): Promise<{ invitationUrl?: string; profile: string; id: string }> {
   return apiFetch('/user/invite', config, {
     method: 'POST',
@@ -107,6 +140,14 @@ export async function sendUserInvite(
       resource: {
         resourceType: 'Practitioner',
         name: [{ family: lastName, given: [firstName] }],
+        ...(npi && {
+          identifier: [
+            {
+              system: 'http://hl7.org/fhir/sid/us-npi',
+              value: npi,
+            },
+          ],
+        }),
       },
       accessPolicy: {
         rule: [

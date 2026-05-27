@@ -4,22 +4,12 @@ import {
   ExamObservationDTO,
   extractObservationsFromExamComponents,
   GetChartDataResponse,
-  isInPersonAppointment,
 } from 'utils';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { EncounterInfo, Examination, PdfSection, ProgressNoteVisitDataInput } from '../../types';
 
-export const composeExamination: DataComposer<ProgressNoteVisitDataInput, Examination> = ({
-  allChartData,
-  appointmentPackage,
-}) => {
-  const { chartData } = allChartData;
-  const { appointment } = appointmentPackage;
-  const isInPerson = isInPersonAppointment(appointment);
-
-  const { examination } = parseExamFieldsFromExamObservations(chartData, isInPerson);
-
-  return { examination };
+export const composeExamination: DataComposer<ProgressNoteVisitDataInput, Examination> = ({ allChartData }) => {
+  return parseExamFieldsFromExamObservations(allChartData.chartData);
 };
 
 export const createExaminationSection = <
@@ -117,10 +107,7 @@ export const createExaminationSection = <
   }));
 };
 
-function parseExamFieldsFromExamObservations(
-  chartData: GetChartDataResponse,
-  isInPersonAppointment: boolean
-): {
+function parseExamFieldsFromExamObservations(chartData: GetChartDataResponse): {
   examination: Examination['examination'];
 } {
   const examObservations: {
@@ -130,9 +117,7 @@ function parseExamFieldsFromExamObservations(
     examObservations[exam.field] = exam;
   });
 
-  // Get exam configuration based on whether it's in-person or telemed
-  const examConfigType = isInPersonAppointment ? 'inPerson' : 'telemed';
-  const examConfigComponents = examConfig[examConfigType].default.components;
+  const examConfigComponents = examConfig.default.components;
 
   // If no exam config or observations, return empty examination
   if (!examConfigComponents || !chartData.examObservations || chartData.examObservations.length === 0) {

@@ -29,7 +29,7 @@ import { useAppointmentData } from 'src/features/visits/shared/stores/appointmen
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useMergedInHouseMedicationQuickPicks } from 'src/hooks/useMergedQuickPicks';
+import { sortQuickPicks, useMergedInHouseMedicationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import {
   CODE_SYSTEM_CPT,
@@ -291,7 +291,7 @@ export const EditableMedicationCard: React.FC<{
     if (!oystehrZambda) return;
     try {
       const response = await getInHouseMedicationQuickPicks(oystehrZambda);
-      setExistingQuickPicksForDialog(response.quickPicks);
+      setExistingQuickPicksForDialog([...response.quickPicks].sort(sortQuickPicks));
     } catch (error) {
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicksForDialog(fhirQuickPicks);
