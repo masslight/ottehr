@@ -70,7 +70,7 @@ const BATCH_SIZE = 10; // Number of concurrent requests processed before moving 
 const MAX_ROWS: number | undefined = undefined;
 
 // If undefined, we'll process everything
-const DOCUMENT_DESCRIPTIONS_TO_SKIP: string[] | undefined = ['Composite'];
+const DOCUMENT_DESCRIPTIONS_TO_SKIP: string[] | undefined = ['Composite', 'Patient Documentation'];
 
 const summary: Summary = {
   uploaded: 0,
