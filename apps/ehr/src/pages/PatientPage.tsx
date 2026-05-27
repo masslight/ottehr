@@ -1,10 +1,9 @@
 import MergeIcon from '@mui/icons-material/MergeType';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Alert, Box, Button, CircularProgress, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Paper, Skeleton, Stack, Tab, Tooltip, Typography } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { useEffect } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
@@ -53,6 +52,7 @@ export default function PatientPage(): JSX.Element {
   const activeMergeTask = mergeTaskData?.task ?? null;
   const mergeFailed = activeMergeTask?.status === 'failed';
   const mergeInProgress = !!activeMergeTask && !mergeFailed;
+  const wasMergeInProgressRef = useRef(false);
 
   const { oystehr: oystehrAdmin } = useApiClients();
   const handleDismissMergeTask = async (): Promise<void> => {
@@ -81,20 +81,20 @@ export default function PatientPage(): JSX.Element {
   // queries so the UI picks up the merged state.
   useEffect(() => {
     if (mergeTaskData && mergeTaskData.task === null) {
+      if (wasMergeInProgressRef.current) {
+        enqueueSnackbar('Patients merged successfully', { variant: 'success' });
+      }
       void queryClient.refetchQueries({ queryKey: ['useGetPatientPatientResources'], type: 'all' });
       void queryClient.refetchQueries({ queryKey: ['patient-account-get'], type: 'all' });
       void queryClient.refetchQueries({ queryKey: ['patient-coverages'], type: 'all' });
       void queryClient.refetchQueries({ queryKey: ['otherPatientsWithSameNameResources'], type: 'all' });
     }
-  }, [mergeTaskData, queryClient]);
+    if (mergeInProgress) {
+      wasMergeInProgressRef.current = true;
+    }
+  }, [mergeTaskData, mergeInProgress, queryClient]);
 
   const handleMergeClick = (): void => {
-    if (!isAdmin) {
-      enqueueSnackbar('You are not authorized to make this action. Please contact the administrator.', {
-        variant: 'error',
-      });
-      return;
-    }
     if (mergeInProgress) {
       enqueueSnackbar('A merge is already in progress for this patient.', { variant: 'info' });
       return;
@@ -228,9 +228,22 @@ export default function PatientPage(): JSX.Element {
                 <Alert
                   severity="warning"
                   action={
-                    <Button color="warning" size="small" startIcon={<MergeIcon />} onClick={handleMergeClick}>
-                      Merge Patients
-                    </Button>
+                    <Tooltip
+                      title={!isAdmin ? 'To merge patients you must have the Administrator role' : ''}
+                      placement="top"
+                    >
+                      <span>
+                        <Button
+                          color="warning"
+                          size="small"
+                          startIcon={<MergeIcon />}
+                          onClick={handleMergeClick}
+                          disabled={!isAdmin}
+                        >
+                          Merge Patients
+                        </Button>
+                      </span>
+                    </Tooltip>
                   }
                 >
                   Potential duplicate patients found
