@@ -26,7 +26,7 @@ export const PatientInstructionsCard: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { chartData, setPartialChartData } = useChartData();
   const allInstructions = chartData?.instructions || [];
-  const instructions = allInstructions.filter((item) => !item.educationDocRefId);
+  const instructionsWithoutEduDocs = allInstructions.filter((item) => !item.educationDocRefId);
 
   const onAddAndSave = (): void => {
     savePatientInstruction(
@@ -169,9 +169,9 @@ export const PatientInstructionsCard: FC = () => {
             </>
           )}
 
-          {instructions.length > 0 && (
+          {instructionsWithoutEduDocs.length > 0 && (
             <ActionsList
-              data={instructions}
+              data={instructionsWithoutEduDocs}
               getKey={(value, index) => value.resourceId || index}
               renderItem={(value) => (
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -189,7 +189,7 @@ export const PatientInstructionsCard: FC = () => {
             />
           )}
 
-          {instructions.length === 0 && isReadOnly && (
+          {instructionsWithoutEduDocs.length === 0 && isReadOnly && (
             <Typography color="secondary.light">No patient instructions provided</Typography>
           )}
         </Box>

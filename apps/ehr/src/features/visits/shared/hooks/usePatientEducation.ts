@@ -1,4 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
+import { deletePatientDocument } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { CommunicationDTO } from 'utils';
 import { useAppointmentData, useChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
@@ -54,6 +56,7 @@ export function usePatientEducation(): UsePatientEducationResult {
   const { encounter, patient } = useAppointmentData();
   const { mutateAsync: saveChartData } = useSaveChartData();
   const apiClient = useOystehrAPIClient();
+  const { oystehrZambda } = useApiClients();
 
   const allDiagnoses: DiagnosisOption[] = (chartData?.diagnosis ?? []).map((d) => ({
     code: d.code,
@@ -146,16 +149,18 @@ export function usePatientEducation(): UsePatientEducationResult {
         setPartialChartData({ instructions });
         clearEducationPdfUrl(documentReferenceId);
 
-        try {
-          await apiClient.deletePatientDocument({ documentRefId: documentReferenceId });
-        } catch (cleanupError) {
-          console.error('Failed to clean up patient education PDF after chart save failure:', cleanupError);
+        if (oystehrZambda) {
+          try {
+            await deletePatientDocument(oystehrZambda, { documentRefId: documentReferenceId });
+          } catch (cleanupError) {
+            console.error('Failed to clean up patient education PDF after chart save failure:', cleanupError);
+          }
         }
 
         throw error;
       }
     },
-    [apiClient, chartData?.instructions, encounter, patient, saveChartData, setPartialChartData]
+    [apiClient, chartData?.instructions, encounter, patient, saveChartData, setPartialChartData, oystehrZambda]
   );
 
   const generateForDiagnoses = useCallback(

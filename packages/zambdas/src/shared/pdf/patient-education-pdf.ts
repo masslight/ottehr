@@ -1,11 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PatientEducationSection } from 'utils';
 
-export interface PatientEducationSection {
-  content: string;
-  patientTitle: string;
-  icdCode: string;
-  icdDescription: string;
-}
+export type { PatientEducationSection };
 
 function wrapText(text: string, fontSize: number, maxWidth: number): string[] {
   const words = text.split(' ');

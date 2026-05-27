@@ -1,12 +1,11 @@
+import {
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+  PatientEducationSection,
+  SavePatientEducationPdfInput,
+} from 'utils';
 import { ZambdaInput } from '../../shared';
-import { PatientEducationSection } from '../../shared/pdf/patient-education-pdf';
-
-export interface SavePatientEducationPdfInput {
-  encounterId: string;
-  patientId: string;
-  sections: PatientEducationSection[];
-  title: string;
-}
 
 function isPatientEducationSection(value: unknown): value is PatientEducationSection {
   if (!value || typeof value !== 'object') return false;
@@ -23,19 +22,24 @@ export function validateRequestParameters(
   input: ZambdaInput
 ): SavePatientEducationPdfInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { encounterId, patientId, sections, title } = JSON.parse(input.body);
 
-  if (!encounterId) throw new Error('encounterId is required');
-  if (!patientId) throw new Error('patientId is required');
-  if (!title) throw new Error('title is required');
+  const missingFields: string[] = [];
+  if (!encounterId) missingFields.push('encounterId');
+  if (!patientId) missingFields.push('patientId');
+  if (!title) missingFields.push('title');
+  if (missingFields.length > 0) {
+    throw MISSING_REQUIRED_PARAMETERS(missingFields);
+  }
+
   if (!Array.isArray(sections) || sections.length === 0) {
-    throw new Error('sections must be a non-empty array');
+    throw INVALID_INPUT_ERROR('sections must be a non-empty array');
   }
   if (!sections.every(isPatientEducationSection)) {
-    throw new Error('Each section must have content, patientTitle, icdCode, and icdDescription strings');
+    throw INVALID_INPUT_ERROR('Each section must have content, patientTitle, icdCode, and icdDescription strings');
   }
 
   return { encounterId, patientId, sections, title, secrets: input.secrets };
