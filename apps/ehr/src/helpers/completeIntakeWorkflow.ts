@@ -18,12 +18,10 @@ export const completeIntakeWorkflow = async ({
   zambdaClient,
 }: CompleteIntakeWorkflowParams): Promise<boolean> => {
   try {
-    if (!assignedIntakePerformerId) {
-      enqueueSnackbar('Please select intake practitioner first', { variant: 'error' });
-      return false;
+    if (assignedIntakePerformerId) {
+      await endIntakePractitioner(assignedIntakePerformerId);
     }
 
-    await endIntakePractitioner(assignedIntakePerformerId);
     await handleChangeInPersonVisitStatus(
       {
         encounterId,
