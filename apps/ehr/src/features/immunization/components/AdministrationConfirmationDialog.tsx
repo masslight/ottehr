@@ -56,7 +56,7 @@ export const AdministrationConfirmationDialog: React.FC<Props> = ({
             <strong>Patient:</strong> {patientName}
           </Typography>
           <Typography data-testid={dataTestIds.administrationConfirmationDialog.vaccine}>
-            <strong>Vaccine:</strong> {medicationName} / {dose}
+            <strong>Immunization:</strong> {medicationName} / {dose}
             {unit} / {route}
           </Typography>
           <Typography data-testid={dataTestIds.administrationConfirmationDialog.message}>
