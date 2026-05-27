@@ -11,6 +11,8 @@ import {
   adminUpdateInHouseLab,
   adminUpdateLabelPrintingConfig,
   adminUpdateLabSet,
+  adminUpdateLocationSupportPhones,
+  adminUpdateSupportDialog,
   bulkUpdateInsuranceStatus,
   createEmCode,
   deleteEmCode,
@@ -19,6 +21,7 @@ import {
   getLabelPrintingConfig,
   getProcedureQuickPicks,
   getRadiologyQuickPicks,
+  getSupportDialog,
   removeQuickPick,
   updateEmCode,
   updateImmunizationQuickPick,
@@ -40,7 +43,9 @@ import {
   AdminListInHouseLabsOutput,
   AdminUpdateInHouseLabInput,
   AdminUpdateLabSetInput,
+  AdminUpdateLocationSupportPhonesInput,
   AdminUpdatePrintingConfigInput,
+  AdminUpdateSupportDialogInput,
   APIError,
   BulkUpdateInsuranceStatusInput,
   CreateEmCodeInput,
@@ -48,6 +53,7 @@ import {
   EmCodeOption,
   GetLabelPrintingConfigInput,
   GetLabelPrintingConfigOutput,
+  GetSupportDialogOutput,
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
   isApiError,
@@ -631,6 +637,69 @@ export const useAdminUpdateLabelPrintingConfig = (
       if (isApiError(error)) {
         message = (error as APIError).message;
       }
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminGetSupportDialog = (): UseQueryResult<GetSupportDialogOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['admin-get-support-dialog'],
+    queryFn: async () => getSupportDialog(oystehrZambda!),
+    enabled: !!oystehrZambda,
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  });
+};
+
+export const useAdminUpdateSupportDialog = (): UseMutationResult<void, Error, AdminUpdateSupportDialogInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-update-support-dialog'],
+    mutationFn: async (input: AdminUpdateSupportDialogInput) => {
+      if (!oystehrZambda) throw new Error('oystehr client is undefined');
+      await adminUpdateSupportDialog(oystehrZambda, input);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-get-support-dialog'] });
+      enqueueSnackbar('Support dialog updated', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      safelyCaptureException(error);
+      let message = 'Failed to update support dialog.';
+      if (isApiError(error)) message = (error as APIError).message;
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useAdminUpdateLocationSupportPhones = (): UseMutationResult<
+  void,
+  Error,
+  AdminUpdateLocationSupportPhonesInput
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['admin-update-location-support-phones'],
+    mutationFn: async (input: AdminUpdateLocationSupportPhonesInput) => {
+      if (!oystehrZambda) throw new Error('oystehr client is undefined');
+      await adminUpdateLocationSupportPhones(oystehrZambda, input);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['schedule-list'] });
+      enqueueSnackbar('Support phone numbers updated', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      safelyCaptureException(error);
+      let message = 'Failed to update support phone numbers.';
+      if (isApiError(error)) message = (error as APIError).message;
       enqueueSnackbar(message, { variant: 'error' });
     },
   });

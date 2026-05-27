@@ -8,12 +8,14 @@ import { PageTitle } from '../../shared/components/PageTitle';
 import { PatientInstructionsCard } from '../../shared/components/plan-tab/PatientInstructionsCard';
 import { SchoolWorkExcuseCard } from '../../shared/components/SchoolWorkExcuseCard';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
 interface PlanProps {
   appointmentID?: string;
 }
 
 export const Plan: FC<PlanProps> = () => {
   const { appointment, location, isAppointmentLoading, appointmentError } = useAppointmentData();
+  const { interactionMode } = useInPersonNavigationContext();
 
   const { isChartDataLoading, chartDataError } = useChartData();
   const isLoading = isAppointmentLoading || isChartDataLoading;
@@ -23,14 +25,15 @@ export const Plan: FC<PlanProps> = () => {
   if (error?.message) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
   const locationName = location?.name;
+  const isFollowUp = interactionMode === 'follow-up';
 
   return (
     <Stack spacing={1}>
       <PageTitle label="Plan" showIntakeNotesButton={false} />
-      <PatientInstructionsCard />
-      <DispositionCard />
+      {!isFollowUp && <PatientInstructionsCard />}
+      {!isFollowUp && <DispositionCard />}
       <SchoolWorkExcuseCard locationName={locationName} />
-      {FEATURE_FLAGS.FORMS_ENABLED && <FormsCard />}
+      {!isFollowUp && FEATURE_FLAGS.FORMS_ENABLED && <FormsCard />}
     </Stack>
   );
 };

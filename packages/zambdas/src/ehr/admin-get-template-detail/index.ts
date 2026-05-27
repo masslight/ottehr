@@ -21,7 +21,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { analyzeTemplateVersionData, verifyIsTemplate } from '../shared/template-helpers';
+import { analyzeTemplateVersionData, isDiagnosisCondition, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -207,10 +207,9 @@ const performEffect = async (
   ) as ClinicalImpression | undefined;
   const mdm = mdmResource?.summary ?? null;
 
-  // Parse diagnoses (ICD-10 coded Conditions)
-  const diagnosisConditions = contained.filter(
-    (r) => r.resourceType === 'Condition' && (r as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
-  ) as Condition[];
+  // Parse diagnoses. Identify them by the `diagnosis` meta tag — Medical Conditions are also Conditions with
+  // ICD-10 codes, so a code-system check alone would surface them as diagnoses incorrectly.
+  const diagnosisConditions = contained.filter((r) => isDiagnosisCondition(r)) as Condition[];
 
   const diagnoses: TemplateCodeInfo[] = diagnosisConditions.map((cond) => {
     const icdCoding = cond.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM);

@@ -186,26 +186,26 @@
       "src": "src/ehr/bulk-update-insurance-status/index",
       "zip": ".dist/zips/bulk-update-insurance-status.zip"
     },
-    "ADMIN-GET-PROCEDURE-QUICK-PICKS": {
-      "name": "admin-get-procedure-quick-picks",
+    "ADMIN-GET-QUICK-PICKS": {
+      "name": "admin-get-quick-picks",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-procedure-quick-picks/index",
-      "zip": ".dist/zips/admin-get-procedure-quick-picks.zip"
+      "src": "src/ehr/admin-get-quick-picks/index",
+      "zip": ".dist/zips/admin-get-quick-picks.zip"
     },
-    "ADMIN-CREATE-PROCEDURE-QUICK-PICK": {
-      "name": "admin-create-procedure-quick-pick",
+    "ADMIN-CREATE-QUICK-PICK": {
+      "name": "admin-create-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-procedure-quick-pick/index",
-      "zip": ".dist/zips/admin-create-procedure-quick-pick.zip"
+      "src": "src/ehr/admin-create-quick-pick/index",
+      "zip": ".dist/zips/admin-create-quick-pick.zip"
     },
-    "ADMIN-UPDATE-PROCEDURE-QUICK-PICK": {
-      "name": "admin-update-procedure-quick-pick",
+    "ADMIN-UPDATE-QUICK-PICK": {
+      "name": "admin-update-quick-pick",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-procedure-quick-pick/index",
-      "zip": ".dist/zips/admin-update-procedure-quick-pick.zip"
+      "src": "src/ehr/admin-update-quick-pick/index",
+      "zip": ".dist/zips/admin-update-quick-pick.zip"
     },
     "ADMIN-REMOVE-QUICK-PICK": {
       "name": "admin-remove-quick-pick",
@@ -213,195 +213,6 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-remove-quick-pick/index",
       "zip": ".dist/zips/admin-remove-quick-pick.zip"
-    },
-    "ADMIN-GET-RADIOLOGY-QUICK-PICKS": {
-      "name": "admin-get-radiology-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-radiology-quick-picks/index",
-      "zip": ".dist/zips/admin-get-radiology-quick-picks.zip"
-    },
-    "ADMIN-CREATE-RADIOLOGY-QUICK-PICK": {
-      "name": "admin-create-radiology-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-radiology-quick-pick/index",
-      "zip": ".dist/zips/admin-create-radiology-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-RADIOLOGY-QUICK-PICK": {
-      "name": "admin-update-radiology-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-radiology-quick-pick/index",
-      "zip": ".dist/zips/admin-update-radiology-quick-pick.zip"
-    },
-    "ADMIN-GET-ALLERGY-QUICK-PICKS": {
-      "name": "admin-get-allergy-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-allergy-quick-picks/index",
-      "zip": ".dist/zips/admin-get-allergy-quick-picks.zip"
-    },
-    "ADMIN-CREATE-ALLERGY-QUICK-PICK": {
-      "name": "admin-create-allergy-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-allergy-quick-pick/index",
-      "zip": ".dist/zips/admin-create-allergy-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-ALLERGY-QUICK-PICK": {
-      "name": "admin-update-allergy-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-allergy-quick-pick/index",
-      "zip": ".dist/zips/admin-update-allergy-quick-pick.zip"
-    },
-    "ADMIN-GET-MEDICAL-CONDITION-QUICK-PICKS": {
-      "name": "admin-get-medical-condition-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-medical-condition-quick-picks/index",
-      "zip": ".dist/zips/admin-get-medical-condition-quick-picks.zip"
-    },
-    "ADMIN-CREATE-MEDICAL-CONDITION-QUICK-PICK": {
-      "name": "admin-create-medical-condition-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-medical-condition-quick-pick/index",
-      "zip": ".dist/zips/admin-create-medical-condition-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-MEDICAL-CONDITION-QUICK-PICK": {
-      "name": "admin-update-medical-condition-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-medical-condition-quick-pick/index",
-      "zip": ".dist/zips/admin-update-medical-condition-quick-pick.zip"
-    },
-    "ADMIN-GET-MEDICATION-HISTORY-QUICK-PICKS": {
-      "name": "admin-get-medication-history-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-medication-history-quick-picks/index",
-      "zip": ".dist/zips/admin-get-medication-history-quick-picks.zip"
-    },
-    "ADMIN-CREATE-MEDICATION-HISTORY-QUICK-PICK": {
-      "name": "admin-create-medication-history-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-medication-history-quick-pick/index",
-      "zip": ".dist/zips/admin-create-medication-history-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-MEDICATION-HISTORY-QUICK-PICK": {
-      "name": "admin-update-medication-history-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-medication-history-quick-pick/index",
-      "zip": ".dist/zips/admin-update-medication-history-quick-pick.zip"
-    },
-    "ADMIN-GET-INSURANCE-QUICK-PICKS": {
-      "name": "admin-get-insurance-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-insurance-quick-picks/index",
-      "zip": ".dist/zips/admin-get-insurance-quick-picks.zip"
-    },
-    "ADMIN-CREATE-INSURANCE-QUICK-PICK": {
-      "name": "admin-create-insurance-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-insurance-quick-pick/index",
-      "zip": ".dist/zips/admin-create-insurance-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-INSURANCE-QUICK-PICK": {
-      "name": "admin-update-insurance-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-insurance-quick-pick/index",
-      "zip": ".dist/zips/admin-update-insurance-quick-pick.zip"
-    },
-    "ADMIN-GET-IMMUNIZATION-QUICK-PICKS": {
-      "name": "admin-get-immunization-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-immunization-quick-picks/index",
-      "zip": ".dist/zips/admin-get-immunization-quick-picks.zip"
-    },
-    "ADMIN-CREATE-IMMUNIZATION-QUICK-PICK": {
-      "name": "admin-create-immunization-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-immunization-quick-pick/index",
-      "zip": ".dist/zips/admin-create-immunization-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-IMMUNIZATION-QUICK-PICK": {
-      "name": "admin-update-immunization-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-immunization-quick-pick/index",
-      "zip": ".dist/zips/admin-update-immunization-quick-pick.zip"
-    },
-    "ADMIN-GET-IN-HOUSE-MEDICATION-QUICK-PICKS": {
-      "name": "admin-get-in-house-medication-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-in-house-medication-quick-picks/index",
-      "zip": ".dist/zips/admin-get-in-house-medication-quick-picks.zip"
-    },
-    "ADMIN-CREATE-IN-HOUSE-MEDICATION-QUICK-PICK": {
-      "name": "admin-create-in-house-medication-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-in-house-medication-quick-pick/index",
-      "zip": ".dist/zips/admin-create-in-house-medication-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-IN-HOUSE-MEDICATION-QUICK-PICK": {
-      "name": "admin-update-in-house-medication-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-in-house-medication-quick-pick/index",
-      "zip": ".dist/zips/admin-update-in-house-medication-quick-pick.zip"
-    },
-    "ADMIN-GET-QUICK-TEXT-QUICK-PICKS": {
-      "name": "admin-get-quick-text-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-quick-text-quick-picks/index",
-      "zip": ".dist/zips/admin-get-quick-text-quick-picks.zip"
-    },
-    "ADMIN-CREATE-QUICK-TEXT-QUICK-PICK": {
-      "name": "admin-create-quick-text-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-quick-text-quick-pick/index",
-      "zip": ".dist/zips/admin-create-quick-text-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-QUICK-TEXT-QUICK-PICK": {
-      "name": "admin-update-quick-text-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-quick-text-quick-pick/index",
-      "zip": ".dist/zips/admin-update-quick-text-quick-pick.zip"
-    },
-    "ADMIN-GET-PATIENT-INSTRUCTION-QUICK-PICKS": {
-      "name": "admin-get-patient-instruction-quick-picks",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-get-patient-instruction-quick-picks/index",
-      "zip": ".dist/zips/admin-get-patient-instruction-quick-picks.zip"
-    },
-    "ADMIN-CREATE-PATIENT-INSTRUCTION-QUICK-PICK": {
-      "name": "admin-create-patient-instruction-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-patient-instruction-quick-pick/index",
-      "zip": ".dist/zips/admin-create-patient-instruction-quick-pick.zip"
-    },
-    "ADMIN-UPDATE-PATIENT-INSTRUCTION-QUICK-PICK": {
-      "name": "admin-update-patient-instruction-quick-pick",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-patient-instruction-quick-pick/index",
-      "zip": ".dist/zips/admin-update-patient-instruction-quick-pick.zip"
     },
     "UPDATE-USER": {
       "name": "update-user",
@@ -2161,6 +1972,41 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/label-printing-config/admin-update-label-printing-config/index",
       "zip": ".dist/zips/admin-update-label-printing-config.zip"
+    },
+    "GET-SUPPORT-DIALOG": {
+      "name": "get-support-dialog",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-dialog/get-support-dialog/index",
+      "zip": ".dist/zips/get-support-dialog.zip"
+    },
+    "ADMIN-UPDATE-SUPPORT-DIALOG": {
+      "name": "admin-update-support-dialog",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-dialog/admin-update-support-dialog/index",
+      "zip": ".dist/zips/admin-update-support-dialog.zip"
+    },
+    "ADMIN-UPDATE-LOCATION-SUPPORT-PHONES": {
+      "name": "admin-update-location-support-phones",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-dialog/admin-update-location-support-phones/index",
+      "zip": ".dist/zips/admin-update-location-support-phones.zip"
+    },
+    "GET-PUBLIC-SUPPORT-DIALOG": {
+      "name": "get-public-support-dialog",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-public-support-dialog/index",
+      "zip": ".dist/zips/get-public-support-dialog.zip"
+    },
+    "GET-PUBLIC-LOCATION-SUPPORT-PHONES": {
+      "name": "get-public-location-support-phones",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-public-location-support-phones/index",
+      "zip": ".dist/zips/get-public-location-support-phones.zip"
     },
     "GENERATE-LABEL-XML": {
       "name": "generate-label-xml",
