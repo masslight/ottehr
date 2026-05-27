@@ -205,7 +205,7 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
               onSectionsChange={(next) => setEditableSection(next[0])}
               disabled={isBusy}
               errorMessage={errorMsg}
-              helperText="Edit the content below if needed. Use markdown formatting: ## for section headers, - for bullet points. When you approve, the rendered PDF is what charting will use."
+              helperText="Edit the content below if needed. Use markdown formatting: "#", "##" for section headers, "- " for bullet points. When you approve, the rendered PDF is what charting will use."
             />
           </Box>
         )}
