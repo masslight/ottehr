@@ -1,15 +1,16 @@
 import { Operation } from 'fast-json-patch';
-import { Condition, Encounter, EncounterDiagnosis, List } from 'fhir/r4b';
+import { Condition, Encounter, EncounterDiagnosis, List, Procedure, ServiceRequest } from 'fhir/r4b';
 import {
   chartDataTagSystem,
   ICD_10_CODE_SYSTEM,
+  IN_HOUSE_TEST_CODE_SYSTEM,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TemplateSectionAction,
   TemplateSectionKey,
 } from 'utils';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { describe, expect, test } from 'vitest';
-import { makeCreateRequests } from '../../src/ehr/apply-template/index';
+import { collectCptCodesFromAppliedInHouseLabPlans, makeCreateRequests } from '../../src/ehr/apply-template/index';
 import { validateRequestParameters } from '../../src/ehr/apply-template/validateRequestParameters';
 import { ZambdaInput } from '../../src/shared';
 
@@ -129,7 +130,7 @@ const makeTemplateList = (
   ],
 });
 
-const makeEncounter = (id: string, diagnoses: Array<{ conditionId: string; rank?: number }>): Encounter => ({
+const makeDxEncounter = (id: string, diagnoses: Array<{ conditionId: string; rank?: number }>): Encounter => ({
   resourceType: 'Encounter',
   id,
   status: 'in-progress',
@@ -141,17 +142,19 @@ const makeEncounter = (id: string, diagnoses: Array<{ conditionId: string; rank?
   })),
 });
 
-const makeActions = (diagnosesAction: TemplateSectionAction): Record<TemplateSectionKey, TemplateSectionAction> => ({
+const makeActions = (
+  overrides: Partial<Record<TemplateSectionKey, TemplateSectionAction>>
+): Record<TemplateSectionKey, TemplateSectionAction> => ({
   ...TEMPLATE_SECTION_DEFAULT_ACTIONS,
-  diagnoses: diagnosesAction,
-  hpi: 'skip' as const,
-  moi: 'skip' as const,
-  ros: 'skip' as const,
-  examFindings: 'skip' as const,
-  mdm: 'skip' as const,
-  patientInstructions: 'skip' as const,
-  cptCodes: 'skip' as const,
-  emCode: 'skip' as const,
+  hpi: 'skip',
+  moi: 'skip',
+  ros: 'skip',
+  examFindings: 'skip',
+  mdm: 'skip',
+  diagnoses: 'skip',
+  patientInstructions: 'skip',
+  emCode: 'skip',
+  ...overrides,
 });
 
 const getEncounterDiagnosisPatchOperations = (requests: ReturnType<typeof makeCreateRequests>): Operation | null => {
@@ -168,13 +171,19 @@ describe('makeCreateRequests — diagnosis behavior', () => {
     const templateCondA = makeDxCondition('tmpl-a', 'J02.9'); // same code — should be deduped
     const templateCondB = makeDxCondition('tmpl-b', 'J10.0'); // new code — should be added
 
-    const encounter = makeEncounter('enc-1', [{ conditionId: 'existing-1', rank: 1 }]);
+    const encounter = makeDxEncounter('enc-1', [{ conditionId: 'existing-1', rank: 1 }]);
     const templateList = makeTemplateList(
       [templateCondA, templateCondB],
       [{ conditionId: 'tmpl-a', rank: 1 }, { conditionId: 'tmpl-b' }]
     );
 
-    const requests = makeCreateRequests(encounter, templateList, [existingCond], makeActions('append'));
+    const requests = makeCreateRequests(
+      encounter,
+      templateList,
+      [existingCond],
+      makeActions({ diagnoses: 'append' }),
+      new Set()
+    );
     const diagnosisPatchOps = getEncounterDiagnosisPatchOperations(requests);
 
     expect(diagnosisPatchOps).not.toBeNull();
@@ -196,10 +205,16 @@ describe('makeCreateRequests — diagnosis behavior', () => {
     const existingCond = makeDxCondition('existing-1', 'J02.9');
     const templateCond = makeDxCondition('tmpl-a', 'J45.909'); // different code, template claims rank 1
 
-    const encounter = makeEncounter('enc-1', [{ conditionId: 'existing-1', rank: 1 }]);
+    const encounter = makeDxEncounter('enc-1', [{ conditionId: 'existing-1', rank: 1 }]);
     const templateList = makeTemplateList([templateCond], [{ conditionId: 'tmpl-a', rank: 1 }]);
 
-    const requests = makeCreateRequests(encounter, templateList, [existingCond], makeActions('append'));
+    const requests = makeCreateRequests(
+      encounter,
+      templateList,
+      [existingCond],
+      makeActions({ diagnoses: 'append' }),
+      new Set()
+    );
     const diagnosisPatchOp = getEncounterDiagnosisPatchOperations(requests);
 
     expect(diagnosisPatchOp).not.toBeNull();
@@ -224,13 +239,19 @@ describe('makeCreateRequests — diagnosis behavior', () => {
     const templateCondA = makeDxCondition('tmpl-a', 'J45.909'); // primary — rank 1
     const templateCondB = makeDxCondition('tmpl-b', 'J10.0'); // secondary — no rank
 
-    const encounter = makeEncounter('enc-1', [{ conditionId: 'existing-1' }]); // no rank: 1
+    const encounter = makeDxEncounter('enc-1', [{ conditionId: 'existing-1' }]); // no rank: 1
     const templateList = makeTemplateList(
       [templateCondA, templateCondB],
       [{ conditionId: 'tmpl-a', rank: 1 }, { conditionId: 'tmpl-b' }]
     );
 
-    const requests = makeCreateRequests(encounter, templateList, [existingCond], makeActions('append'));
+    const requests = makeCreateRequests(
+      encounter,
+      templateList,
+      [existingCond],
+      makeActions({ diagnoses: 'append' }),
+      new Set()
+    );
     const diagnosisPatchOp = getEncounterDiagnosisPatchOperations(requests);
 
     expect(diagnosisPatchOp).not.toBeNull();
@@ -253,13 +274,19 @@ describe('makeCreateRequests — diagnosis behavior', () => {
     const templateCondA = makeDxCondition('tmpl-a', 'J45.909');
     const templateCondB = makeDxCondition('tmpl-b', 'J10.0');
 
-    const encounter = makeEncounter('enc-1', [{ conditionId: 'existing-1', rank: 1 }]);
+    const encounter = makeDxEncounter('enc-1', [{ conditionId: 'existing-1', rank: 1 }]);
     const templateList = makeTemplateList(
       [templateCondA, templateCondB],
       [{ conditionId: 'tmpl-a', rank: 1 }, { conditionId: 'tmpl-b' }]
     );
 
-    const requests = makeCreateRequests(encounter, templateList, [existingCond], makeActions('overwrite'));
+    const requests = makeCreateRequests(
+      encounter,
+      templateList,
+      [existingCond],
+      makeActions({ diagnoses: 'overwrite' }),
+      new Set()
+    );
     const diagnosisPatchOp = getEncounterDiagnosisPatchOperations(requests);
 
     expect(diagnosisPatchOp).not.toBeNull();
@@ -275,5 +302,154 @@ describe('makeCreateRequests — diagnosis behavior', () => {
       expect(primaryEntry).toBeDefined();
       expect(secondaryEntry?.rank).toBeUndefined();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CPT codes / in-house lab overlap (PRD: "Overlap with the CPT Codes section")
+// ---------------------------------------------------------------------------
+
+const CPT_CODE_SYSTEM = 'http://www.ama-assn.org/go/cpt';
+
+const makePlanSR = (id: string, cptCodes: string[]): ServiceRequest => ({
+  resourceType: 'ServiceRequest',
+  id,
+  status: 'active',
+  intent: 'plan',
+  subject: { reference: '#stub-patient' },
+  code: {
+    coding: [
+      { system: IN_HOUSE_TEST_CODE_SYSTEM, code: 'STREP-RAPID' },
+      ...cptCodes.map((code) => ({ system: CPT_CODE_SYSTEM, code })),
+    ],
+  },
+  meta: {
+    tag: [{ system: chartDataTagSystem('in-house-lab-template-plan'), code: 'in-house-lab-template-plan' }],
+  },
+});
+
+const makeCptProcedure = (id: string, cptCode: string): Procedure => ({
+  resourceType: 'Procedure',
+  id,
+  status: 'completed',
+  subject: { reference: '#stub-patient' },
+  code: { coding: [{ system: CPT_CODE_SYSTEM, code: cptCode }] },
+  meta: { tag: [{ system: chartDataTagSystem('cpt-code'), code: 'cpt-code' }] },
+});
+
+const makeCptTemplateList = (resources: Array<Procedure | ServiceRequest>): List => ({
+  resourceType: 'List',
+  id: 'cpt-template',
+  status: 'current',
+  mode: 'working',
+  entry: resources.map((r) => ({ item: { reference: `#${r.id}` } })),
+  contained: [
+    ...resources,
+    {
+      resourceType: 'Encounter',
+      id: 'stub-enc',
+      status: 'unknown',
+      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+    } as Encounter,
+  ],
+});
+
+const makeSimpleCptEncounter = (): Encounter => ({
+  resourceType: 'Encounter',
+  id: 'enc-1',
+  status: 'in-progress',
+  class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+  subject: { reference: 'Patient/pat-1' },
+});
+
+const getCptPostRequests = (requests: ReturnType<typeof makeCreateRequests>): Array<{ code: string }> =>
+  requests
+    .filter(
+      (r): r is { method: 'POST'; url: string; resource: Procedure } =>
+        r.method === 'POST' && (r as any).resource?.resourceType === 'Procedure'
+    )
+    .flatMap((r) => r.resource.code?.coding ?? [])
+    .filter((c) => c.system === CPT_CODE_SYSTEM && c.code !== undefined)
+    .map((c) => ({ code: c.code! }));
+
+describe('collectCptCodesFromAppliedInHouseLabPlans', () => {
+  test('collects CPT codes from plan SRs when both inHouseLabs and cptCodes are non-skip', () => {
+    const templateList = makeCptTemplateList([makePlanSR('plan-1', ['87880', '87081'])]);
+    const actions = makeActions({ inHouseLabs: 'append', cptCodes: 'append' });
+    const result = collectCptCodesFromAppliedInHouseLabPlans(templateList, actions);
+    expect(result).toEqual(new Set(['87880', '87081']));
+  });
+
+  test('returns empty set when inHouseLabs is skip (labs not being applied, no dedup needed)', () => {
+    const templateList = makeCptTemplateList([makePlanSR('plan-1', ['87880'])]);
+    const actions = makeActions({ inHouseLabs: 'skip', cptCodes: 'append' });
+    expect(collectCptCodesFromAppliedInHouseLabPlans(templateList, actions)).toEqual(new Set());
+  });
+
+  test('returns empty set when cptCodes is skip (CPT section not running, nothing to dedup against)', () => {
+    const templateList = makeCptTemplateList([makePlanSR('plan-1', ['87880'])]);
+    const actions = makeActions({ inHouseLabs: 'append', cptCodes: 'skip' });
+    expect(collectCptCodesFromAppliedInHouseLabPlans(templateList, actions)).toEqual(new Set());
+  });
+});
+
+describe('makeCreateRequests — CPT / in-house lab overlap', () => {
+  test('skip lab + append CPT: CPT Procedure is created as a free-standing code', () => {
+    const cptProc = makeCptProcedure('cpt-1', '87880');
+    const planSR = makePlanSR('plan-1', ['87880']);
+    const templateList = makeCptTemplateList([planSR, cptProc]);
+    const actions = makeActions({ inHouseLabs: 'skip', cptCodes: 'append' });
+
+    // When labs are skipped the dedup set is empty — CPT Procedure goes through normally.
+    const cptCodesFromLabsToSkip = collectCptCodesFromAppliedInHouseLabPlans(templateList, actions);
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, cptCodesFromLabsToSkip);
+
+    const createdCpts = getCptPostRequests(requests);
+    expect(createdCpts.map((c) => c.code)).toContain('87880');
+  });
+
+  test('append lab + skip CPT: no CPT Procedure is created by the template CPT section', () => {
+    const cptProc = makeCptProcedure('cpt-1', '87880');
+    const planSR = makePlanSR('plan-1', ['87880']);
+    const templateList = makeCptTemplateList([planSR, cptProc]);
+    const actions = makeActions({ inHouseLabs: 'append', cptCodes: 'skip' });
+
+    // CPT section is skipped entirely — dedup set is irrelevant, Procedure won't be created.
+    const cptCodesFromLabsToSkip = collectCptCodesFromAppliedInHouseLabPlans(templateList, actions);
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, cptCodesFromLabsToSkip);
+
+    const createdCpts = getCptPostRequests(requests);
+    expect(createdCpts).toHaveLength(0);
+  });
+
+  test('append both: CPT Procedure matching the lab plan is deduplicated — only one charge per code', () => {
+    const cptProc = makeCptProcedure('cpt-1', '87880');
+    const planSR = makePlanSR('plan-1', ['87880']);
+    const templateList = makeCptTemplateList([planSR, cptProc]);
+    const actions = makeActions({ inHouseLabs: 'append', cptCodes: 'append' });
+
+    // Both sections run — the lab's CPT code must be excluded from the template's CPT section.
+    const cptCodesFromLabsToSkip = collectCptCodesFromAppliedInHouseLabPlans(templateList, actions);
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, cptCodesFromLabsToSkip);
+
+    const createdCpts = getCptPostRequests(requests);
+    expect(createdCpts).toHaveLength(0);
+  });
+
+  test('append both: a CPT code NOT on any lab plan is still created normally', () => {
+    // The template has two CPT codes: 87880 (on the lab plan) and 99213 (standalone).
+    // After dedup, 87880 is suppressed but 99213 must still go through.
+    const cptProc87880 = makeCptProcedure('cpt-1', '87880');
+    const cptProc99213 = makeCptProcedure('cpt-2', '99213');
+    const planSR = makePlanSR('plan-1', ['87880']);
+    const templateList = makeCptTemplateList([planSR, cptProc87880, cptProc99213]);
+    const actions = makeActions({ inHouseLabs: 'append', cptCodes: 'append' });
+
+    const cptCodesFromLabsToSkip = collectCptCodesFromAppliedInHouseLabPlans(templateList, actions);
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, cptCodesFromLabsToSkip);
+
+    const createdCptCodes = getCptPostRequests(requests).map((c) => c.code);
+    expect(createdCptCodes).not.toContain('87880');
+    expect(createdCptCodes).toContain('99213');
   });
 });

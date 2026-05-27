@@ -177,30 +177,6 @@ const performEffect = async (
 
   // Keep only the Encounter and resources tagged as template content. See TEMPLATE_TAG_SYSTEMS for the allow-list.
   encounterBundle = filterEntriesToTemplateContent(encounterBundle, diagnosesRefFromEncounterSet);
-  // ATHENA TODO: need to add this procedure and cpt stuff to the filterEntriesToTemplateContent jk that got reverted so maybe not
-  // encounterBundle.entry = encounterBundle.entry.filter((entry) => {
-  //   if (!entry.resource || entry.resource.resourceType === 'Encounter') return true;
-  //   // Keep ICD-10 Conditions (Assessment / Diagnoses)
-  //   if (
-  //     entry.resource.resourceType === 'Condition' &&
-  //     (entry.resource as Condition).code?.coding?.some((c) => c.system === ICD_10_CODE_SYSTEM)
-  //   ) {
-  //     return true;
-  //   }
-  //   // Drop CPT Procedures that came from an in-house lab order the provider
-  //   // already deleted (see orphanedInHouseCptCodes above).
-  //   if (
-  //     entry.resource.resourceType === 'Procedure' &&
-  //     entry.resource.meta?.tag?.some((tag) => tag.system === chartDataTagSystem('cpt-code')) &&
-  //     (entry.resource as Procedure).code?.coding?.some(
-  //       (c) => c.system === CPT_CODE_SYSTEM && c.code !== undefined && orphanedInHouseCptCodes.has(c.code)
-  //     )
-  //   ) {
-  //     return false;
-  //   }
-  //   // Keep resources with a template-relevant meta tag
-  //   return entry.resource.meta?.tag?.some((tag) => tag.system && TEMPLATE_TAG_SYSTEMS.has(tag.system));
-  // });
 
   console.log('Count of resources after filtering to template-relevant:', encounterBundle.length);
 

@@ -128,7 +128,7 @@ const IN_HOUSE_LAB_PLAN_TAG_SYSTEM = chartDataTagSystem('in-house-lab-template-p
 // Returns an empty set if either action is 'skip' - if labs are being skipped
 // the lab side doesn't materialize anything, and if CPTs are skipped the
 // section doesn't run so no dedup is needed.
-const collectCptCodesFromAppliedInHouseLabPlans = (
+export const collectCptCodesFromAppliedInHouseLabPlans = (
   templateList: List,
   actions: ResolvedSectionActions
 ): Set<string> => {
