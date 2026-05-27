@@ -41,7 +41,7 @@ export const PatientEducationCard: FC = () => {
   const [selectedDiagnoses, setSelectedDiagnoses] = useState<string[]>([]);
   const {
     prefetchAllDiagnoses,
-    generateForDiagnoses,
+    generateDiagnoses,
     saveFromSections,
     generatedSections,
     clearGeneratedSections,
@@ -290,7 +290,7 @@ export const PatientEducationCard: FC = () => {
               const selected = selectedDiagnoses
                 .map((code) => allDiagnoses.find((diagnosis) => diagnosis.code === code))
                 .filter((diagnosis): diagnosis is NonNullable<typeof diagnosis> => !!diagnosis);
-              await generateForDiagnoses(selected);
+              await generateDiagnoses(selected);
             }}
             disabled={selectedDiagnoses.length === 0 || isEducationLoading || isEducationSaving}
             startIcon={isEducationLoading || isEducationSaving ? <CircularProgress size={16} /> : <SchoolIcon />}

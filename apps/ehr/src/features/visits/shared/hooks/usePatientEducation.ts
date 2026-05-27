@@ -35,7 +35,7 @@ export type GenerateOutcome = 'review';
 
 export interface UsePatientEducationResult {
   prefetchAllDiagnoses: () => void;
-  generateForDiagnoses: (diagnoses: DiagnosisOption[]) => Promise<GenerateOutcome | null>;
+  generateDiagnoses: (diagnoses: DiagnosisOption[]) => Promise<GenerateOutcome | null>;
   saveFromSections: (sections: EducationSection[]) => Promise<boolean>;
   generatedSections: EducationSection[] | null;
   clearGeneratedSections: () => void;
@@ -163,7 +163,7 @@ export function usePatientEducation(): UsePatientEducationResult {
     [apiClient, chartData?.instructions, encounter, patient, saveChartData, setPartialChartData, oystehrZambda]
   );
 
-  const generateForDiagnoses = useCallback(
+  const generateDiagnoses = useCallback(
     async (selectedDiagnoses: DiagnosisOption[]): Promise<GenerateOutcome | null> => {
       if (selectedDiagnoses.length === 0) {
         setError('No diagnoses selected.');
@@ -253,7 +253,7 @@ export function usePatientEducation(): UsePatientEducationResult {
 
   return {
     prefetchAllDiagnoses,
-    generateForDiagnoses,
+    generateDiagnoses,
     saveFromSections,
     generatedSections,
     clearGeneratedSections,

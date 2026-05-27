@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { PDFDocument } from 'pdf-lib';
@@ -161,6 +162,10 @@ export const performEffect = async (
           console.log(`Appended education PDF from DocumentReference/${docRef.id}`);
         } catch (err) {
           console.error(`Failed to append education PDF DocumentReference/${docRef.id}:`, err);
+          captureException(err, {
+            tags: { zambda: 'create-discharge-summary', stage: 'append-education-pdf' },
+            extra: { documentReferenceId: docRef.id },
+          });
         }
       }
 
@@ -172,6 +177,10 @@ export const performEffect = async (
     }
   } catch (err) {
     console.error('Failed to merge education PDFs into discharge summary:', err);
+    captureException(err, {
+      tags: { zambda: 'create-discharge-summary', stage: 'merge-education-pdfs' },
+      extra: { encounterId: encounter.id, patientId: patient.id },
+    });
     // Non-fatal: proceed with the discharge summary without education PDFs
   }
 
