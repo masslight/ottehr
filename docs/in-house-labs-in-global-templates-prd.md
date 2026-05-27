@@ -16,7 +16,7 @@ The list of sections shown in the "Save Note As Template" confirmation popup now
 
 When the template is saved, the system captures, for each in-house lab order on the visit:
 
-- The test being ordered, referenced by its identity in the lab catalog (not by a pinned version — see *Resilience to catalog changes* below).
+- The test being ordered, referenced by its identity in the lab catalog (not by a pinned version — see _Resilience to catalog changes_ below).
 - The ICD-10 diagnoses the provider attached to that order as the reason for ordering.
 - Any free-text order notes the provider entered.
 
@@ -49,7 +49,7 @@ Each saved order is shown as a card with:
 
 - The test name (resolved against the live catalog at preview time).
 - The diagnoses the order will be linked to, as outlined chips.
-- The CPT codes the test will charge for, as outlined chips (so the provider sees exactly what the lab section delivers — see *Overlap with the CPT Codes section* below).
+- The CPT codes the test will charge for, as outlined chips (so the provider sees exactly what the lab section delivers — see _Overlap with the CPT Codes section_ below).
 - The order notes, if any.
 
 If a saved order's test definition can't be resolved in the current environment, the order is rendered muted with an inline note: **"unavailable in this environment — will be skipped."** This signals to the provider that applying the template won't produce that order, without blocking the rest.
@@ -72,7 +72,7 @@ When an admin opens a template's detail page, the new **In-House Lab Orders** se
 - Diagnoses linked to it.
 - Order notes.
 
-If the test is no longer active in this environment, the plan is rendered muted with the inline warning **"activity definition not found in this environment — applies will skip this lab,"** so admins can spot templates that need to be re-saved against a current catalog.
+If the test is no longer active in this environment, the plan is rendered muted with the inline warning **"ActivityDefinition not found in this environment — applies will skip this lab,"** so admins can spot templates that need to be re-saved against a current catalog.
 
 The page does **not** show internal identifiers (catalog URLs, FHIR IDs, etc.) — those are too technical for the intended audience.
 
@@ -93,6 +93,6 @@ This is intentional. The provider can choose which section actually delivers the
 
 - Editing a template's saved lab orders directly. Templates are re-saved from a note, not edited piece by piece.
 - Applying a template's labs to a different patient or a different encounter than the one the provider is currently viewing.
-- Carrying over collected specimens, recorded results, or any other in-flight lab state. Templates carry the *intent to order*, not active orders.
+- Carrying over collected specimens, recorded results, or any other in-flight lab state. Templates carry the _intent to order_, not active orders.
 - Storing orders that were canceled on the saved-from visit.
 - A dedicated "catalog version diff" view for admins — catalog management remains in the existing admin tools.

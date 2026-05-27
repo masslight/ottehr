@@ -92,6 +92,8 @@ const truncate = (s: string, n = 80): string => {
 const pluralize = (n: number, singular: string, plural = `${singular}s`): string =>
   `${n} ${n === 1 ? singular : plural}`;
 
+// the slices are because we show the names of the first two items "+ n more"
+const NUM_ITEMS_IN_SECTION_TO_SHOW = 2;
 const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], key: TemplateSectionKey): string => {
   switch (key) {
     case 'hpi':
@@ -116,30 +118,30 @@ const getSectionSummary = (sections: AdminGetTemplateDetailOutput['sections'], k
       return sections.mdm ? truncate(sections.mdm) : '';
     case 'diagnoses': {
       const codes = sections.diagnoses
-        .slice(0, 2)
+        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
         .map((d) => d.code)
         .join(', ');
-      const extra = sections.diagnoses.length - 2;
+      const extra = sections.diagnoses.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
       return extra > 0 ? `${codes} +${extra} more` : codes;
     }
     case 'patientInstructions':
       return pluralize(sections.patientInstructions.length, 'instruction');
     case 'cptCodes': {
       const codes = sections.cptCodes
-        .slice(0, 2)
+        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
         .map((c) => c.code)
         .join(', ');
-      const extra = sections.cptCodes.length - 2;
+      const extra = sections.cptCodes.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
       return extra > 0 ? `${codes} +${extra} more` : codes;
     }
     case 'emCode':
       return sections.emCode ? sections.emCode.code : '';
     case 'inHouseLabs': {
       const names = sections.inHouseLabs
-        .slice(0, 2)
+        .slice(0, NUM_ITEMS_IN_SECTION_TO_SHOW)
         .map((p) => p.testName)
         .join(', ');
-      const extra = sections.inHouseLabs.length - 2;
+      const extra = sections.inHouseLabs.length - NUM_ITEMS_IN_SECTION_TO_SHOW;
       const summary = extra > 0 ? `${names} +${extra} more` : names;
       const missing = sections.inHouseLabs.filter((p) => p.missing).length;
       return missing > 0 ? `${summary} (${missing} unavailable)` : summary;
@@ -379,7 +381,7 @@ const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlan[] }> = ({ pl
             variant="caption"
             sx={{ display: 'block', mt: 0.5, color: 'text.secondary', whiteSpace: 'pre-wrap' }}
           >
-            {plan.notes.join('\n\n')}
+            Notes: {plan.notes.join('\n\n')}
           </Typography>
         ) : null}
       </Box>

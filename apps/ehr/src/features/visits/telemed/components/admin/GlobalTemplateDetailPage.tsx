@@ -419,12 +419,12 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                 {sections.inHouseLabs.map((plan) => (
                   <Box key={plan.planId} sx={{ opacity: plan.missing ? 0.6 : 1 }}>
                     <Stack direction="row" alignItems="baseline" spacing={1}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
                         {plan.testName}
                       </Typography>
                       {plan.missing ? (
                         <Typography variant="caption" color="warning.main" fontStyle="italic">
-                          activity definition not found in this environment — applies will skip this lab
+                          ActivityDefinition not found in this environment — applies will skip this lab
                         </Typography>
                       ) : null}
                     </Stack>
