@@ -10,7 +10,7 @@ export function validateRequestParameters(
     throw INVALID_INPUT_ERROR('No request body provided');
   }
 
-  const { name, ndc, medispanID, medispanIDForInteractions, cptCodes, hcpcsCodes } = JSON.parse(input.body);
+  const { name, ndc, medispanID, medispanIDForInteractions } = JSON.parse(input.body);
 
   if (!name) {
     throw MISSING_REQUIRED_PARAMETERS(['name']);
@@ -28,8 +28,6 @@ export function validateRequestParameters(
     ndc,
     medispanID,
     medispanIDForInteractions,
-    cptCodes,
-    hcpcsCodes,
     secrets: input.secrets,
   };
 }

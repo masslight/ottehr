@@ -568,6 +568,15 @@ export interface PlanData extends PdfData {
   subSpecialtyFollowup?: string[];
   workSchoolExcuse?: string[];
   addendumNote?: string;
+  addendumNotes?: AddendumEntry[];
+}
+
+export interface AddendumEntry {
+  text: string;
+  authorName: string;
+  timestamp?: string;
+  edited?: boolean;
+  deleted?: boolean;
 }
 
 export interface Assessment extends PdfData {

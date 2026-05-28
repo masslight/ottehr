@@ -1,8 +1,15 @@
 import { E2E_USERS as _e2eUsers, OYSTEHR_AUTH_TOKEN, PROJECT_ID } from './setup.config';
 import { DemoUser } from './types';
-import { buildConfig, getApplicationId, getRoleIds, sendUserInvite, setPasswordWithBrowser } from './utils';
+import {
+  buildConfig,
+  getApplicationId,
+  getRoleIds,
+  resolveProjectId,
+  sendUserInvite,
+  setPasswordWithBrowser,
+} from './utils';
 
-const config = buildConfig(OYSTEHR_AUTH_TOKEN, PROJECT_ID);
+const config = buildConfig(OYSTEHR_AUTH_TOKEN, resolveProjectId(PROJECT_ID));
 const E2E_USERS: DemoUser[] = _e2eUsers;
 
 async function main(): Promise<void> {

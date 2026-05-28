@@ -61,11 +61,13 @@ import {
   HospitalizationDTO,
   ICD_10_CODE_SYSTEM,
   IN_PERSON_NOTE_ID,
+  isNoteEdited,
   isVitalObservation,
   makeVitalsObservationDTO,
   MedicalConditionDTO,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MedicationDTO,
+  NOTE_TYPE,
   NoteDTO,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_ID,
@@ -332,7 +334,8 @@ export function makeProcedureResource(
   encounterId: string,
   patientId: string,
   data: FreeTextNoteDTO | CPTCodeDTO,
-  fieldName: ProviderChartDataFieldsNames
+  fieldName: ProviderChartDataFieldsNames,
+  partOf?: string
 ): Procedure {
   const nameOrText = (data as CPTCodeDTO).display || (data as FreeTextNoteDTO).text || '';
   const result: Procedure = {
@@ -351,6 +354,9 @@ export function makeProcedureResource(
     result.code = {
       coding: [{ code: data.code, display: data.display }],
     };
+  }
+  if (partOf) {
+    result.partOf = [{ reference: partOf }];
   }
   return result;
 }
@@ -698,18 +704,27 @@ export function makeCommunicationDTO(resource: Communication): CommunicationDTO 
   };
 }
 
-export function makeNoteResource(encounterId: string, patientId: string | undefined, data: NoteDTO): Communication {
+export function makeNoteResource(
+  encounterId: string,
+  patientId: string | undefined,
+  data: NoteDTO,
+  existing?: Communication
+): Communication {
+  // Reuse the prior `sent` on edit so the server's `isNoteEdited(sent, lastUpdated)` check
+  // sees drift and flags the note as edited on subsequent reads.
+  const sent = existing?.sent ?? new Date().toISOString();
   const resource: Communication = {
     id: data.resourceId,
     resourceType: 'Communication',
     encounter: { reference: `Encounter/${encounterId}` },
-    status: 'completed',
+    status: data.deleted ? 'entered-in-error' : 'completed',
     meta: fillMeta(IN_PERSON_NOTE_ID, data.type),
     subject: { reference: `Patient/${patientId}` },
     sender: {
       reference: `Practitioner/${data.authorId}`,
       display: data.authorName,
     },
+    sent,
     payload: [
       {
         contentString: data.text,
@@ -718,6 +733,62 @@ export function makeNoteResource(encounterId: string, patientId: string | undefi
   };
 
   return resource;
+}
+
+async function fetchCommunicationsByIds(oystehr: Oystehr, ids: string[]): Promise<Map<string, Communication>> {
+  if (ids.length === 0) return new Map();
+  const existing = (
+    await oystehr.fhir.search<Communication>({
+      resourceType: 'Communication',
+      params: [{ name: '_id', value: ids.join(',') }],
+    })
+  ).unbundle();
+  const byId = new Map<string, Communication>();
+  existing.forEach((c) => {
+    if (c.id) byId.set(c.id, c);
+  });
+  return byId;
+}
+
+export async function prepareAddendumNotes(
+  oystehr: Oystehr,
+  notes: NoteDTO[],
+  callerPractitionerId: string,
+  callerPractitionerName: string
+): Promise<Map<string, Communication>> {
+  const addendumNotes = notes.filter((n) => n.type === NOTE_TYPE.ADDENDUM);
+  if (addendumNotes.length === 0) return new Map();
+
+  const editIds = addendumNotes.map((n) => n.resourceId).filter((id): id is string => !!id);
+  const existingById = await fetchCommunicationsByIds(oystehr, editIds);
+
+  for (const note of addendumNotes) {
+    if (note.resourceId) {
+      const existing = existingById.get(note.resourceId);
+      if (!existing) {
+        throw new Error(`Addendum ${note.resourceId} not found`);
+      }
+      const existingDto = makeNoteDTO(existing);
+      if (note.deleted) {
+        // Tombstone shows the deleter; keep the original text as the audit record.
+        note.text = existingDto.text;
+        note.authorId = callerPractitionerId;
+        note.authorName = callerPractitionerName;
+      } else {
+        // Edits keep the original author.
+        note.authorId = existingDto.authorId;
+        note.authorName = existingDto.authorName;
+      }
+    } else {
+      if (note.deleted) {
+        throw new Error('Cannot create an addendum in deleted state');
+      }
+      note.authorId = callerPractitionerId;
+      note.authorName = callerPractitionerName;
+    }
+  }
+
+  return existingById;
 }
 
 export function makeNoteDTO(resource: Communication): NoteDTO {
@@ -731,10 +802,12 @@ export function makeNoteDTO(resource: Communication): NoteDTO {
     resourceId: resource.id,
     text: resource.payload?.[0]?.contentString ?? '',
     lastUpdated: resource.meta?.lastUpdated ?? '',
+    edited: isNoteEdited(resource.sent, resource.meta?.lastUpdated),
     authorId: resource.sender?.reference?.split('/')[1] ?? '',
     authorName: resource.sender?.display ?? '',
     patientId: resource.subject?.reference?.split('/')[1] ?? '',
     encounterId: resource.encounter?.reference?.split('/')[1] ?? '',
+    deleted: resource.status === 'entered-in-error',
   };
 }
 
