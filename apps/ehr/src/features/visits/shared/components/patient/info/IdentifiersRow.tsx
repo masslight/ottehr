@@ -5,7 +5,7 @@ import { Box, IconButton, Skeleton, Tooltip, Typography } from '@mui/material';
 import { Patient } from 'fhir/r4b';
 import { FC, ReactElement, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getFriendlyPatientId } from 'src/features/visits/shared/utils/friendly-patient-id.helper';
+import { getPatientFriendlyId } from 'utils';
 
 type Props = {
   patient?: Patient;
@@ -14,7 +14,7 @@ type Props = {
 };
 
 export const IdentifiersRow: FC<Props> = ({ patient, loading, showPidPrefix = true }) => {
-  const friendlyId = patient ? getFriendlyPatientId(patient) : '';
+  const friendlyId = patient ? getPatientFriendlyId(patient) : '';
 
   return (
     <Box sx={{ display: 'flex', gap: 2 }}>
