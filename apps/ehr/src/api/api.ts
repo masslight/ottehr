@@ -21,7 +21,9 @@ import {
   AdminRenameTemplateOutput,
   AdminUpdateInHouseLabInput,
   AdminUpdateLabSetInput,
+  AdminUpdateLocationSupportPhonesInput,
   AdminUpdatePrintingConfigInput,
+  AdminUpdateSupportDialogInput,
   AiAssistedEncountersReportZambdaInput,
   AiAssistedEncountersReportZambdaOutput,
   AllergyQuickPickData,
@@ -116,6 +118,7 @@ import {
   GetLabelPrintingConfigInput,
   GetLabelPrintingConfigOutput,
   GetLabOrdersParameters,
+  GetLocationSupportPhonesOutput,
   GetMedicalConditionQuickPicksResponse,
   GetMedicationHistoryQuickPicksResponse,
   GetNursingOrdersInput,
@@ -134,6 +137,7 @@ import {
   GetScheduleParams,
   GetScheduleRequestParams,
   GetScheduleResponse,
+  GetSupportDialogOutput,
   GetUserParams,
   GetUserResponse,
   GetVisitDetailsPDFInput,
@@ -186,6 +190,8 @@ import {
   SavePreliminaryReportZambdaInput,
   SavePreliminaryReportZambdaOutput,
   ScheduleDTO,
+  SearchLegacyRecordsInput,
+  SearchLegacyRecordsOutput,
   SendForFinalReadZambdaInput,
   SendForFinalReadZambdaOutput,
   SendReceiptByEmailZambdaInput,
@@ -311,6 +317,10 @@ const ADMIN_UPDATE_IN_HOUSE_LAB_ZAMBDA_ID = 'admin-update-in-house-lab';
 const GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'get-label-printing-config';
 const ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'admin-update-label-printing-config';
 const GENERATE_LABEL_XML_ZAMBDA_ID = 'generate-label-xml';
+const GET_SUPPORT_DIALOG_ZAMBDA_ID = 'get-support-dialog';
+const GET_PUBLIC_LOCATION_SUPPORT_PHONES_ZAMBDA_ID = 'get-public-location-support-phones';
+const ADMIN_UPDATE_SUPPORT_DIALOG_ZAMBDA_ID = 'admin-update-support-dialog';
+const ADMIN_UPDATE_LOCATION_SUPPORT_PHONES_ZAMBDA_ID = 'admin-update-location-support-phones';
 const ADMIN_GET_LAB_SETS = 'admin-get-lab-sets';
 const ADMIN_ADD_LAB_SET = 'admin-add-lab-set';
 const ADMIN_UPDATE_LAB_SET_ZAMBDA_ID = 'admin-update-lab-set';
@@ -2044,6 +2054,56 @@ export const adminUpdateLabelPrintingConfig = async (
   }
 };
 
+export const getSupportDialog = async (oystehr: Oystehr): Promise<GetSupportDialogOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: GET_SUPPORT_DIALOG_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getPublicLocationSupportPhones = async (oystehr: Oystehr): Promise<GetLocationSupportPhonesOutput> => {
+  try {
+    const response = await oystehr.zambda.executePublic({ id: GET_PUBLIC_LOCATION_SUPPORT_PHONES_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateSupportDialog = async (
+  oystehr: Oystehr,
+  parameters: AdminUpdateSupportDialogInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_SUPPORT_DIALOG_ZAMBDA_ID,
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const adminUpdateLocationSupportPhones = async (
+  oystehr: Oystehr,
+  parameters: AdminUpdateLocationSupportPhonesInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_LOCATION_SUPPORT_PHONES_ZAMBDA_ID,
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 export const generateLabelXml = async (
   oystehr: Oystehr,
   parameters: OnDemandLabelXmlRequestInput
@@ -2064,36 +2124,6 @@ export const generateLabelXml = async (
 };
 
 // ── Legacy Records ─────────────────────────────────────────────────────────────
-
-export interface SearchLegacyRecordsInput {
-  lastName: string;
-  firstName?: string;
-  dateOfBirth?: string;
-  page?: number;
-  pageSize?: number;
-  maxFilesPerRecord?: number;
-}
-
-export interface LegacyFile {
-  key: string;
-  fileName: string;
-  fileType: 'medical-summary' | 'progress-note' | 'other';
-  presignedUrl: string;
-}
-
-export interface LegacyPatientRecord {
-  patientFolder: string;
-  patientId: string;
-  displayName: string;
-  files: LegacyFile[];
-}
-
-export interface SearchLegacyRecordsOutput {
-  results: LegacyPatientRecord[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
 
 export const searchLegacyRecords = async (
   oystehr: Oystehr,

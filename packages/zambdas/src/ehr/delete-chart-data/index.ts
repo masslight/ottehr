@@ -333,7 +333,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     console.log('Updated chart data as a transaction');
 
     const appointment = allResources.find((res) => res.resourceType === 'Appointment');
-    await runChartDataPostChangeTasks(oystehr, addendumNote, encounter, appointment?.id);
+    await runChartDataPostChangeTasks(oystehr, addendumNote, notes, encounter, appointment?.id);
 
     // perform deleting z3 pdf objects after deleting all fhir resources
     if (schoolWorkNotes) {

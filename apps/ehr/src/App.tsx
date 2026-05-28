@@ -61,6 +61,7 @@ import {
   DailyPayments,
   DataExports,
   IncompleteEncounters,
+  InvoiceablePatients,
   MailedStatements,
   PracticeKpis,
   RecentPatients,
@@ -197,18 +198,31 @@ function App(): ReactElement {
                 <Route path="*" element={<LoadingScreen />} />
               </>
             )}
-            {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
+            {currentUser?.hasRole([
+              RoleType.Administrator,
+              RoleType.Manager,
+              RoleType.Staff,
+              RoleType.Provider,
+              RoleType.CustomerSupport,
+            ]) && (
               <>
-                <Route path="/tasks-observability" element={<TaskAdmin />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
                 <Route path="/reports/complete-encounters" element={<CompleteEncounters />} />
-                <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                 <Route path="/reports/daily-payments" element={<DailyPayments />} />
-                <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
-                <Route path="/reports/data-exports" element={<DataExports />} />
                 <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 <Route path="/reports/recent-patients" element={<RecentPatients />} />
+              </>
+            )}
+            {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
+              <Route path="/tasks-observability" element={<TaskAdmin />} />
+            )}
+            {currentUser?.hasRole([RoleType.Administrator]) && (
+              <>
+                <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
+                <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
+                <Route path="/reports/data-exports" element={<DataExports />} />
+                <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
                 <Route path="/reports/mailed-statements" element={<MailedStatements />} />
               </>
             )}

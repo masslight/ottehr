@@ -32,6 +32,11 @@ const VISIT_TYPES = {
   POST_TELEMED: 'Post Telemed lab Only',
 };
 
+// Which visit types the EHR "Add Visit" dropdown actually offers is per-instance config
+// (BOOKING_CONFIG.ehrBookingOptions). Some instances are walk-in only, so a test that selects a
+// visit type the instance doesn't offer can never pass. Skip such a test rather than fail it.
+const offeredVisitTypeLabels = new Set(BOOKING_CONFIG.ehrBookingOptions.map((option) => option.label));
+
 const PROCESS_ID = `addPatientPage.spec.ts-${DateTime.now().toMillis()}`;
 
 const resourceHandler = new ResourceHandler(PROCESS_ID);
@@ -65,6 +70,10 @@ test.describe('For new patient', () => {
       tag: '@skipOnIntegration',
     },
     async ({ page }) => {
+      test.skip(
+        !offeredVisitTypeLabels.has(VISIT_TYPES.WALK_IN),
+        'Walk-in in-person visits are not offered by this instance'
+      );
       const { appointmentId } = await createAppointment(page, VISIT_TYPES.WALK_IN, false, NEW_PATIENT_1_LAST_NAME);
 
       const visitsPage = await expectVisitsPage(page);
@@ -75,6 +84,10 @@ test.describe('For new patient', () => {
   );
 
   test('Add pre-book visit for new patient', async ({ page }) => {
+    test.skip(
+      !offeredVisitTypeLabels.has(VISIT_TYPES.PRE_BOOK),
+      'Pre-booked in-person visits are not offered by this instance'
+    );
     const { appointmentId } = await createAppointment(page, VISIT_TYPES.PRE_BOOK, false, NEW_PATIENT_2_LAST_NAME);
 
     const visitsPage = await expectVisitsPage(page);
