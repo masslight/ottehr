@@ -1,5 +1,6 @@
 import { ProcedureModifier } from 'candidhealth/api/index.js';
 import { z } from 'zod';
+import { FHIR_CODE_REGEX } from '../../constants';
 import { REFLEX_TEST_CONDITION_LANGUAGES } from './in-house.constants';
 
 const nonEmptyString = (message?: string): z.ZodString => z.string().trim().nonempty(message);
@@ -39,7 +40,7 @@ const CodeableConceptComponentSchema = BaseComponentSchema.extend({
       z.object({
         isAbnormal: z.boolean(),
         code: nonEmptyString('Selectable component must have a value').regex(
-          /^[^\s]+(\s[^\s]+)*$/,
+          FHIR_CODE_REGEX,
           'Code must not have leading, trailing, or consecutive spaces'
         ),
         display: nonEmptyString('Selectable component must have a value'),
