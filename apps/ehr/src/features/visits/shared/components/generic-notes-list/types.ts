@@ -2,6 +2,10 @@ import { AllChartValues, NOTE_TYPE, NoteDTO, SearchParams } from 'utils';
 
 export interface CustomizableNotesConfig {
   separateEncounterNotes?: boolean; // notes from another encounters should be shown by "show more" button
+  // Addendum-style behaviors. All opt-in; default `false` preserves the existing notes UX.
+  alwaysEditable?: boolean; // ignore appointment read-only state (addendum notes work after the progress note is locked)
+  showEditedMarker?: boolean; // append "(edited)" when the server flags the note as edited
+  softDeleteWithTombstone?: boolean; // render "(time) (name) deleted the note" tombstone
 }
 
 export interface GenericNotesConfig extends CustomizableNotesConfig {
@@ -66,6 +70,7 @@ export type UseNoteHandlers = (props: {
   patientId: string;
   apiConfig: NoteApiConfig;
   locales: NoteLocales;
+  softDeleteWithTombstone?: boolean;
 }) => {
   entities: EditableNote[];
   isLoading: boolean;

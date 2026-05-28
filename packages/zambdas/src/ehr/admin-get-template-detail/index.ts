@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ClinicalImpression, Communication, Condition, List, Procedure, Resource } from 'fhir/r4b';
+import { ClinicalImpression, Communication, Condition, List, Procedure } from 'fhir/r4b';
 import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
@@ -12,7 +12,9 @@ import {
   examConfig,
   getRosFindingStateFromKey,
   getSecret,
+  getTag,
   ICD_10_CODE_SYSTEM,
+  resourceHasTagSystem,
   SecretsKeys,
   TemplateAccidentInfo,
   TemplateCodeInfo,
@@ -49,14 +51,6 @@ export const index = wrapHandler(
     }
   }
 );
-
-function hasTag(resource: Resource, tagSystem: string): boolean {
-  return resource.meta?.tag?.some((tag) => tag.system === tagSystem) ?? false;
-}
-
-function getTagCode(resource: Resource, tagSystem: string): string | undefined {
-  return resource.meta?.tag?.find((tag) => tag.system === tagSystem)?.code;
-}
 
 // Build a set of all field codes that appear under 'abnormal' sections in the exam config
 function buildAbnormalFieldCodes(config: Record<string, any>): Set<string> {
@@ -150,13 +144,13 @@ const performEffect = async (
 
   // Parse HPI note
   const hpiCondition = contained.find(
-    (r) => r.resourceType === 'Condition' && hasTag(r, chartDataTagSystem('chief-complaint'))
+    (r) => r.resourceType === 'Condition' && resourceHasTagSystem(r, chartDataTagSystem('chief-complaint'))
   ) as Condition | undefined;
   const hpiNote = hpiCondition?.note?.[0]?.text ?? null;
 
   // Parse MOI note
   const moiCondition = contained.find(
-    (r) => r.resourceType === 'Condition' && hasTag(r, chartDataTagSystem('mechanism-of-injury'))
+    (r) => r.resourceType === 'Condition' && resourceHasTagSystem(r, chartDataTagSystem('mechanism-of-injury'))
   ) as Condition | undefined;
   const moiNote = moiCondition?.note?.[0]?.text ?? null;
 
@@ -183,7 +177,7 @@ const performEffect = async (
 
   // Config exam and row into template DTOs
   const rosFindings: TemplateRosFinding[] = rosObservations.map((obs) => {
-    const fieldCode = getTagCode(obs, rosTagSystem) ?? 'unknown';
+    const fieldCode = getTag(obs, rosTagSystem)?.code ?? 'unknown';
     const findingState = getRosFindingStateFromKey(fieldCode);
     const label = obs.code.text ?? 'unknown';
     const stale = unmatchedRosFieldSet.has(fieldCode);
@@ -194,7 +188,7 @@ const performEffect = async (
   const fieldLabels = buildFieldLabels(examConfig.default.components);
 
   const examFindings: TemplateExamFinding[] = examObservations.map((obs) => {
-    const fieldCode = getTagCode(obs, examTagSystem) ?? 'unknown';
+    const fieldCode = getTag(obs, examTagSystem)?.code ?? 'unknown';
     const isAbnormal = abnormalFieldCodes.has(fieldCode);
     const note = obs.note?.[0]?.text ?? '';
     const label = fieldLabels.get(fieldCode) ?? obs.code?.text ?? fieldCode;
@@ -203,7 +197,7 @@ const performEffect = async (
 
   // Parse MDM
   const mdmResource = contained.find(
-    (r) => r.resourceType === 'ClinicalImpression' && hasTag(r, chartDataTagSystem('medical-decision'))
+    (r) => r.resourceType === 'ClinicalImpression' && resourceHasTagSystem(r, chartDataTagSystem('medical-decision'))
   ) as ClinicalImpression | undefined;
   const mdm = mdmResource?.summary ?? null;
 
@@ -221,7 +215,7 @@ const performEffect = async (
 
   // Parse patient instructions
   const instructionResources = contained.filter(
-    (r) => r.resourceType === 'Communication' && hasTag(r, chartDataTagSystem('patient-instruction'))
+    (r) => r.resourceType === 'Communication' && resourceHasTagSystem(r, chartDataTagSystem('patient-instruction'))
   ) as Communication[];
   const patientInstructions = instructionResources
     .map((r) => ({
@@ -232,7 +226,7 @@ const performEffect = async (
 
   // Parse CPT codes
   const cptProcedures = contained.filter(
-    (r) => r.resourceType === 'Procedure' && hasTag(r, chartDataTagSystem('cpt-code'))
+    (r) => r.resourceType === 'Procedure' && resourceHasTagSystem(r, chartDataTagSystem('cpt-code'))
   ) as Procedure[];
 
   const cptCodes: TemplateCodeInfo[] = cptProcedures.map((proc) => {
@@ -245,7 +239,7 @@ const performEffect = async (
 
   // Parse E&M code
   const emProcedure = contained.find(
-    (r) => r.resourceType === 'Procedure' && hasTag(r, chartDataTagSystem('em-code'))
+    (r) => r.resourceType === 'Procedure' && resourceHasTagSystem(r, chartDataTagSystem('em-code'))
   ) as Procedure | undefined;
 
   const emCode: TemplateCodeInfo | null = emProcedure
@@ -257,7 +251,7 @@ const performEffect = async (
 
   // Parse accident / condition related to
   const accidentCondition = contained.find(
-    (r) => r.resourceType === 'Condition' && hasTag(r, chartDataTagSystem('accident'))
+    (r) => r.resourceType === 'Condition' && resourceHasTagSystem(r, chartDataTagSystem('accident'))
   ) as Condition | undefined;
 
   const accident: TemplateAccidentInfo | null = accidentCondition
