@@ -17,7 +17,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { patchTaskStatus } from '../helpers';
+import { patchTaskStatus, TaskStatusPreconditionFailedError } from '../helpers';
 import { TaskSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
 
 export const getDocReferenceIDFromFocus = (task: Task): string => {
@@ -121,8 +121,24 @@ export function wrapTaskHandler(
     }
 
     try {
-      await markTaskInProgress(taskId, oystehr);
+      await markTaskInProgress(taskId, params.task.meta?.versionId, oystehr);
     } catch (error) {
+      // Duplicate subscription delivery: another invocation already claimed
+      // this Task (If-Match version no longer current). Ack the redelivery
+      // without re-running the handler so its writes don't race the in-flight
+      // (or already-completed) original.
+      if (error instanceof TaskStatusPreconditionFailedError) {
+        console.log(
+          `Task ${taskId} already claimed by an earlier invocation (attempted versionId=${error.attemptedVersionId}); skipping duplicate delivery of ${zambdaName}`
+        );
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            taskStatus: 'skipped',
+            statusReason: 'task already claimed by an earlier invocation',
+          }),
+        };
+      }
       console.error('Error patching task status to in-progress:', error);
       try {
         await markTaskFailed(
@@ -156,9 +172,22 @@ export function wrapTaskHandler(
   });
 }
 
-async function markTaskInProgress(taskId: string, oystehr: Oystehr): Promise<void> {
+async function markTaskInProgress(taskId: string, versionId: string | undefined, oystehr: Oystehr): Promise<void> {
+  // Atomic claim via FHIR optimistic locking: the patch carries `If-Match`
+  // for the versionId the subscription delivered. If a concurrent
+  // subscription delivery already claimed the task, the version has moved
+  // on and this patch returns 412 — `patchTaskStatus` surfaces it as
+  // `TaskStatusPreconditionFailedError` and `wrapTaskHandler` short-circuits.
+  //
+  // If the subscription payload didn't carry a versionId for some reason,
+  // fall back to the old behavior (unconditional patch) rather than failing.
   await patchTaskStatus(
-    { task: { id: taskId }, taskStatusToUpdate: 'in-progress', statusReasonToUpdate: 'started processing' },
+    {
+      task: { id: taskId },
+      taskStatusToUpdate: 'in-progress',
+      statusReasonToUpdate: 'started processing',
+      optimisticLockingVersionId: versionId,
+    },
     oystehr
   );
 }
