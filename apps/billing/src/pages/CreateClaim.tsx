@@ -15,7 +15,7 @@ import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { chooseJson } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
-import { PatientOption, CoverageOption, PractitionerOption, LocationOption, OrgOption } from '../types/autocomplete';
+import { CoverageOption, LocationOption, OrgOption, PatientOption, PractitionerOption } from '../types/autocomplete';
 
 interface ServiceLine {
   cpt: string;
