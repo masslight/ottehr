@@ -1,4 +1,5 @@
-import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import { deepStrictEqual } from 'node:assert';
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Account,
@@ -130,7 +131,11 @@ type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingRe
 async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutput): Promise<{ claimId: string }> {
   const { clinicalResources, billingResources } = cvo;
 
-  const requests: (BatchInputPostRequest<BillingFhirResource> | BatchInputPatchRequest<BillingFhirResource>)[] = [];
+  const requests: Array<
+    | BatchInputPostRequest<BillingFhirResource>
+    | BatchInputPatchRequest<BillingFhirResource>
+    | BatchInputPutRequest<BillingFhirResource>
+  > = [];
   const order: string[] = [];
 
   // Create or update main billing patient from clinical patient
@@ -142,7 +147,16 @@ async function performEffect(billingOystehr: Oystehr, cvo: ComplexValidationOutp
     requests.push({ method: 'POST', url: '/Patient', resource: mainPatient, fullUrl: mainPatientUrn });
     order.push('patient');
   } else {
-    // CW TODO: update existing main patient
+    const updatedMainPatient = prepareCopy(clinicalResources.patient, clinicalResources.patient.id!);
+    updatedMainPatient.id = mainPatient.id;
+    try {
+      deepStrictEqual(mainPatient, updatedMainPatient);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_) {
+      mainPatient = updatedMainPatient;
+      requests.push({ method: 'PUT', url: `/Patient/${mainPatient.id}`, resource: updatedMainPatient });
+      order.push('patient');
+    }
   }
 
   // Create working copy from main patient
