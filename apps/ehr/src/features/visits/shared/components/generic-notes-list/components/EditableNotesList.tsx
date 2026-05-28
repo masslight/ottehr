@@ -27,6 +27,7 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
   softDeleteWithTombstone,
   addNoteButtonDataTestId,
   noteLoadingIndicatorDataTestId,
+  containerSx,
 }) => {
   const { entities, isLoading, handleSave, handleEdit, handleDelete } = useNoteHandlers({
     appointmentId,
@@ -69,7 +70,7 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
     return <Loader height="80px" marginTop="20px" backgroundColor={theme.palette.background.paper} />;
 
   return (
-    <PaperStyled>
+    <PaperStyled sx={containerSx}>
       {!isReadOnly && (
         <Grid container spacing={1} alignItems="center" sx={{ p: 3 }}>
           <Grid item xs>
