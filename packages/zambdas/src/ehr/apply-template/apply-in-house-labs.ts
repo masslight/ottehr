@@ -5,9 +5,11 @@ import {
   chartDataTagSystem,
   DiagnosisDTO,
   ICD_10_CODE_SYSTEM,
+  IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
   Secrets,
   TemplateSectionAction,
+  transactionWasSuccessful,
 } from 'utils';
 import { makeRequestsForCreateInHouseLabs } from '../../shared/in-house-lab/build-order';
 import { gatherInHouseLabOrderContext } from '../../shared/in-house-lab/gather-context';
@@ -84,7 +86,7 @@ export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Pr
 
   // Canonical references on saved plans are version-less (newer templates) or
   // versioned (older templates). Either way we look up by url only and select
-  // the latest semver below, so the global template floats forward as the AD
+  // the latest version below using the tag, so the global template floats forward as the AD
   // gets new versions.
   const uniqueCanonicalUrls = Array.from(
     new Set(
@@ -97,32 +99,39 @@ export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Pr
 
   // Context fetch and AD resolution are independent - run them in parallel.
   const [context, adResults] = await Promise.all([
+    // ATHENA TODO: how is this handling patient account vs worker's comp account?
     gatherInHouseLabOrderContext({ oystehr, encounterId, userToken, secrets }),
     uniqueCanonicalUrls.length === 0
       ? Promise.resolve([] as ActivityDefinition[])
-      : (oystehr.fhir
+      : oystehr.fhir
           .search<ActivityDefinition>({
             resourceType: 'ActivityDefinition',
-            // Match only active ADs - retired/draft entries can have a higher
-            // semver (e.g. a future version that was published and later
-            // retracted) and would otherwise win the latest-pick below and
-            // then trip the "lab definition is not active" warning further
-            // down. Filtering at the search means the picker only ever sees
-            // currently-usable ADs.
+            // Match only active ADs with the latest tag
             params: [
               { name: 'url', value: uniqueCanonicalUrls.join(',') },
               { name: 'status', value: 'active' },
+              // this is the correct way to find the latest version of the ad
+              {
+                name: 'tag',
+                value: `${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.system}|${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.code}`,
+              },
             ],
           })
-          .then((res) => res.unbundle()) as Promise<ActivityDefinition[]>),
+          .then((res) => res.unbundle()),
   ]);
 
   const adByUrl = indexLatestActivityDefinitionsByUrl(adResults);
+  console.log(
+    `This is adByUrl keys/test names`,
+    JSON.stringify(adByUrl.keys().map((key) => ({ key, testName: adByUrl.get(key)!.name })))
+  );
 
   const warnings: ApplyTemplateWarning[] = [];
+  const appliedActivityDefinitions: ActivityDefinition[] = [];
   const transactionRequests: ReturnType<typeof makeRequestsForCreateInHouseLabs> = [];
 
   for (const plan of plans) {
+    // this is the canonical without the pinned version
     const canonical = plan.instantiatesCanonical?.[0];
     const ad = canonical ? adByUrl.get(urlFromInstantiatesCanonical(canonical)) : undefined;
 
@@ -157,7 +166,7 @@ export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Pr
       testResources: [
         {
           activityDefinition: ad,
-          initialServiceRequest: undefined,
+          initialServiceRequest: undefined, // ATHENA TODO: this suggests that repeat tests can't be ordered via templates
           orderMode: 'standard',
         },
       ],
@@ -174,6 +183,7 @@ export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Pr
       requesterPractitionerId: context.currentUserPractitionerId,
     });
     transactionRequests.push(...planRequests);
+    appliedActivityDefinitions.push(ad);
   }
 
   if (transactionRequests.length === 0) {
@@ -182,7 +192,19 @@ export async function applyInHouseLabPlans(input: ApplyInHouseLabPlansInput): Pr
 
   // One transaction across all plans - the urn:uuid fullUrls inside resolve to
   // each other so SR/Task/Provenance/Procedure references stay consistent.
-  await oystehr.fhir.transaction({ requests: transactionRequests });
+  const transactionResponse = await oystehr.fhir.transaction({ requests: transactionRequests });
+  if (!transactionWasSuccessful(transactionResponse)) {
+    console.error(
+      `Something went wrong in the create in house lab order requests: ${JSON.stringify(transactionResponse)}`
+    );
+    warnings.push({
+      section: 'inHouseLabs',
+      message: `Something went wrong applying in house labs. Skipped.`,
+    });
+  }
 
+  // ATHENA TODO: we will probably want to actually return the applied activity definitions, cause that's the only way to get the updated.
+  // Or maybe not since by the time this resolves, we will have already done the computations on stale plans. Need the ADs before this function
+  // ever is called
   return { warnings };
 }
