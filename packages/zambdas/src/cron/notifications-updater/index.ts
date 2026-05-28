@@ -142,7 +142,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
         // Backwards-compat during deploy: upgrade any 'preparation' Communications created by the
         // prior busy-suppression logic. Safe to remove after one full cron window.
-        if (practitioner?.id && communications) {
+        if (communications?.length) {
           const postponedCommunications = communications.filter(
             (comm) => comm.status === 'preparation' && comm.recipient?.[0].reference
           );
