@@ -38,7 +38,10 @@ const CodeableConceptComponentSchema = BaseComponentSchema.extend({
     .array(
       z.object({
         isAbnormal: z.boolean(),
-        code: nonEmptyString('Selectable component must have a value'),
+        code: nonEmptyString('Selectable component must have a value').regex(
+          /^[^\s]+(\s[^\s]+)*$/,
+          'Code must not have leading, trailing, or consecutive spaces'
+        ),
         display: nonEmptyString('Selectable component must have a value'),
       })
     )
