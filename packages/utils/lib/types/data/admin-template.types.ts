@@ -59,6 +59,18 @@ export interface TemplateCodeInfo {
   display: string;
 }
 
+export interface TemplateCptModifier {
+  code: string;
+  display: string;
+}
+export interface TemplateCptCodeInfo extends TemplateCodeInfo {
+  modifiers: TemplateCptModifier[]; // athena todo: come back and make this not required
+}
+
+export function isTemplateCptCodeInfo(input: TemplateCodeInfo | TemplateCptCodeInfo): input is TemplateCptCodeInfo {
+  return (input as TemplateCptCodeInfo).modifiers !== undefined;
+}
+
 export interface TemplateAccidentInfo {
   autoAccident: boolean;
   employment: boolean;
@@ -92,7 +104,7 @@ export interface TemplateInHouseLabPlan {
   // save time). Surfaced to the preview UI so providers see what the lab
   // section delivers, and used by apply-template to dedupe against the
   // template's separate CPT Codes section.
-  cptCodes: TemplateCodeInfo[];
+  cptCodes: TemplateCptCodeInfo[];
   missing: boolean;
 }
 
@@ -110,7 +122,7 @@ export interface AdminGetTemplateDetailOutput {
     mdm: string | null;
     diagnoses: TemplateCodeInfo[];
     patientInstructions: { title: string | null; text: string }[];
-    cptCodes: TemplateCodeInfo[];
+    cptCodes: TemplateCptCodeInfo[];
     emCode: TemplateCodeInfo | null;
     accident: TemplateAccidentInfo | null;
     inHouseLabs: TemplateInHouseLabPlan[];

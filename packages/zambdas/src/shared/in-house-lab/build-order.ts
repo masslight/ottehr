@@ -320,7 +320,7 @@ const makeProcedureConfig = (
         coding: [
           {
             ...cptCoding,
-            display: activityDefinition.name,
+            ...(!cptCoding.display ? { display: activityDefinition.name } : {}),
             ...procedureCodeExtension,
           },
         ],

@@ -23,6 +23,7 @@ import { getTemplateDetail } from 'src/api/api';
 import { GLOBAL_TEMPLATES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { QUERY_STALE_TIME } from 'src/constants';
+import { formatCptCodeAndModifiersForDisplay } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
 import {
@@ -354,7 +355,7 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                   <TableBody>
                     {sections.cptCodes.map((cpt, index) => (
                       <TableRow key={index}>
-                        <TableCell>{cpt.code}</TableCell>
+                        <TableCell>{formatCptCodeAndModifiersForDisplay(cpt)}</TableCell>
                         <TableCell>{cpt.display || '—'}</TableCell>
                       </TableRow>
                     ))}

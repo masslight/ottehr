@@ -18,6 +18,7 @@ import {
   collectKnownExamFields,
   collectKnownRosFields,
   examConfig,
+  extractCptCodeModifiersFromCoding,
   getRosFindingStateFromKey,
   getSecret,
   getTag,
@@ -27,6 +28,7 @@ import {
   SecretsKeys,
   TemplateAccidentInfo,
   TemplateCodeInfo,
+  TemplateCptCodeInfo,
   TemplateExamFinding,
   TemplateInHouseLabPlan,
   TemplateRosFinding,
@@ -243,11 +245,12 @@ const performEffect = async (
     (r) => r.resourceType === 'Procedure' && resourceHasTagSystem(r, chartDataTagSystem('cpt-code'))
   ) as Procedure[];
 
-  const cptCodes: TemplateCodeInfo[] = cptProcedures.map((proc) => {
+  const cptCodes: TemplateCptCodeInfo[] = cptProcedures.map((proc) => {
     const coding = proc.code?.coding?.[0];
     return {
       code: coding?.code ?? '',
       display: coding?.display ?? '',
+      modifiers: coding ? extractCptCodeModifiersFromCoding(coding) : [],
     };
   });
 
@@ -333,9 +336,9 @@ const performEffect = async (
         return { code: icd?.code ?? '', display: icd?.display ?? rc.text ?? '' };
       })
       .filter((d) => d.code || d.display);
-    const cptCodes: TemplateCodeInfo[] = (plan.code?.coding ?? [])
+    const cptCodes: TemplateCptCodeInfo[] = (plan.code?.coding ?? [])
       .filter((c) => c.system === 'http://www.ama-assn.org/go/cpt' && c.code)
-      .map((c) => ({ code: c.code ?? '', display: c.display ?? '' }));
+      .map((c) => ({ code: c.code ?? '', display: c.display ?? '', modifiers: extractCptCodeModifiersFromCoding(c) }));
     const notes = (plan.note ?? []).map((n) => n.text ?? '').filter((t) => t.length > 0);
 
     return {

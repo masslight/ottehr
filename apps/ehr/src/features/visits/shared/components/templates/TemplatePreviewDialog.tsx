@@ -21,16 +21,19 @@ import { useQuery } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getTemplateDetail } from 'src/api/api';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
+import { formatCptCodeAndModifiersForDisplay } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AdminGetTemplateDetailOutput,
   buildExamFieldToSectionMap,
+  isTemplateCptCodeInfo,
   RosFindingState,
   RosFindingStateLabel,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TEMPLATE_SECTIONS_IN_ORDER,
   TEMPLATE_SECTIONS_NO_APPEND,
   TEMPLATE_SECTIONS_NO_OVERWRITE,
+  TemplateCptCodeInfo,
   TemplateInHouseLabPlan,
   TemplateSectionAction,
   TemplateSectionActions,
@@ -191,11 +194,15 @@ const TextBlock: React.FC<{ value: string | null | undefined }> = ({ value }) =>
   );
 };
 
-const CodeList: React.FC<{ items: { code: string; display: string }[] }> = ({ items }) => (
+const CodeList: React.FC<{ items: { code: string; display: string }[] | TemplateCptCodeInfo[] }> = ({ items }) => (
   <Stack spacing={0.5}>
     {items.map((item, idx) => (
       <Typography key={`${item.code}-${idx}`} variant="body2" sx={{ color: 'text.primary' }}>
-        <strong>{item.code}</strong>
+        {isTemplateCptCodeInfo(item) ? (
+          <strong>{formatCptCodeAndModifiersForDisplay(item)}</strong>
+        ) : (
+          <strong>{item.code}</strong>
+        )}
         {item.display ? ` — ${item.display}` : ''}
       </Typography>
     ))}
@@ -371,7 +378,7 @@ const InHouseLabPlansList: React.FC<{ plans: TemplateInHouseLabPlan[] }> = ({ pl
                 size="small"
                 variant="outlined"
                 color="primary"
-                label={`CPT ${c.code}${c.display ? ` — ${c.display}` : ''}`}
+                label={`CPT ${formatCptCodeAndModifiersForDisplay(c)}${c.display ? ` — ${c.display}` : ''}`}
               />
             ))}
           </Stack>
