@@ -843,6 +843,11 @@ export const DefaultExamComponentsConfig: ExamItemConfig = {
           defaultValue: false,
           type: 'checkbox',
         },
+        'negative-fluorescein-staining': {
+          label: 'Negative fluorescein staining',
+          defaultValue: false,
+          type: 'checkbox',
+        },
       },
       abnormal: {
         'right-eye': {
@@ -862,6 +867,11 @@ export const DefaultExamComponentsConfig: ExamItemConfig = {
             },
             'right-eye-lid-erythema': { label: 'Lid erythema', defaultValue: false, type: 'checkbox' },
             'right-eye-lid-tenderness': { label: 'Lid tenderness', defaultValue: false, type: 'checkbox' },
+            'right-positive-fluorescein-staining': {
+              label: 'Positive fluorescein staining ',
+              defaultValue: false,
+              type: 'checkbox',
+            },
           },
         },
         'left-eye': {
@@ -881,6 +891,11 @@ export const DefaultExamComponentsConfig: ExamItemConfig = {
             },
             'left-eye-lid-erythema': { label: 'Lid erythema', defaultValue: false, type: 'checkbox' },
             'left-eye-lid-tenderness': { label: 'Lid tenderness', defaultValue: false, type: 'checkbox' },
+            'left-positive-fluorescein-staining': {
+              label: 'Positive fluorescein staining',
+              defaultValue: false,
+              type: 'checkbox',
+            },
           },
         },
       },
