@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { basename, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { FileType, FileTypeFolderMap } from '../../packages/utils/lib/types/data/legacy-data';
+import { FileType, FileTypeMap } from '../../packages/utils/lib/types/data/legacy-data';
 
 // ── V1 data ──────────────────────────────────────────────────────────
 
@@ -28,6 +28,108 @@ export function parseFolderName(folderName: string): { z3Prefix: string; patient
 }
 
 // ── V2 data ──────────────────────────────────────────────────────────
+const fileTypeToS3SanitizedDescriptionMap: Partial<Record<FileType, string[]>> = {
+  [FileType.CHART_TRANSCRIPTION]: ['Chart Transcription', 'Chart Transcription / INS VER', 'Chart Transcription / DOT'],
+  [FileType.CODE_SUMMARY]: ['Code Summary'],
+  [FileType.COMPANY_MEDICAL_RECORD]: ['Company Medical Record'],
+  [FileType.CONSENTS]: ['Consents Imported'],
+  [FileType.DRIVERS_LICENSE]: [
+    "Driver's License: Front",
+    "Driver's License: Back",
+    'Drivers License Front Imported',
+    'Drivers License Imported',
+    'Drivers License Back Imported',
+    "Driver's License",
+    'DR LIC Imported',
+    'DRI LIC Imported',
+    "Driver's License: Front / LIC",
+    'DRI LIC (MOM) Imported',
+    "MOM'S DR LIC Imported",
+    'DRI LIC (DAD) Imported',
+  ],
+  [FileType.LIC]: ['LIC Imported'],
+  [FileType.EXAM]: ['Exam', 'Exam Image'],
+  [FileType.EXAM_SUMMARY]: ['S/PHYS Imported'],
+  [FileType.EXAM_LAB]: ['Exam / LAB REQ'],
+  [FileType.EXAM_DOT]: ['Exam / DOT PHYS'],
+  [FileType.GENERATED_FORM]: ['Generated Form (Chart)', 'Generated Form (Patient)', 'Generated Form (Chart) / VITALS'],
+  [FileType.HIPAA_CONSENT]: ['HIPAA Consent', 'HIPAA Consent / REG', 'HIPAA Consent / PT REG'],
+  [FileType.HIPAA_NOTICE]: ['HIPAA Notice signed on', 'Hipaa Notice Imported', 'HIPPA/Ins Agree Imported'],
+  [FileType.ID_CARD]: [
+    'ID Card: Front',
+    'ID Card: Back',
+    'ID Imported',
+    "MOM'S ID Imported",
+    'ID CARD Imported',
+    "DAD'S ID Imported",
+  ],
+  [FileType.IMPORTED_CHART]: ['Imported Chart'],
+  [FileType.INSURANCE]: [
+    'Insurance Imported',
+    'INS VER Imported',
+    'MEDICARE Imported',
+    'INS Imported',
+    'Insurance Consent / INS VER',
+    'INS VEF Imported',
+  ],
+  [FileType.INSURANCE_AGREEMENT]: ['Insurance Agreement signed on', 'Insurance Agreement Imported'],
+  [FileType.INSURANCE_CARD]: [
+    'Insurance Card: Front',
+    'Insurance Card: Back',
+    'Insurance Card - Primary: Front',
+    'Insurance Card - Primary: Back',
+    'Insurance Card - Primary',
+    'Insurance Card Back Imported',
+    'Insurance Card Front Imported',
+    'Insurance Card - Secondary: Front',
+    'Insurance Card - Secondary: Back',
+    'Insurance Card - Primary: Front / INS VER',
+    'Insurance Card - Primary / INS VER',
+    'Insurance Card - Secondary',
+    'INS CARD Imported',
+    'Insurance Card - Primary: Front / INS CARD',
+  ],
+  [FileType.LAB_REPORT]: [
+    'Lab Report 1',
+    'Lab Report 2',
+    'Lab Report 3',
+    'Quest Lab Report 1',
+    'Quest Lab Report 2',
+    'Quest Lab Report 3',
+    'Scanned Lab Results',
+  ],
+  [FileType.LAB_REQ]: ['LAB REQ Imported'],
+  [FileType.LAB]: ['LAB RES Imported', 'LAB REP Imported'],
+  [FileType.MED_HX]: ['Multipage/Med Hx Imported'],
+  [FileType.PAT_HX]: ['Pat Hx Imported'],
+  [FileType.PATIENT_AUTHORIZATION]: ['Patient Authorization'],
+  [FileType.PATIENT_CLINICAL_SUMMARY]: ['Patient Clinical Summary'],
+  [FileType.PATIENT_INFO]: ['Pat Info Imported'],
+  [FileType.PAYMENT_RECEIPT]: ['Payment Receipt'],
+  [FileType.PROGRESS_NOTE]: ['Composite', 'Patient Documentation'],
+  [FileType.REGISTRATION_FORM]: ['Registration Form Imported'],
+  [FileType.SCHOOL_NOTE]: ['School Note'],
+  [FileType.TEXAS_IMMUNIZATION_REGISTRY_VITAL_REPORT]: ['TX005 Vitals'],
+  [FileType.TRANSCRIPTION]: ['Transcription'],
+  [FileType.VISIT_FOLLOW_UP_COMM]: [
+    'Visit Follow-up Communication signed on',
+    'Visit Follow Up Communication Imported',
+  ],
+  [FileType.VITALS]: ['Vitals Imported', 'TX005 Vitals'],
+  [FileType.WORK_NOTE]: ['Work Note', 'Work Status Note'],
+  [FileType.XRAY_OVER_READ_REPORT]: ['X-Ray Over Read Report 1', 'XRAY REP (CHX) Imported'],
+  [FileType.XRAY_CHEST]: ['CXR REP Imported', 'XRAY REP (CHEST) Imported'],
+  [FileType.XRAY]: ['X-RAY REP Imported', 'X-RAY CON Imported'],
+  [FileType.BILLING]: ['Billing'],
+  [FileType.REG]: ['REG Imported', 'PT REG Imported'],
+  [FileType.DOT]: ['DOT PHYS Imported', 'DOT Imported'],
+  [FileType.EKG]: ['EKG Imported'],
+  [FileType.RX]: ['RX Imported', 'RX. Imported'],
+  [FileType.PRE_OP_REQ]: ['PRE-OP REQ Imported'],
+  [FileType.REQ]: ['REQ Imported'],
+  [FileType.M_CLR_FX]: ['M/CLR FX Imported'],
+};
+
 export const ACCEPTED_FILE_TYPES = ['.pdf', '.tiff', '.tif', '.jpeg', '.jpg', '.png', '.html', '.heic'];
 
 export const MAPPING_HEADERS = {
@@ -132,16 +234,22 @@ export function stripDateFromDescription(description: string): string {
  * @param description values are should be specific to the data set being parsed
  * @returns folder name for z3 object path
  */
-// todo sarah this will need to be built out more after getting finalized description mapping from product
 export function mapRowDescriptionToDocumentFolder(description: string): string {
   const lowerKey = description.toLowerCase();
-  if (['composite', 'patient documentation'].includes(lowerKey)) {
-    return FileTypeFolderMap[FileType.PROGRESS_NOTE][0];
-  } else if (lowerKey.includes('insurance card')) {
-    return FileTypeFolderMap[FileType.INSURANCE_CARD][0];
-  } else {
-    return FileTypeFolderMap[FileType.OTHER][0];
+
+  for (const [fileType, descriptions] of Object.entries(fileTypeToS3SanitizedDescriptionMap)) {
+    if (lowerKey.includes('billing')) return FileType.BILLING;
+
+    if (descriptions?.some((d) => d.toLowerCase() === lowerKey)) {
+      return FileTypeMap[fileType as FileType].folder;
+    }
+
+    if (lowerKey.includes('x-ray') || lowerKey.includes('xray')) return FileType.XRAY;
+    if (lowerKey.includes('lab report')) return FileType.LAB_REPORT;
+    if (lowerKey.includes('insurance card')) return FileType.INSURANCE_CARD;
   }
+
+  return FileTypeMap[FileType.OTHER].folder;
 }
 
 /**

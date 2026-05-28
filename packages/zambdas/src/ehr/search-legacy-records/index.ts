@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   FileType,
-  FileTypeFolderMap,
+  FileTypeMap,
   getSecret,
   LegacyFile,
   LegacyPatientRecord,
@@ -215,13 +215,16 @@ function validateRequestParameters(input: ZambdaInput): ValidatedParameters {
 function getFileTypeFromKey(key: string): FileType {
   const lowerKey = key.toLowerCase();
 
-  for (const [fileType, folderName] of Object.entries(FileTypeFolderMap)) {
-    const matched = folderName.some((folder) => {
-      return lowerKey.includes(folder.toLowerCase());
-    });
+  for (const [fileType, { folder: folderName }] of Object.entries(FileTypeMap)) {
+    const folderNameLower = folderName.toLocaleLowerCase();
 
-    if (matched) {
-      return fileType as FileType;
+    if (lowerKey.includes(folderNameLower)) return fileType as FileType;
+
+    // first iteration data migration pushed in progress notes under /enc
+    if (fileType === FileType.PROGRESS_NOTE) {
+      if (lowerKey.includes('/enc/') || lowerKey.endsWith('/enc')) {
+        return fileType as FileType;
+      }
     }
   }
 

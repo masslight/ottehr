@@ -70,17 +70,8 @@ describe('mapRowDescriptionToDocumentFolder', () => {
     expect(mapRowDescriptionToDocumentFolder('Patient Documentation')).toBe('ProgressNotes');
   });
 
-  it("maps 'Insurance Card' to InsuranceCard folder", () => {
-    expect(mapRowDescriptionToDocumentFolder('Insurance Card')).toBe('InsuranceCard');
-  });
-
-  it("maps a description containing 'Insurance Card' to InsuranceCard folder", () => {
-    expect(mapRowDescriptionToDocumentFolder('Front Insurance Card')).toBe('InsuranceCard');
-    expect(mapRowDescriptionToDocumentFolder('Back Insurance Card')).toBe('InsuranceCard');
-  });
-
   it('maps an unrecognized description to Other folder', () => {
-    expect(mapRowDescriptionToDocumentFolder('Imported Chart')).toBe('Other');
+    expect(mapRowDescriptionToDocumentFolder('Unknown')).toBe('Other');
   });
 
   it('maps an empty string to Other folder', () => {

@@ -18,7 +18,7 @@ import { useMutation } from '@tanstack/react-query';
 import { lazy, ReactElement, Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { searchLegacyRecords } from 'src/api/api';
-import { FileType, FileTypeLabel, SearchLegacyRecordsOutput } from 'utils';
+import { FileType, FileTypeMap, SearchLegacyRecordsOutput } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 
@@ -82,14 +82,11 @@ export default function LegacyDataPage(): ReactElement {
   };
 
   const fileTypeLabel = (fileType: FileType): string => {
-    return FileTypeLabel[fileType];
+    return FileTypeMap[fileType].label;
   };
 
   const fileTypeColor = (fileType: FileType): { bg: string; text: string } => {
-    if (fileType === FileType.MEDICAL_SUMMARY) return { bg: '#B2EBF2', text: '#006064' };
-    if (fileType === FileType.PROGRESS_NOTE) return { bg: '#C8E6C9', text: '#1B5E20' };
-    if (fileType === FileType.INSURANCE_CARD) return { bg: '#C8E6C9', text: '#1B5E20' };
-    if (fileType === FileType.GENERATED_FORM) return { bg: '#C8E6C9', text: '#1B5E20' };
+    if (FileTypeMap[fileType].color) return FileTypeMap[fileType].color;
     return { bg: '#E6E8EE', text: '#616161' };
   };
 

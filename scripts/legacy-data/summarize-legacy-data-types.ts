@@ -19,6 +19,7 @@ import {
   buildObjectPath,
   buildPatientFolder,
   type CsvRow,
+  mapRowDescriptionToDocumentFolder,
   readCsvRow,
   stripDateFromDescription,
   writeCsvToLegacyDataOutput,
@@ -41,6 +42,8 @@ type Summary = {
   documentTypeSummary: DocumentMap;
   fileTypeSummary: Record<string, number>;
   z3filePaths: Map<string, number>;
+
+  highCountOtherDescriptions: Set<string>;
 };
 
 // ── Consts ──────────────────────────────────────────────────────────
@@ -57,11 +60,13 @@ const summary: Summary = {
   documentTypeSummary: {},
   fileTypeSummary: {},
   z3filePaths: new Map(),
+
+  highCountOtherDescriptions: new Set(),
 };
 
 const INDENT = '  ';
 
-const COUNT_TO_PRINT = 500;
+const COUNT_TO_PRINT = 5000;
 
 // if undefined, analyze everything
 const DOC_TYPES_TO_ANALYZE: string[] | undefined = undefined;
@@ -238,10 +243,26 @@ async function main(): Promise<void> {
     console.log(`${INDENT}Descriptions with more than ${COUNT_TO_PRINT}:`);
 
     for (const [description, count] of descriptionsToPrint) {
+      if (description.toLocaleLowerCase().includes('billing')) console.log('OH!', description);
+      const mapsToOther = mapRowDescriptionToDocumentFolder(description) === 'Other';
+      if (mapsToOther) {
+        console.log(`\nim not mapped! do something?`);
+        summary.highCountOtherDescriptions.add(description);
+      }
       console.log(`${INDENT}${INDENT}${description}: ${count}`);
+      if (mapsToOther) console.log('');
     }
 
     console.log('');
+  }
+
+  console.log('========== HIGH-COUNT DESCRIPTIONS MAPPING TO OTHER ==========');
+  const highCountOtherDescriptions = [...summary.highCountOtherDescriptions];
+  if (highCountOtherDescriptions.length === 0) {
+    console.log('None - mapRowDescriptionToDocumentFolder is defined accordingly\n');
+  } else {
+    console.log(`Total un-categorized descriptions: ${highCountOtherDescriptions.length}`);
+    console.log(`See output file for details\n`);
   }
 
   console.log('========== FILE TYPES ==========');
@@ -317,6 +338,12 @@ async function main(): Promise<void> {
   );
 
   writeCsvToLegacyDataOutput('duplicate_z3_file_paths.csv', ['file_path', 'count'], duplicateZ3FilePaths);
+
+  writeCsvToLegacyDataOutput(
+    'high_count_other_descriptions.csv',
+    ['description'],
+    highCountOtherDescriptions.map((description) => [description])
+  );
 
   writeCsvToLegacyDataOutput(
     'row_prep_failures.csv',
