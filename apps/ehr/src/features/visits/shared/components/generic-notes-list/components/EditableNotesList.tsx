@@ -22,6 +22,9 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
   appointmentId,
   patientId,
   separateEncounterNotes,
+  alwaysEditable,
+  showEditedMarker,
+  softDeleteWithTombstone,
   addNoteButtonDataTestId,
   noteLoadingIndicatorDataTestId,
 }) => {
@@ -31,10 +34,13 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
     patientId,
     apiConfig: apiConfig,
     locales: locales,
+    softDeleteWithTombstone,
   });
 
   const theme = useTheme();
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
+  // Addendum notes stay editable after the visit is locked; other note types respect the lock.
+  const isReadOnly = alwaysEditable ? false : isAppointmentReadOnly;
   const [isSaving, setIsSaving] = useState(false);
   const [isMoreEntitiesShown, setIsMoreEntitiesShown] = useState(false);
   const [savingEntityText, setSavingEntityText] = useState('');
@@ -114,6 +120,8 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
           onDelete={handleDelete}
           locales={locales}
           isReadOnly={isReadOnly}
+          showEditedMarker={showEditedMarker}
+          softDeleteWithTombstone={softDeleteWithTombstone}
         />
       ))}
 

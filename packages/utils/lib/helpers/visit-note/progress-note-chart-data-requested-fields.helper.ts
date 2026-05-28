@@ -34,6 +34,7 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
       NOTE_TYPE.MEDICAL_CONDITION,
       NOTE_TYPE.SURGICAL_HISTORY,
       NOTE_TYPE.MEDICATION,
+      NOTE_TYPE.ADDENDUM,
     ]
       .map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${IN_PERSON_NOTE_ID}`)
       .join(','),
@@ -61,7 +62,9 @@ export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFiel
   notes: {
     _sort: '-_lastUpdated',
     _count: 1000,
-    _tag: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.VITALS}|${IN_PERSON_NOTE_ID}`,
+    _tag: [NOTE_TYPE.VITALS, NOTE_TYPE.ADDENDUM]
+      .map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${IN_PERSON_NOTE_ID}`)
+      .join(','),
   },
   vitalsObservations: vitalsObservationsRequest,
 };
