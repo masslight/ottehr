@@ -22,6 +22,126 @@ interface ScheduleCapacityProps {
   ownerType?: string;
 }
 
+interface CapacityCellProps {
+  hour: number;
+  day: Day;
+  setDay: (day: Day) => void;
+  isLocation: boolean;
+  inputStep: number;
+  openingHour: number;
+  close: number;
+}
+
+// Reads the canonical capacity value for a given hour off the day model.
+// Mirrors the resolution precedence used everywhere else (prebookSlots →
+// capacity for Locations; providers → capacity/4 for everything else).
+const canonicalCapacityForHour = (day: Day, hour: number, isLocation: boolean): number => {
+  const existing = day.hours.find((c) => c.hour === hour);
+  if (!existing) return 0;
+  if (isLocation) {
+    if (existing.prebookSlots !== undefined && existing.prebookSlots !== null) {
+      return existing.prebookSlots;
+    }
+    return existing.capacity ?? 0;
+  }
+  if (existing.providers !== undefined && existing.providers !== null) {
+    return existing.providers;
+  }
+  return existing.capacity ? existing.capacity / 4 : 0;
+};
+
+// Per-hour capacity input. Local raw-string state lets the user type partial
+// decimals like "1." without the controlled-number-input gotcha where the
+// in-progress string gets parsed away (`Number("1.")` === 1, would erase the
+// dot). The parsed number is committed to the parent on every change so the
+// model stays in sync. A focused input is never overwritten by an upstream
+// re-render — re-sync from canonical only happens while the field is blurred
+// (e.g., the schedule was reloaded from the server while the user was
+// elsewhere on the page).
+//
+// Replaces the previous uncontrolled `defaultValue` implementation, which
+// produced an intermittent 1 → 0 reset (design-debt-log D-7): an upstream
+// re-render or remount re-read `defaultValue` from a stale `day` reference
+// and wiped the user's typed value.
+const CapacityCell: React.FC<CapacityCellProps> = ({
+  hour,
+  day,
+  setDay,
+  isLocation,
+  inputStep,
+  openingHour,
+  close,
+}) => {
+  const canonicalValue = canonicalCapacityForHour(day, hour, isLocation);
+  const [rawValue, setRawValue] = React.useState<string>(String(canonicalValue));
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (document.activeElement !== inputRef.current) {
+      setRawValue(String(canonicalValue));
+    }
+  }, [canonicalValue]);
+
+  return (
+    <TextField
+      inputRef={inputRef}
+      type="number"
+      required
+      value={rawValue}
+      onFocus={(e) => e.target.select()}
+      onChange={(e) => {
+        const next = e.target.value;
+        setRawValue(next);
+        const parsed = Number(next);
+        if (!Number.isFinite(parsed)) return;
+        // Build a fresh hours array (immutable). Previously this mutated
+        // `day.hours` in place and re-used `day`'s reference, which made
+        // upstream `setDays(sameRef)` calls no-op via React's Object.is
+        // bail — see ScheduleComponent.tsx setDay refactor (D-7).
+        const tempHours: Capacity[] = [];
+        for (let i = openingHour; i < close; i++) {
+          const existing = day.hours.find((h) => h.hour === i);
+          let prebookSlots: number | undefined = existing?.prebookSlots;
+          let providers: number | undefined = existing?.providers;
+          let capacity: number = existing?.capacity ?? 0;
+          if (hour === i) {
+            if (isLocation) {
+              prebookSlots = parsed;
+              // Back-populate legacy `capacity` with the same number —
+              // under the original 15-min semantic this IS prebook slots.
+              // Keeps un-migrated readers in sync. Clear `providers` to
+              // avoid ambiguity.
+              capacity = Math.round(parsed);
+              providers = undefined;
+            } else {
+              providers = parsed;
+              // Back-populate legacy `capacity` = providers × 4
+              // (bookings/hr at the old 15-min cadence).
+              capacity = Math.round(parsed * 4);
+              prebookSlots = undefined;
+            }
+          }
+          tempHours.push({
+            hour: i as HourOfDay,
+            capacity,
+            ...(providers !== undefined ? { providers } : {}),
+            ...(prebookSlots !== undefined ? { prebookSlots } : {}),
+          });
+        }
+        setDay({ ...day, hours: tempHours });
+      }}
+      sx={{ width: '120px' }}
+      InputProps={{
+        inputProps: {
+          min: 0,
+          step: inputStep,
+        },
+      }}
+      size="small"
+    />
+  );
+};
+
 export const ScheduleCapacity: React.FC<ScheduleCapacityProps> = ({
   day,
   setDay,
@@ -84,74 +204,14 @@ export const ScheduleCapacity: React.FC<ScheduleCapacityProps> = ({
                   )}
                 </TableCell>
                 <TableCell>
-                  <TextField
-                    type="number"
-                    required
-                    defaultValue={(() => {
-                      const existing = day.hours.find((c) => c.hour === hour);
-                      if (!existing) return 0;
-                      if (isLocation) {
-                        // Location: show prebook slots. Fall back to legacy
-                        // `capacity` (which IS prebook slots under the implicit
-                        // 15-min cadence assumption), so production data
-                        // displays unchanged.
-                        if (existing.prebookSlots !== undefined && existing.prebookSlots !== null) {
-                          return existing.prebookSlots;
-                        }
-                        return existing.capacity ?? 0;
-                      }
-                      // Practitioner / Group: show provider capacity. Fall back
-                      // to legacy capacity/4 for pre-migration data.
-                      if (existing.providers !== undefined && existing.providers !== null) {
-                        return existing.providers;
-                      }
-                      return existing.capacity ? existing.capacity / 4 : 0;
-                    })()}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => {
-                      const value = Number(e.target.value) || 0;
-                      const dayTemp = day;
-                      const tempHours: Capacity[] = [];
-                      for (let i = openingHour; i < close; i++) {
-                        const existing = day.hours.find((h) => h.hour === i);
-                        let prebookSlots: number | undefined = existing?.prebookSlots;
-                        let providers: number | undefined = existing?.providers;
-                        let capacity: number = existing?.capacity ?? 0;
-                        if (hour === i) {
-                          if (isLocation) {
-                            prebookSlots = value;
-                            // Back-populate legacy `capacity` with the same
-                            // number — under the original 15-min semantic this
-                            // IS prebook slots. Keeps un-migrated readers in
-                            // sync. Clear `providers` to avoid ambiguity.
-                            capacity = Math.round(value);
-                            providers = undefined;
-                          } else {
-                            providers = value;
-                            // Back-populate legacy `capacity` = providers × 4
-                            // (bookings/hr at the old 15-min cadence).
-                            capacity = Math.round(value * 4);
-                            prebookSlots = undefined;
-                          }
-                        }
-                        tempHours.push({
-                          hour: i as HourOfDay,
-                          capacity,
-                          ...(providers !== undefined ? { providers } : {}),
-                          ...(prebookSlots !== undefined ? { prebookSlots } : {}),
-                        });
-                      }
-                      dayTemp.hours = tempHours;
-                      setDay(dayTemp);
-                    }}
-                    sx={{ width: '120px' }}
-                    InputProps={{
-                      inputProps: {
-                        min: 0,
-                        step: inputStep,
-                      },
-                    }}
-                    size="small"
+                  <CapacityCell
+                    hour={hour}
+                    day={day}
+                    setDay={setDay}
+                    isLocation={isLocation}
+                    inputStep={inputStep}
+                    openingHour={openingHour}
+                    close={close}
                   />
                 </TableCell>
               </TableRow>
@@ -159,7 +219,6 @@ export const ScheduleCapacity: React.FC<ScheduleCapacityProps> = ({
           </TableBody>
         </Table>
       </Box>
-      {/* )} */}
     </>
   );
 };

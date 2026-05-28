@@ -18,13 +18,13 @@ import Snackbar from '@mui/material/Snackbar';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useMemo } from 'react';
 import { DailySchedule, DOW, HourOfDay, ScheduleDTO, UpdateScheduleParams } from 'utils';
-import { Day, Weekday } from '../../types/types';
+import { Weekday } from '../../types/types';
 import { ScheduleCapacity } from './ScheduleCapacity';
 import { ScheduleOverridesComponent, UpdateOverridesInput } from './ScheduleOverridesComponent';
 
 interface InfoForDayProps {
   day: Weekday;
-  setDay: (day: Day) => void;
+  setDay: (day: Weekday) => void;
   dayOfWeek: string;
   updateItem: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   loading: boolean;
@@ -70,7 +70,7 @@ function InfoForDay({ day, setDay, updateItem, loading, ownerType }: InfoForDayP
     []
   );
 
-  function createOpenCloseSelectField(type: 'Open' | 'Close', day: Day): ReactElement {
+  function createOpenCloseSelectField(type: 'Open' | 'Close', day: Weekday): ReactElement {
     const typeLowercase = type.toLocaleLowerCase();
     return (
       <FormControl sx={{ marginRight: 2 }}>
@@ -83,15 +83,12 @@ function InfoForDay({ day, setDay, updateItem, loading, ownerType }: InfoForDayP
           disabled={!workingDay}
           onChange={(newTime) => {
             const updatedTime = Number(newTime.target.value);
-            const dayTemp = day;
             if (type === 'Open') {
               setOpen(updatedTime);
-              dayTemp.open = updatedTime;
-              setDay(dayTemp);
+              setDay({ ...day, open: updatedTime as HourOfDay });
             } else if (type === 'Close') {
               setClose(updatedTime);
-              dayTemp.close = updatedTime;
-              setDay(dayTemp);
+              setDay({ ...day, close: updatedTime as HourOfDay });
             }
           }}
           sx={{
@@ -117,7 +114,7 @@ function InfoForDay({ day, setDay, updateItem, loading, ownerType }: InfoForDayP
     );
   }
 
-  function createOpenCloseBufferSelectField(type: 'Open' | 'Close', day: Day): ReactElement {
+  function createOpenCloseBufferSelectField(type: 'Open' | 'Close', day: Weekday): ReactElement {
     const typeVerb = type === 'Close' ? 'Closing' : 'Opening';
     const typeLowercase = typeVerb.toLocaleLowerCase();
     const bufferValue = type === 'Open' ? openingBuffer ?? '' : closingBuffer ?? '';
@@ -134,15 +131,12 @@ function InfoForDay({ day, setDay, updateItem, loading, ownerType }: InfoForDayP
           disabled={!workingDay}
           onChange={(newNumber) => {
             const updatedNumber = Number(newNumber.target.value);
-            const dayTemp = day;
             if (type === 'Open') {
               setOpeningBuffer(updatedNumber);
-              dayTemp.openingBuffer = updatedNumber;
-              setDay(dayTemp);
+              setDay({ ...day, openingBuffer: updatedNumber });
             } else if (type === 'Close') {
               setClosingBuffer(updatedNumber);
-              dayTemp.closingBuffer = updatedNumber;
-              setDay(dayTemp);
+              setDay({ ...day, closingBuffer: updatedNumber });
             }
           }}
           sx={{
@@ -187,9 +181,7 @@ function InfoForDay({ day, setDay, updateItem, loading, ownerType }: InfoForDayP
               <Checkbox
                 checked={workingDay}
                 onChange={(event) => {
-                  const dayTemp = day;
-                  dayTemp.workingDay = event.target.checked;
-                  setDay(dayTemp);
+                  setDay({ ...day, workingDay: event.target.checked });
                   setWorkingDay(event.target.checked);
                 }}
               />
@@ -216,7 +208,12 @@ function InfoForDay({ day, setDay, updateItem, loading, ownerType }: InfoForDayP
 
               <ScheduleCapacity
                 day={day}
-                setDay={setDay}
+                // ScheduleCapacity's setDay surfaces a Day-shaped update
+                // (capacity edits only touch hours; it doesn't know about
+                // workingDay). Merge with the current `day` (Weekday) to
+                // preserve workingDay before forwarding to the parent's
+                // Weekday-typed setDay.
+                setDay={(d) => setDay({ ...day, ...d })}
                 openingHour={open}
                 closingHour={close}
                 openingBuffer={openingBuffer}
@@ -290,10 +287,6 @@ export default function ScheduleComponent({
     setSnackbarOpen(false);
   };
 
-  React.useEffect(() => {
-    setDays(item.schema.schedule);
-  }, [item]);
-
   return (
     <>
       <TabContext value={dayOfWeek}>
@@ -349,15 +342,18 @@ export default function ScheduleComponent({
                 <TabPanel value={day} key={day}>
                   <InfoForDay
                     day={days[day as DOW]}
-                    setDay={(dayTemp: Day) => {
-                      const daysTemp = days;
-                      daysTemp[day as DOW] = {
-                        ...dayTemp,
-                        open: dayTemp.open as HourOfDay,
-                        close: dayTemp.close as HourOfDay,
-                        workingDay: days[day as DOW].workingDay,
-                      };
-                      setDays(daysTemp);
+                    setDay={(dayTemp: Weekday) => {
+                      setDays((prev) => {
+                        if (!prev) return prev;
+                        return {
+                          ...prev,
+                          [day as DOW]: {
+                            ...dayTemp,
+                            open: dayTemp.open as HourOfDay,
+                            close: dayTemp.close as HourOfDay,
+                          },
+                        };
+                      });
                     }}
                     dayOfWeek={dayOfWeek}
                     updateItem={handleScheduleUpdate}
