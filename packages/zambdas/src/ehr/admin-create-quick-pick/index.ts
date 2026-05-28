@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { ActivityDefinition } from 'fhir/r4b';
 import { INVALID_INPUT_ERROR, Secrets } from 'utils';
 import {
   assertDefined,
@@ -21,7 +22,12 @@ import {
   QUICK_TEXT_QUICK_PICK_CATEGORY,
   RADIOLOGY_QUICK_PICK_CATEGORY,
 } from '../shared/quick-pick-categories';
-import { createQuickPick, QuickPickCategory, searchQuickPicks } from '../shared/quick-pick-helpers';
+import {
+  activityDefinitionToQuickPick,
+  QuickPickCategory,
+  quickPickToActivityDefinition,
+  searchQuickPicks,
+} from '../shared/quick-pick-helpers';
 
 interface QuickPickCreateInputValidated {
   quickPick: any;
@@ -32,7 +38,7 @@ interface QuickPickCreateInputValidated {
 interface CategoryConfig {
   category: QuickPickCategory<any>;
   requiredStringFields: string[];
-  validator?: (oystehr: Oystehr, quickPick: Record<string, unknown>) => Promise<void>;
+  validator?: (oystehr: Oystehr, quickPick: Record<string, unknown>, quickPickId?: string) => Promise<void>;
 }
 
 const CATEGORIES: CategoryConfig[] = [
@@ -42,9 +48,14 @@ const CATEGORIES: CategoryConfig[] = [
   {
     category: INSURANCE_QUICK_PICK_CATEGORY,
     requiredStringFields: ['name', 'payerId', 'organizationReference'],
-    validator: async (oystehr, quickPick) => {
+    validator: async (oystehr, quickPick, quickPickId) => {
       const existing = await searchQuickPicks(oystehr, INSURANCE_QUICK_PICK_CATEGORY);
-      if (existing.some((p) => p.organizationReference === quickPick.organizationReference)) {
+      if (
+        existing.some(
+          (p) =>
+            p.organizationReference === quickPick.organizationReference && (quickPickId ? p.id !== quickPickId : true)
+        )
+      ) {
         throw INVALID_INPUT_ERROR(`An insurance quick pick for ${quickPick.name} already exists`);
       }
     },
@@ -65,7 +76,7 @@ const CATEGORIES: CategoryConfig[] = [
   { category: RADIOLOGY_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
 ];
 
-const CATEGORY_CONFIG_MAP: Record<string, CategoryConfig> = Object.fromEntries(
+export const CATEGORY_CONFIG_MAP: Record<string, CategoryConfig> = Object.fromEntries(
   CATEGORIES.map((c) => [c.category.tagCode, c])
 );
 
@@ -84,7 +95,10 @@ export const index = wrapHandler(
       await config.validator(oystehr, quickPick);
     }
 
-    const created = await createQuickPick(oystehr, quickPick, config.category);
+    const activityDefinition = await oystehr.fhir.create<ActivityDefinition>(
+      quickPickToActivityDefinition(quickPick, config.category)
+    );
+    const created = activityDefinitionToQuickPick(activityDefinition, config.category);
     const displayName = config.category.getDisplayName(quickPick);
     return {
       statusCode: 200,

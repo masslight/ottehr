@@ -106,7 +106,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (email) {
     console.group('sendCancellationEmail');
     try {
-      const emailClient = getEmailClient(secrets);
+      const emailClient = getEmailClient(secrets, oystehr);
       const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
       const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
 

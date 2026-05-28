@@ -334,7 +334,8 @@ export function makeProcedureResource(
   encounterId: string,
   patientId: string,
   data: FreeTextNoteDTO | CPTCodeDTO,
-  fieldName: ProviderChartDataFieldsNames
+  fieldName: ProviderChartDataFieldsNames,
+  partOf?: string
 ): Procedure {
   const nameOrText = (data as CPTCodeDTO).display || (data as FreeTextNoteDTO).text || '';
   const result: Procedure = {
@@ -353,6 +354,9 @@ export function makeProcedureResource(
     result.code = {
       coding: [{ code: data.code, display: data.display }],
     };
+  }
+  if (partOf) {
+    result.partOf = [{ reference: partOf }];
   }
   return result;
 }

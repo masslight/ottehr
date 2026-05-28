@@ -301,8 +301,8 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
   header: {
     title: (data) => (data.encounter.isFollowup ? 'Follow-up Visit Note' : 'Visit Note'),
     logo: {
-      width: 110,
-      height: 28,
+      maxWidth: 110,
+      maxHeight: 28,
     },
   },
   headerBodySeparator: false,

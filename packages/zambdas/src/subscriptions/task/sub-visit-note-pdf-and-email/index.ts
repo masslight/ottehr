@@ -182,7 +182,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // Send completion email only when: email is enabled, this is not a follow-up (isPDFOnlyTask),
       // the task does not carry a SKIP_EMAIL input (addendum re-generation), and the feature flag
       // for skipping patient-portal delivery is not set.
-      const emailClient = getEmailClient(secrets);
+      const emailClient = getEmailClient(secrets, oystehr);
       const emailEnabled = emailClient.getFeatureFlag();
       let emailSent = false;
 

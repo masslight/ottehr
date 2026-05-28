@@ -106,7 +106,7 @@ export const InPersonLayout: React.FC = () => {
                 <Outlet />
               </>
             ) : (
-              <InfoAlert text="Select an intake performer and a provider in order to begin charting." persistent />
+              <InfoAlert text="Select a provider in order to begin charting." persistent />
             )}
           </div>
           <BottomNavigation />
