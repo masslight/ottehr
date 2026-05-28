@@ -140,13 +140,9 @@ test.describe('In-person visit', async () => {
 
       insuranceCarrier1 = insuranceCarriersOptions.at(0);
       insuranceCarrier2 = insuranceCarriersOptions.at(1);
-      if (process.env.INTEGRATION_TEST === 'true') {
-        await resourceHandler.setResourcesFast();
-      } else {
-        await resourceHandler.setResources();
-        await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
-        await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-      }
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
       context = await browser.newContext();
       page = await context.newPage();
@@ -302,13 +298,9 @@ test.describe('In-person visit', async () => {
       insuranceCarrier1 = insuranceCarriersOptions.at(0);
       insuranceCarrier2 = insuranceCarriersOptions.at(1);
 
-      if (process.env.INTEGRATION_TEST === 'true') {
-        await resourceHandler.setResourcesFast();
-      } else {
-        await resourceHandler.setResources();
-        await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
-        await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-      }
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
       context = await browser.newContext();
       page = await context.newPage();
