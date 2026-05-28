@@ -29,7 +29,7 @@ import { Secrets } from 'utils';
 import { getAuth0Token } from '../shared/getAuth0Token';
 
 const ROOT = path.resolve(__dirname, '../../../..');
-const CONFIG_DIR = path.resolve(ROOT, 'config/oystehr');
+const CONFIG_DIRS = [path.resolve(ROOT, 'config/oystehr'), path.resolve(ROOT, 'config/oystehr-core')];
 
 const CANONICAL_TYPES = new Set(['Questionnaire', 'ValueSet', 'ActivityDefinition', 'PlanDefinition']);
 
@@ -78,16 +78,20 @@ interface ManagedEntry {
   identifiers: { system: string; value: string }[];
   tags: { system: string; code: string }[];
   name?: string; // last-resort identity (matched exactly), e.g. OTTEHR_ORGANIZATION
+  criteria?: string; // for Subscription — uniquely identifies a managed subscription
 }
 
-// Read config/oystehr/*.json and collect the managed entries to look for.
+// Read config/oystehr*/*.json and collect the managed entries to look for.
 function collectManagedEntries(secrets: Record<string, string>): ManagedEntry[] {
   const entries: ManagedEntry[] = [];
-  for (const file of fs.readdirSync(CONFIG_DIR)) {
+  const files = CONFIG_DIRS.flatMap((dir) =>
+    fs.existsSync(dir) ? fs.readdirSync(dir).map((f) => path.join(dir, f)) : []
+  );
+  for (const file of files) {
     if (!file.endsWith('.json')) continue;
     let parsed: any;
     try {
-      parsed = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, file), 'utf8'));
+      parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
     } catch {
       continue;
     }
@@ -113,8 +117,12 @@ function collectManagedEntries(secrets: Record<string, string>): ManagedEntry[] 
 
       const name = typeof resource.name === 'string' ? resolveTemplate(resource.name, secrets) : undefined;
 
+      // Subscription has no identifier/url/tag; its `criteria` is the unique identity.
+      const criteria =
+        resource.resourceType === 'Subscription' ? resolveTemplate(resource.criteria, secrets) : undefined;
+
       // Need some literal identity to find live copies.
-      if (!url && identifiers.length === 0 && tags.length === 0 && !name) continue;
+      if (!url && identifiers.length === 0 && tags.length === 0 && !name && !criteria) continue;
 
       entries.push({
         configName,
@@ -124,6 +132,7 @@ function collectManagedEntries(secrets: Record<string, string>): ManagedEntry[] 
         identifiers,
         tags,
         name,
+        criteria,
       });
     }
   }
@@ -145,13 +154,16 @@ function loadStateIds(stateFile: string): Map<string, string> {
 // Targeted search for all live copies sharing this entry's identity.
 async function findCopies(oystehr: Oystehr, entry: ManagedEntry): Promise<any[]> {
   const params: { name: string; value: string }[] = [
-    { name: '_elements', value: 'id,identifier,url,version,name,title,status,meta' },
+    // include `reason` and `criteria` so Subscription identity/divergence checks have what they need
+    { name: '_elements', value: 'id,identifier,url,version,name,title,status,meta,criteria,reason' },
     { name: '_count', value: '1000' },
   ];
   const useName = entry.identifiers.length === 0 && entry.tags.length === 0 && !!entry.name;
   if (entry.url !== undefined) {
     params.push({ name: 'url', value: entry.url });
     if (entry.version) params.push({ name: 'version', value: entry.version });
+  } else if (entry.criteria !== undefined) {
+    params.push({ name: 'criteria', value: entry.criteria });
   } else {
     // Repeated params are AND-ed by FHIR — narrows to true copies.
     for (const id of entry.identifiers) params.push({ name: 'identifier', value: `${id.system}|${id.value}` });
@@ -162,12 +174,16 @@ async function findCopies(oystehr: Oystehr, entry: ManagedEntry): Promise<any[]>
   let copies = (await oystehr.fhir.search<any>({ resourceType: entry.resourceType, params })).unbundle();
   // Tighten the fuzzy name match to an exact-equality check.
   if (useName) copies = copies.filter((c: any) => (typeof c.name === 'string' ? c.name : '') === entry.name);
+  // Defensive: confirm the criteria matched exactly (in case the server normalised it).
+  if (entry.criteria !== undefined) copies = copies.filter((c: any) => c.criteria === entry.criteria);
   return copies;
 }
 
 function labelOf(resource: any): string {
   if (resource.title) return String(resource.title);
   if (resource.name) return typeof resource.name === 'string' ? resource.name : JSON.stringify(resource.name);
+  // Subscriptions have no name/title; the human-meaningful label is `reason`.
+  if (resource.reason) return String(resource.reason);
   return '';
 }
 
