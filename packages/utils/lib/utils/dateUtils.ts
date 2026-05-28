@@ -19,6 +19,29 @@ export const isISODateTime = (dateTimeString: string): boolean => {
   }
 };
 
+/**
+ * The cadence (interval between offered slot start times) the slot
+ * generator falls back to when no explicit cadence is configured on the
+ * service. Computed as gcd(durationMinutes, 60) — gives the longest stride
+ * that still keeps slot starts hour-aligned for any duration:
+ *   - 15 / 30 / 60 min → matching cadence (slots back-to-back)
+ *   - 45 min          → 15-min cadence
+ *   - 90 min          → 30-min cadence
+ *   - 120 min         → 60-min cadence
+ *
+ * Returns 15 as a safe default when durationMinutes isn't a positive number
+ * (e.g. the admin form hasn't been filled in yet).
+ *
+ * Single source of truth for the default-cadence rule — used by the slot
+ * generator (convertCapacityListToBucketedTimeSlots) and by admin UIs that
+ * display "Default (X min)" labels in cadence pickers.
+ */
+export const getDefaultCadenceMinutes = (durationMinutes: number): number => {
+  if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) return 15;
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+  return gcd(durationMinutes, 60);
+};
+
 export const convertCapacityListToBucketedTimeSlots = (
   scheduleCapacityList: Capacity[],
   startDate: DateTime,
@@ -92,11 +115,11 @@ export const convertCapacityListToBucketedTimeSlots = (
     else sessions.push([h]);
   }
 
-  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
-  // Explicit cadence wins; otherwise step by gcd(slotLength, 60) — gives legacy
-  // cadence for 15/30/60 (step == slotLength), 15-min cadence for 45 (gcd
-  // 45,60 = 15), 20-min cadence for 20, 30-min for 90, 60-min for 120, etc.
-  const stepMinutes = hasExplicitCadence ? cadenceMinutes! : gcd(effectiveSlotLength, 60);
+  // Explicit cadence wins; otherwise fall back to the default rule shared
+  // with admin UIs (getDefaultCadenceMinutes) — keeps the "Default" label
+  // an admin sees on the cadence picker in sync with what they'll actually
+  // get when the admin leaves cadence unset.
+  const stepMinutes = hasExplicitCadence ? cadenceMinutes! : getDefaultCadenceMinutes(effectiveSlotLength);
 
   for (const sessionHours of sessions) {
     const sessionStartHour = sessionHours[0];

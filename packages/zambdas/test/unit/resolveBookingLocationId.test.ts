@@ -1,7 +1,7 @@
 import { HealthcareService, Location, Practitioner, PractitionerRole, Slot } from 'fhir/r4b';
 import { makeSlotAtLocationExtensionEntry } from 'utils';
 import { describe, expect, it } from 'vitest';
-import { resolveBookingLocationId } from '../../src/patient/appointment/create-appointment/resolveBookingLocationId';
+import { resolveBookingLocationId } from '../../src/shared/resolveBookingLocationId';
 
 const makeSlot = (overrides: Partial<Slot> = {}): Slot => ({
   resourceType: 'Slot',

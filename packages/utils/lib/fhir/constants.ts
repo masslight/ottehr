@@ -816,6 +816,26 @@ export const makeSlotAtLocationExtensionEntry = (
   };
 };
 
+// Extension recording the group HealthcareService a Slot was booked through.
+// Stamped at slot-vending time when the scheduleType is "group" — the
+// Slot's Schedule.actor under pools-providers is the member PR, so
+// without this extension a downstream consumer can't tell whether a
+// PR-actored Slot was booked directly against that PR or through a group
+// (which matters for assignment-mode interpretation, capacity-guard
+// fallback eligibility, audit trails, etc.). Skipped when the Schedule's
+// actor IS the group HS — the actor already records it; a redundant
+// extension can only conflict.
+export const SLOT_BOOKED_VIA_GROUP_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-booked-via-group`;
+
+export const makeSlotBookedViaGroupExtensionEntry = (
+  groupHealthcareServiceId: string
+): { url: string; valueReference: { reference: string } } => {
+  return {
+    url: SLOT_BOOKED_VIA_GROUP_EXTENSION_URL,
+    valueReference: { reference: `HealthcareService/${groupHealthcareServiceId}` },
+  };
+};
+
 // Extension for specifying which questionnaire should be used for appointments booked on this slot
 export const SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-questionnaire-canonical`;
 

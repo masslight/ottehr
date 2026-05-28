@@ -10,6 +10,20 @@ export interface GetScheduleResponse {
   telemedAvailable: SlotListItem[];
   displayTomorrowSlotsAtHour: number;
   timezone?: Timezone;
+  /**
+   * Populated when the requested owner (typically a group) operates at
+   * multiple Locations and the caller didn't provide an atLocationSlug.
+   * Slot lists are empty in this case; the front-end should render a
+   * Location picker and re-call with `atLocationSlug` set to the chosen
+   * Location's slug.
+   */
+  pickableLocations?: PickableLocation[];
+}
+
+export interface PickableLocation {
+  id: string;
+  slug: string;
+  name: string;
 }
 
 export interface GetScheduleRequestParams {

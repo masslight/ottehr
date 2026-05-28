@@ -15,6 +15,7 @@ import {
   makeBookingOriginExtensionEntry,
   makeQuestionnaireCanonicalExtensionEntry,
   makeSlotAtLocationExtensionEntry,
+  makeSlotBookedViaGroupExtensionEntry,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
@@ -83,6 +84,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     serviceCategoryCode: maybeServiceCategoryCode,
     questionnaireCanonical,
     atLocationId,
+    bookedViaGroupId,
   } = JSON.parse(input.body);
 
   // required param checks
@@ -165,6 +167,9 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   if (atLocationId != null && typeof atLocationId !== 'string') {
     throw INVALID_INPUT_ERROR('"atLocationId" must be a string if provided');
   }
+  if (bookedViaGroupId != null && typeof bookedViaGroupId !== 'string') {
+    throw INVALID_INPUT_ERROR('"bookedViaGroupId" must be a string if provided');
+  }
   const apptLength: ApptLengthDef = { length: 0, unit: 'minutes' };
   if (lengthInMinutes) {
     apptLength.length = lengthInMinutes;
@@ -197,6 +202,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     serviceCategoryCode,
     questionnaireCanonical: questionnaireCanonical as CanonicalUrl | undefined,
     atLocationId,
+    bookedViaGroupId,
   };
 };
 
@@ -217,6 +223,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     serviceCategoryCode,
     questionnaireCanonical,
     atLocationId,
+    bookedViaGroupId,
   } = input;
   // query up the schedule that owns the slot
   const schedule: Schedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: scheduleId });
@@ -277,6 +284,30 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     // Location, Practitioner: silently drop.
   }
 
+  // Decide whether to stamp the slot-booked-via-group extension. Only
+  // applies when the actor is non-HS (the pools-providers case where a
+  // group booking lands on a PR's Schedule). Drops silently when the
+  // actor IS the HS — Schedule.actor already records the group.
+  // Validation here is intentionally light: verify the HS exists; group-
+  // membership of the actor PR was already enforced upstream by get-
+  // schedule's qualifying-locations pass.
+  let shouldStampBookedViaGroup = false;
+  if (bookedViaGroupId) {
+    const actorType = schedule.actor?.[0]?.reference?.split('/')?.[0];
+    if (actorType && actorType !== 'HealthcareService') {
+      try {
+        await oystehr.fhir.get<HealthcareService>({
+          resourceType: 'HealthcareService',
+          id: bookedViaGroupId,
+        });
+      } catch {
+        throw INVALID_INPUT_ERROR(`"bookedViaGroupId" did not match any HealthcareService: ${bookedViaGroupId}`);
+      }
+      shouldStampBookedViaGroup = true;
+    }
+    // HS actor: silently drop — Schedule.actor already records the group.
+  }
+
   // setZone: true preserves the timezone from the input ISO string instead of converting to system timezone
   // This prevents DST offset issues when the system timezone differs from the intended timezone
   const startTime = DateTime.fromISO(startISO, { setZone: true });
@@ -321,6 +352,9 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   }
   if (shouldStampAtLocation && atLocationId) {
     extension.push(makeSlotAtLocationExtensionEntry(atLocationId));
+  }
+  if (shouldStampBookedViaGroup && bookedViaGroupId) {
+    extension.push(makeSlotBookedViaGroupExtensionEntry(bookedViaGroupId));
   }
   const slot: Slot = {
     resourceType: 'Slot',

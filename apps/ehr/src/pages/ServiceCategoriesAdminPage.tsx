@@ -34,7 +34,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { BOOKING_CONFIG } from 'utils';
+import { BOOKING_CONFIG, getDefaultCadenceMinutes } from 'utils';
 import {
   createServiceCategory,
   deleteServiceCategory,
@@ -173,31 +173,39 @@ const ServiceCategoryDialog: FC<{
             size="small"
             fullWidth
           />
-          <FormControl size="small" fullWidth>
-            <InputLabel shrink>Cadence (start interval)</InputLabel>
-            <Select
-              value={value.config.cadenceMinutes ?? ''}
-              input={<OutlinedInput notched label="Cadence (start interval)" />}
-              onChange={(e) => {
-                const raw = e.target.value;
-                const parsed = raw === '' ? undefined : Number(raw);
-                setValue((v) => ({
-                  ...v,
-                  config: {
-                    ...v.config,
-                    cadenceMinutes: parsed === undefined || Number.isNaN(parsed) ? undefined : parsed,
-                  },
-                }));
-              }}
-              renderValue={(selected) => (selected ? `${selected as number} min` : 'Default (15 min)')}
-              displayEmpty
-            >
-              <MenuItem value="">Default (15 min)</MenuItem>
-              <MenuItem value={15}>15 min</MenuItem>
-              <MenuItem value={30}>30 min</MenuItem>
-              <MenuItem value={60}>60 min</MenuItem>
-            </Select>
-          </FormControl>
+          {(() => {
+            // The slot generator's no-explicit-cadence fallback depends on
+            // duration — shared helper so the picker's "Default (X min)"
+            // label always matches what the admin will actually get.
+            const defaultLabel = `Default (${getDefaultCadenceMinutes(value.config.durationMinutes)} min)`;
+            return (
+              <FormControl size="small" fullWidth>
+                <InputLabel shrink>Cadence (start interval)</InputLabel>
+                <Select
+                  value={value.config.cadenceMinutes ?? ''}
+                  input={<OutlinedInput notched label="Cadence (start interval)" />}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    const parsed = raw === '' ? undefined : Number(raw);
+                    setValue((v) => ({
+                      ...v,
+                      config: {
+                        ...v.config,
+                        cadenceMinutes: parsed === undefined || Number.isNaN(parsed) ? undefined : parsed,
+                      },
+                    }));
+                  }}
+                  renderValue={(selected) => (selected ? `${selected as number} min` : defaultLabel)}
+                  displayEmpty
+                >
+                  <MenuItem value="">{defaultLabel}</MenuItem>
+                  <MenuItem value={15}>15 min</MenuItem>
+                  <MenuItem value={30}>30 min</MenuItem>
+                  <MenuItem value={60}>60 min</MenuItem>
+                </Select>
+              </FormControl>
+            );
+          })()}
           <FormControl size="small" fullWidth>
             <InputLabel>Service Modes</InputLabel>
             <Select

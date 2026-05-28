@@ -27,9 +27,15 @@ import {
   SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
   VisitType,
 } from 'utils';
-import { checkIsEHRUser, isTestUser, phoneRegex, userHasAccessToPatient, ZambdaInput } from '../../../shared';
+import {
+  checkIsEHRUser,
+  isTestUser,
+  phoneRegex,
+  resolveBookingLocationId,
+  userHasAccessToPatient,
+  ZambdaInput,
+} from '../../../shared';
 import { getCanonicalUrlForPrevisitQuestionnaire } from '../helpers';
-import { resolveBookingLocationId } from './resolveBookingLocationId';
 
 export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   secrets: Secrets | null;

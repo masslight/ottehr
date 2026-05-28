@@ -55,6 +55,7 @@ const Review = (): JSX.Element => {
     scheduleOwnerName,
     scheduleOwnerType,
     scheduleOwnerId,
+    bookingLocationName,
     timezone,
     startISO,
     serviceMode,
@@ -170,9 +171,14 @@ const Review = (): JSX.Element => {
       testId: 'r&s_Patient',
       valueTestId: dataTestIds.patientNameReviewScreen,
     },
+    // Prefer the resolved booking Location when present — it's the
+    // human-readable Location name the patient picked (or the actor's
+    // own Location for Location-actored slots). scheduleOwnerName falls
+    // through only when no Location could be resolved (e.g., a
+    // Practitioner-actored slot without an extension).
     {
-      name: scheduleOwnerType,
-      valueString: scheduleOwnerName,
+      name: bookingLocationName ? 'Location' : scheduleOwnerType,
+      valueString: bookingLocationName ?? scheduleOwnerName,
       testId: 'r&s_ProviderType',
       valueTestId: dataTestIds.locationNameReviewScreen,
     },

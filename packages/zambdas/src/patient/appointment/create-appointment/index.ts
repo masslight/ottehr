@@ -8,6 +8,7 @@ import {
   Condition,
   Encounter,
   Extension,
+  HealthcareService,
   List,
   Location,
   Patient,
@@ -43,6 +44,8 @@ import {
   getCanonicalQuestionnaire,
   getCoding,
   getFullestAvailableName,
+  getGroupAssignmentMode,
+  getSlotBookedViaGroupId,
   getTaskResource,
   isValidUUID,
   makePrepopulatedItemsForPatient,
@@ -636,140 +639,54 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const encUrl = `urn:uuid:${uuid()}`;
 
-  /*
-
-  todo sort out his merge conflict later 
-
-  <<<<<<< HEAD
-  // Capacity guard + group-member fallback. Before touching the busy Slot,
-  // verify that the target Schedule can absorb one more booking in the
-  // requested window. If it can't and this is a group booking, reroute to
-  // another group member with capacity. Only fail if every member is saturated.
-  let slotScheduleRef: string | undefined = slot.schedule?.reference;
-  let memberScheduleForAssignment: Schedule | undefined;
-
-  if (slotScheduleRef) {
-    let targetScheduleId = slotScheduleRef.replace('Schedule/', '');
-    let targetSchedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: targetScheduleId });
-
-    // Exclude the patient's own just-reserved Slot from the busy count —
-    // create-slot persists it with status=busy before create-appointment runs,
-    // so without this exclusion the guard would always see the slot as "taken
-    // by itself".
-    let available = await checkSlotAvailable({ slot, schedule: targetSchedule, excludeSlotId: slot.id }, oystehr);
-
-    if (!available && scheduleOwner.resourceType === 'HealthcareService') {
-      // Group fallback: walk other member Schedules, pick the first free one.
-      const memberSchedules = await resolveGroupMemberSchedules(oystehr, scheduleOwner);
-      for (const memberSchedule of memberSchedules) {
-        if (!memberSchedule.id || memberSchedule.id === targetScheduleId) continue;
-        const candidateSlot = { ...slot, schedule: { reference: `Schedule/${memberSchedule.id}` } };
-        const memberOk = await checkSlotAvailable(
-          { slot: candidateSlot, schedule: memberSchedule, excludeSlotId: slot.id },
-          oystehr
-        );
-        if (memberOk) {
-          targetSchedule = memberSchedule;
-          targetScheduleId = memberSchedule.id;
-          slotScheduleRef = `Schedule/${memberSchedule.id}`;
-          slot.schedule = { reference: slotScheduleRef };
-          // If the patient submitted a specific Slot id, we must now create
-          // a fresh Slot on the new Schedule instead of patching the stale one.
-          slot.id = undefined;
-          available = true;
-          break;
-        }
-      }
+  // Determine whether to pre-stamp the attending Practitioner on
+  // Encounter.participant[ATND] (CodeSystem v3-ParticipationType / ATND).
+  //
+  // Rule:
+  //   - Direct PR booking (no originating group): stamp. The patient
+  //     explicitly picked this Practitioner; their attendance is committed
+  //     at book time.
+  //   - Group booking with the group in provider-mode: stamp. Group policy
+  //     is "commit the chosen member at book time."
+  //   - Group booking with the group in anonymous-mode (or no resolvable
+  //     mode): don't stamp. Encounter remains unassigned until front desk
+  //     runs assign-practitioner.
+  //
+  // The originating group, when present, is read off the Slot's
+  // slot-booked-via-group extension (stamped at slot-vending time by
+  // get-schedule when scheduleType === 'group'). For pools-providers
+  // groups, the Slot's Schedule.actor is the member PR itself, so
+  // scheduleOwner alone can't distinguish "direct PR" from "group via
+  // pools-providers" — the extension is the disambiguator.
+  let bookedViaGroup: HealthcareService | undefined;
+  const bookedViaGroupId = slot ? getSlotBookedViaGroupId(slot) : undefined;
+  if (bookedViaGroupId) {
+    try {
+      bookedViaGroup = await oystehr.fhir.get<HealthcareService>({
+        resourceType: 'HealthcareService',
+        id: bookedViaGroupId,
+      });
+    } catch {
+      // Group resource missing — treat as "unknown group, don't pre-stamp"
+      // (conservative; mirrors anonymous-mode behavior).
     }
-
-    if (!available) {
-      throw new Error('This time slot is no longer available. Please pick another time.');
-    }
-    memberScheduleForAssignment = targetSchedule;
   }
 
-  // Group provider-assignment mode: if scheduleOwner is a HealthcareService
-  // (group) with characteristic `group-assignment-mode=provider`, and the
-  // (possibly fallback-redirected) member is a Practitioner, stamp them on
-  // Encounter.participant[ATND]. `anonymous` (default) leaves Encounter
-  // participants empty — tracking board shows the visit as unassigned until
-  // the front desk runs assign-practitioner.
-  let encounterParticipants: Encounter['participant'] = undefined;
-  try {
-    if (scheduleOwner.resourceType === 'HealthcareService' && memberScheduleForAssignment) {
-      if (getGroupAssignmentMode(scheduleOwner) === 'provider') {
-        const memberRef = memberScheduleForAssignment.actor?.[0]?.reference;
-        if (memberRef && memberRef.startsWith('Practitioner/')) {
-          encounterParticipants = [
-            {
-              type: [
-                {
-                  coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }],
-                },
-              ],
-              individual: { reference: memberRef },
-              period: { start: nowIso },
-            },
-          ];
-        }
-      }
+  let encounterParticipants: Encounter['participant'] | undefined;
+  if (attendingPractitioner) {
+    const isGroupBooking = bookedViaGroupId !== undefined;
+    const groupAllowsStamping = bookedViaGroup ? getGroupAssignmentMode(bookedViaGroup) === 'provider' : false;
+    const shouldStampAttending = !isGroupBooking || groupAllowsStamping;
+    if (shouldStampAttending) {
+      encounterParticipants = [
+        {
+          type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }] }],
+          individual: { reference: `Practitioner/${attendingPractitioner.id}` },
+          period: { start: nowIso },
+        },
+      ];
     }
-  } catch (err) {
-    console.warn('Unable to resolve group assignment mode; falling back to unassigned Encounter:', err);
   }
-
-  // Direct PractitionerRole booking: the attending is known at book time (the
-  // role's Practitioner). Stamp Encounter.participant[ATND] so the tracking
-  // board and progress note pick them up immediately. Skip if the group-mode
-  // block above already set participants.
-  if (!encounterParticipants && attendingPractitioner && scheduleOwner.resourceType === 'PractitionerRole') {
-    encounterParticipants = [
-      {
-        type: [
-          {
-            coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }],
-          },
-        ],
-        individual: { reference: `Practitioner/${attendingPractitioner.id}` },
-        period: { start: nowIso },
-      },
-    ];
-=======
-  // Carry over diagnoses from the parent encounter to the follow-up by cloning each Dx Condition
-  // and attaching it to the new encounter's diagnosis array (preserving rank/primary).
-  const followUpDiagnosisRequests: BatchInputPostRequest<Condition>[] = [];
-  const followUpDiagnosisEntries: NonNullable<Encounter['diagnosis']> = [];
-  for (const { condition: parentCondition, rank } of carriedOverDiagnoses) {
-    const newConditionUrl = `urn:uuid:${uuid()}`;
-    const newCondition: Condition = {
-      resourceType: 'Condition',
-      subject: { reference: patientRef },
-      encounter: { reference: encUrl },
-      code: parentCondition.code,
-      clinicalStatus: parentCondition.clinicalStatus,
-      verificationStatus: parentCondition.verificationStatus,
-      meta: {
-        tag: [
-          {
-            code: 'diagnosis',
-            system: `${PRIVATE_EXTENSION_BASE_URL}/diagnosis`,
-          },
-        ],
-      },
-    };
-    followUpDiagnosisRequests.push({
-      method: 'POST',
-      url: '/Condition',
-      resource: newCondition,
-      fullUrl: newConditionUrl,
-    });
-    followUpDiagnosisEntries.push({
-      condition: { reference: newConditionUrl },
-      ...(rank !== undefined && { rank }),
-    });
->>>>>>> c6ed511e429c3cf6d025face3740ce71fdb39d29
-  }
-*/
 
   // Carry over diagnoses from the parent encounter to the follow-up by cloning each Dx Condition
   // and attaching it to the new encounter's diagnosis array (preserving rank/primary).
@@ -833,7 +750,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
           },
         ]
       : [],
-    //...(encounterParticipants ? { participant: encounterParticipants } : {}), todo: related to merge conflict above
+    ...(encounterParticipants && { participant: encounterParticipants }),
     extension: encExtensions,
     ...(followUpDiagnosisEntries.length > 0 && { diagnosis: followUpDiagnosisEntries }),
     ...(parentEncounterId && {

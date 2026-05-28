@@ -15,10 +15,12 @@ import {
   getSecret,
   getServiceCategoryCadenceMinutes,
   getServiceCategoryDurationMinutes,
+  getSlugForBookableResource,
   getTimezone,
   getWaitingMinutesAtSchedule,
   isLocationOpen,
   isLocationVirtual,
+  PickableLocation,
   SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
   SlotListItem,
@@ -257,12 +259,39 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     scheduleList.length = 0;
     scheduleList.push(...narrowed);
   } else if (qualifyingLocationIds.size > 1) {
+    // Multi-Location owner with no atLocationSlug provided. Rather than
+    // erroring, return the qualifying Locations so the front-end can
+    // render a picker. The caller re-invokes with atLocationSlug set
+    // once the patient chooses. Slot lists are empty in this response —
+    // the presence of pickableLocations signals "no slots yet, pick a
+    // Location first."
+    const ids = Array.from(qualifyingLocationIds);
+    const locationResources = (
+      await oystehr.fhir.search<Location>({
+        resourceType: 'Location',
+        params: [{ name: '_id', value: ids.join(',') }],
+      })
+    ).unbundle();
+    const pickableLocations: PickableLocation[] = locationResources
+      .map((loc) => {
+        if (!loc.id) return undefined;
+        const pickableSlug = getSlugForBookableResource(loc);
+        if (!pickableSlug) return undefined;
+        return { id: loc.id, slug: pickableSlug, name: loc.name ?? loc.id };
+      })
+      .filter((x): x is PickableLocation => !!x)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const pickerResponse: GetScheduleResponse = {
+      message: 'Multiple Locations qualify; pick one to see slots.',
+      available: [],
+      telemedAvailable: [],
+      waitingMinutes: 0,
+      displayTomorrowSlotsAtHour: 0,
+      pickableLocations,
+    };
     return {
-      statusCode: 400,
-      body: JSON.stringify({
-        message: 'Multiple Locations qualify for this booking; please specify atLocationSlug.',
-        code: 'AT_LOCATION_REQUIRED',
-      }),
+      statusCode: 200,
+      body: JSON.stringify(pickerResponse),
     };
   }
 
@@ -273,12 +302,24 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   const effectiveAtLocationId =
     atLocationId ?? (qualifyingLocationIds.size === 1 ? Array.from(qualifyingLocationIds)[0] : undefined);
 
+  // Stamp the originating group on each vended Slot when this is a group
+  // booking. The scheduleOwner is the group HS itself (slug → owner via
+  // getSchedules). makeSlotListItems will skip stamping for entries where
+  // the Schedule's actor IS the group (no-state-duplication rule) — only
+  // PR-actored member schedules (the pools-providers case) get the stamp.
+  const bookedViaGroupId =
+    scheduleType === 'group' && scheduleOwner.resourceType === 'HealthcareService' ? scheduleOwner.id : undefined;
+
   // Cadence is a service-level property — resolved above from
   // ServiceCategoryRuntimeConfig alongside slotLengthMinutes.
 
   console.log(
     'SERVICE CATEGORIES FOR SLOT GENERATION:',
-    JSON.stringify({ serviceCategories, slotLengthMinutes, cadenceMinutes, effectiveAtLocationId }, null, 2)
+    JSON.stringify(
+      { serviceCategories, slotLengthMinutes, cadenceMinutes, effectiveAtLocationId, bookedViaGroupId },
+      null,
+      2
+    )
   );
 
   console.time('synchronous_data_processing');
@@ -292,6 +333,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
       slotLengthMinutes,
       cadenceMinutes,
       atLocationId: effectiveAtLocationId,
+      bookedViaGroupId,
     },
     oystehr
   );

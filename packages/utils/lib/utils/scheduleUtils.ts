@@ -23,12 +23,14 @@ import {
   isLocationVirtual,
   makeBookingOriginExtensionEntry,
   makeSlotAtLocationExtensionEntry,
+  makeSlotBookedViaGroupExtensionEntry,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NUM_DAYS,
   ScheduleAndOwner,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
   SLOT_AT_LOCATION_EXTENSION_URL,
+  SLOT_BOOKED_VIA_GROUP_EXTENSION_URL,
   SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
   SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
@@ -823,6 +825,15 @@ interface GetSlotsInput {
    * Location.
    */
   atLocationId?: string;
+  /**
+   * Group HealthcareService id the slots are being booked through. When
+   * set, stamped onto each non-HS-actored vended Slot via the
+   * slot-booked-via-group extension so downstream consumers can identify
+   * the originating group without re-parsing URLs or walking the actor
+   * graph. Caller is expected to set this only when the request is a
+   * group booking (scheduleType === 'group').
+   */
+  bookedViaGroupId?: string;
 }
 
 export const getAvailableSlotsForSchedules = async (
@@ -842,6 +853,7 @@ export const getAvailableSlotsForSchedules = async (
     slotLengthMinutes,
     cadenceMinutes,
     atLocationId,
+    bookedViaGroupId,
   } = input;
   // Schedule.serviceType is not consulted for filtering — service-category
   // scoping now lives on the group (HealthcareService.type). Direct Location
@@ -916,6 +928,7 @@ export const getAvailableSlotsForSchedules = async (
       serviceCategories,
       appointmentLengthInMinutes: slotLengthMinutes,
       atLocationId,
+      bookedViaGroupId,
     });
 
     const telemed = makeSlotListItems({
@@ -926,6 +939,7 @@ export const getAvailableSlotsForSchedules = async (
       originalBookingUrl,
       serviceCategories,
       atLocationId,
+      bookedViaGroupId,
     });
 
     return { available, telemed };
@@ -1139,6 +1153,17 @@ interface MakeSlotListItemsInput {
    * can only conflict or agree with that.
    */
   atLocationId?: string;
+  /**
+   * Group HealthcareService the patient is booking through. When the
+   * scheduleType is "group" and the resolved scheduleList contains
+   * non-HS-actored Schedules (the pools-providers case), stamped onto
+   * each vended Slot via the slot-booked-via-group extension so
+   * downstream consumers (create-appointment, capacity guard, audit) can
+   * tell that a PR-actored Slot was reached through this group rather
+   * than directly. Skipped when the owner IS the group HS — Schedule.actor
+   * already conveys it (no-state-duplication rule).
+   */
+  bookedViaGroupId?: string;
 }
 
 export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[] => {
@@ -1151,6 +1176,7 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
     originalBookingUrl,
     serviceCategories = [],
     atLocationId,
+    bookedViaGroupId,
   } = input;
   return startTimes.map((startTime) => {
     const end = DateTime.fromISO(startTime).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
@@ -1162,6 +1188,10 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
     // carries it; stamping would just duplicate state.
     if (atLocationId && ownerResource.resourceType !== 'Location') {
       extensionEntries.push(makeSlotAtLocationExtensionEntry(atLocationId));
+    }
+    // Skip stamping when the owner IS the group HS — actor already conveys it.
+    if (bookedViaGroupId && ownerResource.resourceType !== 'HealthcareService') {
+      extensionEntries.push(makeSlotBookedViaGroupExtensionEntry(bookedViaGroupId));
     }
     const slot: Slot = {
       resourceType: 'Slot',
@@ -2343,6 +2373,19 @@ export const getSlotAtLocationId = (slot: Slot): string | undefined => {
   return resourceType === 'Location' && id ? id : undefined;
 };
 
+/**
+ * Reads the group HealthcareService id stamped onto a Slot via the
+ * slot-booked-via-group extension. Returns undefined when the Slot wasn't
+ * booked through a group (or when it's a legacy Slot from before the
+ * extension was rolled out).
+ */
+export const getSlotBookedViaGroupId = (slot: Slot): string | undefined => {
+  const ref = slot.extension?.find((ext) => ext.url === SLOT_BOOKED_VIA_GROUP_EXTENSION_URL)?.valueReference?.reference;
+  if (!ref) return undefined;
+  const [resourceType, id] = ref.split('/');
+  return resourceType === 'HealthcareService' && id ? id : undefined;
+};
+
 interface CreateSlotOptions {
   status: Slot['status'];
   originalBookingUrl?: string;
@@ -2362,5 +2405,6 @@ export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSl
     postTelemedLabOnly,
     serviceCategoryCode: getServiceCategoryFromSlot(slot) ?? 'urgent-care',
     atLocationId: getSlotAtLocationId(slot),
+    bookedViaGroupId: getSlotBookedViaGroupId(slot),
   };
 };

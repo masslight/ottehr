@@ -795,4 +795,179 @@ describe('slot availability tests', () => {
     expect(last3Slots[1]).toEqual(`${startString}:30:00.000-${endString}`);
     expect(last3Slots[2]).toEqual(`${startString}:45:00.000-${endString}`);
   });
+
+  // Existing tests above cover buffers + the legacy 15-min slot length (the
+  // per-hour bucket path). The following exercise the same buffer feature
+  // on the session-based path (super-hour slot lengths and explicit
+  // cadence). applyBuffersToSlots gets slotLengthMinutes passed through
+  // and trims by slot-end (not slot-start), so a 90-min slot whose end
+  // would fall past close − closingBuffer is excluded even when its start
+  // is still inside the open window.
+  describe('buffers + session-based slot path (super-hour slot length / explicit cadence)', () => {
+    // 24/7 schedule → effective close at 23:30 (with 30-min closing buffer),
+    // effective open at 00:30 (with 30-min opening buffer). Easy to assert
+    // exact slot counts and the first/last slot times.
+
+    const makeBufferedSchedule = (opts: {
+      openingBuffer?: number;
+      closingBuffer?: number;
+    }): ReturnType<typeof makeSchedule> => {
+      const bufferedJson = applyBuffersToScheduleExtension(DEFAULT_SCHEDULE_JSON, {
+        openingBuffer: opts.openingBuffer ?? 0,
+        closingBuffer: opts.closingBuffer ?? 0,
+      });
+      return makeSchedule({ scheduleObject: bufferedJson });
+    };
+
+    const minutesFromMidnight = (iso: string, timezone: string): number => {
+      const dt = DateTime.fromISO(iso, { zone: timezone });
+      return dt.hour * 60 + dt.minute;
+    };
+
+    it('90-min slot + 30-min closing buffer: last admissible start is 22:00 (ends 23:30 = close − buffer); 22:30 is excluded', () => {
+      const schedule = makeBufferedSchedule({ closingBuffer: 30 });
+      const timezone = getTimezone(schedule);
+      assert(timezone);
+      const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
+
+      const availableSlots = getAvailableSlots({
+        now: startDate.setZone('UTC'),
+        schedule,
+        numDays: 1,
+        busySlots: [],
+        slotLengthMinutes: 90,
+      });
+
+      const minutes = availableSlots.map((iso) => minutesFromMidnight(iso, timezone));
+      // Default cadence for 90 = gcd(90, 60) = 30. Slot ends ≤ 23:30 → starts ≤ 22:00.
+      // Starts at 0, 30, 60, …, 22*60 = 1320 → 45 entries.
+      expect(minutes.length).toBe(45);
+      expect(minutes[0]).toBe(0);
+      expect(minutes[minutes.length - 1]).toBe(22 * 60);
+      // Negative assertion: the 22:30 start (whose end would be 24:00,
+      // strictly past close − buffer = 23:30) must not appear.
+      expect(minutes).not.toContain(22 * 60 + 30);
+    });
+
+    it('90-min slot + 30-min opening buffer: first admissible start is 00:30 (open + buffer); 00:00 is excluded', () => {
+      const schedule = makeBufferedSchedule({ openingBuffer: 30 });
+      const timezone = getTimezone(schedule);
+      assert(timezone);
+      const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
+
+      const availableSlots = getAvailableSlots({
+        now: startDate.setZone('UTC'),
+        schedule,
+        numDays: 1,
+        busySlots: [],
+        slotLengthMinutes: 90,
+      });
+
+      const minutes = availableSlots.map((iso) => minutesFromMidnight(iso, timezone));
+      // 46 candidates (0, 30, …, 1350) − 1 trimmed by opening buffer (0:00).
+      expect(minutes.length).toBe(45);
+      expect(minutes[0]).toBe(30);
+      expect(minutes[minutes.length - 1]).toBe(22 * 60 + 30);
+      expect(minutes).not.toContain(0);
+    });
+
+    it('90-min slot + 30-min opening AND closing buffers: window narrows on both ends; 00:00 and 22:30 are excluded', () => {
+      const schedule = makeBufferedSchedule({ openingBuffer: 30, closingBuffer: 30 });
+      const timezone = getTimezone(schedule);
+      assert(timezone);
+      const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
+
+      const availableSlots = getAvailableSlots({
+        now: startDate.setZone('UTC'),
+        schedule,
+        numDays: 1,
+        busySlots: [],
+        slotLengthMinutes: 90,
+      });
+
+      const minutes = availableSlots.map((iso) => minutesFromMidnight(iso, timezone));
+      // First start 0:30 (open + 30). Last start 22:00 (close − 30 − slot 90).
+      // Starts every 30 from 30 to 1320 inclusive → 44 entries.
+      expect(minutes.length).toBe(44);
+      expect(minutes[0]).toBe(30);
+      expect(minutes[minutes.length - 1]).toBe(22 * 60);
+      expect(minutes).not.toContain(0);
+      expect(minutes).not.toContain(22 * 60 + 30);
+    });
+
+    it('45-min slot + 30-min closing buffer: default cadence 15; last start 22:45, 23:00 excluded', () => {
+      const schedule = makeBufferedSchedule({ closingBuffer: 30 });
+      const timezone = getTimezone(schedule);
+      assert(timezone);
+      const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
+
+      const availableSlots = getAvailableSlots({
+        now: startDate.setZone('UTC'),
+        schedule,
+        numDays: 1,
+        busySlots: [],
+        slotLengthMinutes: 45,
+      });
+
+      const minutes = availableSlots.map((iso) => minutesFromMidnight(iso, timezone));
+      // Default cadence = gcd(45, 60) = 15. Slot ends ≤ 23:30 → starts ≤ 22:45.
+      // 22:45 = 1365 min; offsets 0, 15, …, 1365 → 92 entries.
+      expect(minutes.length).toBe(92);
+      expect(minutes[minutes.length - 1]).toBe(22 * 60 + 45);
+      // 23:00 start (ends 23:45 > 23:30) must not appear.
+      expect(minutes).not.toContain(23 * 60);
+    });
+
+    it('100-min slot + 20-min closing buffer (odd-divisor sanity): default cadence 20; last start 22:00, 22:20 excluded', () => {
+      const schedule = makeBufferedSchedule({ closingBuffer: 20 });
+      const timezone = getTimezone(schedule);
+      assert(timezone);
+      const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
+
+      const availableSlots = getAvailableSlots({
+        now: startDate.setZone('UTC'),
+        schedule,
+        numDays: 1,
+        busySlots: [],
+        slotLengthMinutes: 100,
+      });
+
+      const minutes = availableSlots.map((iso) => minutesFromMidnight(iso, timezone));
+      // Default cadence = gcd(100, 60) = 20. Effective close 24:00 − 20 = 23:40.
+      // Slot ends ≤ 23:40 → starts ≤ 22:00 (22:00 + 100 = 23:40 exactly).
+      // Offsets 0, 20, 40, …, 1320 → 67 entries.
+      expect(minutes.length).toBe(67);
+      expect(minutes[minutes.length - 1]).toBe(22 * 60);
+      // 22:20 start (ends 24:00 > 23:40) must not appear.
+      expect(minutes).not.toContain(22 * 60 + 20);
+    });
+
+    it('90-min slot with explicit cadence=15 + 30-min closing buffer: cadence is honored AND buffer trims the tail', () => {
+      const schedule = makeBufferedSchedule({ closingBuffer: 30 });
+      const timezone = getTimezone(schedule);
+      assert(timezone);
+      const startDate = startOfDayWithTimezone({ date: NON_DST_DATE, timezone });
+
+      const availableSlots = getAvailableSlots({
+        now: startDate.setZone('UTC'),
+        schedule,
+        numDays: 1,
+        busySlots: [],
+        slotLengthMinutes: 90,
+        cadenceMinutes: 15,
+      });
+
+      const minutes = availableSlots.map((iso) => minutesFromMidnight(iso, timezone));
+      // With explicit cadence=15, stride is 15. Effective close 23:30 → max
+      // start 22:00 (ends 23:30). Offsets 0, 15, …, 1320 → 89 entries.
+      expect(minutes.length).toBe(89);
+      expect(minutes[0]).toBe(0);
+      expect(minutes[1] - minutes[0]).toBe(15); // confirm cadence is honored, not gcd default of 30
+      expect(minutes[minutes.length - 1]).toBe(22 * 60);
+      // Both 22:15 (offset 1335 → ends 23:45 > 23:30) and 22:30 (ends 24:00)
+      // must be excluded by the buffer despite being on the cadence grid.
+      expect(minutes).not.toContain(22 * 60 + 15);
+      expect(minutes).not.toContain(22 * 60 + 30);
+    });
+  });
 });

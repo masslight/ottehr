@@ -20,6 +20,7 @@ export * from './patients';
 export * from './pdf';
 export * from './practitioners';
 export * from './queueingUtils';
+export * from './resolveBookingLocationId';
 export * from './resources.helpers';
 export * from './rolesUtils';
 export * from './sentry';

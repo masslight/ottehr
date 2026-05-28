@@ -21,7 +21,7 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
-import { CodeableConcept, HealthcareService, Location, Practitioner, PractitionerRole } from 'fhir/r4b';
+import { CodeableConcept, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -65,6 +65,11 @@ function GroupPageContent(): ReactElement {
   const [locations, setLocations] = useState<Location[] | undefined>(undefined);
   const [practitioners, setPractitioners] = useState<Practitioner[] | undefined>(undefined);
   const [practitionerRoles, setPractitionerRoles] = useState<PractitionerRole[] | undefined>(undefined);
+  // Schedules owned by the PRs above (via _revinclude). Used to deep-link
+  // each provider in the providers-per-location widget to their schedule
+  // editor. Stored alongside PRs so the PR→Schedule mapping can be
+  // derived rather than independently maintained.
+  const [schedules, setSchedules] = useState<Schedule[] | undefined>(undefined);
   // The group's `.location[]` — the admin-set location lever. Composes with
   // any pre-existing PR.healthcareService[] back-references at slot-
   // resolution time (PR back-refs are no longer managed from this page;
@@ -171,6 +176,28 @@ function GroupPageContent(): ReactElement {
       });
   }, [locations, providerCountByLocationId]);
 
+  // PR id → its first Schedule's id, derived from the Schedules fetched
+  // alongside the PRs. Only counts Schedules where the PR is the PRIMARY
+  // actor (actor[0]) — SchedulePage and the EHR get-schedule zambda both
+  // resolve owner type via `schedule.actor[0].reference`, so a multi-
+  // actor Schedule like `[Location, PR]` would render as Location-owned
+  // even though our `_revinclude:Schedule:actor:PractitionerRole`
+  // returned it. Restricting to primary keeps the link pointed at a
+  // Schedule SchedulePage will actually render as a PR's schedule.
+  const scheduleIdByPrId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const sched of schedules ?? []) {
+      if (!sched.id) continue;
+      const primary = sched.actor?.[0]?.reference;
+      if (!primary) continue;
+      const [actorType, actorId] = primary.split('/');
+      if (actorType === 'PractitionerRole' && actorId && !map.has(actorId)) {
+        map.set(actorId, sched.id);
+      }
+    }
+    return map;
+  }, [schedules]);
+
   // Read-only breakdown for the widget below the Location picker: active
   // providers at each in-pool location, with the group-relevant services
   // each one offers. Surfaces what the location-based composition will
@@ -195,9 +222,10 @@ function GroupPageContent(): ReactElement {
       ? (locations || []).map((l) => l.id).filter((id): id is string => !!id)
       : selectedLocationIds;
     const targetLocationIdSet = new Set(targetLocationIds);
-    const byLocation = new Map<string, Map<string, { name: string; services: Set<string> }>>();
+    const byLocation = new Map<string, Map<string, { name: string; services: Set<string>; scheduleId?: string }>>();
     for (const role of practitionerRoles || []) {
       if (role.active === false) continue;
+      if (!role.id) continue;
       const pracId = role.practitioner?.reference?.split('/')[1];
       if (!pracId) continue;
       for (const locRef of role.location || []) {
@@ -208,7 +236,11 @@ function GroupPageContent(): ReactElement {
         if (!byPrac.has(pracId)) {
           const prac = (practitioners || []).find((p) => p.id === pracId);
           const name = prac?.name?.[0] ? oystehr?.fhir.formatHumanName(prac.name[0]) || 'Unknown' : 'Unknown';
-          byPrac.set(pracId, { name, services: new Set<string>() });
+          // Resolve to the first PR-for-this-practitioner-at-this-location's
+          // Schedule. A provider with intake + surgery PRs at the same
+          // location collapses to one row in the widget; the link lands
+          // on whichever PR's Schedule we encountered first.
+          byPrac.set(pracId, { name, services: new Set<string>(), scheduleId: scheduleIdByPrId.get(role.id) });
         }
         const entry = byPrac.get(pracId)!;
         for (const hsRef of role.healthcareService || []) {
@@ -222,9 +254,14 @@ function GroupPageContent(): ReactElement {
     const rows = targetLocationIds.map((locId) => {
       const loc = locationById.get(locId);
       const byPrac = byLocation.get(locId) ?? new Map();
-      const providers = Array.from(byPrac.values())
-        .filter((entry) => entry.services.size > 0)
-        .map((entry) => ({ name: entry.name, services: Array.from(entry.services).sort() }))
+      const providers = Array.from(byPrac.entries())
+        .filter(([, entry]) => entry.services.size > 0)
+        .map(([id, entry]) => ({
+          id,
+          name: entry.name,
+          services: Array.from(entry.services).sort(),
+          scheduleId: entry.scheduleId,
+        }))
         .sort((a, b) => a.name.localeCompare(b.name));
       return {
         locationId: locId,
@@ -243,6 +280,7 @@ function GroupPageContent(): ReactElement {
     supportedCategoryHsIds,
     categoryByHsId,
     oystehr,
+    scheduleIdByPrId,
   ]);
 
   // Build one booking link per (category × mode × flow) the category supports.
@@ -302,10 +340,16 @@ function GroupPageContent(): ReactElement {
     // without it, those Locations would vanish from chips/widget/subtext
     // as soon as we filter the main fetch by status.
     const [practitionerResources, activeLocations, attachedLocations] = await Promise.all([
-      getAllFhirSearchPages<PractitionerRole | Practitioner>(
+      getAllFhirSearchPages<PractitionerRole | Practitioner | Schedule>(
         {
           resourceType: 'PractitionerRole',
-          params: [{ name: '_include', value: 'PractitionerRole:practitioner' }],
+          params: [
+            { name: '_include', value: 'PractitionerRole:practitioner' },
+            // Pull each PR's owning Schedule along so the providers-per-
+            // location widget can deep-link to the schedule editor without
+            // an extra round trip per click.
+            { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+          ],
         },
         oystehr
       ),
@@ -330,6 +374,7 @@ function GroupPageContent(): ReactElement {
     const practitionerRolesTemp = practitionerResources.filter(
       (r): r is PractitionerRole => r.resourceType === 'PractitionerRole'
     );
+    const schedulesTemp = practitionerResources.filter((r): r is Schedule => r.resourceType === 'Schedule');
 
     const locationsTemp: Location[] = [...activeLocations];
     const seenLocationIds = new Set(activeLocations.map((l) => l.id).filter((id): id is string => !!id));
@@ -346,6 +391,7 @@ function GroupPageContent(): ReactElement {
     setLocations(locationsTemp);
     setPractitioners(practitionersTemp);
     setPractitionerRoles(practitionerRolesTemp);
+    setSchedules(schedulesTemp);
     setSelectedLocationIds(attachedLocationIds);
 
     setAssignmentMode(getGroupAssignmentMode(groupTemp) ?? 'anonymous');
@@ -755,11 +801,13 @@ function GroupPageContent(): ReactElement {
                         ) : (
                           row.providers.map((p) => (
                             <Typography
-                              key={p.name}
+                              key={p.id}
                               variant="caption"
                               sx={{ color: 'text.secondary', display: 'block', ml: 1 }}
                             >
-                              {p.name} — {p.services.join(', ')}
+                              {p.scheduleId ? <Link to={`/admin/schedule/id/${p.scheduleId}`}>{p.name}</Link> : p.name}
+                              {' — '}
+                              {p.services.join(', ')}
                             </Typography>
                           ))
                         )}
