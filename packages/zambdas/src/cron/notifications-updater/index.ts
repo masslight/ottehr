@@ -71,7 +71,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
   const sendSMSPractitionerCommunications: {
     [key: string]: { practitioner: Practitioner; communications: Communication[] };
   } = {};
-  const busyPractitionerIds: Set<string> = new Set();
 
   const createCommunicationRequests: BatchInputPostRequest<Communication>[] = [];
   const updateCommunicationRequests: BatchInputRequest<Communication>[] = [];
@@ -114,12 +113,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
   const oystehr = createOystehrClient(m2mToken, secrets);
   console.log('Created zapToken and fhir client');
 
-  const [
-    readyOrUnsignedVisitPackages,
-    assignedOrInProgressVisitPackages,
-    activeProvidersMap,
-    recentlyAssignedTasksMap,
-  ] = await Promise.all([
+  const [readyOrUnsignedVisitPackages, activeProvidersMap, recentlyAssignedTasksMap] = await Promise.all([
     getResourcePackagesAppointmentsMap(
       oystehr,
       READY_OR_UNSIGNED_ENCOUNTER_STATUSES,
@@ -129,28 +123,13 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
       // 'booked' for telemed appointment notifications, 'arrived' for waiting room notifications
       ['booked', 'arrived']
     ),
-    getResourcePackagesAppointmentsMap(
-      oystehr,
-      ['arrived', 'in-progress'],
-      DateTime.utc().minus(Duration.fromISO('PT24H'))
-    ),
     getAllActiveProviders(oystehr),
     getRecentlyAssignedTasksMap(oystehr, DateTime.utc().minus({ hours: 1 })),
   ]);
   // these logs produce far too much detail so reducing them to counts
   console.log('--- Ready or unsigned visits count: ' + Object.keys(readyOrUnsignedVisitPackages).length);
-  console.log('--- In progress visits count: ' + Object.keys(assignedOrInProgressVisitPackages).length);
   console.log('--- Active providers count: ' + Object.keys(activeProvidersMap).length);
   console.log('--- Recently assigned task ids: ' + Object.keys(recentlyAssignedTasksMap).join(', '));
-
-  // Going through arrived or in-progress visits to determine busy practitioners that should not receive a notification
-  Object.keys(assignedOrInProgressVisitPackages).forEach((appointmentId) => {
-    const { practitioner } = assignedOrInProgressVisitPackages[appointmentId];
-    if (practitioner) {
-      busyPractitionerIds.add(practitioner.id!);
-    }
-  });
-  console.log(`Busy practitioners: ${JSON.stringify(busyPractitionerIds)}`);
 
   // Going through ready or unsigned visits to create notifications and other update logic
   Object.keys(readyOrUnsignedVisitPackages).forEach((appointmentId) => {
@@ -161,13 +140,11 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         const status: VisitStatusLabel | undefined = getInPersonVisitStatus(appointment, encounter);
         if (!status) return;
 
-        // getting communications that were postponed after practitioner will become not busy
-        if (practitioner?.id && communications && !busyPractitionerIds.has(practitioner.id)) {
+        // Backwards-compat during deploy: upgrade any 'preparation' Communications created by the
+        // prior busy-suppression logic. Safe to remove after one full cron window.
+        if (practitioner?.id && communications) {
           const postponedCommunications = communications.filter(
-            (comm) =>
-              comm.status === 'preparation' &&
-              comm.recipient?.[0].reference &&
-              !busyPractitionerIds.has(comm.recipient?.[0].reference.split('/')[1])
+            (comm) => comm.status === 'preparation' && comm.recipient?.[0].reference
           );
           postponedCommunications.forEach((communication) => {
             const communicationPractitionerId = communication.recipient![0].reference!.split('/')[1];
@@ -257,8 +234,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                       },
                     ],
                     sent: DateTime.utc().toISO()!,
-                    // set status to "preparation" for practitioners that should not receive notifications right now
-                    // and "in-progress" to those who should receive it right away
                     status: status,
                     encounter: { reference: `Encounter/${encounter.id}` },
                     recipient: [{ reference: `Practitioner/${provider.id}` }],
@@ -412,8 +387,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
               },
             ],
             sent: DateTime.utc().toISO()!,
-            // set status to "preparation" for practitioners that should not receive notifications right now
-            // and "in-progress" to those who should receive it right away
             status: status,
             encounter: encounterResource
               ? {
@@ -454,7 +427,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     }
   });
 
-  // here we need to send SMS to practitioners that are not busy and has some unprocessed communications
+  // here we need to send SMS to practitioners that have some unprocessed communications
   const sendSMSRequests: Promise<unknown>[] = [];
   Object.keys(sendSMSPractitionerCommunications).forEach((id) => {
     try {
