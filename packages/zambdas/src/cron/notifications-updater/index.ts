@@ -174,7 +174,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             const practitioner = activeProvidersMap[communicationPractitionerId];
             const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
             if (notificationSettings && notificationSettings.telemedNotificationsEnabled) {
-              const newStatus = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
+              const newStatus = getCommunicationStatus(notificationSettings);
               updateCommunicationRequests.push(
                 getPatchBinary({
                   resourceId: communication.id!,
@@ -218,7 +218,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
               // - if practitioner has notifications disabled - we don't create notification at all
               if (notificationSettings?.telemedNotificationsEnabled) {
-                const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, provider);
+                const status = getCommunicationStatus(notificationSettings);
 
                 let patientName: string | undefined = 'patient';
                 if (patient) {
@@ -329,22 +329,10 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           : notificationSettings?.taskNotificationsEnabled;
         if (!areNotificationsEnabledForThisTask) continue;
 
+        const status = getCommunicationStatus(notificationSettings!);
         let title = 'A new task has been assigned to you: ' + (task.description ?? `task ID ${task.id}`);
-        let status = getCommunicationStatus(notificationSettings!, busyPractitionerIds, recipient);
-
-        switch (taskCode) {
-          case VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE: {
-            title = task.description ?? `task ID ${task.id}`;
-            status = getStatusOverridingBusy(notificationSettings!);
-            break;
-          }
-          case ERX_TASK.code.providerNotification: {
-            status = getStatusOverridingBusy(notificationSettings!);
-            break;
-          }
-          default: {
-            break;
-          }
+        if (taskCode === VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE) {
+          title = task.description ?? `task ID ${task.id}`;
         }
 
         const request: BatchInputPostRequest<Communication> = {
@@ -407,7 +395,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         const unsignedChartsMessage = (length: number): string =>
           `You have ${length} unsigned charts on Ottehr. Please complete and sign ASAP. Thanks!`;
 
-        const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitionerResource);
+        const status = getCommunicationStatus(notificationSettings);
         const request: BatchInputPostRequest<Communication> = {
           method: 'POST',
           url: '/Communication',
@@ -828,31 +816,7 @@ async function getRecentlyAssignedTasksMap(oystehr: Oystehr, fromDate: DateTime)
   return resultMap;
 }
 
-// set the status of communication:
-// - if practitioner is not busy and notifications enabled - set it to in-progress
-// - if practitioner is busy - set it to "preparation"
-// - if provider has only "mobile" notification type - we can set the status to "completed" and
-// send the notification to mobile right away
-function getCommunicationStatus(
-  notificationSettings: ProviderNotificationSettings,
-  busyPractitionerIds: Set<string>,
-  practitioner: Practitioner | undefined
-): Communication['status'] {
-  let status: Communication['status'] = 'in-progress';
-  if (busyPractitionerIds.has(practitioner?.id || '')) {
-    status = 'preparation';
-  } else if (notificationSettings.method === ProviderNotificationMethod.phone) {
-    status = 'completed';
-  }
-  return status;
-}
-
-// todo: if we remove busy practitioner filtering, rework this logic
-// waiting room practitioners will always become "busy" (status "preparation"), so we force
-// "in-progress" to ensure they receive the notification. similarly, practitioners prescribing eRX
-// are assigned to an appointment already. phone-only notifications require a status of "completed"
-// but phone and computer ones require "in-progress".
-export function getStatusOverridingBusy(notificationSettings: ProviderNotificationSettings): Communication['status'] {
+export function getCommunicationStatus(notificationSettings: ProviderNotificationSettings): Communication['status'] {
   return notificationSettings.method === ProviderNotificationMethod.phone ? 'completed' : 'in-progress';
 }
 
