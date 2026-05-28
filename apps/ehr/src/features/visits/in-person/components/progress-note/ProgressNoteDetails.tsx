@@ -207,7 +207,7 @@ export const ProgressNoteDetails: FC = () => {
       supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
       encounterId: encounter.id!,
     });
-    navigate('/visits', { state: { tab: ApptTab.completed } });
+    navigate(`/visits?tab=${ApptTab.completed}`);
   };
 
   return (

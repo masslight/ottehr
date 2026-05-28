@@ -169,6 +169,34 @@ describe('SectionSaveButton', () => {
     expect(allLinkIds).not.toContain('other-section-field');
   });
 
+  it('auto-includes the logical control field a section field depends on so the backend keeps the gated field (SSN)', async () => {
+    // Regression for HOST-942: SSN is gated by `should-display-ssn-field` via enableWhen,
+    // which the backend filters on. The caller passes only `patient-ssn`; SectionSaveButton
+    // must auto-add the control field or the SSN answer is dropped before harvest.
+    const user = userEvent.setup();
+    mutateAsyncMock.mockResolvedValueOnce(undefined);
+    renderHarness({
+      defaultValues: { 'patient-ssn': '123-45-6789', 'should-display-ssn-field': true },
+      dirtyKeys: ['patient-ssn'],
+      fieldKeys: ['patient-ssn'],
+      requiredFieldKeys: [],
+      patientId: 'p1',
+    });
+
+    const btn = await screen.findByRole('button', { name: /save/i });
+    await user.click(btn);
+
+    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalledTimes(1));
+    const qr = mutateAsyncMock.mock.calls[0][0];
+    const allLinkIds = (qr.item ?? []).flatMap((section) => (section.item ?? []).map((i) => i.linkId));
+    expect(allLinkIds).toContain('patient-ssn');
+    expect(allLinkIds).toContain('should-display-ssn-field');
+    const controlItem = (qr.item ?? [])
+      .flatMap((section) => section.item ?? [])
+      .find((i) => i.linkId === 'should-display-ssn-field');
+    expect(controlItem?.answer?.[0]?.valueBoolean).toBe(true);
+  });
+
   it('keeps the Save button visible and shows a snackbar on mutation failure', async () => {
     const user = userEvent.setup();
     mutateAsyncMock.mockRejectedValueOnce(new Error('boom'));
