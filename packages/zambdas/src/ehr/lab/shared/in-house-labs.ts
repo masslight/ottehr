@@ -955,6 +955,7 @@ export function convertAdminInHouseLabItemDefinitionToActivityDefinition(
           return {
             system: CODE_SYSTEM_CPT,
             code: cptCode.code,
+            ...(cptCode.display ? { display: cptCode.display } : {}),
             ...(cptCode.modifier ? { extension: [makeCptModifierExtension(cptCode.modifier)] } : {}),
           };
         }),
@@ -1036,6 +1037,7 @@ function parseCptCodes(ad: ActivityDefinition): CptCodeInHouseLabDefinition[] {
     .filter((c) => c.system === CODE_SYSTEM_CPT)
     .map((c) => ({
       code: c.code!,
+      ...(c.display ? { display: c.display } : {}),
       ...(c.extension ? { modifier: parseCptModifierExtension(c.extension) } : {}),
     }));
 }
