@@ -9,11 +9,14 @@ import {
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
+  makeOptimisticLockIfMatchHeader,
   SecretsKeys,
+  transactionWasSuccessful,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { AD_CANONICAL_URL_BASE } from '../lab/shared/in-house-labs';
 import {
   findHolderList,
   getTemplateEncounterBundle,
@@ -148,22 +151,8 @@ const performEffect = async (
   // meta tag; they're identified by their code system, so the tag-based filter
   // below strips them out. We keep a reference here so we can still convert them
   // into template plans further down.
-
-  // Orders the provider canceled or marked as a mistake live on as
-  // status='revoked' / 'entered-in-error' ServiceRequests on the encounter even
-  // though they're hidden from the chart UI. Skip them so a saved template
-  // doesn't accidentally carry deleted orders forward.
-  const TEMPLATE_INCLUDABLE_SR_STATUSES = new Set<ServiceRequest['status']>([
-    'draft',
-    'active',
-    'on-hold',
-    'completed',
-  ]);
-  const inHouseLabOrders = (encounterBundle ?? []).filter(
-    (resource): resource is ServiceRequest =>
-      resource?.resourceType === 'ServiceRequest' &&
-      (resource as ServiceRequest).code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) === true &&
-      TEMPLATE_INCLUDABLE_SR_STATUSES.has((resource as ServiceRequest).status)
+  const inHouseLabOrders = encounterBundle.filter((resource): resource is ServiceRequest =>
+    isValidInHouseLabServiceRequest(resource)
   );
 
   // Filter to only resources relevant to template sections
@@ -176,12 +165,12 @@ const performEffect = async (
   );
 
   // Keep only the Encounter and resources tagged as template content. See TEMPLATE_TAG_SYSTEMS for the allow-list.
+  // this will not include In House Lab ServiceRequests
   encounterBundle = filterEntriesToTemplateContent(encounterBundle, diagnosesRefFromEncounterSet);
 
   console.log('Count of resources after filtering to template-relevant:', encounterBundle.length);
 
   for (const resource of encounterBundle) {
-    if (!resource) continue;
     // Skip the Encounter — we create a stub encounter separately
     if (resource.resourceType === 'Encounter') continue;
 
@@ -220,16 +209,17 @@ const performEffect = async (
       status: 'active',
       intent: 'plan',
       subject: { reference: `#${stubPatient.id}` },
-      code: order.code,
+      code: order.code, // condtains both the In House Lab Test code and the CPT code(s) associated with the test
       // Strip the |version suffix when saving the plan so a global template
       // floats forward to the current ActivityDefinition as new versions are
       // published. apply-template and admin-get-template-detail look up the
-      // AD by url (ignoring any version segment) and pick the highest semver
+      // AD by url (ignoring any version segment) and pick the highest semver // ATHENA TODO: need to update this comment once I find how thw latest AD is being selected. Shouldn't be by highest semver but by latest tag
       // version among the matches.
+      // Note: we fully expect instantiatesCanonical to be defined here
       ...(order.instantiatesCanonical
         ? { instantiatesCanonical: order.instantiatesCanonical.map((ref) => ref.split('|')[0]) }
         : {}),
-      ...(order.reasonCode ? { reasonCode: order.reasonCode } : {}),
+      ...(order.reasonCode ? { reasonCode: order.reasonCode } : {}), // grabs the Dx coding (not Condition) associated with the test. The Condition is already applied to the Encounter
       ...(order.note ? { note: order.note } : {}),
       meta: {
         tag: [
@@ -280,28 +270,44 @@ const performEffect = async (
     },
   });
 
+  // Add the new template to the global templates holder list so it's discoverable and create the template itself. No orphaned templates
   console.log('Creating template with', listToCreate.contained!.length, 'contained resources');
+  const listToCreateFullUrl = `urn:uuid:${uuidV4()}`;
+  const holderList = await findHolderList(oystehr);
+  if (!holderList) throw new Error('No global templates holder list found — cannot link template');
 
-  const createdList = await oystehr.fhir.create<List>(listToCreate);
+  const transactionResponse = await oystehr.fhir.transaction<List>({
+    requests: [
+      {
+        method: 'POST',
+        url: '/List',
+        resource: listToCreate,
+        fullUrl: listToCreateFullUrl,
+      },
+      {
+        method: 'PATCH',
+        url: `List/${holderList.id}`,
+        operations: [
+          {
+            op: 'add',
+            path: holderList.entry ? '/entry/-' : '/entry',
+            value: { item: { reference: listToCreateFullUrl } },
+          },
+        ],
+        ifMatch: makeOptimisticLockIfMatchHeader(holderList),
+      },
+    ],
+  });
+
+  if (!transactionWasSuccessful(transactionResponse)) {
+    console.error(`This was failed transactionResponse: `, JSON.stringify(transactionResponse));
+    throw new Error('Unable to create template or add it to template holder');
+  }
+
+  const createdList = transactionResponse.unbundle().find((list) => list.id !== holderList.id)!;
 
   console.log('Created template:', createdList.id, createdList.title);
-
-  // Add the new template to the global templates holder list so it's discoverable
-  const holderList = await findHolderList(oystehr);
-
-  if (holderList) {
-    const updatedEntries = [...(holderList.entry ?? []), { item: { reference: `List/${createdList.id}` } }];
-    await oystehr.fhir.update<List>(
-      {
-        ...holderList,
-        entry: updatedEntries,
-      },
-      { optimisticLockingVersionId: holderList.meta?.versionId }
-    );
-    console.log('Added template to holder list');
-  } else {
-    throw new Error('No global templates holder list found — cannot link template');
-  }
+  console.log('Added template to holder list');
 
   return {
     templateName: createdList.title ?? templateName,
@@ -325,4 +331,24 @@ export const filterEntriesToTemplateContent = (
 
     return hasTemplateRelevantTag(resource);
   });
+};
+
+const isValidInHouseLabServiceRequest = (resource: TemplateEncounterResource): boolean => {
+  if (resource.resourceType !== 'ServiceRequest') return false;
+
+  // Orders the provider canceled or marked as a mistake live on as
+  // status='revoked' / 'entered-in-error' ServiceRequests on the encounter even
+  // though they're hidden from the chart UI. Skip them so a saved template
+  // doesn't accidentally carry deleted orders forward.
+  const TEMPLATE_INCLUDABLE_SR_STATUSES = new Set<ServiceRequest['status']>([
+    'draft',
+    'active',
+    'on-hold',
+    'completed',
+  ]);
+  return (
+    resource.code?.coding?.some((c) => c.system === IN_HOUSE_TEST_CODE_SYSTEM) === true &&
+    resource.instantiatesCanonical?.some((canonical) => canonical.startsWith(AD_CANONICAL_URL_BASE)) === true &&
+    TEMPLATE_INCLUDABLE_SR_STATUSES.has((resource as ServiceRequest).status)
+  );
 };
